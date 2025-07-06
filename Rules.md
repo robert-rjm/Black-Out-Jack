@@ -1,6 +1,6 @@
 # Drinking Blackjack Rules
 
-This document outlines the full rules for _**Drinking BlackJack**_: a fun fast and occasionally chaotic variation of classical BlackJack enhancec with custom drinking mechanics.
+This document outlines the full rules for _**Drinking BlackJack**_: a fun fast and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
 
 Unless explicitly stated here, standard blackjack rules apply. These custom rules are designed to add energy, unpredictability, and fun to the game, especially when played socially.
 
