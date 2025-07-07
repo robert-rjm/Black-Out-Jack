@@ -1,6 +1,6 @@
 # Drinking Blackjack Rules
 
-This document outlines the full rules for _**Drinking BlackJack**_: a fun fast and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
+This document outlines the full set of rules for _**Drinking BlackJack**_: a fun fast and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
 
 Unless explicitly stated here, standard BlackJack rules apply. These custom rules are designed to add energy, unpredictability, and fun to the game, especially when played socially.
 
@@ -31,7 +31,7 @@ _**Play with Honor:**_ As Self, you are not allowed to intentionally sabotage yo
 - Each player is recommended to play with two hands per round
 - Before starting, players must agree on a drinking wager/ penalty unit (e.g. 1 sip per hand)
 - Hands are played individually, but rewards and penalties are based on total outcome across all hands
-- Any hand won against the Dealer counts as +1 while every hand lost counts as -1, a push counts as 0 (e.g. 1 hand won and 1 hand lost means no drink must be consumed (+1 -1 = 0)
+- Any hand won against the Dealer counts as +1 while every hand lost counts as -1, a push counts as 0 (e.g. 1 hand won and 1 hand lost means no drink must be consumed (+1 -1 = 0))
 - Any net positive score across hands played is disregarded, only negative scores result in penalties
 
 For fairness, all players must play with the same number of hands and wager.
@@ -40,7 +40,7 @@ For fairness, all players must play with the same number of hands and wager.
 ## General Rule Modifications
 _Unless stated otherwise within these rules, traditional rules of BlackJack apply._
 
-The following are notable adaption to these traditional rules:
+The following are notable adaptations to these traditional rules:
 - Dealer must stand on all 17s, including soft 17
 - Blackjack payouts are 2:1
   - Specific penalties/ payouts are found below
@@ -51,10 +51,10 @@ The following are notable adaption to these traditional rules:
   - Player may hit/ double/ split on an ace split
 - It is strongly recommended to split 10s
 - Double down is allowed on any two-card hand (also after split)
-- Automatic insurance when Dealer shows ace (doubles and split are not counted extra, max penalty is wager unit per number of initial hands (e.g. two sips if playing recommendation).
-  - No extra penalties awarded for doubles and split if Dealer has Blackjack
-  - Max penalty is wager unit for each initial hand (e.g. two sips if playing recommended 2 hands with 1 sip wager)
+- Special insurance rule when Dealer shows an ace
   - Dealer does not peek at bottom card if upcard is ace
+  - Player's double downs and split are not counted if Dealer has a Blackjack
+  - Max penalty is number of hands times wager per hand (e.g. two sips if playing recommended two hands and 1 sip wager)
 
 ---
 ## Drinking Rules
@@ -67,9 +67,9 @@ The following are notable adaption to these traditional rules:
 - Drink once for each successfully won double or split (both hands) of Other unless you must drink for all (see above)
 - If Other has a Blackjack (21 in two cards), drink once
   - Also counts as Blackjack if splitting Aces
-  - Drink double if Blackjack is suited (cummulative)
-  - Drink double if Blackjack consists of a Jack and an Ace (cummulative)
-  - Drink double if Blackjack with both black cards (cummulative)
+  - Drink double if Blackjack is suited (cumulative)
+  - Drink double if Blackjack consists of a Jack and an Ace (cumulative)
+  - Drink double if Blackjack with both black cards (cumulative)
   - _(e.g. black Jack of Spades with black Ace of Spades result in 1*2*2*2 = 8 penalties)_
 - Drink once if Other won any hand that is suited
   - Drink 4 penalties if Player wins a hand suited that they doubled or split
@@ -98,3 +98,94 @@ The following are notable adaption to these traditional rules:
 ## Potential future rules
 - Everyone drinks, even if they beat the Dealer, if Dealer does not bust with 6+ cards
 - Give out 3 penalties if winning your hand with 5 cards
+
+
+## Comprehensive Example
+Based on three Players (A, B, C), including the Dealer.
+Player A is Dealer, unless stated otherwise.
+Each Player plays two hands, with a wager of 1 sip respectively
+
+### Basic Drinking
+
+| Player   | First Hand                               | Second Hand                              |
+|----------|------------------------------------------|------------------------------------------|
+| Player A | 8♣, 7♠                     | 15, lost    | Q♦, 6♣                      | 16, lost   | 
+| Player B | 5♥, 5♠, J♣ _(double down)_ | 20, won     | 9♦, 2♠, 10♠ _(double down)_ | 21, won    |
+| Player C | A♥, J♠ _(Blackjack)_       | 21, won     | 7♣, 3♦, 8♠                  | 18, push   |
+| Dealer   | 10♥, 8♦                    | 18          | —                           |            |
+
+#### Penalties
+
+- **Player B:**
+  - Drinks **2 penalties** for Player C's ace and jack Blackjack
+
+- **Player C:**
+  - Drinks **1 penalty** for each of Player B's won doubles
+  - Drinks **1 penalty** for both hands of Player B's minus their own won hand
+  - Hence total penalties of 3
+
+- **Player A (not as Dealer):**
+  - Drinks **4 penalties** for Player B's hand
+  - Drinks **2 penalties** for Player C's ace and jack Blackjack
+  - Drinks **2 penalties** for own lost hands
+
+- **Player A (as Dealer):**
+  - Dealer does not drink
+
+### Dealer Switch Example
+
+| Player   | First Hand                               | Second Hand                              |
+|----------|------------------------------------------|------------------------------------------|
+| Player A | 9♠, 7♦                     | 17, won     | A♠, 6♥, 3♠ _(double down)_  | 20, won    |
+| Player B | 10♣, 4♦, 5♠                | 19, won     | K♦, 8♣                      | 18, won    |
+| Player C | A♣, 9♦                     | 20, won     | 7♥, 2♥, 6♥ _(double down)_  | 15, won    |
+| Dealer   | Q♥, 5♣, 8♠ _(bust)_        | 23          | —                           |            |
+
+#### Penalties
+
+- **Player B:**
+  - Drinks **1 penalty** for being next Player after A♠
+  - Drinks **1 penalty** for Player A's won double
+  - Drinks **1 penalty** for Player C's won double
+  - Drinks **1 penalty** for Player C's suited Hearts hand
+
+- **Player C:**
+  - Drinks **1 penalty** for Player A's won double
+
+- **Player A (not as Dealer):**
+  - Drinks **1 penalty** for Player C's suited Hearts hand
+  - _Does not drink for Player C's won double (already drinks as Dealer for that hand)_
+
+- **Player A (as Dealer):**
+  - Drinks **3 penalties** for Player A's own hands
+  - Drinks **2 penalties** for Player B's hands
+  - Drinks **3 penalties** for Player C's hands
+
+Player B becomes Dealer.
+
+### Blackjack scenario
+
+| Player   | First Hand                               | Second Hand                              |
+|----------|------------------------------------------|------------------------------------------|
+| Player A | Q♠, A♦ _(Blackjack)_       | 21, won     | 8♠, 6♥, 3♠                  | 17, push   |
+| Player B | A♥, K♥ _(Blackjack)_       | 21, won     | 9♦, 8♣                      | 17, push   |
+| Player C | A♣, J♣ _(Blackjack)_       | 21, won     | 7♥, 2♥, 8♠ _(double down)_  | 17, push   |
+| Dealer   | K♥, 7♣                     | 17          | —                           |            |
+
+#### Penalties
+
+- **Player B:**
+  - Drinks **1 penalty** for Player A's normal Blackjack
+  - Drinks **8 penalties** for Player C's suited black ace jack Blackjack
+
+- **Player C:**
+  - Drinks **1 penalty** for Player A's normal Blackjack
+  - Drinks **2 penalties** for Player B's suited Blackjack
+  - _does not drink for the pushed double down since not lost_
+
+- **Player A (not as Dealer):**
+  - Drinks **2 penalties** for Player B's suited Blackjack
+  - Drinks **8 penalties** for Player C's suited black ace jack Blackjack
+
+- **Player A (as Dealer):**
+  - Dealer does not drink
