@@ -36,7 +36,7 @@ For fairness, all players must play with the same number of hands and wager.
   - Dealer does not drink any penalty
   - Role of Dealer turns to next Player
 
-_**Play with Honor:**_ As Self, you are not allowed to intentionally sabotage your own hand to reduce the risk of triggering a Hard dealer switch.
+_**Play with Honor:**_ You are not allowed to intentionally sabotage your own hand to reduce the risk of triggering a Hard dealer switch.
 
 ---
 ## General Rule Modifications
@@ -63,19 +63,23 @@ The following are notable adaptations to these traditional rules:
 ## Drinking Rules
 ### Drinking based on own cards:
 - Drink once for each net hand lost against the Dealer
+  - _(e.g. if winning 1 hand and losing the other, penalties offset)_
 
 ### Drinking based on other Player(s) cards:
-- Other won all their hands + you lost at least 1 hand, then drink for each hand of Other
-- Other won all their hands + you did not win all hands (tied but no lost hand), then drink for each hand of Other minus your hands that you won
-- Drink once for each successfully won double or split (both hands) of Other unless you must drink for all (see above)
-- If Other has a Blackjack (21 in two cards), drink once
-  - Also counts as Blackjack if splitting Aces
-  - Drink double if Blackjack is suited (cumulative)
-  - Drink double if Blackjack consists of a Jack and an Ace (cumulative)
-  - Drink double if Blackjack with both black cards (cumulative)
-  - _(e.g. black Jack of Spades with black Ace of Spades result in 1*2*2*2 = 8 penalties)_
-- Drink once if Other won any hand that is suited
-  - Drink 4 penalties if Player wins a hand suited that they doubled or split
+- If another Player wins all their hands:
+  - If you lost at least one hand, drink once for each hand the other Player won
+  - If you won all your hands, you do not drink for the other Player's wins (see exceptions below)
+  - If you did not lose any hand but have at least one push (tie), drink once for each hand the other Player won, minus the number of your own hands that you won
+- Drink once for each successfully won double or split (both hands) of another Player unless you must drink for all (see above)
+- If another Player has a Blackjack (21 in two cards), you must drink 1 penalty.
+  - This includes Blackjacks from split Aces.
+  - The penalty is doubled for each of the following, and these are cumulative:
+    - If the Blackjack is suited (both cards same suit), double the penalty
+    - If the Blackjack is specifically an Ace and a Jack, double the penalty
+    - If both cards are black (Spades or Clubs), double the penalty
+    - _(e.g. a suited black Jack and Ace (Jack of Spades and Ace of Spades) results in 1 × 2 × 2 × 2 = 8 penalties)_
+- Drink once if another Player wins a hand that is suited (both cards of the same suit)
+  - The penalty is 4 instead of 1 if the hand was doubled or split
 - Ace of Spades is dealt to Dealer:
   - Everyone drinks once if it's Dealers first card
   - Dealer drinks once if it's Dealers second card
@@ -127,14 +131,14 @@ The following are notable adaptations to these traditional rules:
 - Player C:
   - Drinks _1 penalty_ for each of Player B's won doubles (2 total)
   - Drinks _1 penalty_ for Player B winning both hands while Player C only won one (Player B's 2 wins minus Player C's 1 win = 1 penalty)
-  - **Total:** 2 (doubles) + 1 (net hand loss) = _3 penalties_
+  - **Total:** 2 (doubles) + 1 (Player B net wins) = _3 penalties_
 
 - Player A (not as Dealer):
   - Drinks _2 penalties_ for own two lost hands
   - Drinks _2 penalties_ for Player C's Blackjack with Ace and Jack (Blackjack = 1, Ace+Jack = x2)
   - Drinks _2 penalties_ for Player B's won doubles (1 per double)
   - Drinks _2 penalties_ for Player B winning both hands while Player A lost both (1 per hand)
-  - **Total:** 2 (own losses) + 2 (Player C Blackjack) + 2 (Player B doubles) + 2 (Player B net wins) = _8 penalties_
+  - **Total:** 2 (own losses) + 2 (Blackjack) + 2 (doubles) + 2 (Player B net wins) = _8 penalties_
 
 - Player A (as Dealer):
   - Dealer does not drink in this scenario.
@@ -161,24 +165,38 @@ The following are notable adaptations to these traditional rules:
 ### Penalties
 
 - Player B:
-  - Drinks _1 penalty_ for being next Player after A♠
+  - Drinks _1 penalty_ for being the next Player after A♠ (Ace of Spades dealt to Player A as first card)
   - Drinks _1 penalty_ for Player A's won double
   - Drinks _1 penalty_ for Player C's won double
   - Drinks _1 penalty_ for Player C's suited Hearts hand
+  - **Total:** 1 (A♠) + 1 (double) + 1 (double) + 1 (suited) = _4 penalties_
 
 - Player C:
   - Drinks _1 penalty_ for Player A's won double
+  - **Total:** 1 (double) = _1 penalty_
 
 - Player A (not as Dealer):
   - Drinks _1 penalty_ for Player C's suited Hearts hand
   - _Does not drink for Player C's won double (already drinks as Dealer for that hand)_
+  - **Total:** 1 (suited) = _1 penalty_
 
 - Player A (as Dealer):
-  - Drinks _3 penalties_ for Player A's own hands
-  - Drinks _2 penalties_ for Player B's hands
-  - Drinks _3 penalties_ for Player C's hands
+  - Drinks _2 penalties_ for losing both hands to Player B (since Dealer lost all hands)
+  - Drinks _2 penalties_ for losing both hands to Player C (since Dealer lost all hands)
+  - Drinks _2 penalties_ for own two hands lost as Dealer (since Dealer lost all hands)
+  - Drinks _1 penalty_ for Player C's won double (as Dealer)
+  - **Total:** 2 (Player B net wins) + 3 (Player C net wins) + 2 (Player A net wins) = _7 penalties_
 
 Player B becomes Dealer.
+
+**Summary Table:**
+
+| Player   | Penalties |
+|----------|-----------|
+| Player B | 4         |
+| Player C | 1         |
+| Player A | 1         |
+| Dealer   | 7         |
 
 ## Blackjack scenario
 
@@ -193,16 +211,30 @@ Player B becomes Dealer.
 
 - Player B:
   - Drinks _1 penalty_ for Player A's normal Blackjack
-  - Drinks _8 penalties_ for Player C's suited black ace jack Blackjack
+  - Drinks _8 penalties_ for Player C's suited black Blackjack with an Ace and Jack (Blackjack = 1, suited = x2, Ace+Jack = x2, black = x2)
+  - **Total:** 1 (Blackjack) + 8 (Blackjack) = _9 penalty_
 
 - Player C:
   - Drinks _1 penalty_ for Player A's normal Blackjack
-  - Drinks _2 penalties_ for Player B's suited Blackjack
+  - Drinks _2 penalties_ for Player B's suited Blackjack (Blackjack = 1, suited = x2)
   - _does not drink for the pushed double down since not lost_
+  - **Total:** 1 (Blackjack) + 2 (Blackjack) = _3 penalty_
 
 - Player A (not as Dealer):
-  - Drinks _2 penalties_ for Player B's suited Blackjack
-  - Drinks _8 penalties_ for Player C's suited black ace jack Blackjack
+  - Drinks _2 penalties_ for Player B's suited Blackjack (Blackjack = 1, suited = x2)
+  - Drinks _8 penalties_ for Player C's suited black Blackjack with an Ace and Jack (Blackjack = 1, suited = x2, Ace+Jack = x2, black = x2)
+  - **Total:** 2 (Blackjack) + 8 (Blackjack) = _10 penalty_
 
 - Player A (as Dealer):
+  - Deaker did not lose any hands
   - Dealer does not drink
+  - **Total:** _0 penalty_
+
+**Summary Table:**
+
+| Player   | Penalties |
+|----------|-----------|
+| Player B | 9         |
+| Player C | 3         |
+| Player A | 10        |
+| Dealer   | 0         |
