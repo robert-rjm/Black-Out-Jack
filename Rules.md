@@ -102,13 +102,14 @@ The following are notable adaptations to these traditional rules:
 - Everyone drinks, even if they beat the Dealer, if Dealer does not bust with 6+ cards
 - Give out 3 penalties if winning your hand with 5 cards
 
-
-## Comprehensive Example
+---
+---
+# Comprehensive Example
 - Based on three Players (A, B, C), including the Dealer.
 - Player A is Dealer, unless stated otherwise.
 - Each Player plays two hands, with a wager of 1 sip respectively
 
-### Basic Drinking
+## Basic Drinking
 
 | Player   | First Hand                               | Second Hand                              |
 |----------|------------------------------------------|------------------------------------------|
@@ -117,25 +118,38 @@ The following are notable adaptations to these traditional rules:
 | Player C | A♥, J♠ _(Blackjack)_       | 21, won     | 7♣, 3♦, 8♠                  | 18, push   |
 | Dealer   | 10♥, 8♦                    | 18          | —                           |            |
 
-#### Penalties
+### Penalties
 
 - Player B:
-  - Drinks _2 penalties_ for Player C's ace and jack Blackjack
+  - Drinks _2 penalties_ for Player C's Blackjack with an Ace and Jack (Blackjack = 1, Ace+Jack = x2)
+  - **Total:** 2 (Blackjack) = _2 penalties_
 
 - Player C:
-  - Drinks _1 penalty_ for each of Player B's won doubles
-  - Drinks _1 penalty_ for both hands of Player B's minus their own won hand
-  - Hence total penalties of 3
+  - Drinks _1 penalty_ for each of Player B's won doubles (2 total)
+  - Drinks _1 penalty_ for Player B winning both hands while Player C only won one (Player B's 2 wins minus Player C's 1 win = 1 penalty)
+  - **Total:** 2 (doubles) + 1 (net hand loss) = _3 penalties_
 
 - Player A (not as Dealer):
-  - Drinks _4 penalties_ for Player B's hand
-  - Drinks _2 penalties_ for Player C's ace and jack Blackjack
-  - Drinks _2 penalties_ for own lost hands
+  - Drinks _2 penalties_ for own two lost hands
+  - Drinks _2 penalties_ for Player C's Blackjack with Ace and Jack (Blackjack = 1, Ace+Jack = x2)
+  - Drinks _2 penalties_ for Player B's won doubles (1 per double)
+  - Drinks _2 penalties_ for Player B winning both hands while Player A lost both (1 per hand)
+  - **Total:** 2 (own losses) + 2 (Player C Blackjack) + 2 (Player B doubles) + 2 (Player B net wins) = _8 penalties_
 
 - Player A (as Dealer):
-  - Dealer does not drink
+  - Dealer does not drink in this scenario.
+  - **Total:** _0 penalties_
 
-### Dealer Switch Example
+**Summary Table:**
+
+| Player   | Penalties |
+|----------|-----------|
+| Player B | 2         |
+| Player C | 3         |
+| Player A | 8         |
+| Dealer   | 0         |
+
+## Dealer Switch Example
 
 | Player   | First Hand                               | Second Hand                              |
 |----------|------------------------------------------|------------------------------------------|
@@ -144,7 +158,7 @@ The following are notable adaptations to these traditional rules:
 | Player C | A♣, 9♦                     | 20, won     | 7♥, 2♥, 6♥ _(double down)_  | 15, won    |
 | Dealer   | Q♥, 5♣, 8♠ _(bust)_        | 23          | —                           |            |
 
-#### Penalties
+### Penalties
 
 - Player B:
   - Drinks _1 penalty_ for being next Player after A♠
@@ -166,7 +180,7 @@ The following are notable adaptations to these traditional rules:
 
 Player B becomes Dealer.
 
-### Blackjack scenario
+## Blackjack scenario
 
 | Player   | First Hand                               | Second Hand                              |
 |----------|------------------------------------------|------------------------------------------|
@@ -175,7 +189,7 @@ Player B becomes Dealer.
 | Player C | A♣, J♣ _(Blackjack)_       | 21, won     | 7♥, 2♥, 8♠ _(double down)_  | 17, push   |
 | Dealer   | K♥, 7♣                     | 17          | —                           |            |
 
-#### Penalties
+### Penalties
 
 - Player B:
   - Drinks _1 penalty_ for Player A's normal Blackjack
