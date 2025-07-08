@@ -191,7 +191,7 @@ The following are notable adaptations to these traditional rules:
 | **Total Penalties**                                                                    | **7**     |
 
 ## Blackjack scenario
-`
+
 | Player   | First Hand               | Result   | Second Hand                      | Result   |
 |----------|--------------------------|----------|----------------------------------|----------|
 | Player A | `Q♠`, `A♦` _(Blackjack)_ | 21, won  | `8♠`, `6♥`, `3♠`                 | 17, push |
