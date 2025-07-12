@@ -15,3 +15,16 @@ This repository will, at a later date, also include `BlackJack.py` to facilitate
 This game is best enjoyed in good company and with good judgment. **Drink responsibly and know your limits**.
 
 The goal is to have fun, not regrets.
+
+## Running the Game
+
+Start the game by running:
+```bash
+python BlackJack.py
+```
+
+Alternatively, the rules of this game can easily be applied to a physical deck of cards if you want to play offline with freinds.
+
+## Contributing
+
+Contributions are welcome! Please open issues or submit pull requests for improvements.
