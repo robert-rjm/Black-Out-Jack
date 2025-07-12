@@ -1,7 +1,7 @@
 # BlackJack Game 🃏
 _an AdHoc creation_
 
-Welcome to _**Drinking BlackJack**_, a fun twist on classic BlackJack. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack. It will also includes a comprehensive BlackJack game implemented in Python, enabling playing without the need for a physical deck of card(s).
+Welcome to _**Drinking BlackJack**_, a fun twist on classic BlackJack. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack. It also includes a comprehensive BlackJack game implemented in Python, enabling playing without the need for a physical deck of cards.
 
 ## ✨ Features
 
@@ -16,12 +16,12 @@ Welcome to _**Drinking BlackJack**_, a fun twist on classic BlackJack. It includ
 - **Ace split** simplification
 
 ### **Extensive Drink Rules**
-- [Rules.md](Rules.md) includes the comprehensive set of rules for this version of drinking BlackJAck
+- [Rules.md](Rules.md) includes the comprehensive set of rules for this version of drinking BlackJack
 - These rules are not set in stone, the best rules often come mid-game!
 - Players are encouraged to come up with new rule ideas as they play
 - If they make the game more fun, they are probably worth keeping
 
-## Drink Responsibly ⚠️
+## ⚠️ Drink Responsibly
 This game is best enjoyed in good company and with good judgment. **Drink responsibly and know your limits**.
 
 The goal is to have fun, not regrets.
@@ -31,18 +31,19 @@ The goal is to have fun, not regrets.
 
 ### **Project Structure**
 ```
-BlackJack/
-├── Blackjack.py           # Main game (START HERE)
-├── LICENSE                # License TBD
-└── README.md              # This file
+Drinking-BlackJack/
+├── BlackJack.py           # Main game (START HERE)
+├── Rules.md               # Comprehensive drinking rules
+├── README.md              # This file
+└── LICENSE                # License TBD
 ```
 
 ## 🎯 How to Play
 
 ### **Starting the Game**
-1. Open [Blackjack.py](BlackJack.py)
+1. Open [BlackJack.py](BlackJack.py)
 2. Run the code and follow the instructions given
-3. Follow the drinking promts
+3. Follow the drinking prompts
 
 ### **Offline Game**
 1. Get a deck of cards and deal the BlackJack hands
@@ -58,10 +59,12 @@ BlackJack/
 ## 🚧 Development Status
 
 ### **✅ Implemented**
-- 
+- Basic BlackJack game structure
+- Comprehensive drinking rules documentation
+- Game setup and basic gameplay mechanics
 
 ### **🔄 Planned Features**
-- Functioning [Blackjack.py](BlackJack.py) version of the game
+- Functioning [BlackJack.py](BlackJack.py) version of the game
 - Adjusted ruling to reward pushes more
 - Adjusted game mechanics for a better fit for numerous players (n>4)
 
@@ -74,8 +77,8 @@ python BlackJack.py
 ## 🐛 Troubleshooting
 
 ### **Common Issues**
-1. **Inadequate Drinking Rules**: With too many players, execive drinking may occur per round
-2. **Insufficient Cards**: With too many players, a deck of card may prevent players from splitting and hitting as desired
+1. **Inadequate Drinking Rules**: With too many players, excessive drinking may occur per round
+2. **Insufficient Cards**: With too many players, a deck of cards may prevent players from splitting and hitting as desired
 
 ## 🤝 Contributing
 
@@ -89,7 +92,7 @@ Contributions are welcome! Please:
 
 ## 📄 License
 
-This project is licensed under the TBD. License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the TBD License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
