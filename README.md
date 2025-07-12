@@ -26,7 +26,6 @@ This game is best enjoyed in good company and with good judgment. **Drink respon
 
 The goal is to have fun, not regrets.
 
-
 ## 🚀 Installation & Setup
 
 ### **Project Structure**
