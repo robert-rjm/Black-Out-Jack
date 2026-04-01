@@ -31,20 +31,21 @@ The goal is to have fun, not regrets.
 ### **Project Structure**
 ```
 Drinking-BlackJack/
-├── BlackJack.py           # Main game (START HERE)
-├── Rules.md               # Comprehensive drinking rules
-├── README.md              # This file
-└── LICENSE                # License TBD
+├── BlackJack.py             # Main Game (START HERE)
+├── Rules.md                 # Drinking Rules
+├── ComprehensiveExample.md  # Example for Drinking Rules
+├── README.md                # This File
+└── LICENSE                  # MIT License
 ```
 
 ## 🎯 How to Play
 
-### **Starting the Game**
+### **Digital Game (Coming Soon 🚧)**
 1. Open [BlackJack.py](BlackJack.py)
 2. Run the code and follow the instructions given
 3. Follow the drinking prompts
 
-### **Offline Game**
+### **Offline Game (Available Now ✅)**
 1. Get a deck of cards and deal the BlackJack hands
 2. Follow the drinking rules outlined in [Rules.md](Rules.md)
 
@@ -91,7 +92,7 @@ Contributions are welcome! Please:
 
 ## 📄 License
 
-This project is licensed under the TBD License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
