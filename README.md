@@ -78,7 +78,7 @@ python BlackJack.py
 
 ### **Common Issues**
 1. **Inadequate Drinking Rules**: With too many players, excessive drinking may occur per round
-2. **Insufficient Cards**: With too many players, a deck of cards may prevent players from splitting and hitting as desired
+2. **Insufficient Cards**: With multiple Players splitting aggressively, a single deck may run out. Consider using multiple decks for 4+ Players.
 
 ## 🤝 Contributing
 
