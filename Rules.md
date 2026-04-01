@@ -65,12 +65,13 @@ of BlackJack apply._
 | Blackjack payout | 2:1 (sip rules outlined in [Drinking Rules](#drinking-rules)) |
 | Double down | Allowed on any two-card hand, including after a split |
 | Splitting 10s | **Mandatory** — the only exception is suited 10s (see [Suited winning hand](#4-suited-winning-hand)) |
+| Splitting | Maximum of 5 splits per starting hand (up to 6 hands from one original hand). |
 
 ### Splitting Aces:
 
 | Rule | Details |
 |---|---|
-| Number of splits | Unlimited — split as many Aces as you like |
+| Number of splits | Up to the general maximum of 5 splits per starting hand |
 | Wager | Counted per hand (increases with each split) |
 | Blackjack on split Aces | Counts as Blackjack (not just 21) |
 | After splitting | Player may hit, double, or split again |
