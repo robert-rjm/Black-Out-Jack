@@ -737,7 +737,11 @@ class DrinkingBlackJack:
 
     def setup(self):
         print('\n' + '='*52)
-        print('  DRINKING BLACKJACK')
+        #print('  DRINKING BLACKJACK')
+        print("Welcome to Drinking BlackJack! 🃏🍻")
+        print(f"Rules: {__rules_source__}")
+        print(f"Rules last verified: {__rules_last_verified__}")
+        print(f"Version: {__version__}")
         print('='*52)
 
         n = self._ask_int('Number of players (1-4): ', 1, 4)
