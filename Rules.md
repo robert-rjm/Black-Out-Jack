@@ -263,5 +263,13 @@ The best rules often come from the chaos of gameplay._ 🍻
 
 ---
 ## Example Scenarios
+Inline examples are provided throughout this document within each rule section. For quick reference:
 
-For practical examples illustrating how these rules are applied during gameplay, refer to the companion file [`ComprehensiveExample.md`](ComprehensiveExample.md). This file contains sample hands and outcomes to help clarify penalties, dealer switches, special cases, and more.
+- [Hand scoring example](#gameplay-rules)
+- [Other Players' wins example](#1-when-another-player-wins-all-their-hands)
+- [Blackjack multiplier examples](#2-blackjack-bonus-always-applies)
+- [5+ card hand example](#1-21-with-5-cards-player)
+- [Hard Dealer Switch example](#drinking-on-behalf-of-the-dealer-hard-dealer-switch)
+
+For full round walkthroughs showing how multiple rules interact,
+see [`ComprehensiveExample.md`](ComprehensiveExample.md).
