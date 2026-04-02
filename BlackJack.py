@@ -6,8 +6,9 @@ Standard BlackJack with custom drinking mechanics layered on top.
 For the full rule set, see Rules.md in the repository.
 """
 
-__rules_source__ = "https://github.com/robert-rjm/Drinking-BlackJack"
+__rules_source__ = "https://github.com/robert-rjm/Drinking-BlackJack/blob/main/Rules.md"
 __rules_last_verified__ = "2026-04-01"
+__rules_hash__ = "a6e545fcae4411ef4b901c27f62cafc2efd9376f86d89f5f0c66059518d64158"
 __version__ = "1.0.0"
 
 
@@ -17,8 +18,27 @@ print('Date last modified:', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 import random
 from enum import Enum
 from tabulate import tabulate
+import hashlib
 
-
+def verify_rules():
+    if not __rules_hash__:
+        return
+    try:
+        import urllib.request
+        raw_url = __rules_source__.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+        with urllib.request.urlopen(raw_url, timeout=5) as r:
+            current_hash = hashlib.sha256(r.read()).hexdigest()
+    except Exception:
+        return
+    if current_hash != __rules_hash__:
+        print("⚠️  WARNING: Rules.md has changed since this version was last verified!")
+        print(f"   Last verified: {__rules_last_verified__}")
+        print(f"   Expected hash: {__rules_hash__[:16]}...")
+        print(f"   Current hash:  {current_hash[:16]}...")
+        print("   The game may not reflect the latest rules.")
+        print(f"   Review changes at: {__rules_source__}")
+        print("   Update __rules_hash__ and __rules_last_verified__ in BlackJack.py.\n")
+        
 class Suit(Enum):
     HEARTS   = 'hearts'
     DIAMONDS = 'diamonds'
@@ -743,6 +763,7 @@ class DrinkingBlackJack:
         print(f"Rules last verified: {__rules_last_verified__}")
         print(f"Version: {__version__}")
         print('='*52)
+        verify_rules()
 
         n = self._ask_int('Number of players (1-4): ', 1, 4)
         names = []
