@@ -612,7 +612,19 @@ class RoundManager:
             if len(hand.cards) == 2 and not hand.doubled: valid.append('d')
             if hand.can_split():                          valid.append('sp')
 
-            action = self._get_input(valid)
+            # Mandatory split warning: 10-value pair that is not suited
+            if (hand.can_split()
+                    and hand.cards[0].rank.blackjack_value == 10
+                    and not hand.is_suited()):
+                print(f'  ⚠️  {player.name}: rules require you to split {hand.cards[0]}, {hand.cards[1]} (mandatory unless suited)')
+                confirm = input('  Do you want to Split? [y/n]: ').strip().lower()
+                if confirm == 'y':
+                    action = 'sp'
+                else:
+                    print(f'  {player.name} overrides the mandatory split rule. Play with honor!')
+                    action = self._get_input(valid)
+            else:
+                action = self._get_input(valid)
 
             if action == 's':
                 hand.stood = True
@@ -638,14 +650,12 @@ class RoundManager:
                 new_hand = hand.split(self.shoe)
                 player.hands.insert(hand_idx + 1, new_hand)
                 print(f'  Split! This hand: {hand}  |  New hand: {new_hand}')
-                # Split aces: each gets exactly one card, blackjack counts
-                if hand.cards[0].rank == Rank.ACE:
-                    hand.stood = new_hand.stood = True
-                    for h in (hand, new_hand):
-                        if h.is_blackjack():
-                            print(f'  Split-ace BLACKJACK! {h}')
-                            self.tracker.apply(
-                                DrinkingRules.on_blackjack(player.name, h, self._all_names))
+                for h in (hand, new_hand):
+                    if h.is_blackjack():
+                        hand.stood = True
+                        print(f'  Split BLACKJACK! {h}')
+                        self.tracker.apply(
+                            DrinkingRules.on_blackjack(player.name, h, self._all_names))
                 return  # let the while loop in _player_turns advance to new hand
 
     @staticmethod
