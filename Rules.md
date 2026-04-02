@@ -1,4 +1,4 @@
-# Drinking Blackjack Rules
+# Drinking Blackjack Rules 🃏
 
 This document outlines the full set of rules for _**Drinking BlackJack**_: a fun, fast, and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
 
