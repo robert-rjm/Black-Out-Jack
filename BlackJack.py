@@ -38,7 +38,8 @@ def verify_rules():
         print("   The game may not reflect the latest rules.")
         print(f"   Review changes at: {__rules_source__}")
         print("   Update __rules_hash__ and __rules_last_verified__ in BlackJack.py.\n")
-        
+
+
 class Suit(Enum):
     HEARTS   = 'hearts'
     DIAMONDS = 'diamonds'
@@ -225,6 +226,85 @@ class Player:
     def __str__(self):  return self.name
     def __repr__(self): return f'Player({self.name})'
 
+
+# Basic strategy lookup tables
+# Keys: (player_score, dealer_up_value) -> action
+# Hard totals
+_BS_HARD = {
+    **{(s, d): 'h' for s in range(4, 9)  for d in range(2, 12)},   # 4-8: always hit
+    **{(9,  d): ('d' if 3 <= d <= 6 else 'h') for d in range(2, 12)},
+    **{(10, d): ('d' if 2 <= d <= 9 else 'h') for d in range(2, 12)},
+    **{(11, d): 'd' for d in range(2, 12)},
+    **{(12, d): ('h' if d in (2,3) or d >= 7 else 's') for d in range(2, 12)},
+    **{(s,  d): ('h' if d >= 7 else 's') for s in range(13, 17) for d in range(2, 12)},
+    **{(s,  d): 's' for s in range(17, 22) for d in range(2, 12)},
+}
+# Soft totals (hand contains an ace counted as 11)
+_BS_SOFT = {
+    **{(13, d): ('d' if 5 <= d <= 6 else 'h') for d in range(2, 12)},  # A+2
+    **{(14, d): ('d' if 5 <= d <= 6 else 'h') for d in range(2, 12)},  # A+3
+    **{(15, d): ('d' if 4 <= d <= 6 else 'h') for d in range(2, 12)},  # A+4
+    **{(16, d): ('d' if 4 <= d <= 6 else 'h') for d in range(2, 12)},  # A+5
+    **{(17, d): ('d' if 3 <= d <= 6 else 'h') for d in range(2, 12)},  # A+6
+    **{(18, d): ('d' if 3 <= d <= 6 else 's' if d in (2,7,8) else 'h') for d in range(2, 12)},  # A+7
+    **{(s,  d): 's' for s in range(19, 22) for d in range(2, 12)},     # A+8, A+9: always stand
+}
+
+
+class NPC_Player(Player):
+    """
+    Computer-controlled player using standard basic strategy.
+    Fully participates in drinking rules (drinks logged and handed out
+    automatically — NPC picks the first available other player for handouts).
+    Can be assigned the dealer role like any other seat.
+    """
+
+    def __init__(self, name: str = 'Bot'):
+        super().__init__(name)
+        self.is_npc = True
+
+    def __repr__(self): return f'NPC_Player({self.name})'
+
+    def _is_soft(self, hand) -> bool:
+        """True if hand contains an ace currently counted as 11."""
+        total = sum(c.rank.blackjack_value for c in hand.cards)
+        aces  = sum(1 for c in hand.cards if c.rank == Rank.ACE)
+        # If reducing aces was necessary to get under 22, at least one is soft
+        return aces > 0 and total <= 21
+
+    def decide(self, hand, dealer_up_card, valid_actions: list) -> str:
+        """
+        Returns the basic-strategy action, constrained to valid_actions.
+        Falls back to 's' (stand) if the ideal action is not available.
+        """
+        score    = hand.score()
+        d_val    = min(dealer_up_card.rank.blackjack_value, 10)  # cap at 10 for table lookup
+        is_soft  = self._is_soft(hand)
+
+        # Split decision: always split aces; split other pairs per basic strategy
+        if 'sp' in valid_actions and hand.can_split():
+            rank_val = hand.cards[0].rank.blackjack_value
+            if rank_val == 11:  # aces — always split
+                return 'sp'
+            if rank_val == 8:   return 'sp'      # always split 8s
+            if rank_val == 10:  return 'sp'      # mandatory split 10s
+            if rank_val == 5:   return 'd' if 'd' in valid_actions else 'h'  # never split 5s
+            if rank_val == 4:   return 'sp' if 5 <= d_val <= 6 else 'h'
+            if rank_val == 9:   return 'sp' if d_val not in (7, 10, 11) else 's'
+            if rank_val == 7:   return 'sp' if d_val <= 7 else 'h'
+            if rank_val == 6:   return 'sp' if 2 <= d_val <= 6 else 'h'
+            if rank_val == 3:   return 'sp' if 2 <= d_val <= 7 else 'h'
+            if rank_val == 2:   return 'sp' if 2 <= d_val <= 7 else 'h'
+
+        # Soft / hard lookup
+        table  = _BS_SOFT if is_soft else _BS_HARD
+        ideal  = table.get((score, d_val), 's')
+
+        # If ideal is double but not available, fall back to hit
+        if ideal == 'd' and 'd' not in valid_actions:
+            ideal = 'h'
+
+        return ideal if ideal in valid_actions else 's'
 
 def _bj_multiplier(hand: Hand) -> int:
     mult  = 1
@@ -437,7 +517,16 @@ class DrinkTracker:
         print(f'    [drink] {reason}')
         others = [p.name for p in self.players if p.name.lower() != giver.lower()]
         if not others: return
+        giver_player = self._map.get(giver.lower())
         remaining = total
+        # NPC giver: distribute evenly round-robin
+        if getattr(giver_player, 'is_npc', False):
+            for i in range(remaining):
+                t = others[i % len(others)]
+                t.add_drink(1, f'{giver} (NPC) handed 1 sip to {t.name} (5-card 21)')
+                print(f'    -> {t.name} +1 sip (NPC auto-distributed)')
+            return
+        # Human giver: prompt
         print(f'    {giver}, hand out {remaining} sip(s) among: {", ".join(others)}')
         while remaining > 0:
             raw = input(f'    Who gets a sip? ({remaining} left): ').strip().capitalize()
@@ -612,19 +701,23 @@ class RoundManager:
             if len(hand.cards) == 2 and not hand.doubled: valid.append('d')
             if hand.can_split():                          valid.append('sp')
 
-            # Mandatory split warning: 10-value pair that is not suited
-            if (hand.can_split()
-                    and hand.cards[0].rank.blackjack_value == 10
-                    and not hand.is_suited()):
-                print(f'  ⚠️  {player.name}: rules require you to split {hand.cards[0]}, {hand.cards[1]} (mandatory unless suited)')
-                confirm = input('  Do you want to Split? [y/n]: ').strip().lower()
-                if confirm == 'y':
-                    action = 'sp'
-                else:
-                    print(f'  {player.name} overrides the mandatory split rule. Play with honor!')
-                    action = self._get_input(valid)
+            if getattr(player, 'is_npc', False):
+                action = player.decide(hand, dealer_up, valid)
+                print(f'  {player.name} (NPC) => {action}')
             else:
-                action = self._get_input(valid)
+                # Mandatory split warning: 10-value pair that is not suited
+                if (hand.can_split()
+                        and hand.cards[0].rank.blackjack_value == 10
+                        and not hand.is_suited()):
+                    print(f'  ⚠️  {player.name}: rules require you to split {hand.cards[0]}, {hand.cards[1]} (mandatory unless suited)')
+                    confirm = input('  Proceed with split? [y/n]: ').strip().lower()
+                    if confirm == 'y':
+                        action = 'sp'
+                    else:
+                        print(f'  {player.name} overrides the mandatory split rule. Play with honor!')
+                        action = self._get_input(valid)
+                else:
+                    action = self._get_input(valid)
 
             if action == 's':
                 hand.stood = True
@@ -778,7 +871,11 @@ class DrinkingBlackJack:
         n = self._ask_int('Number of players (1-4): ', 1, 4)
         names = []
         for i in range(n):
-            name = input(f'  Name for player {i+1}: ').strip() or f'Player {i+1}'
+            name = input(f'  Name for player {i+1} (or press Enter for NPC Bot {i+1}): ').strip()
+            if name == '':
+                name = f'Bot {i+1}'
+                self._npc_seats.add(name)
+                print(f'  -> NPC added: {name}')                
             names.append(name)
 
         self.wager       = self._ask_int('  Wager sips per hand (default 1): ', 1, 20, default=1)
