@@ -74,15 +74,15 @@ This game is best enjoyed in good company and with good judgment. **Drink respon
 ```
 Drinking-BlackJack/
 ├── BlackJack.py             # Main Game (START HERE)
-├── drinking_rules.py        # Drinking rules layer (imported by game + referee)
 ├── Rules.md                 # Drinking Rules
+├── drinking_rules.py        # Drinking rules layer
 ├── ComprehensiveExample.md  # Example for Drinking Rules
 ├── referee.py               # Terminal referee for real-life play
 ├── app.py                   # Flask web server (phone-friendly UI)
 ├── templates/
 │   └── index.html           # Web UI served by app.py
 ├── requirements.txt
-├── Procfile                 # For deployment (Heroku / Render)
+├── Procfile                 # For deployment
 ├── README.md
 └── LICENSE
 ```
