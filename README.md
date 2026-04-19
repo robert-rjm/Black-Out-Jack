@@ -81,8 +81,6 @@ Drinking-BlackJack/
 ├── app.py                   # Flask web server (phone-friendly UI)
 ├── templates/
 │   └── index.html           # Web UI served by app.py
-├── requirements.txt
-├── Procfile                 # For deployment
 ├── README.md
 └── LICENSE
 ```
