@@ -4,16 +4,42 @@ drinking_rules.py
 Drinking layer for Blackjack.
 Imported by blackjack.py (drinking mode) and referee.py.
 Has no game logic of its own — purely reacts to events fired by the game.
-
-Rules sourced from:
-https://github.com/robert-rjm/Drinking-BlackJack/blob/7e4b344dfe1ade7e047bdef96310619a0533d4cd/Rules.md
-
-__rules_source_commit__  = "7e4b344dfe1ade7e047bdef96310619a0533d4cd"
-__rules_source_url__     = "https://github.com/robert-rjm/Drinking-BlackJack/blob/7e4b344/Rules.md"
-__rules_last_verified__  = "2026-04-11"
 """
 
+import hashlib
+import urllib.request
 from blackjack import Rank, Suit, Hand, Player
+
+_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Drinking-BlackJack/main/Rules.md"
+_RULES_HASH  = "a6e545fcae4411ef4b901c27f62cafc2efd9376f86d89f5f0c66059518d64158"
+_RULES_DATE  = "2026-04-23"
+
+
+def verify_rules():
+    """
+    Fetch Rules.md from GitHub and compare its SHA256 to the known hash.
+    If changed, warn that drinking_rules.py may be out of date.
+    Silently skips on network failure.
+    """
+    try:
+        with urllib.request.urlopen(_RULES_URL, timeout=5) as r:
+            current_hash = hashlib.sha256(r.read()).hexdigest()
+    except Exception:
+        return
+
+    if current_hash != _RULES_HASH:
+        print("=" * 52)
+        print("  WARNING: Rules.md has changed on GitHub!")
+        print(f"  Last verified : {_RULES_DATE}")
+        print(f"  Expected hash : {_RULES_HASH[:16]}...")
+        print(f"  Current hash  : {current_hash[:16]}...")
+        print("  drinking_rules.py may not reflect the latest rules.")
+        print(f"  Review changes at: {_RULES_URL.replace('raw.githubusercontent.com', 'github.com').replace('/main/', '/blob/main/')}")
+        print("  Update _RULES_HASH and _RULES_DATE in drinking_rules.py.")
+        print("=" * 52 + "\n")
+
+
+verify_rules()
 
 
 # =============================================================================
