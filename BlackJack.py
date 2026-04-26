@@ -1,5 +1,5 @@
 """
-BlackJack.py
+blackjack.py
 ========================
 🃏 Drinking BlackJack
 ========================
@@ -8,7 +8,7 @@ When drinking mode is selected at startup, drinking_rules.py is imported
 and the DrinkTracker is activated alongside the game.
 
 Run:
-    python BlackJack.py
+    python blackjack.py
 """
 
 from datetime import datetime
