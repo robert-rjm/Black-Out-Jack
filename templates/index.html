@@ -45,6 +45,15 @@
   }
   header h1 { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
   #header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .mode-badge {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .6px;
+    padding: 2px 6px; border-radius: 4px;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .mode-badge.referee { background: #2e3247; color: var(--muted); }
+  .mode-badge.digital { background: #1a3a2a; color: var(--green); }
 
   /* ---- LOG ---- */
   #log {
@@ -72,7 +81,7 @@
   }
 
   /* tabs */
-  #tabs {
+  .tabs-bar {
     display: flex;
     border-bottom: 1px solid var(--border);
   }
@@ -117,6 +126,20 @@
   .btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: #000; }
   .btn.wide    { flex: 1; }
 
+  /* big action button for digital deal/dealer panes */
+  .btn-big {
+    width: 100%; height: 72px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 20px; font-weight: 800;
+    cursor: pointer;
+    transition: opacity .12s, transform .08s;
+    margin-bottom: 10px;
+  }
+  .btn-big:active { transform: scale(.97); }
+  .btn-big.green  { background: var(--green);  color: #000; }
+  .btn-big.accent { background: var(--accent); color: #fff; }
+
   /* ---- CARD PICKER ---- */
   #card-grid { display: grid; gap: 6px; margin-bottom: 8px; }
   #rank-grid { grid-template-columns: repeat(7, 1fr); }
@@ -158,6 +181,7 @@
     height: 100dvh;
     padding: 24px 20px;
     gap: 14px;
+    overflow-y: auto;
   }
   #setup h2 { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
   #setup .sub { color: var(--muted); font-size: 14px; text-align: center; }
@@ -173,10 +197,11 @@
   .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
   .field select option { background: var(--surface); }
 
-  #num-players-row { display: flex; gap: 8px; margin-bottom: 2px; }
+  #num-players-row, #mode-row { display: flex; gap: 8px; margin-bottom: 2px; }
   #name-fields { display: flex; flex-direction: column; gap: 8px; }
 
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
 
   #start-btn {
     width: 100%; max-width: 420px;
@@ -202,6 +227,9 @@
   #modal h3 { font-size: 18px; font-weight: 700; }
   #modal p  { color: var(--muted); font-size: 14px; }
   #modal .btn-row { margin-bottom: 0; }
+
+  /* digital hint text */
+  .hint { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -209,7 +237,15 @@
 <!-- ===== SETUP SCREEN ===== -->
 <div id="setup">
   <h2>🃏 BJ Referee</h2>
-  <p class="sub">Real-life Drinking Blackjack scorekeeper</p>
+  <p class="sub" id="setup-sub">Real-life Drinking Blackjack scorekeeper</p>
+
+  <div class="field">
+    <label>Game Mode</label>
+    <div id="mode-row">
+      <button class="btn sel" onclick="setMode('referee', this)">Referee</button>
+      <button class="btn"     onclick="setMode('digital', this)">Digital</button>
+    </div>
+  </div>
 
   <div class="field">
     <label>Number of players</label>
@@ -227,14 +263,29 @@
     <select id="dealer-select"></select>
   </div>
 
-  <div class="two-col">
+  <!-- Referee: wager + hands (two-col). Digital: wager + hands + decks (three-col). -->
+  <div id="settings-ref" class="two-col">
     <div class="field" style="max-width:none">
-      <label>Sips / hand wager</label>
-      <input type="number" id="wager" value="1" min="1" max="10">
+      <label>Sips / hand</label>
+      <input type="number" id="wager-ref" value="1" min="1" max="10">
     </div>
     <div class="field" style="max-width:none">
-      <label>Hands per player</label>
-      <input type="number" id="num-hands" value="2" min="1" max="4">
+      <label>Hands / player</label>
+      <input type="number" id="num-hands-ref" value="2" min="1" max="4">
+    </div>
+  </div>
+  <div id="settings-dig" class="three-col" style="display:none">
+    <div class="field" style="max-width:none">
+      <label>Sips / hand</label>
+      <input type="number" id="wager-dig" value="1" min="1" max="10">
+    </div>
+    <div class="field" style="max-width:none">
+      <label>Hands / player</label>
+      <input type="number" id="num-hands-dig" value="2" min="1" max="4">
+    </div>
+    <div class="field" style="max-width:none">
+      <label>Decks in shoe</label>
+      <input type="number" id="num-decks" value="1" min="1" max="8">
     </div>
   </div>
 
@@ -254,83 +305,149 @@
   <div id="log"></div>
 
   <div id="panel">
-    <div id="tabs">
-      <button class="tab active" onclick="switchTab('deal')">Deal</button>
-      <button class="tab"        onclick="switchTab('result')">Result</button>
-      <button class="tab"        onclick="switchTab('action')">Action</button>
-      <button class="tab"        onclick="switchTab('round')">Round</button>
-    </div>
 
-    <!-- DEAL pane -->
-    <div id="pane-deal" class="pane active">
-      <div class="label">Player</div>
-      <div id="deal-players" class="btn-row"></div>
-      <div class="label">Hand</div>
-      <div id="deal-hands" class="btn-row"></div>
-      <div class="label">Rank</div>
-      <div id="rank-grid" class="card-grid"></div>
-      <div class="label">Suit</div>
-      <div id="suit-grid" class="card-grid"></div>
-    </div>
+    <!-- ── REFEREE panel ────────────────────────────────── -->
+    <div id="ref-panel">
+      <div class="tabs-bar" id="ref-tabs">
+        <button class="tab active" onclick="switchRefTab('deal', this)">Deal</button>
+        <button class="tab"        onclick="switchRefTab('result', this)">Result</button>
+        <button class="tab"        onclick="switchRefTab('action', this)">Action</button>
+        <button class="tab"        onclick="switchRefTab('round', this)">Round</button>
+      </div>
 
-    <!-- RESULT pane -->
-    <div id="pane-result" class="pane">
-      <div class="label">Player</div>
-      <div id="result-players" class="btn-row"></div>
-      <div class="label">Hand</div>
-      <div id="result-hands" class="btn-row"></div>
-      <div class="label">Outcome</div>
-      <div class="btn-row">
-        <button class="btn green wide" onclick="sendResult('win')">WIN</button>
-        <button class="btn red   wide" onclick="sendResult('loss')">LOSS</button>
+      <!-- DEAL pane -->
+      <div id="pane-deal" class="pane active">
+        <div class="label">Player</div>
+        <div id="deal-players" class="btn-row"></div>
+        <div class="label">Hand</div>
+        <div id="deal-hands" class="btn-row"></div>
+        <div class="label">Rank</div>
+        <div id="rank-grid" class="card-grid"></div>
+        <div class="label">Suit</div>
+        <div id="suit-grid" class="card-grid"></div>
       </div>
-      <div class="btn-row">
-        <button class="btn yellow wide" onclick="sendResult('push')">PUSH</button>
-        <button class="btn red    wide" onclick="sendResult('bust')">BUST</button>
-      </div>
-      <div class="btn-row">
-        <button class="btn red wide" onclick="sendCmd('result dealer bust')">DEALER BUST</button>
-      </div>
-    </div>
 
-    <!-- ACTION pane -->
-    <div id="pane-action" class="pane">
-      <div class="label">Player</div>
-      <div id="action-players" class="btn-row"></div>
-      <div class="label">Hand</div>
-      <div id="action-hands" class="btn-row"></div>
-      <div class="label">Action</div>
-      <div class="btn-row">
-        <button class="btn wide" onclick="sendAction('double')">DOUBLE</button>
-        <button class="btn wide" onclick="sendAction('split')">SPLIT</button>
+      <!-- RESULT pane -->
+      <div id="pane-result" class="pane">
+        <div class="label">Player</div>
+        <div id="result-players" class="btn-row"></div>
+        <div class="label">Hand</div>
+        <div id="result-hands" class="btn-row"></div>
+        <div class="label">Outcome</div>
+        <div class="btn-row">
+          <button class="btn green wide" onclick="sendResult('win')">WIN</button>
+          <button class="btn red   wide" onclick="sendResult('loss')">LOSS</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn yellow wide" onclick="sendResult('push')">PUSH</button>
+          <button class="btn red    wide" onclick="sendResult('bust')">BUST</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn red wide" onclick="sendCmd('result dealer bust')">DEALER BUST</button>
+        </div>
       </div>
-      <div class="btn-row">
-        <button class="btn wide" onclick="sendAction('insurance')">INSURANCE</button>
-        <button class="btn yellow wide" onclick="sendAction('blackjack')">BLACKJACK</button>
-      </div>
-      <div class="label">Dealer</div>
-      <div class="btn-row">
-        <button class="btn wide" onclick="sendCmd('dealer final')">DEALER FINAL</button>
-        <button class="btn yellow wide" onclick="sendCmd('dealer blackjack')">DEALER BJ</button>
-      </div>
-    </div>
 
-    <!-- ROUND pane -->
-    <div id="pane-round" class="pane">
-      <div class="btn-row">
-        <button class="btn green wide" onclick="sendCmd('endround')">END ROUND</button>
-        <button class="btn wide"       onclick="openNewRound()">NEW ROUND</button>
+      <!-- ACTION pane -->
+      <div id="pane-action" class="pane">
+        <div class="label">Player</div>
+        <div id="action-players" class="btn-row"></div>
+        <div class="label">Hand</div>
+        <div id="action-hands" class="btn-row"></div>
+        <div class="label">Action</div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="sendAction('double')">DOUBLE</button>
+          <button class="btn wide" onclick="sendAction('split')">SPLIT</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide"        onclick="sendAction('insurance')">INSURANCE</button>
+          <button class="btn yellow wide" onclick="sendAction('blackjack')">BLACKJACK</button>
+        </div>
+        <div class="label">Dealer</div>
+        <div class="btn-row">
+          <button class="btn wide"        onclick="sendCmd('dealer final')">DEALER FINAL</button>
+          <button class="btn yellow wide" onclick="sendCmd('dealer blackjack')">DEALER BJ</button>
+        </div>
       </div>
-      <div class="btn-row">
-        <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
-        <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+
+      <!-- ROUND pane -->
+      <div id="pane-round" class="pane">
+        <div class="btn-row">
+          <button class="btn green wide" onclick="sendCmd('endround')">END ROUND</button>
+          <button class="btn wide"       onclick="openNewRound()">NEW ROUND</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
+          <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="sendCmd('fouraces firstdeal')">4 ACES (DEAL)</button>
+          <button class="btn wide" onclick="sendCmd('fouraces endround')">4 ACES (END)</button>
+        </div>
       </div>
-      <div class="btn-row">
-        <button class="btn wide" onclick="sendCmd('fouraces firstdeal')">4 ACES (DEAL)</button>
-        <button class="btn wide" onclick="sendCmd('fouraces endround')">4 ACES (END)</button>
+    </div><!-- end #ref-panel -->
+
+    <!-- ── DIGITAL panel ─────────────────────────────────── -->
+    <div id="dig-panel" style="display:none">
+      <div class="tabs-bar" id="dig-tabs">
+        <button class="tab active" onclick="switchDigTab('dig-deal', this)">Deal</button>
+        <button class="tab"        onclick="switchDigTab('dig-play', this)">Play</button>
+        <button class="tab"        onclick="switchDigTab('dig-dealer', this)">Dealer</button>
+        <button class="tab"        onclick="switchDigTab('dig-round', this)">Round</button>
       </div>
-    </div>
-  </div>
+
+      <!-- DEAL pane — initial deal from shoe -->
+      <div id="pane-dig-deal" class="pane active">
+        <p class="hint">Tap to deal the opening cards to all players from the shoe.</p>
+        <button class="btn-big accent" onclick="sendCmd('deal')">DEAL CARDS</button>
+        <div class="btn-row">
+          <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
+        </div>
+      </div>
+
+      <!-- PLAY pane — per-player actions -->
+      <div id="pane-dig-play" class="pane">
+        <div class="label">Player</div>
+        <div id="dig-play-players" class="btn-row"></div>
+        <div class="label">Hand</div>
+        <div id="dig-play-hands" class="btn-row"></div>
+        <div class="label">Action</div>
+        <div class="btn-row">
+          <button class="btn green wide" onclick="sendDigitalPlay('hit')">HIT</button>
+          <button class="btn wide"       onclick="sendDigitalPlay('stand')">STAND</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide"        onclick="sendDigitalPlay('double')">DOUBLE</button>
+          <button class="btn wide"        onclick="sendDigitalPlay('split')">SPLIT</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide"        onclick="sendDigitalPlay('insurance')">INSURANCE</button>
+          <button class="btn yellow wide" onclick="sendDigitalPlay('blackjack')">BLACKJACK</button>
+        </div>
+      </div>
+
+      <!-- DEALER pane — auto dealer turn + evaluation -->
+      <div id="pane-dig-dealer" class="pane">
+        <p class="hint">Reveals the hole card, hits until 17+, and evaluates all hands automatically.</p>
+        <button class="btn-big green" onclick="sendCmd('dealer')">RUN DEALER TURN</button>
+        <div class="btn-row">
+          <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
+        </div>
+      </div>
+
+      <!-- ROUND pane -->
+      <div id="pane-dig-round" class="pane">
+        <div class="btn-row">
+          <button class="btn green wide" onclick="sendCmd('endround')">END ROUND</button>
+          <button class="btn wide"       onclick="openNewRound()">NEW ROUND</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
+          <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+        </div>
+      </div>
+    </div><!-- end #dig-panel -->
+
+  </div><!-- end #panel -->
 </div>
 
 <!-- NEW ROUND MODAL -->
@@ -352,18 +469,37 @@
 // ============================================================
 let players   = [];
 let numHands  = 2;
+let gameMode  = "referee";   // "referee" | "digital"
 
 // Selections per pane
 const sel = {
-  deal:   { player: null, hand: "hand1" },
-  result: { player: null, hand: "hand1" },
-  action: { player: null, hand: "hand1" },
+  deal:    { player: null, hand: "hand1" },
+  result:  { player: null, hand: "hand1" },
+  action:  { player: null, hand: "hand1" },
+  digital: { player: null, hand: "hand1" },
 };
 let selRank = null;
 let selSuit = null;
 
 // ============================================================
-// SETUP
+// SETUP — mode
+// ============================================================
+let setupMode = "referee";
+
+function setMode(m, btn) {
+  setupMode = m;
+  document.querySelectorAll("#mode-row .btn").forEach(b => b.classList.remove("sel"));
+  btn.classList.add("sel");
+  const isDigital = m === "digital";
+  document.getElementById("settings-ref").style.display = isDigital ? "none"  : "";
+  document.getElementById("settings-dig").style.display = isDigital ? ""      : "none";
+  document.getElementById("setup-sub").textContent = isDigital
+    ? "Virtual Drinking Blackjack with digital shoe"
+    : "Real-life Drinking Blackjack scorekeeper";
+}
+
+// ============================================================
+// SETUP — players
 // ============================================================
 const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 const SUITS = [
@@ -393,43 +529,49 @@ function buildNameFields(n) {
     inp.placeholder = `Player ${i+1} name`;
     inp.id = `pname-${i}`;
     inp.style.cssText = "width:100%;height:var(--tap);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:16px;padding:0 14px;";
-    inp.addEventListener("input", rebuildDealerSelectFromInputs);
+    inp.addEventListener("input", () => rebuildDealerSelect(numPlayersSel));
     c.appendChild(inp);
   }
 }
 
-function rebuildDealerSelectFromInputs() {
-  rebuildDealerSelect(numPlayersSel);
-}
-
 function rebuildDealerSelect(n) {
-  const sel = document.getElementById("dealer-select");
-  const prev = sel.value;
-  sel.innerHTML = "";
+  const s = document.getElementById("dealer-select");
+  const prev = s.value;
+  s.innerHTML = "";
   for (let i = 0; i < n; i++) {
     const v = (document.getElementById(`pname-${i}`)?.value || "").trim() || `Player ${i+1}`;
     const o = document.createElement("option");
     o.value = i; o.textContent = v.charAt(0).toUpperCase() + v.slice(1);
-    sel.appendChild(o);
+    s.appendChild(o);
   }
-  if (prev) sel.value = prev;
+  if (prev) s.value = prev;
 }
 
+// ============================================================
+// START GAME
+// ============================================================
 async function startGame() {
   const btn = document.getElementById("start-btn");
   btn.disabled = true;
+
   const names = [];
   for (let i = 0; i < numPlayersSel; i++) {
     names.push((document.getElementById(`pname-${i}`)?.value || "").trim() || `Player${i+1}`);
   }
-  const dealerIdx = parseInt(document.getElementById("dealer-select").value) || 0;
-  const wager     = parseInt(document.getElementById("wager").value)     || 1;
-  const nh        = parseInt(document.getElementById("num-hands").value) || 2;
 
-  const res = await fetch("/setup", {
+  const dealerIdx = parseInt(document.getElementById("dealer-select").value) || 0;
+  const isDigital = setupMode === "digital";
+  const wager     = parseInt(document.getElementById(isDigital ? "wager-dig"     : "wager-ref").value)     || 1;
+  const nh        = parseInt(document.getElementById(isDigital ? "num-hands-dig" : "num-hands-ref").value) || 2;
+  const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
+
+  const body = { players: names, dealer_index: dealerIdx, wager, num_hands: nh, mode: setupMode };
+  if (isDigital) body.num_decks = numDecks;
+
+  const res  = await fetch("/setup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ players: names, dealer_index: dealerIdx, wager, num_hands: nh }),
+    body: JSON.stringify(body),
   });
   const data = await res.json();
   btn.disabled = false;
@@ -438,9 +580,16 @@ async function startGame() {
 
   players  = data.players;
   numHands = nh;
+  gameMode = data.mode || "referee";
+
   updateHeader(data);
   buildGameUI();
   appendLog(data.output, true);
+
+  if (gameMode === "digital") {
+    appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
+  }
+
   document.getElementById("setup").style.display = "none";
   document.getElementById("app").style.display   = "flex";
 }
@@ -449,14 +598,26 @@ async function startGame() {
 // GAME UI CONSTRUCTION
 // ============================================================
 function buildGameUI() {
-  buildPlayerButtons("deal-players",   "deal");
-  buildPlayerButtons("result-players", "result");
-  buildPlayerButtons("action-players", "action");
+  const isDigital = gameMode === "digital";
+
+  document.getElementById("ref-panel").style.display = isDigital ? "none" : "";
+  document.getElementById("dig-panel").style.display = isDigital ? ""     : "none";
+
+  if (isDigital) {
+    buildDigitalUI();
+  } else {
+    buildRefereeUI();
+  }
+}
+
+function buildRefereeUI() {
+  buildPlayerButtons("deal-players",   "deal",   true);
+  buildPlayerButtons("result-players", "result", true);
+  buildPlayerButtons("action-players", "action", true);
   buildHandButtons("deal-hands",   "deal");
   buildHandButtons("result-hands", "result");
   buildHandButtons("action-hands", "action");
   buildCardGrid();
-  // default selections
   if (players.length > 0) {
     setPlayerSel("deal",   players[0]);
     setPlayerSel("result", players[0]);
@@ -464,10 +625,20 @@ function buildGameUI() {
   }
 }
 
-function buildPlayerButtons(containerId, pane) {
+function buildDigitalUI() {
+  buildPlayerButtons("dig-play-players", "digital", false);
+  buildHandButtons("dig-play-hands", "digital");
+  if (players.length > 0) {
+    setPlayerSel("digital", players[0]);
+  }
+}
+
+// includeDealer: referee needs "Dealer" in player lists; digital play does not
+function buildPlayerButtons(containerId, pane, includeDealer) {
   const c = document.getElementById(containerId);
   c.innerHTML = "";
-  [...players, "Dealer"].forEach(name => {
+  const list = includeDealer ? [...players, "Dealer"] : players;
+  list.forEach(name => {
     const b = document.createElement("button");
     b.className = "btn";
     b.textContent = name;
@@ -489,7 +660,6 @@ function buildHandButtons(containerId, pane) {
 }
 
 function buildCardGrid() {
-  // Ranks
   const rg = document.getElementById("rank-grid");
   rg.innerHTML = "";
   RANKS.forEach(r => {
@@ -499,7 +669,6 @@ function buildCardGrid() {
     b.onclick = () => selectRank(r, b);
     rg.appendChild(b);
   });
-  // Suits
   const sg = document.getElementById("suit-grid");
   sg.innerHTML = "";
   SUITS.forEach(s => {
@@ -515,13 +684,22 @@ function buildCardGrid() {
 // ============================================================
 // SELECTION HELPERS
 // ============================================================
+const PLAYER_CONTAINER = {
+  deal: "deal-players", result: "result-players",
+  action: "action-players", digital: "dig-play-players",
+};
+
 function setPlayerSel(pane, name) {
   sel[pane].player = name;
-  const ids = { deal: "deal-players", result: "result-players", action: "action-players" };
-  document.querySelectorAll(`#${ids[pane]} .btn`).forEach(b => {
+  document.querySelectorAll(`#${PLAYER_CONTAINER[pane]} .btn`).forEach(b => {
     b.classList.toggle("sel", b.textContent === name);
   });
 }
+
+const HAND_CONTAINER = {
+  deal: "deal-hands", result: "result-hands",
+  action: "action-hands", digital: "dig-play-hands",
+};
 
 function setHandSel(pane, hand, btn, containerId) {
   sel[pane].hand = hand;
@@ -553,23 +731,20 @@ function tryDeal() {
   const card   = selRank.toLowerCase() + selSuit;
   sendCmd(`deal ${pToken} ${card} ${hand}`);
 
-  // Reset card selections
   selRank = null; selSuit = null;
   document.querySelectorAll(".card-btn.sel").forEach(b => b.classList.remove("sel"));
 }
 
 // ============================================================
-// RESULT / ACTION DISPATCH
+// RESULT / ACTION / DIGITAL DISPATCH
 // ============================================================
 function sendResult(outcome) {
   const player = sel.result.player;
   const hand   = sel.result.hand;
   if (!player) { appendLog("  Select a player first.\n"); return; }
-  if (player === "Dealer") {
-    sendCmd(`result dealer ${outcome}`);
-  } else {
-    sendCmd(`result ${player} ${outcome} ${hand}`);
-  }
+  sendCmd(player === "Dealer"
+    ? `result dealer ${outcome}`
+    : `result ${player} ${outcome} ${hand}`);
 }
 
 function sendAction(action) {
@@ -577,6 +752,13 @@ function sendAction(action) {
   const hand   = sel.action.hand;
   if (!player) { appendLog("  Select a player first.\n"); return; }
   sendCmd(`action ${player} ${action} ${hand}`);
+}
+
+function sendDigitalPlay(action) {
+  const player = sel.digital.player;
+  const hand   = sel.digital.hand;
+  if (!player) { appendLog("  Select a player first.\n"); return; }
+  sendCmd(`${action} ${player} ${hand}`);
 }
 
 // ============================================================
@@ -604,11 +786,11 @@ function appendLog(text, clear = false) {
   text.split("\n").forEach(line => {
     const span = document.createElement("span");
     const l = line.toLowerCase();
-    if (l.includes("drink") || l.includes("sip"))              span.className = "line-drink";
-    else if (l.includes("blackjack") || l.includes("***"))     span.className = "line-bj";
-    else if (l.includes("win") || l.includes("bust") && !l.includes("dealer")) span.className = "line-ok";
-    else if (l.includes("===") || l.includes("round"))         span.className = "line-header";
-    else if (l.startsWith("  (i)") || l.startsWith("    "))    span.className = "line-dim";
+    if (l.includes("drink") || l.includes("sip"))                              span.className = "line-drink";
+    else if (l.includes("blackjack") || l.includes("***"))                     span.className = "line-bj";
+    else if (l.includes("win") || (l.includes("bust") && !l.includes("dealer"))) span.className = "line-ok";
+    else if (l.includes("===") || l.includes("round"))                         span.className = "line-header";
+    else if (l.startsWith("  (i)") || l.startsWith("    "))                    span.className = "line-dim";
     span.textContent = line + "\n";
     log.appendChild(span);
   });
@@ -622,18 +804,28 @@ function updateHeader(data) {
   if (data.players) players = data.players;
   const dealer = data.dealer || "";
   const round  = data.round  || "";
-  document.getElementById("header-title").textContent = "BJ Referee";
-  document.getElementById("header-sub").textContent =
-    `Round ${round}  |  Dealer: ${dealer}`;
+  const mode   = data.mode   || gameMode;
+  const badge  = mode === "digital"
+    ? '<span class="mode-badge digital">Digital</span>'
+    : '<span class="mode-badge referee">Referee</span>';
+  document.getElementById("header-title").innerHTML = `BJ Referee ${badge}`;
+  document.getElementById("header-sub").textContent = `Round ${round}  |  Dealer: ${dealer}`;
 }
 
 // ============================================================
 // TABS
 // ============================================================
-function switchTab(name) {
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
-  event.currentTarget.classList.add("active");
+function switchRefTab(name, el) {
+  document.querySelectorAll("#ref-tabs .tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll("#ref-panel .pane").forEach(p => p.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById(`pane-${name}`).classList.add("active");
+}
+
+function switchDigTab(name, el) {
+  document.querySelectorAll("#dig-tabs .tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"));
+  el.classList.add("active");
   document.getElementById(`pane-${name}`).classList.add("active");
 }
 
@@ -649,8 +841,15 @@ function closeModal() {
 async function doNewRound(rotate) {
   closeModal();
   await sendCmd(rotate ? "newround rotate" : "newround keep");
-  // Rebuild player buttons in case dealer changed
   buildGameUI();
+  // Jump back to Deal tab
+  if (gameMode === "digital") {
+    const firstTab = document.querySelector("#dig-tabs .tab");
+    if (firstTab) switchDigTab("dig-deal", firstTab);
+  } else {
+    const firstTab = document.querySelector("#ref-tabs .tab");
+    if (firstTab) switchRefTab("deal", firstTab);
+  }
 }
 
 // ============================================================
@@ -661,19 +860,20 @@ function resetToSetup() {
   document.getElementById("app").style.display   = "none";
   document.getElementById("setup").style.display = "flex";
   document.getElementById("log").innerHTML = "";
-  players = [];
+  players  = [];
+  gameMode = "referee";
 }
 
 // ============================================================
-// INIT
+// INIT — reconnect to existing server session on page reload
 // ============================================================
 (async () => {
-  const res = await fetch("/state");
+  const res  = await fetch("/state");
   const data = await res.json();
   if (data.ok && data.players && data.players.length > 0) {
-    // Server already has a session (e.g. page reload)
     players  = data.players;
     numHands = 2;
+    gameMode = data.mode || "referee";
     updateHeader(data);
     buildGameUI();
     appendLog("  (Reconnected to existing session)\n");
