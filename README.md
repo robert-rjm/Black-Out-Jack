@@ -3,9 +3,20 @@ _an AdHoc creation_
 
 Welcome to _**Drinking BlackJack**_, a fun twist on classic BlackJack. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack. 
 
-Play it digitally with an implementation in Python, use it as a real-life referee, or run it from your phone via a local web UI.
+Play it digitally with an implementation in Python, use it as a real-life referee, or run it from your phone via a local web UI. You can choose between either **Referee** mode (physical deck, digital scorecard) or **Digital** mode (fully playable in-browser blackjack with a virtual shoe).
+
+## <a id="quick-start"></a> ⚡ Quick Start
+Requires Python 3.10+
+```bash
+git clone https://github.com/robert-rjm/Drinking-BlackJack.git && cd Drinking-BlackJack
+pip install flask                # only needed for the web UI
+python app.py                    # Web UI → http://localhost:5000
+python blackjack.py              # Terminal game (no extra dependencies)
+python referee.py                # Terminal referee for real-life play
+```
 
 ## 📑 Table of Contents
+- [Quick Start](#quick-start)
 - [Features](#features)
 - [Drink Responsibly](#drink-responsibly)
 - [Installation & Setup](#installation)
@@ -35,8 +46,10 @@ Play it digitally with an implementation in Python, use it as a real-life refere
 - **Ace split** simplification
 
 ### 🍺 **Extensive Drink Rules**
-The full drinking ruleset is documented in [Rules.md](Rules.md).  
-A worked example showing how multiple rules interact in one round is in [ComprehensiveExample.md](ComprehensiveExample.md).
+The full drinking ruleset is documented in [Rules.md](Rules.md).
+
+To see how all these rules play out together in practice, check out [ComprehensiveExample.md](ComprehensiveExample.md). It walks through a full round step by step, covering ace deals, blackjack bonuses, net hand losses, sweeps, and suited-hand interactions.
+> [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
 > 
 > Players are encouraged to come up with new rule ideas as they play. If they make the game more fun, they are probably worth keeping!
@@ -64,8 +77,10 @@ Computer-controlled seats using standard basic strategy. NPCs:
 - Can hold the dealer role
 
 ## <a id="drink-responsibly"></a> ⚠️ Drink Responsibly
-This game is best enjoyed in good company and with good judgment. **Drink responsibly and know your limits**.
-
+> [!IMPORTANT]
+> This game is best enjoyed in good company and with good judgment.
+> **Drink responsibly and know your limits**.
+>
 > _The goal is to have fun, not regrets._ 🍻
 
 ## <a id="installation"></a> 🚀 Installation & Setup
@@ -73,14 +88,14 @@ This game is best enjoyed in good company and with good judgment. **Drink respon
 ### 📁 **Project Structure**
 ```
 Drinking-BlackJack/
-├── BlackJack.py             # Main Game (START HERE)
+├── blackjack.py             # Core game logic + terminal game (START HERE)
 ├── Rules.md                 # Drinking Rules
-├── drinking_rules.py        # Drinking rules layer
-├── ComprehensiveExample.md  # Example for Drinking Rules
+├── drinking_rules.py        # Drinking Rules
 ├── referee.py               # Terminal referee for real-life play
-├── app.py                   # Flask web server (phone-friendly UI)
+├── app.py                   # Flask web server (Referee & Digital modes)
 ├── templates/
 │   └── index.html           # Web UI served by app.py
+├── ComprehensiveExample.md  # Example for Drinking Rules
 ├── README.md
 └── LICENSE
 ```
@@ -108,7 +123,7 @@ When the rules change, update these values after re-verifying the implementation
 Play Blackjack fully on your computer — the game deals cards, manages turns, and tracks drinks automatically.
 
 ```bash
-python BlackJack.py
+python blackjack.py
 ```
 
 At startup you choose:
@@ -126,7 +141,7 @@ python referee.py
 
 **Commands:**
 ```
-deal <player> <card> [hand<n>]        deal Rob Ah hand1
+deal <player> <card> [hand<n>]       deal Rob Ah hand1
 action <player> <action> [hand<n>]   action Rob double hand1
 result <player> <outcome> [hand<n>]  result Rob win hand1
 result dealer bust
@@ -139,7 +154,7 @@ help                                 full command reference
 **Card format:** `<rank><suit>` — e.g. `Ah` `10s` `Kd` `3c`
 
 ### 3. Web Referee (iPhone / Browser)
-Run the web server and open it on any phone on the same WiFi network — or deploy it online for remote access.
+Run the Flask server and open it on any phone on the same WiFi network, or deploy it online for remote access.
 
 ```bash
 python app.py
@@ -147,10 +162,58 @@ python app.py
 
 Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the exact URL on startup.
 
-> ⚠️ The Flask dev server is not secure for public networks.
+> [!WARNING]
+> The Flask dev server is not secure for public networks.
 > Only use on trusted WiFi or deploy behind a proper web server.
 
-Features tap-friendly modals for dealing cards, setting actions and results, plus a live drink log that highlights drinking events in real time.
+#### 🟦 Referee Mode
+Use when playing with a **physical deck**. The app is a tap-friendly scorecard and drink tracker — you deal the real cards and tap in what happened.
+
+**Setup fields:** players, dealer, sips/hand, hands/player.
+
+**Tabs during play:**
+
+| Tab | What it does |
+|---|---|
+| **Deal** | Select player + hand + rank + suit to register a card dealt |
+| **Result** | Mark a hand WIN / LOSS / PUSH / BUST, or Dealer BUST |
+| **Action** | Register DOUBLE, SPLIT, INSURANCE, BLACKJACK, or dealer final state |
+| **Round** | END ROUND, NEW ROUND, STATUS, HELP, manual 4-Aces triggers |
+
+#### 🟩 Digital Mode
+A **fully playable** browser blackjack game — no physical deck needed. The app deals cards from a virtual shoe, manages all player turns, runs the dealer automatically, and fires all drinking rules.
+
+**Setup fields:** players, dealer, sips/hand, hands/player, decks in shoe (1–8).
+
+**Tabs during play:**
+
+| Tab | What it does |
+|---|---|
+| **Deal** | Tap **DEAL CARDS** to deal opening cards to all hands from the shoe |
+| **Play** | Select player + hand, then tap HIT / STAND / DOUBLE / SPLIT / INSURANCE / BLACKJACK |
+| **Dealer** | Tap **RUN DEALER TURN** — reveals hole card, hits until 17+, evaluates all hands automatically |
+| **Round** | END ROUND (fires drink summary), NEW ROUND (keep or rotate dealer), STATUS, HELP |
+
+**Digital mode commands reference:**
+
+```
+deal                          Deal opening cards to all hands from the shoe
+hit <player> [hand<n>]        Deal one card to that hand
+stand <player> [hand<n>]      Mark the hand as stood
+double <player> [hand<n>]     Double down — deal one card then stand
+split <player> [hand<n>]      Split the hand, deal one card to each
+insurance <player> [hand<n>]  Mark the hand as insured (when dealer shows Ace)
+blackjack <player> [hand<n>]  Confirm a natural blackjack, fire drink rules
+dealer                        Run the full dealer turn + auto-evaluate all hands
+endround                      Fire end-of-round drink rules, print summary
+newround [rotate]             Start a new round; 'rotate' passes the dealer role
+status                        Show current state of all hands
+help                          Full command reference
+```
+
+The shoe reshuffles automatically at the start of a new round if penetration is reached.
+
+Both modes share the same drink-rule engine, live drink log (colour-coded by event type), and session persistence, reloading the page reconnects to the active session.
 
 ## <a id="file-architecture"></a> 🏗️ File Architecture
 
@@ -158,21 +221,23 @@ The three main files are intentionally decoupled:
 
 | File | Depends on | Purpose |
 |---|---|---|
-| `Blackjack.py` | nothing | Core game logic, standalone for normal BJ |
-| `drinking_rules.py` | `Blackjack.py` | Drinking layer only, no game logic |
-| `referee.py` | both | Real-life command parser |
-| `app.py` | `referee.py`, `Blackjack.py` | Flask wrapper for web UI |
+| `blackjack.py` | nothing | Core game logic, card/hand/deck classes, terminal game |
+| `drinking_rules.py` | `blackjack.py` | Drinking layer only, no game logic |
+| `referee.py` | `blackjack.py`, `drinking_rules.py` | Terminal referee command parser for real-life play |
+| `app.py` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Flask server, Referee mode and Digital mode web UI |
+| `templates/index.html` | served by `app.py` | Mobile-first browser UI for both modes |
 
-This means:
+**Separation of concerns:**
 - **Changing a drinking rule** → edit only `drinking_rules.py`
-- **Adding a game feature** → edit only `blackjack.py`
+- **Changing core game logic** → edit only `blackjack.py`
 - **Adding a referee command** → edit only `referee.py`
+- **Changing web UI behaviour or adding a digital command** → edit `app.py` and/or `templates/index.html`
 
 ---
 
 ## <a id="contributing"></a> 🤝 Contributing
 
-Rule ideas are especially welcome — the best rules often come mid-game! Please:
+Rule ideas are especially welcome — if it made the game more fun, it probably belongs here! Please:
 
 1. **Fork** the repository
 2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
@@ -185,7 +250,10 @@ Rule ideas are especially welcome — the best rules often come mid-game! Please
 ### **✅ Implemented**
 - Basic BlackJack game structure
 - Comprehensive drinking rules documentation
-- Game setup and basic gameplay mechanics
+- Terminal game with normal and drinking modes
+- Terminal referee for real-life play
+- Web UI with Referee mode (physical deck scorecard)
+- Web UI with Digital mode (full in-browser blackjack with virtual shoe)
 
 ### **🔄 Planned Features**
 - Adjusted ruling to reward pushes more
