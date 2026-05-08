@@ -2,7 +2,7 @@
 
 This document outlines the full set of rules for _**Black(Out)Jack**_: a fun, fast, and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
 
-Unless explicitly stated here, standard BlackJack rules apply. These custom rules are designed to add energy, unpredictability, and fun to the game, especially when played socially.
+Standard BlackJack rules apply unless explicitly modified below. These custom rules are designed to add energy, unpredictability, and fun to the game, especially when played socially.
 
 **Note:** This rule set is always evolving. Players are encouraged to propose new rules during gameplay if they make the experience better.
 
@@ -13,15 +13,17 @@ Unless explicitly stated here, standard BlackJack rules apply. These custom rule
 - [Potential future rules](#potential-future-rules)
 - [Example Scenarios](#example-scenarios)
 
+---
+
 ## Game Setup
-Black(Out)Jack is played with a standard deck of cards (or multiple decks), which is shuffled after each round. Unlike traditional BlackJack where chips are used, _**drinks act as the betting currency**_.
+Black(Out)Jack is played with a standard deck of cards (or multiple decks), shuffled after each round. Unlike traditional BlackJack where chips are used, _**drinks act as the betting currency**_.
 
 Every player is required to have a drink ready.
 
 ### Gameplay Rules:
 | Rule | Details |
 |---|---|
-| Hands per Player | 2 recommended (all Players must play the same number) |
+| Hands per Player | 2 recommended (must be equal for all Players) |
 | Wager | Agreed before starting (e.g. 1 sip per hand) |
 | Hand scoring | Win = +1, Loss = -1, Push = 0 |
 | Net result | Only net negative scores result in sips |
@@ -33,45 +35,44 @@ Every player is required to have a drink ready.
 
 *For fairness, all players must play with the same number of hands and wager.*
 
-### Dealer Rules:
+### Dealer Rotation
 
 There is no fixed Dealer. The role rotates every _n_ rounds.
 
 > _Recommendation:_ switch Dealer every _n_ rounds,
 > where _n_ = number of Players
 
-Being Dealer places you at a higher risk of drinking.
+Being Dealer carries higher drinking risk.
 
-| Switch Type | Trigger | What Happens |
+| Switch Type | Trigger | Effect |
 |---|---|---|
-| **Hard Switch** | Dealer loses **all** hands (push ≠ loss) | Dealer drinks sips for each Player's hands (see [Drinking on behalf of the Dealer](#drinking-on-behalf-of-the-dealer-hard-dealer-switch)). Role passes to next Player. |
-| **Soft Switch** | Dealer wins **all** hands (push ≠ win) | Each Player drinks their respective sips. Dealer drinks nothing. Role passes to next Player. |
+| **Hard Switch** | Dealer loses **all** hands | Dealer drinks sips for all Players' hands (see [Hard Dealer Switch](#drinking-on-behalf-of-the-dealer-hard-dealer-switch)). Role passes. |
+| **Soft Switch** | Dealer wins **all** hands | Each Player drinks their sips. Dealer drinks nothing. Role passes. |
 
-- Soft Switch exemption: does not trigger if a Player takes insurance on Blackjack
+- A push counts as neither a win nor a loss for switch purposes.
+- Soft Switch does **not** trigger if any Player took insurance on Blackjack.
+- _**Play with Honor:**_ Intentionally sabotaging your own hand to avoid a Hard Switch is not allowed.
 
-_**Play with Honor:**_ You are not allowed to intentionally sabotage your own hand to reduce the risk of triggering a Hard dealer switch.
-
+---
 
 ## General Rule Modifications
 
 _Unless stated otherwise within these rules, traditional rules of BlackJack apply._
 
-### Core Modifications:
-
 | Rule | Modification |
 |---|---|
-| Dealer stands on | All 17s, including soft 17 |
-| Blackjack payout | 2:1 (sip rules outlined in [Drinking Rules](#drinking-rules)) |
+| Dealer stands on | All 17s (including soft 17) |
+| Blackjack payout | 2:1 (see [Drinking Rules](#drinking-rules)) |
 | Double down | Allowed on any two-card hand, including after any split |
-| Splitting 10s | **Mandatory** except if suited (see [Doubles, Splits, and Suited](#2-doubles-splits-and-suited-exception-to-immunity)) |
-| Splitting | Maximum of 5 splits per starting hand (up to 10 hands from starting two hands). |
+| Splitting 10s | **Mandatory** unless suited (see [Suited exception](#2-doubles-splits-and-suited-exception-to-immunity)) |
+| Splitting | Maximum 5 splits per starting hand |
 
 ### Splitting Aces:
 
 | Rule | Details |
 |---|---|
-| Number of splits | Up to the general maximum of 5 splits per starting hand |
-| Wager | Counted per hand (increases with each split) |
+| Splits allowed | Up to the general maximum (5 per starting hand) |
+| Wager | Counted per resulting hand |
 | Blackjack on split Aces | Counts as Blackjack (not just 21) |
 | After splitting | Player may hit, double, or split again |
 
@@ -83,15 +84,18 @@ When the Dealer shows an Ace or a 10-value card:
 |---|---|
 | Dealer peek | Dealer does **not** peek at face-down card |
 | Player insurance | Player may insure their Blackjack |
-| Insurance effect | Blackjack treated as regular 21 — other Players do not drink for the Blackjack |
+| Insurance effect | Blackjack treated as regular 21, other Players do not drink for it |
 | Dealer has Blackjack | Player's doubles and splits are not counted |
-| Max sips | Number of hands × wager per hand (e.g. 2 sips with 2 hands and 1 sip wager) |
+| Max sips if Dealer has BJ | Hands × wager (e.g. 2 hands × 1 sip = 2 sips max) |
+
+---
 
 ## Drinking Rules
-### Drinking based on dealt cards
-_If any of the below occur on a doubled hand, the sips are doubled._
 
-#### Cards dealt to Player:
+### Ace Effects (by suit)
+
+**Dealt to Player**
+
 | Card | Effect |
 |---|---|
 | ♣ Ace of Clubs | Subtract 1 sip from your net total at the end of the round (minimum 0) |
@@ -99,7 +103,7 @@ _If any of the below occur on a doubled hand, the sips are doubled._
 | ♥ Ace of Hearts | Treat yourself to a sip (drink 1 sip) |
 | ♦ Ace of Diamonds | Dealer drinks 1 sip |
 
-#### Cards dealt to Dealer:
+**Dealt to Dealer**
 | Card | Effect |
 |---|---|
 | ♣ Ace of Clubs | Dealer is exempt from drinking for a Hard Dealer Switch |
@@ -107,56 +111,54 @@ _If any of the below occur on a doubled hand, the sips are doubled._
 | ♥ Ace of Hearts | All Players treat themselves to a sip (everyone drinks 1 sip) |
 | ♦ Ace of Diamonds | All Players except Dealer drink 1 sip |
 
-### Drinking based on hand outcome:
-- Drink once for each net hand lost against the Dealer
-  - _(e.g. if winning 1 hand and losing the other, penalties offset)_
-- Drink once more if you lost a double.
-- Drink once more if your lost hand is suited.
+### Hand Outcome Drinking
 
-### Drinking based on other Player(s) cards:
+For each **net hand lost** against the Dealer, drink 1 sip (wager). Additional penalties:
+
+| Condition | Extra sips |
+|---|---|
+| Lost hand was doubled | +1 sip |
+| Lost hand was suited | +1 sip |
+
+### Other Players' Hands
+
 Other Players' results may cause you to drink additional sips. Your own hand outcome determines how much you are affected.
 
 #### 1. When another Player wins ALL their hands:
+
 | Your result | Sips you drink |
 |---|---|
 | You lost at least 1 hand | 1 sip per hand the other Player won |
-| You won all your hands | 0 sips (immune — see exceptions below) |
-| You have no losses but at least 1 push | 1 sip per hand the other Player won, minus the number of your own won hands |
+| You won all your hands | 0 sips (immune: see exceptions below) |
+| No losses but at least 1 push | Other Player's wins minus your own wins |
 
 > **Example (2 hands each):**
-> - Other Player wins both hands. You won 1, pushed 1 → drink 2 - 1 = 1 sip
-> - Other Player wins both hands. You lost 1, won 1 → drink 2 sips
-> - Other Player wins both hands. You also won both → drink 0 sips
+> - Other Player wins both. You won 1, pushed 1 → drink 2 - 1 = 1 sip
+> - Other Player wins both. You lost 1, won 1 → drink 2 sips
+> - Other Player wins both. You also won both → drink 0 sips
 
 #### 2. Doubles, Splits, and Suited (exception to immunity):
-If another Player wins a **doubled hand** or wins **both hands of a split** or wins a hand where **all cards are the same suit**,
-drink 1 sip each even if you won all your hands.
 
-If another Player wins a **double** where **all cards are the same suit**,
-drink 4 sips instead of 1 sip, even if you won all your hands.
+Even if you won all your hands, you still drink if another Player wins with:
 
 | Winning Hand | Sips you drink |
 |---|---|
 | Double | 1 sip |
-| Split | 1 sip for each successful split |
+| Split (per successful split) | 1 sip each |
 | Suited | 1 sip |
 | Double suited | 4 sips |
 
-- **Note:** This is the reason suited 10s are the only acceptable
-  exception to the mandatory split 10s rule
-  (see [General Rule Modifications](#general-rule-modifications)).
+> This is why suited 10s are the only exception to the mandatory split 10s rule.
 
-> **Example:**
-> - Player A splits 2 times (3 hands) and wins 3 hands → 2 splits won → Drink 2 sips
-> - Player B splits 2 times (3 hands) and wins 2 hands → 1 splits won → Drink 1 sips
-> - Player C splits 2 times (3 hands) and wins 1 hand → 0 splits won →  0 sips
+> **Example:** Player splits twice (3 hands), wins 2 → 1 split won → others drink 1 sip
 
 #### 3. Blackjack bonus (always applies):
-If another Player gets a Blackjack (21 in first two cards), **everyone** drinks 1 sip, regardless of your own hand result.
+
+When any Player gets a Blackjack, **everyone** drinks 1 sip (regardless of own result).
 
 This includes Blackjacks from split Aces.
 
-The base sip is **doubled cumulatively** for each of the following that applies:
+This base sip is **doubled cumulatively**:
 
 | Condition | Multiplier |
 |---|---|
@@ -165,129 +167,79 @@ The base sip is **doubled cumulatively** for each of the following that applies:
 | Both cards are black (Spades or Clubs) | ×2 |
 
 > **Examples:**
-> - Ace of Hearts + King of Diamonds → base: **1 sip**
-> - Ace of Hearts + Jack of Hearts → suited + Ace & Jack: 1 × 2 × 2 = **4 sips**
-> - Ace of Spades + Jack of Spades → suited + Ace & Jack + both black:
->   1 × 2 × 2 × 2 = **8 sips** 💀
+> A♥ + K♦ → **1 sip**  
+> A♥ + J♥ → suited + A&J: 1×2×2 = **4 sips**  
+> A♠ + J♠ → suited + A&J + black: 1×2×2×2 = **8 sips**
 
 ### Special hand rules
+
 These rules apply based on specific card combinations during gameplay.
 
-#### 1. 21 with 5+ cards (Player):
-If a Player reaches exactly **21 with 5 or more cards**, that Player may
-**hand out sips** to other Players of their choice.
+#### 1. Player reaches 21 with 5+ cards:
 
-| Number of cards | Sips to hand out |
-|---|---|
-| 5 cards | 5 sips |
-| 6 cards | 6 sips |
-| 7+ cards | etc. |
+The Player hands out sips equal to the number of cards (5 cards = 5 sips, 6 = 6, etc.), distributed among other Players however they choose. Does **not** need to win against Dealer.
 
-- Sips may be distributed among multiple Players in any way the Player chooses
-- The hand does **not** need to win against the Dealer for this rule to apply
+#### 2. Player wins with 5+ cards:
 
-> **Example:** Player hits to 21 with 6 cards → hands out 3 sips to
-> Player A and 3 sips to Player B
+All other Players drink 1 sip. Stacks with rule 1 if the hand is exactly 21. A push does not trigger this.
 
-#### 2. Winning with 5+ cards (Player):
-If a Player **wins** a hand consisting of **5 or more cards**,
-all other Players drink 1 sip.
+#### 3. Dealer reaches 21 with 5+ cards:
 
-- This stacks with rule 1 if the 5+ card hand is exactly 21
-- A push does **not** trigger this rule, the hand must win
+All Players' wagers are doubled for that round.
 
-#### 3. 21 with 5+ cards (Dealer): 
-If a Dealker reaches exactly **21 with 5 or more cards**,
-all Players wagers are doubled
-
-> **Example:** Dealer has 21 with 6 cards (with standard wager 1 sip per hand)
-> - Player A lost one hands → must drink 2 sips
-> - Player B lost a double  → must drink 4 sips
+> **Example:** Dealer has 21 with 6 cards, standard 1 sip wager:  
+> Player A lost one hand → 2 sips. Player B lost a double → 4 sips.
 
 #### 4. Dealer suited hand:
-If the Dealer's final hand is **suited** (all cards the same suit),
-all Players drink 2 sips.
 
-- This applies regardless of whether the Dealer wins or loses
-- If the Dealer busts with a suited hand, Players still drink 2 sips
+If the Dealer's final hand is entirely one suit, all Players drink 2 sips (regardless of Dealer win/loss/bust).
 
 #### 5. Four Aces on the table:
 
-| When | Who drinks | Sips |
-|---|---|---|
-| All 4 Aces are visible after the **first deal** (before any hits) | Everyone | 2 sips |
-| All 4 Aces are visible at the **end of the round** (after all hits) | Everyone | 1 sip |
+| Timing | Sips |
+|---|---|
+| All 4 Aces visible after first deal (before hits) | Everyone drinks 2 |
+| All 4 Aces visible at end of round | Everyone drinks 1 |
 
-- "On the table" includes all Player hands and the Dealer's face-up card
-- These two rules **cannot stack**: if all 4 Aces appear on the first deal
-  and are still visible at the end, everyone drinks 2 sips
+- Includes all Player hands and the Dealer's face-up card.
+- These two cannot stack (first-deal rule takes precedence).
+
+---
 
 ### Drinking on behalf of the Dealer (Hard Dealer Switch):
 
-When the Dealer **loses all hands** (a push does NOT count as a loss),
-a **Hard Dealer Switch** is triggered:
-- The Dealer must drink sips based on **all Players' hands**
-- The role of Dealer passes to the next Player
-
-#### How to count sips:
-
-Each Player's hand contributes sips to the Dealer's total:
+Triggered when the Dealer loses all hands. Dealer drinks based on all Players' winning hands, then the role passes.
 
 | Hand type | Sips the Dealer drinks |
 |---|---|
-| Regular winning hand | 1 sip (same as any Player) |
-| Blackjack (21 in first two cards) | 1 sip (plus Player drinks 2 sips or more) |
+| Regular winning hand | 1 sip |
+| Blackjack | 1 sip (Players also drink per Blackjack bonus) |
 | Doubled winning hand | 2 sips |
-| Split hands | Count each hand separately (no extra sip for the split itself) |
-| Suited hands | Dealer does *not* drink for suited |
+| Split hands | Each hand counted separately (no extra sip for the split itself) |
+| Suited hands | No extra sips for Dealer |
 
-#### Dealer's own hands as a Player:
+**Dealer's own Player hands:** The Dealer also plays as a Player. To avoid double punishment:
+- Dealer's own Blackjack → 1 sip (no multiplier)
+- Dealer's own Ace of Clubs → −1 sip from Dealer's total
 
-The Dealer is also a Player and has their own hands.
-To avoid double punishment, the following exceptions apply:
+**Ace of Clubs protection:** If ♣A is dealt to the Dealer, the switch still occurs but the Dealer drinks 0 sips. Players still drink normally.
 
-| Dealer's own hand | Sips the Dealer drinks |
-|---|---|
-| Blackjack | 1 sip (no multiplier) |
-| Clubs Ace | - 1 sip attributed to Dealer |
-| All other hands | same as any Player / Dealer |
-
-#### Ace of Clubs protection:
-If the **Ace of Clubs** is dealt to the Dealer, the Dealer is **exempt** from drinking for the Hard Dealer Switch.
-The switch still occurs, the Dealer role passes to the next Player, but the outgoing Dealer drinks 0 sips. Player may still drink.
+---
 
 ## Potential future rules
 _These rules are under consideration and may be added in future versions.
 Playtest feedback is welcome!_
 
-### Under Review:
-- **Dealer Survivor**: Everyone drinks 1 sip (even winners) if the
-  Dealer does not bust with 6+ cards
-- **Lucky 7s**: If a Player's hand totals exactly 21 with three 7s,
-  all other Players drink 7 sips
-- **Mirror Hands**: If two Players have the same hand total with the
-  same number of cards, they both drink 1 sip
-- **Dealer Blackjack Toast**: If the Dealer gets a Blackjack,
-  everyone raises their drink and takes 2 sips together
-- **Perfect Split**: If a Player splits and wins both hands with the
-  same total, all other Players drink 2 sips
-- **Bust Chain**: If 3 or more Players bust in the same round,
-  the last Player to bust drinks 1 extra sip for each Player
-  who busted before them
+- **Dealer Survivor**: Everyone drinks 1 sip if the Dealer doesn't bust with 6+ cards
+- **Lucky 7s**: Three 7s totalling 21 → all others drink 7 sips
+- **Mirror Hands**: Two Players with same total and same card count → both drink 1
+- **Dealer Blackjack Toast**: Dealer Blackjack → everyone raises and drinks 2
+- **Perfect Split**:  Split with both hands winning at same total → others drink 2
+- **Bust Chain**: 3+ Players bust → last to bust drinks 1 extra per earlier bust
 
-### Community Ideas:
 _Have a rule idea? Open a pull request or suggest it mid-game!
 The best rules often come from the chaos of gameplay._ 🍻
 
 ---
-## Example Scenarios
-Inline examples are provided throughout this document within each rule section. For quick reference:
 
-- [Hand scoring example](#gameplay-rules)
-- [Other Players' wins example](#1-when-another-player-wins-all-their-hands)
-- [Blackjack multiplier examples](#2-blackjack-bonus-always-applies)
-- [5+ card hand example](#1-21-with-5-cards-player)
-- [Hard Dealer Switch example](#drinking-on-behalf-of-the-dealer-hard-dealer-switch)
-
-For full round walkthroughs showing how multiple rules interact,
-see [`ComprehensiveExample.md`](ComprehensiveExample.md).
+For full round walkthroughs showing how multiple rules interact, see [`ComprehensiveExample.md`](ComprehensiveExample.md).
