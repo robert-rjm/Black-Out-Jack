@@ -45,9 +45,13 @@ python referee.py                # Terminal referee for real-life play
 - **Ace split** simplification
 
 ### **Extensive Drink Rules**
+
 The full drinking ruleset is documented in [Rules.md](Rules.md).
 
-To see how all these rules play out together in practice, check out [ComprehensiveExample.md](ComprehensiveExample.md). It walks through a full round step by step, covering ace deals, blackjack bonuses, net hand losses, sweeps, and suited-hand interactions.
+For a one-page reference during gameplay, see [CheatSheet.md](CheatSheet.md).
+
+To see how all these rules play out together in practice, check out [ComprehensiveExample.md](ComprehensiveExample.md).
+
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
 > 
@@ -89,6 +93,7 @@ Computer-controlled seats using standard basic strategy. NPCs:
 Drinking-BlackJack/
 ├── blackjack.py             # Core game logic + terminal game (START HERE)
 ├── Rules.md                 # Drinking Rules
+├── CheatSheet.md            # One-page quick reference for gameplay
 ├── drinking_rules.py        # Drinking Rules
 ├── referee.py               # Terminal referee for real-life play
 ├── app.py                   # Flask web server (Referee & Digital modes)
@@ -118,39 +123,31 @@ When the rules change, update these values after re-verifying the implementation
 
 ## Running the Game
 
+| Mode | Command | Description |
+|------|---------|-------------|
+| Digital Game | `python blackjack.py` | Fully playable in terminal (normal or drinking) |
+| Terminal Referee | `python referee.py` | Physical deck, digital scorecard |
+| Web UI | `python app.py` | Browser-based (referee or digital mode) |
+
 ### 1. Digital Game (Normal or Drinking)
-Play Blackjack fully on your computer — the game deals cards, manages turns, and tracks drinks automatically.
+Play Blackjack fully on your computer, deals cards, manages turns, and tracks drinks automatically.
 
 ```bash
 python blackjack.py
 ```
 
-At startup you choose:
-- **Normal Blackjack** — standard game, no drinking rules
-- **Drinking Blackjack** — full game with all drinking rules active
-
-Supports 1–4 human/NPC players. One seat rotates as dealer every n rounds (where n = number of players). In single-player mode, the House acts as dealer.
+Choose between **Normal Blackjack** (standard game, no drinking rules) or **Drinking Blackjack** (full game with all drinking rules active). Supports 1-4 human or NPC players with rotating dealer.
 
 ### 2. Terminal Referee (Real-Life Play)
-Playing with a physical deck? The referee script tracks drinks while you play in real life. You deal real cards, make real decisions — just tell the script what happened.
+Playing with a physical deck? The referee script tracks drinks while you play in real life. You deal real cards, make real decisions, just tell the script what happened.
 
 ```bash
 python referee.py
 ```
 
-**Commands:**
-```
-deal <player> <card> [hand<n>]       deal card
-action <player> <action> [hand<n>]   action stand, hit, double, split
-result <player> <outcome> [hand<n>]  result hand evaluation
-result dealer bust
-endround                             finalise round, print drink summary
-newround [rotate]                    start next round
-status                               show current hands
-help                                 full command reference
-```
+**Commands:** `deal`, `action`, `result`, `endround`, `newround`, `status`, `help`
 
-**Card format:** `<rank><suit>` — e.g. `Ah` `10s` `Kd` `3c`
+**Card format:** `<rank><suit>`: e.g. `Ah` `10s` `Kd` `3c`. Type `help` in-game for full reference.
 
 ### 3. Web Referee (iPhone / Browser)
 Run the Flask server and open it on any phone on the same WiFi network, or deploy it online for remote access.
@@ -165,54 +162,14 @@ Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the 
 > The Flask dev server is not secure for public networks.
 > Only use on trusted WiFi or deploy behind a proper web server.
 
-#### Referee Mode
-Use when playing with a **physical deck**. The app is a tap-friendly scorecard and drink tracker — you deal the real cards and tap in what happened.
-
-**Setup fields:** players, dealer, sips/hand, hands/player.
-
-**Tabs during play:**
-
-| Tab | What it does |
-|---|---|
-| **Deal** | Select player + hand + rank + suit to register a card dealt |
-| **Result** | Mark a hand WIN / LOSS / PUSH / BUST, or Dealer BUST |
-| **Action** | Register DOUBLE, SPLIT, INSURANCE, BLACKJACK, or dealer final state |
-| **Round** | END ROUND, NEW ROUND, STATUS, HELP, manual 4-Aces triggers |
-
-#### Digital Mode
-A **fully playable** browser blackjack game — no physical deck needed. The app deals cards from a virtual shoe, manages all player turns, runs the dealer automatically, and fires all drinking rules.
-
-**Setup fields:** players, dealer, sips/hand, hands/player, decks in shoe (1–8).
-
-**Tabs during play:**
-
-| Tab | What it does |
-|---|---|
-| **Deal** | Tap **DEAL CARDS** to deal opening cards to all hands from the shoe |
-| **Play** | Select player + hand, then tap HIT / STAND / DOUBLE / SPLIT / INSURANCE / BLACKJACK |
-| **Dealer** | Tap **RUN DEALER TURN** — reveals hole card, hits until 17+, evaluates all hands automatically |
-| **Round** | END ROUND (fires drink summary), NEW ROUND (keep or rotate dealer), STATUS, HELP |
-
-**Digital mode commands reference:**
-
-```
-deal                          Deal opening cards to all hands from the shoe
-hit <player> [hand<n>]        Deal one card to that hand
-stand <player> [hand<n>]      Mark the hand as stood
-double <player> [hand<n>]     Double down — deal one card then stand
-split <player> [hand<n>]      Split the hand, deal one card to each
-insurance <player> [hand<n>]  Mark the hand as insured (when dealer shows Ace)
-blackjack <player> [hand<n>]  Confirm a natural blackjack, fire drink rules
-dealer                        Run the full dealer turn + auto-evaluate all hands
-endround                      Fire end-of-round drink rules, print summary
-newround [rotate]             Start a new round; 'rotate' passes the dealer role
-status                        Show current state of all hands
-help                          Full command reference
-```
-
-The shoe reshuffles automatically at the start of a new round if penetration is reached.
+| Mode | Description |
+|------|-------------|
+| **Referee** | Tap-friendly scorecard for physical deck play. Register deals, actions, and results. |
+| **Digital** | Fully playable browser blackjack with virtual shoe (1–8 decks). |
 
 Both modes share the same drink-rule engine, live drink log (colour-coded by event type), and session persistence, reloading the page reconnects to the active session.
+
+**Tabs during play:** Deal → Play/Action → Dealer/Result → Round
 
 ## File Architecture
 
