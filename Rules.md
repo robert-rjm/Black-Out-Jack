@@ -1,6 +1,6 @@
 # Drinking Blackjack Rules 🃏
 
-This document outlines the full set of rules for _**Drinking BlackJack**_: a fun, fast, and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
+This document outlines the full set of rules for _**Black(Out)Jack**_: a fun, fast, and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
 
 Unless explicitly stated here, standard BlackJack rules apply. These custom rules are designed to add energy, unpredictability, and fun to the game, especially when played socially.
 
@@ -14,7 +14,7 @@ Unless explicitly stated here, standard BlackJack rules apply. These custom rule
 - [Example Scenarios](#example-scenarios)
 
 ## Game Setup
-Drinking BlackJack is played with a standard deck of cards (or multiple decks), which is shuffled after each round. Unlike traditional BlackJack where chips are used, _**drinks act as the betting currency**_.
+Black(Out)Jack is played with a standard deck of cards (or multiple decks), which is shuffled after each round. Unlike traditional BlackJack where chips are used, _**drinks act as the betting currency**_.
 
 Every player is required to have a drink ready.
 
@@ -54,8 +54,7 @@ _**Play with Honor:**_ You are not allowed to intentionally sabotage your own ha
 
 ## General Rule Modifications
 
-_Unless stated otherwise within these rules, traditional rules
-of BlackJack apply._
+_Unless stated otherwise within these rules, traditional rules of BlackJack apply._
 
 ### Core Modifications:
 
@@ -63,9 +62,9 @@ of BlackJack apply._
 |---|---|
 | Dealer stands on | All 17s, including soft 17 |
 | Blackjack payout | 2:1 (sip rules outlined in [Drinking Rules](#drinking-rules)) |
-| Double down | Allowed on any two-card hand, including after a split |
-| Splitting 10s | **Mandatory** — the only exception is suited 10s (see [Suited winning hand](#4-suited-winning-hand)) |
-| Splitting | Maximum of 5 splits per starting hand (up to 6 hands from one original hand). |
+| Double down | Allowed on any two-card hand, including after any split |
+| Splitting 10s | **Mandatory** except if suited (see [Suited winning hand](#4-suited-winning-hand)) |
+| Splitting | Maximum of 5 splits per starting hand (up to 10 hands from starting two hands). |
 
 ### Splitting Aces:
 
@@ -78,7 +77,7 @@ of BlackJack apply._
 
 ### Blackjack Insurance:
 
-When the Dealer shows an Ace:
+When the Dealer shows an Ace or a 10-value card:
 
 | Rule | Details |
 |---|---|
@@ -111,6 +110,8 @@ _If any of the below occur on a doubled hand, the sips are doubled._
 ### Drinking based on hand outcome:
 - Drink once for each net hand lost against the Dealer
   - _(e.g. if winning 1 hand and losing the other, penalties offset)_
+- Drink once more if you lost a double.
+- Drink once more if your lost hand is suited.
 
 ### Drinking based on other Player(s) cards:
 Other Players' results may cause you to drink additional sips. Your own hand outcome determines how much you are affected.
@@ -127,9 +128,31 @@ Other Players' results may cause you to drink additional sips. Your own hand out
 > - Other Player wins both hands. You lost 1, won 1 → drink 2 sips
 > - Other Player wins both hands. You also won both → drink 0 sips
 
+#### 2. Doubles, Splits, and Suited (exception to immunity):
+If another Player wins a **doubled hand** or wins **both hands of a split** or wins a hand where **all cards are the same suit**,
+drink 1 sip each even if you won all your hands.
+
+If another Player wins a **double** where **all cards are the same suit**,
+drink 4 sips instead of 1 sip, even if you won all your hands.
+
+| Winning Hand | Sips you drink |
+|---|---|
+| Double | 1 sip |
+| Split | 1 sip for each successful split |
+| Suited | 1 sip |
+| Double suited | 4 sips |
+
+- **Note:** This is the reason suited 10s are the only acceptable
+  exception to the mandatory split 10s rule
+  (see [General Rule Modifications](#general-rule-modifications)).
+
+> **Example:**
+> - Player A splits 2 times (3 hands) and wins 3 hands → 2 splits won → Drink 2 sips
+> - Player B splits 2 times (3 hands) and wins 2 hands → 1 splits won → Drink 1 sips
+> - Player C splits 2 times (3 hands) and wins 1 hand → 0 splits won →  0 sips
+
 #### 2. Blackjack bonus (always applies):
-If another Player gets a Blackjack (21 in first two cards), **everyone** drinks 1 sip,
-regardless of your own hand result.
+If another Player gets a Blackjack (21 in first two cards), **everyone** drinks 1 sip, regardless of your own hand result.
 
 This includes Blackjacks from split Aces.
 
@@ -146,19 +169,6 @@ The base sip is **doubled cumulatively** for each of the following that applies:
 > - Ace of Hearts + Jack of Hearts → suited + Ace & Jack: 1 × 2 × 2 = **4 sips**
 > - Ace of Spades + Jack of Spades → suited + Ace & Jack + both black:
 >   1 × 2 × 2 × 2 = **8 sips** 💀
-
-#### 3. Doubles and splits (exception to immunity):
-If another Player wins a **doubled hand** or wins **both hands of a split**,
-drink 1 sip — even if you won all your hands.
-
-#### 4. Suited winning hand:
-If another Player wins a hand where **all cards are the same suit**,
-drink 1 sip.
-
-- If the suited hand was **doubled or split**, drink **4 sips** instead of 1.
-- **Note:** This is the reason suited 10s are the only acceptable
-  exception to the mandatory split 10s rule
-  (see [General Rule Modifications](#general-rule-modifications)).
 
 ### Special hand rules
 These rules apply based on specific card combinations during gameplay.
@@ -184,16 +194,24 @@ If a Player **wins** a hand consisting of **5 or more cards**,
 all other Players drink 1 sip.
 
 - This stacks with rule 1 if the 5+ card hand is exactly 21
-- A push does **not** trigger this rule — the hand must win
+- A push does **not** trigger this rule, the hand must win
 
-#### 3. Dealer suited hand:
+#### 3. 21 with 5+ cards (Dealer): 
+If a Player reaches exactly **21 with 5 or more cards**,
+all Players wages are doubled
+
+> **Example:** Dealer has 21 with 6 cards (with standard wager 1 sip per hand)
+> - Player A lost one hands → must drink 2 sips
+> - Player B lost a double  → must drink 4 sips
+
+#### 4. Dealer suited hand:
 If the Dealer's final hand is **suited** (all cards the same suit),
 all Players drink 2 sips.
 
 - This applies regardless of whether the Dealer wins or loses
 - If the Dealer busts with a suited hand, Players still drink 2 sips
 
-#### 4. Four Aces on the table:
+#### 5. Four Aces on the table:
 
 | When | Who drinks | Sips |
 |---|---|---|
@@ -217,10 +235,11 @@ Each Player's hand contributes sips to the Dealer's total:
 
 | Hand type | Sips the Dealer drinks |
 |---|---|
-| Regular winning hand | 1 sip per hand |
-| Blackjack (21 in first two cards) | 2 sips or more |
+| Regular winning hand | 1 sip (same as any Player) |
+| Blackjack (21 in first two cards) | 1 sip (plus Player drinks 2 sips or more) |
 | Doubled winning hand | 2 sips |
-| Split hands | Count each hand separately |
+| Split hands | Count each hand separately (no extra sip for the split itself) |
+| Suited hands | Dealer does *not* drink for suited |
 
 #### Dealer's own hands as a Player:
 
@@ -229,15 +248,13 @@ To avoid double punishment, the following exceptions apply:
 
 | Dealer's own hand | Sips the Dealer drinks |
 |---|---|
-| Regular winning hand | 1 sip (same as any Player) |
-| Doubled winning hand | 2 sips (double penalty still applies) |
-| Split hands | Count each hand separately (no extra sip for the split itself) |
+| Blackjack | 1 sip (no multiplier) |
+| Clubs Ace | - 1 sip attributed to Dealer |
+| All other hands | same as any Player / Dealer |
 
 #### Ace of Clubs protection:
-If the **Ace of Clubs** is dealt to the Dealer, the Dealer is
-**exempt** from drinking for the Hard Dealer Switch.
-The switch still occurs — the Dealer role passes to the next
-Player — but the outgoing Dealer drinks 0 sips.
+If the **Ace of Clubs** is dealt to the Dealer, the Dealer is **exempt** from drinking for the Hard Dealer Switch.
+The switch still occurs, the Dealer role passes to the next Player, but the outgoing Dealer drinks 0 sips. Player may still drink.
 
 ## Potential future rules
 _These rules are under consideration and may be added in future versions.
