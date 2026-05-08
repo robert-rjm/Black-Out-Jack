@@ -1,11 +1,11 @@
 # BlackJack Game 🃏
 _an AdHoc creation_
 
-Welcome to _**Drinking BlackJack**_, a fun twist on classic BlackJack. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack. 
+Welcome to _**Black(Out)Jack**_, a fun twist on classic BlackJack. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack. 
 
 Play it digitally with an implementation in Python, use it as a real-life referee, or run it from your phone via a local web UI. You can choose between either **Referee** mode (physical deck, digital scorecard) or **Digital** mode (fully playable in-browser blackjack with a virtual shoe).
 
-## <a id="quick-start"></a> ⚡ Quick Start
+## Quick Start
 Requires Python 3.10+
 ```bash
 git clone https://github.com/robert-rjm/Drinking-BlackJack.git && cd Drinking-BlackJack
@@ -15,37 +15,36 @@ python blackjack.py              # Terminal game (no extra dependencies)
 python referee.py                # Terminal referee for real-life play
 ```
 
-## 📑 Table of Contents
+## Table of Contents
 - [Quick Start](#quick-start)
 - [Features](#features)
 - [Drink Responsibly](#drink-responsibly)
-- [Installation & Setup](#installation)
+- [Installation & Setup](#installation--setup)
 - [Running the Game](#running-the-game)
 - [File Architecture](#file-architecture)
 - [Contributing](#contributing)
-- [Development Status](#development-status)
 - [License](#license)
 
 ---
 
-## <a id="features"></a> ✨ Features
+## Features
 
-### 🎮 **Core Gameplay**
+### **Core Gameplay**
 - **Classic BlackJack rules** with proper hand evaluation
   - **Goal**: Get as close to 21 as possible without going over
   - **Card Values**: Number cards = face value, Face cards = 10, Ace = 1 or 11
   - **Blackjack**: Ace + 10-value card in first 2 cards
   - **Bust**: Hand total exceeds 21 (automatic loss)
-  - **Dealer Rules**: Must hit on 16 or less, stand on 17+
+  - **Dealer Rules**: Must hit on 16 or less, stand on 17+ (also soft-17)
 - **Player actions**: Hit, Stand, Double Down, Split
 - **Player drinking incentives**: Beneficial deviations from optimal strategy
 - **Smart dealer** that follows standard casino rules (hits until 17+)
 
-### 🛠 **Special Rules**
+### **Special Rules**
 - **Always split 10s** drinking motivation incentivizes this behavior
 - **Ace split** simplification
 
-### 🍺 **Extensive Drink Rules**
+### **Extensive Drink Rules**
 The full drinking ruleset is documented in [Rules.md](Rules.md).
 
 To see how all these rules play out together in practice, check out [ComprehensiveExample.md](ComprehensiveExample.md). It walks through a full round step by step, covering ace deals, blackjack bonuses, net hand losses, sweeps, and suited-hand interactions.
@@ -68,7 +67,7 @@ To see how all these rules play out together in practice, check out [Comprehensi
 | **Hard Dealer Switch** | dealer drinks per each winning hand when they lose all |
 | **Mandatory 10 splits** | warning issued when a player tries to keep 10-value pairs (unless suited) |
 
-### 🤖 NPC Players
+### NPC Players
 Computer-controlled seats using standard basic strategy. NPCs:
 - Never take insurance
 - Follow basic strategy split/hit/stand/double decisions
@@ -76,16 +75,16 @@ Computer-controlled seats using standard basic strategy. NPCs:
 - Auto-distribute sip handouts round-robin
 - Can hold the dealer role
 
-## <a id="drink-responsibly"></a> ⚠️ Drink Responsibly
+## Drink Responsibly
 > [!IMPORTANT]
 > This game is best enjoyed in good company and with good judgment.
 > **Drink responsibly and know your limits**.
 >
 > _The goal is to have fun, not regrets._ 🍻
 
-## <a id="installation"></a> 🚀 Installation & Setup
+## Installation & Setup
 
-### 📁 **Project Structure**
+### **Project Structure**
 ```
 Drinking-BlackJack/
 ├── blackjack.py             # Core game logic + terminal game (START HERE)
@@ -100,7 +99,7 @@ Drinking-BlackJack/
 └── LICENSE
 ```
 
-### 🔒 Rules Verification
+### Rules Verification
 
 `drinking_rules.py` contains a commit SHA and hash pinned to the version of `Rules.md` the implementation was verified against:
 
@@ -111,13 +110,13 @@ __rules_last_verified__  = "2026-04-11"
 
 When the rules change, update these values after re-verifying the implementation.
 
-### 🐛 Troubleshooting
+### Troubleshooting
 
 **Common Issues**
 1. **Inadequate Drinking Rules**: With too many players, excessive drinking may occur per round
 2. **Insufficient Cards**: With multiple Players splitting aggressively, a single deck may run out. Consider using multiple decks for 4+ Players.
 
-## <a id="running-the-game"></a> 🎮 Running the Game
+## Running the Game
 
 ### 1. Digital Game (Normal or Drinking)
 Play Blackjack fully on your computer — the game deals cards, manages turns, and tracks drinks automatically.
@@ -141,9 +140,9 @@ python referee.py
 
 **Commands:**
 ```
-deal <player> <card> [hand<n>]       deal Rob Ah hand1
-action <player> <action> [hand<n>]   action Rob double hand1
-result <player> <outcome> [hand<n>]  result Rob win hand1
+deal <player> <card> [hand<n>]       deal card
+action <player> <action> [hand<n>]   action stand, hit, double, split
+result <player> <outcome> [hand<n>]  result hand evaluation
 result dealer bust
 endround                             finalise round, print drink summary
 newround [rotate]                    start next round
@@ -166,7 +165,7 @@ Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the 
 > The Flask dev server is not secure for public networks.
 > Only use on trusted WiFi or deploy behind a proper web server.
 
-#### 🟦 Referee Mode
+#### Referee Mode
 Use when playing with a **physical deck**. The app is a tap-friendly scorecard and drink tracker — you deal the real cards and tap in what happened.
 
 **Setup fields:** players, dealer, sips/hand, hands/player.
@@ -180,7 +179,7 @@ Use when playing with a **physical deck**. The app is a tap-friendly scorecard a
 | **Action** | Register DOUBLE, SPLIT, INSURANCE, BLACKJACK, or dealer final state |
 | **Round** | END ROUND, NEW ROUND, STATUS, HELP, manual 4-Aces triggers |
 
-#### 🟩 Digital Mode
+#### Digital Mode
 A **fully playable** browser blackjack game — no physical deck needed. The app deals cards from a virtual shoe, manages all player turns, runs the dealer automatically, and fires all drinking rules.
 
 **Setup fields:** players, dealer, sips/hand, hands/player, decks in shoe (1–8).
@@ -215,7 +214,7 @@ The shoe reshuffles automatically at the start of a new round if penetration is 
 
 Both modes share the same drink-rule engine, live drink log (colour-coded by event type), and session persistence, reloading the page reconnects to the active session.
 
-## <a id="file-architecture"></a> 🏗️ File Architecture
+## File Architecture
 
 The three main files are intentionally decoupled:
 
@@ -233,9 +232,7 @@ The three main files are intentionally decoupled:
 - **Adding a referee command** → edit only `referee.py`
 - **Changing web UI behaviour or adding a digital command** → edit `app.py` and/or `templates/index.html`
 
----
-
-## <a id="contributing"></a> 🤝 Contributing
+## Contributing
 
 Rule ideas are especially welcome — if it made the game more fun, it probably belongs here! Please:
 
@@ -245,23 +242,9 @@ Rule ideas are especially welcome — if it made the game more fun, it probably 
 4. **Push** to the branch (`git push origin feature/amazing-feature`)
 5. **Open** a Pull Request
 
-## <a id="development-status"></a> 🚧 Development Status
+## License
 
-### **✅ Implemented**
-- Basic BlackJack game structure
-- Comprehensive drinking rules documentation
-- Terminal game with normal and drinking modes
-- Terminal referee for real-life play
-- Web UI with Referee mode (physical deck scorecard)
-- Web UI with Digital mode (full in-browser blackjack with virtual shoe)
-
-### **🔄 Planned Features**
-- Adjusted ruling to reward pushes more
-- Adjusted game mechanics for a better fit for numerous players (n>4)
-
-## <a id="license"></a> 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License, please see the [LICENSE](LICENSE) file for details.
 
 ---
 
