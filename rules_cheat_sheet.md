@@ -83,7 +83,7 @@ Everyone drinks **1 sip** when any Player gets Blackjack. Multiplied:
 | Players' winning hand type | Dealer drinks |
 |----------------------------|:-------------:|
 | Regular | 1 |
-| Blackjack | 1 |
+| Blackjack | 2 |
 | Doubled | 2 |
 | Split | Each hand separately |
 | Suited | 0 extra |
