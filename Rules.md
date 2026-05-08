@@ -213,7 +213,7 @@ Triggered when the Dealer loses all hands. Dealer drinks based on all Players' w
 | Hand type | Sips the Dealer drinks |
 |---|---|
 | Regular winning hand | 1 sip |
-| Blackjack | 1 sip (Players also drink per Blackjack bonus) |
+| Blackjack | 2 sip (Players also drink per Blackjack bonus) |
 | Doubled winning hand | 2 sips |
 | Split hands | Each hand counted separately (no extra sip for the split itself) |
 | Suited hands | No extra sips for Dealer |
