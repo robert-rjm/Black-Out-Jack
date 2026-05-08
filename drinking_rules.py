@@ -194,31 +194,30 @@ class DrinkingRules:
         - 21 with 5+ cards (hand-out entitlement)
         - Win with 5+ cards
         """
-        if hand.result != "win":
-            return []
-
         msgs   = []
         others = [p for p in all_player_names if p != player_name]
 
-        # Doubles / splits break immunity
-        if hand.doubled or hand.from_split:
-            label = "doubled" if hand.doubled else "split"
+        # 21 with 5+ cards: player hands out sips (fires on any result — win, loss, or push)
+        if hand.score() == 21 and len(hand.cards) >= 5:
+            msgs.append((player_name, -len(hand.cards),
+                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips"))
+
+        if hand.result != "win":
+            return msgs
+
+        # Doubled hand breaks immunity (splits aggregated in on_round_end; suited handled below)
+        if hand.doubled and not hand.is_suited():
             for p in others:
                 msgs.append((p, 1,
-                    f"{player_name} won a {label} hand => {p} drinks 1 sip (immunity exception)"))
+                    f"{player_name} won a doubled hand => {p} drinks 1 sip (immunity exception)"))
 
-        # Suited winning hand
+        # Suited winning hand (4 sips if also doubled/split, 1 sip otherwise)
         if hand.is_suited():
             sips = 4 if (hand.doubled or hand.from_split) else 1
             sym  = hand.cards[0].suit.symbol
             for p in others:
                 msgs.append((p, sips,
                     f"{player_name} won suited hand (all {sym}) => {p} drinks {sips} sip(s)"))
-
-        # 21 with 5+ cards: player hands out sips
-        if hand.score() == 21 and len(hand.cards) >= 5:
-            msgs.append((player_name, -len(hand.cards),
-                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips"))
 
         # Win with 5+ cards (stacks with above if score is 21)
         if len(hand.cards) >= 5:
@@ -227,6 +226,13 @@ class DrinkingRules:
                     f"{player_name} won with {len(hand.cards)} cards => {p} drinks 1 sip"))
 
         return msgs
+
+    # ---------------------------------------------------------------- dealer 21 with 5+ cards
+
+    @staticmethod
+    def dealer_21_five_cards(dealer_hand: Hand) -> bool:
+        """Returns True if the dealer hit exactly 21 with 5+ cards (wages doubled this round)."""
+        return dealer_hand.score() == 21 and len(dealer_hand.cards) >= 5
 
     # ---------------------------------------------------------------- dealer suited hand
 
@@ -249,6 +255,8 @@ class DrinkingRules:
         Called once all hands are resolved.
         Fires:
         - Net hand losses (wins offset losses; only net negative costs sips)
+        - Extra sip for each lost double or lost suited hand
+        - Split wins break immunity (aggregated as winning_split_hands - 1)
         - Other-player-wins-all rule (with immunity tiers)
         """
         msgs = []
@@ -259,6 +267,30 @@ class DrinkingRules:
             if net > 0:
                 msgs.append((p.name, net * wager,
                     f"{p.name} net -{net} hand(s) => drinks {net * wager} sip(s) (net loss)"))
+
+        # Extra sip for each lost double or lost suited hand
+        for p in players:
+            for hand in p.hands:
+                if hand.result != "loss":
+                    continue
+                if hand.doubled:
+                    msgs.append((p.name, wager,
+                        f"{p.name} lost a doubled hand => +{wager} sip(s)"))
+                if hand.is_suited():
+                    msgs.append((p.name, wager,
+                        f"{p.name} lost a suited hand => +{wager} sip(s)"))
+
+        # Split wins break immunity: sips = (winning split hands) - 1, per winner
+        for winner in players:
+            split_wins = sum(1 for h in winner.hands if h.from_split and h.result == "win")
+            sips = max(0, split_wins - 1)
+            if sips == 0:
+                continue
+            for other in players:
+                if other is winner:
+                    continue
+                msgs.append((other.name, sips,
+                    f"{winner.name} won {split_wins} split hand(s) => {other.name} drinks {sips} sip(s)"))
 
         # Other-player-wins-all
         for winner in players:
@@ -298,8 +330,8 @@ class DrinkingRules:
         lines = []
         for pname, hand in winning_hands:
             if hand.is_blackjack():
-                s = max(2, _bj_multiplier(hand))
-                lines.append(f"{pname} blackjack => {s} sip(s)")
+                s = 1
+                lines.append(f"{pname} blackjack => 1 sip")
             elif hand.doubled:
                 s = 2
                 lines.append(f"{pname} doubled win => 2 sips")
