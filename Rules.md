@@ -63,7 +63,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 | Dealer stands on | All 17s, including soft 17 |
 | Blackjack payout | 2:1 (sip rules outlined in [Drinking Rules](#drinking-rules)) |
 | Double down | Allowed on any two-card hand, including after any split |
-| Splitting 10s | **Mandatory** except if suited (see [Suited winning hand](#4-suited-winning-hand)) |
+| Splitting 10s | **Mandatory** except if suited (see [Doubles, Splits, and Suited](#2-doubles-splits-and-suited-exception-to-immunity)) |
 | Splitting | Maximum of 5 splits per starting hand (up to 10 hands from starting two hands). |
 
 ### Splitting Aces:
@@ -151,7 +151,7 @@ drink 4 sips instead of 1 sip, even if you won all your hands.
 > - Player B splits 2 times (3 hands) and wins 2 hands → 1 splits won → Drink 1 sips
 > - Player C splits 2 times (3 hands) and wins 1 hand → 0 splits won →  0 sips
 
-#### 2. Blackjack bonus (always applies):
+#### 3. Blackjack bonus (always applies):
 If another Player gets a Blackjack (21 in first two cards), **everyone** drinks 1 sip, regardless of your own hand result.
 
 This includes Blackjacks from split Aces.
@@ -197,8 +197,8 @@ all other Players drink 1 sip.
 - A push does **not** trigger this rule, the hand must win
 
 #### 3. 21 with 5+ cards (Dealer): 
-If a Player reaches exactly **21 with 5 or more cards**,
-all Players wages are doubled
+If a Dealker reaches exactly **21 with 5 or more cards**,
+all Players wagers are doubled
 
 > **Example:** Dealer has 21 with 6 cards (with standard wager 1 sip per hand)
 > - Player A lost one hands → must drink 2 sips
