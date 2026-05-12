@@ -55,6 +55,108 @@
   .mode-badge.referee { background: #2e3247; color: var(--muted); }
   .mode-badge.digital { background: #1a3a2a; color: var(--green); }
 
+  /* ---- TABLE (visible card display) ---- */
+  #table {
+    flex-shrink: 0;
+    max-height: 55vh;
+    overflow-y: auto;
+    padding: 10px 12px;
+    background: #14161f;
+    border-bottom: 1px solid var(--border);
+  }
+  #table:empty { display: none; }
+
+  .seat {
+    background: #1f2230;
+    border: 1.5px solid transparent;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    transition: border-color .15s, opacity .15s;
+  }
+  .seat.dealer  { background: #251c2c; }
+  .seat.turn    { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,142,247,.2); }
+  .seat.done    { opacity: .55; }
+
+  .seat-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 14px; font-weight: 700;
+  }
+  .seat-name .role {
+    font-size: 10px; font-weight: 700; color: var(--muted);
+    margin-left: 6px; text-transform: uppercase; letter-spacing: .5px;
+  }
+  .turn-tag {
+    background: var(--accent); color: #fff;
+    font-size: 10px; font-weight: 800; letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 3px 7px; border-radius: 4px;
+  }
+
+  .hands-row {
+    display: flex; gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .hand-block {
+    flex-shrink: 0;
+    min-width: 124px;
+  }
+  .hand-block.done { opacity: .65; }
+  .hand-label {
+    font-size: 10px; color: var(--muted);
+    margin-bottom: 5px;
+    text-transform: uppercase; letter-spacing: .5px;
+    font-weight: 700;
+  }
+  .cards-row { display: flex; gap: 5px; flex-wrap: nowrap; }
+
+  .card-vis {
+    width: 52px; height: 74px;
+    border-radius: 7px;
+    background: #f6f6f6;
+    color: #111;
+    border: 1px solid rgba(0,0,0,.35);
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 5px;
+    font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,.55);
+    line-height: 1;
+  }
+  .card-vis.red    { color: #c12525; }
+  .card-vis.hidden {
+    background: repeating-linear-gradient(45deg, #1d3a72, #1d3a72 6px, #0d1f44 6px, #0d1f44 12px);
+    color: #cad6ef;
+    border-color: #0d1f44;
+  }
+  .card-vis .top  { font-size: 13px; align-self: flex-start; }
+  .card-vis .mid  { font-size: 22px; align-self: center; }
+  .card-vis .bot  { font-size: 13px; align-self: flex-end; transform: rotate(180deg); opacity: .85; }
+  .card-vis.hidden .mid { font-size: 18px; opacity: .55; }
+
+  .hand-meta {
+    font-size: 11px; color: var(--muted);
+    margin-top: 6px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .hand-meta .score   { color: var(--text); font-weight: 700; }
+  .hand-meta .bj      { color: var(--yellow); font-weight: 800; }
+  .hand-meta .bust    { color: var(--red);    font-weight: 800; }
+  .hand-meta .stood   { color: var(--muted); }
+  .hand-meta .win     { color: var(--green);  font-weight: 700; }
+  .hand-meta .loss    { color: var(--red);    font-weight: 700; }
+  .hand-meta .push    { color: var(--yellow); font-weight: 700; }
+
+  /* disabled (out-of-turn) player buttons */
+  .btn.disabled {
+    opacity: .35;
+    pointer-events: none;
+  }
+
   /* ---- LOG ---- */
   #log {
     flex: 1;
@@ -141,22 +243,24 @@
   .btn-big.accent { background: var(--accent); color: #fff; }
 
   /* ---- CARD PICKER ---- */
-  #card-grid { display: grid; gap: 6px; margin-bottom: 8px; }
+  .card-grid { display: grid; gap: 7px; margin-bottom: 10px; }
   #rank-grid { grid-template-columns: repeat(7, 1fr); }
   #suit-grid { grid-template-columns: repeat(4, 1fr); }
 
   .card-btn {
-    height: 42px;
-    border-radius: 8px;
+    height: 54px;
+    border-radius: 10px;
     border: 1.5px solid var(--border);
     background: var(--bg);
-    font-size: 15px;
-    font-weight: 700;
+    font-size: 19px;
+    font-weight: 800;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: background .1s, border-color .1s, transform .08s;
     color: var(--text);
+    width: 100%;
   }
+  #suit-grid .card-btn { font-size: 24px; }
   .card-btn:active  { transform: scale(.93); }
   .card-btn.sel     { background: var(--accent); border-color: var(--accent); color: #fff; }
   .card-btn.hearts, .card-btn.diamonds { color: #e05c5c; }
@@ -302,6 +406,7 @@
     <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
   </header>
 
+  <div id="table"></div>
   <div id="log"></div>
 
   <div id="panel">
@@ -467,9 +572,11 @@
 // ============================================================
 // STATE
 // ============================================================
-let players   = [];
-let numHands  = 2;
-let gameMode  = "referee";   // "referee" | "digital"
+let players    = [];
+let numHands   = 2;
+let gameMode   = "referee";   // "referee" | "digital"
+let lastState  = null;        // last /command or /state response
+let currentTurn = null;       // player name whose turn it is (digital only)
 
 // Selections per pane
 const sel = {
@@ -585,6 +692,7 @@ async function startGame() {
   updateHeader(data);
   buildGameUI();
   appendLog(data.output, true);
+  applyState(data);
 
   if (gameMode === "digital") {
     appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
@@ -694,6 +802,9 @@ function setPlayerSel(pane, name) {
   document.querySelectorAll(`#${PLAYER_CONTAINER[pane]} .btn`).forEach(b => {
     b.classList.toggle("sel", b.textContent === name);
   });
+  // After (re)selecting a player, sync the hand buttons to that player's
+  // actual hand count (which grows beyond numHands after splits).
+  syncHandButtonsFor(pane);
 }
 
 const HAND_CONTAINER = {
@@ -705,6 +816,49 @@ function setHandSel(pane, hand, btn, containerId) {
   sel[pane].hand = hand;
   document.querySelectorAll(`#${containerId} .btn`).forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
+}
+
+// How many hands does the named player currently have?
+function handCountFor(playerName) {
+  if (!lastState || !lastState.table) return numHands;
+  if (playerName === "Dealer") return 1;
+  const seat = lastState.table.find(s => s.name === playerName);
+  if (!seat || !seat.hands) return numHands;
+  return Math.max(numHands, seat.hands.length);
+}
+
+// Rebuild the hand buttons in a pane so they reflect the selected player's
+// actual hand count (e.g. show H3 after a split). Preserves selection when
+// possible; otherwise falls back to H1.
+function syncHandButtonsFor(pane) {
+  const containerId = HAND_CONTAINER[pane];
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  const playerName = sel[pane].player;
+  if (!playerName) return;
+
+  const target = handCountFor(playerName);
+  const existing = c.querySelectorAll(".btn").length;
+  if (existing === target) return;
+
+  // If the previously selected hand index no longer exists, fall back to hand1
+  const desiredIdx = parseInt((sel[pane].hand || "hand1").replace("hand", ""), 10) || 1;
+  const selIdx = desiredIdx <= target ? desiredIdx : 1;
+  sel[pane].hand = `hand${selIdx}`;
+
+  c.innerHTML = "";
+  for (let i = 1; i <= target; i++) {
+    const b = document.createElement("button");
+    b.className = "btn" + (i === selIdx ? " sel" : "");
+    b.textContent = `H${i}`;
+    b.onclick = () => setHandSel(pane, `hand${i}`, b, containerId);
+    c.appendChild(b);
+  }
+}
+
+// Resync hand buttons across all panes — called whenever fresh state arrives.
+function syncAllHandButtons() {
+  ["deal", "result", "action", "digital"].forEach(syncHandButtonsFor);
 }
 
 function selectRank(rank, btn) {
@@ -773,6 +927,152 @@ async function sendCmd(cmd) {
   const data = await res.json();
   if (data.output) appendLog(data.output);
   if (data.dealer || data.players) updateHeader(data);
+  applyState(data);
+}
+
+// ============================================================
+// VISIBLE TABLE + TURN ENFORCEMENT
+// ============================================================
+const SUIT_SYMBOL = { hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" };
+const SUIT_RED    = { hearts: true, diamonds: true };
+
+function applyState(state) {
+  if (!state || !state.ok) return;
+  lastState   = state;
+  currentTurn = state.current_turn || null;
+  renderTable(state);
+  syncAllHandButtons();   // grow hand buttons after splits
+  applyTurnGate(state);
+}
+
+function cardEl(card) {
+  const div = document.createElement("div");
+  div.className = "card-vis";
+  if (!card || card.suit === "hidden" || card.rank === "?") {
+    div.classList.add("hidden");
+    div.innerHTML = `<div class="top">?</div><div class="mid">★</div><div class="bot">?</div>`;
+    return div;
+  }
+  if (SUIT_RED[card.suit]) div.classList.add("red");
+  const sym = card.symbol || SUIT_SYMBOL[card.suit] || "?";
+  div.innerHTML = `
+    <div class="top">${card.rank}${sym}</div>
+    <div class="mid">${sym}</div>
+    <div class="bot">${card.rank}${sym}</div>`;
+  return div;
+}
+
+function handBlock(handState, label) {
+  const block = document.createElement("div");
+  block.className = "hand-block";
+  if (handState.done) block.classList.add("done");
+
+  const lab = document.createElement("div");
+  lab.className = "hand-label";
+  lab.textContent = label;
+  block.appendChild(lab);
+
+  const row = document.createElement("div");
+  row.className = "cards-row";
+  (handState.cards || []).forEach(c => row.appendChild(cardEl(c)));
+  block.appendChild(row);
+
+  const meta = document.createElement("div");
+  meta.className = "hand-meta";
+  let tags = [];
+  if (handState.cards && handState.cards.length > 0) {
+    tags.push(`<span class="score">${handState.score}</span>`);
+  }
+  if (handState.blackjack)           tags.push(`<span class="bj">BJ</span>`);
+  else if (handState.bust)           tags.push(`<span class="bust">BUST</span>`);
+  else if (handState.stood)          tags.push(`<span class="stood">STAND</span>`);
+  if (handState.doubled)             tags.push(`<span>DBL</span>`);
+  if (handState.from_split)          tags.push(`<span>SPL</span>`);
+  if (handState.insured)             tags.push(`<span>INS</span>`);
+  if (handState.result === "win")    tags.push(`<span class="win">WIN</span>`);
+  else if (handState.result === "loss")  tags.push(`<span class="loss">LOSS</span>`);
+  else if (handState.result === "push")  tags.push(`<span class="push">PUSH</span>`);
+  meta.innerHTML = tags.join("");
+  block.appendChild(meta);
+
+  return block;
+}
+
+function renderTable(state) {
+  const root = document.getElementById("table");
+  root.innerHTML = "";
+
+  // Dealer block (top)
+  if (state.dealer_hand) {
+    const seat = document.createElement("div");
+    seat.className = "seat dealer";
+    if (state.dealer_hand.done) seat.classList.add("done");
+
+    const hdr = document.createElement("div");
+    hdr.className = "seat-header";
+    const scoreTxt = state.dealer_hand.hidden ? "?" : state.dealer_hand.score;
+    hdr.innerHTML = `
+      <div class="seat-name">Dealer <span class="role">${state.dealer || ""}</span></div>
+      <div style="font-size:12px;color:var(--muted)">Showing: <span style="color:var(--text);font-weight:700">${scoreTxt}</span></div>`;
+    seat.appendChild(hdr);
+
+    const hands = document.createElement("div");
+    hands.className = "hands-row";
+    hands.appendChild(handBlock(state.dealer_hand, "Dealer hand"));
+    seat.appendChild(hands);
+    root.appendChild(seat);
+  }
+
+  // Player seats — in turn order (dealer's left clockwise, dealer last)
+  const order = state.play_order && state.play_order.length
+                  ? state.play_order
+                  : state.table.map(t => t.name);
+  const byName = {};
+  (state.table || []).forEach(s => { byName[s.name] = s; });
+
+  const showTurn = state.mode === "digital" && state.phase === "playing";
+  order.forEach(name => {
+    const s = byName[name];
+    if (!s) return;
+    const seat = document.createElement("div");
+    seat.className = "seat";
+    if (showTurn && s.is_turn) seat.classList.add("turn");
+    if (s.done)                seat.classList.add("done");
+
+    const hdr = document.createElement("div");
+    hdr.className = "seat-header";
+    const role = s.is_dealer        ? `<span class="role">also dealer</span>` : "";
+    const tag  = (showTurn && s.is_turn) ? `<div class="turn-tag">Turn</div>` : "";
+    hdr.innerHTML = `<div class="seat-name">${s.name}${role}</div>${tag}`;
+    seat.appendChild(hdr);
+
+    const hands = document.createElement("div");
+    hands.className = "hands-row";
+    (s.hands || []).forEach((h, i) => hands.appendChild(handBlock(h, `Hand ${i+1}`)));
+    if (!s.hands || s.hands.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "hand-label";
+      empty.textContent = "(no cards yet)";
+      hands.appendChild(empty);
+    }
+    seat.appendChild(hands);
+    root.appendChild(seat);
+  });
+}
+
+function applyTurnGate(state) {
+  // Only enforce in digital mode + during play phase
+  const gate = state.mode === "digital" && state.phase === "playing" && state.current_turn;
+  const playBtns = document.querySelectorAll("#dig-play-players .btn");
+  playBtns.forEach(b => {
+    if (!gate) { b.classList.remove("disabled"); return; }
+    b.classList.toggle("disabled", b.textContent !== state.current_turn);
+  });
+
+  // Auto-select the current-turn player so taps go to the right person
+  if (gate) {
+    setPlayerSel("digital", state.current_turn);
+  }
 }
 
 // ============================================================
@@ -877,6 +1177,7 @@ function resetToSetup() {
     updateHeader(data);
     buildGameUI();
     appendLog("  (Reconnected to existing session)\n");
+    applyState(data);
     document.getElementById("setup").style.display = "none";
     document.getElementById("app").style.display   = "flex";
   }
