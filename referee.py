@@ -118,11 +118,14 @@ class RefereeSession:
 
     def _get_hand(self, player: Player, hand_label: str) -> Hand:
         """
-        hand_label: 'hand1', 'hand2', ... or empty (defaults to hand1).
-        For the dealer, returns dealer_hand.
+        Resolve a player's betting hand by label ('hand1', 'hand2', ...).
+
+        Note: the dealer-player also has their own player hands. To target
+        the dealer's *dealer hand*, use the literal 'dealer' keyword (handled
+        explicitly in cmd_deal / cmd_result / cmd_dealer); never via this
+        helper. That way clicking the "Player1" button still routes to
+        Player1's own player hands when Player1 happens to be the dealer.
         """
-        if player.is_dealer and player.name.lower() == self.dealer_name.lower():
-            return player.dealer_hand
         try:
             idx = int(hand_label.lower().replace("hand", "").strip()) - 1
         except (ValueError, AttributeError):
@@ -170,9 +173,11 @@ class RefereeSession:
         card_str    = parts[2]
         hand_label  = parts[3] if len(parts) > 3 else "hand1"
 
-        # Resolve player
-        is_dealer_seat = (player_name.lower() == "dealer"
-                          or player_name.lower() == self.dealer_name.lower())
+        # Resolve player. The literal keyword "dealer" targets the dealer hand;
+        # using the dealer-player's own name (e.g. "deal Rob ah hand1" when Rob
+        # is the dealer) targets that player's regular betting hands so the
+        # dealer can still play their own seat.
+        is_dealer_seat = (player_name.lower() == "dealer")
         if is_dealer_seat:
             player = self._get_dealer()
         else:
@@ -283,8 +288,9 @@ class RefereeSession:
         outcome     = parts[2].lower()
         hand_label  = parts[3] if len(parts) > 3 else "hand1"
 
-        # Special case: dealer bust
-        if player_name.lower() in ("dealer", self.dealer_name.lower()) and outcome == "bust":
+        # Special case: dealer bust (only via the literal "dealer" keyword —
+        # the dealer-player's own name is reserved for their player hands).
+        if player_name.lower() == "dealer" and outcome == "bust":
             dealer = self._get_dealer()
             dealer.dealer_hand.bust = True
             print(f"  Dealer busts. Mark each non-busted player hand as 'win'.")
