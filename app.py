@@ -72,6 +72,171 @@ def _newround_rotate(session: RefereeSession):
 
 
 # ---------------------------------------------------------------------------
+# State serialization & turn tracking
+# ---------------------------------------------------------------------------
+
+def _play_order(session: RefereeSession):
+    """
+    Turn order: dealer's left clockwise, dealer-player goes last.
+    Returns list of player names.
+    """
+    all_names = [p.name for p in session.all_players]
+    if session.dealer_name not in all_names:
+        return all_names
+    d_idx = all_names.index(session.dealer_name)
+    order = []
+    for i in range(1, len(all_names)):
+        order.append(all_names[(d_idx + i) % len(all_names)])
+    order.append(session.dealer_name)  # dealer plays their player hands last
+    return order
+
+
+def _hand_done(hand: Hand) -> bool:
+    """True if hand cannot/should not act anymore."""
+    return hand.stood or hand.bust or hand.is_bust() or hand.is_blackjack()
+
+
+def _player_done(player) -> bool:
+    """True if every betting hand for this player is finished."""
+    if not player.hands:
+        return True
+    return all(_hand_done(h) for h in player.hands)
+
+
+def _current_turn(session: RefereeSession):
+    """
+    Whose turn is it right now?
+    Returns the player name, or None if no one is up (pre-deal or dealer phase).
+    Only meaningful when initial deal has happened.
+    """
+    # Any cards on the table?
+    has_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
+    if not has_cards:
+        return None
+
+    for name in _play_order(session):
+        p = session._get_player(name)
+        if p and not _player_done(p):
+            return name
+    return None  # all player hands done -> dealer phase
+
+
+def _round_phase(session: RefereeSession) -> str:
+    """
+    'pre-deal'     -> waiting for initial deal
+    'playing'      -> at least one player still has an active hand
+    'dealer-ready' -> all player hands done, dealer hand not yet fully revealed
+    'round-over'   -> dealer has stood/busted, results assigned
+    """
+    dealer = session._get_dealer()
+    has_player_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
+    if not has_player_cards:
+        return "pre-deal"
+
+    if _current_turn(session) is not None:
+        return "playing"
+
+    # Player hands all done. Has dealer hand finished?
+    d_hand = dealer.dealer_hand if dealer else None
+    if d_hand and (d_hand.stood or d_hand.is_bust() or d_hand.score() >= 17 or d_hand.is_blackjack()):
+        # Look for any unresolved results — if all hands have a result, round is over.
+        all_resolved = all(
+            h.result is not None for p in session.all_players for h in p.hands
+        )
+        if all_resolved:
+            return "round-over"
+    return "dealer-ready"
+
+
+def _serialize_card(card) -> dict:
+    """Compact JSON for a single card."""
+    return {
+        "rank": card.rank.label,
+        "suit": card.suit.value,   # 'hearts' | 'diamonds' | 'clubs' | 'spades'
+        "symbol": card.suit.symbol,
+    }
+
+
+def _serialize_hand(hand: Hand) -> dict:
+    return {
+        "cards":       [_serialize_card(c) for c in hand.cards],
+        "score":       hand.score() if hand.cards else 0,
+        "stood":       hand.stood,
+        "bust":        hand.bust or (hand.cards and hand.is_bust()),
+        "doubled":     hand.doubled,
+        "from_split":  hand.from_split,
+        "insured":     hand.insured,
+        "result":      hand.result,
+        "blackjack":   bool(hand.cards) and hand.is_blackjack(),
+        "done":        _hand_done(hand),
+    }
+
+
+def _serialize_state(session: RefereeSession | None) -> dict:
+    """Full snapshot for the UI."""
+    if not session:
+        return {"ok": False}
+
+    dealer = session._get_dealer()
+    phase  = _round_phase(session)
+    turn   = _current_turn(session)
+
+    table = []
+    for p in session.all_players:
+        entry = {
+            "name":      p.name,
+            "is_dealer": p.is_dealer,
+            "hands":     [_serialize_hand(h) for h in p.hands],
+            "done":      _player_done(p),
+            "is_turn":   (p.name == turn),
+        }
+        table.append(entry)
+
+    # Dealer hand — hide hole card while players are still acting (digital only)
+    mode = getattr(session, "mode", "referee")
+    d_hand_state = None
+    if dealer and dealer.dealer_hand:
+        d_cards = dealer.dealer_hand.cards
+        if mode == "digital" and phase in ("playing", "pre-deal") and len(d_cards) >= 2:
+            d_hand_state = {
+                "cards":     [_serialize_card(d_cards[0]),
+                              {"rank": "?", "suit": "hidden", "symbol": "?"}]
+                              + [_serialize_card(c) for c in d_cards[2:]],
+                "score":     "?",
+                "hidden":    True,
+                "blackjack": False,
+                "bust":      False,
+                "done":      False,
+            }
+        else:
+            d_hand_state = {
+                "cards":     [_serialize_card(c) for c in d_cards],
+                "score":     dealer.dealer_hand.score() if d_cards else 0,
+                "hidden":    False,
+                "blackjack": bool(d_cards) and dealer.dealer_hand.is_blackjack(),
+                "bust":      bool(d_cards) and dealer.dealer_hand.is_bust(),
+                "done":      bool(d_cards) and (
+                    dealer.dealer_hand.stood
+                    or dealer.dealer_hand.is_bust()
+                    or dealer.dealer_hand.score() >= 17
+                ),
+            }
+
+    return {
+        "ok":           True,
+        "round":        session.round_count,
+        "dealer":       session.dealer_name,
+        "players":      [p.name for p in session.all_players],
+        "mode":         getattr(session, "mode", "referee"),
+        "table":        table,
+        "dealer_hand":  d_hand_state,
+        "current_turn": turn,
+        "play_order":   _play_order(session),
+        "phase":        phase,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Digital mode helpers
 # ---------------------------------------------------------------------------
 
@@ -239,14 +404,9 @@ def setup():
     _patch_tracker(game_session)
 
     output = _capture(game_session.start_round)
-    return jsonify({
-        "ok":      True,
-        "output":  output,
-        "players": names,
-        "dealer":  dealer_name,
-        "round":   game_session.round_count,
-        "mode":    mode,
-    })
+    state  = _serialize_state(game_session)
+    state.update({"output": output})
+    return jsonify(state)
 
 
 @app.route("/command", methods=["POST"])
@@ -262,6 +422,39 @@ def command():
     parts = cmd_str.split()
     cmd   = parts[0].lower()
     mode  = getattr(game_session, "mode", "referee")
+
+    # Turn-order gate: in digital mode, per-player actions must come from the
+    # player whose turn it currently is. (deal/dealer/endround/newround/status/help
+    # are session-wide and bypass the gate.)
+    TURN_GATED = {"hit", "stand", "double", "split", "insurance", "blackjack"}
+    if mode == "digital" and cmd in TURN_GATED and len(parts) >= 2:
+        current = _current_turn(game_session)
+        target  = parts[1].strip().capitalize()
+        if current is None:
+            return jsonify({
+                **_serialize_state(game_session),
+                "output": "  Not in play phase — deal cards or run dealer turn.\n",
+            })
+        if target.lower() != current.lower():
+            return jsonify({
+                **_serialize_state(game_session),
+                "output": f"  Out of order — it's {current}'s turn (not {target}).\n",
+            })
+
+    # Gate the dealer-reveal command too: only allow when all players are done
+    if mode == "digital" and cmd == "dealer":
+        phase = _round_phase(game_session)
+        if phase == "pre-deal":
+            return jsonify({
+                **_serialize_state(game_session),
+                "output": "  Deal cards first.\n",
+            })
+        if phase == "playing":
+            current = _current_turn(game_session) or "a player"
+            return jsonify({
+                **_serialize_state(game_session),
+                "output": f"  Cannot reveal dealer — {current} still has hands to play.\n",
+            })
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
@@ -456,29 +649,14 @@ def command():
             else:
                 print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
-    extra = {}
-    if game_session:
-        extra = {
-            "dealer":  game_session.dealer_name,
-            "round":   game_session.round_count,
-            "players": [p.name for p in game_session.all_players],
-            "mode":    getattr(game_session, "mode", "referee"),
-        }
-
-    return jsonify({"ok": True, "output": buf.getvalue(), **extra})
+    state = _serialize_state(game_session)
+    state["output"] = buf.getvalue()
+    return jsonify(state)
 
 
 @app.route("/state")
 def state():
-    if not game_session:
-        return jsonify({"ok": False})
-    return jsonify({
-        "ok":     True,
-        "round":  game_session.round_count,
-        "dealer": game_session.dealer_name,
-        "players": [p.name for p in game_session.all_players],
-        "mode":   getattr(game_session, "mode", "referee"),
-    })
+    return jsonify(_serialize_state(game_session))
 
 
 # ---------------------------------------------------------------------------
