@@ -62,11 +62,7 @@
     overflow: hidden;
     min-height: 0;
   }
-<<<<<<< Updated upstream
-
   /* Left: player seats */
-=======
->>>>>>> Stashed changes
   #left-col {
     flex: 55%;
     overflow-y: auto;
@@ -75,11 +71,7 @@
     border-right: 1px solid var(--border);
     min-width: 0;
   }
-<<<<<<< Updated upstream
-
   /* Right: dealer (sticky top) + chat log */
-=======
->>>>>>> Stashed changes
   #right-col {
     flex: 45%;
     display: flex;
@@ -87,11 +79,8 @@
     overflow: hidden;
     min-width: 0;
   }
-<<<<<<< Updated upstream
 
   /* Dealer card — always visible, never scrolls away */
-=======
->>>>>>> Stashed changes
   #dealer-panel {
     flex-shrink: 0;
     padding: 8px 10px;
@@ -991,13 +980,8 @@ function applyState(state) {
   if (!state || !state.ok) return;
   lastState   = state;
   currentTurn = state.current_turn || null;
-<<<<<<< Updated upstream
   renderDealer(state);    // right-col top — always visible
   renderPlayers(state);   // left-col
-=======
-  renderDealer(state);
-  renderPlayers(state);
->>>>>>> Stashed changes
   syncAllHandButtons();
   applyTurnGate(state);
   if (gameMode === "digital") {
@@ -1005,7 +989,6 @@ function applyState(state) {
     updateInsuranceVisibility(state);
     updateHandLocks(state);
     updateRoundPane(state);
-<<<<<<< Updated upstream
   }
 }
 
@@ -1047,8 +1030,6 @@ function updateRoundPane(state) {
     } else {
       msg.style.display = "none";
     }
-=======
->>>>>>> Stashed changes
   }
 }
 
