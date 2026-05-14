@@ -223,12 +223,17 @@ class Player:
     def round_wins(self)   -> int: return sum(1 for h in self.hands if h.result == "win")
     def round_losses(self) -> int: return sum(1 for h in self.hands if h.result == "loss")
     def round_pushes(self) -> int: return sum(1 for h in self.hands if h.result == "push")
-    def net_losses(self)   -> int: return max(0, self.round_losses() - self.round_wins())
-    def drinks_owed(self)  -> int: return sum(s for s, _ in self.drink_log if s > 0)
+    def net_losses(self)   -> int:
+        # Blackjack counts as 2 wins — it offsets two net-loss hands
+        effective_wins = sum(2 if h.is_blackjack() else 1
+                             for h in self.hands if h.result == "win")
+        return max(0, self.round_losses() - effective_wins)
+    def drinks_owed(self)  -> int: return sum(e[0] for e in self.drink_log if e[0] > 0)
 
-    def add_drink(self, sips: int, reason: str):
+    def add_drink(self, sips: int, reason: str, role: str = "player"):
+        """role: 'player' (betting-hand drink) or 'dealer' (dealer-seat drink)."""
         if sips != 0:
-            self.drink_log.append((sips, reason))
+            self.drink_log.append((sips, reason, role))
 
     def __str__(self):  return self.name
     def __repr__(self): return f"Player({self.name})"
@@ -256,7 +261,7 @@ _BS_SOFT = {
 
 # Pair-split table: (pair_rank_value, dealer_up_value) -> action
 #   "sp"  = split        "s" = stand    "h" = hit
-#   "d?"  = double if available, else hit  (used for 5-5 which never splits)
+#   "d"  = double if available, else hit
 # Drinking-mode 10-split override is applied in best_play(), not here.
 _BS_PAIR = {
     **{(11, d): "sp"                                        for d in range(2, 12)},  # A-A always split
@@ -428,17 +433,20 @@ class RoundManager:
 
         if self.drinking_mode:
             from drinking_rules import DrinkingRules
+            is_dealer_hand = (hand is self.dealer_player.dealer_hand)
             msgs = DrinkingRules.on_card_dealt(
                 card, recipient_name, card_pos,
                 self._all_names, self.dealer_player.name,
-                self._ace_clubs_flag
+                self._ace_clubs_flag,
+                is_dealer_hand=is_dealer_hand,
             )
-            for r, s, reason in msgs:
+            for msg in msgs:
+                r, s, reason = msg[0], msg[1], msg[2]
                 if s == -1:
                     self._ace_credits.append(recipient_name)
                     print(f"    (i) {reason}")
                 else:
-                    self.tracker.apply([(r, s, reason)])
+                    self.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
         return card
 
     def _deal_initial(self):
@@ -612,6 +620,7 @@ class RoundManager:
     def _evaluate(self):
         print("\n--- Results ---")
         d_hand          = self.dealer_player.dealer_hand
+        dealer_bj       = d_hand.is_blackjack()
         winning_hds     = []
         dealer_lost_all = True
 
@@ -627,7 +636,10 @@ class RoundManager:
                     dealer_lost_all = False
                 if self.drinking_mode:
                     from drinking_rules import DrinkingRules
-                    self._drink(DrinkingRules.on_hand_resolved(p.name, hand, self._all_names))
+                    if hand.is_blackjack() and result == "win":
+                        self._drink(DrinkingRules.on_blackjack(p.name, hand, self._all_names))
+                    self._drink(DrinkingRules.on_hand_resolved(
+                        p.name, hand, self._all_names, dealer_bj=dealer_bj))
 
             p.total_wins   += p.round_wins()
             p.total_losses += p.round_losses()
@@ -641,7 +653,15 @@ class RoundManager:
 
     def _round_end_drinks(self):
         from drinking_rules import DrinkingRules
-        self.tracker.apply(DrinkingRules.on_round_end(self.players, self.wager))
+        d_hand    = self.dealer_player.dealer_hand
+        dealer_bj = d_hand.is_blackjack()
+        w         = self.wager
+        if DrinkingRules.dealer_21_five_cards(d_hand):
+            w *= 2
+            print(f"  ★ Dealer 21 with {len(d_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
+        if dealer_bj:
+            print("  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
+        self.tracker.apply(DrinkingRules.on_round_end(self.players, w, dealer_bj=dealer_bj))
         for name in self._ace_credits:
             p = next((x for x in self.players if x.name.lower() == name.lower()), None)
             if p: self.tracker.apply_ace_clubs_credit(p)
@@ -746,7 +766,7 @@ class BlackJackGame:
         if self._house_mode:
             human        = self._make_player(self.all_seats[0])
             house        = Player("House")
-            house.is_dealer  = True
+            house.is_dealer   = True
             house.dealer_hand = Hand()
             self.players      = [human]
             self.dealer_player = house
