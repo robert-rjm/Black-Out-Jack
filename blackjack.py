@@ -624,6 +624,7 @@ class RoundManager:
         winning_hds     = []
         dealer_lost_all = True
 
+        # Pass 1 — evaluate results only (no drinking events yet)
         for p in self.players:
             for i, hand in enumerate(p.hands):
                 result      = HandEvaluator.compare(hand, d_hand)
@@ -634,22 +635,31 @@ class RoundManager:
                     winning_hds.append((p.name, hand))
                 else:
                     dealer_lost_all = False
-                if self.drinking_mode:
-                    from drinking_rules import DrinkingRules
-                    if hand.is_blackjack() and result == "win":
-                        self._drink(DrinkingRules.on_blackjack(p.name, hand, self._all_names))
-                    self._drink(DrinkingRules.on_hand_resolved(
-                        p.name, hand, self._all_names, dealer_bj=dealer_bj))
 
             p.total_wins   += p.round_wins()
             p.total_losses += p.round_losses()
             p.total_pushes += p.round_pushes()
 
-        if self.drinking_mode and dealer_lost_all and winning_hds:
+        # Determine hard switch now so drinking events can use it
+        hard_switch        = dealer_lost_all and bool(winning_hds)
+        self._hard_switch  = hard_switch   # shared with _round_end_drinks
+        exempt_dealer      = self.dealer_player.name if hard_switch else ""
+
+        # Pass 2 — fire drinking events with conditional dealer exemption
+        if self.drinking_mode:
             from drinking_rules import DrinkingRules
-            self._drink(DrinkingRules.on_hard_dealer_switch(
-                self.dealer_player.name, winning_hds,
-                self._ace_clubs_flag["protected"]))
+            for p in self.players:
+                for hand in p.hands:
+                    if hand.is_blackjack() and hand.result == "win":
+                        self._drink(DrinkingRules.on_blackjack(p.name, hand, self._all_names))
+                    self._drink(DrinkingRules.on_hand_resolved(
+                        p.name, hand, self._all_names,
+                        dealer_bj=dealer_bj, dealer_name=exempt_dealer))
+
+            if hard_switch:
+                self._drink(DrinkingRules.on_hard_dealer_switch(
+                    self.dealer_player.name, winning_hds,
+                    self._ace_clubs_flag["protected"]))
 
     def _round_end_drinks(self):
         from drinking_rules import DrinkingRules
@@ -661,7 +671,10 @@ class RoundManager:
             print(f"  ★ Dealer 21 with {len(d_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
         if dealer_bj:
             print("  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
-        self.tracker.apply(DrinkingRules.on_round_end(self.players, w, dealer_bj=dealer_bj))
+        hard_switch = getattr(self, "_hard_switch", False)
+        self.tracker.apply(DrinkingRules.on_round_end(
+            self.players, w, dealer_bj=dealer_bj,
+            hard_switch_dealer=self.dealer_player.name if hard_switch else ""))
         for name in self._ace_credits:
             p = next((x for x in self.players if x.name.lower() == name.lower()), None)
             if p: self.tracker.apply_ace_clubs_credit(p)

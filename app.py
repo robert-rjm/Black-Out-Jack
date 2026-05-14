@@ -456,6 +456,7 @@ def _digital_dealer_turn(session: RefereeSession):
     if dealer_bj and drinking:
         print("  ★ Dealer blackjack — auto-insurance: only net-loss sips will apply.")
 
+    # Pass 1 — evaluate all results, collect wins/losses (no drinking events yet)
     for p in session.all_players:
         for i, hand in enumerate(p.hands):
             if not hand.result:
@@ -466,24 +467,6 @@ def _digital_dealer_turn(session: RefereeSession):
                 winning_hds.append((p.name, hand))
             else:
                 dealer_lost_all = False
-            if drinking:
-                # Any 2-card 21 (natural or split ace) triggers blackjack drinking
-                if hand.is_blackjack() and hand.result == "win":
-                    session.tracker.apply(
-                        DrinkingRules.on_blackjack(p.name, hand, all_names))
-                session.tracker.apply(
-                    DrinkingRules.on_hand_resolved(p.name, hand, all_names, dealer_bj=dealer_bj))
-
-    # Hard dealer switch is handled by cmd_endround (referee.py) — not fired here
-    # to avoid double-counting when digital mode calls both functions.
-
-    # Four-aces end-of-round check (drinking mode only)
-    if drinking:
-        all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
-        all_cards += d_hand.cards
-        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, "end_of_round", session._four_aces_fd)
-        session.tracker.apply(msgs)
 
     # Detect hard / soft dealer switch for rotation suggestion.
     # A push on ANY hand cancels both switches — all results must be uniform.
@@ -506,6 +489,27 @@ def _digital_dealer_turn(session: RefereeSession):
         print("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
     else:
         session.switch_this_round = None
+
+    # Pass 2 — fire drinking events now that hard_switch is known.
+    # Dealer is exempt from bonus-win drinks ONLY on a hard switch.
+    if drinking:
+        exempt_dealer = session.dealer_name if hard_switch else ""
+        for p in session.all_players:
+            for hand in p.hands:
+                if hand.is_blackjack() and hand.result == "win":
+                    session.tracker.apply(
+                        DrinkingRules.on_blackjack(p.name, hand, all_names))
+                session.tracker.apply(
+                    DrinkingRules.on_hand_resolved(p.name, hand, all_names,
+                                                   dealer_bj=dealer_bj,
+                                                   dealer_name=exempt_dealer))
+
+        # Four-aces end-of-round check
+        all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
+        all_cards += d_hand.cards
+        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
+            all_cards, "end_of_round", session._four_aces_fd)
+        session.tracker.apply(msgs)
 
 
 # ---------------------------------------------------------------------------
