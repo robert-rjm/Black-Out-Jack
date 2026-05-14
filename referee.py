@@ -213,14 +213,16 @@ class RefereeSession:
         msgs = DrinkingRules.on_card_dealt(
             card, recipient_name, card_pos,
             self._all_names, self.dealer_name,
-            self._ace_clubs_flag
+            self._ace_clubs_flag,
+            is_dealer_hand=is_dealer_seat,   # True only for the dealer hand, not betting hands
         )
-        for r, s, reason in msgs:
+        for msg in msgs:
+            r, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
                 self._ace_credits.append(recipient_name)
                 print(f"    (i) {reason}")
             else:
-                self.tracker.apply([(r, s, reason)])
+                self.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
 
         # Check for blackjack on first two cards
         if len(hand.cards) == 2 and hand.is_blackjack() and not is_dealer_seat:
@@ -309,8 +311,13 @@ class RefereeSession:
         if outcome in ("win", "loss", "push"):
             hand.result = outcome
             print(f"  {player.name} {hand_label}: {outcome.upper()}")
+            dealer    = self._get_dealer()
+            dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+            if hand.is_blackjack() and outcome == "win":
+                self.tracker.apply(DrinkingRules.on_blackjack(player.name, hand, self._all_names))
             self.tracker.apply(
-                DrinkingRules.on_hand_resolved(player.name, hand, self._all_names))
+                DrinkingRules.on_hand_resolved(player.name, hand, self._all_names,
+                                               dealer_bj=dealer_bj))
         elif outcome == "bust":
             hand.result = "loss"
             hand.bust   = True
@@ -389,7 +396,15 @@ class RefereeSession:
                     self._ace_clubs_flag["protected"]))
 
         # Round-end rules (net losses, sweeps)
-        self.tracker.apply(DrinkingRules.on_round_end(players, self.wager))
+        w         = self.wager
+        dealer    = self._get_dealer()
+        dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+        if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
+            w *= 2
+            print(f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
+        if dealer_bj:
+            print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
+        self.tracker.apply(DrinkingRules.on_round_end(players, w, dealer_bj=dealer_bj))
 
         # Ace-of-clubs credits
         for name in self._ace_credits:
