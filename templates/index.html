@@ -62,11 +62,7 @@
     overflow: hidden;
     min-height: 0;
   }
-<<<<<<< Updated upstream
-
   /* Left: player seats */
-=======
->>>>>>> Stashed changes
   #left-col {
     flex: 55%;
     overflow-y: auto;
@@ -75,11 +71,7 @@
     border-right: 1px solid var(--border);
     min-width: 0;
   }
-<<<<<<< Updated upstream
-
   /* Right: dealer (sticky top) + chat log */
-=======
->>>>>>> Stashed changes
   #right-col {
     flex: 45%;
     display: flex;
@@ -87,11 +79,8 @@
     overflow: hidden;
     min-width: 0;
   }
-<<<<<<< Updated upstream
 
   /* Dealer card — always visible, never scrolls away */
-=======
->>>>>>> Stashed changes
   #dealer-panel {
     flex-shrink: 0;
     padding: 8px 10px;
@@ -991,13 +980,8 @@ function applyState(state) {
   if (!state || !state.ok) return;
   lastState   = state;
   currentTurn = state.current_turn || null;
-<<<<<<< Updated upstream
   renderDealer(state);    // right-col top — always visible
   renderPlayers(state);   // left-col
-=======
-  renderDealer(state);
-  renderPlayers(state);
->>>>>>> Stashed changes
   syncAllHandButtons();
   applyTurnGate(state);
   if (gameMode === "digital") {
@@ -1005,122 +989,7 @@ function applyState(state) {
     updateInsuranceVisibility(state);
     updateHandLocks(state);
     updateRoundPane(state);
-<<<<<<< Updated upstream
   }
-}
-
-// Disable hand buttons for hands that can't be played yet
-// (H2 is locked until H1 is done, etc.)
-function updateHandLocks(state) {
-  if (!state || state.phase !== "playing") return;
-  const seat = (state.table || []).find(s => s.name === state.current_turn);
-  if (!seat || !seat.hands) return;
-  const c = document.getElementById("dig-play-hands");
-  if (!c) return;
-  c.querySelectorAll(".btn").forEach((btn, i) => {
-    const locked = seat.hands.slice(0, i).some(h => !h.done);
-    btn.classList.toggle("disabled", locked);
-    btn.title = locked ? "Finish previous hand first" : "";
-  });
-}
-
-const HARD_SWITCH_MSGS = [
-  "Ouch {dealer}! Lost every hand — that's a Hard Switch. 💀",
-  "Rough round, {dealer}. The table swept you clean. 😬",
-  "Sorry {dealer}, everyone wins and you drink. Hard Switch! 🫠",
-  "Dealer goes down! {dealer} takes the Hard Switch. 🃏",
-];
-
-function updateRoundPane(state) {
-  const msg    = document.getElementById("round-switch-msg");
-  const peek   = document.getElementById("btn-peek");
-  const isOver = state.phase === "round-over";
-
-  if (peek) peek.style.display = isOver ? "" : "none";
-
-  if (msg) {
-    if (isOver && state.switch_this_round === "hard") {
-      const dealer  = state.dealer || "Dealer";
-      const tmpl    = HARD_SWITCH_MSGS[Math.floor(Math.random() * HARD_SWITCH_MSGS.length)];
-      msg.textContent = tmpl.replace("{dealer}", dealer);
-      msg.style.display = "";
-    } else {
-      msg.style.display = "none";
-    }
-=======
->>>>>>> Stashed changes
-  }
-}
-
-function renderDealer(state) {
-  const root = document.getElementById("dealer-panel");
-  if (!root) return;
-  root.innerHTML = "";
-  if (!state.dealer_hand) {
-    root.innerHTML = `<span style="font-size:11px;color:var(--muted)">Dealer hand will appear here</span>`;
-    return;
-  }
-  const dh    = state.dealer_hand;
-  const score = dh.hidden ? "?" : dh.score;
-  const hdr   = document.createElement("div");
-  hdr.className = "dp-header";
-  hdr.innerHTML = `<div><span class="dp-name">Dealer</span><span class="dp-role">${state.dealer || ""}</span></div>
-    <div class="dp-score">Score: <b>${score}</b></div>`;
-  root.appendChild(hdr);
-  const cards = document.createElement("div");
-  cards.className = "dp-cards";
-  (dh.cards || []).forEach(c => cards.appendChild(cardEl(c)));
-  root.appendChild(cards);
-  if (dh.blackjack) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--yellow)";
-    t.textContent = "★ BLACKJACK"; root.appendChild(t);
-  } else if (dh.bust) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--red)";
-    t.textContent = "✕ BUST"; root.appendChild(t);
-  } else if (dh.done && !dh.hidden) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--muted)";
-    t.textContent = `Stands at ${score}`; root.appendChild(t);
-  }
-}
-
-function renderPlayers(state) {
-  const root = document.getElementById("left-col");
-  if (!root) return;
-  root.innerHTML = "";
-  const order = state.play_order && state.play_order.length
-                  ? state.play_order
-                  : (state.table || []).map(t => t.name);
-  const byName = {};
-  (state.table || []).forEach(s => { byName[s.name] = s; });
-  const showTurn = state.mode === "digital" && state.phase === "playing";
-  order.forEach(name => {
-    const s = byName[name];
-    if (!s) return;
-    const seat = document.createElement("div");
-    seat.className = "seat";
-    if (showTurn && s.is_turn) seat.classList.add("turn");
-    if (s.done)                seat.classList.add("done");
-    const hdr = document.createElement("div");
-    hdr.className = "seat-header";
-    const role = s.is_dealer ? `<span class="role">also dealer</span>` : "";
-    const tag  = (showTurn && s.is_turn) ? `<div class="turn-tag">Turn</div>` : "";
-    hdr.innerHTML = `<div class="seat-name">${s.name}${role}</div>${tag}`;
-    seat.appendChild(hdr);
-    const hands = document.createElement("div");
-    hands.className = "hands-row";
-    (s.hands || []).forEach((h, i) => hands.appendChild(handBlock(h, `Hand ${i+1}`)));
-    if (!s.hands || s.hands.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "hand-label";
-      empty.textContent = "(no cards yet)";
-      hands.appendChild(empty);
-    }
-    seat.appendChild(hands);
-    root.appendChild(seat);
-  });
 }
 
 function updateHandLocks(state) {
