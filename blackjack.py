@@ -170,14 +170,16 @@ class Hand:
                 and self.split_count < self.MAX_SPLITS)
 
     def split(self, shoe) -> "Hand":
-        """Remove second card into a new Hand, deal one card to each."""
+        """
+        Remove second card into a new Hand.  Second cards are NOT dealt here —
+        _play_hand deals each hand's second card just before that hand is played,
+        so H1 is fully played before H2 ever receives its second card.
+        """
         new_hand = Hand(from_split=True)
         new_hand.cards.append(self.cards.pop())
         self.from_split   = True
         self.split_count += 1
         new_hand.split_count = self.split_count   # child inherits count so chain limit holds
-        self.cards.append(shoe.deal_card())
-        new_hand.cards.append(shoe.deal_card())
         return new_hand
 
     # --- display ---
@@ -475,6 +477,11 @@ class RoundManager:
                 idx += 1
 
     def _play_hand(self, player, hand, hand_idx):
+        # Split hands start with 1 card; deal their second card now (after H1 is fully played)
+        if hand.from_split and len(hand.cards) == 1:
+            card = self._deal_card_to(hand, player.name)
+            print(f"  {player.name} H{hand_idx+1}: second card dealt — {card}  -> {hand}")
+
         if hand.stood or hand.bust:
             return
         dealer_up = self.dealer_player.dealer_hand.cards[0]

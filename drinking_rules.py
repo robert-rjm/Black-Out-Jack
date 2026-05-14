@@ -211,9 +211,9 @@ class DrinkingRules:
                 msgs.append((p, 1,
                     f"{player_name} won a doubled hand => {p} drinks 1 sip (immunity exception)"))
 
-        # Suited winning hand (4 sips if also doubled/split, 1 sip otherwise)
+        # Suited winning hand: 1 sip normally, 4 sips if doubled (split does NOT multiply)
         if hand.is_suited():
-            sips = 4 if (hand.doubled or hand.from_split) else 1
+            sips = 4 if hand.doubled else 1
             sym  = hand.cards[0].suit.symbol
             for p in others:
                 msgs.append((p, sips,
