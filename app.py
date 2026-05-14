@@ -159,7 +159,10 @@ def _serialize_card(card) -> dict:
 
 def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
     cards = [_serialize_card(c) for c in hand.cards]
+<<<<<<< Updated upstream
     # Doubled card is dealt face-down until dealer plays
+=======
+>>>>>>> Stashed changes
     if hide_double and hand.doubled and len(cards) > 0:
         cards[-1] = {"rank": "?", "suit": "hidden", "symbol": "?"}
     return {
@@ -185,7 +188,11 @@ def _serialize_state(session: RefereeSession | None) -> dict:
     phase  = _round_phase(session)
     turn   = _current_turn(session)
 
+<<<<<<< Updated upstream
     hide_double = (phase != "round-over")   # reveal doubled card once round is over
+=======
+    hide_double = (phase != "round-over")
+>>>>>>> Stashed changes
     table = []
     for p in session.all_players:
         entry = {
@@ -255,7 +262,11 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "suggest_rotate":     suggest_rotate,
         "rotate_reason":      rotate_reason,
         "rounds_this_dealer": rounds_td,
+<<<<<<< Updated upstream
         "switch_this_round":  switch,   # None | "hard" | "soft"
+=======
+        "switch_this_round":  switch,
+>>>>>>> Stashed changes
     }
 
 
@@ -638,10 +649,16 @@ def command():
                         print(f"  {player.name} BLACKJACK confirmed.")
 
             elif cmd == "peek":
+<<<<<<< Updated upstream
                 # Reveal the next card in the shoe without dealing it
                 shoe = getattr(game_session, "shoe", None)
                 if shoe and shoe.cards:
                     card = shoe.cards[-1]   # pop() takes from the end
+=======
+                shoe = getattr(game_session, "shoe", None)
+                if shoe and shoe.cards:
+                    card = shoe.cards[-1]
+>>>>>>> Stashed changes
                     print(f"  Next card in shoe: {card}")
                     print(f"  ({len(shoe.cards)} cards remaining)")
                     game_session._last_peeked = _serialize_card(card)
@@ -728,7 +745,11 @@ def command():
     peeked = getattr(game_session, "_last_peeked", None)
     if peeked:
         state["peeked_card"] = peeked
+<<<<<<< Updated upstream
         game_session._last_peeked = None   # consumed — only show once
+=======
+        game_session._last_peeked = None
+>>>>>>> Stashed changes
     return jsonify(state)
 
 
