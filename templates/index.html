@@ -54,6 +54,7 @@
   }
   .mode-badge.referee { background: #2e3247; color: var(--muted); }
   .mode-badge.digital { background: #1a3a2a; color: var(--green); }
+  .mode-badge.normal  { background: #1a2a3a; color: var(--accent); }
 
   /* ---- TWO-COLUMN MAIN AREA ---- */
   #main-content {
@@ -343,7 +344,7 @@
   .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
   .field select option { background: var(--surface); }
 
-  #num-players-row, #mode-row { display: flex; gap: 8px; margin-bottom: 2px; }
+  #num-players-row, #gametype-row { display: flex; gap: 8px; margin-bottom: 2px; }
   #name-fields { display: flex; flex-direction: column; gap: 8px; }
 
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
@@ -383,13 +384,14 @@
 <!-- ===== SETUP SCREEN ===== -->
 <div id="setup">
   <h2>🃏 BJ Referee</h2>
-  <p class="sub" id="setup-sub">Real-life Drinking Blackjack scorekeeper</p>
+  <p class="sub" id="setup-sub">Virtual Drinking Blackjack — digital shoe &amp; drink tracker</p>
 
   <div class="field">
     <label>Game Mode</label>
-    <div id="mode-row">
-      <button class="btn sel" onclick="setMode('referee', this)">Referee</button>
-      <button class="btn"     onclick="setMode('digital', this)">Digital</button>
+    <div id="gametype-row">
+      <button class="btn sel" onclick="setGameType('drinking-digital', this)">🍺 Drinking</button>
+      <button class="btn"     onclick="setGameType('normal', this)">🃏 Normal</button>
+      <button class="btn"     onclick="setGameType('referee', this)">📋 Referee</button>
     </div>
   </div>
 
@@ -404,13 +406,8 @@
 
   <div id="name-fields" class="field" style="max-width:420px"></div>
 
-  <div class="field">
-    <label>Dealer</label>
-    <select id="dealer-select"></select>
-  </div>
-
   <!-- Referee: wager + hands (two-col). Digital: wager + hands + decks (three-col). -->
-  <div id="settings-ref" class="two-col">
+  <div id="settings-ref" class="two-col" style="display:none">
     <div class="field" style="max-width:none">
       <label>Sips / hand</label>
       <input type="number" id="wager-ref" value="1" min="1" max="10">
@@ -420,8 +417,8 @@
       <input type="number" id="num-hands-ref" value="2" min="1" max="4">
     </div>
   </div>
-  <div id="settings-dig" class="three-col" style="display:none">
-    <div class="field" style="max-width:none">
+  <div id="settings-dig" class="three-col" style="display:">
+    <div class="field" id="wager-dig-cell" style="max-width:none">
       <label>Sips / hand</label>
       <input type="number" id="wager-dig" value="1" min="1" max="10">
     </div>
@@ -633,18 +630,39 @@ let selSuit = null;
 // ============================================================
 // SETUP — mode
 // ============================================================
-let setupMode = "referee";
+let setupMode     = "digital";   // "referee" | "digital"
+let setupDrinking = true;
 
-function setMode(m, btn) {
-  setupMode = m;
-  document.querySelectorAll("#mode-row .btn").forEach(b => b.classList.remove("sel"));
+function setGameType(type, btn) {
+  document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
-  const isDigital = m === "digital";
-  document.getElementById("settings-ref").style.display = isDigital ? "none"  : "";
-  document.getElementById("settings-dig").style.display = isDigital ? ""      : "none";
-  document.getElementById("setup-sub").textContent = isDigital
-    ? "Virtual Drinking Blackjack with digital shoe"
-    : "Real-life Drinking Blackjack scorekeeper";
+
+  const refSettings  = document.getElementById("settings-ref");
+  const digSettings  = document.getElementById("settings-dig");
+  const wagerCell    = document.getElementById("wager-dig-cell");
+  const sub          = document.getElementById("setup-sub");
+
+  if (type === "drinking-digital") {
+    setupMode     = "digital";
+    setupDrinking = true;
+    refSettings.style.display  = "none";
+    digSettings.style.display  = "";
+    wagerCell.style.display    = "";
+    sub.textContent = "Virtual Drinking Blackjack — digital shoe & drink tracker";
+  } else if (type === "normal") {
+    setupMode     = "digital";
+    setupDrinking = false;
+    refSettings.style.display  = "none";
+    digSettings.style.display  = "";
+    wagerCell.style.display    = "none";
+    sub.textContent = "Virtual Blackjack — standard rules, no drinks";
+  } else {   // referee
+    setupMode     = "referee";
+    setupDrinking = true;
+    refSettings.style.display  = "";
+    digSettings.style.display  = "none";
+    sub.textContent = "Physical deck scorekeeper — real-time drink tracker";
+  }
 }
 
 // ============================================================
@@ -665,7 +683,6 @@ function setNumPlayers(n) {
     b.classList.toggle("sel", i+2 === n);
   });
   buildNameFields(n);
-  rebuildDealerSelect(n);
 }
 setNumPlayers(2);
 
@@ -678,22 +695,8 @@ function buildNameFields(n) {
     inp.placeholder = `Player ${i+1} name`;
     inp.id = `pname-${i}`;
     inp.style.cssText = "width:100%;height:var(--tap);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:16px;padding:0 14px;";
-    inp.addEventListener("input", () => rebuildDealerSelect(numPlayersSel));
     c.appendChild(inp);
   }
-}
-
-function rebuildDealerSelect(n) {
-  const s = document.getElementById("dealer-select");
-  const prev = s.value;
-  s.innerHTML = "";
-  for (let i = 0; i < n; i++) {
-    const v = (document.getElementById(`pname-${i}`)?.value || "").trim() || `Player ${i+1}`;
-    const o = document.createElement("option");
-    o.value = i; o.textContent = v.charAt(0).toUpperCase() + v.slice(1);
-    s.appendChild(o);
-  }
-  if (prev) s.value = prev;
 }
 
 // ============================================================
@@ -708,13 +711,15 @@ async function startGame() {
     names.push((document.getElementById(`pname-${i}`)?.value || "").trim() || `Player${i+1}`);
   }
 
-  const dealerIdx = parseInt(document.getElementById("dealer-select").value) || 0;
   const isDigital = setupMode === "digital";
-  const wager     = parseInt(document.getElementById(isDigital ? "wager-dig"     : "wager-ref").value)     || 1;
+  const wager     = setupDrinking
+    ? (parseInt(document.getElementById(isDigital ? "wager-dig" : "wager-ref").value) || 1)
+    : 1;
   const nh        = parseInt(document.getElementById(isDigital ? "num-hands-dig" : "num-hands-ref").value) || 2;
   const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
 
-  const body = { players: names, dealer_index: dealerIdx, wager, num_hands: nh, mode: setupMode };
+  // Player 1 is always the starting dealer
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {
@@ -1304,9 +1309,12 @@ function updateHeader(data) {
   const dealer = data.dealer || "";
   const round  = data.round  || "";
   const mode   = data.mode   || gameMode;
-  const badge  = mode === "digital"
-    ? '<span class="mode-badge digital">Digital</span>'
-    : '<span class="mode-badge referee">Referee</span>';
+  const drinking = data.drinking_mode !== false;
+  const badge = mode === "digital"
+    ? (drinking
+        ? '<span class="mode-badge digital">🍺 Drinking</span>'
+        : '<span class="mode-badge normal">🃏 Normal</span>')
+    : '<span class="mode-badge referee">📋 Referee</span>';
   document.getElementById("header-title").innerHTML = `BJ Referee ${badge}`;
   document.getElementById("header-sub").textContent = `Round ${round}  |  Dealer: ${dealer}`;
 }

@@ -83,11 +83,14 @@ class DrinkingRules:
     @staticmethod
     def on_card_dealt(card, recipient: str, card_pos: int,
                       all_player_names: list, dealer_name: str,
-                      ace_clubs_flag: dict) -> list:
+                      ace_clubs_flag: dict,
+                      is_dealer_hand: bool = False) -> list:
         """
         Called immediately after each card is physically dealt.
         card_pos: 1-indexed position of this card in the recipient's current hand.
         ace_clubs_flag: mutable {'protected': bool} shared for the whole round.
+        is_dealer_hand: True only when the card goes to the dealer's *dealer hand*,
+                        NOT when it goes to the dealer-player's own betting hands.
         Only fires on Aces — all other cards return [].
         """
         if card.rank != Rank.ACE:
@@ -95,7 +98,7 @@ class DrinkingRules:
 
         msgs      = []
         s         = card.suit
-        is_dealer = (recipient == dealer_name)
+        is_dealer = is_dealer_hand   # explicit flag — not a name comparison
 
         if not is_dealer:
             if s == Suit.CLUBS:
@@ -111,7 +114,8 @@ class DrinkingRules:
                     f"A{s.symbol} dealt to {recipient} => {recipient} drinks 1 sip"))
             elif s == Suit.DIAMONDS:
                 msgs.append((dealer_name, 1,
-                    f"A{s.symbol} dealt to {recipient} => {dealer_name} (dealer) drinks 1 sip"))
+                    f"A{s.symbol} dealt to {recipient} => {dealer_name} (dealer) drinks 1 sip",
+                    "dealer"))
         else:
             if s == Suit.CLUBS:
                 ace_clubs_flag["protected"] = True
@@ -120,7 +124,8 @@ class DrinkingRules:
             elif s == Suit.SPADES:
                 if card_pos % 2 == 1:
                     msgs.append((dealer_name, 1,
-                        f"A{s.symbol} to dealer (card #{card_pos}, odd) => {dealer_name} drinks 1 sip"))
+                        f"A{s.symbol} to dealer (card #{card_pos}, odd) => {dealer_name} drinks 1 sip",
+                        "dealer"))
                 else:
                     msgs.append(("all", 1,
                         f"A{s.symbol} to dealer (card #{card_pos}, even) => everyone drinks 1 sip"))
@@ -186,19 +191,23 @@ class DrinkingRules:
 
     @staticmethod
     def on_hand_resolved(player_name: str, hand: Hand,
-                         all_player_names: list) -> list:
+                         all_player_names: list,
+                         dealer_bj: bool = False) -> list:
         """
         Called after each hand is evaluated. Fires rules for:
         - Doubles/splits (immunity exception)
         - Suited winning hand
         - 21 with 5+ cards (hand-out entitlement)
         - Win with 5+ cards
+
+        dealer_bj: when True (dealer has a natural blackjack) all extras are
+                   suppressed — players only pay net-loss sips via on_round_end.
         """
         msgs   = []
         others = [p for p in all_player_names if p != player_name]
 
-        # 21 with 5+ cards: player hands out sips (fires on any result — win, loss, or push)
-        if hand.score() == 21 and len(hand.cards) >= 5:
+        # 21 with 5+ cards: suppress hand-out when dealer has blackjack
+        if not dealer_bj and hand.score() == 21 and len(hand.cards) >= 5:
             msgs.append((player_name, -len(hand.cards),
                 f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips"))
 
@@ -250,7 +259,8 @@ class DrinkingRules:
     # ---------------------------------------------------------------- round end
 
     @staticmethod
-    def on_round_end(players: list, wager: int) -> list:
+    def on_round_end(players: list, wager: int,
+                     dealer_bj: bool = False) -> list:
         """
         Called once all hands are resolved.
         Fires:
@@ -258,15 +268,22 @@ class DrinkingRules:
         - Extra sip for each lost double or lost suited hand
         - Split wins break immunity (aggregated as winning_split_hands - 1)
         - Other-player-wins-all rule (with immunity tiers)
+
+        dealer_bj: when True (dealer natural blackjack) only net-loss sips are
+                   charged — all bonus/penalty extras are suppressed (auto-insurance).
         """
         msgs = []
 
-        # Net losses
+        # Net losses — always fire
         for p in players:
             net = p.net_losses()
             if net > 0:
                 msgs.append((p.name, net * wager,
                     f"{p.name} net -{net} hand(s) => drinks {net * wager} sip(s) (net loss)"))
+
+        # Dealer blackjack = auto-insurance: no extras beyond net losses
+        if dealer_bj:
+            return msgs
 
         # Extra sip for each lost double or lost suited hand
         for p in players:
@@ -331,7 +348,7 @@ class DrinkingRules:
         for pname, hand in winning_hands:
             if hand.is_blackjack():
                 s = 2
-                lines.append(f"{pname} blackjack => 2 sip")
+                lines.append(f"{pname} blackjack => 2 sips")
             elif hand.doubled:
                 s = 2
                 lines.append(f"{pname} doubled win => 2 sips")
@@ -342,7 +359,8 @@ class DrinkingRules:
 
         detail = "; ".join(lines)
         return [(dealer_name, total,
-            f"Hard Dealer Switch: {dealer_name} drinks {total} sip(s) ({detail})")]
+            f"Hard Dealer Switch: {dealer_name} drinks {total} sip(s) ({detail})",
+            "dealer")]
 
 
 # =============================================================================
@@ -375,8 +393,11 @@ class DrinkTracker:
     # ---------------------------------------------------------------- apply
 
     def apply(self, msgs: list):
-        """Apply a list of (recipient, sips, reason) tuples."""
-        for recipient, sips, reason in msgs:
+        """Apply a list of (recipient, sips, reason[, role]) tuples.
+        role defaults to 'player'; use 'dealer' for dealer-seat drinks."""
+        for msg in msgs:
+            recipient, sips, reason = msg[0], msg[1], msg[2]
+            role = msg[3] if len(msg) > 3 else "player"
             if recipient is None or sips == 0:
                 if reason: print(f"    (i) {reason}")
                 continue
@@ -384,7 +405,7 @@ class DrinkTracker:
                 self._handle_handout(recipient, abs(sips), reason)
                 continue
             for t in self._resolve(recipient):
-                t.add_drink(sips, reason)
+                t.add_drink(sips, reason, role)
             print(f"    [drink] {reason}")
 
     # ---------------------------------------------------------------- ace of clubs credit
@@ -395,7 +416,7 @@ class DrinkTracker:
         Minimum net result is 0 (credit cannot go negative).
         """
         if player.drinks_owed() > 0:
-            player.add_drink(-1, f"{player.name} A♣ credit: -1 sip")
+            player.add_drink(-1, f"{player.name} A♣ credit: -1 sip", "player")
             print(f"    (i) {player.name} A♣ credit applied: -1 sip")
 
     # ---------------------------------------------------------------- handout
@@ -416,7 +437,7 @@ class DrinkTracker:
         if getattr(giver_player, "is_npc", False):
             for i in range(remaining):
                 t = others[i % len(others)]
-                t.add_drink(1, f"{giver} (NPC) handed 1 sip to {t.name} (5-card 21)")
+                t.add_drink(1, f"{giver} (NPC) handed 1 sip to {t.name} (5-card 21)", "player")
                 print(f"    -> {t.name} +1 sip (NPC auto-distributed)")
             return
 
@@ -426,7 +447,7 @@ class DrinkTracker:
             raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
             t   = self._map.get(raw.lower())
             if t and t.name.lower() != giver.lower():
-                t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21)")
+                t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21)", "player")
                 remaining -= 1
                 print(f"    -> {t.name} +1 sip")
             else:
@@ -442,13 +463,34 @@ class DrinkTracker:
         for p in self.players:
             if p.name == "House": continue
             if not p.drink_log:   continue
+
+            # Split entries by role
+            dealer_log = [(e[0], e[1]) for e in p.drink_log if e[2] == "dealer"]
+            player_log = [(e[0], e[1]) for e in p.drink_log if e[2] != "dealer"]
+
+            if not dealer_log and not player_log:
+                continue
+
             any_drinks = True
-            net = p.drinks_owed()
-            print(f"\n  {p.name}  =>  {net} sip(s) this round")
-            for sips, reason in p.drink_log:
-                sign = f"+{sips}" if sips > 0 else str(sips)
-                print(f"    {sign:>4}  {reason}")
-            p.total_drinks += max(0, net)
+
+            # Dealer-role section (only relevant when this player holds the dealer seat)
+            if p.is_dealer and dealer_log:
+                dealer_net = sum(s for s, _ in dealer_log)
+                print(f"\n  Dealer ({p.name})  =>  {dealer_net} sip(s) this round")
+                for sips, reason in dealer_log:
+                    sign = f"+{sips}" if sips > 0 else str(sips)
+                    print(f"    {sign:>4}  {reason}")
+
+            # Player-role section
+            if player_log:
+                player_net = sum(s for s, _ in player_log)
+                print(f"\n  {p.name}  =>  {player_net} sip(s) this round")
+                for sips, reason in player_log:
+                    sign = f"+{sips}" if sips > 0 else str(sips)
+                    print(f"    {sign:>4}  {reason}")
+
+            p.total_drinks += max(0, sum(e[0] for e in p.drink_log))
+
         if not any_drinks:
             print("  No drinks this round!")
         print("\n" + "="*52 + "\n")
