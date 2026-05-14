@@ -136,13 +136,13 @@ class Hand:
     One blackjack hand. Players hold a list of Hands
     (2 initial hands per the drinking rules; splits add more).
     """
-    MAX_SPLITS = 5  # max splits per hand (aces unlimited)
+    MAX_SPLITS = 4  # 4 splits per original starting hand = 5 hands total (aces included)
 
     def __init__(self, doubled: bool = False, from_split: bool = False):
         self.cards:     list = []
         self.doubled    = doubled
         self.from_split = from_split
-        self.split_count = 0
+        self.split_count = 0   # inherited from parent on split so limit tracks the whole chain
         self.stood      = False
         self.bust       = False
         self.insured    = False
@@ -162,7 +162,6 @@ class Hand:
 
     def can_split(self) -> bool:
         if len(self.cards) != 2: return False
-        if self.cards[0].rank == Rank.ACE: return True          # aces: unlimited splits
         return (self.cards[0].rank.blackjack_value == self.cards[1].rank.blackjack_value
                 and self.split_count < self.MAX_SPLITS)
 
@@ -172,6 +171,7 @@ class Hand:
         new_hand.cards.append(self.cards.pop())
         self.from_split   = True
         self.split_count += 1
+        new_hand.split_count = self.split_count   # child inherits count so chain limit holds
         self.cards.append(shoe.deal_card())
         new_hand.cards.append(shoe.deal_card())
         return new_hand
