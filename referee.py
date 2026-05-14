@@ -104,6 +104,7 @@ class RefereeSession:
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False # True once all first-deal cards are entered
+        self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
 
         # Tracker — resolves recipients and logs drinks
         self.tracker = DrinkTracker(players, self._get_dealer())
@@ -158,6 +159,7 @@ class RefereeSession:
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
+        self._pending_resolved = []
         self.tracker = DrinkTracker(self.all_players, self._get_dealer())
 
     # ---------------------------------------------------------------- command: deal
@@ -315,9 +317,8 @@ class RefereeSession:
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
             if hand.is_blackjack() and outcome == "win":
                 self.tracker.apply(DrinkingRules.on_blackjack(player.name, hand, self._all_names))
-            self.tracker.apply(
-                DrinkingRules.on_hand_resolved(player.name, hand, self._all_names,
-                                               dealer_bj=dealer_bj))
+            # Buffer on_hand_resolved — fired at endround once hard_switch is known
+            self._pending_resolved.append((player.name, hand, dealer_bj))
         elif outcome == "bust":
             hand.result = "loss"
             hand.bust   = True
@@ -389,7 +390,18 @@ class RefereeSession:
                 elif hand.result in ("loss", "push"):
                     dealer_lost_all = False
 
-        if dealer_lost_all and winning:
+        hard_switch   = dealer_lost_all and bool(winning)
+        exempt_dealer = self.dealer_name if hard_switch else ""
+
+        # Fire buffered on_hand_resolved calls — now we know if it's a hard switch
+        for p_name, hand, dealer_bj_at_time in self._pending_resolved:
+            self.tracker.apply(
+                DrinkingRules.on_hand_resolved(p_name, hand, self._all_names,
+                                               dealer_bj=dealer_bj_at_time,
+                                               dealer_name=exempt_dealer))
+        self._pending_resolved = []
+
+        if hard_switch:
             self.tracker.apply(
                 DrinkingRules.on_hard_dealer_switch(
                     self.dealer_name, winning,
@@ -404,7 +416,9 @@ class RefereeSession:
             print(f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
         if dealer_bj:
             print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
-        self.tracker.apply(DrinkingRules.on_round_end(players, w, dealer_bj=dealer_bj))
+        self.tracker.apply(DrinkingRules.on_round_end(
+            players, w, dealer_bj=dealer_bj,
+            hard_switch_dealer=self.dealer_name if hard_switch else ""))
 
         # Ace-of-clubs credits
         for name in self._ace_credits:

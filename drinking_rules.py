@@ -192,7 +192,8 @@ class DrinkingRules:
     @staticmethod
     def on_hand_resolved(player_name: str, hand: Hand,
                          all_player_names: list,
-                         dealer_bj: bool = False) -> list:
+                         dealer_bj: bool = False,
+                         dealer_name: str = "") -> list:
         """
         Called after each hand is evaluated. Fires rules for:
         - Doubles/splits (immunity exception)
@@ -202,9 +203,14 @@ class DrinkingRules:
 
         dealer_bj: when True (dealer has a natural blackjack) all extras are
                    suppressed — players only pay net-loss sips via on_round_end.
+        dealer_name: the dealer-player is exempt from bonus win drinks
+                     (suited, doubled, 5-card wins) — they drink via dealer
+                     role rules instead (Hard Switch, net losses).
         """
         msgs   = []
         others = [p for p in all_player_names if p != player_name]
+        # Dealer is spared from other players' win-bonus drinks
+        others_np = [p for p in others if p != dealer_name] if dealer_name else others
 
         # 21 with 5+ cards: suppress hand-out when dealer has blackjack
         if not dealer_bj and hand.score() == 21 and len(hand.cards) >= 5:
@@ -216,7 +222,7 @@ class DrinkingRules:
 
         # Doubled hand breaks immunity (splits aggregated in on_round_end; suited handled below)
         if hand.doubled and not hand.is_suited():
-            for p in others:
+            for p in others_np:
                 msgs.append((p, 1,
                     f"{player_name} won a doubled hand => {p} drinks 1 sip (immunity exception)"))
 
@@ -224,13 +230,13 @@ class DrinkingRules:
         if hand.is_suited():
             sips = 4 if hand.doubled else 1
             sym  = hand.cards[0].suit.symbol
-            for p in others:
+            for p in others_np:
                 msgs.append((p, sips,
                     f"{player_name} won suited hand (all {sym}) => {p} drinks {sips} sip(s)"))
 
         # Win with 5+ cards (stacks with above if score is 21)
         if len(hand.cards) >= 5:
-            for p in others:
+            for p in others_np:
                 msgs.append((p, 1,
                     f"{player_name} won with {len(hand.cards)} cards => {p} drinks 1 sip"))
 
@@ -260,7 +266,8 @@ class DrinkingRules:
 
     @staticmethod
     def on_round_end(players: list, wager: int,
-                     dealer_bj: bool = False) -> list:
+                     dealer_bj: bool = False,
+                     hard_switch_dealer: str = "") -> list:
         """
         Called once all hands are resolved.
         Fires:
@@ -271,11 +278,21 @@ class DrinkingRules:
 
         dealer_bj: when True (dealer natural blackjack) only net-loss sips are
                    charged — all bonus/penalty extras are suppressed (auto-insurance).
+        hard_switch_dealer: name of the dealer-player on a hard switch — they are
+                            fully exempt from all player-role drinks this round
+                            (they already drink via the Hard Switch dealer rule).
         """
         msgs = []
 
-        # Net losses — always fire
+        # On a hard switch the dealer drinks via the Hard Switch rule only —
+        # skip all player-role charges for them.
+        def _excluded(player_name: str) -> bool:
+            return bool(hard_switch_dealer) and player_name == hard_switch_dealer
+
+        # Net losses — always fire (skip dealer on hard switch)
         for p in players:
+            if _excluded(p.name):
+                continue
             net = p.net_losses()
             if net > 0:
                 msgs.append((p.name, net * wager,
@@ -285,8 +302,10 @@ class DrinkingRules:
         if dealer_bj:
             return msgs
 
-        # Extra sip for each lost double or lost suited hand
+        # Extra sip for each lost double or lost suited hand (skip dealer on hard switch)
         for p in players:
+            if _excluded(p.name):
+                continue
             for hand in p.hands:
                 if hand.result != "loss":
                     continue
@@ -306,6 +325,8 @@ class DrinkingRules:
             for other in players:
                 if other is winner:
                     continue
+                if _excluded(other.name):   # dealer exempt on hard switch
+                    continue
                 msgs.append((other.name, sips,
                     f"{winner.name} won {split_wins} split hand(s) => {other.name} drinks {sips} sip(s)"))
 
@@ -316,6 +337,8 @@ class DrinkingRules:
             w_wins = winner.round_wins()
             for other in players:
                 if other is winner: continue
+                if _excluded(other.name):   # dealer exempt on hard switch
+                    continue
                 o_wins   = other.round_wins()
                 o_losses = other.round_losses()
                 o_pushes = other.round_pushes()
