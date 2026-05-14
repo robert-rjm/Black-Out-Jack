@@ -222,17 +222,34 @@ def _serialize_state(session: RefereeSession | None) -> dict:
                 ),
             }
 
+    # Dealer-rotation suggestion
+    switch          = getattr(session, "switch_this_round", None)
+    rounds_td       = getattr(session, "rounds_this_dealer", 1)
+    num_p           = len(session.all_players)
+    suggest_rotate  = bool(switch in ("hard", "soft") or rounds_td >= num_p)
+    if switch == "hard":
+        rotate_reason = "Hard switch — dealer lost all hands"
+    elif switch == "soft":
+        rotate_reason = "Soft switch — dealer won all hands"
+    elif suggest_rotate:
+        rotate_reason = f"Round {rounds_td} of {num_p} — every player has been dealer"
+    else:
+        rotate_reason = f"Round {rounds_td} of {num_p} as dealer"
+
     return {
-        "ok":           True,
-        "round":        session.round_count,
-        "dealer":       session.dealer_name,
-        "players":      [p.name for p in session.all_players],
-        "mode":         getattr(session, "mode", "referee"),
-        "table":        table,
-        "dealer_hand":  d_hand_state,
-        "current_turn": turn,
-        "play_order":   _play_order(session),
-        "phase":        phase,
+        "ok":              True,
+        "round":           session.round_count,
+        "dealer":          session.dealer_name,
+        "players":         [p.name for p in session.all_players],
+        "mode":            getattr(session, "mode", "referee"),
+        "table":           table,
+        "dealer_hand":     d_hand_state,
+        "current_turn":    turn,
+        "play_order":      _play_order(session),
+        "phase":           phase,
+        "suggest_rotate":  suggest_rotate,
+        "rotate_reason":   rotate_reason,
+        "rounds_this_dealer": rounds_td,
     }
 
 
@@ -360,6 +377,28 @@ def _digital_dealer_turn(session: RefereeSession):
         all_cards, "end_of_round", session._four_aces_fd)
     session.tracker.apply(msgs)
 
+    # Detect hard / soft dealer switch for rotation suggestion.
+    # A push on ANY hand cancels both switches — all results must be uniform.
+    all_results = [h.result for p in session.all_players for h in p.hands]
+    hard_switch = bool(all_results) and all(r == "win"  for r in all_results)
+    soft_switch = bool(all_results) and all(r == "loss" for r in all_results)
+    if soft_switch:
+        insured_bj = any(
+            h.insured and h.is_blackjack()
+            for p in session.all_players for h in p.hands
+        )
+        if insured_bj:
+            soft_switch = False
+            print("  Soft Switch suppressed — insurance on blackjack.")
+    if hard_switch:
+        session.switch_this_round = "hard"
+        print("  >>> HARD DEALER SWITCH <<<")
+    elif soft_switch:
+        session.switch_this_round = "soft"
+        print("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
+    else:
+        session.switch_this_round = None
+
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -393,8 +432,10 @@ def setup():
             p.dealer_hand = Hand()
         players.append(p)
 
-    game_session      = RefereeSession(players, dealer_name, wager, num_hands)
-    game_session.mode = mode
+    game_session                    = RefereeSession(players, dealer_name, wager, num_hands)
+    game_session.mode               = mode
+    game_session.rounds_this_dealer = 1   # rounds the current dealer has held the role
+    game_session.switch_this_round  = None  # None | "hard" | "soft"
 
     if mode == "digital":
         num_decks         = int(data.get("num_decks", 1))
@@ -486,6 +527,9 @@ def command():
                                 hand.bust = hand.stood = True
                                 hand.result = "loss"
                                 print("  BUST!")
+                            elif hand.score() == 21:
+                                hand.stood = True
+                                print(f"  {player.name} {hand_label}: auto-stands at 21.")
 
             elif cmd == "stand":
                 # stand <player> [hand<n>]
@@ -597,6 +641,10 @@ def command():
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
                 if rotate:
                     _newround_rotate(game_session)
+                    game_session.rounds_this_dealer = 1
+                else:
+                    game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
+                game_session.switch_this_round = None
                 if game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -611,6 +659,13 @@ def command():
 
             else:
                 print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
+
+            # Auto-run dealer turn + end round once all player hands are done
+            if cmd in {"hit", "stand", "double", "split"}:
+                if _round_phase(game_session) == "dealer-ready":
+                    print("\n  (All players done — dealer plays automatically)")
+                    _digital_dealer_turn(game_session)
+                    game_session.cmd_endround()
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
