@@ -18,6 +18,10 @@ from tabulate import tabulate
 
 print("Date last modified:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
+# ANSI colour helpers (terminal only — harmless on web)
+_BLUE  = "\033[94m"
+_RESET = "\033[0m"
+
 
 # =============================================================================
 # Enums
@@ -248,6 +252,23 @@ _BS_SOFT = {
     **{(s,  d): "s" for s in range(19, 22) for d in range(2, 12)},
 }
 
+# Pair-split table: (pair_rank_value, dealer_up_value) -> action
+#   "sp"  = split        "s" = stand    "h" = hit
+#   "d?"  = double if available, else hit  (used for 5-5 which never splits)
+# Drinking-mode 10-split override is applied in best_play(), not here.
+_BS_PAIR = {
+    **{(11, d): "sp"                                        for d in range(2, 12)},  # A-A always split
+    **{(10, d): "s"                                         for d in range(2, 12)},  # 10s stand (drinking overrides)
+    **{(9,  d): ("sp" if d not in (7, 10, 11) else "s")    for d in range(2, 12)},  # 9-9
+    **{(8,  d): "sp"                                        for d in range(2, 12)},  # 8-8 always split
+    **{(7,  d): ("sp" if d <= 7 else "h")                  for d in range(2, 12)},  # 7-7
+    **{(6,  d): ("sp" if 2 <= d <= 6 else "h")             for d in range(2, 12)},  # 6-6
+    **{(5,  d): ("d" if 2 <= d <= 9 else "h")             for d in range(2, 12)},  # 5-5 never split → treat as 10
+    **{(4,  d): ("sp" if 5 <= d <= 6 else "h")             for d in range(2, 12)},  # 4-4
+    **{(3,  d): ("sp" if 2 <= d <= 7 else "h")             for d in range(2, 12)},  # 3-3
+    **{(2,  d): ("sp" if 2 <= d <= 7 else "h")             for d in range(2, 12)},  # 2-2
+}
+
 
 class NPC_Player(Player):
     """
@@ -261,33 +282,51 @@ class NPC_Player(Player):
 
     def __repr__(self): return f"NPC_Player({self.name})"
 
-    def _is_soft(self, hand) -> bool:
+    @staticmethod
+    def _is_soft_hand(hand) -> bool:
         total = sum(c.rank.blackjack_value for c in hand.cards)
         aces  = sum(1 for c in hand.cards if c.rank == Rank.ACE)
         return aces > 0 and total <= 21
 
-    def decide(self, hand, dealer_up_card, valid_actions: list, drinking_mode: bool = False) -> str:
+    # kept for backwards compatibility
+    def _is_soft(self, hand) -> bool:
+        return NPC_Player._is_soft_hand(hand)
+
+    @staticmethod
+    def best_play(hand, dealer_up_card, valid_actions: list,
+                  drinking_mode: bool = False) -> str:
+        """
+        Return the basic-strategy best action for *any* hand.
+        Used directly by NPC_Player.decide() and as a hint for human players.
+        """
         score   = hand.score()
         d_val   = min(dealer_up_card.rank.blackjack_value, 10)
-        is_soft = self._is_soft(hand)
+        is_soft = NPC_Player._is_soft_hand(hand)
 
+        # --- Pair split ---
         if "sp" in valid_actions and hand.can_split():
-            rv = hand.cards[0].rank.blackjack_value
-            if rv == 11: return "sp"
-            if rv == 8:  return "sp"
-            if rv == 10: return "sp" if (drinking_mode and d_val != 10) else "s"
-            if rv == 5:  return "d" if "d" in valid_actions else "h"
-            if rv == 4:  return "sp" if 5 <= d_val <= 6 else "h"
-            if rv == 9:  return "sp" if d_val not in (7, 10, 11) else "s"
-            if rv == 7:  return "sp" if d_val <= 7 else "h"
-            if rv == 6:  return "sp" if 2 <= d_val <= 6 else "h"
-            if rv in (2, 3): return "sp" if 2 <= d_val <= 7 else "h"
+            rv  = hand.cards[0].rank.blackjack_value
+            # Drinking mode: always split 10s — even against a dealer 10
+            if rv == 10 and drinking_mode:
+                return "sp"
+            raw = _BS_PAIR.get((rv, d_val), "h")
+            if raw == "sp":
+                return "sp"
+            if raw == "d":
+                return "d" if "d" in valid_actions else "h"
+            # raw is the fallback ("s" or "h") — don't split
+            return raw if raw in valid_actions else "s"
 
+        # --- Hard / soft table ---
         table = _BS_SOFT if is_soft else _BS_HARD
         ideal = table.get((score, d_val), "s")
         if ideal == "d" and "d" not in valid_actions:
             ideal = "h"
         return ideal if ideal in valid_actions else "s"
+
+    def decide(self, hand, dealer_up_card, valid_actions: list,
+               drinking_mode: bool = False) -> str:
+        return NPC_Player.best_play(hand, dealer_up_card, valid_actions, drinking_mode)
 
 
 # =============================================================================
@@ -468,8 +507,11 @@ class RoundManager:
 
             if player.is_npc:
                 action = player.decide(hand, dealer_up, valid, self.drinking_mode)
-                print(f"  {player.name} (NPC) => {action}")
+                print(f"  {player.name} (NPC) => {_BLUE}{action}{_RESET}")
             else:
+                # Show basic-strategy hint in blue before asking human
+                hint = NPC_Player.best_play(hand, dealer_up, valid, self.drinking_mode)
+                print(f"  {_BLUE}Best play: {hint}{_RESET}")
                 # Mandatory 10-split warning (drinking mode only)
                 if (self.drinking_mode
                         and "sp" in valid

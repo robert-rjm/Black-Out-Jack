@@ -266,6 +266,9 @@
   .btn.red     { background: var(--red);    border-color: var(--red);    color: #fff; }
   .btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: #000; }
   .btn.wide    { flex: 1; }
+  /* basic-strategy best-play highlight — blue border + glow, no fill so disabled state still reads */
+  .btn.best    { border-color: var(--accent); color: var(--accent);
+                 box-shadow: 0 0 0 2px rgba(91,156,246,.25); }
 
   /* big action button for digital deal/dealer panes */
   .btn-big {
@@ -989,6 +992,7 @@ function applyState(state) {
     updateInsuranceVisibility(state);
     updateHandLocks(state);
     updateRoundPane(state);
+    updateBestPlay(state);
   }
 }
 
@@ -1002,6 +1006,21 @@ function updateHandLocks(state) {
     const locked = seat.hands.slice(0, i).some(h => !h.done);
     btn.classList.toggle("disabled", locked);
     btn.title = locked ? "Finish previous hand first" : "";
+  });
+}
+
+// Map backend action codes to the button label text in the Play pane
+const BS_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
+
+function updateBestPlay(state) {
+  // Clear any previous highlight
+  document.querySelectorAll("#pane-dig-play .btn.best").forEach(b => b.classList.remove("best"));
+  if (!state || state.phase !== "playing" || !state.best_play) return;
+  const label = BS_LABEL[state.best_play];
+  if (!label) return;
+  // Find the matching action button and highlight it
+  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+    if (b.textContent.trim() === label) b.classList.add("best");
   });
 }
 

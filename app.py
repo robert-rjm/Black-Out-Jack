@@ -19,7 +19,7 @@ import socket
 from flask import Flask, request, jsonify, render_template
 
 from referee import RefereeSession
-from blackjack import Player, Hand, Shoe, HandEvaluator
+from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
 
 app = Flask(__name__)
@@ -176,6 +176,33 @@ def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
     }
 
 
+def _compute_best_play(session: "RefereeSession", turn: str | None, phase: str) -> str | None:
+    """
+    Return the basic-strategy best action ('h'|'s'|'d'|'sp') for the
+    current active hand, or None when it's not applicable.
+    Always assumes drinking mode (web is always drinking mode).
+    """
+    if phase != "playing" or not turn:
+        return None
+    player = session._get_player(turn)
+    if not player:
+        return None
+    dealer = session._get_dealer()
+    if not dealer or not dealer.dealer_hand or not dealer.dealer_hand.cards:
+        return None
+    # First non-done hand
+    hand = next((h for h in player.hands if not _hand_done(h)), None)
+    if not hand or not hand.cards:
+        return None
+    dealer_up = dealer.dealer_hand.cards[0]
+    valid = ["h", "s"]
+    if len(hand.cards) == 2 and not hand.doubled:
+        valid.append("d")
+    if hand.can_split():
+        valid.append("sp")
+    return NPC_Player.best_play(hand, dealer_up, valid, drinking_mode=True)
+
+
 def _serialize_state(session: RefereeSession | None) -> dict:
     """Full snapshot for the UI."""
     if not session:
@@ -253,6 +280,7 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "current_turn":    turn,
         "play_order":      _play_order(session),
         "phase":           phase,
+        "best_play":          _compute_best_play(session, turn, phase),
         "suggest_rotate":     suggest_rotate,
         "rotate_reason":      rotate_reason,
         "rounds_this_dealer": rounds_td,
