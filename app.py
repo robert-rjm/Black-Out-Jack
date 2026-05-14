@@ -157,9 +157,13 @@ def _serialize_card(card) -> dict:
     }
 
 
-def _serialize_hand(hand: Hand) -> dict:
+def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
+    cards = [_serialize_card(c) for c in hand.cards]
+    # Doubled card is dealt face-down until dealer plays
+    if hide_double and hand.doubled and len(cards) > 0:
+        cards[-1] = {"rank": "?", "suit": "hidden", "symbol": "?"}
     return {
-        "cards":       [_serialize_card(c) for c in hand.cards],
+        "cards":       cards,
         "score":       hand.score() if hand.cards else 0,
         "stood":       hand.stood,
         "bust":        hand.bust or (hand.cards and hand.is_bust()),
@@ -181,12 +185,13 @@ def _serialize_state(session: RefereeSession | None) -> dict:
     phase  = _round_phase(session)
     turn   = _current_turn(session)
 
+    hide_double = (phase != "round-over")   # reveal doubled card once round is over
     table = []
     for p in session.all_players:
         entry = {
             "name":      p.name,
             "is_dealer": p.is_dealer,
-            "hands":     [_serialize_hand(h) for h in p.hands],
+            "hands":     [_serialize_hand(h, hide_double=hide_double) for h in p.hands],
             "done":      _player_done(p),
             "is_turn":   (p.name == turn),
         }
@@ -247,9 +252,10 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "current_turn":    turn,
         "play_order":      _play_order(session),
         "phase":           phase,
-        "suggest_rotate":  suggest_rotate,
-        "rotate_reason":   rotate_reason,
+        "suggest_rotate":     suggest_rotate,
+        "rotate_reason":      rotate_reason,
         "rounds_this_dealer": rounds_td,
+        "switch_this_round":  switch,   # None | "hard" | "soft"
     }
 
 
@@ -589,6 +595,7 @@ def command():
                             new_hand.cards.append(hand.cards.pop())
                             hand.from_split   = True
                             hand.split_count += 1
+                            new_hand.split_count = hand.split_count  # child inherits so chain limit holds
                             idx       = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
                             new_label = f"hand{idx + 2}"
                             player.hands.insert(idx + 1, new_hand)
@@ -629,6 +636,18 @@ def command():
                         game_session.tracker.apply(
                             DrinkingRules.on_blackjack(player.name, hand, all_names))
                         print(f"  {player.name} BLACKJACK confirmed.")
+
+            elif cmd == "peek":
+                # Reveal the next card in the shoe without dealing it
+                shoe = getattr(game_session, "shoe", None)
+                if shoe and shoe.cards:
+                    card = shoe.cards[-1]   # pop() takes from the end
+                    print(f"  Next card in shoe: {card}")
+                    print(f"  ({len(shoe.cards)} cards remaining)")
+                    game_session._last_peeked = _serialize_card(card)
+                else:
+                    print("  Shoe is empty or not available.")
+                    game_session._last_peeked = None
 
             elif cmd == "dealer":
                 # Auto-run dealer turn + evaluate all hands
@@ -706,6 +725,10 @@ def command():
 
     state = _serialize_state(game_session)
     state["output"] = buf.getvalue()
+    peeked = getattr(game_session, "_last_peeked", None)
+    if peeked:
+        state["peeked_card"] = peeked
+        game_session._last_peeked = None   # consumed — only show once
     return jsonify(state)
 
 
