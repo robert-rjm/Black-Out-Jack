@@ -3,9 +3,12 @@ _an AdHoc creation_
 
 Welcome to _**Black(Out)Jack**_, a fun twist on classic BlackJack. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack. 
 
-Play it digitally with an implementation in Python, use it as a real-life referee, or run it from your phone via a local web UI. You can choose between either **Referee** mode (physical deck, digital scorecard) or **Digital** mode (fully playable in-browser blackjack with a virtual shoe).
+Play it digitally in your browser, use it as a real-life referee, or run it via a local web UI. You can choose between either **Referee** mode (physical deck, digital scorecard) or **Digital** mode (fully playable in-browser blackjack).
 
 ## Quick Start
+**Play online instantly:** [Black-Out-Jack.onrender.com](https://black-out-jack.onrender.com)
+
+**Or run locally:**
 Requires Python 3.10+
 ```bash
 git clone https://github.com/robert-rjm/Drinking-BlackJack.git && cd Drinking-BlackJack
@@ -97,6 +100,7 @@ Drinking-BlackJack/
 ├── drinking_rules.py        # Drinking Rules
 ├── referee.py               # Terminal referee for real-life play
 ├── app.py                   # Flask web server (Referee & Digital modes)
+├── requirements.txt         # Python dependencies for deployment
 ├── templates/
 │   └── index.html           # Web UI served by app.py
 ├── ComprehensiveExample.md  # Example for Drinking Rules
@@ -127,7 +131,7 @@ When the rules change, update these values after re-verifying the implementation
 |------|---------|-------------|
 | Digital Game | `python blackjack.py` | Fully playable in terminal (normal or drinking) |
 | Terminal Referee | `python referee.py` | Physical deck, digital scorecard |
-| Web UI | `python app.py` | Browser-based (referee or digital mode) |
+| Web UI | `python app.py` or [play online](https://black-out-jack.onrender.com)| Browser-based (referee or digital mode) |
 
 ### 1. Digital Game (Normal or Drinking)
 Play Blackjack fully on your computer, deals cards, manages turns, and tracks drinks automatically.
@@ -149,9 +153,12 @@ python referee.py
 
 **Card format:** `<rank><suit>`: e.g. `Ah` `10s` `Kd` `3c`. Type `help` in-game for full reference.
 
-### 3. Web Referee (iPhone / Browser)
-Run the Flask server and open it on any phone on the same WiFi network, or deploy it online for remote access.
+### 3. Web UI (Browser / Online)
+Run it locally or play online.
 
+**Play online:** [Black-Out-Jack.onrender.com](https://black-out-jack.onrender.com)
+
+**Or run locally**
 ```bash
 python app.py
 ```
@@ -168,8 +175,6 @@ Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the 
 | **Digital** | Fully playable browser blackjack with virtual shoe (1–8 decks). |
 
 Both modes share the same drink-rule engine, live drink log (colour-coded by event type), and session persistence, reloading the page reconnects to the active session.
-
-**Tabs during play:** Deal → Play/Action → Dealer/Result → Round
 
 ## File Architecture
 
