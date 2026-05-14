@@ -11,7 +11,6 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
 - [General Rule Modifications](#general-rule-modifications)
 - [Drinking Rules](#drinking-rules)
 - [Potential future rules](#potential-future-rules)
-- [Example Scenarios](#example-scenarios)
 
 ---
 
@@ -25,12 +24,13 @@ Every player is required to have a drink ready.
 |---|---|
 | Hands per Player | 2 recommended (must be equal for all Players) |
 | Wager | Agreed before starting (e.g. 1 sip per hand) |
-| Hand scoring | Win = +1, Loss = -1, Push = 0 |
+| Hand scoring | Win = +1, Blackjack = +2, Loss = -1, Push = 0  |
 | Net result | Only net negative scores result in sips |
 
 > **Example (2 hands):**
 > - Won 1, lost 1 → net 0 → no sips
 > - Lost both → net -2 → drink 2 sips
+> - Won BlackJack, lost 1 → net +1 →  no sips (positives are disregarded)
 > - Won both → net +2 → no sips (positives are disregarded)
 
 *For fairness, all players must play with the same number of hands and wager.*
@@ -64,7 +64,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 | Dealer stands on | All 17s (including soft 17) |
 | Blackjack payout | 2:1 (see [Drinking Rules](#drinking-rules)) |
 | Double down | Allowed on any two-card hand, including after any split |
-| Splitting 10s | **Mandatory** unless suited (see [Suited exception](#2-doubles-splits-and-suited-exception-to-immunity)) |
+| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#2-doubles-splits-and-suited-exception-to-immunity)) |
 | Splitting | Maximum 5 splits per starting hand |
 
 ### Splitting Aces:
@@ -146,7 +146,7 @@ Even if you won all your hands, you still drink if another Player wins with:
 | Double | 1 sip |
 | Split (per successful split) | 1 sip each |
 | Suited | 1 sip |
-| Double suited | 4 sips |
+| Double and Suited | 4 sips |
 
 > This is why suited 10s are the only exception to the mandatory split 10s rule.
 
