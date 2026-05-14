@@ -496,7 +496,6 @@
       <div class="tabs-bar" id="dig-tabs">
         <button class="tab active" onclick="switchDigTab('dig-deal', this)">Deal</button>
         <button class="tab"        onclick="switchDigTab('dig-play', this)">Play</button>
-        <button class="tab"        onclick="switchDigTab('dig-dealer', this)">Dealer</button>
         <button class="tab"        onclick="switchDigTab('dig-round', this)">Round</button>
       </div>
 
@@ -521,32 +520,19 @@
           <button class="btn wide"       onclick="sendDigitalPlay('stand')">STAND</button>
         </div>
         <div class="btn-row">
-          <button class="btn wide"        onclick="sendDigitalPlay('double')">DOUBLE</button>
-          <button class="btn wide"        onclick="sendDigitalPlay('split')">SPLIT</button>
+          <button class="btn wide" onclick="sendDigitalPlay('double')">DOUBLE</button>
+          <button class="btn wide" onclick="sendDigitalPlay('split')">SPLIT</button>
         </div>
-        <div class="btn-row">
-          <button class="btn wide"        onclick="sendDigitalPlay('insurance')">INSURANCE</button>
-          <button class="btn yellow wide" onclick="sendDigitalPlay('blackjack')">BLACKJACK</button>
-        </div>
-      </div>
-
-      <!-- DEALER pane — auto dealer turn + evaluation -->
-      <div id="pane-dig-dealer" class="pane">
-        <p class="hint">Reveals the hole card, hits until 17+, and evaluates all hands automatically.</p>
-        <button class="btn-big green" onclick="sendCmd('dealer')">RUN DEALER TURN</button>
-        <div class="btn-row">
-          <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
+        <div id="dig-insurance-row" class="btn-row" style="display:none">
+          <button class="btn yellow wide" onclick="sendDigitalPlay('insurance')">INSURANCE (dealer shows Ace)</button>
         </div>
       </div>
 
-      <!-- ROUND pane -->
+      <!-- ROUND pane — shown automatically when round ends -->
       <div id="pane-dig-round" class="pane">
+        <p class="hint">Round complete — drinks are shown in the log above.</p>
+        <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
         <div class="btn-row">
-          <button class="btn green wide" onclick="sendCmd('endround')">END ROUND</button>
-          <button class="btn wide"       onclick="openNewRound()">NEW ROUND</button>
-        </div>
-        <div class="btn-row">
-          <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
           <button class="btn wide" onclick="sendCmd('help')">HELP</button>
         </div>
       </div>
@@ -558,13 +544,16 @@
 <!-- NEW ROUND MODAL -->
 <div id="modal-overlay">
   <div id="modal">
-    <h3>New Round</h3>
-    <p>Rotate the dealer to the next player?</p>
+    <h3 id="modal-title">New Round</h3>
+    <div id="modal-dealer-info" style="font-size:13px;color:var(--muted);margin-bottom:2px"></div>
+    <div id="modal-reason" style="font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:4px;display:none"></div>
+    <p style="color:var(--muted);font-size:13px">Choose dealer for next round:</p>
     <div class="btn-row">
-      <button class="btn green wide" onclick="doNewRound(true)">Rotate Dealer</button>
-      <button class="btn wide"       onclick="doNewRound(false)">Keep Dealer</button>
+      <button id="modal-rotate-btn" class="btn wide" onclick="doNewRound(true)">↺ Rotate Dealer</button>
+      <button id="modal-keep-btn"   class="btn wide" onclick="doNewRound(false)">Keep Dealer</button>
     </div>
-    <button class="btn wide" onclick="closeModal()" style="color:var(--muted)">Cancel</button>
+    <button class="btn-big accent" id="modal-deal-btn" onclick="doNewRoundAndDeal()" style="margin-top:6px;height:56px;font-size:16px">Deal Cards Now</button>
+    <button class="btn wide" onclick="closeModal()" style="color:var(--muted);margin-top:4px">Cancel</button>
   </div>
 </div>
 
@@ -943,6 +932,35 @@ function applyState(state) {
   renderTable(state);
   syncAllHandButtons();   // grow hand buttons after splits
   applyTurnGate(state);
+  if (gameMode === "digital") {
+    autoSwitchDigTab(state);
+    updateInsuranceVisibility(state);
+  }
+}
+
+function autoSwitchDigTab(state) {
+  const phase = state.phase;
+  if (phase === "pre-deal")   activateDigTab("dig-deal");
+  else if (phase === "playing") activateDigTab("dig-play");
+  else if (phase === "round-over") activateDigTab("dig-round");
+}
+
+function activateDigTab(name) {
+  document.querySelectorAll("#dig-tabs .tab").forEach(t => {
+    const on = t.getAttribute("onclick") || "";
+    t.classList.toggle("active", on.includes(`'${name}'`));
+  });
+  document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"));
+  const pane = document.getElementById(`pane-${name}`);
+  if (pane) pane.classList.add("active");
+}
+
+function updateInsuranceVisibility(state) {
+  const row = document.getElementById("dig-insurance-row");
+  if (!row) return;
+  const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
+  const show   = state.phase === "playing" && upCard && upCard.rank === "A";
+  row.style.display = show ? "" : "none";
 }
 
 function cardEl(card) {
@@ -1072,6 +1090,21 @@ function applyTurnGate(state) {
   // Auto-select the current-turn player so taps go to the right person
   if (gate) {
     setPlayerSel("digital", state.current_turn);
+
+    // Auto-advance to the first non-done hand for this player
+    const seat = (state.table || []).find(s => s.name === state.current_turn);
+    if (seat && seat.hands) {
+      const firstActiveIdx = seat.hands.findIndex(h => !h.done);
+      if (firstActiveIdx >= 0) {
+        sel.digital.hand = `hand${firstActiveIdx + 1}`;
+        const handContainer = document.getElementById("dig-play-hands");
+        if (handContainer) {
+          handContainer.querySelectorAll(".btn").forEach((b, i) => {
+            b.classList.toggle("sel", i === firstActiveIdx);
+          });
+        }
+      }
+    }
   }
 }
 
@@ -1132,24 +1165,73 @@ function switchDigTab(name, el) {
 // ============================================================
 // NEW ROUND MODAL
 // ============================================================
+let _modalSuggestRotate = false;   // cached suggestion for "Deal Cards Now"
+
 function openNewRound() {
+  const state       = lastState || {};
+  const nextRound   = (state.round || 0) + 1;
+  const suggest     = state.suggest_rotate || false;
+  const reason      = state.rotate_reason  || "";
+  const dealer      = state.dealer         || "";
+  const roundsTD    = state.rounds_this_dealer || 1;
+  const numPlayers  = (state.players || []).length;
+
+  _modalSuggestRotate = suggest;
+
+  document.getElementById("modal-title").textContent = `Round ${nextRound}`;
+  document.getElementById("modal-dealer-info").textContent =
+    `Current dealer: ${dealer}  (${roundsTD} of ${numPlayers} rounds)`;
+
+  const reasonEl = document.getElementById("modal-reason");
+  if (suggest) {
+    reasonEl.style.display     = "";
+    reasonEl.style.background  = "rgba(245,200,66,.12)";
+    reasonEl.style.color       = "var(--yellow)";
+    reasonEl.style.border      = "1px solid rgba(245,200,66,.3)";
+    reasonEl.textContent       = "⚡ " + reason + " — rotation suggested";
+  } else {
+    reasonEl.style.display     = "";
+    reasonEl.style.background  = "rgba(122,127,150,.08)";
+    reasonEl.style.color       = "var(--muted)";
+    reasonEl.style.border      = "1px solid var(--border)";
+    reasonEl.textContent       = reason;
+  }
+
+  // Highlight the suggested button
+  const rotateBtn = document.getElementById("modal-rotate-btn");
+  const keepBtn   = document.getElementById("modal-keep-btn");
+  rotateBtn.className = "btn wide" + (suggest ? " green" : "");
+  keepBtn.className   = "btn wide" + (!suggest ? " sel" : "");
+
+  // "Deal Cards Now" label
+  document.getElementById("modal-deal-btn").textContent =
+    suggest ? "↺ Rotate & Deal Cards" : "Deal Cards (keep dealer)";
+
   document.getElementById("modal-overlay").classList.add("open");
 }
+
 function closeModal() {
   document.getElementById("modal-overlay").classList.remove("open");
 }
+
 async function doNewRound(rotate) {
   closeModal();
   await sendCmd(rotate ? "newround rotate" : "newround keep");
   buildGameUI();
-  // Jump back to Deal tab
   if (gameMode === "digital") {
-    const firstTab = document.querySelector("#dig-tabs .tab");
-    if (firstTab) switchDigTab("dig-deal", firstTab);
+    activateDigTab("dig-deal");
   } else {
     const firstTab = document.querySelector("#ref-tabs .tab");
     if (firstTab) switchRefTab("deal", firstTab);
   }
+}
+
+async function doNewRoundAndDeal() {
+  closeModal();
+  await sendCmd(_modalSuggestRotate ? "newround rotate" : "newround keep");
+  buildGameUI();
+  // Immediately deal from the shoe
+  await sendCmd("deal");
 }
 
 // ============================================================
