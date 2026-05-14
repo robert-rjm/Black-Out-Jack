@@ -171,11 +171,7 @@ class Hand:
         new_hand.cards.append(self.cards.pop())
         self.from_split   = True
         self.split_count += 1
-<<<<<<< Updated upstream
         new_hand.split_count = self.split_count   # child inherits count so chain limit holds
-=======
-        new_hand.split_count = self.split_count   # child inherits so chain limit holds
->>>>>>> Stashed changes
         self.cards.append(shoe.deal_card())
         new_hand.cards.append(shoe.deal_card())
         return new_hand
