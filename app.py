@@ -93,6 +93,9 @@ def _play_order(session: RefereeSession):
 
 def _hand_done(hand: Hand) -> bool:
     """True if hand cannot/should not act anymore."""
+    # Split hand with only 1 card is waiting for its second card — not playable yet
+    if hand.from_split and len(hand.cards) < 2:
+        return True
     return hand.stood or hand.bust or hand.is_bust() or hand.is_blackjack()
 
 
@@ -291,6 +294,45 @@ def _serialize_state(session: RefereeSession | None) -> dict:
 # ---------------------------------------------------------------------------
 # Digital mode helpers
 # ---------------------------------------------------------------------------
+
+def _deal_pending_split_cards(session: RefereeSession):
+    """
+    After any player action, check whether a split hand is waiting for its
+    second card and its predecessor is now fully done (stood/bust/BJ).
+    Deals the second card automatically so the player can immediately play it.
+    Handles chain splits by looping until no more cards need to be dealt.
+    """
+    changed = True
+    while changed:
+        changed = False
+        for p in session.all_players:
+            for i, hand in enumerate(p.hands):
+                if not (hand.from_split and len(hand.cards) == 1):
+                    continue
+                # Use raw done-ness of predecessor (bypass the 1-card guard in _hand_done)
+                if i == 0:
+                    prev_done = True
+                else:
+                    prev = p.hands[i - 1]
+                    prev_done = (len(prev.cards) >= 2 and
+                                 (prev.stood or prev.bust or
+                                  prev.is_bust() or prev.is_blackjack()))
+                if not prev_done:
+                    continue
+                card = _digital_deal_card(session, hand, p.name)
+                print(f"  {p.name} hand{i+1}: second card dealt — {hand}")
+                if hand.score() == 21:
+                    hand.stood = True
+                    print(f"  {p.name} hand{i+1}: auto-stands at 21.")
+                elif hand.is_bust():
+                    hand.bust = hand.stood = True
+                    hand.result = "loss"
+                    print(f"  {p.name} hand{i+1}: BUST on second card!")
+                changed = True
+                break          # restart scan after each deal
+            if changed:
+                break
+
 
 def _digital_get_player_hand(player, hand_label: str):
     """
@@ -619,7 +661,7 @@ def command():
                         if not hand.can_split():
                             print("  Cannot split this hand.")
                         else:
-                            # Move second card to new hand
+                            # Move second card to new hand (no second cards dealt yet)
                             new_hand = Hand(from_split=True)
                             new_hand.cards.append(hand.cards.pop())
                             hand.from_split   = True
@@ -628,12 +670,11 @@ def command():
                             idx       = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
                             new_label = f"hand{idx + 2}"
                             player.hands.insert(idx + 1, new_hand)
-                            # Deal one card to each split hand (fires drinking rules)
+                            # Deal second card to H1 only; H2 waits until H1 is done
                             _digital_deal_card(game_session, hand, player.name)
-                            _digital_deal_card(game_session, new_hand, player.name)
                             print(f"  {player.name} splits:")
-                            print(f"    {hand_label}: {hand}")
-                            print(f"    {new_label}: {new_hand}")
+                            print(f"    {hand_label}: {hand}  ← play this hand first")
+                            print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
 
             elif cmd == "insurance":
                 # insurance <player> [hand<n>]
@@ -708,8 +749,10 @@ def command():
             else:
                 print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
-            # Auto-run dealer turn + end round once all player hands are done
+            # After any player action: deal pending second cards to split hands
+            # whose predecessor just finished, then check if dealer should auto-play
             if cmd in {"hit", "stand", "double", "split"}:
+                _deal_pending_split_cards(game_session)
                 if _round_phase(game_session) == "dealer-ready":
                     print("\n  (All players done — dealer plays automatically)")
                     _digital_dealer_turn(game_session)
