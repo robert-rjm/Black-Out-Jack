@@ -45,7 +45,7 @@
 | Doubled | 1 |
 | Split (per split won) | 1 |
 | Suited | 1 |
-| Doubled + suited | 4 |
+| Doubled + Suited | 4 |
 
 ---
 
