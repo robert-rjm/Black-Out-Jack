@@ -55,16 +55,50 @@
   .mode-badge.referee { background: #2e3247; color: var(--muted); }
   .mode-badge.digital { background: #1a3a2a; color: var(--green); }
 
-  /* ---- TABLE (visible card display) ---- */
-  #table {
-    flex-shrink: 0;
-    max-height: 55vh;
+  /* ---- TWO-COLUMN MAIN AREA ---- */
+  #main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* Left: player seats */
+  #left-col {
+    flex: 55%;
     overflow-y: auto;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: #14161f;
+    border-right: 1px solid var(--border);
+    min-width: 0;
+  }
+
+  /* Right: dealer (sticky top) + chat log */
+  #right-col {
+    flex: 45%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  /* Dealer card — always visible, never scrolls away */
+  #dealer-panel {
+    flex-shrink: 0;
+    padding: 8px 10px;
+    background: #1a1527;
     border-bottom: 1px solid var(--border);
   }
-  #table:empty { display: none; }
+  #dealer-panel .dp-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    font-size: 12px; font-weight: 700; margin-bottom: 6px;
+  }
+  #dealer-panel .dp-name  { color: var(--text); }
+  #dealer-panel .dp-role  { font-size: 10px; color: var(--muted); margin-left: 4px; }
+  #dealer-panel .dp-score { font-size: 11px; color: var(--muted); }
+  #dealer-panel .dp-score b { color: var(--text); }
+  #dealer-panel .dp-cards { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  #dealer-panel .dp-tag   { margin-top: 4px; font-size: 10px; font-weight: 800; letter-spacing: .4px; }
 
   .seat {
     background: #1f2230;
@@ -157,22 +191,29 @@
     pointer-events: none;
   }
 
-  /* ---- LOG ---- */
+  /* ---- CHAT LOG ---- */
   #log {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 14px;
-    font-family: "Menlo", "Courier New", monospace;
-    font-size: 13px;
-    line-height: 1.55;
-    white-space: pre-wrap;
-    word-break: break-word;
+    padding: 6px 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
-  #log .line-drink  { color: var(--red); }
-  #log .line-bj     { color: var(--yellow); }
-  #log .line-ok     { color: var(--green); }
-  #log .line-header { color: var(--accent); font-weight: 700; }
-  #log .line-dim    { color: var(--muted); }
+  .chat-msg {
+    font-size: 11px;
+    line-height: 1.45;
+    padding: 4px 7px;
+    border-radius: 7px;
+    word-break: break-word;
+    color: var(--muted);
+    border-left: 2px solid transparent;
+    flex-shrink: 0;
+  }
+  .chat-msg.msg-drink  { color: var(--red);    border-left-color: var(--red);    background: rgba(224,92,92,.08); }
+  .chat-msg.msg-bj     { color: var(--yellow); border-left-color: var(--yellow); background: rgba(245,200,66,.08); }
+  .chat-msg.msg-ok     { color: var(--green);  border-left-color: var(--green);  background: rgba(62,207,110,.08); }
+  .chat-msg.msg-header { color: var(--accent); font-weight: 700; font-size: 10px; border-left: none; padding-top: 8px; }
 
   /* ---- CONTROL PANEL ---- */
   #panel {
@@ -406,8 +447,13 @@
     <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
   </header>
 
-  <div id="table"></div>
-  <div id="log"></div>
+  <div id="main-content">
+    <div id="left-col"></div>
+    <div id="right-col">
+      <div id="dealer-panel"><span style="font-size:11px;color:var(--muted)">Dealer hand will appear here</span></div>
+      <div id="log"></div>
+    </div>
+  </div>
 
   <div id="panel">
 
@@ -530,10 +576,16 @@
 
       <!-- ROUND pane — shown automatically when round ends -->
       <div id="pane-dig-round" class="pane">
-        <p class="hint">Round complete — drinks are shown in the log above.</p>
+        <div id="round-switch-msg" style="display:none;font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(224,92,92,.3);background:rgba(224,92,92,.1);color:var(--red)"></div>
+        <p class="hint">Round complete — drinks are in the chat →</p>
         <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
         <div class="btn-row">
+          <button class="btn wide" id="btn-peek" onclick="sendCmd('peek')" style="display:none">🃏 Next card?</button>
           <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+        </div>
+        <div id="peeked-card-wrap" style="display:none;margin-top:8px">
+          <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
+          <div id="peeked-card-display" style="display:flex;gap:6px;align-items:center"></div>
         </div>
       </div>
     </div><!-- end #dig-panel -->
@@ -916,6 +968,7 @@ async function sendCmd(cmd) {
   const data = await res.json();
   if (data.output) appendLog(data.output);
   if (data.dealer || data.players) updateHeader(data);
+  if (data.peeked_card) showPeekedCard(data.peeked_card);
   applyState(data);
 }
 
@@ -929,12 +982,56 @@ function applyState(state) {
   if (!state || !state.ok) return;
   lastState   = state;
   currentTurn = state.current_turn || null;
-  renderTable(state);
-  syncAllHandButtons();   // grow hand buttons after splits
+  renderDealer(state);    // right-col top — always visible
+  renderPlayers(state);   // left-col
+  syncAllHandButtons();
   applyTurnGate(state);
   if (gameMode === "digital") {
     autoSwitchDigTab(state);
     updateInsuranceVisibility(state);
+    updateHandLocks(state);
+    updateRoundPane(state);
+  }
+}
+
+// Disable hand buttons for hands that can't be played yet
+// (H2 is locked until H1 is done, etc.)
+function updateHandLocks(state) {
+  if (!state || state.phase !== "playing") return;
+  const seat = (state.table || []).find(s => s.name === state.current_turn);
+  if (!seat || !seat.hands) return;
+  const c = document.getElementById("dig-play-hands");
+  if (!c) return;
+  c.querySelectorAll(".btn").forEach((btn, i) => {
+    const locked = seat.hands.slice(0, i).some(h => !h.done);
+    btn.classList.toggle("disabled", locked);
+    btn.title = locked ? "Finish previous hand first" : "";
+  });
+}
+
+const HARD_SWITCH_MSGS = [
+  "Ouch {dealer}! Lost every hand — that's a Hard Switch. 💀",
+  "Rough round, {dealer}. The table swept you clean. 😬",
+  "Sorry {dealer}, everyone wins and you drink. Hard Switch! 🫠",
+  "Dealer goes down! {dealer} takes the Hard Switch. 🃏",
+];
+
+function updateRoundPane(state) {
+  const msg    = document.getElementById("round-switch-msg");
+  const peek   = document.getElementById("btn-peek");
+  const isOver = state.phase === "round-over";
+
+  if (peek) peek.style.display = isOver ? "" : "none";
+
+  if (msg) {
+    if (isOver && state.switch_this_round === "hard") {
+      const dealer  = state.dealer || "Dealer";
+      const tmpl    = HARD_SWITCH_MSGS[Math.floor(Math.random() * HARD_SWITCH_MSGS.length)];
+      msg.textContent = tmpl.replace("{dealer}", dealer);
+      msg.style.display = "";
+    } else {
+      msg.style.display = "none";
+    }
   }
 }
 
@@ -1016,35 +1113,52 @@ function handBlock(handState, label) {
   return block;
 }
 
-function renderTable(state) {
-  const root = document.getElementById("table");
+function renderDealer(state) {
+  const root = document.getElementById("dealer-panel");
+  if (!root) return;
+  root.innerHTML = "";
+  if (!state.dealer_hand) {
+    root.innerHTML = `<span style="font-size:11px;color:var(--muted)">Dealer hand will appear here</span>`;
+    return;
+  }
+  const dh    = state.dealer_hand;
+  const score = dh.hidden ? "?" : dh.score;
+
+  const hdr = document.createElement("div");
+  hdr.className = "dp-header";
+  hdr.innerHTML = `
+    <div><span class="dp-name">Dealer</span><span class="dp-role">${state.dealer || ""}</span></div>
+    <div class="dp-score">Score: <b>${score}</b></div>`;
+  root.appendChild(hdr);
+
+  const cards = document.createElement("div");
+  cards.className = "dp-cards";
+  (dh.cards || []).forEach(c => cards.appendChild(cardEl(c)));
+  root.appendChild(cards);
+
+  if (dh.blackjack) {
+    const t = document.createElement("div");
+    t.className = "dp-tag"; t.style.color = "var(--yellow)";
+    t.textContent = "★ BLACKJACK"; root.appendChild(t);
+  } else if (dh.bust) {
+    const t = document.createElement("div");
+    t.className = "dp-tag"; t.style.color = "var(--red)";
+    t.textContent = "✕ BUST"; root.appendChild(t);
+  } else if (dh.done && !dh.hidden) {
+    const t = document.createElement("div");
+    t.className = "dp-tag"; t.style.color = "var(--muted)";
+    t.textContent = `Stands at ${score}`; root.appendChild(t);
+  }
+}
+
+function renderPlayers(state) {
+  const root = document.getElementById("left-col");
+  if (!root) return;
   root.innerHTML = "";
 
-  // Dealer block (top)
-  if (state.dealer_hand) {
-    const seat = document.createElement("div");
-    seat.className = "seat dealer";
-    if (state.dealer_hand.done) seat.classList.add("done");
-
-    const hdr = document.createElement("div");
-    hdr.className = "seat-header";
-    const scoreTxt = state.dealer_hand.hidden ? "?" : state.dealer_hand.score;
-    hdr.innerHTML = `
-      <div class="seat-name">Dealer <span class="role">${state.dealer || ""}</span></div>
-      <div style="font-size:12px;color:var(--muted)">Showing: <span style="color:var(--text);font-weight:700">${scoreTxt}</span></div>`;
-    seat.appendChild(hdr);
-
-    const hands = document.createElement("div");
-    hands.className = "hands-row";
-    hands.appendChild(handBlock(state.dealer_hand, "Dealer hand"));
-    seat.appendChild(hands);
-    root.appendChild(seat);
-  }
-
-  // Player seats — in turn order (dealer's left clockwise, dealer last)
   const order = state.play_order && state.play_order.length
                   ? state.play_order
-                  : state.table.map(t => t.name);
+                  : (state.table || []).map(t => t.name);
   const byName = {};
   (state.table || []).forEach(s => { byName[s.name] = s; });
 
@@ -1059,7 +1173,7 @@ function renderTable(state) {
 
     const hdr = document.createElement("div");
     hdr.className = "seat-header";
-    const role = s.is_dealer        ? `<span class="role">also dealer</span>` : "";
+    const role = s.is_dealer ? `<span class="role">also dealer</span>` : "";
     const tag  = (showTurn && s.is_turn) ? `<div class="turn-tag">Turn</div>` : "";
     hdr.innerHTML = `<div class="seat-name">${s.name}${role}</div>${tag}`;
     seat.appendChild(hdr);
@@ -1109,7 +1223,7 @@ function applyTurnGate(state) {
 }
 
 // ============================================================
-// LOG
+// CHAT LOG
 // ============================================================
 function appendLog(text, clear = false) {
   const log = document.getElementById("log");
@@ -1117,17 +1231,32 @@ function appendLog(text, clear = false) {
   if (!text) return;
 
   text.split("\n").forEach(line => {
-    const span = document.createElement("span");
+    if (!line.trim()) return;
+    const div = document.createElement("div");
+    div.className = "chat-msg";
     const l = line.toLowerCase();
-    if (l.includes("drink") || l.includes("sip"))                              span.className = "line-drink";
-    else if (l.includes("blackjack") || l.includes("***"))                     span.className = "line-bj";
-    else if (l.includes("win") || (l.includes("bust") && !l.includes("dealer"))) span.className = "line-ok";
-    else if (l.includes("===") || l.includes("round"))                         span.className = "line-header";
-    else if (l.startsWith("  (i)") || l.startsWith("    "))                    span.className = "line-dim";
-    span.textContent = line + "\n";
-    log.appendChild(span);
+    if (l.includes("drink") || l.includes("sip"))                                div.classList.add("msg-drink");
+    else if (l.includes("blackjack") || l.includes("***"))                       div.classList.add("msg-bj");
+    else if (l.includes("win") || (l.includes("bust") && !l.includes("dealer"))) div.classList.add("msg-ok");
+    else if (l.includes("===") || l.includes("---") || l.includes("round"))      div.classList.add("msg-header");
+    div.textContent = line.trim();
+    log.appendChild(div);
   });
   log.scrollTop = log.scrollHeight;
+}
+
+function showPeekedCard(card) {
+  const wrap    = document.getElementById("peeked-card-wrap");
+  const display = document.getElementById("peeked-card-display");
+  if (!wrap || !display) return;
+  display.innerHTML = "";
+  display.appendChild(cardEl(card));
+  // Also add a text label next to the card
+  const lbl = document.createElement("span");
+  lbl.style.cssText = "font-size:13px;font-weight:700;color:var(--text);align-self:center";
+  lbl.textContent = `${card.rank}${card.symbol || ""}`;
+  display.appendChild(lbl);
+  wrap.style.display = "";
 }
 
 // ============================================================
@@ -1214,8 +1343,16 @@ function closeModal() {
   document.getElementById("modal-overlay").classList.remove("open");
 }
 
+function clearPeekedCard() {
+  const wrap = document.getElementById("peeked-card-wrap");
+  if (wrap) wrap.style.display = "none";
+  const display = document.getElementById("peeked-card-display");
+  if (display) display.innerHTML = "";
+}
+
 async function doNewRound(rotate) {
   closeModal();
+  clearPeekedCard();
   await sendCmd(rotate ? "newround rotate" : "newround keep");
   buildGameUI();
   if (gameMode === "digital") {
@@ -1228,9 +1365,9 @@ async function doNewRound(rotate) {
 
 async function doNewRoundAndDeal() {
   closeModal();
+  clearPeekedCard();
   await sendCmd(_modalSuggestRotate ? "newround rotate" : "newround keep");
   buildGameUI();
-  // Immediately deal from the shoe
   await sendCmd("deal");
 }
 
