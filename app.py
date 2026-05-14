@@ -27,6 +27,19 @@ game_session: RefereeSession | None = None   # single-table, no auth needed
 
 
 # ---------------------------------------------------------------------------
+# Null tracker — used in non-drinking mode so all tracker.apply() calls
+# become silent no-ops without touching referee.py or drinking_rules.py.
+# ---------------------------------------------------------------------------
+
+class _NullTracker:
+    """Drop-in replacement for DrinkTracker when drinking mode is off."""
+    def apply(self, msgs):                    pass
+    def apply_ace_clubs_credit(self, player): pass
+    def print_round_summary(self):            pass
+    def _handle_handout(self, *a, **kw):      pass
+
+
+# ---------------------------------------------------------------------------
 # Helpers (shared)
 # ---------------------------------------------------------------------------
 
@@ -45,7 +58,7 @@ def _patch_tracker(session: RefereeSession):
         print(f"    {giver} auto-distributes {total} sip(s) round-robin")
         for i in range(total):
             t = others[i % len(others)]
-            t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)")
+            t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)", "player")
             print(f"    -> {t.name} +1 sip")
 
     tracker._handle_handout = web_handout
@@ -283,6 +296,7 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "current_turn":    turn,
         "play_order":      _play_order(session),
         "phase":           phase,
+        "drinking_mode":      getattr(session, "drinking_mode", True),
         "best_play":          _compute_best_play(session, turn, phase),
         "suggest_rotate":     suggest_rotate,
         "rotate_reason":      rotate_reason,
@@ -355,18 +369,23 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
     card_pos = len(hand.cards) + 1
     hand.cards.append(card)
 
-    all_names = [p.name for p in session.all_players]
-    msgs = DrinkingRules.on_card_dealt(
-        card, recipient_name, card_pos,
-        all_names, session.dealer_name,
-        session._ace_clubs_flag,
-    )
-    for r, s, reason in msgs:
-        if s == -1:
-            session._ace_credits.append(recipient_name)
-            print(f"    (i) {reason}")
-        else:
-            session.tracker.apply([(r, s, reason)])
+    if getattr(session, "drinking_mode", True):
+        all_names      = [p.name for p in session.all_players]
+        dealer         = session._get_dealer()
+        is_dealer_hand = (dealer is not None and hand is dealer.dealer_hand)
+        msgs = DrinkingRules.on_card_dealt(
+            card, recipient_name, card_pos,
+            all_names, session.dealer_name,
+            session._ace_clubs_flag,
+            is_dealer_hand=is_dealer_hand,
+        )
+        for msg in msgs:
+            r, s, reason = msg[0], msg[1], msg[2]
+            if s == -1:
+                session._ace_credits.append(recipient_name)
+                print(f"    (i) {reason}")
+            else:
+                session.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
     return card
 
 
@@ -390,12 +409,13 @@ def _digital_initial_deal(session: RefereeSession):
             if hand.is_blackjack():
                 print(f"  *** {p.name} Hand {i+1} — BLACKJACK! ***")
 
-    # Four-aces check after first deal
-    all_cards = [c for p in session.all_players for h in p.hands for c in h.cards]
-    all_cards += dealer.dealer_hand.cards
-    msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-        all_cards, "first_deal", session._four_aces_fd)
-    session.tracker.apply(msgs)
+    # Four-aces check after first deal (drinking mode only)
+    if getattr(session, "drinking_mode", True):
+        all_cards = [c for p in session.all_players for h in p.hands for c in h.cards]
+        all_cards += dealer.dealer_hand.cards
+        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
+            all_cards, "first_deal", session._four_aces_fd)
+        session.tracker.apply(msgs)
 
 
 def _digital_dealer_turn(session: RefereeSession):
@@ -420,13 +440,21 @@ def _digital_dealer_turn(session: RefereeSession):
         else:
             print(f"  Dealer stands at {d_hand.score()}.")
 
-    session.tracker.apply(DrinkingRules.on_dealer_hand_revealed(d_hand))
+    drinking = getattr(session, "drinking_mode", True)
+    if drinking:
+        session.tracker.apply(DrinkingRules.on_dealer_hand_revealed(d_hand))
+        if DrinkingRules.dealer_21_five_cards(d_hand):
+            print(f"\n  ★ Dealer 21 with {len(d_hand.cards)} cards — wager DOUBLED this round!")
 
     # Auto-evaluate every player hand
     print("\n--- Results ---")
+    dealer_bj       = d_hand.is_blackjack()
     winning_hds     = []
     dealer_lost_all = True
     all_names       = [p.name for p in session.all_players]
+
+    if dealer_bj and drinking:
+        print("  ★ Dealer blackjack — auto-insurance: only net-loss sips will apply.")
 
     for p in session.all_players:
         for i, hand in enumerate(p.hands):
@@ -438,21 +466,24 @@ def _digital_dealer_turn(session: RefereeSession):
                 winning_hds.append((p.name, hand))
             else:
                 dealer_lost_all = False
-            session.tracker.apply(
-                DrinkingRules.on_hand_resolved(p.name, hand, all_names))
+            if drinking:
+                # Any 2-card 21 (natural or split ace) triggers blackjack drinking
+                if hand.is_blackjack() and hand.result == "win":
+                    session.tracker.apply(
+                        DrinkingRules.on_blackjack(p.name, hand, all_names))
+                session.tracker.apply(
+                    DrinkingRules.on_hand_resolved(p.name, hand, all_names, dealer_bj=dealer_bj))
 
-    if dealer_lost_all and winning_hds:
-        session.tracker.apply(
-            DrinkingRules.on_hard_dealer_switch(
-                session.dealer_name, winning_hds,
-                session._ace_clubs_flag["protected"]))
+    # Hard dealer switch is handled by cmd_endround (referee.py) — not fired here
+    # to avoid double-counting when digital mode calls both functions.
 
-    # Four-aces end-of-round check
-    all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
-    all_cards += d_hand.cards
-    msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-        all_cards, "end_of_round", session._four_aces_fd)
-    session.tracker.apply(msgs)
+    # Four-aces end-of-round check (drinking mode only)
+    if drinking:
+        all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
+        all_cards += d_hand.cards
+        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
+            all_cards, "end_of_round", session._four_aces_fd)
+        session.tracker.apply(msgs)
 
     # Detect hard / soft dealer switch for rotation suggestion.
     # A push on ANY hand cancels both switches — all results must be uniform.
@@ -509,8 +540,11 @@ def setup():
             p.dealer_hand = Hand()
         players.append(p)
 
+    drinking = bool(data.get("drinking", True))
+
     game_session                    = RefereeSession(players, dealer_name, wager, num_hands)
     game_session.mode               = mode
+    game_session.drinking_mode      = drinking
     game_session.rounds_this_dealer = 1   # rounds the current dealer has held the role
     game_session.switch_this_round  = None  # None | "hard" | "soft"
 
@@ -519,7 +553,10 @@ def setup():
         game_session.shoe = Shoe(num_decks)
         game_session.shoe.shuffle()
 
-    _patch_tracker(game_session)
+    if drinking:
+        _patch_tracker(game_session)
+    else:
+        game_session.tracker = _NullTracker()
 
     output = _capture(game_session.start_round)
     state  = _serialize_state(game_session)
@@ -829,7 +866,7 @@ def _print_digital_help():
       Example: stand Alice hand2
 
   double <player> [hand<n>]
-      Double down — deal one card then stand. Must be on first two cards.
+      Double down -- deal one card then stand. Must be on first two cards.
       Example: double Rob hand1
 
   split <player> [hand<n>]
@@ -846,7 +883,7 @@ def _print_digital_help():
       Reveal the hole card, hit until 17+, then auto-evaluate all hands.
 
   endround
-      Finalise the round — fire end-of-round drinking rules and print summary.
+      Finalise the round -- fire end-of-round drinking rules and print summary.
 
   newround [rotate]
       Start a new round. Add 'rotate' to pass the dealer role clockwise.
@@ -866,7 +903,7 @@ if __name__ == "__main__":
     except Exception:
         local_ip = "unknown"
 
-    print("\n  Drinking Blackjack Referee — Web Mode")
+    print("\n  Drinking Blackjack Referee -- Web Mode")
     print(f"  Local:   http://localhost:5000")
     print(f"  iPhone:  http://{local_ip}:5000  (same WiFi)")
     print("  (Ctrl+C to stop)\n")
