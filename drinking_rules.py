@@ -330,8 +330,8 @@ class DrinkingRules:
         lines = []
         for pname, hand in winning_hands:
             if hand.is_blackjack():
-                s = 1
-                lines.append(f"{pname} blackjack => 1 sip")
+                s = 2
+                lines.append(f"{pname} blackjack => 2 sip")
             elif hand.doubled:
                 s = 2
                 lines.append(f"{pname} doubled win => 2 sips")
