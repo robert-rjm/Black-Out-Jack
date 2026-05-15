@@ -826,7 +826,7 @@ def command():
                 else:
                     game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
                 game_session.switch_this_round = None
-                if game_session.shoe.needs_reshuffle():
+                if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
                 game_session.start_round()
