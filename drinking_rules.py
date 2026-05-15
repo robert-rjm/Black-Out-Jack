@@ -370,8 +370,12 @@ class DrinkingRules:
         lines = []
         for pname, hand in winning_hands:
             if hand.is_blackjack():
-                s = 2
-                lines.append(f"{pname} blackjack => 2 sips")
+                if pname == dealer_name:
+                    s = 1
+                    lines.append(f"{pname} blackjack (own hand) => 1 sip (no multiplier)")
+                else:
+                    s = 2
+                    lines.append(f"{pname} blackjack => 2 sips")
             elif hand.doubled:
                 s = 2
                 lines.append(f"{pname} doubled win => 2 sips")
