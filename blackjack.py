@@ -313,8 +313,8 @@ class NPC_Player(Player):
         # --- Pair split ---
         if "sp" in valid_actions and hand.can_split():
             rv  = hand.cards[0].rank.blackjack_value
-            # Drinking mode: always split 10s — even against a dealer 10
-            if rv == 10 and drinking_mode:
+            # Drinking mode: always split 10s — unless they are suited (per house rules)
+            if rv == 10 and drinking_mode and not hand.is_suited():
                 return "sp"
             raw = _BS_PAIR.get((rv, d_val), "h")
             if raw == "sp":
@@ -651,7 +651,9 @@ class RoundManager:
             for p in self.players:
                 for hand in p.hands:
                     if hand.is_blackjack() and hand.result == "win":
-                        self._drink(DrinkingRules.on_blackjack(p.name, hand, self._all_names))
+                        self._drink(DrinkingRules.on_blackjack(
+                            p.name, hand, self._all_names,
+                            hard_switch_dealer=exempt_dealer))
                     self._drink(DrinkingRules.on_hand_resolved(
                         p.name, hand, self._all_names,
                         dealer_bj=dealer_bj, dealer_name=exempt_dealer))

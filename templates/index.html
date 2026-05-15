@@ -696,6 +696,7 @@ let lastState  = null;        // last /command or /state response
 let currentTurn = null;       // player name whose turn it is (digital only)
 let roomCode   = "";          // active room code (e.g. "Jack-21")
 let pollTimer  = null;        // setInterval handle for auto-refresh
+let npcPlayers = new Set();   // names of NPC/bot players this session
 
 // ============================================================
 // LOBBY
@@ -886,12 +887,32 @@ function buildNameFields(n) {
   const c = document.getElementById("name-fields");
   c.innerHTML = "";
   for (let i = 0; i < n; i++) {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:8px;width:100%;max-width:420px";
+
     const inp = document.createElement("input");
     inp.type = "text";
     inp.placeholder = `Player ${i+1} name`;
     inp.id = `pname-${i}`;
-    inp.style.cssText = "width:100%;height:var(--tap);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:16px;padding:0 14px;";
-    c.appendChild(inp);
+    inp.style.cssText = "flex:1;height:var(--tap);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:16px;padding:0 14px;";
+
+    const npcBtn = document.createElement("button");
+    npcBtn.className = "btn";
+    npcBtn.id = `npc-${i}`;
+    npcBtn.textContent = "BOT";
+    npcBtn.dataset.npc = "0";
+    npcBtn.style.cssText = "flex-shrink:0;height:var(--tap);padding:0 14px;font-size:11px;font-weight:800;letter-spacing:.6px";
+    npcBtn.onclick = function(e) {
+      e.preventDefault();
+      const on = this.dataset.npc === "0";
+      this.dataset.npc = on ? "1" : "0";
+      this.classList.toggle("sel", on);
+      inp.placeholder = on ? `Bot ${i+1}` : `Player ${i+1} name`;
+    };
+
+    row.appendChild(inp);
+    row.appendChild(npcBtn);
+    c.appendChild(row);
   }
 }
 
@@ -903,9 +924,15 @@ async function startGame() {
   btn.disabled = true;
 
   const names = [];
+  const npcs  = [];
   for (let i = 0; i < numPlayersSel; i++) {
-    names.push((document.getElementById(`pname-${i}`)?.value || "").trim() || `Player${i+1}`);
+    const isNpc = (document.getElementById(`npc-${i}`)?.dataset.npc === "1");
+    const val   = (document.getElementById(`pname-${i}`)?.value || "").trim();
+    const name  = val || (isNpc ? `Bot${i+1}` : `Player${i+1}`);
+    names.push(name);
+    if (isNpc) npcs.push(name);
   }
+  npcPlayers = new Set(npcs);
 
   const isDigital = setupMode === "digital";
   const wager     = setupDrinking
@@ -915,7 +942,7 @@ async function startGame() {
   const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {
@@ -989,7 +1016,9 @@ function buildDigitalUI() {
 function buildPlayerButtons(containerId, pane, includeDealer) {
   const c = document.getElementById(containerId);
   c.innerHTML = "";
-  const list = includeDealer ? [...players, "Dealer"] : players;
+  let list = includeDealer ? [...players, "Dealer"] : players;
+  // Exclude NPC players from the Play pane — they act automatically
+  if (pane === "digital") list = list.filter(name => !npcPlayers.has(name));
   list.forEach(name => {
     const b = document.createElement("button");
     b.className = "btn";
@@ -1392,9 +1421,10 @@ function renderPlayers(state) {
 
     const hdr = document.createElement("div");
     hdr.className = "seat-header";
-    const role = s.is_dealer ? `<span class="role">also dealer</span>` : "";
-    const tag  = (showTurn && s.is_turn) ? `<div class="turn-tag">Turn</div>` : "";
-    hdr.innerHTML = `<div class="seat-name">${s.name}${role}</div>${tag}`;
+    const role   = s.is_dealer ? `<span class="role">also dealer</span>` : "";
+    const botTag = s.is_npc    ? `<span class="role" style="color:var(--accent)">BOT</span>` : "";
+    const tag    = (showTurn && s.is_turn) ? `<div class="turn-tag">${s.is_npc ? "BOT playing…" : "Turn"}</div>` : "";
+    hdr.innerHTML = `<div class="seat-name">${s.name}${role}${botTag}</div>${tag}`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
@@ -1413,11 +1443,19 @@ function renderPlayers(state) {
 
 function applyTurnGate(state) {
   // Only enforce in digital mode + during play phase
-  const gate = state.mode === "digital" && state.phase === "playing" && state.current_turn;
+  const gate        = state.mode === "digital" && state.phase === "playing" && state.current_turn;
+  const currentSeat = (state.table || []).find(s => s.name === state.current_turn);
+  const isNpcTurn   = gate && currentSeat && currentSeat.is_npc;
+
   const playBtns = document.querySelectorAll("#dig-play-players .btn");
   playBtns.forEach(b => {
     if (!gate) { b.classList.remove("disabled"); return; }
     b.classList.toggle("disabled", b.textContent !== state.current_turn);
+  });
+
+  // Disable all action buttons while an NPC is taking its turn
+  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+    b.classList.toggle("disabled", !!isNpcTurn);
   });
 
   // Auto-select the current-turn player so taps go to the right person
