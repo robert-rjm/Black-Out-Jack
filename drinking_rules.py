@@ -10,9 +10,9 @@ import hashlib
 import urllib.request
 from blackjack import Rank, Suit, Hand, Player
 
-_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Drinking-BlackJack/main/Rules.md"
-_RULES_HASH  = "a6e545fcae4411ef4b901c27f62cafc2efd9376f86d89f5f0c66059518d64158"
-_RULES_DATE  = "2026-04-23"
+_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Black-Out-Jack/main/Rules.md"
+_RULES_HASH  = "e8e84f1f22587fa390c6c88f047c69778e5aa84386ede09c3f06479823650575"
+_RULES_DATE  = "2026-05-15"
 
 
 def verify_rules():
