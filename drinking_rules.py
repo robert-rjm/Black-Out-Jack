@@ -163,11 +163,15 @@ class DrinkingRules:
 
     @staticmethod
     def on_blackjack(player_name: str, hand: Hand,
-                     all_player_names: list) -> list:
+                     all_player_names: list,
+                     hard_switch_dealer: str = "") -> list:
         """
         Called when any player gets a natural blackjack.
         If insured, bonus drinks are suppressed (hand treated as regular 21).
         Multipliers: suited x2, A+J x2, both black x2 — cumulative.
+        hard_switch_dealer: on a Hard Dealer Switch the dealer-player is exempt
+                            from BJ-bonus drinks (they already drink via the
+                            Hard Switch dealer rule).
         """
         if hand.insured:
             return [(None, 0,
@@ -182,7 +186,8 @@ class DrinkingRules:
         if {Rank.ACE, Rank.JACK}.issubset(ranks):           parts.append("A+J x2")
         if suits.issubset({Suit.SPADES, Suit.CLUBS}):       parts.append("both black x2")
         detail = f" ({' '.join(parts)})" if parts else ""
-        others = [p for p in all_player_names if p != player_name]
+        others = [p for p in all_player_names
+                  if p != player_name and p != hard_switch_dealer]
         return [(p, sips,
                  f"Blackjack by {player_name}{detail} => {p} drinks {sips} sip(s)")
                 for p in others]
