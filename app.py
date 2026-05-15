@@ -14,6 +14,7 @@ Then open http://<your-PC-IP>:5000 on any phone on the same WiFi.
 
 import io
 import contextlib
+import random
 import socket
 
 from flask import Flask, request, jsonify, render_template
@@ -23,7 +24,24 @@ from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
 
 app = Flask(__name__)
-game_session: RefereeSession | None = None   # single-table, no auth needed
+
+# ---------------------------------------------------------------------------
+# Multi-room state — keyed by room code (e.g. "Jack-21")
+# ---------------------------------------------------------------------------
+game_sessions: dict[str, "RefereeSession | None"] = {}   # room_code → session
+
+ROOM_WORDS = [
+    "Jack", "Queen", "King", "Ace", "Joker", "Spade", "Club",
+    "Heart", "Diamond", "Flush", "Bust", "Deal", "Hit", "Stand",
+]
+
+
+def _generate_room_code() -> str:
+    """Return a unique code like 'Jack-21' not already in game_sessions."""
+    while True:
+        code = f"{random.choice(ROOM_WORDS)}-{random.randint(10, 99)}"
+        if code not in game_sessions:
+            return code
 
 
 # ---------------------------------------------------------------------------
@@ -521,10 +539,40 @@ def index():
     return render_template("index.html")
 
 
+# ---------------------------------------------------------------------------
+# Lobby routes
+# ---------------------------------------------------------------------------
+
+@app.route("/create_room", methods=["POST"])
+def create_room():
+    code = _generate_room_code()
+    game_sessions[code] = None   # slot reserved; game not yet started
+    return jsonify({"ok": True, "code": code})
+
+
+@app.route("/join_room", methods=["POST"])
+def join_room():
+    data     = request.json or {}
+    raw      = (data.get("code") or "").strip()
+    # Case-insensitive lookup (codes are stored as "Jack-21" etc.)
+    code     = next((k for k in game_sessions if k.lower() == raw.lower()), None)
+    if code is None:
+        return jsonify({"ok": False, "error": "Room not found. Check the code and try again."})
+    session  = game_sessions[code]
+    has_game = session is not None
+    state    = _serialize_state(session)
+    state["ok"]        = True
+    state["has_game"]  = has_game
+    state["room_code"] = code   # return canonical casing
+    return jsonify(state)
+
+
 @app.route("/setup", methods=["POST"])
 def setup():
-    global game_session
-    data = request.json
+    data      = request.json
+    room_code = (data.get("room_code") or "").strip()
+    if room_code not in game_sessions:
+        return jsonify({"ok": False, "output": "Room not found."})
 
     names = [n.strip().capitalize() for n in data["players"] if n.strip()]
     if not names:
@@ -547,6 +595,7 @@ def setup():
     drinking = bool(data.get("drinking", True))
 
     game_session                    = RefereeSession(players, dealer_name, wager, num_hands)
+    game_sessions[room_code]        = game_session   # store in room slot
     game_session.mode               = mode
     game_session.drinking_mode      = drinking
     game_session.rounds_this_dealer = 1   # rounds the current dealer has held the role
@@ -570,11 +619,13 @@ def setup():
 
 @app.route("/command", methods=["POST"])
 def command():
-    global game_session
+    _req         = request.json or {}
+    room_code    = _req.get("room_code", "")
+    game_session = game_sessions.get(room_code)
     if not game_session:
         return jsonify({"ok": False, "output": "No active session — set up a game first."})
 
-    cmd_str = (request.json or {}).get("cmd", "").strip()
+    cmd_str = _req.get("cmd", "").strip()
     if not cmd_str:
         return jsonify({"ok": False, "output": "Empty command."})
 
@@ -847,7 +898,9 @@ def command():
 
 @app.route("/state")
 def state():
-    return jsonify(_serialize_state(game_session))
+    room_code = request.args.get("room_code", "")
+    session   = game_sessions.get(room_code)
+    return jsonify(_serialize_state(session))
 
 
 # ---------------------------------------------------------------------------
