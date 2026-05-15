@@ -10,9 +10,9 @@ import hashlib
 import urllib.request
 from blackjack import Rank, Suit, Hand, Player
 
-_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Drinking-BlackJack/main/Rules.md"
-_RULES_HASH  = "a6e545fcae4411ef4b901c27f62cafc2efd9376f86d89f5f0c66059518d64158"
-_RULES_DATE  = "2026-04-23"
+_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Black-Out-Jack/main/Rules.md"
+_RULES_HASH  = "fc32dfd1e39d08edc454bccf7cc9534ee33182cc28e0d1a7d40bc9161bc64ebb"
+_RULES_DATE  = "2026-05-15"
 
 
 def verify_rules():
@@ -227,7 +227,8 @@ class DrinkingRules:
                     f"{player_name} won a doubled hand => {p} drinks 1 sip (immunity exception)"))
 
         # Suited winning hand: 1 sip normally, 4 sips if doubled (split does NOT multiply)
-        if hand.is_suited():
+        # Skip for blackjack — the BJ bonus already incorporates the suited multiplier
+        if hand.is_suited() and not hand.is_blackjack():
             sips = 4 if hand.doubled else 1
             sym  = hand.cards[0].suit.symbol
             for p in others_np:
@@ -370,8 +371,12 @@ class DrinkingRules:
         lines = []
         for pname, hand in winning_hands:
             if hand.is_blackjack():
-                s = 2
-                lines.append(f"{pname} blackjack => 2 sips")
+                if pname == dealer_name:
+                    s = 1
+                    lines.append(f"{pname} blackjack (own hand) => 1 sip (no multiplier)")
+                else:
+                    s = 2
+                    lines.append(f"{pname} blackjack => 2 sips")
             elif hand.doubled:
                 s = 2
                 lines.append(f"{pname} doubled win => 2 sips")
