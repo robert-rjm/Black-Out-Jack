@@ -433,8 +433,9 @@
            style="text-transform:uppercase;letter-spacing:2px"
            onkeydown="if(event.key==='Enter')joinRoom()">
   </div>
-  <button class="btn wide"
-    style="width:100%;max-width:420px;height:52px;font-size:16px;font-weight:700"
+  <button
+    style="width:100%;max-width:420px;height:64px;border-radius:var(--radius);border:1.5px solid var(--border);background:var(--bg);color:var(--text);font-size:18px;font-weight:800;cursor:pointer;transition:opacity .12s,transform .08s"
+    onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform=''"
     onclick="joinRoom()">Join Room →</button>
 
   <div id="lobby-msg"></div>
