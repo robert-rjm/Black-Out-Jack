@@ -227,7 +227,8 @@ class DrinkingRules:
                     f"{player_name} won a doubled hand => {p} drinks 1 sip (immunity exception)"))
 
         # Suited winning hand: 1 sip normally, 4 sips if doubled (split does NOT multiply)
-        if hand.is_suited():
+        # Skip for blackjack — the BJ bonus already incorporates the suited multiplier
+        if hand.is_suited() and not hand.is_blackjack():
             sips = 4 if hand.doubled else 1
             sym  = hand.cards[0].suit.symbol
             for p in others_np:
