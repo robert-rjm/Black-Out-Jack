@@ -1253,26 +1253,6 @@ function updateRoundPane(state) {
   }
 }
 
-function showPeekedCard(card) {
-  const wrap    = document.getElementById("peeked-card-wrap");
-  const display = document.getElementById("peeked-card-display");
-  if (!wrap || !display) return;
-  display.innerHTML = "";
-  display.appendChild(cardEl(card));
-  const lbl = document.createElement("span");
-  lbl.style.cssText = "font-size:13px;font-weight:700;color:var(--text);align-self:center";
-  lbl.textContent = `${card.rank}${card.symbol || ""}`;
-  display.appendChild(lbl);
-  wrap.style.display = "";
-}
-
-function clearPeekedCard() {
-  const wrap = document.getElementById("peeked-card-wrap");
-  if (wrap) wrap.style.display = "none";
-  const display = document.getElementById("peeked-card-display");
-  if (display) display.innerHTML = "";
-}
-
 function autoSwitchDigTab(state) {
   const phase = state.phase;
   if (phase === "pre-deal")   activateDigTab("dig-deal");
