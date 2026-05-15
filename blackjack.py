@@ -651,7 +651,9 @@ class RoundManager:
             for p in self.players:
                 for hand in p.hands:
                     if hand.is_blackjack() and hand.result == "win":
-                        self._drink(DrinkingRules.on_blackjack(p.name, hand, self._all_names))
+                        self._drink(DrinkingRules.on_blackjack(
+                            p.name, hand, self._all_names,
+                            hard_switch_dealer=exempt_dealer))
                     self._drink(DrinkingRules.on_hand_resolved(
                         p.name, hand, self._all_names,
                         dealer_bj=dealer_bj, dealer_name=exempt_dealer))
