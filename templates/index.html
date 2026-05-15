@@ -377,14 +377,90 @@
 
   /* digital hint text */
   .hint { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+
+  /* ---- LOBBY / WAITING ---- */
+  #lobby, #waiting {
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    height: 100dvh; padding: 24px 20px; gap: 14px;
+    overflow-y: auto;
+  }
+  #lobby h2  { font-size: 28px; font-weight: 800; letter-spacing: .5px; }
+  #waiting h2 { font-size: 22px; font-weight: 800; }
+  .lobby-or {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; max-width: 420px;
+  }
+  .lobby-or hr { flex: 1; border: none; border-top: 1px solid var(--border); margin: 0; }
+  .lobby-or span { font-size: 12px; color: var(--muted); }
+  #lobby-msg {
+    padding: 8px 14px; border-radius: 8px; font-size: 13px;
+    width: 100%; max-width: 420px; text-align: center; display: none;
+  }
+  #lobby-msg.error { background: rgba(224,92,92,.12); color: var(--red);    border: 1px solid rgba(224,92,92,.3); }
+  #lobby-msg.info  { background: rgba(79,142,247,.12); color: var(--accent); border: 1px solid rgba(79,142,247,.3); }
+  .room-code-badge {
+    font-family: monospace; font-size: 20px; font-weight: 800;
+    letter-spacing: 3px; color: var(--accent);
+    background: rgba(79,142,247,.1); border: 1.5px solid rgba(79,142,247,.3);
+    padding: 6px 18px; border-radius: 10px; display: inline-block;
+  }
+  #setup-room-code-wrap {
+    width: 100%; max-width: 420px; text-align: center;
+    background: rgba(79,142,247,.06); border: 1px solid rgba(79,142,247,.2);
+    border-radius: var(--radius); padding: 10px 16px;
+  }
+  #header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
 </style>
 </head>
 <body>
 
+<!-- ===== LOBBY SCREEN ===== -->
+<div id="lobby">
+  <h2>🃏 Black-Out Jack</h2>
+  <p style="color:var(--muted);font-size:14px;text-align:center">Drinking Blackjack with friends</p>
+
+  <button
+    style="width:100%;max-width:420px;height:64px;border-radius:var(--radius);border:none;background:var(--green);color:#000;font-size:18px;font-weight:800;cursor:pointer;transition:opacity .12s,transform .08s"
+    onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform=''"
+    onclick="createRoom()">+ Create Room</button>
+
+  <div class="lobby-or"><hr><span>or join existing</span><hr></div>
+
+  <div class="field">
+    <label>Room Code</label>
+    <input type="text" id="join-code" placeholder="e.g. Jack-21"
+           style="text-transform:uppercase;letter-spacing:2px"
+           onkeydown="if(event.key==='Enter')joinRoom()">
+  </div>
+  <button class="btn wide"
+    style="width:100%;max-width:420px;height:52px;font-size:16px;font-weight:700"
+    onclick="joinRoom()">Join Room →</button>
+
+  <div id="lobby-msg"></div>
+</div>
+
+<!-- ===== WAITING SCREEN ===== -->
+<div id="waiting" style="display:none">
+  <h2>⏳ Waiting for host...</h2>
+  <p style="color:var(--muted);font-size:14px;text-align:center;max-width:300px">
+    The host is setting up the game. This page updates automatically.
+  </p>
+  <div id="waiting-code-badge" class="room-code-badge" style="margin:6px 0"></div>
+  <button class="btn" style="margin-top:12px" onclick="backToLobby()">← Back to Lobby</button>
+</div>
+
 <!-- ===== SETUP SCREEN ===== -->
-<div id="setup">
+<div id="setup" style="display:none">
   <h2>🃏 BJ Referee</h2>
   <p class="sub" id="setup-sub">Virtual Drinking Blackjack — digital shoe &amp; drink tracker</p>
+
+  <div id="setup-room-code-wrap">
+    <p style="color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">
+      Room Code — share with friends to let them join
+    </p>
+    <div id="setup-room-code" class="room-code-badge"></div>
+  </div>
 
   <div class="field">
     <label>Game Mode</label>
@@ -441,6 +517,7 @@
     <div>
       <h1 id="header-title">BJ Referee</h1>
       <div id="header-sub">Setting up...</div>
+      <div id="header-room"></div>
     </div>
     <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
   </header>
@@ -616,6 +693,124 @@ let numHands   = 2;
 let gameMode   = "referee";   // "referee" | "digital"
 let lastState  = null;        // last /command or /state response
 let currentTurn = null;       // player name whose turn it is (digital only)
+let roomCode   = "";          // active room code (e.g. "Jack-21")
+let pollTimer  = null;        // setInterval handle for auto-refresh
+
+// ============================================================
+// LOBBY
+// ============================================================
+function showLobbyMsg(text, type = "error") {
+  const el = document.getElementById("lobby-msg");
+  el.textContent  = text;
+  el.className    = type;
+  el.style.display = "";
+}
+function hideLobbyMsg() {
+  document.getElementById("lobby-msg").style.display = "none";
+}
+
+async function createRoom() {
+  hideLobbyMsg();
+  const res  = await fetch("/create_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const data = await res.json();
+  if (!data.ok) { showLobbyMsg("Could not create room. Try again."); return; }
+  roomCode = data.code;
+  localStorage.setItem("bjRoomCode", roomCode);
+  // Show setup screen with code badge
+  document.getElementById("lobby").style.display    = "none";
+  document.getElementById("setup").style.display    = "flex";
+  document.getElementById("setup-room-code").textContent = roomCode;
+}
+
+async function joinRoom() {
+  hideLobbyMsg();
+  const input = document.getElementById("join-code");
+  const code  = (input.value || "").trim().toUpperCase();
+  // Normalise: preserve original capitalisation from the server (Title-case word)
+  // We'll just send whatever the user typed and let the server normalise
+  const raw   = (input.value || "").trim();
+  if (!raw) { showLobbyMsg("Enter a room code first."); return; }
+
+  const res  = await fetch("/join_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: raw }) });
+  const data = await res.json();
+  if (!data.ok) { showLobbyMsg(data.error || "Room not found."); return; }
+
+  roomCode = data.room_code || raw;   // use canonical casing from server
+  localStorage.setItem("bjRoomCode", roomCode);
+
+  if (data.has_game) {
+    // Game already in progress — jump straight to the game screen
+    players  = data.players || [];
+    numHands = 2;
+    gameMode = data.mode || "referee";
+    updateHeader(data);
+    buildGameUI();
+    applyState(data);
+    appendLog("  (Joined room " + roomCode + ")\n");
+    document.getElementById("lobby").style.display = "none";
+    document.getElementById("app").style.display   = "flex";
+    startPolling();
+  } else {
+    // Game not started yet — show waiting screen
+    document.getElementById("lobby").style.display          = "none";
+    document.getElementById("waiting-code-badge").textContent = roomCode;
+    document.getElementById("waiting").style.display         = "flex";
+    startWaiting();
+  }
+}
+
+function backToLobby() {
+  stopPolling();
+  roomCode = "";
+  localStorage.removeItem("bjRoomCode");
+  document.getElementById("waiting").style.display = "none";
+  document.getElementById("lobby").style.display   = "flex";
+  document.getElementById("join-code").value = "";
+}
+
+// ============================================================
+// POLLING — keep all players in sync
+// ============================================================
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    if (!roomCode) return;
+    try {
+      const res  = await fetch("/state?room_code=" + encodeURIComponent(roomCode));
+      const data = await res.json();
+      if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
+    } catch (_) {}
+  }, 2000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// While waiting for the host to start, poll until the game exists
+function startWaiting() {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    if (!roomCode) return;
+    try {
+      const res  = await fetch("/state?room_code=" + encodeURIComponent(roomCode));
+      const data = await res.json();
+      if (data.ok && data.players && data.players.length > 0) {
+        stopPolling();
+        players  = data.players || [];
+        numHands = 2;
+        gameMode = data.mode || "referee";
+        updateHeader(data);
+        buildGameUI();
+        applyState(data);
+        appendLog("  (Game started! Joined room " + roomCode + ")\n");
+        document.getElementById("waiting").style.display = "none";
+        document.getElementById("app").style.display     = "flex";
+        startPolling();
+      }
+    } catch (_) {}
+  }, 2000);
+}
 
 // Selections per pane
 const sel = {
@@ -719,7 +914,7 @@ async function startGame() {
   const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {
@@ -747,6 +942,7 @@ async function startGame() {
 
   document.getElementById("setup").style.display = "none";
   document.getElementById("app").style.display   = "flex";
+  startPolling();
 }
 
 // ============================================================
@@ -969,7 +1165,7 @@ async function sendCmd(cmd) {
   const res  = await fetch("/command", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cmd }),
+    body: JSON.stringify({ cmd, room_code: roomCode }),
   });
   const data = await res.json();
   if (data.output) appendLog(data.output);
@@ -1317,6 +1513,7 @@ function updateHeader(data) {
     : '<span class="mode-badge referee">📋 Referee</span>';
   document.getElementById("header-title").innerHTML = `BJ Referee ${badge}`;
   document.getElementById("header-sub").textContent = `Round ${round}  |  Dealer: ${dealer}`;
+  if (roomCode) document.getElementById("header-room").textContent = "Room: " + roomCode;
 }
 
 // ============================================================
@@ -1420,10 +1617,17 @@ async function doNewRoundAndDeal() {
 // RESET
 // ============================================================
 function resetToSetup() {
-  if (!confirm("End current session and return to setup?")) return;
-  document.getElementById("app").style.display   = "none";
-  document.getElementById("setup").style.display = "flex";
+  if (!confirm("End current session and return to lobby?")) return;
+  stopPolling();
+  roomCode = "";
+  localStorage.removeItem("bjRoomCode");
+  document.getElementById("app").style.display    = "none";
+  document.getElementById("setup").style.display  = "none";
+  document.getElementById("lobby").style.display  = "flex";
   document.getElementById("log").innerHTML = "";
+  document.getElementById("header-room").textContent = "";
+  document.getElementById("join-code").value = "";
+  hideLobbyMsg();
   players  = [];
   gameMode = "referee";
 }
@@ -1432,19 +1636,26 @@ function resetToSetup() {
 // INIT — reconnect to existing server session on page reload
 // ============================================================
 (async () => {
-  const res  = await fetch("/state");
-  const data = await res.json();
-  if (data.ok && data.players && data.players.length > 0) {
-    players  = data.players;
-    numHands = 2;
-    gameMode = data.mode || "referee";
-    updateHeader(data);
-    buildGameUI();
-    appendLog("  (Reconnected to existing session)\n");
-    applyState(data);
-    document.getElementById("setup").style.display = "none";
-    document.getElementById("app").style.display   = "flex";
-  }
+  const saved = localStorage.getItem("bjRoomCode");
+  if (!saved) return;   // no saved room — stay on lobby
+
+  try {
+    const res  = await fetch("/state?room_code=" + encodeURIComponent(saved));
+    const data = await res.json();
+    if (data.ok && data.players && data.players.length > 0) {
+      roomCode = saved;
+      players  = data.players;
+      numHands = 2;
+      gameMode = data.mode || "referee";
+      updateHeader(data);
+      buildGameUI();
+      appendLog("  (Reconnected to room " + roomCode + ")\n");
+      applyState(data);
+      document.getElementById("lobby").style.display = "none";
+      document.getElementById("app").style.display   = "flex";
+      startPolling();
+    }
+  } catch (_) {}
 })();
 </script>
 </body>
