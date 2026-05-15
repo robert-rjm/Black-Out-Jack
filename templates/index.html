@@ -741,7 +741,7 @@ async function joinRoom() {
   if (data.has_game) {
     // Game already in progress — jump straight to the game screen
     players  = data.players || [];
-    numHands = 2;
+    numHands = data.num_hands || 2;
     gameMode = data.mode || "referee";
     updateHeader(data);
     buildGameUI();
@@ -798,7 +798,7 @@ function startWaiting() {
       if (data.ok && data.players && data.players.length > 0) {
         stopPolling();
         players  = data.players || [];
-        numHands = 2;
+        numHands = data.num_hands || 2;
         gameMode = data.mode || "referee";
         updateHeader(data);
         buildGameUI();
