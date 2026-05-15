@@ -11,7 +11,7 @@ import urllib.request
 from blackjack import Rank, Suit, Hand, Player
 
 _RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Black-Out-Jack/main/Rules.md"
-_RULES_HASH  = "e8e84f1f22587fa390c6c88f047c69778e5aa84386ede09c3f06479823650575"
+_RULES_HASH  = "fc32dfd1e39d08edc454bccf7cc9534ee33182cc28e0d1a7d40bc9161bc64ebb"
 _RULES_DATE  = "2026-05-15"
 
 
