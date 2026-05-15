@@ -253,6 +253,7 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         entry = {
             "name":      p.name,
             "is_dealer": p.is_dealer,
+            "is_npc":    getattr(p, "is_npc", False),
             "hands":     [_serialize_hand(h, hide_double=hide_double) for h in p.hands],
             "done":      _player_done(p),
             "is_turn":   (p.name == turn),
@@ -532,6 +533,83 @@ def _digital_dealer_turn(session: RefereeSession):
 
 
 # ---------------------------------------------------------------------------
+# NPC auto-play
+# ---------------------------------------------------------------------------
+
+def _auto_play_npc_turns(session: RefereeSession):
+    """
+    Auto-play all consecutive NPC turns using basic strategy.
+    Loops until the current turn belongs to a human player, no one
+    is up, or the phase leaves 'playing'. Safety-capped at 100 steps.
+    """
+    for _ in range(100):
+        _deal_pending_split_cards(session)
+        if _round_phase(session) != "playing":
+            break
+        turn = _current_turn(session)
+        if not turn:
+            break
+        player = session._get_player(turn)
+        if not player or not getattr(player, "is_npc", False):
+            break  # human's turn — stop
+
+        hand = next((h for h in player.hands if not _hand_done(h)), None)
+        if not hand:
+            break
+
+        hand_idx   = player.hands.index(hand)
+        hand_label = f"hand{hand_idx + 1}"
+        dealer     = session._get_dealer()
+        dealer_up  = dealer.dealer_hand.cards[0]
+
+        valid = ["h", "s"]
+        if len(hand.cards) == 2 and not hand.doubled:
+            valid.append("d")
+        if hand.can_split():
+            valid.append("sp")
+
+        action = NPC_Player.best_play(
+            hand, dealer_up, valid,
+            drinking_mode=getattr(session, "drinking_mode", True))
+        print(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
+
+        if action == "h":
+            card = _digital_deal_card(session, hand, player.name)
+            print(f"  {player.name} {hand_label} hits {card}: {hand}")
+            if hand.is_bust():
+                hand.bust = hand.stood = True
+                hand.result = "loss"
+                print("  BUST!")
+            elif hand.score() == 21:
+                hand.stood = True
+                print(f"  {player.name} {hand_label}: auto-stands at 21.")
+
+        elif action == "s":
+            hand.stood = True
+            print(f"  {player.name} {hand_label}: stands at {hand.score()}.")
+
+        elif action == "d":
+            hand.doubled = True
+            card = _digital_deal_card(session, hand, player.name)
+            hand.stood = True
+            print(f"  {player.name} {hand_label} doubles ({card}): {hand}")
+            if hand.is_bust():
+                hand.bust = True
+                hand.result = "loss"
+                print("  BUST on double!")
+
+        elif action == "sp":
+            new_hand = Hand(from_split=True)
+            new_hand.cards.append(hand.cards.pop())
+            hand.from_split    = True
+            hand.split_count  += 1
+            new_hand.split_count = hand.split_count
+            player.hands.insert(hand_idx + 1, new_hand)
+            _digital_deal_card(session, hand, player.name)
+            print(f"  {player.name} splits {hand_label}")
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -585,9 +663,11 @@ def setup():
     wager       = int(data.get("wager", 1))
     num_hands   = int(data.get("num_hands", 2))
 
+    npc_names = {n.strip().capitalize() for n in data.get("npcs", []) if n.strip()}
+
     players = []
     for name in names:
-        p           = Player(name)
+        p           = NPC_Player(name) if name in npc_names else Player(name)
         p.is_dealer = (name == dealer_name)
         if p.is_dealer:
             p.dealer_hand = Hand()
@@ -676,6 +756,7 @@ def command():
             if cmd == "deal":
                 # Initial deal — no card args; shoe deals automatically
                 _digital_initial_deal(game_session)
+                _auto_play_npc_turns(game_session)
 
             elif cmd == "hit":
                 # hit <player> [hand<n>]
@@ -846,6 +927,7 @@ def command():
             # whose predecessor just finished, then check if dealer should auto-play
             if cmd in {"hit", "stand", "double", "split"}:
                 _deal_pending_split_cards(game_session)
+                _auto_play_npc_turns(game_session)
                 if _round_phase(game_session) == "dealer-ready":
                     print("\n  (All players done — dealer plays automatically)")
                     _digital_dealer_turn(game_session)

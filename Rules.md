@@ -218,9 +218,11 @@ Triggered when the Dealer loses all hands. Dealer drinks based on all Players' w
 | Split hands | Each hand counted separately (no extra sip for the split itself) |
 | Suited hands | No extra sips for Dealer |
 
-**Dealer's own Player hands:** The Dealer also plays as a Player. To avoid double punishment:
-- Dealer's own Blackjack → 1 sip (no multiplier)
-- Dealer's own Ace of Clubs → −1 sip from Dealer's total
+**Dealer's own Player hands:** The Dealer also plays as a Player, but on a Hard Switch their player-role drinking is replaced entirely by the dealer calculation above. They do not drink for their own net losses, other Players' Blackjack bonuses, or bonus sips from others' suited, doubled, or split wins.
+
+Ace effects still apply normally. Two exceptions specific to the Hard Switch calculation:
+- Dealer's own Blackjack counts as 1 sip (no multiplier)
+- Dealer's own Ace of Clubs subtracts 1 sip from the Dealer's total
 
 **Ace of Clubs protection:** If ♣A is dealt to the Dealer, the switch still occurs but the Dealer drinks 0 sips. Players still drink normally.
 
