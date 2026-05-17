@@ -11,7 +11,7 @@ Play it digitally in your browser, use it as a real-life referee, or run it via 
 **Or run locally:**
 Requires Python 3.10+
 ```bash
-git clone https://github.com/robert-rjm/Drinking-BlackJack.git && cd Drinking-BlackJack
+git clone https://github.com/robert-rjm/Black-Out-Jack.git && cd Black-Out-Jack
 pip install flask                # only needed for the web UI
 python app.py                    # Web UI → http://localhost:5000
 python blackjack.py              # Terminal game (no extra dependencies)
@@ -93,7 +93,7 @@ Computer-controlled seats using standard basic strategy. NPCs:
 
 ### **Project Structure**
 ```
-Drinking-BlackJack/
+Black-Out-Jack/
 ├── blackjack.py             # Core game logic + terminal game (START HERE)
 ├── Rules.md                 # Drinking Rules
 ├── CheatSheet.md            # One-page quick reference for gameplay
