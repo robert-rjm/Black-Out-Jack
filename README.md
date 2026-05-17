@@ -1,12 +1,12 @@
 # BlackJack Game 🃏
 _an AdHoc creation_
 
-Welcome to _**Black(Out)Jack**_, a fun twist on classic BlackJack. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack. 
+Welcome to _**Black(Out)Jack**_, a multiplayer browser-based blackjack card game with a drinking party game twist. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack.
 
-Play it digitally in your browser, use it as a real-life referee, or run it via a local web UI. You can choose between either **Referee** mode (physical deck, digital scorecard) or **Digital** mode (fully playable in-browser blackjack).
+Play it digitally in your browser, use it as a real-life referee, or run it via a local web UI. No account needed. Built with Python and Flask, it supports human and NPC players across **Referee** mode (physical deck, digital scorecard) and **Digital** mode (fully playable in-browser blackjack).
 
 ## Quick Start
-**Play online instantly:** [Black-Out-Jack.onrender.com](https://black-out-jack.onrender.com)
+**Play online instantly, no install or account needed:** [Black-Out-Jack.onrender.com](https://black-out-jack.onrender.com)
 
 **Or run locally:**
 Requires Python 3.10+
