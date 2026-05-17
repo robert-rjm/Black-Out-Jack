@@ -11,7 +11,8 @@ Play it digitally in your browser, use it as a real-life referee, or run it via 
 **Or run locally:**
 Requires Python 3.10+
 ```bash
-git clone https://github.com/robert-rjm/Black-Out-Jack.git && cd Black-Out-Jack
+git clone https://github.com/robert-rjm/Black-Out-Jack.git
+cd Black-Out-Jack
 pip install flask                # only needed for the web UI
 python app.py                    # Web UI → http://localhost:5000
 python blackjack.py              # Terminal game (no extra dependencies)
