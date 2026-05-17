@@ -24,6 +24,7 @@ python referee.py                # Terminal referee for real-life play
 - [Drink Responsibly](#drink-responsibly)
 - [Installation & Setup](#installation--setup)
 - [Running the Game](#running-the-game)
+- [Simulation & Statistics](#simulation--statistics)
 - [File Architecture](#file-architecture)
 - [Contributing](#contributing)
 - [License](#license)
@@ -100,6 +101,7 @@ Black-Out-Jack/
 ├── drinking_rules.py        # Drinking Rules
 ├── referee.py               # Terminal referee for real-life play
 ├── app.py                   # Flask web server (Referee & Digital modes)
+├── simulation.py            # Round simulation with stats output
 ├── requirements.txt         # Python dependencies for deployment
 ├── templates/
 │   └── index.html           # Web UI served by app.py
@@ -176,6 +178,16 @@ Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the 
 
 Both modes share the same drink-rule engine, live drink log (colour-coded by event type), and session persistence, reloading the page reconnects to the active session.
 
+## Simulation & Statistics
+
+Curious whether the rules are balanced or which rule is responsible for most of the drinking?
+
+Track every drink event from start to finish in a simulation (3 players, 2 hands each, rotating dealer). Frequency and rule breakdown are output in `simulation_result.txt` and `simulation_log.csv` respectively.
+
+```bash
+python simulation.py
+```
+
 ## File Architecture
 
 The three main files are intentionally decoupled:
@@ -187,6 +199,7 @@ The three main files are intentionally decoupled:
 | `referee.py` | `blackjack.py`, `drinking_rules.py` | Terminal referee command parser for real-life play |
 | `app.py` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Flask server, Referee mode and Digital mode web UI |
 | `templates/index.html` | served by `app.py` | Mobile-first browser UI for both modes |
+| `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |
 
 **Separation of concerns:**
 - **Changing a drinking rule** → edit only `drinking_rules.py`
