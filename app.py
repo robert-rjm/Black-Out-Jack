@@ -209,6 +209,7 @@ def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
         "result":      hand.result,
         "blackjack":   bool(hand.cards) and hand.is_blackjack(),
         "done":        _hand_done(hand),
+        "can_split":   hand.can_split(),
     }
 
 
@@ -328,6 +329,8 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "log_entries":        getattr(session, "_log_entries", []),
         "log_count":          len(getattr(session, "_log_entries", [])),
         "log_version":        getattr(session, "_log_version", 0),
+        # Peeked card — persists in state so all pollers can see it
+        "peeked_card":        getattr(session, "_last_peeked", None),
     }
 
 
@@ -786,6 +789,7 @@ def command():
 
             if cmd == "deal":
                 # Initial deal — no card args; shoe deals automatically
+                game_session._last_peeked = None   # peeked card is now stale
                 _digital_initial_deal(game_session)
                 _auto_play_npc_turns(game_session)
 
@@ -939,10 +943,11 @@ def command():
                 else:
                     game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
                 game_session.switch_this_round = None
-                # Clear the shared log for the new round
+                # Clear shared log and peeked card for the new round
                 game_session._log_entries = []
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1
                 game_session._deferred_hole_card_msgs = []
+                game_session._last_peeked = None
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -993,9 +998,10 @@ def command():
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
                 if rotate:
                     _newround_rotate(game_session)
-                # Clear the shared log for the new round
+                # Clear the shared log and peeked card for the new round
                 game_session._log_entries = []
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1
+                game_session._last_peeked = None
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -1016,10 +1022,8 @@ def command():
         game_session._log_entries.append(output)
     state = _serialize_state(game_session)
     state["output"] = output   # kept for immediate display on the sender's side
-    peeked = getattr(game_session, "_last_peeked", None)
-    if peeked:
-        state["peeked_card"] = peeked
-        game_session._last_peeked = None   # consumed -- only show once
+    # peeked_card is included in _serialize_state and persists until cleared
+    # by newround/deal so all polling clients can see it.
     return jsonify(state)
 
 
