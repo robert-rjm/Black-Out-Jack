@@ -610,6 +610,9 @@
           <button class="btn wide" onclick="sendCmd('fouraces firstdeal')">4 ACES (DEAL)</button>
           <button class="btn wide" onclick="sendCmd('fouraces endround')">4 ACES (END)</button>
         </div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="exportDrinkCSV()">📊 Export Drinks CSV</button>
+        </div>
       </div>
     </div><!-- end #ref-panel -->
 
@@ -658,6 +661,9 @@
         <div class="btn-row">
           <button class="btn wide" id="btn-peek" onclick="sendCmd('peek')" style="display:none">🃏 Next card?</button>
           <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="exportDrinkCSV()">📊 Export Drinks CSV</button>
         </div>
         <div id="peeked-card-wrap" style="display:none;margin-top:8px">
           <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
@@ -1688,6 +1694,14 @@ async function doNewRoundAndDeal() {
   await sendCmd(_modalSuggestRotate ? "newround rotate" : "newround keep");
   buildGameUI();
   await sendCmd("deal");
+}
+
+// ============================================================
+// CSV EXPORT
+// ============================================================
+function exportDrinkCSV() {
+  if (!roomCode) { alert("No active session."); return; }
+  window.location.href = "/export_csv?room_code=" + encodeURIComponent(roomCode);
 }
 
 // ============================================================

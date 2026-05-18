@@ -12,12 +12,13 @@ Run:
 Then open http://<your-PC-IP>:5000 on any phone on the same WiFi.
 """
 
+import csv
 import io
 import contextlib
 import random
 import socket
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 
 from referee import RefereeSession
 from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
@@ -88,6 +89,32 @@ def _capture(fn, *args):
     with contextlib.redirect_stdout(buf):
         fn(*args)
     return buf.getvalue()
+
+
+def _harvest_drink_log(session: RefereeSession):
+    """
+    Copy the current round's drink_log entries from every player into the
+    session-wide CSV accumulator.  Call this right after cmd_endround() and
+    before start_round() resets drink_log to [].
+    """
+    rows = getattr(session, "_drink_csv_rows", [])
+    round_num = session.round_count
+    dealer    = session.dealer_name
+    for p in session.all_players:
+        for entry in p.drink_log:
+            sips   = entry[0]
+            reason = entry[1]
+            role   = entry[2] if len(entry) > 2 else "player"
+            if sips > 0:
+                rows.append({
+                    "round":  round_num,
+                    "dealer": dealer,
+                    "player": p.name,
+                    "role":   role,
+                    "rule":   reason,
+                    "sips":   sips,
+                })
+    session._drink_csv_rows = rows
 
 
 def _newround_rotate(session: RefereeSession):
@@ -713,6 +740,8 @@ def setup():
     game_session._log_entries            = []
     game_session._log_version            = 0
     game_session._deferred_hole_card_msgs = []
+    # CSV accumulator — survives across rounds; never reset between newrounds
+    game_session._drink_csv_rows         = []
 
     if mode == "digital":
         num_decks         = int(data.get("num_decks", 1))
@@ -934,6 +963,7 @@ def command():
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                _harvest_drink_log(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
@@ -972,6 +1002,7 @@ def command():
                     print("\n  (All players done — dealer plays automatically)")
                     _digital_dealer_turn(game_session)
                     game_session.cmd_endround()
+                    _harvest_drink_log(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
@@ -993,6 +1024,7 @@ def command():
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                _harvest_drink_log(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
@@ -1025,6 +1057,33 @@ def command():
     # peeked_card is included in _serialize_state and persists until cleared
     # by newround/deal so all polling clients can see it.
     return jsonify(state)
+
+
+@app.route("/export_csv")
+def export_csv():
+    """
+    Return a CSV file of all drinks recorded so far in this session.
+    Columns: round, dealer, player, role, rule, sips
+    Usage: GET /export_csv?room_code=Jack-21
+    """
+    room_code = request.args.get("room_code", "")
+    session   = game_sessions.get(room_code)
+    if not session:
+        return Response("No active session.", status=404, mimetype="text/plain")
+
+    rows = getattr(session, "_drink_csv_rows", [])
+    buf  = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=["round", "dealer", "player", "role", "rule", "sips"])
+    writer.writeheader()
+    writer.writerows(rows)
+    csv_bytes = buf.getvalue().encode("utf-8")
+
+    return Response(
+        csv_bytes,
+        status=200,
+        mimetype="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="drinks.csv"'},
+    )
 
 
 @app.route("/state")
