@@ -194,13 +194,15 @@ def _serialize_card(card) -> dict:
 def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
     cards = [_serialize_card(c) for c in hand.cards]
     # Doubled card is dealt face-down until dealer plays
-    if hide_double and hand.doubled and len(cards) > 0:
+    is_hidden_double = hide_double and hand.doubled
+    if is_hidden_double and len(cards) > 0:
         cards[-1] = {"rank": "?", "suit": "hidden", "symbol": "?"}
     return {
         "cards":       cards,
-        "score":       hand.score() if hand.cards else 0,
+        # Hide score and bust status while the doubled card is still face-down
+        "score":       None if is_hidden_double else (hand.score() if hand.cards else 0),
         "stood":       hand.stood,
-        "bust":        hand.bust or (hand.cards and hand.is_bust()),
+        "bust":        False if is_hidden_double else (hand.bust or bool(hand.cards and hand.is_bust())),
         "doubled":     hand.doubled,
         "from_split":  hand.from_split,
         "insured":     hand.insured,
@@ -322,6 +324,10 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "rotate_reason":      rotate_reason,
         "rounds_this_dealer": rounds_td,
         "switch_this_round":  switch,   # None | "hard" | "soft"
+        # Shared log — all players see the same entries via polling
+        "log_entries":        getattr(session, "_log_entries", []),
+        "log_count":          len(getattr(session, "_log_entries", [])),
+        "log_version":        getattr(session, "_log_version", 0),
     }
 
 
@@ -393,6 +399,11 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
         all_names      = [p.name for p in session.all_players]
         dealer         = session._get_dealer()
         is_dealer_hand = (dealer is not None and hand is dealer.dealer_hand)
+        # card_pos==2 on the dealer hand = the hidden hole card; defer messages
+        # until _digital_dealer_turn so the ace is not spoiled in the log.
+        # Note: on_card_dealt already mutates ace_clubs_flag directly before
+        # returning, so the game-mechanic side-effect is always immediate.
+        is_hole_card   = is_dealer_hand and card_pos == 2
         msgs = DrinkingRules.on_card_dealt(
             card, recipient_name, card_pos,
             all_names, session.dealer_name,
@@ -402,8 +413,14 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
         for msg in msgs:
             r, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
+                # Ace-clubs credit — only ever fires for player hands, never hole card
                 session._ace_credits.append(recipient_name)
                 print(f"    (i) {reason}")
+            elif is_hole_card:
+                # Defer: don't print or assign drinks until the hole card is revealed
+                if not hasattr(session, "_deferred_hole_card_msgs"):
+                    session._deferred_hole_card_msgs = []
+                session._deferred_hole_card_msgs.append(msg)
             else:
                 session.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
     return card
@@ -411,6 +428,7 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
 
 def _digital_initial_deal(session: RefereeSession):
     """Deal 2 cards to every player hand and the dealer hand from the shoe."""
+    session._deferred_hole_card_msgs = []   # reset for fresh deal
     dealer    = session._get_dealer()
     all_names = [p.name for p in session.all_players]
 
@@ -445,6 +463,13 @@ def _digital_dealer_turn(session: RefereeSession):
     """
     dealer = session._get_dealer()
     d_hand = dealer.dealer_hand
+
+    # Now that the hole card is visible, apply any ace drinking rules that
+    # were deferred during the initial deal to avoid spoiling the hidden card.
+    deferred = getattr(session, "_deferred_hole_card_msgs", [])
+    if deferred:
+        session.tracker.apply(deferred)
+        session._deferred_hole_card_msgs = []
 
     print(f"\n--- Dealer ({dealer.name}) reveals ---")
     print(f"  Full hand: {d_hand}")
@@ -675,12 +700,16 @@ def setup():
 
     drinking = bool(data.get("drinking", True))
 
-    game_session                    = RefereeSession(players, dealer_name, wager, num_hands)
-    game_sessions[room_code]        = game_session   # store in room slot
-    game_session.mode               = mode
-    game_session.drinking_mode      = drinking
-    game_session.rounds_this_dealer = 1   # rounds the current dealer has held the role
-    game_session.switch_this_round  = None  # None | "hard" | "soft"
+    game_session                         = RefereeSession(players, dealer_name, wager, num_hands)
+    game_sessions[room_code]             = game_session   # store in room slot
+    game_session.mode                    = mode
+    game_session.drinking_mode           = drinking
+    game_session.rounds_this_dealer      = 1   # rounds the current dealer has held the role
+    game_session.switch_this_round       = None  # None | "hard" | "soft"
+    # Shared log — broadcast to all players via /state polling
+    game_session._log_entries            = []
+    game_session._log_version            = 0
+    game_session._deferred_hole_card_msgs = []
 
     if mode == "digital":
         num_decks         = int(data.get("num_decks", 1))
@@ -693,8 +722,10 @@ def setup():
         game_session.tracker = _NullTracker()
 
     output = _capture(game_session.start_round)
+    if output.strip():
+        game_session._log_entries.append(output)
     state  = _serialize_state(game_session)
-    state.update({"output": output})
+    state["output"] = output   # kept for host's immediate display
     return jsonify(state)
 
 
@@ -908,6 +939,10 @@ def command():
                 else:
                     game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
                 game_session.switch_this_round = None
+                # Clear the shared log for the new round
+                game_session._log_entries = []
+                game_session._log_version = getattr(game_session, "_log_version", 0) + 1
+                game_session._deferred_hole_card_msgs = []
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -958,6 +993,9 @@ def command():
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
                 if rotate:
                     _newround_rotate(game_session)
+                # Clear the shared log for the new round
+                game_session._log_entries = []
+                game_session._log_version = getattr(game_session, "_log_version", 0) + 1
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -970,12 +1008,18 @@ def command():
             else:
                 print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
+    output = buf.getvalue()
+    # Append to the shared log so polling clients see this output too.
+    # newround already cleared _log_entries above; appending here adds the
+    # new-round start text to the fresh log.
+    if output.strip():
+        game_session._log_entries.append(output)
     state = _serialize_state(game_session)
-    state["output"] = buf.getvalue()
+    state["output"] = output   # kept for immediate display on the sender's side
     peeked = getattr(game_session, "_last_peeked", None)
     if peeked:
         state["peeked_card"] = peeked
-        game_session._last_peeked = None   # consumed — only show once
+        game_session._last_peeked = None   # consumed -- only show once
     return jsonify(state)
 
 

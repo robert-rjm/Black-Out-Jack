@@ -698,6 +698,10 @@ let roomCode   = "";          // active room code (e.g. "Jack-21")
 let pollTimer  = null;        // setInterval handle for auto-refresh
 let npcPlayers = new Set();   // names of NPC/bot players this session
 
+// Shared log sync — tracks which server-side log entries have been displayed
+let logCount   = 0;
+let logVersion = -1;   // -1 so the first state response always triggers a sync
+
 // ============================================================
 // LOBBY
 // ============================================================
@@ -961,10 +965,10 @@ async function startGame() {
 
   updateHeader(data);
   buildGameUI();
-  appendLog(data.output, true);
-  applyState(data);
+  applyState(data);   // syncLogFromState inside here handles the setup output
 
   if (gameMode === "digital") {
+    // Local hint for the host only — not stored on server
     appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
   }
 
@@ -1198,10 +1202,33 @@ async function sendCmd(cmd) {
     body: JSON.stringify({ cmd, room_code: roomCode }),
   });
   const data = await res.json();
-  if (data.output) appendLog(data.output);
+  // Log sync is handled inside applyState → syncLogFromState so all players
+  // (not just the button-presser) see the output via polling.
   if (data.dealer || data.players) updateHeader(data);
   if (data.peeked_card) showPeekedCard(data.peeked_card);
   applyState(data);
+}
+
+// ============================================================
+// SHARED LOG SYNC
+// ============================================================
+function syncLogFromState(state) {
+  if (state.log_version === undefined) return;
+  const ver     = state.log_version || 0;
+  const entries = state.log_entries  || [];
+
+  // Version bump = new game or new round — clear the local log
+  if (ver !== logVersion) {
+    logVersion = ver;
+    logCount   = 0;
+    document.getElementById("log").innerHTML = "";
+  }
+
+  // Append only the entries we haven't seen yet
+  for (let i = logCount; i < entries.length; i++) {
+    appendLog(entries[i]);
+  }
+  logCount = entries.length;
 }
 
 // ============================================================
@@ -1214,6 +1241,7 @@ function applyState(state) {
   if (!state || !state.ok) return;
   lastState   = state;
   currentTurn = state.current_turn || null;
+  syncLogFromState(state);   // shared log — all players see same entries
   renderDealer(state);    // right-col top — always visible
   renderPlayers(state);   // left-col
   syncAllHandButtons();
@@ -1343,7 +1371,8 @@ function handBlock(handState, label) {
   const meta = document.createElement("div");
   meta.className = "hand-meta";
   let tags = [];
-  if (handState.cards && handState.cards.length > 0) {
+  // score is null when the doubled card is still face-down — don't show it
+  if (handState.cards && handState.cards.length > 0 && handState.score !== null && handState.score !== undefined) {
     tags.push(`<span class="score">${handState.score}</span>`);
   }
   if (handState.blackjack)           tags.push(`<span class="bj">BJ</span>`);
@@ -1640,6 +1669,7 @@ function resetToSetup() {
   stopPolling();
   roomCode = "";
   localStorage.removeItem("bjRoomCode");
+  document.getElementById("app").style.display    = "none";
   document.getElementById("app").style.display    = "none";
   document.getElementById("setup").style.display  = "none";
   document.getElementById("lobby").style.display  = "flex";
