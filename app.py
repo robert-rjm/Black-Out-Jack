@@ -159,7 +159,9 @@ def _harvest_drink_log(session: RefereeSession):
 def _get_client_info(session, client_id: str) -> dict:
     """Return role/name/is_dealer info for a client_id. Safe if _room_clients missing."""
     clients = getattr(session, "_room_clients", {})
-    info    = clients.get(client_id, {})
+    info    = clients.get(client_id)          # None if not registered at all
+    if info is None:
+        return {"role": None, "name": None, "is_dealer": False}
     if info.get("kicked"):
         return {"role": "kicked", "name": None, "is_dealer": False}
     role = info.get("role") or "spectator"
