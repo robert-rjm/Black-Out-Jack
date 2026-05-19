@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BJ Referee">
-<title>BJ Referee</title>
+<meta name="apple-mobile-web-app-title" content="Black-Out-Jack">
+<title>Black-Out-Jack</title>
 <style>
   :root {
     --bg:      #0f1117;
@@ -523,7 +523,7 @@
 
 <!-- ===== SETUP SCREEN ===== -->
 <div id="setup" style="display:none">
-  <h2>🃏 BJ Referee</h2>
+  <h2>🃏 Black-Out-Jack</h2>
   <p class="sub" id="setup-sub">Virtual Drinking Blackjack — digital shoe &amp; drink tracker</p>
 
   <div id="setup-room-code-wrap">
@@ -586,7 +586,7 @@
 <div id="app" style="display:none">
   <header>
     <div>
-      <h1 id="header-title">BJ Referee</h1>
+      <h1 id="header-title">Black-Out-Jack</h1>
       <div id="header-sub">Setting up...</div>
       <div id="header-room"></div>
     </div>
@@ -1749,7 +1749,7 @@ function updateHeader(data) {
         ? '<span class="mode-badge digital">🍺 Drinking</span>'
         : '<span class="mode-badge normal">🃏 Normal</span>')
     : '<span class="mode-badge referee">📋 Referee</span>';
-  document.getElementById("header-title").innerHTML = `BJ Referee ${badge}`;
+  document.getElementById("header-title").innerHTML = `Black-Out-Jack ${badge}`;
   document.getElementById("header-sub").textContent = `Round ${round}  |  Dealer: ${dealer}`;
   if (roomCode) document.getElementById("header-room").textContent = "Room: " + roomCode;
 }
