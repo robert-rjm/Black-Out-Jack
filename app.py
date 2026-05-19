@@ -17,6 +17,8 @@ import io
 import contextlib
 import random
 import socket
+from collections import defaultdict
+from datetime import datetime
 
 from flask import Flask, request, jsonify, render_template, Response
 
@@ -91,6 +93,39 @@ def _capture(fn, *args):
     return buf.getvalue()
 
 
+def _classify_rule(reason: str):
+    """
+    Normalise a raw drink-reason string to a short canonical rule name.
+    Returns None for bookkeeping entries that should not appear in the CSV.
+    Mirrors classify_rule() in simulation.py.
+    """
+    r = reason
+    if "A♣" in r and "credit" in r:          return None
+    if "protects" in r:                        return None
+    if "exempt" in r:                          return None
+    if "Hard Dealer Switch" in r:             return "Hard Dealer Switch"
+    if "net loss" in r:                       return "Net hand losses"
+    if "lost a doubled hand" in r:            return "Lost doubled hand"
+    if "lost a suited hand" in r:             return "Lost suited hand"
+    if "immunity exception" in r:             return "Doubled win (immunity break)"
+    if "won suited hand" in r:                return "Suited winning hand"
+    if "split hand" in r:                     return "Split win (immunity break)"
+    if "swept all hands" in r:               return "Other-player sweep"
+    if "Blackjack by" in r:                   return "Blackjack bonus"
+    if "4 Aces" in r and "first deal" in r:  return "Four Aces (first deal)"
+    if "4 Aces" in r and "end of round" in r: return "Four Aces (end of round)"
+    if "Dealer hand is all" in r:             return "Dealer suited hand"
+    if "handed" in r and "5-card 21" in r:   return "5-card 21 handout received"
+    if "won with" in r and "cards" in r:      return "5+ card win"
+    if "A♠" in r and "to dealer" in r:       return "Ace dealt: A♠ (dealer hand)"
+    if "A♥" in r and "dealer" in r:          return "Ace dealt: A♥ (dealer hand)"
+    if "A♦" in r and "dealer" in r:          return "Ace dealt: A♦ (dealer hand)"
+    if "A♠" in r:                            return "Ace dealt: A♠ (player hand)"
+    if "A♥" in r:                            return "Ace dealt: A♥ (player hand)"
+    if "A♦" in r:                            return "Ace dealt: A♦ (player hand)"
+    return "Other"
+
+
 def _harvest_drink_log(session: RefereeSession):
     """
     Copy the current round's drink_log entries from every player into the
@@ -105,15 +140,19 @@ def _harvest_drink_log(session: RefereeSession):
             sips   = entry[0]
             reason = entry[1]
             role   = entry[2] if len(entry) > 2 else "player"
-            if sips > 0:
-                rows.append({
-                    "round":  round_num,
-                    "dealer": dealer,
-                    "player": p.name,
-                    "role":   role,
-                    "rule":   reason,
-                    "sips":   sips,
-                })
+            if sips <= 0:
+                continue
+            rule = _classify_rule(reason)
+            if rule is None:
+                continue
+            rows.append({
+                "round":  round_num,
+                "dealer": dealer,
+                "player": p.name,
+                "role":   role,
+                "rule":   rule,
+                "sips":   sips,
+            })
     session._drink_csv_rows = rows
 
 
@@ -252,9 +291,9 @@ def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
         "doubled":     hand.doubled,
         "from_split":  hand.from_split,
         "insured":     hand.insured,
-        "result":      hand.result,
+        "result":      None if is_hidden_double else hand.result,
         "blackjack":   bool(hand.cards) and hand.is_blackjack(),
-        "done":        _hand_done(hand),
+        "done":        False if is_hidden_double else _hand_done(hand),
         "can_split":   hand.can_split(),
     }
 
@@ -678,13 +717,12 @@ def _auto_play_npc_turns(session: RefereeSession):
 
         elif action == "d":
             hand.doubled = True
-            card = _digital_deal_card(session, hand, player.name)
+            _digital_deal_card(session, hand, player.name)
             hand.stood = True
-            print(f"  {player.name} {hand_label} doubles ({card}): {hand}")
+            print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
             if hand.is_bust():
                 hand.bust = True
                 hand.result = "loss"
-                print("  BUST on double!")
 
         elif action == "sp":
             new_hand = Hand(from_split=True)
@@ -933,13 +971,12 @@ def command():
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
                             hand.doubled = True
-                            card         = _digital_deal_card(game_session, hand, player.name)
+                            _digital_deal_card(game_session, hand, player.name)
                             hand.stood   = True
-                            print(f"  {player.name} {hand_label} doubles down ({card}): {hand}")
+                            print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
                             if hand.is_bust():
                                 hand.bust = True
                                 hand.result = "loss"
-                                print("  BUST on double!")
 
             elif cmd == "split":
                 # split <player> [hand<n>]
@@ -1235,17 +1272,78 @@ def export_csv():
         return Response("No active session.", status=404, mimetype="text/plain")
 
     rows = getattr(session, "_drink_csv_rows", [])
-    buf  = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=["round", "dealer", "player", "role", "rule", "sips"])
-    writer.writeheader()
-    writer.writerows(rows)
-    csv_bytes = buf.getvalue().encode("utf-8")
+
+    # Aggregate: player_sips[player][rule] and dealer_sips[player][rule]
+    player_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    dealer_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    num_rounds = max((r["round"] for r in rows), default=1)
+    players_seen: list[str] = []
+
+    for row in rows:
+        name = row["player"]
+        if name not in players_seen:
+            players_seen.append(name)
+        bucket = dealer_sips if row["role"] == "dealer" else player_sips
+        bucket[name][row["rule"]] += row["sips"]
+
+    all_rules = sorted({row["rule"] for row in rows})
+
+    # Build summary CSV
+    buf = io.StringIO()
+    w   = csv.writer(buf)
+
+    # Header metadata
+    w.writerow(["Drinking Blackjack — Session Summary"])
+    w.writerow(["Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+    w.writerow(["Rounds completed", num_rounds])
+    w.writerow([])
+
+    # Per-player tables
+    for name in players_seen:
+        pt = sum(player_sips[name].values())
+        dt = sum(dealer_sips[name].values())
+        gt = pt + dt
+        w.writerow([
+            f"{name}",
+            f"total sips: {gt}",
+            f"as player: {pt}",
+            f"as dealer: {dt}",
+            f"sips/round: {gt/num_rounds:.2f}",
+        ])
+        w.writerow(["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
+        for rule in all_rules:
+            ps = player_sips[name].get(rule, 0)
+            ds = dealer_sips[name].get(rule, 0)
+            total = ps + ds
+            if total == 0:
+                continue
+            pct = f"{total/gt*100:.1f}%" if gt else "—"
+            w.writerow([rule, ps, ds, total, f"{total/num_rounds:.2f}", pct])
+        w.writerow([])
+
+    # Grand totals table
+    rule_totals: dict[str, int] = defaultdict(int)
+    for name in players_seen:
+        for rule, s in player_sips[name].items():
+            rule_totals[rule] += s
+        for rule, s in dealer_sips[name].items():
+            rule_totals[rule] += s
+    grand_total = sum(rule_totals.values())
+
+    w.writerow(["ALL PLAYERS COMBINED"])
+    w.writerow(["Rule", "Total sips", "Sips/round", "% of total"])
+    for rule in sorted(rule_totals, key=lambda r: -rule_totals[r]):
+        total = rule_totals[rule]
+        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "—"
+        w.writerow([rule, total, f"{total/num_rounds:.2f}", pct])
+    w.writerow([])
+    w.writerow(["Grand total", grand_total, f"{grand_total/num_rounds:.2f} sips/round"])
 
     return Response(
-        csv_bytes,
+        buf.getvalue().encode("utf-8"),
         status=200,
         mimetype="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="drinks.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="drinks_summary.csv"'},
     )
 
 
