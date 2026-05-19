@@ -12,12 +12,15 @@ Run:
 Then open http://<your-PC-IP>:5000 on any phone on the same WiFi.
 """
 
+import csv
 import io
 import contextlib
 import random
 import socket
+from collections import defaultdict
+from datetime import datetime
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 
 from referee import RefereeSession
 from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
@@ -88,6 +91,88 @@ def _capture(fn, *args):
     with contextlib.redirect_stdout(buf):
         fn(*args)
     return buf.getvalue()
+
+
+def _classify_rule(reason: str):
+    """
+    Normalise a raw drink-reason string to a short canonical rule name.
+    Returns None for bookkeeping entries that should not appear in the CSV.
+    Mirrors classify_rule() in simulation.py.
+    """
+    r = reason
+    if "A♣" in r and "credit" in r:          return None
+    if "protects" in r:                        return None
+    if "exempt" in r:                          return None
+    if "Hard Dealer Switch" in r:             return "Hard Dealer Switch"
+    if "net loss" in r:                       return "Net hand losses"
+    if "lost a doubled hand" in r:            return "Lost doubled hand"
+    if "lost a suited hand" in r:             return "Lost suited hand"
+    if "immunity exception" in r:             return "Doubled win (immunity break)"
+    if "won suited hand" in r:                return "Suited winning hand"
+    if "split hand" in r:                     return "Split win (immunity break)"
+    if "swept all hands" in r:               return "Other-player sweep"
+    if "Blackjack by" in r:                   return "Blackjack bonus"
+    if "4 Aces" in r and "first deal" in r:  return "Four Aces (first deal)"
+    if "4 Aces" in r and "end of round" in r: return "Four Aces (end of round)"
+    if "Dealer hand is all" in r:             return "Dealer suited hand"
+    if "handed" in r and "5-card 21" in r:   return "5-card 21 handout received"
+    if "won with" in r and "cards" in r:      return "5+ card win"
+    if "A♠" in r and "to dealer" in r:       return "Ace dealt: A♠ (dealer hand)"
+    if "A♥" in r and "dealer" in r:          return "Ace dealt: A♥ (dealer hand)"
+    if "A♦" in r and "dealer" in r:          return "Ace dealt: A♦ (dealer hand)"
+    if "A♠" in r:                            return "Ace dealt: A♠ (player hand)"
+    if "A♥" in r:                            return "Ace dealt: A♥ (player hand)"
+    if "A♦" in r:                            return "Ace dealt: A♦ (player hand)"
+    return "Other"
+
+
+def _harvest_drink_log(session: RefereeSession):
+    """
+    Copy the current round's drink_log entries from every player into the
+    session-wide CSV accumulator.  Call this right after cmd_endround() and
+    before start_round() resets drink_log to [].
+    """
+    rows = getattr(session, "_drink_csv_rows", [])
+    round_num = session.round_count
+    dealer    = session.dealer_name
+    for p in session.all_players:
+        for entry in p.drink_log:
+            sips   = entry[0]
+            reason = entry[1]
+            role   = entry[2] if len(entry) > 2 else "player"
+            if sips <= 0:
+                continue
+            rule = _classify_rule(reason)
+            if rule is None:
+                continue
+            rows.append({
+                "round":  round_num,
+                "dealer": dealer,
+                "player": p.name,
+                "role":   role,
+                "rule":   rule,
+                "sips":   sips,
+            })
+    session._drink_csv_rows = rows
+
+
+def _get_client_info(session, client_id: str) -> dict:
+    """Return role/name/is_dealer info for a client_id. Safe if _room_clients missing."""
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if info.get("kicked"):
+        return {"role": "kicked", "name": None, "is_dealer": False}
+    role = info.get("role") or "spectator"
+    name = info.get("name")
+    is_dealer = (role == "admin") or bool(
+        role == "player" and name and name.lower() == session.dealer_name.lower()
+    )
+    return {"role": role, "name": name, "is_dealer": is_dealer}
+
+
+def _is_dealer_client(session, client_id: str) -> bool:
+    """True if this client is the admin or is registered as the current dealer."""
+    return _get_client_info(session, client_id)["is_dealer"]
 
 
 def _newround_rotate(session: RefereeSession):
@@ -194,19 +279,22 @@ def _serialize_card(card) -> dict:
 def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
     cards = [_serialize_card(c) for c in hand.cards]
     # Doubled card is dealt face-down until dealer plays
-    if hide_double and hand.doubled and len(cards) > 0:
+    is_hidden_double = hide_double and hand.doubled
+    if is_hidden_double and len(cards) > 0:
         cards[-1] = {"rank": "?", "suit": "hidden", "symbol": "?"}
     return {
         "cards":       cards,
-        "score":       hand.score() if hand.cards else 0,
+        # Hide score and bust status while the doubled card is still face-down
+        "score":       None if is_hidden_double else (hand.score() if hand.cards else 0),
         "stood":       hand.stood,
-        "bust":        hand.bust or (hand.cards and hand.is_bust()),
+        "bust":        False if is_hidden_double else (hand.bust or bool(hand.cards and hand.is_bust())),
         "doubled":     hand.doubled,
         "from_split":  hand.from_split,
         "insured":     hand.insured,
-        "result":      hand.result,
+        "result":      None if is_hidden_double else hand.result,
         "blackjack":   bool(hand.cards) and hand.is_blackjack(),
-        "done":        _hand_done(hand),
+        "done":        False if is_hidden_double else _hand_done(hand),
+        "can_split":   hand.can_split(),
     }
 
 
@@ -237,10 +325,12 @@ def _compute_best_play(session: "RefereeSession", turn: str | None, phase: str) 
     return NPC_Player.best_play(hand, dealer_up, valid, drinking_mode=True)
 
 
-def _serialize_state(session: RefereeSession | None) -> dict:
+def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dict:
     """Full snapshot for the UI."""
     if not session:
         return {"ok": False}
+
+    _ci = _get_client_info(session, client_id) if client_id else {}
 
     dealer = session._get_dealer()
     phase  = _round_phase(session)
@@ -322,6 +412,24 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "rotate_reason":      rotate_reason,
         "rounds_this_dealer": rounds_td,
         "switch_this_round":  switch,   # None | "hard" | "soft"
+        # Shared log — all players see the same entries via polling
+        "log_entries":        getattr(session, "_log_entries", []),
+        "log_count":          len(getattr(session, "_log_entries", [])),
+        "log_version":        getattr(session, "_log_version", 0),
+        # Peeked card — persists in state so all pollers can see it
+        "peeked_card":        getattr(session, "_last_peeked", None),
+        # Pre-selected player actions
+        "preselections":     getattr(session, "_preselections", {}),
+        # All connected clients (for registration overlay)
+        "connected_clients": [
+            {"name": info.get("name"), "role": info.get("role")}
+            for info in getattr(session, "_room_clients", {}).values()
+            if not info.get("kicked")
+        ],
+        # Per-client fields (populated only when client_id is provided)
+        "my_role":           _ci.get("role"),
+        "my_name":           _ci.get("name"),
+        "is_dealer_client":  _ci.get("is_dealer", False),
     }
 
 
@@ -393,6 +501,11 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
         all_names      = [p.name for p in session.all_players]
         dealer         = session._get_dealer()
         is_dealer_hand = (dealer is not None and hand is dealer.dealer_hand)
+        # card_pos==2 on the dealer hand = the hidden hole card; defer messages
+        # until _digital_dealer_turn so the ace is not spoiled in the log.
+        # Note: on_card_dealt already mutates ace_clubs_flag directly before
+        # returning, so the game-mechanic side-effect is always immediate.
+        is_hole_card   = is_dealer_hand and card_pos == 2
         msgs = DrinkingRules.on_card_dealt(
             card, recipient_name, card_pos,
             all_names, session.dealer_name,
@@ -402,8 +515,14 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
         for msg in msgs:
             r, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
+                # Ace-clubs credit — only ever fires for player hands, never hole card
                 session._ace_credits.append(recipient_name)
                 print(f"    (i) {reason}")
+            elif is_hole_card:
+                # Defer: don't print or assign drinks until the hole card is revealed
+                if not hasattr(session, "_deferred_hole_card_msgs"):
+                    session._deferred_hole_card_msgs = []
+                session._deferred_hole_card_msgs.append(msg)
             else:
                 session.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
     return card
@@ -411,6 +530,7 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
 
 def _digital_initial_deal(session: RefereeSession):
     """Deal 2 cards to every player hand and the dealer hand from the shoe."""
+    session._deferred_hole_card_msgs = []   # reset for fresh deal
     dealer    = session._get_dealer()
     all_names = [p.name for p in session.all_players]
 
@@ -445,6 +565,13 @@ def _digital_dealer_turn(session: RefereeSession):
     """
     dealer = session._get_dealer()
     d_hand = dealer.dealer_hand
+
+    # Now that the hole card is visible, apply any ace drinking rules that
+    # were deferred during the initial deal to avoid spoiling the hidden card.
+    deferred = getattr(session, "_deferred_hole_card_msgs", [])
+    if deferred:
+        session.tracker.apply(deferred)
+        session._deferred_hole_card_msgs = []
 
     print(f"\n--- Dealer ({dealer.name}) reveals ---")
     print(f"  Full hand: {d_hand}")
@@ -590,13 +717,12 @@ def _auto_play_npc_turns(session: RefereeSession):
 
         elif action == "d":
             hand.doubled = True
-            card = _digital_deal_card(session, hand, player.name)
+            _digital_deal_card(session, hand, player.name)
             hand.stood = True
-            print(f"  {player.name} {hand_label} doubles ({card}): {hand}")
+            print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
             if hand.is_bust():
                 hand.bust = True
                 hand.result = "loss"
-                print("  BUST on double!")
 
         elif action == "sp":
             new_hand = Hand(from_split=True)
@@ -633,13 +759,14 @@ def create_room():
 def join_room():
     data     = request.json or {}
     raw      = (data.get("code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
     # Case-insensitive lookup (codes are stored as "Jack-21" etc.)
     code     = next((k for k in game_sessions if k.lower() == raw.lower()), None)
     if code is None:
         return jsonify({"ok": False, "error": "Room not found. Check the code and try again."})
     session  = game_sessions[code]
     has_game = session is not None
-    state    = _serialize_state(session)
+    state    = _serialize_state(session, client_id)
     state["ok"]        = True
     state["has_game"]  = has_game
     state["room_code"] = code   # return canonical casing
@@ -650,6 +777,7 @@ def join_room():
 def setup():
     data      = request.json
     room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
     if room_code not in game_sessions:
         return jsonify({"ok": False, "output": "Room not found."})
 
@@ -675,12 +803,25 @@ def setup():
 
     drinking = bool(data.get("drinking", True))
 
-    game_session                    = RefereeSession(players, dealer_name, wager, num_hands)
-    game_sessions[room_code]        = game_session   # store in room slot
-    game_session.mode               = mode
-    game_session.drinking_mode      = drinking
-    game_session.rounds_this_dealer = 1   # rounds the current dealer has held the role
-    game_session.switch_this_round  = None  # None | "hard" | "soft"
+    game_session                         = RefereeSession(players, dealer_name, wager, num_hands)
+    game_sessions[room_code]             = game_session   # store in room slot
+    game_session.mode                    = mode
+    game_session.drinking_mode           = drinking
+    game_session.rounds_this_dealer      = 1   # rounds the current dealer has held the role
+    game_session.switch_this_round       = None  # None | "hard" | "soft"
+    # Shared log — broadcast to all players via /state polling
+    game_session._log_entries            = []
+    game_session._log_version            = 0
+    game_session._deferred_hole_card_msgs = []
+    # CSV accumulator — survives across rounds; never reset between newrounds
+    game_session._drink_csv_rows         = []
+    # Identity — session creator is admin, auto-registered with the dealer's name
+    game_session._room_clients  = {}
+    game_session._preselections = {}
+    if client_id:
+        game_session._room_clients[client_id] = {
+            "name": dealer_name, "role": "admin", "kicked": False,
+        }
 
     if mode == "digital":
         num_decks         = int(data.get("num_decks", 1))
@@ -693,8 +834,10 @@ def setup():
         game_session.tracker = _NullTracker()
 
     output = _capture(game_session.start_round)
-    state  = _serialize_state(game_session)
-    state.update({"output": output})
+    if output.strip():
+        game_session._log_entries.append(output)
+    state  = _serialize_state(game_session, client_id)
+    state["output"] = output   # kept for host's immediate display
     return jsonify(state)
 
 
@@ -707,6 +850,7 @@ def command():
         return jsonify({"ok": False, "output": "No active session — set up a game first."})
 
     cmd_str = _req.get("cmd", "").strip()
+    client_id = _req.get("client_id", "")
     if not cmd_str:
         return jsonify({"ok": False, "output": "Empty command."})
 
@@ -747,6 +891,18 @@ def command():
                 "output": f"  Cannot reveal dealer — {current} still has hands to play.\n",
             })
 
+    # Dealer-gate: only dealer or admin may execute game-changing commands
+    DEALER_GATED_CMDS = {
+        "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
+        "dealer", "endround", "newround", "peek", "action", "result", "fouraces",
+    }
+    if (cmd in DEALER_GATED_CMDS
+            and getattr(game_session, "_room_clients", None)
+            and not _is_dealer_client(game_session, client_id)):
+        state = _serialize_state(game_session, client_id)
+        state["output"] = "  Not authorised — only the dealer can do that.\n"
+        return jsonify(state)
+
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
 
@@ -755,6 +911,8 @@ def command():
 
             if cmd == "deal":
                 # Initial deal — no card args; shoe deals automatically
+                game_session._last_peeked = None   # peeked card is now stale
+                game_session._preselections = {}
                 _digital_initial_deal(game_session)
                 _auto_play_npc_turns(game_session)
 
@@ -813,13 +971,12 @@ def command():
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
                             hand.doubled = True
-                            card         = _digital_deal_card(game_session, hand, player.name)
+                            _digital_deal_card(game_session, hand, player.name)
                             hand.stood   = True
-                            print(f"  {player.name} {hand_label} doubles down ({card}): {hand}")
+                            print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
                             if hand.is_bust():
                                 hand.bust = True
                                 hand.result = "loss"
-                                print("  BUST on double!")
 
             elif cmd == "split":
                 # split <player> [hand<n>]
@@ -899,6 +1056,7 @@ def command():
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                _harvest_drink_log(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
@@ -908,6 +1066,12 @@ def command():
                 else:
                     game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
                 game_session.switch_this_round = None
+                # Clear shared log and peeked card for the new round
+                game_session._log_entries = []
+                game_session._log_version = getattr(game_session, "_log_version", 0) + 1
+                game_session._deferred_hole_card_msgs = []
+                game_session._last_peeked = None
+                game_session._preselections = {}
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -923,6 +1087,13 @@ def command():
             else:
                 print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
+            # Clear the pre-selection for the player whose action just executed
+            if cmd in {"hit", "stand", "double", "split"} and len(parts) >= 2:
+                _p  = parts[1].strip().capitalize()
+                _h  = (parts[2] if len(parts) > 2 else "hand1").strip().lower()
+                if hasattr(game_session, "_preselections"):
+                    game_session._preselections.pop(f"{_p.lower()}:{_h}", None)
+
             # After any player action: deal pending second cards to split hands
             # whose predecessor just finished, then check if dealer should auto-play
             if cmd in {"hit", "stand", "double", "split"}:
@@ -932,6 +1103,7 @@ def command():
                     print("\n  (All players done — dealer plays automatically)")
                     _digital_dealer_turn(game_session)
                     game_session.cmd_endround()
+                    _harvest_drink_log(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
@@ -953,11 +1125,17 @@ def command():
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                _harvest_drink_log(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
                 if rotate:
                     _newround_rotate(game_session)
+                # Clear the shared log and peeked card for the new round
+                game_session._log_entries = []
+                game_session._log_version = getattr(game_session, "_log_version", 0) + 1
+                game_session._last_peeked = None
+                game_session._preselections = {}
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -970,20 +1148,211 @@ def command():
             else:
                 print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
-    state = _serialize_state(game_session)
-    state["output"] = buf.getvalue()
-    peeked = getattr(game_session, "_last_peeked", None)
-    if peeked:
-        state["peeked_card"] = peeked
-        game_session._last_peeked = None   # consumed — only show once
+    output = buf.getvalue()
+    # Append to the shared log so polling clients see this output too.
+    # newround already cleared _log_entries above; appending here adds the
+    # new-round start text to the fresh log.
+    if output.strip():
+        game_session._log_entries.append(output)
+    state = _serialize_state(game_session, client_id)
+    state["output"] = output   # kept for immediate display on the sender's side
+    # peeked_card is included in _serialize_state and persists until cleared
+    # by newround/deal so all polling clients can see it.
     return jsonify(state)
+
+
+@app.route("/register", methods=["POST"])
+def register():
+    """A joining client claims a seat or becomes spectator.
+    Body: { room_code, client_id, name }  — name="" means spectator."""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    name      = (data.get("name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    if not hasattr(session, "_room_clients"):
+        session._room_clients = {}
+
+    existing = session._room_clients.get(client_id, {})
+    if existing.get("kicked"):
+        return jsonify({"ok": False, "error": "You have been removed from this session."})
+
+    if not name:
+        session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
+        return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+    valid_names = [p.name for p in session.all_players]
+    if name not in valid_names:
+        return jsonify({"ok": False,
+                        "error": f"'{name}' is not a seat. Available: {', '.join(valid_names)}"})
+
+    for cid, info in session._room_clients.items():
+        if (cid != client_id and not info.get("kicked")
+                and (info.get("name") or "").lower() == name.lower()):
+            return jsonify({"ok": False, "error": f"'{name}' is already taken."})
+
+    role = "admin" if existing.get("role") == "admin" else "player"
+    session._room_clients[client_id] = {"name": name, "role": role, "kicked": False}
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/kick", methods=["POST"])
+def kick():
+    """Admin removes a client. Body: { room_code, client_id, target_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("target_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    for cid, info in clients.items():
+        if (cid != client_id and not info.get("kicked")
+                and (info.get("name") or "").lower() == target_name.lower()):
+            info["kicked"] = True
+            return jsonify({"ok": True})
+
+    return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+
+
+@app.route("/preselect", methods=["POST"])
+def preselect():
+    """Player pre-votes their intended action. Dealer sees this in the UI.
+    Body: { room_code, client_id, hand, action }  action: h|s|d|sp"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    hand      = (data.get("hand") or "hand1").strip().lower()
+    action    = (data.get("action") or "").strip().lower()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered in this session."})
+
+    name = info.get("name")
+    if not name:
+        return jsonify({"ok": False, "error": "Spectators cannot pre-select actions."})
+
+    if action not in ("h", "s", "d", "sp"):
+        return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
+
+    if not hasattr(session, "_preselections"):
+        session._preselections = {}
+
+    session._preselections[f"{name.lower()}:{hand}"] = action
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/export_csv")
+def export_csv():
+    """
+    Return a CSV file of all drinks recorded so far in this session.
+    Columns: round, dealer, player, role, rule, sips
+    Usage: GET /export_csv?room_code=Jack-21
+    """
+    room_code = request.args.get("room_code", "")
+    session   = game_sessions.get(room_code)
+    if not session:
+        return Response("No active session.", status=404, mimetype="text/plain")
+
+    rows = getattr(session, "_drink_csv_rows", [])
+
+    # Aggregate: player_sips[player][rule] and dealer_sips[player][rule]
+    player_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    dealer_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    num_rounds = max((r["round"] for r in rows), default=1)
+    players_seen: list[str] = []
+
+    for row in rows:
+        name = row["player"]
+        if name not in players_seen:
+            players_seen.append(name)
+        bucket = dealer_sips if row["role"] == "dealer" else player_sips
+        bucket[name][row["rule"]] += row["sips"]
+
+    all_rules = sorted({row["rule"] for row in rows})
+
+    # Build summary CSV
+    buf = io.StringIO()
+    w   = csv.writer(buf)
+
+    # Header metadata
+    w.writerow(["Drinking Blackjack — Session Summary"])
+    w.writerow(["Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+    w.writerow(["Rounds completed", num_rounds])
+    w.writerow([])
+
+    # Per-player tables
+    for name in players_seen:
+        pt = sum(player_sips[name].values())
+        dt = sum(dealer_sips[name].values())
+        gt = pt + dt
+        w.writerow([
+            f"{name}",
+            f"total sips: {gt}",
+            f"as player: {pt}",
+            f"as dealer: {dt}",
+            f"sips/round: {gt/num_rounds:.2f}",
+        ])
+        w.writerow(["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
+        for rule in all_rules:
+            ps = player_sips[name].get(rule, 0)
+            ds = dealer_sips[name].get(rule, 0)
+            total = ps + ds
+            if total == 0:
+                continue
+            pct = f"{total/gt*100:.1f}%" if gt else "—"
+            w.writerow([rule, ps, ds, total, f"{total/num_rounds:.2f}", pct])
+        w.writerow([])
+
+    # Grand totals table
+    rule_totals: dict[str, int] = defaultdict(int)
+    for name in players_seen:
+        for rule, s in player_sips[name].items():
+            rule_totals[rule] += s
+        for rule, s in dealer_sips[name].items():
+            rule_totals[rule] += s
+    grand_total = sum(rule_totals.values())
+
+    w.writerow(["ALL PLAYERS COMBINED"])
+    w.writerow(["Rule", "Total sips", "Sips/round", "% of total"])
+    for rule in sorted(rule_totals, key=lambda r: -rule_totals[r]):
+        total = rule_totals[rule]
+        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "—"
+        w.writerow([rule, total, f"{total/num_rounds:.2f}", pct])
+    w.writerow([])
+    w.writerow(["Grand total", grand_total, f"{grand_total/num_rounds:.2f} sips/round"])
+
+    return Response(
+        buf.getvalue().encode("utf-8"),
+        status=200,
+        mimetype="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="drinks_summary.csv"'},
+    )
 
 
 @app.route("/state")
 def state():
     room_code = request.args.get("room_code", "")
+    client_id = request.args.get("client_id", "")
     session   = game_sessions.get(room_code)
-    return jsonify(_serialize_state(session))
+    return jsonify(_serialize_state(session, client_id))
 
 
 # ---------------------------------------------------------------------------

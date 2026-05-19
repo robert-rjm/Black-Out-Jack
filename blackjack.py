@@ -324,6 +324,10 @@ class NPC_Player(Player):
             # raw is the fallback ("s" or "h") — don't split
             return raw if raw in valid_actions else "s"
 
+        # Drinking mode: always double on hard 9, 10, or 11 (stronger push than basic strategy)
+        if drinking_mode and not is_soft and score in (9, 10, 11) and "d" in valid_actions:
+            return "d"
+
         # --- Hard / soft table ---
         table = _BS_SOFT if is_soft else _BS_HARD
         ideal = table.get((score, d_val), "s")

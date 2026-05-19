@@ -411,6 +411,76 @@
     border-radius: var(--radius); padding: 10px 16px;
   }
   #header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
+
+  /* ---- ROLE / IDENTITY ---- */
+  .btn.voted {
+    background: rgba(79,142,247,.22);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  #player-vote-display {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(79,142,247,.1);
+    border: 1px solid rgba(79,142,247,.25);
+    font-size: 13px;
+    color: var(--accent);
+    display: none;
+  }
+  #dig-play-role-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    min-height: 18px;
+  }
+  /* ---- REGISTRATION OVERLAY ---- */
+  #register-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.85);
+    z-index: 500;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #register-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 24px 20px;
+    width: 100%; max-width: 380px;
+    border: 1px solid var(--border);
+  }
+  #register-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+  #register-card p  { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  #register-seats   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  /* ---- KICK OVERLAY ---- */
+  #kick-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.75);
+    z-index: 500;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  #kick-card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%; max-width: 360px;
+    border: 1px solid var(--border);
+    max-height: 70vh; overflow-y: auto;
+  }
+  #kick-card h3  { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+  #kick-list     { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+  .kick-row      { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .kick-row:last-child { border-bottom: none; }
+  .kick-name     { font-size: 14px; font-weight: 600; }
+  .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
+  .kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: rgba(224,92,92,.15); color: var(--red); border-color: rgba(224,92,92,.3); }
 </style>
 </head>
 <body>
@@ -520,7 +590,10 @@
       <div id="header-sub">Setting up...</div>
       <div id="header-room"></div>
     </div>
-    <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:12px" onclick="openKickModal()" title="Manage players">👥</button>
+      <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
+    </div>
   </header>
 
   <div id="main-content">
@@ -610,6 +683,9 @@
           <button class="btn wide" onclick="sendCmd('fouraces firstdeal')">4 ACES (DEAL)</button>
           <button class="btn wide" onclick="sendCmd('fouraces endround')">4 ACES (END)</button>
         </div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="exportDrinkCSV()">📊 Export Drinks CSV</button>
+        </div>
       </div>
     </div><!-- end #ref-panel -->
 
@@ -632,6 +708,7 @@
 
       <!-- PLAY pane — per-player actions -->
       <div id="pane-dig-play" class="pane">
+        <div id="dig-play-role-hint"></div>
         <div class="label">Player</div>
         <div id="dig-play-players" class="btn-row"></div>
         <div class="label">Hand</div>
@@ -648,6 +725,7 @@
         <div id="dig-insurance-row" class="btn-row" style="display:none">
           <button class="btn yellow wide" onclick="sendDigitalPlay('insurance')">INSURANCE (dealer shows Ace)</button>
         </div>
+        <div id="player-vote-display"></div>
       </div>
 
       <!-- ROUND pane — shown automatically when round ends -->
@@ -658,6 +736,9 @@
         <div class="btn-row">
           <button class="btn wide" id="btn-peek" onclick="sendCmd('peek')" style="display:none">🃏 Next card?</button>
           <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn wide" onclick="exportDrinkCSV()">📊 Export Drinks CSV</button>
         </div>
         <div id="peeked-card-wrap" style="display:none;margin-top:8px">
           <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
@@ -685,6 +766,26 @@
   </div>
 </div>
 
+<!-- ===== REGISTRATION OVERLAY ===== -->
+<div id="register-overlay">
+  <div id="register-card">
+    <h3>Join the game</h3>
+    <p>Claim your seat to play, or watch as spectator.</p>
+    <div id="register-seats"></div>
+    <button class="btn wide" style="color:var(--muted)" onclick="doSpectate()">👁 Watch as spectator</button>
+    <div id="register-error" style="display:none;color:var(--red);font-size:12px;margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- ===== KICK OVERLAY ===== -->
+<div id="kick-overlay">
+  <div id="kick-card">
+    <h3>Players in session</h3>
+    <div id="kick-list"></div>
+    <button class="btn wide" onclick="closeKickModal()">Close</button>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // STATE
@@ -697,6 +798,16 @@ let currentTurn = null;       // player name whose turn it is (digital only)
 let roomCode   = "";          // active room code (e.g. "Jack-21")
 let pollTimer  = null;        // setInterval handle for auto-refresh
 let npcPlayers = new Set();   // names of NPC/bot players this session
+
+// Client identity
+let clientId         = "";    // UUID — persisted in localStorage
+let myRole           = null;  // "admin" | "player" | "spectator" | "kicked" | null
+let myName           = null;  // registered player name or null
+let isMyDealerClient = false; // true when this client can execute game commands
+
+// Shared log sync — tracks which server-side log entries have been displayed
+let logCount   = 0;
+let logVersion = -1;   // -1 so the first state response always triggers a sync
 
 // ============================================================
 // LOBBY
@@ -733,7 +844,7 @@ async function joinRoom() {
   const raw   = (input.value || "").trim();
   if (!raw) { showLobbyMsg("Enter a room code first."); return; }
 
-  const res  = await fetch("/join_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: raw }) });
+  const res  = await fetch("/join_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: raw, client_id: clientId }) });
   const data = await res.json();
   if (!data.ok) { showLobbyMsg(data.error || "Room not found."); return; }
 
@@ -745,6 +856,9 @@ async function joinRoom() {
     players  = data.players || [];
     numHands = data.num_hands || 2;
     gameMode = data.mode || "referee";
+    myRole           = data.my_role   || null;
+    myName           = data.my_name   || null;
+    isMyDealerClient = data.is_dealer_client || false;
     updateHeader(data);
     buildGameUI();
     applyState(data);
@@ -778,7 +892,8 @@ function startPolling() {
   pollTimer = setInterval(async () => {
     if (!roomCode) return;
     try {
-      const res  = await fetch("/state?room_code=" + encodeURIComponent(roomCode));
+      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}`;
+      const res  = await fetch(url);
       const data = await res.json();
       if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
     } catch (_) {}
@@ -795,7 +910,8 @@ function startWaiting() {
   pollTimer = setInterval(async () => {
     if (!roomCode) return;
     try {
-      const res  = await fetch("/state?room_code=" + encodeURIComponent(roomCode));
+      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}`;
+      const res  = await fetch(url);
       const data = await res.json();
       if (data.ok && data.players && data.players.length > 0) {
         stopPolling();
@@ -942,7 +1058,7 @@ async function startGame() {
   const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {
@@ -955,16 +1071,19 @@ async function startGame() {
 
   if (!data.ok) { alert(data.output || "Setup failed."); return; }
 
-  players  = data.players;
-  numHands = nh;
-  gameMode = data.mode || "referee";
+  players          = data.players;
+  numHands         = nh;
+  gameMode         = data.mode || "referee";
+  myRole           = data.my_role          || "admin";
+  myName           = data.my_name          || null;
+  isMyDealerClient = data.is_dealer_client !== false;  // admin always starts as dealer
 
   updateHeader(data);
   buildGameUI();
-  appendLog(data.output, true);
-  applyState(data);
+  applyState(data);   // syncLogFromState inside here handles the setup output
 
   if (gameMode === "digital") {
+    // Local hint for the host only — not stored on server
     appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
   }
 
@@ -1071,6 +1190,12 @@ const PLAYER_CONTAINER = {
 };
 
 function setPlayerSel(pane, name) {
+  // During digital play, silently ignore taps on the wrong player — the
+  // turn-gate CSS (pointer-events:none) covers most cases but touch events
+  // can slip through on some mobile browsers, so enforce it in JS too.
+  if (pane === "digital" && lastState && lastState.phase === "playing" && lastState.current_turn) {
+    if (name.toLowerCase() !== lastState.current_turn.toLowerCase()) return;
+  }
   sel[pane].player = name;
   document.querySelectorAll(`#${PLAYER_CONTAINER[pane]} .btn`).forEach(b => {
     b.classList.toggle("sel", b.textContent === name);
@@ -1182,10 +1307,34 @@ function sendAction(action) {
 }
 
 function sendDigitalPlay(action) {
+  // Non-dealer player: pre-select their intended action instead of executing
+  if (!isMyDealerClient && myRole === "player" && myName) {
+    const hand = sel.digital.hand || "hand1";
+    sendPreselect(action, hand);
+    return;
+  }
+  // Spectators: do nothing
+  if (!isMyDealerClient) return;
+
   const player = sel.digital.player;
   const hand   = sel.digital.hand;
   if (!player) { appendLog("  Select a player first.\n"); return; }
+  // Belt-and-suspenders: reject if somehow a different player slipped through
+  if (lastState && lastState.phase === "playing" && lastState.current_turn &&
+      player.toLowerCase() !== lastState.current_turn.toLowerCase()) return;
   sendCmd(`${action} ${player} ${hand}`);
+}
+
+async function sendPreselect(action, hand) {
+  try {
+    const res  = await fetch("/preselect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, hand, action }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
 }
 
 // ============================================================
@@ -1195,13 +1344,35 @@ async function sendCmd(cmd) {
   const res  = await fetch("/command", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cmd, room_code: roomCode }),
+    body: JSON.stringify({ cmd, room_code: roomCode, client_id: clientId }),
   });
   const data = await res.json();
-  if (data.output) appendLog(data.output);
+  // Log and peeked card are handled inside applyState so all players
+  // see them via polling — no direct appendLog/showPeekedCard here.
   if (data.dealer || data.players) updateHeader(data);
-  if (data.peeked_card) showPeekedCard(data.peeked_card);
   applyState(data);
+}
+
+// ============================================================
+// SHARED LOG SYNC
+// ============================================================
+function syncLogFromState(state) {
+  if (state.log_version === undefined) return;
+  const ver     = state.log_version || 0;
+  const entries = state.log_entries  || [];
+
+  // Version bump = new game or new round — clear the local log
+  if (ver !== logVersion) {
+    logVersion = ver;
+    logCount   = 0;
+    document.getElementById("log").innerHTML = "";
+  }
+
+  // Append only the entries we haven't seen yet
+  for (let i = logCount; i < entries.length; i++) {
+    appendLog(entries[i]);
+  }
+  logCount = entries.length;
 }
 
 // ============================================================
@@ -1212,19 +1383,64 @@ const SUIT_RED    = { hearts: true, diamonds: true };
 
 function applyState(state) {
   if (!state || !state.ok) return;
+
+  // Handle kicked status first
+  if (state.my_role === "kicked") {
+    stopPolling();
+    alert("You have been removed from this session.");
+    resetToSetup();
+    return;
+  }
+
+  // Update client identity from server
+  if (state.my_role !== undefined) {
+    myRole           = state.my_role;
+    myName           = state.my_name   || null;
+    isMyDealerClient = state.is_dealer_client || false;
+  }
+
   lastState   = state;
   currentTurn = state.current_turn || null;
+  syncLogFromState(state);   // shared log — all players see same entries
   renderDealer(state);    // right-col top — always visible
   renderPlayers(state);   // left-col
   syncAllHandButtons();
   applyTurnGate(state);
+
+  // Admin kick button
+  const adminBtn = document.getElementById("btn-admin-players");
+  if (adminBtn) adminBtn.style.display = (myRole === "admin") ? "" : "none";
+
+  // Registration overlay — show when not yet registered
+  updateRegisterOverlay(state);
+
   if (gameMode === "digital") {
     autoSwitchDigTab(state);
     updateInsuranceVisibility(state);
     updateHandLocks(state);
+    updateActionButtons(state);  // disable SPLIT/DOUBLE when not valid
     updateRoundPane(state);
     updateBestPlay(state);
+    updateRoleUI(state);         // role hint + vote display
   }
+}
+
+// Disable SPLIT when the active hand can't be split (limit reached or cards don't match).
+// Disable DOUBLE when the hand already has more than 2 cards or is already doubled.
+function updateActionButtons(state) {
+  if (!state || state.phase !== "playing" || !state.current_turn) return;
+  const seat = (state.table || []).find(s => s.name === state.current_turn);
+  if (!seat) return;
+  const activeHand = (seat.hands || []).find(h => !h.done);
+  if (!activeHand) return;
+
+  const canDouble = (activeHand.cards || []).length === 2 && !activeHand.doubled;
+
+  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+    const lbl = b.textContent.trim();
+    if (lbl === "SPLIT")  b.classList.toggle("disabled", !activeHand.can_split);
+    if (lbl === "DOUBLE") b.classList.toggle("disabled", !canDouble);
+  });
 }
 
 function updateHandLocks(state) {
@@ -1277,9 +1493,11 @@ function updateRoundPane(state) {
       msg.style.display = "none";
     }
   }
-  if (!isOver) {
-    const wrap = document.getElementById("peeked-card-wrap");
-    if (wrap) wrap.style.display = "none";
+  // Show peeked card to ALL players (state persists until newround/deal clears it)
+  if (isOver && state.peeked_card) {
+    showPeekedCard(state.peeked_card);
+  } else {
+    clearPeekedCard();
   }
 }
 
@@ -1343,7 +1561,8 @@ function handBlock(handState, label) {
   const meta = document.createElement("div");
   meta.className = "hand-meta";
   let tags = [];
-  if (handState.cards && handState.cards.length > 0) {
+  // score is null when the doubled card is still face-down — don't show it
+  if (handState.cards && handState.cards.length > 0 && handState.score !== null && handState.score !== undefined) {
     tags.push(`<span class="score">${handState.score}</span>`);
   }
   if (handState.blackjack)           tags.push(`<span class="bj">BJ</span>`);
@@ -1633,12 +1852,216 @@ async function doNewRoundAndDeal() {
 }
 
 // ============================================================
+// ROLE-BASED UI
+// ============================================================
+const VOTE_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
+
+function updateRoleUI(state) {
+  const hint      = document.getElementById("dig-play-role-hint");
+  const voteDisp  = document.getElementById("player-vote-display");
+  const phase     = state.phase;
+  const turn      = state.current_turn;
+  const presel    = state.preselections || {};
+
+  // Role hint text
+  if (hint) {
+    if (isMyDealerClient) {
+      hint.textContent = phase === "playing" ? "You are the dealer — tap to execute actions." : "";
+    } else if (myRole === "player") {
+      hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
+    } else {
+      hint.textContent = "Spectating — watching only.";
+    }
+  }
+
+  // Spectators: disable all action buttons
+  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+    if (myRole === "spectator" || !myRole) b.classList.add("disabled");
+  });
+
+  // Clear previous voted highlight
+  document.querySelectorAll("#pane-dig-play .btn.voted").forEach(b => b.classList.remove("voted"));
+
+  if (!voteDisp) return;
+
+  if (phase !== "playing" || !turn) {
+    voteDisp.style.display = "none";
+    return;
+  }
+
+  if (isMyDealerClient) {
+    // Dealer sees the current player's vote
+    const hand = (sel.digital.hand || "hand1").toLowerCase();
+    const key  = `${turn.toLowerCase()}:${hand}`;
+    const vote = presel[key];
+    voteDisp.textContent  = vote
+      ? `${turn} votes: ${VOTE_LABEL[vote] || vote}`
+      : `${turn} — no vote yet`;
+    voteDisp.style.display = "";
+  } else if (myRole === "player" && myName && turn.toLowerCase() === myName.toLowerCase()) {
+    // Non-dealer player on their own turn — show their vote
+    const hand = (sel.digital.hand || "hand1").toLowerCase();
+    const key  = `${myName.toLowerCase()}:${hand}`;
+    const vote = presel[key];
+    // Highlight the voted action button
+    if (vote) {
+      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+        if (b.textContent.trim() === (VOTE_LABEL[vote] || vote)) b.classList.add("voted");
+      });
+      voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
+    } else {
+      voteDisp.textContent = "Tap to vote your play";
+    }
+    voteDisp.style.display = "";
+  } else {
+    voteDisp.style.display = "none";
+  }
+}
+
+// ============================================================
+// REGISTRATION
+// ============================================================
+function updateRegisterOverlay(state) {
+  const overlay = document.getElementById("register-overlay");
+  if (!overlay) return;
+  // Show only when the server says we're not yet registered
+  if (!state.my_role) {
+    showRegisterOverlay(state);
+  } else {
+    overlay.style.display = "none";
+  }
+}
+
+function showRegisterOverlay(state) {
+  const overlay  = document.getElementById("register-overlay");
+  const seatsEl  = document.getElementById("register-seats");
+  if (!overlay || !seatsEl) return;
+
+  const clients       = state.connected_clients || [];
+  const claimedLower  = new Set(clients.map(c => c.name).filter(Boolean).map(n => n.toLowerCase()));
+  const allSeats      = state.players || [];
+  const available     = allSeats.filter(n => !claimedLower.has(n.toLowerCase()));
+
+  seatsEl.innerHTML = "";
+  if (available.length === 0) {
+    seatsEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:4px 0">All seats are taken — you can watch as spectator.</p>`;
+  } else {
+    available.forEach(name => {
+      const btn   = document.createElement("button");
+      btn.className   = "btn-big accent";
+      btn.style.height = "52px";
+      btn.textContent  = `I am ${name}`;
+      btn.onclick      = () => doRegister(name);
+      seatsEl.appendChild(btn);
+    });
+  }
+  overlay.style.display = "flex";
+}
+
+async function doRegister(name) {
+  const errEl = document.getElementById("register-error");
+  try {
+    const res  = await fetch("/register", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById("register-overlay").style.display = "none";
+      applyState(data);
+    } else {
+      if (errEl) { errEl.textContent = data.error || "Could not claim seat."; errEl.style.display = ""; }
+    }
+  } catch (_) {
+    if (errEl) { errEl.textContent = "Network error."; errEl.style.display = ""; }
+  }
+}
+
+async function doSpectate() {
+  try {
+    const res  = await fetch("/register", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name: "" }),
+    });
+    const data = await res.json();
+    myRole = "spectator";
+    document.getElementById("register-overlay").style.display = "none";
+    if (data.ok) applyState(data);
+  } catch (_) {
+    document.getElementById("register-overlay").style.display = "none";
+  }
+}
+
+// ============================================================
+// KICK
+// ============================================================
+function openKickModal() {
+  const overlay = document.getElementById("kick-overlay");
+  const list    = document.getElementById("kick-list");
+  if (!overlay || !list || !lastState) return;
+
+  const clients = lastState.connected_clients || [];
+  list.innerHTML = "";
+
+  const others = clients.filter(c => c.name && c.name !== myName);
+  if (others.length === 0) {
+    list.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:8px 0">No other players connected yet.</p>`;
+  } else {
+    others.forEach(c => {
+      const row     = document.createElement("div");
+      row.className = "kick-row";
+      const roleTxt = c.role === "spectator" ? " (spectating)" : "";
+      row.innerHTML = `<span><span class="kick-name">${c.name}</span><span class="kick-role">${roleTxt}</span></span>`;
+      const btn     = document.createElement("button");
+      btn.className = "btn kick-btn";
+      btn.textContent = "Kick";
+      btn.onclick   = () => doKick(c.name);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+  }
+  overlay.style.display = "flex";
+}
+
+async function doKick(targetName) {
+  if (!confirm(`Remove ${targetName} from the session?`)) return;
+  try {
+    const res  = await fetch("/kick", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) { closeKickModal(); }
+    else         { alert(data.error || "Could not kick player."); }
+  } catch (_) { alert("Network error."); }
+}
+
+function closeKickModal() {
+  const overlay = document.getElementById("kick-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+// ============================================================
+// CSV EXPORT
+// ============================================================
+function exportDrinkCSV() {
+  if (!roomCode) { alert("No active session."); return; }
+  window.location.href = "/export_csv?room_code=" + encodeURIComponent(roomCode);
+}
+
+// ============================================================
 // RESET
 // ============================================================
 function resetToSetup() {
   if (!confirm("End current session and return to lobby?")) return;
   stopPolling();
-  roomCode = "";
+  roomCode         = "";
+  myRole           = null;
+  myName           = null;
+  isMyDealerClient = false;
   localStorage.removeItem("bjRoomCode");
   document.getElementById("app").style.display    = "none";
   document.getElementById("setup").style.display  = "none";
@@ -1652,20 +2075,34 @@ function resetToSetup() {
 }
 
 // ============================================================
-// INIT — reconnect to existing server session on page reload
+// INIT — generate clientId, then reconnect to existing server session on page reload
 // ============================================================
 (async () => {
+  // Generate or load persistent client UUID
+  let savedId = localStorage.getItem("bjClientId");
+  if (!savedId) {
+    savedId = (typeof crypto !== "undefined" && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem("bjClientId", savedId);
+  }
+  clientId = savedId;
+
   const saved = localStorage.getItem("bjRoomCode");
   if (!saved) return;   // no saved room — stay on lobby
 
   try {
-    const res  = await fetch("/state?room_code=" + encodeURIComponent(saved));
+    const url  = `/state?room_code=${encodeURIComponent(saved)}&client_id=${encodeURIComponent(clientId)}`;
+    const res  = await fetch(url);
     const data = await res.json();
     if (data.ok && data.players && data.players.length > 0) {
-      roomCode = saved;
-      players  = data.players;
-      numHands = 2;
-      gameMode = data.mode || "referee";
+      roomCode         = saved;
+      players          = data.players;
+      numHands         = data.num_hands || 2;
+      gameMode         = data.mode || "referee";
+      myRole           = data.my_role          || null;
+      myName           = data.my_name          || null;
+      isMyDealerClient = data.is_dealer_client || false;
       updateHeader(data);
       buildGameUI();
       appendLog("  (Reconnected to room " + roomCode + ")\n");
