@@ -419,7 +419,7 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "log_entries":        getattr(session, "_log_entries", []),
         "log_count":          len(getattr(session, "_log_entries", [])),
         "log_version":        getattr(session, "_log_version", 0),
-        # Peeked card — persists in state so all pollers can see it
+        # Peeked card — visible to all players in the session
         "peeked_card":        getattr(session, "_last_peeked", None),
         # Pre-selected player actions
         "preselections":     getattr(session, "_preselections", {}),
@@ -993,7 +993,13 @@ def command():
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = _digital_get_player_hand(player, hand_label)
                         if not hand.can_split():
-                            print("  Cannot split this hand.")
+                            # Give a specific message when the split limit is the reason
+                            if (len(hand.cards) == 2
+                                    and hand.cards[0].rank.blackjack_value == hand.cards[1].rank.blackjack_value
+                                    and hand.split_count >= Hand.MAX_SPLITS):
+                                print(f"  Max splits reached ({Hand.MAX_SPLITS} splits per hand).")
+                            else:
+                                print("  Cannot split this hand.")
                         else:
                             # Move second card to new hand (no second cards dealt yet)
                             new_hand = Hand(from_split=True)
@@ -1004,11 +1010,23 @@ def command():
                             idx       = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
                             new_label = f"hand{idx + 2}"
                             player.hands.insert(idx + 1, new_hand)
-                            # Deal second card to H1 only; H2 waits until H1 is done
+                            # Deal second card to H1; check for instant 21/bust
                             _digital_deal_card(game_session, hand, player.name)
-                            print(f"  {player.name} splits:")
-                            print(f"    {hand_label}: {hand}  ← play this hand first")
-                            print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+                            if hand.score() == 21:
+                                hand.stood = True
+                                print(f"  {player.name} splits:")
+                                print(f"    {hand_label}: {hand}  (21 — auto-stands)")
+                                print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+                            elif hand.is_bust():
+                                hand.bust = hand.stood = True
+                                hand.result = "loss"
+                                print(f"  {player.name} splits:")
+                                print(f"    {hand_label}: {hand}  BUST!")
+                                print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+                            else:
+                                print(f"  {player.name} splits:")
+                                print(f"    {hand_label}: {hand}  ← play this hand first")
+                                print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
 
             elif cmd == "insurance":
                 # insurance <player> [hand<n>]
@@ -1337,7 +1355,7 @@ def export_csv():
     w.writerow(["Rule", "Total sips", "Sips/round", "% of total"])
     for rule in sorted(rule_totals, key=lambda r: -rule_totals[r]):
         total = rule_totals[rule]
-        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "—"
+        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "\u2014"
         w.writerow([rule, total, f"{total/num_rounds:.2f}", pct])
     w.writerow([])
     w.writerow(["Grand total", grand_total, f"{grand_total/num_rounds:.2f} sips/round"])
@@ -1356,8 +1374,6 @@ def state():
     client_id = request.args.get("client_id", "")
     session   = game_sessions.get(room_code)
     return jsonify(_serialize_state(session, client_id))
-
-
 # ---------------------------------------------------------------------------
 # Digital help
 # ---------------------------------------------------------------------------
