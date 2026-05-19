@@ -117,6 +117,25 @@ def _harvest_drink_log(session: RefereeSession):
     session._drink_csv_rows = rows
 
 
+def _get_client_info(session, client_id: str) -> dict:
+    """Return role/name/is_dealer info for a client_id. Safe if _room_clients missing."""
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if info.get("kicked"):
+        return {"role": "kicked", "name": None, "is_dealer": False}
+    role = info.get("role") or "spectator"
+    name = info.get("name")
+    is_dealer = (role == "admin") or bool(
+        role == "player" and name and name.lower() == session.dealer_name.lower()
+    )
+    return {"role": role, "name": name, "is_dealer": is_dealer}
+
+
+def _is_dealer_client(session, client_id: str) -> bool:
+    """True if this client is the admin or is registered as the current dealer."""
+    return _get_client_info(session, client_id)["is_dealer"]
+
+
 def _newround_rotate(session: RefereeSession):
     """Rotate the dealer role one seat clockwise."""
     all_names  = [p.name for p in session.all_players]
@@ -267,10 +286,12 @@ def _compute_best_play(session: "RefereeSession", turn: str | None, phase: str) 
     return NPC_Player.best_play(hand, dealer_up, valid, drinking_mode=True)
 
 
-def _serialize_state(session: RefereeSession | None) -> dict:
+def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dict:
     """Full snapshot for the UI."""
     if not session:
         return {"ok": False}
+
+    _ci = _get_client_info(session, client_id) if client_id else {}
 
     dealer = session._get_dealer()
     phase  = _round_phase(session)
@@ -358,6 +379,18 @@ def _serialize_state(session: RefereeSession | None) -> dict:
         "log_version":        getattr(session, "_log_version", 0),
         # Peeked card — persists in state so all pollers can see it
         "peeked_card":        getattr(session, "_last_peeked", None),
+        # Pre-selected player actions
+        "preselections":     getattr(session, "_preselections", {}),
+        # All connected clients (for registration overlay)
+        "connected_clients": [
+            {"name": info.get("name"), "role": info.get("role")}
+            for info in getattr(session, "_room_clients", {}).values()
+            if not info.get("kicked")
+        ],
+        # Per-client fields (populated only when client_id is provided)
+        "my_role":           _ci.get("role"),
+        "my_name":           _ci.get("name"),
+        "is_dealer_client":  _ci.get("is_dealer", False),
     }
 
 
@@ -688,13 +721,14 @@ def create_room():
 def join_room():
     data     = request.json or {}
     raw      = (data.get("code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
     # Case-insensitive lookup (codes are stored as "Jack-21" etc.)
     code     = next((k for k in game_sessions if k.lower() == raw.lower()), None)
     if code is None:
         return jsonify({"ok": False, "error": "Room not found. Check the code and try again."})
     session  = game_sessions[code]
     has_game = session is not None
-    state    = _serialize_state(session)
+    state    = _serialize_state(session, client_id)
     state["ok"]        = True
     state["has_game"]  = has_game
     state["room_code"] = code   # return canonical casing
@@ -705,6 +739,7 @@ def join_room():
 def setup():
     data      = request.json
     room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
     if room_code not in game_sessions:
         return jsonify({"ok": False, "output": "Room not found."})
 
@@ -742,6 +777,13 @@ def setup():
     game_session._deferred_hole_card_msgs = []
     # CSV accumulator — survives across rounds; never reset between newrounds
     game_session._drink_csv_rows         = []
+    # Identity — session creator is admin, auto-registered with the dealer's name
+    game_session._room_clients  = {}
+    game_session._preselections = {}
+    if client_id:
+        game_session._room_clients[client_id] = {
+            "name": dealer_name, "role": "admin", "kicked": False,
+        }
 
     if mode == "digital":
         num_decks         = int(data.get("num_decks", 1))
@@ -756,7 +798,7 @@ def setup():
     output = _capture(game_session.start_round)
     if output.strip():
         game_session._log_entries.append(output)
-    state  = _serialize_state(game_session)
+    state  = _serialize_state(game_session, client_id)
     state["output"] = output   # kept for host's immediate display
     return jsonify(state)
 
@@ -770,6 +812,7 @@ def command():
         return jsonify({"ok": False, "output": "No active session — set up a game first."})
 
     cmd_str = _req.get("cmd", "").strip()
+    client_id = _req.get("client_id", "")
     if not cmd_str:
         return jsonify({"ok": False, "output": "Empty command."})
 
@@ -810,6 +853,18 @@ def command():
                 "output": f"  Cannot reveal dealer — {current} still has hands to play.\n",
             })
 
+    # Dealer-gate: only dealer or admin may execute game-changing commands
+    DEALER_GATED_CMDS = {
+        "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
+        "dealer", "endround", "newround", "peek", "action", "result", "fouraces",
+    }
+    if (cmd in DEALER_GATED_CMDS
+            and getattr(game_session, "_room_clients", None)
+            and not _is_dealer_client(game_session, client_id)):
+        state = _serialize_state(game_session, client_id)
+        state["output"] = "  Not authorised — only the dealer can do that.\n"
+        return jsonify(state)
+
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
 
@@ -819,6 +874,7 @@ def command():
             if cmd == "deal":
                 # Initial deal — no card args; shoe deals automatically
                 game_session._last_peeked = None   # peeked card is now stale
+                game_session._preselections = {}
                 _digital_initial_deal(game_session)
                 _auto_play_npc_turns(game_session)
 
@@ -978,6 +1034,7 @@ def command():
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1
                 game_session._deferred_hole_card_msgs = []
                 game_session._last_peeked = None
+                game_session._preselections = {}
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -992,6 +1049,13 @@ def command():
 
             else:
                 print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
+
+            # Clear the pre-selection for the player whose action just executed
+            if cmd in {"hit", "stand", "double", "split"} and len(parts) >= 2:
+                _p  = parts[1].strip().capitalize()
+                _h  = (parts[2] if len(parts) > 2 else "hand1").strip().lower()
+                if hasattr(game_session, "_preselections"):
+                    game_session._preselections.pop(f"{_p.lower()}:{_h}", None)
 
             # After any player action: deal pending second cards to split hands
             # whose predecessor just finished, then check if dealer should auto-play
@@ -1034,6 +1098,7 @@ def command():
                 game_session._log_entries = []
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1
                 game_session._last_peeked = None
+                game_session._preselections = {}
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -1052,11 +1117,109 @@ def command():
     # new-round start text to the fresh log.
     if output.strip():
         game_session._log_entries.append(output)
-    state = _serialize_state(game_session)
+    state = _serialize_state(game_session, client_id)
     state["output"] = output   # kept for immediate display on the sender's side
     # peeked_card is included in _serialize_state and persists until cleared
     # by newround/deal so all polling clients can see it.
     return jsonify(state)
+
+
+@app.route("/register", methods=["POST"])
+def register():
+    """A joining client claims a seat or becomes spectator.
+    Body: { room_code, client_id, name }  — name="" means spectator."""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    name      = (data.get("name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    if not hasattr(session, "_room_clients"):
+        session._room_clients = {}
+
+    existing = session._room_clients.get(client_id, {})
+    if existing.get("kicked"):
+        return jsonify({"ok": False, "error": "You have been removed from this session."})
+
+    if not name:
+        session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
+        return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+    valid_names = [p.name for p in session.all_players]
+    if name not in valid_names:
+        return jsonify({"ok": False,
+                        "error": f"'{name}' is not a seat. Available: {', '.join(valid_names)}"})
+
+    for cid, info in session._room_clients.items():
+        if (cid != client_id and not info.get("kicked")
+                and (info.get("name") or "").lower() == name.lower()):
+            return jsonify({"ok": False, "error": f"'{name}' is already taken."})
+
+    role = "admin" if existing.get("role") == "admin" else "player"
+    session._room_clients[client_id] = {"name": name, "role": role, "kicked": False}
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/kick", methods=["POST"])
+def kick():
+    """Admin removes a client. Body: { room_code, client_id, target_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("target_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    for cid, info in clients.items():
+        if (cid != client_id and not info.get("kicked")
+                and (info.get("name") or "").lower() == target_name.lower()):
+            info["kicked"] = True
+            return jsonify({"ok": True})
+
+    return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+
+
+@app.route("/preselect", methods=["POST"])
+def preselect():
+    """Player pre-votes their intended action. Dealer sees this in the UI.
+    Body: { room_code, client_id, hand, action }  action: h|s|d|sp"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    hand      = (data.get("hand") or "hand1").strip().lower()
+    action    = (data.get("action") or "").strip().lower()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered in this session."})
+
+    name = info.get("name")
+    if not name:
+        return jsonify({"ok": False, "error": "Spectators cannot pre-select actions."})
+
+    if action not in ("h", "s", "d", "sp"):
+        return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
+
+    if not hasattr(session, "_preselections"):
+        session._preselections = {}
+
+    session._preselections[f"{name.lower()}:{hand}"] = action
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/export_csv")
@@ -1089,8 +1252,9 @@ def export_csv():
 @app.route("/state")
 def state():
     room_code = request.args.get("room_code", "")
+    client_id = request.args.get("client_id", "")
     session   = game_sessions.get(room_code)
-    return jsonify(_serialize_state(session))
+    return jsonify(_serialize_state(session, client_id))
 
 
 # ---------------------------------------------------------------------------
