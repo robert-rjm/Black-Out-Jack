@@ -332,6 +332,29 @@
   .btn-big.green  { background: var(--green);  color: #000; }
   .btn-big.accent { background: var(--accent); color: #fff; }
 
+  /* ---- DEAL ANIMATION ---- */
+  @keyframes cardDeal {
+    from { opacity: 0; transform: translateY(-14px) scale(.88); }
+    to   { opacity: 1; transform: translateY(0)     scale(1);   }
+  }
+  .card-deal-anim { animation: cardDeal .28s ease-out both; }
+
+  /* ---- LAST ROUND DRINK SUMMARY ---- */
+  #last-round-panel {
+    display: none;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,.06);
+    font-size: 13px;
+  }
+  #last-round-panel .lrp-row {
+    display: flex; justify-content: space-between;
+    padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+  #last-round-panel .lrp-row:last-child { border-bottom: none; }
+  #last-round-panel .lrp-sips { font-weight: 700; color: var(--yellow); }
+
   /* ---- CARD PICKER ---- */
   .card-grid { display: grid; gap: 7px; margin-bottom: 10px; }
   #rank-grid { grid-template-columns: repeat(7, 1fr); }
@@ -625,6 +648,11 @@
       <label>Decks in shoe</label>
       <input type="number" id="num-decks" value="1" min="1" max="8">
     </div>
+    <div class="field" style="max-width:none;display:flex;align-items:center;gap:8px;padding-top:4px">
+      <label style="margin:0;cursor:pointer" for="anim-toggle">Deal animation</label>
+      <input type="checkbox" id="anim-toggle" checked style="width:18px;height:18px;cursor:pointer"
+             onchange="lsSet('bjDealAnim', this.checked ? '1' : '0')">
+    </div>
   </div>
 
   <button id="start-btn" onclick="startGame()">Start Game</button>
@@ -752,8 +780,9 @@
         <p class="hint">Tap to deal the opening cards to all players from the shoe.</p>
         <button class="btn-big accent" onclick="sendCmd('deal')">DEAL CARDS</button>
         <div class="btn-row">
-          <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
+          <button class="btn wide" id="btn-last-round" onclick="toggleLastRoundPanel()">🍺 Last Round</button>
         </div>
+        <div id="last-round-panel"></div>
       </div>
 
       <!-- PLAY pane — per-player actions -->
@@ -973,6 +1002,147 @@ document.addEventListener("visibilitychange", () => {
       .catch(() => {});
   }
 });
+
+// ============================================================
+// DEAL ANIMATION
+// ============================================================
+// Tracks how many cards each player/dealer had before the last deal
+// so we know which ones are newly added.
+let _prevCardCounts = {};   // { playerName: [n_hand1, n_hand2], "dealer": n }
+
+function _animToggleOn() {
+  const cb = document.getElementById("anim-toggle");
+  if (cb) return cb.checked;
+  return lsGet("bjDealAnim") !== "0";
+}
+
+// Called by applyState when we get back a fresh state after DEAL.
+// Animates only the newly added cards, in real deal order.
+async function animateDeal(newState) {
+  if (!_animToggleOn()) return;
+
+  const order   = newState.play_order || (newState.table || []).map(s => s.name);
+  const delay   = ms => new Promise(r => setTimeout(r, ms));
+  const CARD_MS = 320;
+
+  // Build the sequence: 2 rounds × (each player in order + dealer)
+  // We reveal cards by temporarily hiding them, then adding them one by one.
+  // Strategy: render the full state first (so DOM exists), then
+  // hide newly-arrived cards and fade them in one at a time.
+
+  // 1. Render everything immediately so the DOM is populated.
+  _renderStateSilent(newState);
+
+  // 2. Figure out which card elements are "new" by comparing counts.
+  //    We tag them hidden right after render, before the user sees them.
+  const newCardEls = _collectNewCardEls(newState);
+
+  // Hide them all instantly.
+  newCardEls.forEach(el => { el.style.opacity = "0"; el.classList.remove("card-deal-anim"); });
+
+  // 3. Reveal one by one in deal order.
+  for (const el of newCardEls) {
+    await delay(CARD_MS);
+    el.classList.add("card-deal-anim");
+    el.style.opacity = "";
+  }
+}
+
+// Renders state into the DOM without triggering any further animation.
+function _renderStateSilent(state) {
+  renderDealer(state);
+  renderPlayers(state);
+  syncAllHandButtons();
+  applyTurnGate(state);
+  if (gameMode === "digital") {
+    autoSwitchDigTab(state);
+    updateInsuranceVisibility(state);
+    updateHandLocks(state);
+    updateActionButtons(state);
+    updateRoundPane(state);
+    updateBestPlay(state);
+    updateRoleUI(state);
+  }
+}
+
+// After rendering, collect card DOM elements in deal order so we can
+// animate them in the right sequence.
+// Deal order: round 1 → each player hand1 card[0], dealer card[0]
+//             round 2 → each player hand1 card[1], dealer card[1]  (hole hidden)
+function _collectNewCardEls(state) {
+  const order = state.play_order || (state.table || []).map(s => s.name);
+  const seq   = [];  // { name, handIdx, cardIdx }
+
+  // Determine number of rounds dealt (usually 2)
+  const maxCards = Math.max(
+    ...((state.table || []).flatMap(s => (s.hands || []).map(h => (h.cards || []).length))),
+    (state.dealer_hand && state.dealer_hand.cards ? state.dealer_hand.cards.length : 0)
+  );
+
+  for (let round = 0; round < maxCards; round++) {
+    for (const name of order) {
+      seq.push({ name, isDealer: false, cardIdx: round });
+    }
+    seq.push({ name: "__dealer__", isDealer: true, cardIdx: round });
+  }
+
+  const els = [];
+  for (const step of seq) {
+    if (step.isDealer) {
+      const panel = document.getElementById("dealer-panel");
+      if (!panel) continue;
+      const cardEls = panel.querySelectorAll(".card-el");
+      if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
+    } else {
+      // Players are rendered as .seat blocks inside #left-col.
+      // Name lives in .seat-name; hands in .hand-block; cards in .card-el.
+      const seats = document.querySelectorAll("#left-col .seat");
+      for (const seat of seats) {
+        const nameEl = seat.querySelector(".seat-name");
+        if (nameEl && nameEl.textContent.trim().toLowerCase().startsWith(step.name.toLowerCase())) {
+          const hb = seat.querySelectorAll(".hand-block")[0];
+          if (!hb) break;
+          const cardEls = hb.querySelectorAll(".card-el");
+          if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
+          break;
+        }
+      }
+    }
+  }
+  return els;
+}
+
+// ============================================================
+// LAST ROUND DRINK SUMMARY
+// ============================================================
+let _lastRoundSips = {};   // populated from state
+
+function toggleLastRoundPanel() {
+  const panel = document.getElementById("last-round-panel");
+  if (!panel) return;
+  const showing = panel.style.display === "block";
+  if (showing) { panel.style.display = "none"; return; }
+  renderLastRoundPanel();
+  panel.style.display = "block";
+}
+
+function renderLastRoundPanel() {
+  const panel = document.getElementById("last-round-panel");
+  if (!panel) return;
+  const sips  = _lastRoundSips;
+  const names = Object.keys(sips);
+  if (!names.length) {
+    panel.innerHTML = `<div style="color:var(--muted);text-align:center">No rounds completed yet.</div>`;
+    return;
+  }
+  const sorted = names.slice().sort((a, b) => sips[b] - sips[a]);
+  panel.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:var(--muted);font-size:11px;letter-spacing:.05em">LAST ROUND</div>`
+    + sorted.map(n => `
+      <div class="lrp-row">
+        <span>${n}</span>
+        <span class="lrp-sips">${sips[n]} sip${sips[n] !== 1 ? "s" : ""}</span>
+      </div>`).join("");
+}
 
 // While waiting for the host to start, poll until the game exists
 function startWaiting() {
@@ -1520,14 +1690,24 @@ function applyState(state) {
     isMyDealerClient = state.is_dealer_client || false;
   }
 
+  // Detect a fresh deal: previous state had no cards, new state has cards.
+  const prevPhase = lastState ? lastState.phase : null;
+  const isDeal = (
+    gameMode === "digital" &&
+    prevPhase === "pre-deal" &&
+    state.phase === "playing" &&
+    _animToggleOn()
+  );
+
+  // Update last-round sips whenever the server provides them.
+  if (state.last_round_sips && Object.keys(state.last_round_sips).length) {
+    _lastRoundSips = state.last_round_sips;
+  }
+
   lastState   = state;
   currentTurn = state.current_turn || null;
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
-  renderDealer(state);    // right-col top — always visible
-  renderPlayers(state);   // left-col
-  syncAllHandButtons();
-  applyTurnGate(state);
 
   // Admin kick button
   const adminBtn = document.getElementById("btn-admin-players");
@@ -1544,6 +1724,16 @@ function applyState(state) {
     updateRoundPane(state);
     updateBestPlay(state);
     updateRoleUI(state);         // role hint + vote display
+  }
+
+  if (isDeal) {
+    // animateDeal renders state itself in sequence — don't render twice
+    animateDeal(state);
+  } else {
+    renderDealer(state);
+    renderPlayers(state);
+    syncAllHandButtons();
+    applyTurnGate(state);
   }
 }
 
@@ -1650,7 +1840,7 @@ function updateInsuranceVisibility(state) {
 
 function cardEl(card) {
   const div = document.createElement("div");
-  div.className = "card-vis";
+  div.className = "card-vis card-el";
   if (!card || card.suit === "hidden" || card.rank === "?") {
     div.classList.add("hidden");
     div.innerHTML = `<div class="top">?</div><div class="mid">★</div><div class="bot">?</div>`;
@@ -2241,6 +2431,10 @@ function resetToSetup() {
 // INIT — generate clientId, then reconnect to existing server session on page reload
 // ============================================================
 (async () => {
+  // Restore deal-animation toggle from localStorage (default: on)
+  const animCb = document.getElementById("anim-toggle");
+  if (animCb) animCb.checked = lsGet("bjDealAnim") !== "0";
+
   // Generate or load persistent client UUID
   let savedId = lsGet("bjClientId");
   if (!savedId) {
