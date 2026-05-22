@@ -1155,6 +1155,10 @@ def command():
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
                 if rotate:
                     _newround_rotate(game_session)
+                    game_session.rounds_this_dealer = 1
+                else:
+                    game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
+                game_session.switch_this_round = None
                 # Clear the shared log and peeked card for the new round
                 game_session._log_entries = []
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1

@@ -1711,10 +1711,11 @@ function appendLog(text, clear = false) {
     const div = document.createElement("div");
     div.className = "chat-msg";
     const l = line.toLowerCase();
-    if (l.includes("drink") || l.includes("sip"))                                div.classList.add("msg-drink");
-    else if (l.includes("blackjack") || l.includes("***"))                       div.classList.add("msg-bj");
-    else if (l.includes("win") || (l.includes("bust") && !l.includes("dealer"))) div.classList.add("msg-ok");
-    else if (l.includes("===") || l.includes("---") || l.includes("round"))      div.classList.add("msg-header");
+    if (l.includes("drink") || l.includes("sip"))                           div.classList.add("msg-drink");
+    else if (l.includes("blackjack") || l.includes("***"))                  div.classList.add("msg-bj");
+    else if (l.includes("win") || l.includes("dealer") && l.includes("bust")) div.classList.add("msg-ok");
+    else if (l.includes("bust"))                                             div.classList.add("msg-drink");
+    else if (l.includes("===") || l.includes("---") || l.includes("round")) div.classList.add("msg-header");
     div.textContent = line.trim();
     log.appendChild(div);
   });
@@ -1835,6 +1836,12 @@ async function doNewRound(rotate) {
   clearPeekedCard();
   await sendCmd(rotate ? "newround rotate" : "newround keep");
   buildGameUI();
+  // Auto-deal when any bot is in the session — skip the manual Deal tap
+  const hasBots = (lastState && lastState.table || []).some(s => s.is_npc);
+  if (gameMode === "digital" && hasBots) {
+    await sendCmd("deal");
+    return;
+  }
   if (gameMode === "digital") {
     activateDigTab("dig-deal");
   } else {
