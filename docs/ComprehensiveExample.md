@@ -10,7 +10,7 @@ different mechanics.
 - **Hands per Player:** 2
 - **Wager:** 1 sip per hand
 
-> Refer to [Rules.md](Rules.md) for the full rule set.
+> Refer to [Rules.md](docs/Rules.md) for the full rule set.
 > Rule section references are included in each step as
 > (→ Rule: _section name_).
 
@@ -663,10 +663,10 @@ stack** with the first-deal rule → no additional sips.
 | Dealer suited hand | — | — | — | — |
 
 > **Note:** Soft Dealer Switch and Dealer suited hand did not occur
-> in these examples. See [Rules.md](Rules.md) for full details on
+> in these examples. See [Rules.md](docs/Rules.md) for full details on
 > these rules.
 
 ---
 
-*For the full rule set, see [Rules.md](Rules.md).*
+*For the full rule set, see [Rules.md](docs/Rules.md).*
 *Happy Gaming! 🎰 May the cards be in your favor!*
