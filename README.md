@@ -51,11 +51,11 @@ python referee.py                # Terminal referee for real-life play
 
 ### **Extensive Drink Rules**
 
-The full drinking ruleset is documented in [Rules.md](Rules.md).
+The full drinking ruleset is documented in [Rules.md](docs/Rules.md).
 
-For a one-page reference during gameplay, see [CheatSheet.md](CheatSheet.md).
+For a one-page reference during gameplay, see [CheatSheet.md](docs/CheatSheet.md).
 
-To see how all these rules play out together in practice, check out [ComprehensiveExample.md](ComprehensiveExample.md).
+To see how all these rules play out together in practice, check out [ComprehensiveExample.md](docs/ComprehensiveExample.md).
 
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
@@ -110,19 +110,21 @@ Computer-controlled seats using standard basic strategy. NPCs:
 ### **Project Structure**
 ```
 Black-Out-Jack/
-├── blackjack.py             # Core game logic + terminal game (START HERE)
-├── Rules.md                 # Drinking Rules
-├── CheatSheet.md            # One-page quick reference for gameplay
-├── drinking_rules.py        # Drinking Rules
-├── referee.py               # Terminal referee for real-life play
-├── app.py                   # Flask web server (Referee & Digital modes)
-├── simulation.py            # Round simulation with stats output
-├── requirements.txt         # Python dependencies for deployment
+├── docs/
+│   ├── Rules.md                 # Drinking Rules
+│   ├── CheatSheet.md            # One-page quick reference for gameplay
+│   └── ComprehensiveExample.md  # Example for Drinking Rules
 ├── static/
 │   └── logo.png             # Home screen icon (iOS & Android)
 ├── templates/
 │   └── index.html           # Web UI served by app.py
-├── ComprehensiveExample.md  # Example for Drinking Rules
+│
+├── app.py                   # Flask web server (Referee & Digital modes)
+├── blackjack.py             # Core game logic + terminal game (START HERE)
+├── drinking_rules.py        # Drinking Rules
+├── referee.py               # Terminal referee for real-life play
+├── simulation.py            # Round simulation with stats output
+├── requirements.txt         # Python dependencies for deployment
 ├── README.md
 └── LICENSE
 ```
