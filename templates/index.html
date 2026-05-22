@@ -184,6 +184,38 @@
   .hand-meta .loss    { color: var(--red);    font-weight: 700; }
   .hand-meta .push    { color: var(--yellow); font-weight: 700; }
 
+  /* ---- SIP TICKER ---- */
+  #sip-ticker {
+    flex-shrink: 0;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #sip-ticker .st-total {
+    font-weight: 800; font-size: 12px;
+    color: var(--yellow); white-space: nowrap; flex-shrink: 0;
+  }
+  #sip-ticker .st-div { width: 1px; height: 13px; background: var(--border); flex-shrink: 0; }
+  #sip-ticker .st-player { display: flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
+  #sip-ticker .st-name  { font-size: 11px; color: var(--muted); }
+  #sip-ticker .st-count { font-size: 11px; font-weight: 700; color: var(--text); }
+  /* per-seat sip badge */
+  .seat-sip-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: rgba(245,200,66,.12);
+    border: 1px solid rgba(245,200,66,.22);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 11px; font-weight: 700; color: var(--yellow);
+    flex-shrink: 0;
+  }
+
   /* disabled (out-of-turn) player buttons */
   .btn.disabled {
     opacity: .35;
@@ -595,6 +627,8 @@
       <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
     </div>
   </header>
+
+  <div id="sip-ticker"></div>
 
   <div id="main-content">
     <div id="left-col"></div>
@@ -1402,6 +1436,7 @@ function applyState(state) {
   lastState   = state;
   currentTurn = state.current_turn || null;
   syncLogFromState(state);   // shared log — all players see same entries
+  updateSipTicker(state);    // header strip
   renderDealer(state);    // right-col top — always visible
   renderPlayers(state);   // left-col
   syncAllHandButtons();
@@ -1640,10 +1675,13 @@ function renderPlayers(state) {
 
     const hdr = document.createElement("div");
     hdr.className = "seat-header";
-    const role   = s.is_dealer ? `<span class="role">also dealer</span>` : "";
-    const botTag = s.is_npc    ? `<span class="role" style="color:var(--accent)">BOT</span>` : "";
-    const tag    = (showTurn && s.is_turn) ? `<div class="turn-tag">${s.is_npc ? "BOT playing…" : "Turn"}</div>` : "";
-    hdr.innerHTML = `<div class="seat-name">${s.name}${role}${botTag}</div>${tag}`;
+    const role     = s.is_dealer ? `<span class="role">also dealer</span>` : "";
+    const botTag   = s.is_npc    ? `<span class="role" style="color:var(--accent)">BOT</span>` : "";
+    const tag      = (showTurn && s.is_turn) ? `<div class="turn-tag">${s.is_npc ? "BOT playing…" : "Turn"}</div>` : "";
+    const sips     = (state.sip_totals || {})[s.name] || 0;
+    const sipBadge = (state.drinking_mode !== false && sips > 0)
+      ? `<span class="seat-sip-badge">🍺 ${sips}</span>` : "";
+    hdr.innerHTML = `<div class="seat-name">${s.name}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
@@ -1720,6 +1758,31 @@ function appendLog(text, clear = false) {
     log.appendChild(div);
   });
   log.scrollTop = log.scrollHeight;
+}
+
+function updateSipTicker(state) {
+  const el = document.getElementById("sip-ticker");
+  if (!el) return;
+  const drinking = state.drinking_mode !== false;
+  const grand    = state.sip_grand_total || 0;
+  const totals   = state.sip_totals || {};
+  if (!drinking || (grand === 0 && Object.keys(totals).length === 0)) {
+    el.style.display = "none";
+    return;
+  }
+  el.style.display = "flex";
+  el.innerHTML = "";
+  const tot = document.createElement("span");
+  tot.className   = "st-total";
+  tot.textContent = `🍺 ${grand} total`;
+  el.appendChild(tot);
+  const order = state.play_order || state.players || [];
+  order.forEach(name => {
+    const div = document.createElement("div"); div.className = "st-div"; el.appendChild(div);
+    const p   = document.createElement("div"); p.className   = "st-player";
+    p.innerHTML = `<span class="st-name">${name}</span><span class="st-count">${totals[name] || 0}</span>`;
+    el.appendChild(p);
+  });
 }
 
 function showPeekedCard(card) {
