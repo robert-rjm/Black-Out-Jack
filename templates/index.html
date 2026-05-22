@@ -1406,12 +1406,15 @@ function sendDigitalPlay(action) {
 }
 
 async function sendPreselect(action, hand) {
+  // Map full words → single-letter codes the server expects
+  const ACTION_CODE = { hit: "h", stand: "s", double: "d", split: "sp" };
+  const code = ACTION_CODE[action] || action;
   const vd = document.getElementById("player-vote-display");
   try {
     const res  = await fetch("/preselect", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_code: roomCode, client_id: clientId, hand, action }),
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, hand, action: code }),
     });
     const data = await res.json();
     if (data.ok) {
