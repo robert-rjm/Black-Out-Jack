@@ -1967,7 +1967,7 @@ function updateRoleUI(state) {
     voteDisp.textContent  = vote
       ? `${turn} votes: ${VOTE_LABEL[vote] || vote}`
       : `${turn} — no vote yet`;
-    voteDisp.style.display = "";
+    voteDisp.style.display = "block";
   } else if (myRole === "player" && myName && turn.toLowerCase() === myName.toLowerCase()) {
     // Non-dealer player on their own turn — show their vote
     const hand = (sel.digital.hand || "hand1").toLowerCase();
@@ -1982,7 +1982,7 @@ function updateRoleUI(state) {
     } else {
       voteDisp.textContent = "Tap to vote your play";
     }
-    voteDisp.style.display = "";
+    voteDisp.style.display = "block";
   } else {
     voteDisp.style.display = "none";
   }
