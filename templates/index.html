@@ -749,6 +749,7 @@
         <div id="dig-play-players" class="btn-row"></div>
         <div class="label">Hand</div>
         <div id="dig-play-hands" class="btn-row"></div>
+        <div id="player-vote-display"></div>
         <div class="label">Action</div>
         <div class="btn-row">
           <button class="btn green wide" onclick="sendDigitalPlay('hit')">HIT</button>
@@ -761,7 +762,6 @@
         <div id="dig-insurance-row" class="btn-row" style="display:none">
           <button class="btn yellow wide" onclick="sendDigitalPlay('insurance')">INSURANCE (dealer shows Ace)</button>
         </div>
-        <div id="player-vote-display"></div>
       </div>
 
       <!-- ROUND pane — shown automatically when round ends -->
@@ -1345,7 +1345,28 @@ function sendAction(action) {
 function sendDigitalPlay(action) {
   // Non-dealer player: pre-select their intended action instead of executing
   if (!isMyDealerClient && myRole === "player" && myName) {
+    // Only allow voting when it is actually the player's own turn
+    if (!lastState || lastState.phase !== "playing" ||
+        !lastState.current_turn ||
+        lastState.current_turn.toLowerCase() !== myName.toLowerCase()) {
+      return;  // not your turn — ignore the tap
+    }
     const hand = sel.digital.hand || "hand1";
+
+    // Immediate optimistic feedback — highlight button + update vote display NOW
+    // (will be confirmed/corrected once the server responds)
+    const ACT_LBL = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
+    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
+    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+      if (b.textContent.trim() === (ACT_LBL[action] || action.toUpperCase()))
+        b.classList.add("voted");
+    });
+    const _vd = document.getElementById("player-vote-display");
+    if (_vd) {
+      _vd.textContent    = `Your vote: ${ACT_LBL[action] || action.toUpperCase()} — sending…`;
+      _vd.style.display  = "block";
+    }
+
     sendPreselect(action, hand);
     return;
   }
@@ -1362,6 +1383,7 @@ function sendDigitalPlay(action) {
 }
 
 async function sendPreselect(action, hand) {
+  const vd = document.getElementById("player-vote-display");
   try {
     const res  = await fetch("/preselect", {
       method: "POST",
@@ -1369,8 +1391,17 @@ async function sendPreselect(action, hand) {
       body: JSON.stringify({ room_code: roomCode, client_id: clientId, hand, action }),
     });
     const data = await res.json();
-    if (data.ok) applyState(data);
-  } catch (_) {}
+    if (data.ok) {
+      applyState(data);
+    } else {
+      // Vote was rejected — clear optimistic highlight and show reason
+      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
+      if (vd) { vd.textContent = `Vote failed: ${data.error || "not registered"}`; vd.style.display = "block"; }
+    }
+  } catch (_) {
+    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
+    if (vd) { vd.textContent = "Vote failed: network error"; vd.style.display = "block"; }
+  }
 }
 
 // ============================================================
@@ -1987,6 +2018,12 @@ function updateRoleUI(state) {
       ? `${turn} votes: ${VOTE_LABEL[vote] || vote}`
       : `${turn} — no vote yet`;
     voteDisp.style.display = "block";
+    // Highlight the voted button so dealer knows exactly what to tap
+    if (vote) {
+      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+        if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+      });
+    }
   } else if (myRole === "player" && myName && turn.toLowerCase() === myName.toLowerCase()) {
     // Non-dealer player on their own turn — show their vote
     const hand = (sel.digital.hand || "hand1").toLowerCase();
