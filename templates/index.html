@@ -951,7 +951,7 @@ function startPolling() {
   pollTimer = setInterval(async () => {
     if (!roomCode) return;
     try {
-      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}`;
+      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
       const res  = await fetch(url);
       const data = await res.json();
       if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
@@ -963,13 +963,24 @@ function stopPolling() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 }
 
+// Safari throttles timers aggressively when the tab is backgrounded or the
+// screen locks. Force an immediate re-poll the moment the user comes back.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && roomCode) {
+    fetch(`/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`)
+      .then(r => r.json())
+      .then(data => { if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); } })
+      .catch(() => {});
+  }
+});
+
 // While waiting for the host to start, poll until the game exists
 function startWaiting() {
   stopPolling();
   pollTimer = setInterval(async () => {
     if (!roomCode) return;
     try {
-      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}`;
+      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
       const res  = await fetch(url);
       const data = await res.json();
       if (data.ok && data.players && data.players.length > 0) {
@@ -2244,7 +2255,7 @@ function resetToSetup() {
   if (!saved) return;   // no saved room — stay on lobby
 
   try {
-    const url  = `/state?room_code=${encodeURIComponent(saved)}&client_id=${encodeURIComponent(clientId)}`;
+    const url  = `/state?room_code=${encodeURIComponent(saved)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
     const res  = await fetch(url);
     const data = await res.json();
     if (data.ok && data.players && data.players.length > 0) {
