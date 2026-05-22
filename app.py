@@ -296,7 +296,7 @@ def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
         "insured":     hand.insured,
         "result":      None if is_hidden_double else hand.result,
         "blackjack":   bool(hand.cards) and hand.is_blackjack(),
-        "done":        False if is_hidden_double else _hand_done(hand),
+        "done":        _hand_done(hand),
         "can_split":   hand.can_split(),
     }
 
@@ -954,8 +954,11 @@ def command():
                     else:
                         hand_label  = parts[2] if len(parts) > 2 else "hand1"
                         hand        = _digital_get_player_hand(player, hand_label)
-                        hand.stood  = True
-                        print(f"  {player.name} {hand_label}: stands at {hand.score()}.")
+                        if hand.stood or hand.bust:
+                            print(f"  {player.name} {hand_label} is already done.")
+                        else:
+                            hand.stood  = True
+                            print(f"  {player.name} {hand_label}: stands at {hand.score()}.")
 
             elif cmd == "double":
                 # double <player> [hand<n>]
