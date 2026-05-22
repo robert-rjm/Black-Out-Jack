@@ -15,12 +15,13 @@ Then open http://<your-PC-IP>:5000 on any phone on the same WiFi.
 import csv
 import io
 import contextlib
+import os
 import random
 import socket
 from collections import defaultdict
 from datetime import datetime
 
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, request, jsonify, render_template, Response, send_from_directory
 
 from referee import RefereeSession
 from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
@@ -154,6 +155,15 @@ def _harvest_drink_log(session: RefereeSession):
                 "sips":   sips,
             })
     session._drink_csv_rows = rows
+    # Update live sip ticker (raw totals, unfiltered)
+    ticker = getattr(session, "_sip_ticker", {})
+    for p in session.all_players:
+        for entry in p.drink_log:
+            sips = entry[0] if entry else 0
+            if sips > 0:
+                ticker[p.name] = ticker.get(p.name, 0) + sips
+    session._sip_ticker          = ticker
+    session._drink_log_harvested = True
 
 
 def _get_client_info(session, client_id: str) -> dict:
@@ -175,7 +185,8 @@ def _get_client_info(session, client_id: str) -> dict:
 
 def _is_dealer_client(session, client_id: str) -> bool:
     """True if this client is the admin or is registered as the current dealer."""
-    return _get_client_info(session, client_id)["is_dealer"]
+    info = _get_client_info(session, client_id)
+    return info["is_dealer"] or info.get("role") == "admin"
 
 
 def _newround_rotate(session: RefereeSession):
@@ -328,6 +339,21 @@ def _compute_best_play(session: "RefereeSession", turn: str | None, phase: str) 
     return NPC_Player.best_play(hand, dealer_up, valid, drinking_mode=True)
 
 
+def _compute_sip_totals(session: RefereeSession) -> dict:
+    """Return cumulative sip counts per player: past rounds + current round."""
+    if not getattr(session, "drinking_mode", True):
+        return {}
+    ticker = dict(getattr(session, "_sip_ticker", {}))
+    # Add current round's sips only if they haven't been harvested yet
+    if not getattr(session, "_drink_log_harvested", False):
+        for p in session.all_players:
+            for entry in p.drink_log:
+                sips = entry[0] if entry else 0
+                if sips > 0:
+                    ticker[p.name] = ticker.get(p.name, 0) + sips
+    return ticker
+
+
 def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dict:
     """Full snapshot for the UI."""
     if not session:
@@ -421,6 +447,9 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "log_version":        getattr(session, "_log_version", 0),
         # Peeked card — visible to all players in the session
         "peeked_card":        getattr(session, "_last_peeked", None),
+        # Live sip ticker (drinking mode only)
+        "sip_totals":        _compute_sip_totals(session),
+        "sip_grand_total":   sum(_compute_sip_totals(session).values()),
         # Pre-selected player actions
         "preselections":     getattr(session, "_preselections", {}),
         # All connected clients (for registration overlay)
@@ -432,7 +461,7 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         # Per-client fields (populated only when client_id is provided)
         "my_role":           _ci.get("role"),
         "my_name":           _ci.get("name"),
-        "is_dealer_client":  _ci.get("is_dealer", False),
+        "is_dealer_client":  _ci.get("is_dealer", False) or _ci.get("role") == "admin",
     }
 
 
@@ -747,6 +776,28 @@ def index():
     return render_template("index.html")
 
 
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+@app.route("/logo.png")
+def serve_logo():
+    return send_from_directory(os.path.join(_ROOT, "static"), "Logo-BlackOutJack.png")
+
+@app.route("/manifest.json")
+def serve_manifest():
+    return jsonify({
+        "name":             "Black-Out Jack",
+        "short_name":       "Black-Out Jack",
+        "start_url":        "/",
+        "display":          "standalone",
+        "background_color": "#0f1117",
+        "theme_color":      "#0f1117",
+        "icons": [
+            {"src": "/logo.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/logo.png", "sizes": "512x512", "type": "image/png"},
+        ],
+    })
+
+
 # ---------------------------------------------------------------------------
 # Lobby routes
 # ---------------------------------------------------------------------------
@@ -818,6 +869,9 @@ def setup():
     game_session._deferred_hole_card_msgs = []
     # CSV accumulator — survives across rounds; never reset between newrounds
     game_session._drink_csv_rows         = []
+    # Live sip ticker — cumulative across all rounds
+    game_session._sip_ticker             = {}
+    game_session._drink_log_harvested    = False
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
     game_session._preselections = {}
@@ -1096,6 +1150,7 @@ def command():
                 game_session._deferred_hole_card_msgs = []
                 game_session._last_peeked = None
                 game_session._preselections = {}
+                game_session._drink_log_harvested = False
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -1164,6 +1219,7 @@ def command():
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1
                 game_session._last_peeked = None
                 game_session._preselections = {}
+                game_session._drink_log_harvested = False
                 game_session.start_round()
                 _patch_tracker(game_session)
 
