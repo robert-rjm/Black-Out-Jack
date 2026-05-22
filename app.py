@@ -776,6 +776,16 @@ def index():
     return render_template("index.html")
 
 
+@app.after_request
+def no_cache(response):
+    """Prevent Safari from caching JSON polling responses."""
+    if response.content_type and "json" in response.content_type:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"]        = "no-cache"
+        response.headers["Expires"]       = "0"
+    return response
+
+
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 
 @app.route("/logo.png")
