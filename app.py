@@ -175,7 +175,8 @@ def _get_client_info(session, client_id: str) -> dict:
 
 def _is_dealer_client(session, client_id: str) -> bool:
     """True if this client is the admin or is registered as the current dealer."""
-    return _get_client_info(session, client_id)["is_dealer"]
+    info = _get_client_info(session, client_id)
+    return info["is_dealer"] or info.get("role") == "admin"
 
 
 def _newround_rotate(session: RefereeSession):
@@ -432,7 +433,7 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         # Per-client fields (populated only when client_id is provided)
         "my_role":           _ci.get("role"),
         "my_name":           _ci.get("name"),
-        "is_dealer_client":  _ci.get("is_dealer", False),
+        "is_dealer_client":  _ci.get("is_dealer", False) or _ci.get("role") == "admin",
     }
 
 
