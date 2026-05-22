@@ -165,6 +165,14 @@ def _harvest_drink_log(session: RefereeSession):
     session._sip_ticker          = ticker
     session._drink_log_harvested = True
 
+    # Snapshot this round's per-player sip totals for the "Last Round" panel
+    last = {}
+    for p in session.all_players:
+        total = sum(e[0] for e in p.drink_log if e and e[0] > 0)
+        if total > 0:
+            last[p.name] = total
+    session._last_round_sips = last
+
 
 def _get_client_info(session, client_id: str) -> dict:
     """Return role/name/is_dealer info for a client_id. Safe if _room_clients missing."""
@@ -450,6 +458,8 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         # Live sip ticker (drinking mode only)
         "sip_totals":        _compute_sip_totals(session),
         "sip_grand_total":   sum(_compute_sip_totals(session).values()),
+        # Last completed round's sip counts per player
+        "last_round_sips":   getattr(session, "_last_round_sips", {}),
         # Pre-selected player actions
         "preselections":     getattr(session, "_preselections", {}),
         # All connected clients (for registration overlay)
@@ -882,6 +892,7 @@ def setup():
     # Live sip ticker — cumulative across all rounds
     game_session._sip_ticker             = {}
     game_session._drink_log_harvested    = False
+    game_session._last_round_sips        = {}   # per-player sips in the last completed round
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
     game_session._preselections = {}
