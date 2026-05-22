@@ -76,13 +76,27 @@ To see how all these rules play out together in practice, check out [Comprehensi
 | **Hard Dealer Switch** | dealer drinks per each winning hand when they lose all |
 | **Mandatory 10 splits** | warning issued when a player tries to keep 10-value pairs (unless suited) |
 
-### NPC Players
+### **Multiplayer Rooms**
+- **Room codes** — host creates a room and shares the code (e.g. `Jack-21`) with friends
+- **Player registration** — each person joins on their own phone and claims their seat
+- **Role system** — one player is the dealer (controls the game); others vote their intended action and the dealer executes it
+- **Action voting** — non-dealer players tap HIT/STAND/DOUBLE/SPLIT to signal their intention; the dealer sees the vote and carries it out
+- **Live sip ticker** — header strip shows the session total; each player seat shows their running sip count
+- **Spectator mode** — join a session without a seat to watch
+- **Player management** — admin can kick players from the session
+
+### **NPC Players**
 Computer-controlled seats using standard basic strategy. NPCs:
 - Never take insurance
 - Follow basic strategy split/hit/stand/double decisions
 - Fully participate in drinking rules
 - Auto-distribute sip handouts round-robin
-- Can hold the dealer role
+- Can hold the dealer role, cards are dealt automatically when an NPC is dealer
+
+### **Mobile & PWA**
+- Mobile-first layout optimised for phone screens
+- Add to home screen on iOS and Android for a native app feel
+- Tap-friendly controls throughout
 
 ## Drink Responsibly
 > [!IMPORTANT]
@@ -104,6 +118,8 @@ Black-Out-Jack/
 ├── app.py                   # Flask web server (Referee & Digital modes)
 ├── simulation.py            # Round simulation with stats output
 ├── requirements.txt         # Python dependencies for deployment
+├── static/
+│   └── logo.png             # Home screen icon (iOS & Android)
 ├── templates/
 │   └── index.html           # Web UI served by app.py
 ├── ComprehensiveExample.md  # Example for Drinking Rules
@@ -113,14 +129,14 @@ Black-Out-Jack/
 
 ### Rules Verification
 
-`drinking_rules.py` contains a commit SHA and hash pinned to the version of `Rules.md` the implementation was verified against:
+`drinking_rules.py` contains a SHA256 hash and date pinned to the version of `Rules.md` the implementation was verified against:
 
 ```python
-__rules_source_commit__  = "7e4b344dfe1ade7e047bdef96310619a0533d4cd"
-__rules_last_verified__  = "2026-04-11"
+_RULES_HASH  = "1d0d65ff..."
+_RULES_DATE  = "2026-05-15"
 ```
 
-When the rules change, update these values after re-verifying the implementation.
+On startup the script fetches `Rules.md` from GitHub and compares hashes. If they differ, a warning is printed. When the rules change, update `_RULES_HASH` and `_RULES_DATE` in `drinking_rules.py` after re-verifying the implementation.
 
 ### Troubleshooting
 
@@ -178,6 +194,17 @@ Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the 
 | **Digital** | Fully playable browser blackjack with virtual shoe (1–8 decks). |
 
 Both modes share the same drink-rule engine, live drink log (colour-coded by event type), and session persistence, reloading the page reconnects to the active session.
+
+#### Multiplayer setup
+1. Host opens the app and creates a room — a short code (e.g. `Jack-21`) is shown
+2. Each player opens the same URL on their phone and enters the code to join
+3. Everyone claims their seat by tapping their name
+4. The host (dealer) starts the game and controls the flow; other players vote their actions and the dealer executes them
+5. When an NPC holds the dealer role, cards are dealt and turns are resolved automatically
+
+#### Installing to home screen
+On **iOS**: tap the Share button in Safari → "Add to Home Screen"
+On **Android**: tap the browser menu → "Add to Home Screen" or "Install app"
 
 ## Simulation & Statistics
 
