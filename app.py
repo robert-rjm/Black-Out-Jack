@@ -15,12 +15,13 @@ Then open http://<your-PC-IP>:5000 on any phone on the same WiFi.
 import csv
 import io
 import contextlib
+import os
 import random
 import socket
 from collections import defaultdict
 from datetime import datetime
 
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, request, jsonify, render_template, Response, send_from_directory
 
 from referee import RefereeSession
 from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
@@ -773,6 +774,28 @@ def _auto_play_npc_turns(session: RefereeSession):
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+@app.route("/logo.png")
+def serve_logo():
+    return send_from_directory(os.path.join(_ROOT, "static"), "Logo-BlackOutJack.png")
+
+@app.route("/manifest.json")
+def serve_manifest():
+    return jsonify({
+        "name":             "Black-Out Jack",
+        "short_name":       "Black-Out Jack",
+        "start_url":        "/",
+        "display":          "standalone",
+        "background_color": "#0f1117",
+        "theme_color":      "#0f1117",
+        "icons": [
+            {"src": "/logo.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/logo.png", "sizes": "512x512", "type": "image/png"},
+        ],
+    })
 
 
 # ---------------------------------------------------------------------------
