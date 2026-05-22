@@ -1836,6 +1836,12 @@ async function doNewRound(rotate) {
   clearPeekedCard();
   await sendCmd(rotate ? "newround rotate" : "newround keep");
   buildGameUI();
+  // Auto-deal when any bot is in the session — skip the manual Deal tap
+  const hasBots = (lastState && lastState.table || []).some(s => s.is_npc);
+  if (gameMode === "digital" && hasBots) {
+    await sendCmd("deal");
+    return;
+  }
   if (gameMode === "digital") {
     activateDigTab("dig-deal");
   } else {
