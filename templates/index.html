@@ -499,10 +499,17 @@
   #header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
 
   /* ---- ROLE / IDENTITY ---- */
+  /* Player's own voted button — blue */
   .btn.voted {
     background: rgba(79,142,247,.22);
     border-color: var(--accent);
     color: var(--accent);
+  }
+  /* Dealer view: player's voted button — yellow hint (dealer can still press any) */
+  .btn.voted-dealer {
+    background: rgba(245,200,66,.18);
+    border-color: var(--yellow);
+    color: var(--yellow);
   }
   #player-vote-display {
     margin-top: 8px;
@@ -821,14 +828,35 @@
         <div class="label">Hand</div>
         <div id="dig-play-hands" class="btn-row"></div>
         <div id="player-vote-display"></div>
+        <!-- Suggestion banner shown to the player when dealer proposes a different action -->
+        <div id="suggest-banner" style="display:none;margin:8px 0;padding:10px 12px;border-radius:8px;background:rgba(245,200,66,.13);border:1px solid rgba(245,200,66,.4);color:var(--yellow);font-size:13px">
+          <div id="suggest-text" style="margin-bottom:8px;font-weight:600"></div>
+          <div class="btn-row" style="margin:0">
+            <button class="btn green wide" onclick="respondSuggest(true)">✓ Accept</button>
+            <button class="btn wide"       onclick="respondSuggest(false)" style="color:var(--muted)">✗ Decline</button>
+          </div>
+        </div>
         <div class="label">Action</div>
-        <div class="btn-row">
+        <div id="dig-action-row1" class="btn-row">
           <button class="btn green wide" onclick="sendDigitalPlay('hit')">HIT</button>
           <button class="btn wide"       onclick="sendDigitalPlay('stand')">STAND</button>
         </div>
-        <div class="btn-row">
+        <div id="dig-action-row2" class="btn-row">
           <button class="btn wide" onclick="sendDigitalPlay('double')">DOUBLE</button>
           <button class="btn wide" onclick="sendDigitalPlay('split')">SPLIT</button>
+        </div>
+        <!-- Suggest-picker: dealer proposes a different action (only visible to dealer when a vote is locked) -->
+        <div id="suggest-picker" style="display:none;margin-top:6px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center">Suggest instead →</div>
+          <div class="btn-row">
+            <button class="btn green wide" onclick="sendSuggest('h')">HIT</button>
+            <button class="btn wide"       onclick="sendSuggest('s')">STAND</button>
+            <button class="btn wide"       onclick="sendSuggest('d')">DOUBLE</button>
+            <button class="btn wide"       onclick="sendSuggest('sp')">SPLIT</button>
+          </div>
+        </div>
+        <div id="suggest-toggle-row" style="display:none;margin-top:4px;text-align:center">
+          <button class="btn wide" id="suggest-toggle-btn" onclick="toggleSuggestPicker()" style="font-size:12px;color:var(--muted);padding:4px 8px">💬 Suggest different action</button>
         </div>
         <div id="dig-insurance-row" class="btn-row" style="display:none">
           <button class="btn yellow wide" onclick="sendDigitalPlay('insurance')">INSURANCE (dealer shows Ace)</button>
@@ -1635,8 +1663,8 @@ function sendDigitalPlay(action) {
     // Immediate optimistic feedback — highlight button + update vote display NOW
     // (will be confirmed/corrected once the server responds)
     const ACT_LBL = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
-    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
-    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
+    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
       if (b.textContent.trim() === (ACT_LBL[action] || action.toUpperCase()))
         b.classList.add("voted");
     });
@@ -1677,11 +1705,11 @@ async function sendPreselect(action, hand) {
       applyState(data);
     } else {
       // Vote was rejected — clear optimistic highlight and show reason
-      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
+      document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
       if (vd) { vd.textContent = `Vote failed: ${data.error || "not registered"}`; vd.style.display = "block"; }
     }
   } catch (_) {
-    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
+    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
     if (vd) { vd.textContent = "Vote failed: network error"; vd.style.display = "block"; }
   }
 }
@@ -1795,10 +1823,8 @@ function applyState(state) {
     autoSwitchDigTab(state);
     updateInsuranceVisibility(state);
     updateHandLocks(state);
-    updateActionButtons(state);  // disable SPLIT/DOUBLE when not valid
     updateRoundPane(state);
     updateBestPlay(state);
-    updateRoleUI(state);         // role hint + vote display
   }
 
   if (isDeal) {
@@ -1813,6 +1839,12 @@ function applyState(state) {
     renderPlayers(state);
     syncAllHandButtons();
     applyTurnGate(state);
+    if (gameMode === "digital") {
+      // Must run AFTER applyTurnGate — both set disabled on action buttons,
+      // and these two have final say (vote lock, hand validity).
+      updateActionButtons(state);  // disable SPLIT/DOUBLE when not valid
+      updateRoleUI(state);         // role hint, vote lock, inactive-player gate
+    }
   }
 }
 
@@ -1827,7 +1859,7 @@ function updateActionButtons(state) {
 
   const canDouble = (activeHand.cards || []).length === 2 && !activeHand.doubled;
 
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     const lbl = b.textContent.trim();
     if (lbl === "SPLIT")  b.classList.toggle("disabled", !activeHand.can_split);
     if (lbl === "DOUBLE") b.classList.toggle("disabled", !canDouble);
@@ -1852,12 +1884,12 @@ const BS_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
 
 function updateBestPlay(state) {
   // Clear any previous highlight
-  document.querySelectorAll("#pane-dig-play .btn.best").forEach(b => b.classList.remove("best"));
+  document.querySelectorAll("#dig-action-row1 .btn.best, #dig-action-row2 .btn.best").forEach(b => b.classList.remove("best"));
   if (!state || state.phase !== "playing" || !state.best_play) return;
   const label = BS_LABEL[state.best_play];
   if (!label) return;
   // Find the matching action button and highlight it
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     if (b.textContent.trim() === label) b.classList.add("best");
   });
 }
@@ -2078,7 +2110,7 @@ function applyTurnGate(state) {
   });
 
   // Disable all action buttons while an NPC is taking its turn
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     b.classList.toggle("disabled", !!isNpcTurn);
   });
 
@@ -2284,71 +2316,151 @@ async function doNewRound(rotate) {
 // ============================================================
 const VOTE_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
 
-function updateRoleUI(state) {
-  const hint      = document.getElementById("dig-play-role-hint");
-  const voteDisp  = document.getElementById("player-vote-display");
-  const phase     = state.phase;
-  const turn      = state.current_turn;
-  const presel    = state.preselections || {};
+let _suggestPickerOpen = false;
 
-  // Role hint text
-  if (hint) {
-    if (isMyDealerClient) {
-      hint.textContent = phase === "playing" ? "You are the dealer — tap to execute actions." : "";
-    } else if (myRole === "player") {
-      hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
-    } else {
-      hint.textContent = "Spectating — watching only.";
+function toggleSuggestPicker() {
+  _suggestPickerOpen = !_suggestPickerOpen;
+  const picker = document.getElementById("suggest-picker");
+  const btn    = document.getElementById("suggest-toggle-btn");
+  if (picker) picker.style.display = _suggestPickerOpen ? "" : "none";
+  if (btn)    btn.textContent = _suggestPickerOpen ? "✕ Cancel suggestion" : "💬 Suggest different action";
+}
+
+async function sendSuggest(action) {
+  const turn = (lastState && lastState.current_turn) || "";
+  const hand = (sel.digital.hand || "hand1").toLowerCase();
+  if (!turn) return;
+  try {
+    const res  = await fetch("/suggest_action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: turn, hand, action }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      _suggestPickerOpen = false;
+      applyState(data);
     }
+  } catch (_) {}
+}
+
+async function respondSuggest(accept) {
+  const hand = (sel.digital.hand || "hand1").toLowerCase();
+  try {
+    const res  = await fetch("/respond_suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, hand, accept }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+function updateRoleUI(state) {
+  const hint         = document.getElementById("dig-play-role-hint");
+  const voteDisp     = document.getElementById("player-vote-display");
+  const suggestBanner= document.getElementById("suggest-banner");
+  const suggestText  = document.getElementById("suggest-text");
+  const suggestPicker= document.getElementById("suggest-picker");
+  const suggestToggle= document.getElementById("suggest-toggle-row");
+  const phase        = state.phase;
+  const turn         = state.current_turn;
+  const presel       = state.preselections || {};
+  const suggestions  = state.suggestions   || {};
+
+  const actionSel = "#dig-action-row1 .btn, #dig-action-row2 .btn";
+
+  // Clear all highlights
+  document.querySelectorAll("#dig-action-row1 .btn.voted,       #dig-action-row2 .btn.voted").forEach(b => b.classList.remove("voted"));
+  document.querySelectorAll("#dig-action-row1 .btn.voted-dealer, #dig-action-row2 .btn.voted-dealer").forEach(b => b.classList.remove("voted-dealer"));
+
+  // Hide suggest UI by default
+  if (suggestBanner) suggestBanner.style.display = "none";
+  if (suggestPicker) suggestPicker.style.display  = "none";
+  if (suggestToggle) suggestToggle.style.display  = "none";
+  if (voteDisp)      voteDisp.style.display       = "none";
+
+  // Role hint
+  if (hint) {
+    if (isMyDealerClient)       hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
+    else if (myRole === "player") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
+    else                          hint.textContent = "Spectating — watching only.";
   }
 
-  // Spectators: disable all action buttons
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
-    if (myRole === "spectator" || !myRole) b.classList.add("disabled");
-  });
-
-  // Clear previous voted highlight
-  document.querySelectorAll("#pane-dig-play .btn.voted").forEach(b => b.classList.remove("voted"));
-
-  if (!voteDisp) return;
-
-  if (phase !== "playing" || !turn) {
-    voteDisp.style.display = "none";
+  // Spectators: disable everything and stop
+  if (myRole === "spectator" || !myRole) {
+    document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
     return;
   }
 
+  if (phase !== "playing" || !turn) return;
+
+  // ── DEALER VIEW ──────────────────────────────────────────────
   if (isMyDealerClient) {
-    // Dealer sees the current player's vote
     const hand = (sel.digital.hand || "hand1").toLowerCase();
     const key  = `${turn.toLowerCase()}:${hand}`;
     const vote = presel[key];
-    voteDisp.textContent  = vote
-      ? `${turn} votes: ${VOTE_LABEL[vote] || vote}`
-      : `${turn} — no vote yet`;
-    voteDisp.style.display = "block";
-    // Highlight the voted button so dealer knows exactly what to tap
+
+    if (voteDisp) {
+      voteDisp.textContent   = vote ? `${turn} voted: ${VOTE_LABEL[vote]}` : `${turn} — no vote yet`;
+      voteDisp.style.display = "block";
+    }
+
     if (vote) {
-      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
-        if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+      // Lock dealer to the voted action only; highlight it yellow
+      document.querySelectorAll(actionSel).forEach(b => {
+        const lbl = b.textContent.trim();
+        if (lbl === VOTE_LABEL[vote]) {
+          b.classList.add("voted-dealer");
+          b.classList.remove("disabled");
+        } else if (["HIT","STAND","DOUBLE","SPLIT"].includes(lbl)) {
+          b.classList.add("disabled");
+        }
+      });
+      // Show suggest-different toggle
+      if (suggestToggle) suggestToggle.style.display = "";
+      if (suggestPicker) suggestPicker.style.display = _suggestPickerOpen ? "" : "none";
+    }
+    // No vote → all buttons available (split/double still gated by syncHandButtons)
+
+  // ── PLAYER VIEW ──────────────────────────────────────────────
+  } else if (myRole === "player") {
+    const isMyTurn = myName && turn.toLowerCase() === myName.toLowerCase();
+
+    // Not your turn → grey everything out, done
+    if (!isMyTurn) {
+      document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+      return;
+    }
+
+    const hand       = (sel.digital.hand || "hand1").toLowerCase();
+    const key        = `${myName.toLowerCase()}:${hand}`;
+    const vote       = presel[key];
+    const suggestion = suggestions[key];
+
+    // Incoming dealer suggestion: show banner + highlight that button yellow
+    if (suggestion) {
+      if (suggestBanner && suggestText) {
+        suggestText.textContent = `Dealer suggests: ${VOTE_LABEL[suggestion] || suggestion} — do you agree?`;
+        suggestBanner.style.display = "";
+      }
+      document.querySelectorAll(actionSel).forEach(b => {
+        if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
       });
     }
-  } else if (myRole === "player" && myName && turn.toLowerCase() === myName.toLowerCase()) {
-    // Non-dealer player on their own turn — show their vote
-    const hand = (sel.digital.hand || "hand1").toLowerCase();
-    const key  = `${myName.toLowerCase()}:${hand}`;
-    const vote = presel[key];
-    // Highlight the voted action button
-    if (vote) {
-      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
-        if (b.textContent.trim() === (VOTE_LABEL[vote] || vote)) b.classList.add("voted");
-      });
-      voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
-    } else {
-      voteDisp.textContent = "Tap to vote your play";
+
+    if (voteDisp) {
+      if (vote) {
+        document.querySelectorAll(actionSel).forEach(b => {
+          if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+        });
+        voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
+      } else {
+        voteDisp.textContent = "Tap to vote your play";
+      }
+      voteDisp.style.display = "block";
     }
-    voteDisp.style.display = "block";
-  } else {
-    voteDisp.style.display = "none";
   }
 }
 

@@ -488,8 +488,9 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "last_round_sips":     getattr(session, "_last_round_sips", {}),
         # Cumulative sips earned while acting as the dealer role (live incl. current round)
         "dealer_role_sips":    _compute_dealer_role_sips(session),
-        # Pre-selected player actions
+        # Pre-selected player actions and pending dealer suggestions
         "preselections":     getattr(session, "_preselections", {}),
+        "suggestions":       getattr(session, "_suggestions",   {}),
         # All connected clients (for registration overlay)
         "connected_clients": [
             {"name": info.get("name"), "role": info.get("role")}
@@ -925,6 +926,7 @@ def setup():
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
     game_session._preselections = {}
+    game_session._suggestions   = {}   # pending dealer→player action suggestions
     if client_id:
         game_session._room_clients[client_id] = {
             "name": dealer_name, "role": "admin", "kicked": False,
@@ -1020,6 +1022,7 @@ def command():
                 # Initial deal — no card args; shoe deals automatically
                 game_session._last_peeked = None   # peeked card is now stale
                 game_session._preselections = {}
+                game_session._suggestions   = {}
                 _digital_initial_deal(game_session)
                 _auto_play_npc_turns(game_session)
 
@@ -1200,6 +1203,7 @@ def command():
                 game_session._deferred_hole_card_msgs = []
                 game_session._last_peeked = None
                 game_session._preselections = {}
+                game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
@@ -1269,6 +1273,7 @@ def command():
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1
                 game_session._last_peeked = None
                 game_session._preselections = {}
+                game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 game_session.start_round()
                 _patch_tracker(game_session)
@@ -1390,6 +1395,72 @@ def preselect():
         session._preselections = {}
 
     session._preselections[f"{name.lower()}:{hand}"] = action
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/suggest_action", methods=["POST"])
+def suggest_action():
+    """Dealer suggests a different action to a player.
+    Body: { room_code, client_id, player_name, hand, action }  action: h|s|d|sp"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("player_name") or "").strip().capitalize()
+    hand        = (data.get("hand") or "hand1").strip().lower()
+    action      = (data.get("action") or "").strip().lower()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if info.get("role") not in ("admin",):
+        return jsonify({"ok": False, "error": "Only the dealer/admin can suggest actions."})
+
+    if action not in ("h", "s", "d", "sp"):
+        return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
+
+    if not hasattr(session, "_suggestions"):
+        session._suggestions = {}
+
+    session._suggestions[f"{target_name.lower()}:{hand}"] = action
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/respond_suggest", methods=["POST"])
+def respond_suggest():
+    """Player accepts or declines a dealer suggestion.
+    Body: { room_code, client_id, hand, accept: bool }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    hand      = (data.get("hand") or "hand1").strip().lower()
+    accept    = bool(data.get("accept", False))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    name = info.get("name", "")
+    key  = f"{name.lower()}:{hand}"
+
+    suggestions = getattr(session, "_suggestions", {})
+    suggestion  = suggestions.get(key)
+    if not suggestion:
+        return jsonify({"ok": False, "error": "No pending suggestion."})
+
+    if accept:
+        if not hasattr(session, "_preselections"):
+            session._preselections = {}
+        session._preselections[key] = suggestion
+
+    session._suggestions.pop(key, None)
     return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
