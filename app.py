@@ -118,12 +118,12 @@ def _classify_rule(reason: str):
     if "Dealer hand is all" in r:             return "Dealer suited hand"
     if "handed" in r and "5-card 21" in r:   return "5-card 21 handout received"
     if "won with" in r and "cards" in r:      return "5+ card win"
-    if "A♠" in r and "to dealer" in r:       return "Ace dealt: A♠ (dealer hand)"
-    if "A♥" in r and "dealer" in r:          return "Ace dealt: A♥ (dealer hand)"
-    if "A♦" in r and "dealer" in r:          return "Ace dealt: A♦ (dealer hand)"
-    if "A♠" in r:                            return "Ace dealt: A♠ (player hand)"
-    if "A♥" in r:                            return "Ace dealt: A♥ (player hand)"
-    if "A♦" in r:                            return "Ace dealt: A♦ (player hand)"
+    if "A♠" in r and "to dealer" in r:       return "Ace dealt: Ace of Spades (dealer hand)"
+    if "A♥" in r and "dealer" in r:          return "Ace dealt: Ace of Hearts (dealer hand)"
+    if "A♦" in r and "dealer" in r:          return "Ace dealt: Ace of Diamonds (dealer hand)"
+    if "A♠" in r:                            return "Ace dealt: Ace of Spades (player hand)"
+    if "A♥" in r:                            return "Ace dealt: Ace of Hearts (player hand)"
+    if "A♦" in r:                            return "Ace dealt: Ace of Diamonds (player hand)"
     return "Other"
 
 
@@ -164,6 +164,16 @@ def _harvest_drink_log(session: RefereeSession):
                 ticker[p.name] = ticker.get(p.name, 0) + sips
     session._sip_ticker          = ticker
     session._drink_log_harvested = True
+
+    # Track cumulative dealer-role sips separately (shown in dealer panel)
+    d_ticker = getattr(session, "_dealer_role_ticker", {})
+    for p in session.all_players:
+        for entry in p.drink_log:
+            sips = entry[0] if entry else 0
+            role = entry[2] if len(entry) > 2 else "player"
+            if sips > 0 and role == "dealer":
+                d_ticker[p.name] = d_ticker.get(p.name, 0) + sips
+    session._dealer_role_ticker = d_ticker
 
     # Snapshot this round's per-player sip totals for the "Last Round" panel
     last = {}
@@ -362,6 +372,22 @@ def _compute_sip_totals(session: RefereeSession) -> dict:
     return ticker
 
 
+def _compute_dealer_role_sips(session: RefereeSession) -> dict:
+    """Return cumulative dealer-role sip counts: past rounds + current round."""
+    if not getattr(session, "drinking_mode", True):
+        return {}
+    ticker = dict(getattr(session, "_dealer_role_ticker", {}))
+    # Add current round's dealer-role sips if not yet harvested
+    if not getattr(session, "_drink_log_harvested", False):
+        for p in session.all_players:
+            for entry in p.drink_log:
+                sips = entry[0] if entry else 0
+                role = entry[2] if len(entry) > 2 else "player"
+                if sips > 0 and role == "dealer":
+                    ticker[p.name] = ticker.get(p.name, 0) + sips
+    return ticker
+
+
 def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dict:
     """Full snapshot for the UI."""
     if not session:
@@ -459,9 +485,12 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "sip_totals":        _compute_sip_totals(session),
         "sip_grand_total":   sum(_compute_sip_totals(session).values()),
         # Last completed round's sip counts per player
-        "last_round_sips":   getattr(session, "_last_round_sips", {}),
-        # Pre-selected player actions
+        "last_round_sips":     getattr(session, "_last_round_sips", {}),
+        # Cumulative sips earned while acting as the dealer role (live incl. current round)
+        "dealer_role_sips":    _compute_dealer_role_sips(session),
+        # Pre-selected player actions and pending dealer suggestions
         "preselections":     getattr(session, "_preselections", {}),
+        "suggestions":       getattr(session, "_suggestions",   {}),
         # All connected clients (for registration overlay)
         "connected_clients": [
             {"name": info.get("name"), "role": info.get("role")}
@@ -893,9 +922,11 @@ def setup():
     game_session._sip_ticker             = {}
     game_session._drink_log_harvested    = False
     game_session._last_round_sips        = {}   # per-player sips in the last completed round
+    game_session._dealer_role_ticker     = {}   # cumulative sips earned while acting as dealer
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
     game_session._preselections = {}
+    game_session._suggestions   = {}   # pending dealer→player action suggestions
     if client_id:
         game_session._room_clients[client_id] = {
             "name": dealer_name, "role": "admin", "kicked": False,
@@ -991,6 +1022,7 @@ def command():
                 # Initial deal — no card args; shoe deals automatically
                 game_session._last_peeked = None   # peeked card is now stale
                 game_session._preselections = {}
+                game_session._suggestions   = {}
                 _digital_initial_deal(game_session)
                 _auto_play_npc_turns(game_session)
 
@@ -1171,6 +1203,7 @@ def command():
                 game_session._deferred_hole_card_msgs = []
                 game_session._last_peeked = None
                 game_session._preselections = {}
+                game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
@@ -1240,6 +1273,7 @@ def command():
                 game_session._log_version = getattr(game_session, "_log_version", 0) + 1
                 game_session._last_peeked = None
                 game_session._preselections = {}
+                game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 game_session.start_round()
                 _patch_tracker(game_session)
@@ -1331,6 +1365,90 @@ def kick():
     return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
 
 
+@app.route("/make_bot", methods=["POST"])
+def make_bot():
+    """Admin converts a seated player to an NPC bot.
+    Body: { room_code, client_id, player_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("player_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    player = next(
+        (p for p in getattr(session, "all_players", [])
+         if p.name.lower() == target_name.lower()),
+        None,
+    )
+    if not player:
+        return jsonify({"ok": False, "error": f"Player '{target_name}' not found."})
+    if getattr(player, "is_npc", False):
+        return jsonify({"ok": False, "error": f"'{target_name}' is already a bot."})
+
+    player.is_npc = True
+
+    # Disconnect the player's client connection if present
+    for cid, info in list(clients.items()):
+        if cid != client_id and (info.get("name") or "").lower() == target_name.lower():
+            info["kicked"] = True  # marks as disconnected so poll loop drops them
+
+    # Clear any pending preselections / suggestions for this player
+    key_prefix = f"{target_name.lower()}:"
+    for d in (getattr(session, "_preselections", {}), getattr(session, "_suggestions", {})):
+        for k in [k for k in d if k.startswith(key_prefix)]:
+            d.pop(k, None)
+
+    # If it's the new bot's turn, auto-play immediately
+    if getattr(session, "phase", None) == "playing":
+        _auto_play_npc_turns(session)
+
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/transfer_admin", methods=["POST"])
+def transfer_admin():
+    """Admin hands admin role to another connected player.
+    Body: { room_code, client_id, target_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("target_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    # Find the target client
+    target_cid = next(
+        (cid for cid, info in clients.items()
+         if cid != client_id
+         and not info.get("kicked")
+         and (info.get("name") or "").lower() == target_name.lower()),
+        None,
+    )
+    if not target_cid:
+        return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+
+    # Transfer: demote old admin, promote new one
+    admin_info["role"]            = "player"
+    clients[target_cid]["role"]   = "admin"
+
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
 @app.route("/preselect", methods=["POST"])
 def preselect():
     """Player pre-votes their intended action. Dealer sees this in the UI.
@@ -1361,6 +1479,72 @@ def preselect():
         session._preselections = {}
 
     session._preselections[f"{name.lower()}:{hand}"] = action
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/suggest_action", methods=["POST"])
+def suggest_action():
+    """Dealer suggests a different action to a player.
+    Body: { room_code, client_id, player_name, hand, action }  action: h|s|d|sp"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("player_name") or "").strip().capitalize()
+    hand        = (data.get("hand") or "hand1").strip().lower()
+    action      = (data.get("action") or "").strip().lower()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if info.get("role") not in ("admin",):
+        return jsonify({"ok": False, "error": "Only the dealer/admin can suggest actions."})
+
+    if action not in ("h", "s", "d", "sp"):
+        return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
+
+    if not hasattr(session, "_suggestions"):
+        session._suggestions = {}
+
+    session._suggestions[f"{target_name.lower()}:{hand}"] = action
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/respond_suggest", methods=["POST"])
+def respond_suggest():
+    """Player accepts or declines a dealer suggestion.
+    Body: { room_code, client_id, hand, accept: bool }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    hand      = (data.get("hand") or "hand1").strip().lower()
+    accept    = bool(data.get("accept", False))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    name = info.get("name", "")
+    key  = f"{name.lower()}:{hand}"
+
+    suggestions = getattr(session, "_suggestions", {})
+    suggestion  = suggestions.get(key)
+    if not suggestion:
+        return jsonify({"ok": False, "error": "No pending suggestion."})
+
+    if accept:
+        if not hasattr(session, "_preselections"):
+            session._preselections = {}
+        session._preselections[key] = suggestion
+
+    session._suggestions.pop(key, None)
     return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
@@ -1450,6 +1634,41 @@ def export_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": 'attachment; filename="drinks_summary.csv"'},
     )
+
+
+@app.route("/summary_json")
+def summary_json():
+    """Return session drink summary as JSON for on-screen display."""
+    room_code = request.args.get("room_code", "")
+    session   = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    rows       = getattr(session, "_drink_csv_rows", [])
+    num_rounds = max((r["round"] for r in rows), default=0)
+
+    player_sips: dict[str, int] = defaultdict(int)
+    dealer_sips: dict[str, int] = defaultdict(int)
+    players_seen: list[str]     = []
+
+    for row in rows:
+        name = row["player"]
+        if name not in players_seen:
+            players_seen.append(name)
+        if row["role"] == "dealer":
+            dealer_sips[name] += row["sips"]
+        else:
+            player_sips[name] += row["sips"]
+
+    summary = []
+    for name in players_seen:
+        ps = player_sips[name]
+        ds = dealer_sips[name]
+        summary.append({"name": name, "player_sips": ps,
+                         "dealer_sips": ds, "total_sips": ps + ds})
+    summary.sort(key=lambda x: -x["total_sips"])
+
+    return jsonify({"ok": True, "rounds": num_rounds, "players": summary})
 
 
 @app.route("/state")

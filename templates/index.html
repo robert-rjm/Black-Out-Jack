@@ -109,10 +109,7 @@
   }
   #dealer-panel .dp-name  { color: var(--text); }
   #dealer-panel .dp-role  { font-size: 10px; color: var(--muted); margin-left: 4px; }
-  #dealer-panel .dp-score { font-size: 11px; color: var(--muted); }
-  #dealer-panel .dp-score b { color: var(--text); }
   #dealer-panel .dp-cards { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
-  #dealer-panel .dp-tag   { margin-top: 4px; font-size: 10px; font-weight: 800; letter-spacing: .4px; }
 
   .seat {
     background: #1f2230;
@@ -332,12 +329,30 @@
   .btn-big.green  { background: var(--green);  color: #000; }
   .btn-big.accent { background: var(--accent); color: #fff; }
 
-  /* ---- DEAL ANIMATION ---- */
-  @keyframes cardDeal {
-    from { opacity: 0; transform: translateY(-14px) scale(.88); }
-    to   { opacity: 1; transform: translateY(0)     scale(1);   }
+  /* ---- ANIMATION PILL TOGGLE ---- */
+  .pill-toggle-wrap { display:flex; align-items:center; gap:10px; }
+  .pill-toggle { position:relative; display:inline-block; width:62px; height:30px; flex-shrink:0; }
+  .pill-toggle input { opacity:0; width:0; height:0; position:absolute; }
+  .pill-slider {
+    position:absolute; inset:0; cursor:pointer;
+    background:#555; border-radius:30px; transition:background .2s;
   }
-  .card-deal-anim { animation: cardDeal .28s ease-out both; }
+  .pill-slider:before {
+    content:""; position:absolute;
+    height:24px; width:24px; left:3px; bottom:3px;
+    background:#fff; border-radius:50%; transition:transform .2s;
+  }
+  .pill-toggle input:checked + .pill-slider { background: var(--green, #4caf50); }
+  .pill-toggle input:checked + .pill-slider:before { transform: translateX(32px); }
+  .pill-label-off,.pill-label-on {
+    font-size:13px; font-weight:700; letter-spacing:.04em; pointer-events:none;
+  }
+  .pill-label-off { color: var(--muted); }
+  .pill-label-on  { color: var(--green, #4caf50); display:none; }
+  .pill-toggle input:checked ~ .pill-label-off { display:none; }
+  .pill-toggle input:checked ~ .pill-label-on  { display:inline; }
+
+  /* ---- DEAL ANIMATION (transition-based, no keyframes needed) ---- */
 
   /* ---- LAST ROUND DRINK SUMMARY ---- */
   #last-round-panel {
@@ -484,10 +499,17 @@
   #header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
 
   /* ---- ROLE / IDENTITY ---- */
+  /* Player's own voted button — blue */
   .btn.voted {
     background: rgba(79,142,247,.22);
     border-color: var(--accent);
     color: var(--accent);
+  }
+  /* Dealer view: player's voted button — yellow hint (dealer can still press any) */
+  .btn.voted-dealer {
+    background: rgba(245,200,66,.18);
+    border-color: var(--yellow);
+    color: var(--yellow);
   }
   #player-vote-display {
     margin-top: 8px;
@@ -527,7 +549,7 @@
   #register-card p  { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
   #register-seats   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
   /* ---- KICK OVERLAY ---- */
-  #kick-overlay {
+  #kick-overlay, #summary-overlay {
     display: none;
     position: fixed; inset: 0;
     background: rgba(0,0,0,.75);
@@ -537,15 +559,22 @@
     justify-content: center;
     padding: 24px;
   }
-  #kick-card {
+  #kick-card, #summary-card {
     background: var(--surface);
     border-radius: 16px;
     padding: 20px;
-    width: 100%; max-width: 360px;
+    width: 100%; max-width: 380px;
     border: 1px solid var(--border);
-    max-height: 70vh; overflow-y: auto;
+    max-height: 80vh; overflow-y: auto;
   }
-  #kick-card h3  { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+  #kick-card h3, #summary-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+  /* Summary table */
+  #summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+  #summary-table th { text-align: right; padding: 4px 6px; color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing:.04em; }
+  #summary-table th:first-child { text-align: left; }
+  #summary-table td { padding: 6px 6px; border-top: 1px solid var(--border); }
+  #summary-table td:not(:first-child) { text-align: right; }
+  #summary-table .sum-total { font-weight: 800; color: var(--yellow); }
   #kick-list     { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
   .kick-row      { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
   .kick-row:last-child { border-bottom: none; }
@@ -648,10 +677,16 @@
       <label>Decks in shoe</label>
       <input type="number" id="num-decks" value="1" min="1" max="8">
     </div>
-    <div class="field" style="max-width:none;display:flex;align-items:center;gap:8px;padding-top:4px">
-      <label style="margin:0;cursor:pointer" for="anim-toggle">Deal animation</label>
-      <input type="checkbox" id="anim-toggle" checked style="width:18px;height:18px;cursor:pointer"
-             onchange="lsSet('bjDealAnim', this.checked ? '1' : '0')">
+    <div class="field" style="max-width:none;padding-top:4px">
+      <label style="margin-bottom:4px">Deal animation</label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="anim-toggle" checked onchange="setAnimToggle(this.checked)">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="anim-lbl-setup">OFF</span>
+        <span class="pill-label-on"  id="anim-lbl-setup-on">ON</span>
+      </div>
     </div>
   </div>
 
@@ -667,7 +702,7 @@
       <div id="header-room"></div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
-      <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:12px" onclick="openKickModal()" title="Manage players">👥</button>
+      <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
       <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
     </div>
   </header>
@@ -755,7 +790,7 @@
         </div>
         <div class="btn-row">
           <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
-          <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+          <button class="btn wide" onclick="showSessionSummary()">📊 Final Summary</button>
         </div>
         <div class="btn-row">
           <button class="btn wide" onclick="sendCmd('fouraces firstdeal')">4 ACES (DEAL)</button>
@@ -793,14 +828,35 @@
         <div class="label">Hand</div>
         <div id="dig-play-hands" class="btn-row"></div>
         <div id="player-vote-display"></div>
+        <!-- Suggestion banner shown to the player when dealer proposes a different action -->
+        <div id="suggest-banner" style="display:none;margin:8px 0;padding:10px 12px;border-radius:8px;background:rgba(245,200,66,.13);border:1px solid rgba(245,200,66,.4);color:var(--yellow);font-size:13px">
+          <div id="suggest-text" style="margin-bottom:8px;font-weight:600"></div>
+          <div class="btn-row" style="margin:0">
+            <button class="btn green wide" onclick="respondSuggest(true)">✓ Accept</button>
+            <button class="btn wide"       onclick="respondSuggest(false)" style="color:var(--muted)">✗ Decline</button>
+          </div>
+        </div>
         <div class="label">Action</div>
-        <div class="btn-row">
+        <div id="dig-action-row1" class="btn-row">
           <button class="btn green wide" onclick="sendDigitalPlay('hit')">HIT</button>
           <button class="btn wide"       onclick="sendDigitalPlay('stand')">STAND</button>
         </div>
-        <div class="btn-row">
+        <div id="dig-action-row2" class="btn-row">
           <button class="btn wide" onclick="sendDigitalPlay('double')">DOUBLE</button>
           <button class="btn wide" onclick="sendDigitalPlay('split')">SPLIT</button>
+        </div>
+        <!-- Suggest-picker: dealer proposes a different action (only visible to dealer when a vote is locked) -->
+        <div id="suggest-picker" style="display:none;margin-top:6px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-align:center">Suggest instead →</div>
+          <div class="btn-row">
+            <button class="btn green wide" onclick="sendSuggest('h')">HIT</button>
+            <button class="btn wide"       onclick="sendSuggest('s')">STAND</button>
+            <button class="btn wide"       onclick="sendSuggest('d')">DOUBLE</button>
+            <button class="btn wide"       onclick="sendSuggest('sp')">SPLIT</button>
+          </div>
+        </div>
+        <div id="suggest-toggle-row" style="display:none;margin-top:4px;text-align:center">
+          <button class="btn wide" id="suggest-toggle-btn" onclick="toggleSuggestPicker()" style="font-size:12px;color:var(--muted);padding:4px 8px">💬 Suggest different action</button>
         </div>
         <div id="dig-insurance-row" class="btn-row" style="display:none">
           <button class="btn yellow wide" onclick="sendDigitalPlay('insurance')">INSURANCE (dealer shows Ace)</button>
@@ -814,7 +870,7 @@
         <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
         <div class="btn-row">
           <button class="btn wide" id="btn-peek" onclick="sendCmd('peek')" style="display:none">🃏 Next card?</button>
-          <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+          <button class="btn wide" onclick="showSessionSummary()">📊 Final Summary</button>
         </div>
         <div class="btn-row">
           <button class="btn wide" onclick="exportDrinkCSV()">📊 Export Drinks CSV</button>
@@ -836,11 +892,11 @@
     <div id="modal-dealer-info" style="font-size:13px;color:var(--muted);margin-bottom:2px"></div>
     <div id="modal-reason" style="font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:4px;display:none"></div>
     <p style="color:var(--muted);font-size:13px">Choose dealer for next round:</p>
-    <div class="btn-row">
-      <button id="modal-rotate-btn" class="btn wide" onclick="doNewRound(true)">↺ Rotate Dealer</button>
-      <button id="modal-keep-btn"   class="btn wide" onclick="doNewRound(false)">Keep Dealer</button>
+    <div class="btn-row" style="gap:8px;margin-bottom:10px">
+      <button id="modal-rotate-btn" class="btn wide" onclick="selectModalDealer(true)">↺ Rotate Dealer</button>
+      <button id="modal-keep-btn"   class="btn wide" onclick="selectModalDealer(false)">Keep Dealer</button>
     </div>
-    <button class="btn-big accent" id="modal-deal-btn" onclick="doNewRoundAndDeal()" style="margin-top:6px;height:56px;font-size:16px">Deal Cards Now</button>
+    <button class="btn-big accent" id="modal-next-btn" onclick="doNewRound(_modalRotate)" style="margin-bottom:4px">▶ Next Round</button>
     <button class="btn wide" onclick="closeModal()" style="color:var(--muted);margin-top:4px">Cancel</button>
   </div>
 </div>
@@ -859,9 +915,43 @@
 <!-- ===== KICK OVERLAY ===== -->
 <div id="kick-overlay">
   <div id="kick-card">
-    <h3>Players in session</h3>
+    <h3>⚙️ Settings</h3>
+
+    <!-- Animation toggle -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:12px">
+      <label style="font-size:14px;font-weight:600;margin:0">Deal animation</label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="anim-toggle-modal" onchange="setAnimToggle(this.checked)">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="anim-lbl-modal">OFF</span>
+        <span class="pill-label-on"  id="anim-lbl-modal-on">ON</span>
+      </div>
+    </div>
+
+    <!-- Player management -->
+    <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">PLAYERS IN SESSION</div>
     <div id="kick-list"></div>
-    <button class="btn wide" onclick="closeKickModal()">Close</button>
+
+    <!-- Transfer admin -->
+    <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">TRANSFER ADMIN</div>
+    <div id="transfer-admin-list"></div>
+
+    <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
+  </div>
+</div>
+
+<!-- ===== FINAL SUMMARY OVERLAY ===== -->
+<div id="summary-overlay">
+  <div id="summary-card">
+    <h3>🃏 Session Summary</h3>
+    <div id="summary-meta" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+    <div id="summary-body"></div>
+    <div class="btn-row" style="margin-top:4px">
+      <button class="btn wide" onclick="closeSummaryModal()">Close</button>
+      <button class="btn red wide" onclick="closeSummaryModal(); resetToSetup()">🏠 Back to Lobby</button>
+    </div>
   </div>
 </div>
 
@@ -1006,45 +1096,52 @@ document.addEventListener("visibilitychange", () => {
 // ============================================================
 // DEAL ANIMATION
 // ============================================================
-// Tracks how many cards each player/dealer had before the last deal
-// so we know which ones are newly added.
-let _prevCardCounts = {};   // { playerName: [n_hand1, n_hand2], "dealer": n }
+let _dealAnimating = false;   // true while cards are being dealt one-by-one
 
 function _animToggleOn() {
-  const cb = document.getElementById("anim-toggle");
-  if (cb) return cb.checked;
   return lsGet("bjDealAnim") !== "0";
 }
 
-// Called by applyState when we get back a fresh state after DEAL.
-// Animates only the newly added cards, in real deal order.
+// Called by applyState when phase just flipped pre-deal → playing.
+// Renders state, hides all cards, then reveals them one at a time.
 async function animateDeal(newState) {
-  if (!_animToggleOn()) return;
+  _dealAnimating = true;
+  const CARD_MS  = 300;
+  const delay    = ms => new Promise(r => setTimeout(r, ms));
 
-  const order   = newState.play_order || (newState.table || []).map(s => s.name);
-  const delay   = ms => new Promise(r => setTimeout(r, ms));
-  const CARD_MS = 320;
+  try {
+    // 1. Render full state so DOM has all card elements.
+    _renderStateSilent(newState);
 
-  // Build the sequence: 2 rounds × (each player in order + dealer)
-  // We reveal cards by temporarily hiding them, then adding them one by one.
-  // Strategy: render the full state first (so DOM exists), then
-  // hide newly-arrived cards and fade them in one at a time.
+    // 2. Collect card elements in visual deal order (before first paint).
+    const cardEls = _collectNewCardEls(newState);
 
-  // 1. Render everything immediately so the DOM is populated.
-  _renderStateSilent(newState);
+    // 3. Hide all cards instantly using inline styles — no transition yet.
+    cardEls.forEach(el => {
+      el.style.transition = "none";
+      el.style.opacity    = "0";
+      el.style.transform  = "translateY(-16px) scale(.85)";
+    });
 
-  // 2. Figure out which card elements are "new" by comparing counts.
-  //    We tag them hidden right after render, before the user sees them.
-  const newCardEls = _collectNewCardEls(newState);
+    // 4. Wait one animation frame so the browser paints the hidden state.
+    await new Promise(r => requestAnimationFrame(r));
 
-  // Hide them all instantly.
-  newCardEls.forEach(el => { el.style.opacity = "0"; el.classList.remove("card-deal-anim"); });
+    // 5. Reveal cards one by one with a smooth transition.
+    for (const el of cardEls) {
+      el.style.transition = "opacity .22s ease-out, transform .22s ease-out";
+      el.style.opacity    = "1";
+      el.style.transform  = "translateY(0) scale(1)";
+      await delay(CARD_MS);
+    }
 
-  // 3. Reveal one by one in deal order.
-  for (const el of newCardEls) {
-    await delay(CARD_MS);
-    el.classList.add("card-deal-anim");
-    el.style.opacity = "";
+    // 6. Clean up inline styles so CSS can take over normally.
+    cardEls.forEach(el => {
+      el.style.transition = "";
+      el.style.opacity    = "";
+      el.style.transform  = "";
+    });
+  } finally {
+    _dealAnimating = false;
   }
 }
 
@@ -1067,24 +1164,42 @@ function _renderStateSilent(state) {
 
 // After rendering, collect card DOM elements in deal order so we can
 // animate them in the right sequence.
-// Deal order: round 1 → each player hand1 card[0], dealer card[0]
-//             round 2 → each player hand1 card[1], dealer card[1]  (hole hidden)
+// Server deal order (per _digital_initial_deal):
+//   for round in [0,1]:
+//     for each player: for each hand: deal card[round]
+//     dealer: deal card[round]
 function _collectNewCardEls(state) {
+  const byName = {};
+  (state.table || []).forEach(s => { byName[s.name] = s; });
   const order = state.play_order || (state.table || []).map(s => s.name);
-  const seq   = [];  // { name, handIdx, cardIdx }
 
-  // Determine number of rounds dealt (usually 2)
+  // Max cards any hand/dealer has (normally 2)
   const maxCards = Math.max(
     ...((state.table || []).flatMap(s => (s.hands || []).map(h => (h.cards || []).length))),
-    (state.dealer_hand && state.dealer_hand.cards ? state.dealer_hand.cards.length : 0)
+    (state.dealer_hand && state.dealer_hand.cards ? state.dealer_hand.cards.length : 0),
+    0
   );
 
+  // Build sequence: for each round → every hand of every player → dealer
+  const seq = [];
   for (let round = 0; round < maxCards; round++) {
     for (const name of order) {
-      seq.push({ name, isDealer: false, cardIdx: round });
+      const seat = byName[name];
+      const numHands = seat ? (seat.hands || []).length : 1;
+      for (let hi = 0; hi < numHands; hi++) {
+        seq.push({ name, handIdx: hi, cardIdx: round, isDealer: false });
+      }
     }
-    seq.push({ name: "__dealer__", isDealer: true, cardIdx: round });
+    seq.push({ isDealer: true, cardIdx: round });
   }
+
+  // Index seat DOM elements by player name using play_order index.
+  // renderPlayers() renders in play_order order, so seat[i] == order[i].
+  const seatEls  = Array.from(document.querySelectorAll("#left-col .seat"));
+  const seatMap  = {};
+  order.forEach((name, i) => {
+    if (seatEls[i]) seatMap[name.toLowerCase()] = seatEls[i];
+  });
 
   const els = [];
   for (const step of seq) {
@@ -1094,19 +1209,12 @@ function _collectNewCardEls(state) {
       const cardEls = panel.querySelectorAll(".card-el");
       if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
     } else {
-      // Players are rendered as .seat blocks inside #left-col.
-      // Name lives in .seat-name; hands in .hand-block; cards in .card-el.
-      const seats = document.querySelectorAll("#left-col .seat");
-      for (const seat of seats) {
-        const nameEl = seat.querySelector(".seat-name");
-        if (nameEl && nameEl.textContent.trim().toLowerCase().startsWith(step.name.toLowerCase())) {
-          const hb = seat.querySelectorAll(".hand-block")[0];
-          if (!hb) break;
-          const cardEls = hb.querySelectorAll(".card-el");
-          if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
-          break;
-        }
-      }
+      const seat = seatMap[step.name.toLowerCase()];
+      if (!seat) continue;
+      const hb = seat.querySelectorAll(".hand-block")[step.handIdx];
+      if (!hb) continue;
+      const cardEls = hb.querySelectorAll(".card-el");
+      if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
     }
   }
   return els;
@@ -1560,8 +1668,8 @@ function sendDigitalPlay(action) {
     // Immediate optimistic feedback — highlight button + update vote display NOW
     // (will be confirmed/corrected once the server responds)
     const ACT_LBL = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
-    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
-    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
+    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
       if (b.textContent.trim() === (ACT_LBL[action] || action.toUpperCase()))
         b.classList.add("voted");
     });
@@ -1602,11 +1710,11 @@ async function sendPreselect(action, hand) {
       applyState(data);
     } else {
       // Vote was rejected — clear optimistic highlight and show reason
-      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
+      document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
       if (vd) { vd.textContent = `Vote failed: ${data.error || "not registered"}`; vd.style.display = "block"; }
     }
   } catch (_) {
-    document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => b.classList.remove("voted"));
+    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
     if (vd) { vd.textContent = "Vote failed: network error"; vd.style.display = "block"; }
   }
 }
@@ -1720,20 +1828,28 @@ function applyState(state) {
     autoSwitchDigTab(state);
     updateInsuranceVisibility(state);
     updateHandLocks(state);
-    updateActionButtons(state);  // disable SPLIT/DOUBLE when not valid
     updateRoundPane(state);
     updateBestPlay(state);
-    updateRoleUI(state);         // role hint + vote display
   }
 
   if (isDeal) {
-    // animateDeal renders state itself in sequence — don't render twice
+    // animateDeal renders state itself card-by-card — don't render twice.
+    // _dealAnimating flag prevents polls from overwriting cards mid-animation.
     animateDeal(state);
+  } else if (_dealAnimating) {
+    // Animation is in progress — skip render to avoid interrupting it.
+    // (applyState still ran above for log, ticker, buttons, etc.)
   } else {
     renderDealer(state);
     renderPlayers(state);
     syncAllHandButtons();
     applyTurnGate(state);
+    if (gameMode === "digital") {
+      // Must run AFTER applyTurnGate — both set disabled on action buttons,
+      // and these two have final say (vote lock, hand validity).
+      updateActionButtons(state);  // disable SPLIT/DOUBLE when not valid
+      updateRoleUI(state);         // role hint, vote lock, inactive-player gate
+    }
   }
 }
 
@@ -1748,7 +1864,7 @@ function updateActionButtons(state) {
 
   const canDouble = (activeHand.cards || []).length === 2 && !activeHand.doubled;
 
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     const lbl = b.textContent.trim();
     if (lbl === "SPLIT")  b.classList.toggle("disabled", !activeHand.can_split);
     if (lbl === "DOUBLE") b.classList.toggle("disabled", !canDouble);
@@ -1773,12 +1889,12 @@ const BS_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
 
 function updateBestPlay(state) {
   // Clear any previous highlight
-  document.querySelectorAll("#pane-dig-play .btn.best").forEach(b => b.classList.remove("best"));
+  document.querySelectorAll("#dig-action-row1 .btn.best, #dig-action-row2 .btn.best").forEach(b => b.classList.remove("best"));
   if (!state || state.phase !== "playing" || !state.best_play) return;
   const label = BS_LABEL[state.best_play];
   if (!label) return;
   // Find the matching action button and highlight it
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     if (b.textContent.trim() === label) b.classList.add("best");
   });
 }
@@ -1815,8 +1931,12 @@ function updateRoundPane(state) {
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  if (phase === "pre-deal")   activateDigTab("dig-deal");
-  else if (phase === "playing") activateDigTab("dig-play");
+  // Don't yank the user away from the Deal tab if they have Last Round open
+  const lrPanel = document.getElementById("last-round-panel");
+  const lrOpen  = lrPanel && lrPanel.style.display === "block";
+  if (lrOpen && phase === "playing") return;   // stay on Deal tab
+  if (phase === "pre-deal")        activateDigTab("dig-deal");
+  else if (phase === "playing")    activateDigTab("dig-play");
   else if (phase === "round-over") activateDigTab("dig-round");
 }
 
@@ -1900,34 +2020,41 @@ function renderDealer(state) {
     root.innerHTML = `<span style="font-size:11px;color:var(--muted)">Dealer hand will appear here</span>`;
     return;
   }
-  const dh    = state.dealer_hand;
-  const score = dh.hidden ? "?" : dh.score;
+  const dh             = state.dealer_hand;
+  const dealerName     = state.dealer || "";
+  // Sum dealer-role sips across ALL players (any player can be dealer across rounds)
+  const dealerRoleSips = Object.values(state.dealer_role_sips || {}).reduce((a, b) => a + b, 0);
+  const drinking       = state.drinking_mode !== false;
+
+  // Header: name + sip badge (same pattern as player seat header)
+  const sipBadge = (drinking && dealerRoleSips > 0)
+    ? `<span class="seat-sip-badge">🍺 ${dealerRoleSips}</span>` : "";
 
   const hdr = document.createElement("div");
   hdr.className = "dp-header";
   hdr.innerHTML = `
-    <div><span class="dp-name">Dealer</span><span class="dp-role">${state.dealer || ""}</span></div>
-    <div class="dp-score">Score: <b>${score}</b></div>`;
+    <div><span class="dp-name">Dealer</span><span class="dp-role">${dealerName}</span></div>
+    <div>${sipBadge}</div>`;
   root.appendChild(hdr);
 
+  // Cards row
   const cards = document.createElement("div");
   cards.className = "dp-cards";
   (dh.cards || []).forEach(c => cards.appendChild(cardEl(c)));
   root.appendChild(cards);
 
-  if (dh.blackjack) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--yellow)";
-    t.textContent = "★ BLACKJACK"; root.appendChild(t);
-  } else if (dh.bust) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--red)";
-    t.textContent = "✕ BUST"; root.appendChild(t);
-  } else if (dh.done && !dh.hidden) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--muted)";
-    t.textContent = `Stands at ${score}`; root.appendChild(t);
+  // Score + result tags below cards — same hand-meta style as player hands
+  const meta = document.createElement("div");
+  meta.className = "hand-meta";
+  const tags = [];
+  if (!dh.hidden && dh.score !== null && dh.score !== undefined && (dh.cards || []).length > 0) {
+    tags.push(`<span class="score">${dh.score}</span>`);
   }
+  if (dh.blackjack)            tags.push(`<span class="bj">BJ</span>`);
+  else if (dh.bust)            tags.push(`<span class="bust">BUST</span>`);
+  else if (dh.done && !dh.hidden) tags.push(`<span class="stood">STAND</span>`);
+  meta.innerHTML = tags.join("");
+  if (tags.length) root.appendChild(meta);
 }
 
 function renderPlayers(state) {
@@ -1988,7 +2115,7 @@ function applyTurnGate(state) {
   });
 
   // Disable all action buttons while an NPC is taking its turn
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
+  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     b.classList.toggle("disabled", !!isNpcTurn);
   });
 
@@ -2115,7 +2242,13 @@ function switchDigTab(name, el) {
 // ============================================================
 // NEW ROUND MODAL
 // ============================================================
-let _modalSuggestRotate = false;   // cached suggestion for "Deal Cards Now"
+let _modalRotate = false;   // tracks current selection (rotate=true / keep=false)
+
+function selectModalDealer(rotate) {
+  _modalRotate = rotate;
+  document.getElementById("modal-rotate-btn").className = "btn wide" + ( rotate ? " sel" : "");
+  document.getElementById("modal-keep-btn").className   = "btn wide" + (!rotate ? " sel" : "");
+}
 
 function openNewRound() {
   const state       = lastState || {};
@@ -2125,8 +2258,6 @@ function openNewRound() {
   const dealer      = state.dealer         || "";
   const roundsTD    = state.rounds_this_dealer || 1;
   const numPlayers  = (state.players || []).length;
-
-  _modalSuggestRotate = suggest;
 
   document.getElementById("modal-title").textContent = `Round ${nextRound}`;
   document.getElementById("modal-dealer-info").textContent =
@@ -2139,23 +2270,18 @@ function openNewRound() {
     reasonEl.style.color       = "var(--yellow)";
     reasonEl.style.border      = "1px solid rgba(245,200,66,.3)";
     reasonEl.textContent       = "⚡ " + reason + " — rotation suggested";
-  } else {
+  } else if (reason) {
     reasonEl.style.display     = "";
     reasonEl.style.background  = "rgba(122,127,150,.08)";
     reasonEl.style.color       = "var(--muted)";
     reasonEl.style.border      = "1px solid var(--border)";
     reasonEl.textContent       = reason;
+  } else {
+    reasonEl.style.display     = "none";
   }
 
-  // Highlight the suggested button
-  const rotateBtn = document.getElementById("modal-rotate-btn");
-  const keepBtn   = document.getElementById("modal-keep-btn");
-  rotateBtn.className = "btn wide" + (suggest ? " green" : "");
-  keepBtn.className   = "btn wide" + (!suggest ? " sel" : "");
-
-  // "Deal Cards Now" label
-  document.getElementById("modal-deal-btn").textContent =
-    suggest ? "↺ Rotate & Deal Cards" : "Deal Cards (keep dealer)";
+  // Pre-select the suggested option
+  selectModalDealer(suggest);
 
   document.getElementById("modal-overlay").classList.add("open");
 }
@@ -2190,84 +2316,156 @@ async function doNewRound(rotate) {
   }
 }
 
-async function doNewRoundAndDeal() {
-  closeModal();
-  clearPeekedCard();
-  await sendCmd(_modalSuggestRotate ? "newround rotate" : "newround keep");
-  buildGameUI();
-  await sendCmd("deal");
-}
-
 // ============================================================
 // ROLE-BASED UI
 // ============================================================
 const VOTE_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
 
-function updateRoleUI(state) {
-  const hint      = document.getElementById("dig-play-role-hint");
-  const voteDisp  = document.getElementById("player-vote-display");
-  const phase     = state.phase;
-  const turn      = state.current_turn;
-  const presel    = state.preselections || {};
+let _suggestPickerOpen = false;
 
-  // Role hint text
-  if (hint) {
-    if (isMyDealerClient) {
-      hint.textContent = phase === "playing" ? "You are the dealer — tap to execute actions." : "";
-    } else if (myRole === "player") {
-      hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
-    } else {
-      hint.textContent = "Spectating — watching only.";
+function toggleSuggestPicker() {
+  _suggestPickerOpen = !_suggestPickerOpen;
+  const picker = document.getElementById("suggest-picker");
+  const btn    = document.getElementById("suggest-toggle-btn");
+  if (picker) picker.style.display = _suggestPickerOpen ? "" : "none";
+  if (btn)    btn.textContent = _suggestPickerOpen ? "✕ Cancel suggestion" : "💬 Suggest different action";
+}
+
+async function sendSuggest(action) {
+  const turn = (lastState && lastState.current_turn) || "";
+  const hand = (sel.digital.hand || "hand1").toLowerCase();
+  if (!turn) return;
+  try {
+    const res  = await fetch("/suggest_action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: turn, hand, action }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      _suggestPickerOpen = false;
+      applyState(data);
     }
+  } catch (_) {}
+}
+
+async function respondSuggest(accept) {
+  const hand = (sel.digital.hand || "hand1").toLowerCase();
+  try {
+    const res  = await fetch("/respond_suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, hand, accept }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+function updateRoleUI(state) {
+  const hint         = document.getElementById("dig-play-role-hint");
+  const voteDisp     = document.getElementById("player-vote-display");
+  const suggestBanner= document.getElementById("suggest-banner");
+  const suggestText  = document.getElementById("suggest-text");
+  const suggestPicker= document.getElementById("suggest-picker");
+  const suggestToggle= document.getElementById("suggest-toggle-row");
+  const phase        = state.phase;
+  const turn         = state.current_turn;
+  const presel       = state.preselections || {};
+  const suggestions  = state.suggestions   || {};
+
+  const actionSel = "#dig-action-row1 .btn, #dig-action-row2 .btn";
+
+  // Clear all highlights
+  document.querySelectorAll("#dig-action-row1 .btn.voted,       #dig-action-row2 .btn.voted").forEach(b => b.classList.remove("voted"));
+  document.querySelectorAll("#dig-action-row1 .btn.voted-dealer, #dig-action-row2 .btn.voted-dealer").forEach(b => b.classList.remove("voted-dealer"));
+
+  // Hide suggest UI by default
+  if (suggestBanner) suggestBanner.style.display = "none";
+  if (suggestPicker) suggestPicker.style.display  = "none";
+  if (suggestToggle) suggestToggle.style.display  = "none";
+  if (voteDisp)      voteDisp.style.display       = "none";
+
+  // Role hint
+  if (hint) {
+    if (isMyDealerClient)       hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
+    else if (myRole === "player") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
+    else                          hint.textContent = "Spectating — watching only.";
   }
 
-  // Spectators: disable all action buttons
-  document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
-    if (myRole === "spectator" || !myRole) b.classList.add("disabled");
-  });
-
-  // Clear previous voted highlight
-  document.querySelectorAll("#pane-dig-play .btn.voted").forEach(b => b.classList.remove("voted"));
-
-  if (!voteDisp) return;
-
-  if (phase !== "playing" || !turn) {
-    voteDisp.style.display = "none";
+  // Spectators: disable everything and stop
+  if (myRole === "spectator" || !myRole) {
+    document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
     return;
   }
 
+  if (phase !== "playing" || !turn) return;
+
+  // ── DEALER VIEW ──────────────────────────────────────────────
   if (isMyDealerClient) {
-    // Dealer sees the current player's vote
     const hand = (sel.digital.hand || "hand1").toLowerCase();
     const key  = `${turn.toLowerCase()}:${hand}`;
     const vote = presel[key];
-    voteDisp.textContent  = vote
-      ? `${turn} votes: ${VOTE_LABEL[vote] || vote}`
-      : `${turn} — no vote yet`;
-    voteDisp.style.display = "block";
-    // Highlight the voted button so dealer knows exactly what to tap
+
+    if (voteDisp) {
+      voteDisp.textContent   = vote ? `${turn} voted: ${VOTE_LABEL[vote]}` : `${turn} — no vote yet`;
+      voteDisp.style.display = "block";
+    }
+
     if (vote) {
-      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
-        if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+      // Lock dealer to voted action; highlight it yellow
+      document.querySelectorAll(actionSel).forEach(b => {
+        const lbl = b.textContent.trim();
+        if (lbl === VOTE_LABEL[vote]) {
+          b.classList.add("voted-dealer");
+          b.classList.remove("disabled");
+        } else if (["HIT","STAND","DOUBLE","SPLIT"].includes(lbl)) {
+          b.classList.add("disabled");
+        }
+      });
+      // Show suggest-different toggle
+      if (suggestToggle) suggestToggle.style.display = "";
+      if (suggestPicker) suggestPicker.style.display = _suggestPickerOpen ? "" : "none";
+    }
+    // No vote → all buttons available; split/double still gated by updateActionButtons
+
+  // ── PLAYER VIEW ──────────────────────────────────────────────
+  } else if (myRole === "player") {
+    const isMyTurn = myName && turn.toLowerCase() === myName.toLowerCase();
+
+    // Not your turn → grey everything out, done
+    if (!isMyTurn) {
+      document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+      return;
+    }
+
+    const hand       = (sel.digital.hand || "hand1").toLowerCase();
+    const key        = `${myName.toLowerCase()}:${hand}`;
+    const vote       = presel[key];
+    const suggestion = suggestions[key];
+
+    // Incoming dealer suggestion: show banner + highlight that button yellow
+    if (suggestion) {
+      if (suggestBanner && suggestText) {
+        suggestText.textContent = `Dealer suggests: ${VOTE_LABEL[suggestion] || suggestion} — do you agree?`;
+        suggestBanner.style.display = "";
+      }
+      document.querySelectorAll(actionSel).forEach(b => {
+        if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
       });
     }
-  } else if (myRole === "player" && myName && turn.toLowerCase() === myName.toLowerCase()) {
-    // Non-dealer player on their own turn — show their vote
-    const hand = (sel.digital.hand || "hand1").toLowerCase();
-    const key  = `${myName.toLowerCase()}:${hand}`;
-    const vote = presel[key];
-    // Highlight the voted action button
-    if (vote) {
-      document.querySelectorAll("#pane-dig-play .btn-row .btn").forEach(b => {
-        if (b.textContent.trim() === (VOTE_LABEL[vote] || vote)) b.classList.add("voted");
-      });
-      voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
-    } else {
-      voteDisp.textContent = "Tap to vote your play";
+
+    if (voteDisp) {
+      if (vote) {
+        document.querySelectorAll(actionSel).forEach(b => {
+          if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+        });
+        voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
+      } else {
+        voteDisp.textContent = "Tap to vote your play";
+      }
+      voteDisp.style.display = "block";
     }
-    voteDisp.style.display = "block";
-  } else {
-    voteDisp.style.display = "none";
   }
 }
 
@@ -2350,32 +2548,133 @@ async function doSpectate() {
 // ============================================================
 // KICK
 // ============================================================
+function setAnimToggle(on) {
+  lsSet("bjDealAnim", on ? "1" : "0");
+  // Sync both pill toggles (checkbox + ON/OFF labels)
+  [["anim-toggle", "anim-lbl-setup", "anim-lbl-setup-on"],
+   ["anim-toggle-modal", "anim-lbl-modal", "anim-lbl-modal-on"]].forEach(([cbId, offId, onId]) => {
+    const cb = document.getElementById(cbId);
+    if (cb) cb.checked = on;
+    const lblOff = document.getElementById(offId);
+    const lblOn  = document.getElementById(onId);
+    if (lblOff) lblOff.style.display = on ? "none"   : "inline";
+    if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
+  });
+}
+
 function openKickModal() {
   const overlay = document.getElementById("kick-overlay");
   const list    = document.getElementById("kick-list");
   if (!overlay || !list || !lastState) return;
 
-  const clients = lastState.connected_clients || [];
+  // Sync animation toggle to current setting
+  const cb = document.getElementById("anim-toggle-modal");
+  if (cb) cb.checked = lsGet("bjDealAnim") !== "0";
+
+  const clients      = lastState.connected_clients || [];
+  const tablePlayers = lastState.table || [];
+  const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
+  const myNameLc     = (myName || "").toLowerCase();
+
   list.innerHTML = "";
 
-  const others = clients.filter(c => c.name && c.name !== myName);
-  if (others.length === 0) {
-    list.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:8px 0">No other players connected yet.</p>`;
+  // Collect all seats (excluding self) plus spectators not in seats
+  const seatedNames = new Set(tablePlayers.map(s => s.name.toLowerCase()));
+  const rows = [];
+
+  tablePlayers.forEach(seat => {
+    if (seat.name.toLowerCase() === myNameLc) return;  // skip self
+    rows.push({ name: seat.name, isBot: !!seat.is_npc,
+                connected: connectedSet.has(seat.name.toLowerCase()), seated: true });
+  });
+
+  clients.forEach(c => {
+    if (!c.name || c.name.toLowerCase() === myNameLc) return;
+    if (seatedNames.has(c.name.toLowerCase())) return;  // already in rows above
+    rows.push({ name: c.name, isBot: false, connected: true, seated: false, spectator: true });
+  });
+
+  if (rows.length === 0) {
+    list.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:8px 0">No other players in session.</p>`;
   } else {
-    others.forEach(c => {
-      const row     = document.createElement("div");
-      row.className = "kick-row";
-      const roleTxt = c.role === "spectator" ? " (spectating)" : "";
-      row.innerHTML = `<span><span class="kick-name">${c.name}</span><span class="kick-role">${roleTxt}</span></span>`;
-      const btn     = document.createElement("button");
-      btn.className = "btn kick-btn";
-      btn.textContent = "Kick";
-      btn.onclick   = () => doKick(c.name);
-      row.appendChild(btn);
+    rows.forEach(r => {
+      const row      = document.createElement("div");
+      row.className  = "kick-row";
+      const statusTxt = r.isBot ? " 🤖 bot"
+                      : r.spectator ? " (spectating)"
+                      : !r.connected ? " (disconnected)" : "";
+      row.innerHTML  = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${statusTxt}</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+
+      if (r.seated && !r.isBot) {
+        const botBtn      = document.createElement("button");
+        botBtn.className  = "btn";
+        botBtn.textContent = "🤖 Bot";
+        botBtn.title      = "Auto-play for this player";
+        botBtn.onclick    = () => doMakeBot(r.name);
+        btns.appendChild(botBtn);
+      }
+      if (r.connected && !r.isBot) {
+        const kickBtn      = document.createElement("button");
+        kickBtn.className  = "btn kick-btn";
+        kickBtn.textContent = "Kick";
+        kickBtn.onclick    = () => doKick(r.name);
+        btns.appendChild(kickBtn);
+      }
       list.appendChild(row);
     });
   }
+  // Transfer admin list — connected non-bot players only
+  const transferList = document.getElementById("transfer-admin-list");
+  if (transferList) {
+    transferList.innerHTML = "";
+    const candidates = rows.filter(r => r.connected && !r.isBot);
+    if (candidates.length === 0) {
+      transferList.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:4px 0">No connected players to transfer to.</p>`;
+    } else {
+      candidates.forEach(r => {
+        const row     = document.createElement("div");
+        row.className = "kick-row";
+        row.innerHTML = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${r.spectator ? " (spectating)" : ""}</span></span>`;
+        const btn      = document.createElement("button");
+        btn.className  = "btn";
+        btn.textContent = "👑 Make Admin";
+        btn.onclick    = () => doTransferAdmin(r.name);
+        row.appendChild(btn);
+        transferList.appendChild(row);
+      });
+    }
+  }
+
   overlay.style.display = "flex";
+}
+
+async function doTransferAdmin(targetName) {
+  if (!confirm(`Transfer admin to ${targetName}?\nYou will lose admin controls.`)) return;
+  try {
+    const res  = await fetch("/transfer_admin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) { closeKickModal(); applyState(data); }
+    else         { alert(data.error || "Could not transfer admin."); }
+  } catch (_) { alert("Network error."); }
+}
+
+async function doMakeBot(targetName) {
+  if (!confirm(`Convert ${targetName} to a bot?\nThey will auto-play for the rest of the session.`)) return;
+  try {
+    const res  = await fetch("/make_bot", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) { closeKickModal(); applyState(data); }
+    else         { alert(data.error || "Could not convert player to bot."); }
+  } catch (_) { alert("Network error."); }
 }
 
 async function doKick(targetName) {
@@ -2394,6 +2693,61 @@ async function doKick(targetName) {
 
 function closeKickModal() {
   const overlay = document.getElementById("kick-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+// ============================================================
+// FINAL SUMMARY
+// ============================================================
+async function showSessionSummary() {
+  const overlay = document.getElementById("summary-overlay");
+  const meta    = document.getElementById("summary-meta");
+  const body    = document.getElementById("summary-body");
+  if (!overlay) return;
+
+  meta.textContent = "Loading…";
+  body.innerHTML   = "";
+  overlay.style.display = "flex";
+
+  try {
+    const res  = await fetch(`/summary_json?room_code=${encodeURIComponent(roomCode)}&_=${Date.now()}`);
+    const data = await res.json();
+
+    if (!data.ok || !data.players || !data.players.length) {
+      meta.textContent = "No drink data yet — play some rounds first.";
+      return;
+    }
+
+    meta.textContent = `${data.rounds} round${data.rounds !== 1 ? "s" : ""} completed`;
+
+    const tbl = document.createElement("table");
+    tbl.id = "summary-table";
+    tbl.innerHTML = `
+      <thead><tr>
+        <th>Player</th>
+        <th>As player</th>
+        <th>As dealer</th>
+        <th>Total 🍺</th>
+      </tr></thead>`;
+    const tb = document.createElement("tbody");
+    data.players.forEach(p => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight:600">${p.name}</td>
+        <td>${p.player_sips}</td>
+        <td>${p.dealer_sips}</td>
+        <td class="sum-total">${p.total_sips}</td>`;
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    body.appendChild(tbl);
+  } catch (_) {
+    meta.textContent = "Could not load summary — check connection.";
+  }
+}
+
+function closeSummaryModal() {
+  const overlay = document.getElementById("summary-overlay");
   if (overlay) overlay.style.display = "none";
 }
 
@@ -2432,8 +2786,7 @@ function resetToSetup() {
 // ============================================================
 (async () => {
   // Restore deal-animation toggle from localStorage (default: on)
-  const animCb = document.getElementById("anim-toggle");
-  if (animCb) animCb.checked = lsGet("bjDealAnim") !== "0";
+  setAnimToggle(lsGet("bjDealAnim") !== "0");
 
   // Generate or load persistent client UUID
   let savedId = lsGet("bjClientId");
