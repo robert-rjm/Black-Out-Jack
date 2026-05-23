@@ -545,7 +545,7 @@
   #register-card p  { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
   #register-seats   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
   /* ---- KICK OVERLAY ---- */
-  #kick-overlay {
+  #kick-overlay, #summary-overlay {
     display: none;
     position: fixed; inset: 0;
     background: rgba(0,0,0,.75);
@@ -555,15 +555,22 @@
     justify-content: center;
     padding: 24px;
   }
-  #kick-card {
+  #kick-card, #summary-card {
     background: var(--surface);
     border-radius: 16px;
     padding: 20px;
-    width: 100%; max-width: 360px;
+    width: 100%; max-width: 380px;
     border: 1px solid var(--border);
-    max-height: 70vh; overflow-y: auto;
+    max-height: 80vh; overflow-y: auto;
   }
-  #kick-card h3  { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+  #kick-card h3, #summary-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+  /* Summary table */
+  #summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+  #summary-table th { text-align: right; padding: 4px 6px; color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing:.04em; }
+  #summary-table th:first-child { text-align: left; }
+  #summary-table td { padding: 6px 6px; border-top: 1px solid var(--border); }
+  #summary-table td:not(:first-child) { text-align: right; }
+  #summary-table .sum-total { font-weight: 800; color: var(--yellow); }
   #kick-list     { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
   .kick-row      { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
   .kick-row:last-child { border-bottom: none; }
@@ -779,7 +786,7 @@
         </div>
         <div class="btn-row">
           <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
-          <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+          <button class="btn wide" onclick="showSessionSummary()">📊 Final Summary</button>
         </div>
         <div class="btn-row">
           <button class="btn wide" onclick="sendCmd('fouraces firstdeal')">4 ACES (DEAL)</button>
@@ -838,7 +845,7 @@
         <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
         <div class="btn-row">
           <button class="btn wide" id="btn-peek" onclick="sendCmd('peek')" style="display:none">🃏 Next card?</button>
-          <button class="btn wide" onclick="sendCmd('help')">HELP</button>
+          <button class="btn wide" onclick="showSessionSummary()">📊 Final Summary</button>
         </div>
         <div class="btn-row">
           <button class="btn wide" onclick="exportDrinkCSV()">📊 Export Drinks CSV</button>
@@ -902,6 +909,19 @@
     <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">PLAYERS IN SESSION</div>
     <div id="kick-list"></div>
     <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
+  </div>
+</div>
+
+<!-- ===== FINAL SUMMARY OVERLAY ===== -->
+<div id="summary-overlay">
+  <div id="summary-card">
+    <h3>🃏 Session Summary</h3>
+    <div id="summary-meta" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+    <div id="summary-body"></div>
+    <div class="btn-row" style="margin-top:4px">
+      <button class="btn wide" onclick="closeSummaryModal()">Close</button>
+      <button class="btn red wide" onclick="closeSummaryModal(); resetToSetup()">🏠 Back to Lobby</button>
+    </div>
   </div>
 </div>
 
@@ -1966,14 +1986,26 @@ function renderDealer(state) {
     root.innerHTML = `<span style="font-size:11px;color:var(--muted)">Dealer hand will appear here</span>`;
     return;
   }
-  const dh    = state.dealer_hand;
-  const score = dh.hidden ? "?" : dh.score;
+  const dh         = state.dealer_hand;
+  const dealerName = state.dealer || "";
+  const dealerRoleSips = (state.dealer_role_sips || {})[dealerName] || 0;
+
+  // While hole card is hidden show how many sips the current dealer has
+  // accumulated in the dealer role across the whole session.
+  let scoreHtml;
+  if (dh.hidden) {
+    scoreHtml = dealerRoleSips > 0
+      ? `🍺 <b>${dealerRoleSips}</b> sip${dealerRoleSips !== 1 ? "s" : ""} as dealer`
+      : `<span style="color:var(--muted)">0 sips as dealer</span>`;
+  } else {
+    scoreHtml = `Score: <b>${dh.score}</b>`;
+  }
 
   const hdr = document.createElement("div");
   hdr.className = "dp-header";
   hdr.innerHTML = `
-    <div><span class="dp-name">Dealer</span><span class="dp-role">${state.dealer || ""}</span></div>
-    <div class="dp-score">Score: <b>${score}</b></div>`;
+    <div><span class="dp-name">Dealer</span><span class="dp-role">${dealerName}</span></div>
+    <div class="dp-score">${scoreHtml}</div>`;
   root.appendChild(hdr);
 
   const cards = document.createElement("div");
@@ -2478,6 +2510,61 @@ async function doKick(targetName) {
 
 function closeKickModal() {
   const overlay = document.getElementById("kick-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+// ============================================================
+// FINAL SUMMARY
+// ============================================================
+async function showSessionSummary() {
+  const overlay = document.getElementById("summary-overlay");
+  const meta    = document.getElementById("summary-meta");
+  const body    = document.getElementById("summary-body");
+  if (!overlay) return;
+
+  meta.textContent = "Loading…";
+  body.innerHTML   = "";
+  overlay.style.display = "flex";
+
+  try {
+    const res  = await fetch(`/summary_json?room_code=${encodeURIComponent(roomCode)}&_=${Date.now()}`);
+    const data = await res.json();
+
+    if (!data.ok || !data.players || !data.players.length) {
+      meta.textContent = "No drink data yet — play some rounds first.";
+      return;
+    }
+
+    meta.textContent = `${data.rounds} round${data.rounds !== 1 ? "s" : ""} completed`;
+
+    const tbl = document.createElement("table");
+    tbl.id = "summary-table";
+    tbl.innerHTML = `
+      <thead><tr>
+        <th>Player</th>
+        <th>As player</th>
+        <th>As dealer</th>
+        <th>Total 🍺</th>
+      </tr></thead>`;
+    const tb = document.createElement("tbody");
+    data.players.forEach(p => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight:600">${p.name}</td>
+        <td>${p.player_sips}</td>
+        <td>${p.dealer_sips}</td>
+        <td class="sum-total">${p.total_sips}</td>`;
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    body.appendChild(tbl);
+  } catch (_) {
+    meta.textContent = "Could not load summary — check connection.";
+  }
+}
+
+function closeSummaryModal() {
+  const overlay = document.getElementById("summary-overlay");
   if (overlay) overlay.style.display = "none";
 }
 

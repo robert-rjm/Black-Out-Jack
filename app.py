@@ -118,12 +118,12 @@ def _classify_rule(reason: str):
     if "Dealer hand is all" in r:             return "Dealer suited hand"
     if "handed" in r and "5-card 21" in r:   return "5-card 21 handout received"
     if "won with" in r and "cards" in r:      return "5+ card win"
-    if "A♠" in r and "to dealer" in r:       return "Ace dealt: A♠ (dealer hand)"
-    if "A♥" in r and "dealer" in r:          return "Ace dealt: A♥ (dealer hand)"
-    if "A♦" in r and "dealer" in r:          return "Ace dealt: A♦ (dealer hand)"
-    if "A♠" in r:                            return "Ace dealt: A♠ (player hand)"
-    if "A♥" in r:                            return "Ace dealt: A♥ (player hand)"
-    if "A♦" in r:                            return "Ace dealt: A♦ (player hand)"
+    if "A♠" in r and "to dealer" in r:       return "Ace dealt: Ace of Spades (dealer hand)"
+    if "A♥" in r and "dealer" in r:          return "Ace dealt: Ace of Hearts (dealer hand)"
+    if "A♦" in r and "dealer" in r:          return "Ace dealt: Ace of Diamonds (dealer hand)"
+    if "A♠" in r:                            return "Ace dealt: Ace of Spades (player hand)"
+    if "A♥" in r:                            return "Ace dealt: Ace of Hearts (player hand)"
+    if "A♦" in r:                            return "Ace dealt: Ace of Diamonds (player hand)"
     return "Other"
 
 
@@ -164,6 +164,16 @@ def _harvest_drink_log(session: RefereeSession):
                 ticker[p.name] = ticker.get(p.name, 0) + sips
     session._sip_ticker          = ticker
     session._drink_log_harvested = True
+
+    # Track cumulative dealer-role sips separately (shown in dealer panel)
+    d_ticker = getattr(session, "_dealer_role_ticker", {})
+    for p in session.all_players:
+        for entry in p.drink_log:
+            sips = entry[0] if entry else 0
+            role = entry[2] if len(entry) > 2 else "player"
+            if sips > 0 and role == "dealer":
+                d_ticker[p.name] = d_ticker.get(p.name, 0) + sips
+    session._dealer_role_ticker = d_ticker
 
     # Snapshot this round's per-player sip totals for the "Last Round" panel
     last = {}
@@ -459,7 +469,9 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "sip_totals":        _compute_sip_totals(session),
         "sip_grand_total":   sum(_compute_sip_totals(session).values()),
         # Last completed round's sip counts per player
-        "last_round_sips":   getattr(session, "_last_round_sips", {}),
+        "last_round_sips":     getattr(session, "_last_round_sips", {}),
+        # Cumulative sips earned while acting as the dealer role
+        "dealer_role_sips":    getattr(session, "_dealer_role_ticker", {}),
         # Pre-selected player actions
         "preselections":     getattr(session, "_preselections", {}),
         # All connected clients (for registration overlay)
@@ -893,6 +905,7 @@ def setup():
     game_session._sip_ticker             = {}
     game_session._drink_log_harvested    = False
     game_session._last_round_sips        = {}   # per-player sips in the last completed round
+    game_session._dealer_role_ticker     = {}   # cumulative sips earned while acting as dealer
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
     game_session._preselections = {}
@@ -1450,6 +1463,41 @@ def export_csv():
         mimetype="text/csv",
         headers={"Content-Disposition": 'attachment; filename="drinks_summary.csv"'},
     )
+
+
+@app.route("/summary_json")
+def summary_json():
+    """Return session drink summary as JSON for on-screen display."""
+    room_code = request.args.get("room_code", "")
+    session   = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    rows       = getattr(session, "_drink_csv_rows", [])
+    num_rounds = max((r["round"] for r in rows), default=0)
+
+    player_sips: dict[str, int] = defaultdict(int)
+    dealer_sips: dict[str, int] = defaultdict(int)
+    players_seen: list[str]     = []
+
+    for row in rows:
+        name = row["player"]
+        if name not in players_seen:
+            players_seen.append(name)
+        if row["role"] == "dealer":
+            dealer_sips[name] += row["sips"]
+        else:
+            player_sips[name] += row["sips"]
+
+    summary = []
+    for name in players_seen:
+        ps = player_sips[name]
+        ds = dealer_sips[name]
+        summary.append({"name": name, "player_sips": ps,
+                         "dealer_sips": ds, "total_sips": ps + ds})
+    summary.sort(key=lambda x: -x["total_sips"])
+
+    return jsonify({"ok": True, "rounds": num_rounds, "players": summary})
 
 
 @app.route("/state")
