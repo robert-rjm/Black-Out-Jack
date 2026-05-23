@@ -1413,6 +1413,42 @@ def make_bot():
     return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
+@app.route("/transfer_admin", methods=["POST"])
+def transfer_admin():
+    """Admin hands admin role to another connected player.
+    Body: { room_code, client_id, target_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("target_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    # Find the target client
+    target_cid = next(
+        (cid for cid, info in clients.items()
+         if cid != client_id
+         and not info.get("kicked")
+         and (info.get("name") or "").lower() == target_name.lower()),
+        None,
+    )
+    if not target_cid:
+        return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+
+    # Transfer: demote old admin, promote new one
+    admin_info["role"]            = "player"
+    clients[target_cid]["role"]   = "admin"
+
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
 @app.route("/preselect", methods=["POST"])
 def preselect():
     """Player pre-votes their intended action. Dealer sees this in the UI.

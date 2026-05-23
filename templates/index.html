@@ -933,6 +933,11 @@
     <!-- Player management -->
     <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">PLAYERS IN SESSION</div>
     <div id="kick-list"></div>
+
+    <!-- Transfer admin -->
+    <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">TRANSFER ADMIN</div>
+    <div id="transfer-admin-list"></div>
+
     <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
   </div>
 </div>
@@ -2619,7 +2624,43 @@ function openKickModal() {
       list.appendChild(row);
     });
   }
+  // Transfer admin list — connected non-bot players only
+  const transferList = document.getElementById("transfer-admin-list");
+  if (transferList) {
+    transferList.innerHTML = "";
+    const candidates = rows.filter(r => r.connected && !r.isBot);
+    if (candidates.length === 0) {
+      transferList.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:4px 0">No connected players to transfer to.</p>`;
+    } else {
+      candidates.forEach(r => {
+        const row     = document.createElement("div");
+        row.className = "kick-row";
+        row.innerHTML = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${r.spectator ? " (spectating)" : ""}</span></span>`;
+        const btn      = document.createElement("button");
+        btn.className  = "btn";
+        btn.textContent = "👑 Make Admin";
+        btn.onclick    = () => doTransferAdmin(r.name);
+        row.appendChild(btn);
+        transferList.appendChild(row);
+      });
+    }
+  }
+
   overlay.style.display = "flex";
+}
+
+async function doTransferAdmin(targetName) {
+  if (!confirm(`Transfer admin to ${targetName}?\nYou will lose admin controls.`)) return;
+  try {
+    const res  = await fetch("/transfer_admin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) { closeKickModal(); applyState(data); }
+    else         { alert(data.error || "Could not transfer admin."); }
+  } catch (_) { alert("Network error."); }
 }
 
 async function doMakeBot(targetName) {
