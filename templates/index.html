@@ -2408,7 +2408,7 @@ function updateRoleUI(state) {
     }
 
     if (vote) {
-      // Lock dealer to the voted action only; highlight it yellow
+      // Lock dealer to voted action; highlight it yellow
       document.querySelectorAll(actionSel).forEach(b => {
         const lbl = b.textContent.trim();
         if (lbl === VOTE_LABEL[vote]) {
@@ -2422,7 +2422,7 @@ function updateRoleUI(state) {
       if (suggestToggle) suggestToggle.style.display = "";
       if (suggestPicker) suggestPicker.style.display = _suggestPickerOpen ? "" : "none";
     }
-    // No vote → all buttons available (split/double still gated by syncHandButtons)
+    // No vote → all buttons available; split/double still gated by updateActionButtons
 
   // ── PLAYER VIEW ──────────────────────────────────────────────
   } else if (myRole === "player") {
@@ -2566,27 +2566,74 @@ function openKickModal() {
   const cb = document.getElementById("anim-toggle-modal");
   if (cb) cb.checked = lsGet("bjDealAnim") !== "0";
 
-  const clients = lastState.connected_clients || [];
+  const clients      = lastState.connected_clients || [];
+  const tablePlayers = lastState.table || [];
+  const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
+  const myNameLc     = (myName || "").toLowerCase();
+
   list.innerHTML = "";
 
-  const others = clients.filter(c => c.name && c.name !== myName);
-  if (others.length === 0) {
-    list.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:8px 0">No other players connected yet.</p>`;
+  // Collect all seats (excluding self) plus spectators not in seats
+  const seatedNames = new Set(tablePlayers.map(s => s.name.toLowerCase()));
+  const rows = [];
+
+  tablePlayers.forEach(seat => {
+    if (seat.name.toLowerCase() === myNameLc) return;  // skip self
+    rows.push({ name: seat.name, isBot: !!seat.is_npc,
+                connected: connectedSet.has(seat.name.toLowerCase()), seated: true });
+  });
+
+  clients.forEach(c => {
+    if (!c.name || c.name.toLowerCase() === myNameLc) return;
+    if (seatedNames.has(c.name.toLowerCase())) return;  // already in rows above
+    rows.push({ name: c.name, isBot: false, connected: true, seated: false, spectator: true });
+  });
+
+  if (rows.length === 0) {
+    list.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:8px 0">No other players in session.</p>`;
   } else {
-    others.forEach(c => {
-      const row     = document.createElement("div");
-      row.className = "kick-row";
-      const roleTxt = c.role === "spectator" ? " (spectating)" : "";
-      row.innerHTML = `<span><span class="kick-name">${c.name}</span><span class="kick-role">${roleTxt}</span></span>`;
-      const btn     = document.createElement("button");
-      btn.className = "btn kick-btn";
-      btn.textContent = "Kick";
-      btn.onclick   = () => doKick(c.name);
-      row.appendChild(btn);
+    rows.forEach(r => {
+      const row      = document.createElement("div");
+      row.className  = "kick-row";
+      const statusTxt = r.isBot ? " 🤖 bot"
+                      : r.spectator ? " (spectating)"
+                      : !r.connected ? " (disconnected)" : "";
+      row.innerHTML  = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${statusTxt}</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+
+      if (r.seated && !r.isBot) {
+        const botBtn      = document.createElement("button");
+        botBtn.className  = "btn";
+        botBtn.textContent = "🤖 Bot";
+        botBtn.title      = "Auto-play for this player";
+        botBtn.onclick    = () => doMakeBot(r.name);
+        btns.appendChild(botBtn);
+      }
+      if (r.connected && !r.isBot) {
+        const kickBtn      = document.createElement("button");
+        kickBtn.className  = "btn kick-btn";
+        kickBtn.textContent = "Kick";
+        kickBtn.onclick    = () => doKick(r.name);
+        btns.appendChild(kickBtn);
+      }
       list.appendChild(row);
     });
   }
   overlay.style.display = "flex";
+}
+
+async function doMakeBot(targetName) {
+  if (!confirm(`Convert ${targetName} to a bot?\nThey will auto-play for the rest of the session.`)) return;
+  try {
+    const res  = await fetch("/make_bot", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) { closeKickModal(); applyState(data); }
+    else         { alert(data.error || "Could not convert player to bot."); }
+  } catch (_) { alert("Network error."); }
 }
 
 async function doKick(targetName) {
