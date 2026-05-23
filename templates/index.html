@@ -332,12 +332,30 @@
   .btn-big.green  { background: var(--green);  color: #000; }
   .btn-big.accent { background: var(--accent); color: #fff; }
 
-  /* ---- DEAL ANIMATION ---- */
-  @keyframes cardDeal {
-    from { opacity: 0; transform: translateY(-14px) scale(.88); }
-    to   { opacity: 1; transform: translateY(0)     scale(1);   }
+  /* ---- ANIMATION PILL TOGGLE ---- */
+  .pill-toggle-wrap { display:flex; align-items:center; gap:10px; }
+  .pill-toggle { position:relative; display:inline-block; width:62px; height:30px; flex-shrink:0; }
+  .pill-toggle input { opacity:0; width:0; height:0; position:absolute; }
+  .pill-slider {
+    position:absolute; inset:0; cursor:pointer;
+    background:#555; border-radius:30px; transition:background .2s;
   }
-  .card-deal-anim { animation: cardDeal .28s ease-out both; }
+  .pill-slider:before {
+    content:""; position:absolute;
+    height:24px; width:24px; left:3px; bottom:3px;
+    background:#fff; border-radius:50%; transition:transform .2s;
+  }
+  .pill-toggle input:checked + .pill-slider { background: var(--green, #4caf50); }
+  .pill-toggle input:checked + .pill-slider:before { transform: translateX(32px); }
+  .pill-label-off,.pill-label-on {
+    font-size:13px; font-weight:700; letter-spacing:.04em; pointer-events:none;
+  }
+  .pill-label-off { color: var(--muted); }
+  .pill-label-on  { color: var(--green, #4caf50); display:none; }
+  .pill-toggle input:checked ~ .pill-label-off { display:none; }
+  .pill-toggle input:checked ~ .pill-label-on  { display:inline; }
+
+  /* ---- DEAL ANIMATION (transition-based, no keyframes needed) ---- */
 
   /* ---- LAST ROUND DRINK SUMMARY ---- */
   #last-round-panel {
@@ -648,10 +666,16 @@
       <label>Decks in shoe</label>
       <input type="number" id="num-decks" value="1" min="1" max="8">
     </div>
-    <div class="field" style="max-width:none;display:flex;align-items:center;gap:8px;padding-top:4px">
-      <label style="margin:0;cursor:pointer" for="anim-toggle">Deal animation</label>
-      <input type="checkbox" id="anim-toggle" checked style="width:18px;height:18px;cursor:pointer"
-             onchange="setAnimToggle(this.checked)">
+    <div class="field" style="max-width:none;padding-top:4px">
+      <label style="margin-bottom:4px">Deal animation</label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="anim-toggle" checked onchange="setAnimToggle(this.checked)">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="anim-lbl-setup">OFF</span>
+        <span class="pill-label-on"  id="anim-lbl-setup-on">ON</span>
+      </div>
     </div>
   </div>
 
@@ -862,10 +886,16 @@
     <h3>⚙️ Settings</h3>
 
     <!-- Animation toggle -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:10px">
-      <label style="font-size:14px;font-weight:600">Deal animation</label>
-      <input type="checkbox" id="anim-toggle-modal" style="width:22px;height:22px;cursor:pointer"
-             onchange="setAnimToggle(this.checked)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:12px">
+      <label style="font-size:14px;font-weight:600;margin:0">Deal animation</label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="anim-toggle-modal" onchange="setAnimToggle(this.checked)">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="anim-lbl-modal">OFF</span>
+        <span class="pill-label-on"  id="anim-lbl-modal-on">ON</span>
+      </div>
     </div>
 
     <!-- Player management -->
@@ -1016,45 +1046,52 @@ document.addEventListener("visibilitychange", () => {
 // ============================================================
 // DEAL ANIMATION
 // ============================================================
-// Tracks how many cards each player/dealer had before the last deal
-// so we know which ones are newly added.
-let _prevCardCounts = {};   // { playerName: [n_hand1, n_hand2], "dealer": n }
+let _dealAnimating = false;   // true while cards are being dealt one-by-one
 
 function _animToggleOn() {
-  const cb = document.getElementById("anim-toggle");
-  if (cb) return cb.checked;
   return lsGet("bjDealAnim") !== "0";
 }
 
-// Called by applyState when we get back a fresh state after DEAL.
-// Animates only the newly added cards, in real deal order.
+// Called by applyState when phase just flipped pre-deal → playing.
+// Renders state, hides all cards, then reveals them one at a time.
 async function animateDeal(newState) {
-  if (!_animToggleOn()) return;
+  _dealAnimating = true;
+  const CARD_MS  = 300;
+  const delay    = ms => new Promise(r => setTimeout(r, ms));
 
-  const order   = newState.play_order || (newState.table || []).map(s => s.name);
-  const delay   = ms => new Promise(r => setTimeout(r, ms));
-  const CARD_MS = 320;
+  try {
+    // 1. Render full state so DOM has all card elements.
+    _renderStateSilent(newState);
 
-  // Build the sequence: 2 rounds × (each player in order + dealer)
-  // We reveal cards by temporarily hiding them, then adding them one by one.
-  // Strategy: render the full state first (so DOM exists), then
-  // hide newly-arrived cards and fade them in one at a time.
+    // 2. Collect card elements in visual deal order (before first paint).
+    const cardEls = _collectNewCardEls(newState);
 
-  // 1. Render everything immediately so the DOM is populated.
-  _renderStateSilent(newState);
+    // 3. Hide all cards instantly using inline styles — no transition yet.
+    cardEls.forEach(el => {
+      el.style.transition = "none";
+      el.style.opacity    = "0";
+      el.style.transform  = "translateY(-16px) scale(.85)";
+    });
 
-  // 2. Figure out which card elements are "new" by comparing counts.
-  //    We tag them hidden right after render, before the user sees them.
-  const newCardEls = _collectNewCardEls(newState);
+    // 4. Wait one animation frame so the browser paints the hidden state.
+    await new Promise(r => requestAnimationFrame(r));
 
-  // Hide them all instantly.
-  newCardEls.forEach(el => { el.style.opacity = "0"; el.classList.remove("card-deal-anim"); });
+    // 5. Reveal cards one by one with a smooth transition.
+    for (const el of cardEls) {
+      el.style.transition = "opacity .22s ease-out, transform .22s ease-out";
+      el.style.opacity    = "1";
+      el.style.transform  = "translateY(0) scale(1)";
+      await delay(CARD_MS);
+    }
 
-  // 3. Reveal one by one in deal order.
-  for (const el of newCardEls) {
-    await delay(CARD_MS);
-    el.classList.add("card-deal-anim");
-    el.style.opacity = "";
+    // 6. Clean up inline styles so CSS can take over normally.
+    cardEls.forEach(el => {
+      el.style.transition = "";
+      el.style.opacity    = "";
+      el.style.transform  = "";
+    });
+  } finally {
+    _dealAnimating = false;
   }
 }
 
@@ -1077,24 +1114,42 @@ function _renderStateSilent(state) {
 
 // After rendering, collect card DOM elements in deal order so we can
 // animate them in the right sequence.
-// Deal order: round 1 → each player hand1 card[0], dealer card[0]
-//             round 2 → each player hand1 card[1], dealer card[1]  (hole hidden)
+// Server deal order (per _digital_initial_deal):
+//   for round in [0,1]:
+//     for each player: for each hand: deal card[round]
+//     dealer: deal card[round]
 function _collectNewCardEls(state) {
+  const byName = {};
+  (state.table || []).forEach(s => { byName[s.name] = s; });
   const order = state.play_order || (state.table || []).map(s => s.name);
-  const seq   = [];  // { name, handIdx, cardIdx }
 
-  // Determine number of rounds dealt (usually 2)
+  // Max cards any hand/dealer has (normally 2)
   const maxCards = Math.max(
     ...((state.table || []).flatMap(s => (s.hands || []).map(h => (h.cards || []).length))),
-    (state.dealer_hand && state.dealer_hand.cards ? state.dealer_hand.cards.length : 0)
+    (state.dealer_hand && state.dealer_hand.cards ? state.dealer_hand.cards.length : 0),
+    0
   );
 
+  // Build sequence: for each round → every hand of every player → dealer
+  const seq = [];
   for (let round = 0; round < maxCards; round++) {
     for (const name of order) {
-      seq.push({ name, isDealer: false, cardIdx: round });
+      const seat = byName[name];
+      const numHands = seat ? (seat.hands || []).length : 1;
+      for (let hi = 0; hi < numHands; hi++) {
+        seq.push({ name, handIdx: hi, cardIdx: round, isDealer: false });
+      }
     }
-    seq.push({ name: "__dealer__", isDealer: true, cardIdx: round });
+    seq.push({ isDealer: true, cardIdx: round });
   }
+
+  // Index seat DOM elements by player name using play_order index.
+  // renderPlayers() renders in play_order order, so seat[i] == order[i].
+  const seatEls  = Array.from(document.querySelectorAll("#left-col .seat"));
+  const seatMap  = {};
+  order.forEach((name, i) => {
+    if (seatEls[i]) seatMap[name.toLowerCase()] = seatEls[i];
+  });
 
   const els = [];
   for (const step of seq) {
@@ -1104,19 +1159,12 @@ function _collectNewCardEls(state) {
       const cardEls = panel.querySelectorAll(".card-el");
       if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
     } else {
-      // Players are rendered as .seat blocks inside #left-col.
-      // Name lives in .seat-name; hands in .hand-block; cards in .card-el.
-      const seats = document.querySelectorAll("#left-col .seat");
-      for (const seat of seats) {
-        const nameEl = seat.querySelector(".seat-name");
-        if (nameEl && nameEl.textContent.trim().toLowerCase().startsWith(step.name.toLowerCase())) {
-          const hb = seat.querySelectorAll(".hand-block")[0];
-          if (!hb) break;
-          const cardEls = hb.querySelectorAll(".card-el");
-          if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
-          break;
-        }
-      }
+      const seat = seatMap[step.name.toLowerCase()];
+      if (!seat) continue;
+      const hb = seat.querySelectorAll(".hand-block")[step.handIdx];
+      if (!hb) continue;
+      const cardEls = hb.querySelectorAll(".card-el");
+      if (cardEls[step.cardIdx]) els.push(cardEls[step.cardIdx]);
     }
   }
   return els;
@@ -1737,8 +1785,12 @@ function applyState(state) {
   }
 
   if (isDeal) {
-    // animateDeal renders state itself in sequence — don't render twice
+    // animateDeal renders state itself card-by-card — don't render twice.
+    // _dealAnimating flag prevents polls from overwriting cards mid-animation.
     animateDeal(state);
+  } else if (_dealAnimating) {
+    // Animation is in progress — skip render to avoid interrupting it.
+    // (applyState still ran above for log, ticker, buttons, etc.)
   } else {
     renderDealer(state);
     renderPlayers(state);
@@ -2366,11 +2418,16 @@ async function doSpectate() {
 // ============================================================
 function setAnimToggle(on) {
   lsSet("bjDealAnim", on ? "1" : "0");
-  // Keep both checkboxes in sync
-  const cb1 = document.getElementById("anim-toggle");
-  const cb2 = document.getElementById("anim-toggle-modal");
-  if (cb1) cb1.checked = on;
-  if (cb2) cb2.checked = on;
+  // Sync both pill toggles (checkbox + ON/OFF labels)
+  [["anim-toggle", "anim-lbl-setup", "anim-lbl-setup-on"],
+   ["anim-toggle-modal", "anim-lbl-modal", "anim-lbl-modal-on"]].forEach(([cbId, offId, onId]) => {
+    const cb = document.getElementById(cbId);
+    if (cb) cb.checked = on;
+    const lblOff = document.getElementById(offId);
+    const lblOn  = document.getElementById(onId);
+    if (lblOff) lblOff.style.display = on ? "none"   : "inline";
+    if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
+  });
 }
 
 function openKickModal() {
@@ -2459,8 +2516,7 @@ function resetToSetup() {
 // ============================================================
 (async () => {
   // Restore deal-animation toggle from localStorage (default: on)
-  const animCb = document.getElementById("anim-toggle");
-  if (animCb) animCb.checked = lsGet("bjDealAnim") !== "0";
+  setAnimToggle(lsGet("bjDealAnim") !== "0");
 
   // Generate or load persistent client UUID
   let savedId = lsGet("bjClientId");
