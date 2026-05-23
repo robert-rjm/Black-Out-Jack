@@ -934,9 +934,11 @@
     <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">PLAYERS IN SESSION</div>
     <div id="kick-list"></div>
 
-    <!-- Transfer admin -->
-    <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">TRANSFER ADMIN</div>
-    <div id="transfer-admin-list"></div>
+    <!-- Transfer admin (admin only) -->
+    <div id="transfer-admin-section">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">TRANSFER ADMIN</div>
+      <div id="transfer-admin-list"></div>
+    </div>
 
     <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
   </div>
@@ -1817,9 +1819,14 @@ function applyState(state) {
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
 
-  // Admin kick button
+  // Settings button — visible to all registered players (admin gets full controls, players get personal settings + vote kick)
   const adminBtn = document.getElementById("btn-admin-players");
-  if (adminBtn) adminBtn.style.display = (myRole === "admin") ? "" : "none";
+  if (adminBtn) adminBtn.style.display = (myRole === "admin" || myRole === "player") ? "" : "none";
+
+  // Apply admin's animation default for first-time joiners who have no local preference
+  if (state.anim_default !== undefined && lsGet("bjDealAnim") === null) {
+    setAnimToggle(state.anim_default);
+  }
 
   // Registration overlay — show when not yet registered
   updateRegisterOverlay(state);
@@ -2560,6 +2567,14 @@ function setAnimToggle(on) {
     if (lblOff) lblOff.style.display = on ? "none"   : "inline";
     if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
   });
+  // Admin pushes preference to server so new joiners inherit it
+  if (myRole === "admin" && roomCode && clientId) {
+    fetch("/set_anim_pref", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
+    }).catch(() => {});
+  }
 }
 
 function openKickModal() {
@@ -2574,7 +2589,9 @@ function openKickModal() {
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
   const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
-  const myNameLc     = (myName || "").toLowerCase();
+  const myNameLc   = (myName || "").toLowerCase();
+  const kickVotes  = (lastState && lastState.kick_votes) || {};
+  const isAdmin    = myRole === "admin";
 
   list.innerHTML = "";
 
@@ -2583,14 +2600,14 @@ function openKickModal() {
   const rows = [];
 
   tablePlayers.forEach(seat => {
-    if (seat.name.toLowerCase() === myNameLc) return;  // skip self
+    if (seat.name.toLowerCase() === myNameLc) return;
     rows.push({ name: seat.name, isBot: !!seat.is_npc,
                 connected: connectedSet.has(seat.name.toLowerCase()), seated: true });
   });
 
   clients.forEach(c => {
     if (!c.name || c.name.toLowerCase() === myNameLc) return;
-    if (seatedNames.has(c.name.toLowerCase())) return;  // already in rows above
+    if (seatedNames.has(c.name.toLowerCase())) return;
     rows.push({ name: c.name, isBot: false, connected: true, seated: false, spectator: true });
   });
 
@@ -2600,33 +2617,50 @@ function openKickModal() {
     rows.forEach(r => {
       const row      = document.createElement("div");
       row.className  = "kick-row";
+      const votes    = kickVotes[r.name.toLowerCase()] || 0;
+      const voteTxt  = votes > 0 ? ` <span style="color:var(--red);font-size:11px">(${votes} vote${votes>1?"s":""})</span>` : "";
       const statusTxt = r.isBot ? " 🤖 bot"
                       : r.spectator ? " (spectating)"
                       : !r.connected ? " (disconnected)" : "";
-      row.innerHTML  = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${statusTxt}</span></span><span style="display:flex;gap:4px"></span>`;
+      row.innerHTML  = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${statusTxt}</span>${voteTxt}</span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
 
-      if (r.seated && !r.isBot) {
-        const botBtn      = document.createElement("button");
-        botBtn.className  = "btn";
-        botBtn.textContent = "🤖 Bot";
-        botBtn.title      = "Auto-play for this player";
-        botBtn.onclick    = () => doMakeBot(r.name);
-        btns.appendChild(botBtn);
-      }
-      if (r.connected && !r.isBot) {
-        const kickBtn      = document.createElement("button");
-        kickBtn.className  = "btn kick-btn";
-        kickBtn.textContent = "Kick";
-        kickBtn.onclick    = () => doKick(r.name);
-        btns.appendChild(kickBtn);
+      if (isAdmin) {
+        // Admin controls: bot + kick
+        if (r.seated && !r.isBot) {
+          const botBtn       = document.createElement("button");
+          botBtn.className   = "btn";
+          botBtn.textContent = "🤖 Bot";
+          botBtn.title       = "Auto-play for this player";
+          botBtn.onclick     = () => doMakeBot(r.name);
+          btns.appendChild(botBtn);
+        }
+        if (r.connected && !r.isBot) {
+          const kickBtn       = document.createElement("button");
+          kickBtn.className   = "btn kick-btn";
+          kickBtn.textContent = "Kick";
+          kickBtn.onclick     = () => doKick(r.name);
+          btns.appendChild(kickBtn);
+        }
+      } else {
+        // Player controls: vote to kick (only for connected non-bot players)
+        if (r.connected && !r.isBot) {
+          const myVoted      = (lastState.kick_votes_mine || []).includes(r.name.toLowerCase());
+          const voteBtn      = document.createElement("button");
+          voteBtn.className  = "btn" + (myVoted ? " kick-btn" : "");
+          voteBtn.textContent = myVoted ? "✗ Un-vote" : "Vote Kick";
+          voteBtn.onclick    = () => doVoteKick(r.name);
+          btns.appendChild(voteBtn);
+        }
       }
       list.appendChild(row);
     });
   }
-  // Transfer admin list — connected non-bot players only
-  const transferList = document.getElementById("transfer-admin-list");
-  if (transferList) {
+  // Transfer admin section — admin only
+  const transferSection = document.getElementById("transfer-admin-section");
+  const transferList    = document.getElementById("transfer-admin-list");
+  if (transferSection) transferSection.style.display = isAdmin ? "" : "none";
+  if (transferList && isAdmin) {
     transferList.innerHTML = "";
     const candidates = rows.filter(r => r.connected && !r.isBot);
     if (candidates.length === 0) {
@@ -2660,6 +2694,25 @@ async function doTransferAdmin(targetName) {
     const data = await res.json();
     if (data.ok) { closeKickModal(); applyState(data); }
     else         { alert(data.error || "Could not transfer admin."); }
+  } catch (_) { alert("Network error."); }
+}
+
+async function doVoteKick(targetName) {
+  try {
+    const res  = await fetch("/vote_kick", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (data.kicked) { closeKickModal(); }
+      applyState(data);
+      // Refresh the modal so vote counts and button states update
+      if (!data.kicked) openKickModal();
+    } else {
+      alert(data.error || "Could not cast vote.");
+    }
   } catch (_) { alert("Network error."); }
 }
 
