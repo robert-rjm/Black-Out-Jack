@@ -651,7 +651,7 @@
     <div class="field" style="max-width:none;display:flex;align-items:center;gap:8px;padding-top:4px">
       <label style="margin:0;cursor:pointer" for="anim-toggle">Deal animation</label>
       <input type="checkbox" id="anim-toggle" checked style="width:18px;height:18px;cursor:pointer"
-             onchange="lsSet('bjDealAnim', this.checked ? '1' : '0')">
+             onchange="setAnimToggle(this.checked)">
     </div>
   </div>
 
@@ -667,7 +667,7 @@
       <div id="header-room"></div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
-      <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:12px" onclick="openKickModal()" title="Manage players">👥</button>
+      <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
       <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
     </div>
   </header>
@@ -859,9 +859,19 @@
 <!-- ===== KICK OVERLAY ===== -->
 <div id="kick-overlay">
   <div id="kick-card">
-    <h3>Players in session</h3>
+    <h3>⚙️ Settings</h3>
+
+    <!-- Animation toggle -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.1);margin-bottom:10px">
+      <label style="font-size:14px;font-weight:600">Deal animation</label>
+      <input type="checkbox" id="anim-toggle-modal" style="width:22px;height:22px;cursor:pointer"
+             onchange="setAnimToggle(this.checked)">
+    </div>
+
+    <!-- Player management -->
+    <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin-bottom:6px">PLAYERS IN SESSION</div>
     <div id="kick-list"></div>
-    <button class="btn wide" onclick="closeKickModal()">Close</button>
+    <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
   </div>
 </div>
 
@@ -1815,8 +1825,12 @@ function updateRoundPane(state) {
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  if (phase === "pre-deal")   activateDigTab("dig-deal");
-  else if (phase === "playing") activateDigTab("dig-play");
+  // Don't yank the user away from the Deal tab if they have Last Round open
+  const lrPanel = document.getElementById("last-round-panel");
+  const lrOpen  = lrPanel && lrPanel.style.display === "block";
+  if (lrOpen && phase === "playing") return;   // stay on Deal tab
+  if (phase === "pre-deal")        activateDigTab("dig-deal");
+  else if (phase === "playing")    activateDigTab("dig-play");
   else if (phase === "round-over") activateDigTab("dig-round");
 }
 
@@ -2350,10 +2364,23 @@ async function doSpectate() {
 // ============================================================
 // KICK
 // ============================================================
+function setAnimToggle(on) {
+  lsSet("bjDealAnim", on ? "1" : "0");
+  // Keep both checkboxes in sync
+  const cb1 = document.getElementById("anim-toggle");
+  const cb2 = document.getElementById("anim-toggle-modal");
+  if (cb1) cb1.checked = on;
+  if (cb2) cb2.checked = on;
+}
+
 function openKickModal() {
   const overlay = document.getElementById("kick-overlay");
   const list    = document.getElementById("kick-list");
   if (!overlay || !list || !lastState) return;
+
+  // Sync animation toggle to current setting
+  const cb = document.getElementById("anim-toggle-modal");
+  if (cb) cb.checked = lsGet("bjDealAnim") !== "0";
 
   const clients = lastState.connected_clients || [];
   list.innerHTML = "";
