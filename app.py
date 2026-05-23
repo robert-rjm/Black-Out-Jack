@@ -491,6 +491,12 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         # Pre-selected player actions and pending dealer suggestions
         "preselections":     getattr(session, "_preselections", {}),
         "suggestions":       getattr(session, "_suggestions",   {}),
+        # Vote-to-kick counts visible to all players; which targets this client voted for
+        "kick_votes":        {k: len(v) for k, v in getattr(session, "_kick_votes", {}).items()},
+        "kick_votes_mine":   [k for k, v in getattr(session, "_kick_votes", {}).items()
+                              if (_ci.get("name") or "").lower() in v],
+        # Admin's animation preference (used as default for new joiners)
+        "anim_default":      getattr(session, "_anim_default", True),
         # All connected clients (for registration overlay)
         "connected_clients": [
             {"name": info.get("name"), "role": info.get("role")}
@@ -927,6 +933,8 @@ def setup():
     game_session._room_clients  = {}
     game_session._preselections = {}
     game_session._suggestions   = {}   # pending dealer→player action suggestions
+    game_session._kick_votes    = {}   # {target_name_lower: set(voter_name_lower)}
+    game_session._anim_default  = True # admin's animation preference, broadcast to joiners
     if client_id:
         game_session._room_clients[client_id] = {
             "name": dealer_name, "role": "admin", "kicked": False,
@@ -1447,6 +1455,95 @@ def transfer_admin():
     clients[target_cid]["role"]   = "admin"
 
     return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/set_anim_pref", methods=["POST"])
+def set_anim_pref():
+    """Admin pushes their animation preference so new joiners inherit it.
+    Body: { room_code, client_id, enabled: bool }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    enabled   = bool(data.get("enabled", True))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    if clients.get(client_id, {}).get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    session._anim_default = enabled
+    return jsonify({"ok": True})
+
+
+@app.route("/vote_kick", methods=["POST"])
+def vote_kick():
+    """Player casts or retracts a kick vote for a target player.
+    Body: { room_code, client_id, target_name }
+    Toggles the vote — calling again retracts it.
+    Auto-kicks when strict majority of eligible voters agree."""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("target_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered."})
+    voter_name = (info.get("name") or "").lower()
+    if not voter_name:
+        return jsonify({"ok": False, "error": "Spectators cannot vote to kick."})
+    if voter_name == target_name.lower():
+        return jsonify({"ok": False, "error": "Cannot vote to kick yourself."})
+
+    # Verify target exists as a connected, non-bot player
+    target_connected = any(
+        not v.get("kicked") and (v.get("name") or "").lower() == target_name.lower()
+        for v in clients.values()
+    )
+    if not target_connected:
+        return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
+
+    if not hasattr(session, "_kick_votes"):
+        session._kick_votes = {}
+
+    key = target_name.lower()
+    votes = session._kick_votes.setdefault(key, set())
+
+    # Toggle
+    if voter_name in votes:
+        votes.discard(voter_name)
+    else:
+        votes.add(voter_name)
+
+    # Count eligible voters: all non-kicked, named, non-bot players except the target
+    all_players_lc = {
+        (v.get("name") or "").lower()
+        for v in clients.values()
+        if not v.get("kicked") and v.get("name") and v.get("role") != "spectator"
+    }
+    eligible = all_players_lc - {key}  # exclude target
+
+    # Auto-kick at strict majority
+    kicked = False
+    if len(eligible) > 0 and len(votes) > len(eligible) / 2:
+        for cid, v in list(clients.items()):
+            if (v.get("name") or "").lower() == key:
+                v["kicked"] = True
+        session._kick_votes.pop(key, None)
+        kicked = True
+
+    state = _serialize_state(session, client_id)
+    state["ok"]    = True
+    state["kicked"] = kicked
+    return jsonify(state)
 
 
 @app.route("/preselect", methods=["POST"])
