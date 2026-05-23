@@ -372,6 +372,22 @@ def _compute_sip_totals(session: RefereeSession) -> dict:
     return ticker
 
 
+def _compute_dealer_role_sips(session: RefereeSession) -> dict:
+    """Return cumulative dealer-role sip counts: past rounds + current round."""
+    if not getattr(session, "drinking_mode", True):
+        return {}
+    ticker = dict(getattr(session, "_dealer_role_ticker", {}))
+    # Add current round's dealer-role sips if not yet harvested
+    if not getattr(session, "_drink_log_harvested", False):
+        for p in session.all_players:
+            for entry in p.drink_log:
+                sips = entry[0] if entry else 0
+                role = entry[2] if len(entry) > 2 else "player"
+                if sips > 0 and role == "dealer":
+                    ticker[p.name] = ticker.get(p.name, 0) + sips
+    return ticker
+
+
 def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dict:
     """Full snapshot for the UI."""
     if not session:
@@ -470,8 +486,8 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "sip_grand_total":   sum(_compute_sip_totals(session).values()),
         # Last completed round's sip counts per player
         "last_round_sips":     getattr(session, "_last_round_sips", {}),
-        # Cumulative sips earned while acting as the dealer role
-        "dealer_role_sips":    getattr(session, "_dealer_role_ticker", {}),
+        # Cumulative sips earned while acting as the dealer role (live incl. current round)
+        "dealer_role_sips":    _compute_dealer_role_sips(session),
         # Pre-selected player actions
         "preselections":     getattr(session, "_preselections", {}),
         # All connected clients (for registration overlay)

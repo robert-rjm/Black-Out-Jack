@@ -109,10 +109,7 @@
   }
   #dealer-panel .dp-name  { color: var(--text); }
   #dealer-panel .dp-role  { font-size: 10px; color: var(--muted); margin-left: 4px; }
-  #dealer-panel .dp-score { font-size: 11px; color: var(--muted); }
-  #dealer-panel .dp-score b { color: var(--text); }
   #dealer-panel .dp-cards { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
-  #dealer-panel .dp-tag   { margin-top: 4px; font-size: 10px; font-weight: 800; letter-spacing: .4px; }
 
   .seat {
     background: #1f2230;
@@ -1986,46 +1983,41 @@ function renderDealer(state) {
     root.innerHTML = `<span style="font-size:11px;color:var(--muted)">Dealer hand will appear here</span>`;
     return;
   }
-  const dh         = state.dealer_hand;
-  const dealerName = state.dealer || "";
-  const dealerRoleSips = (state.dealer_role_sips || {})[dealerName] || 0;
+  const dh             = state.dealer_hand;
+  const dealerName     = state.dealer || "";
+  // Sum dealer-role sips across ALL players (any player can be dealer across rounds)
+  const dealerRoleSips = Object.values(state.dealer_role_sips || {}).reduce((a, b) => a + b, 0);
+  const drinking       = state.drinking_mode !== false;
 
-  // While hole card is hidden show how many sips the current dealer has
-  // accumulated in the dealer role across the whole session.
-  let scoreHtml;
-  if (dh.hidden) {
-    scoreHtml = dealerRoleSips > 0
-      ? `🍺 <b>${dealerRoleSips}</b> sip${dealerRoleSips !== 1 ? "s" : ""} as dealer`
-      : `<span style="color:var(--muted)">0 sips as dealer</span>`;
-  } else {
-    scoreHtml = `Score: <b>${dh.score}</b>`;
-  }
+  // Header: name + sip badge (same pattern as player seat header)
+  const sipBadge = (drinking && dealerRoleSips > 0)
+    ? `<span class="seat-sip-badge">🍺 ${dealerRoleSips}</span>` : "";
 
   const hdr = document.createElement("div");
   hdr.className = "dp-header";
   hdr.innerHTML = `
     <div><span class="dp-name">Dealer</span><span class="dp-role">${dealerName}</span></div>
-    <div class="dp-score">${scoreHtml}</div>`;
+    <div>${sipBadge}</div>`;
   root.appendChild(hdr);
 
+  // Cards row
   const cards = document.createElement("div");
   cards.className = "dp-cards";
   (dh.cards || []).forEach(c => cards.appendChild(cardEl(c)));
   root.appendChild(cards);
 
-  if (dh.blackjack) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--yellow)";
-    t.textContent = "★ BLACKJACK"; root.appendChild(t);
-  } else if (dh.bust) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--red)";
-    t.textContent = "✕ BUST"; root.appendChild(t);
-  } else if (dh.done && !dh.hidden) {
-    const t = document.createElement("div");
-    t.className = "dp-tag"; t.style.color = "var(--muted)";
-    t.textContent = `Stands at ${score}`; root.appendChild(t);
+  // Score + result tags below cards — same hand-meta style as player hands
+  const meta = document.createElement("div");
+  meta.className = "hand-meta";
+  const tags = [];
+  if (!dh.hidden && dh.score !== null && dh.score !== undefined && (dh.cards || []).length > 0) {
+    tags.push(`<span class="score">${dh.score}</span>`);
   }
+  if (dh.blackjack)            tags.push(`<span class="bj">BJ</span>`);
+  else if (dh.bust)            tags.push(`<span class="bust">BUST</span>`);
+  else if (dh.done && !dh.hidden) tags.push(`<span class="stood">STAND</span>`);
+  meta.innerHTML = tags.join("");
+  if (tags.length) root.appendChild(meta);
 }
 
 function renderPlayers(state) {
