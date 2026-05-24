@@ -1260,7 +1260,7 @@ def command():
                             print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                         else:
                             hand.insured = True
-                            print(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21.")
+                            print(f"  {player.name} {hand_label}: insured.")
 
             elif cmd == "blackjack":
                 # blackjack <player> [hand<n>] — confirm natural BJ, fire drink rules
