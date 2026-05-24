@@ -53,9 +53,9 @@ python referee.py                # Terminal referee for real-life play
 
 The full drinking ruleset is documented in [Rules.md](docs/Rules.md).
 
-For a one-page reference during gameplay, see [CheatSheet.md](docs/CheatSheet.md).
+For a one-page reference during gameplay, see [Cheat-Sheet.md](docs/Cheat-Sheet.md).
 
-To see how all these rules play out together in practice, check out [ComprehensiveExample.md](docs/ComprehensiveExample.md).
+To see how all these rules play out together in practice, check out [Comprehensive-Example.md](docs/Comprehensive-Example.md).
 
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
@@ -112,8 +112,8 @@ Computer-controlled seats using standard basic strategy. NPCs:
 Black-Out-Jack/
 ├── docs/
 │   ├── Rules.md                 # Drinking Rules
-│   ├── CheatSheet.md            # One-page quick reference for gameplay
-│   └── ComprehensiveExample.md  # Example for Drinking Rules
+│   ├── Cheat-Sheet.md            # One-page quick reference for gameplay
+│   └── Comprehensive-Example.md  # Example for Drinking Rules
 ├── static/
 │   └── logo.png             # Home screen icon (iOS & Android)
 ├── templates/
