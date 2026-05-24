@@ -492,15 +492,15 @@ class RoundManager:
             return
         dealer_up = self.dealer_player.dealer_hand.cards[0]
 
-        # Insurance
-        if dealer_up.rank == Rank.ACE and not hand.from_split and len(hand.cards) == 2:
+        # Insurance — only offered when dealer shows Ace and player has a blackjack
+        if dealer_up.rank == Rank.ACE and hand.is_blackjack():
             if player.is_npc:
                 print(f"  {player.name} (NPC) declines insurance.")
             else:
-                raw = input(f"  Dealer shows A. {player.name}: take insurance? [y/n]: ").strip().lower()
+                raw = input(f"  Dealer shows A and you have Blackjack. {player.name}: take insurance? [y/n]: ").strip().lower()
                 if raw == "y":
                     hand.insured = True
-                    print(f"  {player.name} insures.")
+                    print(f"  {player.name} insures — Blackjack plays as regular 21.")
 
         # Natural blackjack
         if hand.is_blackjack():
