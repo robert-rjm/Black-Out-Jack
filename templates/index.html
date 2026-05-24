@@ -2096,7 +2096,7 @@ function updateInsuranceVisibility(state) {
   const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
   const dealerShowsAce = upCard && upCard.rank === "A";
 
-  // Find the current player's active hand and check if it's a blackjack
+  // Only show if the current player's active hand is a blackjack
   let activeHandIsBlackjack = false;
   if (state.phase === "playing" && state.current_turn && myName &&
       state.current_turn.toLowerCase() === myName.toLowerCase()) {

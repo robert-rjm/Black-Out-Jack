@@ -691,6 +691,20 @@ def _digital_initial_deal(session: RefereeSession):
             all_cards, "first_deal", session._four_aces_fd)
         session.tracker.apply(msgs)
 
+    # Set up insurance vote slots if dealer shows Ace
+    # Each entry: { "player": name, "hand_idx": i, "votes": {voter: bool}, "resolved": False }
+    session._insurance_votes = []
+    if dealer.dealer_hand.cards[0].rank.label == "A" and getattr(session, "drinking_mode", True):
+        for p in session.all_players:
+            for i, hand in enumerate(p.hands):
+                if hand.is_blackjack():
+                    session._insurance_votes.append({
+                        "player":   p.name,
+                        "hand_idx": i,
+                        "votes":    {},      # voter_name -> True (insure) / False (decline)
+                        "resolved": False,
+                    })
+
 
 def _digital_dealer_turn(session: RefereeSession):
     """
@@ -774,12 +788,39 @@ def _digital_dealer_turn(session: RefereeSession):
     # Pass 2 — fire drinking events now that hard_switch is known.
     # Dealer is exempt from bonus-win drinks ONLY on a hard switch.
     if drinking:
-        exempt_dealer = session.dealer_name if hard_switch else ""
+        exempt_dealer  = session.dealer_name if hard_switch else ""
+        insurance_votes = getattr(session, "_insurance_votes", [])
+        voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
+
         for p in session.all_players:
-            for hand in p.hands:
+            for i, hand in enumerate(p.hands):
                 if hand.is_blackjack() and hand.result == "win":
-                    session.tracker.apply(
-                        DrinkingRules.on_blackjack(p.name, hand, all_names))
+                    if (p.name, i) in voted_keys:
+                        # Resolve via group vote — find the matching vote entry
+                        vote = next(v for v in insurance_votes
+                                    if v["player"] == p.name and v["hand_idx"] == i)
+                        voters      = [x for x in session.all_players if x.name != p.name]
+                        insure_count = sum(1 for v in vote["votes"].values() if v)
+                        # NPCs that haven't voted yet default to decline
+                        npc_pending = sum(
+                            1 for x in voters
+                            if getattr(x, "is_npc", False) and x.name not in vote["votes"]
+                        )
+                        decline_count = len(voters) - insure_count - npc_pending
+                        # npc_pending all count as decline
+                        decline_count += npc_pending
+                        insured = insure_count > decline_count
+                        vote["resolved"] = True
+                        session.tracker.apply(
+                            DrinkingRules.resolve_insurance_vote(
+                                p.name, hand, all_names,
+                                insured=insured, dealer_bj=dealer_bj,
+                                hard_switch_dealer=exempt_dealer))
+                    else:
+                        # No vote held (dealer didn't show Ace) — normal BJ bonus
+                        session.tracker.apply(
+                            DrinkingRules.on_blackjack(p.name, hand, all_names,
+                                                       hard_switch_dealer=exempt_dealer))
                 session.tracker.apply(
                     DrinkingRules.on_hand_resolved(p.name, hand, all_names,
                                                    dealer_bj=dealer_bj,
@@ -1219,7 +1260,7 @@ def command():
                             print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                         else:
                             hand.insured = True
-                        print(f"  {player.name} {hand_label}: insured.")
+                            print(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21.")
 
             elif cmd == "blackjack":
                 # blackjack <player> [hand<n>] — confirm natural BJ, fire drink rules
@@ -1613,6 +1654,50 @@ def vote_kick():
     state["ok"]    = True
     state["kicked"] = kicked
     return jsonify(state)
+
+
+@app.route("/vote_insurance", methods=["POST"])
+def vote_insurance():
+    """
+    Player casts their insurance vote for a specific blackjack hand.
+    Body: { room_code, client_id, bj_player, hand_idx, vote: true=insure/false=decline }
+    Can be called multiple times — last vote wins.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    bj_player = (data.get("bj_player") or "").strip().capitalize()
+    hand_idx  = int(data.get("hand_idx", 0))
+    vote      = bool(data.get("vote", False))   # True = insure, False = decline
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    voter_name = (info.get("name") or "").strip()
+    if not voter_name:
+        return jsonify({"ok": False, "error": "Spectators cannot vote."})
+    if voter_name.lower() == bj_player.lower():
+        return jsonify({"ok": False, "error": "You cannot vote on your own blackjack."})
+
+    insurance_votes = getattr(session, "_insurance_votes", [])
+    vote_entry = next(
+        (v for v in insurance_votes
+         if v["player"].lower() == bj_player.lower() and v["hand_idx"] == hand_idx),
+        None,
+    )
+    if not vote_entry:
+        return jsonify({"ok": False, "error": "No insurance vote open for that hand."})
+    if vote_entry.get("resolved"):
+        return jsonify({"ok": False, "error": "This vote has already been resolved."})
+
+    vote_entry["votes"][voter_name] = vote
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/preselect", methods=["POST"])

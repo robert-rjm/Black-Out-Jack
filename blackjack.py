@@ -383,6 +383,8 @@ class RoundManager:
         self._ace_credits   = []
         self._ace_clubs_flag = {"protected": False}
         self._four_aces_fd  = False
+        # List of (player, hand, insured:bool) — populated after deal, resolved in _evaluate
+        self._insurance_votes: list = []
 
     # ---------------------------------------------------------------- helpers
 
@@ -398,6 +400,7 @@ class RoundManager:
         self._deal_initial()
         if self.drinking_mode:
             self._check_four_aces("first_deal")
+            self._collect_insurance_votes()
         ordered = sorted(self.players, key=lambda p: p.is_dealer)
         self._player_turns(ordered)
         self._dealer_turn()
@@ -421,6 +424,7 @@ class RoundManager:
         self._ace_credits    = []
         self._ace_clubs_flag = {"protected": False}
         self._four_aces_fd   = False
+        self._insurance_votes = []
 
     # ---------------------------------------------------------------- dealing
 
@@ -471,6 +475,57 @@ class RoundManager:
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
             all_cards, phase, self._four_aces_fd)
         self.tracker.apply(msgs)
+
+    # ---------------------------------------------------------------- insurance vote
+
+    def _collect_insurance_votes(self):
+        """
+        After the initial deal, scan all hands in deal order for blackjacks.
+        When the dealer shows an Ace and a player has a blackjack, run a group
+        vote (everyone except that player). Majority insures; tie = decline.
+        Result stored in self._insurance_votes for resolution at round end.
+        """
+        dealer_up = self.dealer_player.dealer_hand.cards[0]
+        if dealer_up.rank != Rank.ACE:
+            return
+
+        for p in self.players:
+            for i, hand in enumerate(p.hands):
+                if not hand.is_blackjack():
+                    continue
+
+                voters = [v for v in self.players if v is not p]
+                if not voters:
+                    continue
+
+                print(f"\n--- Insurance vote: {p.name} Hand {i+1} has Blackjack ---")
+                print(f"  Dealer shows Ace. Vote to insure {p.name}'s blackjack?")
+                print(f"  (If insured + dealer BJ: {p.name} drinks own bonus, group safe)")
+                print(f"  (If insured + no dealer BJ: group drinks double bonus)")
+
+                insure_count  = 0
+                decline_count = 0
+                for voter in voters:
+                    if voter.is_npc:
+                        # NPCs always decline insurance
+                        print(f"  {voter.name} (NPC): decline")
+                        decline_count += 1
+                    else:
+                        raw = input(f"  {voter.name}: insure or decline? [i/d]: ").strip().lower()
+                        if raw == "i":
+                            insure_count += 1
+                            print(f"  {voter.name}: insure")
+                        else:
+                            decline_count += 1
+                            print(f"  {voter.name}: decline")
+
+                insured = insure_count > decline_count  # tie goes to decline
+                result  = "INSURE" if insured else "DECLINE"
+                print(f"  Vote result: {insure_count} insure / {decline_count} decline => {result}")
+                if insured:
+                    hand.insured = True
+
+                self._insurance_votes.append((p, hand, insured))
 
     # ---------------------------------------------------------------- player turns
 
@@ -646,15 +701,28 @@ class RoundManager:
         # Pass 2 — fire drinking events with conditional dealer exemption
         if self.drinking_mode:
             from drinking_rules import DrinkingRules
+
+            # Hands that went through a group insurance vote — resolved separately
+            voted_hands = {id(entry[1]) for entry in self._insurance_votes}
+
             for p in self.players:
                 for hand in p.hands:
                     if hand.is_blackjack() and hand.result == "win":
-                        self._drink(DrinkingRules.on_blackjack(
-                            p.name, hand, self._all_names,
-                            hard_switch_dealer=exempt_dealer))
+                        if id(hand) not in voted_hands:
+                            # No vote was held (dealer didn't show Ace) — normal BJ bonus
+                            self._drink(DrinkingRules.on_blackjack(
+                                p.name, hand, self._all_names,
+                                hard_switch_dealer=exempt_dealer))
                     self._drink(DrinkingRules.on_hand_resolved(
                         p.name, hand, self._all_names,
                         dealer_bj=dealer_bj, dealer_name=exempt_dealer))
+
+            # Resolve insurance votes now that dealer BJ is known
+            for (p, hand, insured) in self._insurance_votes:
+                self._drink(DrinkingRules.resolve_insurance_vote(
+                    p.name, hand, self._all_names,
+                    insured=insured, dealer_bj=dealer_bj,
+                    hard_switch_dealer=exempt_dealer))
 
             if hard_switch:
                 self._drink(DrinkingRules.on_hard_dealer_switch(
