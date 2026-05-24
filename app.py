@@ -197,7 +197,7 @@ def _get_client_info(session, client_id: str) -> dict:
     # Dealer control follows the seat name, not the admin flag.
     # Admin retains session management (kick etc.) but is only the
     # dealer client when their registered name matches the current dealer.
-    is_dealer = bool(name and name.lower() == session.dealer_name.lower())
+    is_dealer = (bool(name and name.lower() == session.dealer_name.lower()) or role == "admin")
     return {"role": role, "name": name, "is_dealer": is_dealer}
 
 

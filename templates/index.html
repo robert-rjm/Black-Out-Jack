@@ -664,7 +664,7 @@
       <input type="number" id="num-hands-ref" value="2" min="1" max="4">
     </div>
   </div>
-  <div id="settings-dig" class="three-col" style="display:">
+  <div id="settings-dig" class="three-col" style="display:block">
     <div class="field" id="wager-dig-cell" style="max-width:none">
       <label>Sips / hand</label>
       <input type="number" id="wager-dig" value="1" min="1" max="10">
@@ -1793,11 +1793,19 @@ function applyState(state) {
     return;
   }
 
-  // Update client identity from server
+  // Update client identity from server.
+  // Only downgrade to null if we have no role yet — prevents a stale poll from
+  // clearing a valid role that was just set by a fresh /register response.
   if (state.my_role !== undefined) {
-    myRole           = state.my_role;
-    myName           = state.my_name   || null;
-    isMyDealerClient = state.is_dealer_client || false;
+    if (state.my_role !== null) {
+      myRole           = state.my_role;
+      myName           = state.my_name   || null;
+      isMyDealerClient = state.is_dealer_client || false;
+    } else if (!myRole) {
+      myRole           = null;
+      myName           = null;
+      isMyDealerClient = false;
+    }
   }
 
   // Detect a fresh deal: previous state had no cards, new state has cards.
@@ -1821,7 +1829,7 @@ function applyState(state) {
 
   // Settings button — visible to all registered players (admin gets full controls, players get personal settings + vote kick)
   const adminBtn = document.getElementById("btn-admin-players");
-  if (adminBtn) adminBtn.style.display = (myRole === "admin" || myRole === "player") ? "" : "none";
+  if (adminBtn) adminBtn.style.display = (myRole === "admin" || myRole === "player") ? "block" : "none";
 
   // Apply admin's animation default for first-time joiners who have no local preference
   if (state.anim_default !== undefined && lsGet("bjDealAnim") === null) {
