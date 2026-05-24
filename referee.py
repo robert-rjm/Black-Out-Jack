@@ -267,8 +267,11 @@ class RefereeSession:
             print(f"  Now deal one card each to {hand_label} and {new_label}.")
 
         elif action == "insurance":
+            if not hand.is_blackjack():
+                print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
+                return
             hand.insured = True
-            print(f"  {player.name} {hand_label}: insured — blackjack treated as regular 21.")
+            print(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21, no bonus drinks.")
 
         elif action in ("blackjack", "bj"):
             hand.stood = True

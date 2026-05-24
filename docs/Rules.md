@@ -78,13 +78,13 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 
 ### Blackjack Insurance:
 
-When the Dealer shows an Ace or a 10-value card:
+When the Dealer shows an Ace, a Player who has a Blackjack may take insurance.
 
 | Rule | Details |
 |---|---|
+| Trigger | Dealer shows an Ace **and** Player has a Blackjack |
 | Dealer peek | Dealer does **not** peek at face-down card |
-| Player insurance | Player may insure their Blackjack |
-| Insurance effect | Blackjack treated as regular 21, other Players do not drink for it |
+| Insurance effect | Blackjack treated as regular 21, other Players do not drink the bonus |
 | Dealer has Blackjack | Player's doubles and splits are not counted |
 | Max sips if Dealer has BJ | Hands × wager (e.g. 2 hands × 1 sip = 2 sips max) |
 
