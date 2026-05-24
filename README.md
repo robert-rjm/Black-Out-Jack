@@ -53,9 +53,9 @@ python referee.py                # Terminal referee for real-life play
 
 The full drinking ruleset is documented in [Rules.md](docs/Rules.md).
 
-For a one-page reference during gameplay, see [CheatSheet.md](docs/CheatSheet.md).
+For a one-page reference during gameplay, see [Cheat-Sheet.md](docs/Cheat-Sheet.md).
 
-To see how all these rules play out together in practice, check out [ComprehensiveExample.md](docs/ComprehensiveExample.md).
+To see how all these rules play out together in practice, check out [Comprehensive-Example.md](docs/Comprehensive-Example.md).
 
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
@@ -112,8 +112,8 @@ Computer-controlled seats using standard basic strategy. NPCs:
 Black-Out-Jack/
 ├── docs/
 │   ├── Rules.md                 # Drinking Rules
-│   ├── CheatSheet.md            # One-page quick reference for gameplay
-│   └── ComprehensiveExample.md  # Example for Drinking Rules
+│   ├── Cheat-Sheet.md            # One-page quick reference for gameplay
+│   └── Comprehensive-Example.md  # Example for Drinking Rules
 ├── static/
 │   └── logo.png             # Home screen icon (iOS & Android)
 ├── templates/
@@ -140,11 +140,9 @@ _RULES_DATE  = "2026-05-15"
 
 On startup the script fetches `Rules.md` from GitHub and compares hashes. If they differ, a warning is printed. When the rules change, update `_RULES_HASH` and `_RULES_DATE` in `drinking_rules.py` after re-verifying the implementation.
 
-### Troubleshooting
-
-**Common Issues**
+### Common Issues
 1. **Inadequate Drinking Rules**: With too many players, excessive drinking may occur per round
-2. **Insufficient Cards**: With multiple Players splitting aggressively, a single deck may run out. Consider using multiple decks for 4+ Players.
+2. **Insufficient Cards**: With multiple Players splitting aggressively, it is recommended to use multiple decks.
 
 ## Running the Game
 

@@ -163,17 +163,11 @@ class DrinkingRules:
                      all_player_names: list,
                      hard_switch_dealer: str = "") -> list:
         """
-        Called when any player gets a natural blackjack.
-        If insured, bonus drinks are suppressed (hand treated as regular 21).
+        Called for uninsured blackjacks only (no group vote, or vote was decline
+        and dealer had no blackjack). Fires normal BJ bonus drinks.
         Multipliers: suited x2, A+J x2, both black x2 — cumulative.
-        hard_switch_dealer: on a Hard Dealer Switch the dealer-player is exempt
-                            from BJ-bonus drinks (they already drink via the
-                            Hard Switch dealer rule).
+        hard_switch_dealer: dealer-player is exempt on a Hard Dealer Switch.
         """
-        if hand.insured:
-            return [(None, 0,
-                f"{player_name} insured their blackjack => no bonus drinks")]
-
         mult   = _bj_multiplier(hand)
         sips   = mult
         parts  = []
@@ -188,6 +182,54 @@ class DrinkingRules:
         return [(p, sips,
                  f"Blackjack by {player_name}{detail} => {p} drinks {sips} sip(s)")
                 for p in others]
+
+    @staticmethod
+    def resolve_insurance_vote(player_name: str, hand: Hand,
+                               all_player_names: list,
+                               insured: bool, dealer_bj: bool,
+                               hard_switch_dealer: str = "") -> list:
+        """
+        Resolve a group-voted insurance decision at round end.
+
+        insured:    True if majority voted to insure, False if decline (tie = decline).
+        dealer_bj:  True if dealer has a natural blackjack.
+
+        Outcomes:
+          Insure + dealer BJ:    BJ holder drinks own bonus, hand pushes, group drinks nothing.
+          Insure + dealer no BJ: Group drinks double the normal BJ bonus.
+          Decline + dealer BJ:   Existing auto-insurance handles it; no extra drinks here.
+          Decline + dealer no BJ: Normal BJ bonus (group drinks as usual).
+        """
+        mult   = _bj_multiplier(hand)
+        others = [p for p in all_player_names
+                  if p != player_name and p != hard_switch_dealer]
+
+        if insured and dealer_bj:
+            # BJ holder drinks their own bonus; group is protected
+            sips = mult
+            msgs = [(player_name, sips,
+                     f"Insurance (group voted insure) + dealer BJ: "
+                     f"{player_name} drinks own bonus {sips} sip(s), group protected")]
+            msgs.append((None, 0, f"{player_name}'s blackjack pushes (insured vs dealer BJ)"))
+            return msgs
+
+        if insured and not dealer_bj:
+            # Group gambled wrong — drinks double
+            sips = mult * 2
+            return [(p, sips,
+                     f"Insurance (group voted insure) + no dealer BJ: "
+                     f"{p} drinks double BJ bonus {sips} sip(s)")
+                    for p in others]
+
+        if not insured and dealer_bj:
+            # Decline + dealer BJ: auto-insurance already handles net-loss cap
+            return [(None, 0,
+                     f"{player_name} blackjack: group declined insurance, dealer has BJ "
+                     f"=> auto-insurance applies, normal max sips only")]
+
+        # Decline + no dealer BJ: normal BJ bonus
+        return DrinkingRules.on_blackjack(player_name, hand, all_player_names,
+                                          hard_switch_dealer=hard_switch_dealer)
 
     # ---------------------------------------------------------------- hand resolved
 
