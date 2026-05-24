@@ -1155,9 +1155,12 @@ def command():
                     if not player:
                         print(f"  Unknown player '{parts[1]}'.")
                     else:
-                        hand_label    = parts[2] if len(parts) > 2 else "hand1"
-                        hand          = _digital_get_player_hand(player, hand_label)
-                        hand.insured  = True
+                        hand_label = parts[2] if len(parts) > 2 else "hand1"
+                        hand       = _digital_get_player_hand(player, hand_label)
+                        if not hand.is_blackjack():
+                            print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
+                        else:
+                            hand.insured = True
                         print(f"  {player.name} {hand_label}: insured.")
 
             elif cmd == "blackjack":
