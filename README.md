@@ -140,11 +140,9 @@ _RULES_DATE  = "2026-05-15"
 
 On startup the script fetches `Rules.md` from GitHub and compares hashes. If they differ, a warning is printed. When the rules change, update `_RULES_HASH` and `_RULES_DATE` in `drinking_rules.py` after re-verifying the implementation.
 
-### Troubleshooting
-
-**Common Issues**
+### Common Issues
 1. **Inadequate Drinking Rules**: With too many players, excessive drinking may occur per round
-2. **Insufficient Cards**: With multiple Players splitting aggressively, a single deck may run out. Consider using multiple decks for 4+ Players.
+2. **Insufficient Cards**: With multiple Players splitting aggressively, it is recommended to use multiple decks.
 
 ## Running the Game
 
