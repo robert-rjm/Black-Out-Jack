@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="/logo.png">
 <link rel="manifest" href="/manifest.json">
 <title>Black-Out-Jack</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 <style>
   :root {
     --bg:      #0f1117;
@@ -577,6 +578,72 @@
   #summary-table .sum-total { font-weight: 800; color: var(--yellow); }
   #kick-list     { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
   .kick-row      { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  /* ---- RULES OVERLAY ---- */
+  #rules-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.82); z-index: 600;
+    flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 20px 16px; overflow-y: auto;
+  }
+  #rules-overlay.open { display: flex; }
+  #rules-card {
+    background: var(--surface); border-radius: 16px;
+    border: 1px solid var(--border);
+    width: 100%; max-width: 560px;
+    padding: 20px 22px; position: relative;
+    margin: auto;
+  }
+  #rules-close-btn {
+    position: sticky; top: 0; float: right;
+    background: rgba(255,255,255,.1); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 18px; line-height: 1;
+    padding: 4px 10px; cursor: pointer; z-index: 1;
+  }
+  #rules-close-btn:hover { background: rgba(255,255,255,.18); }
+  #rules-body {
+    clear: both; font-size: 14px; line-height: 1.65; color: var(--text);
+    padding-top: 8px;
+  }
+  #rules-body h1 { font-size: 20px; font-weight: 800; margin: 0 0 14px; }
+  #rules-body h2 { font-size: 16px; font-weight: 700; margin: 18px 0 8px; color: var(--accent); }
+  #rules-body h3 { font-size: 14px; font-weight: 700; margin: 14px 0 6px; color: var(--yellow); }
+  #rules-body p  { margin: 0 0 10px; }
+  #rules-body ul, #rules-body ol { padding-left: 20px; margin: 0 0 10px; }
+  #rules-body li { margin-bottom: 4px; }
+  #rules-body strong { color: var(--yellow); }
+  #rules-body em { color: var(--muted); }
+  #rules-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  #rules-body code { background: rgba(255,255,255,.08); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+  #rules-body table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+  #rules-body th, #rules-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+  #rules-body th { background: rgba(255,255,255,.06); font-weight: 700; }
+  /* ---- QUEUED SETTINGS BANNER ---- */
+  #queued-settings-banner {
+    display: none; margin-top: 12px; padding: 10px 12px;
+    border-radius: 8px; font-size: 12px;
+    background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3);
+    color: var(--accent);
+  }
+  #queued-settings-banner ul { padding-left: 16px; margin: 4px 0 0; }
+  #queued-settings-banner li { margin-bottom: 2px; }
+  /* ---- SETTINGS SECTION IN KICK CARD ---- */
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07);
+  }
+  .settings-row label { font-size: 13px; color: var(--text); }
+  .settings-row input[type=number], .settings-row select {
+    width: 72px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 13px;
+    padding: 4px 8px; text-align: center;
+  }
+  .settings-add-row {
+    display: flex; gap: 6px; margin-top: 6px; align-items: center;
+  }
+  .settings-add-row input[type=text] {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); font-size: 13px; padding: 6px 10px;
+  }
   .kick-row:last-child { border-bottom: none; }
   .kick-name     { font-size: 14px; font-weight: 600; }
   .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
@@ -702,6 +769,7 @@
       <div id="header-room"></div>
     </div>
     <div style="display:flex;gap:6px;align-items:center">
+      <button id="btn-rules" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openRulesModal()" title="Rules cheat sheet">📖</button>
       <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
       <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
     </div>
@@ -912,6 +980,14 @@
   </div>
 </div>
 
+<!-- ===== RULES OVERLAY ===== -->
+<div id="rules-overlay" onclick="handleRulesBackdropClick(event)">
+  <div id="rules-card">
+    <button id="rules-close-btn" onclick="closeRulesModal()" title="Close">✕</button>
+    <div id="rules-body"><span style="color:var(--muted);font-size:13px">Loading rules…</span></div>
+  </div>
+</div>
+
 <!-- ===== KICK OVERLAY ===== -->
 <div id="kick-overlay">
   <div id="kick-card">
@@ -938,6 +1014,49 @@
     <div id="transfer-admin-section">
       <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">TRANSFER ADMIN</div>
       <div id="transfer-admin-list"></div>
+    </div>
+
+    <!-- Game Settings (admin only) -->
+    <div id="game-settings-section" style="display:none">
+      <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:18px 0 8px">GAME SETTINGS</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Changes queue for next round — never applied mid-round.</div>
+
+      <div class="settings-row">
+        <label>Sips / hand</label>
+        <input type="number" id="setting-wager" min="1" max="20" value="1" style="width:72px">
+      </div>
+      <div class="settings-row">
+        <label>Hands / player</label>
+        <input type="number" id="setting-num-hands" min="1" max="10" value="2" style="width:72px">
+      </div>
+      <div id="setting-decks-row" class="settings-row" style="display:none">
+        <label>Decks in shoe</label>
+        <input type="number" id="setting-num-decks" min="1" max="8" value="1" style="width:72px">
+      </div>
+
+      <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">ADD PLAYER SEAT</div>
+      <div class="settings-add-row">
+        <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
+        <label style="font-size:12px;white-space:nowrap;display:flex;align-items:center;gap:4px">
+          <input type="checkbox" id="setting-add-npc"> Bot
+        </label>
+        <button class="btn" style="height:32px;padding:0 12px;font-size:12px" onclick="queueAddPlayer()">Add</button>
+      </div>
+
+      <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">REMOVE PLAYER SEAT</div>
+      <div class="settings-add-row">
+        <select id="setting-remove-name" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:6px 8px"></select>
+        <button class="btn red" style="height:32px;padding:0 12px;font-size:12px" onclick="queueRemovePlayer()">Remove</button>
+      </div>
+
+      <button class="btn wide" style="margin-top:12px;background:var(--accent)" onclick="queueSettings()">Queue for next round</button>
+
+      <!-- Pending changes banner -->
+      <div id="queued-settings-banner">
+        <strong style="font-size:12px">⏳ Queued for next round:</strong>
+        <ul id="queued-settings-list"></ul>
+        <button class="btn" style="margin-top:8px;height:28px;padding:0 10px;font-size:11px;color:var(--red)" onclick="clearQueuedSettings()">Clear queue</button>
+      </div>
     </div>
 
     <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
@@ -1827,6 +1946,12 @@ function applyState(state) {
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
 
+  // Keep queued-settings banner in sync while settings modal is open
+  const kickOv = document.getElementById("kick-overlay");
+  if (kickOv && kickOv.style.display === "flex" && state.queued_settings) {
+    _renderQueuedBanner(state.queued_settings);
+  }
+
   // Settings button — visible to all registered players (admin gets full controls, players get personal settings + vote kick)
   const adminBtn = document.getElementById("btn-admin-players");
   if (adminBtn) adminBtn.style.display = (myRole === "admin" || myRole === "player") ? "block" : "none";
@@ -2700,6 +2825,9 @@ function openKickModal() {
     }
   }
 
+  // Populate game settings section (admin only)
+  if (lastState) _populateSettingsUI(lastState);
+
   overlay.style.display = "flex";
 }
 
@@ -2767,6 +2895,199 @@ async function doKick(targetName) {
 function closeKickModal() {
   const overlay = document.getElementById("kick-overlay");
   if (overlay) overlay.style.display = "none";
+}
+
+// ============================================================
+// RULES MODAL
+// ============================================================
+let _rulesCached = null;
+
+async function openRulesModal() {
+  const overlay = document.getElementById("rules-overlay");
+  const body    = document.getElementById("rules-body");
+  if (!overlay || !body) return;
+  overlay.classList.add("open");
+
+  if (_rulesCached) {
+    body.innerHTML = _rulesCached;
+    return;
+  }
+
+  body.innerHTML = '<span style="color:var(--muted);font-size:13px">Loading…</span>';
+  try {
+    const res  = await fetch(`/rules?_=${Date.now()}`);
+    const data = await res.json();
+    if (data.ok && typeof marked !== "undefined") {
+      _rulesCached = marked.parse(data.content);
+    } else if (data.ok) {
+      // marked.js not loaded — plain text fallback
+      _rulesCached = `<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`;
+    } else {
+      _rulesCached = '<span style="color:var(--red)">Could not load rules.</span>';
+    }
+    body.innerHTML = _rulesCached;
+  } catch (_) {
+    body.innerHTML = '<span style="color:var(--red)">Network error loading rules.</span>';
+  }
+}
+
+function closeRulesModal() {
+  const overlay = document.getElementById("rules-overlay");
+  if (overlay) overlay.classList.remove("open");
+}
+
+function handleRulesBackdropClick(e) {
+  if (e.target === document.getElementById("rules-overlay")) {
+    closeRulesModal();
+  }
+}
+
+// ============================================================
+// ADMIN GAME SETTINGS
+// ============================================================
+function _populateSettingsUI(state) {
+  // Show settings section only for admin
+  const section = document.getElementById("game-settings-section");
+  if (!section) return;
+  if (myRole !== "admin") { section.style.display = "none"; return; }
+  section.style.display = "block";
+
+  // Populate current values
+  const wagerEl    = document.getElementById("setting-wager");
+  const handsEl    = document.getElementById("setting-num-hands");
+  const decksEl    = document.getElementById("setting-num-decks");
+  const decksRow   = document.getElementById("setting-decks-row");
+  const removeEl   = document.getElementById("setting-remove-name");
+
+  if (wagerEl)   wagerEl.value    = state.wager       || 1;
+  if (handsEl)   handsEl.value    = state.num_hands    || 2;
+  if (decksEl)   decksEl.value    = 1;
+  if (decksRow)  decksRow.style.display = (state.mode === "digital") ? "flex" : "none";
+
+  // Populate remove-player dropdown (all non-dealer seats)
+  if (removeEl) {
+    removeEl.innerHTML = "";
+    (state.table || []).forEach(seat => {
+      if (!seat.is_dealer) {
+        const opt = document.createElement("option");
+        opt.value = seat.name;
+        opt.textContent = seat.name + (seat.is_npc ? " 🤖" : "");
+        removeEl.appendChild(opt);
+      }
+    });
+    if (!removeEl.options.length) {
+      const opt = document.createElement("option");
+      opt.value = ""; opt.textContent = "(no removable seats)";
+      removeEl.appendChild(opt);
+    }
+  }
+
+  // Show pending changes banner
+  _renderQueuedBanner(state.queued_settings || {});
+}
+
+function _renderQueuedBanner(queued) {
+  const banner = document.getElementById("queued-settings-banner");
+  const list   = document.getElementById("queued-settings-list");
+  if (!banner || !list) return;
+
+  const items = [];
+  if ("wager"     in queued) items.push(`Sips/hand → ${queued.wager}`);
+  if ("num_hands" in queued) items.push(`Hands/player → ${queued.num_hands}`);
+  if ("num_decks" in queued) items.push(`Decks → ${queued.num_decks}`);
+  (queued.add_players    || []).forEach(p => items.push(`Add ${p.is_npc ? "bot" : "player"}: ${p.name}`));
+  (queued.remove_players || []).forEach(n => items.push(`Remove player: ${n}`));
+
+  if (items.length === 0) {
+    banner.style.display = "none";
+  } else {
+    list.innerHTML = items.map(i => `<li>${i}</li>`).join("");
+    banner.style.display = "block";
+  }
+}
+
+async function queueSettings() {
+  const wager    = parseInt(document.getElementById("setting-wager")?.value    || "1");
+  const numHands = parseInt(document.getElementById("setting-num-hands")?.value || "2");
+  const numDecks = parseInt(document.getElementById("setting-num-decks")?.value || "1");
+  const mode     = lastState?.mode || "referee";
+
+  const body = { room_code: roomCode, client_id: clientId, wager, num_hands: numHands };
+  if (mode === "digital") body.num_decks = numDecks;
+
+  try {
+    const res  = await fetch("/update_settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      lastState = data;
+      _renderQueuedBanner(data.queued_settings || {});
+    } else {
+      alert(data.error || "Could not queue settings.");
+    }
+  } catch (_) { alert("Network error."); }
+}
+
+async function queueAddPlayer() {
+  const nameEl = document.getElementById("setting-add-name");
+  const npcEl  = document.getElementById("setting-add-npc");
+  const name   = (nameEl?.value || "").trim();
+  if (!name) { nameEl?.focus(); return; }
+
+  try {
+    const res  = await fetch("/update_settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        add_player: name, add_player_npc: npcEl?.checked || false,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      lastState = data;
+      if (nameEl) nameEl.value = "";
+      if (npcEl)  npcEl.checked = false;
+      _renderQueuedBanner(data.queued_settings || {});
+    } else {
+      alert(data.error || "Could not queue add player.");
+    }
+  } catch (_) { alert("Network error."); }
+}
+
+async function queueRemovePlayer() {
+  const removeEl = document.getElementById("setting-remove-name");
+  const name     = removeEl?.value;
+  if (!name) return;
+
+  try {
+    const res  = await fetch("/update_settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, remove_player: name }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      lastState = data;
+      _renderQueuedBanner(data.queued_settings || {});
+    } else {
+      alert(data.error || "Could not queue remove player.");
+    }
+  } catch (_) { alert("Network error."); }
+}
+
+async function clearQueuedSettings() {
+  try {
+    const res  = await fetch("/update_settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, clear_queued: true }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      lastState = data;
+      _renderQueuedBanner({});
+    }
+  } catch (_) {}
 }
 
 // ============================================================

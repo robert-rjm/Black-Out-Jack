@@ -207,6 +207,48 @@ def _is_dealer_client(session, client_id: str) -> bool:
     return info["is_dealer"] or info.get("role") == "admin"
 
 
+def _apply_queued_settings(session: RefereeSession) -> list[str]:
+    """Apply any queued settings to the session before a new round starts.
+    Returns a list of human-readable change descriptions."""
+    queued = getattr(session, "_queued_settings", {})
+    if not queued:
+        return []
+
+    changes = []
+
+    if "wager" in queued:
+        session.wager = queued["wager"]
+        changes.append(f"Sips/hand set to {queued['wager']}")
+
+    if "num_hands" in queued:
+        session.num_hands = queued["num_hands"]
+        changes.append(f"Hands/player set to {queued['num_hands']}")
+
+    if "num_decks" in queued and getattr(session, "mode", "referee") == "digital":
+        from blackjack import Shoe
+        session.shoe = Shoe(queued["num_decks"])
+        session.shoe.shuffle()
+        changes.append(f"Deck count set to {queued['num_decks']}")
+
+    for entry in queued.get("add_players", []):
+        name   = entry["name"]
+        is_npc = entry["is_npc"]
+        if not any(p.name == name for p in session.all_players):
+            p = NPC_Player(name) if is_npc else Player(name)
+            p.is_dealer = False
+            session.all_players.append(p)
+            changes.append(f"Added {'bot' if is_npc else 'player'} {name}")
+
+    for name in queued.get("remove_players", []):
+        before = len(session.all_players)
+        session.all_players = [p for p in session.all_players if p.name != name or p.is_dealer]
+        if len(session.all_players) < before:
+            changes.append(f"Removed player {name}")
+
+    session._queued_settings = {}
+    return changes
+
+
 def _newround_rotate(session: RefereeSession):
     """Rotate the dealer role one seat clockwise."""
     all_names  = [p.name for p in session.all_players]
@@ -507,6 +549,8 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "my_role":           _ci.get("role"),
         "my_name":           _ci.get("name"),
         "is_dealer_client":  _ci.get("is_dealer", False) or _ci.get("role") == "admin",
+        # Queued settings — applied at next newround (admin only writes; all can read pending)
+        "queued_settings":   getattr(session, "_queued_settings", {}),
         # Insurance votes — pending entries visible to all players so UI can prompt
         "insurance_votes": [
             {
@@ -989,6 +1033,7 @@ def setup():
     game_session._suggestions   = {}   # pending dealer→player action suggestions
     game_session._kick_votes    = {}   # {target_name_lower: set(voter_name_lower)}
     game_session._anim_default  = True # admin's animation preference, broadcast to joiners
+    game_session._queued_settings = {}  # settings queued to apply at start of next round
     if client_id:
         game_session._room_clients[client_id] = {
             "name": dealer_name, "role": "admin", "kicked": False,
@@ -1256,6 +1301,10 @@ def command():
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
+                # Apply queued settings before the round starts
+                setting_changes = _apply_queued_settings(game_session)
+                for msg in setting_changes:
+                    print(f"  ⚙️  {msg}")
                 if rotate:
                     _newround_rotate(game_session)
                     game_session.rounds_this_dealer = 1
@@ -1327,6 +1376,10 @@ def command():
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
+                # Apply queued settings before the round starts
+                setting_changes = _apply_queued_settings(game_session)
+                for msg in setting_changes:
+                    print(f"  ⚙️  {msg}")
                 if rotate:
                     _newround_rotate(game_session)
                     game_session.rounds_this_dealer = 1
@@ -1875,6 +1928,76 @@ def state():
     client_id = request.args.get("client_id", "")
     session   = game_sessions.get(room_code)
     return jsonify(_serialize_state(session, client_id))
+
+
+@app.route("/update_settings", methods=["POST"])
+def update_settings():
+    """Queue game settings to apply at the start of the next round (admin only)."""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    session   = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    if clients.get(client_id, {}).get("role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."})
+
+    queued = getattr(session, "_queued_settings", {})
+
+    # Validate and queue each provided setting
+    if "wager" in data:
+        v = int(data["wager"])
+        if v >= 1:
+            queued["wager"] = v
+
+    if "num_hands" in data:
+        v = int(data["num_hands"])
+        if v >= 1:
+            queued["num_hands"] = v
+
+    if "num_decks" in data:
+        v = int(data["num_decks"])
+        if 1 <= v <= 8:
+            queued["num_decks"] = v
+
+    if "add_player" in data:
+        name = str(data["add_player"]).strip().capitalize()
+        is_npc = bool(data.get("add_player_npc", False))
+        if name:
+            adds = queued.get("add_players", [])
+            if not any(a["name"] == name for a in adds):
+                adds.append({"name": name, "is_npc": is_npc})
+            queued["add_players"] = adds
+
+    if "remove_player" in data:
+        name = str(data["remove_player"]).strip().capitalize()
+        if name:
+            removes = queued.get("remove_players", [])
+            if name not in removes:
+                removes.append(name)
+            queued["remove_players"] = removes
+
+    if "clear_queued" in data and data["clear_queued"]:
+        queued = {}
+
+    session._queued_settings = queued
+    state = _serialize_state(session, client_id)
+    state["output"] = ""
+    return jsonify(state)
+
+
+@app.route("/rules")
+def rules():
+    """Serve the Rules.md content as plain text for frontend markdown rendering."""
+    rules_path = os.path.join(os.path.dirname(__file__), "docs", "Rules.md")
+    try:
+        with open(rules_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return jsonify({"ok": True, "content": content})
+    except FileNotFoundError:
+        return jsonify({"ok": False, "content": "# Rules\n\nRules file not found."})
 # ---------------------------------------------------------------------------
 # Digital help
 # ---------------------------------------------------------------------------
