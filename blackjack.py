@@ -16,8 +16,6 @@ import random
 from enum import Enum
 from tabulate import tabulate
 
-print("Date last modified:", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
 # ANSI colour helpers (terminal only — harmless on web)
 _BLUE  = "\033[94m"
 _RESET = "\033[0m"
@@ -295,10 +293,6 @@ class NPC_Player(Player):
         aces  = sum(1 for c in hand.cards if c.rank == Rank.ACE)
         return aces > 0 and total <= 21
 
-    # kept for backwards compatibility
-    def _is_soft(self, hand) -> bool:
-        return NPC_Player._is_soft_hand(hand)
-
     @staticmethod
     def best_play(hand, dealer_up_card, valid_actions: list,
                   drinking_mode: bool = False) -> str:
@@ -553,15 +547,15 @@ class RoundManager:
             return
         dealer_up = self.dealer_player.dealer_hand.cards[0]
 
-        # Insurance
-        if dealer_up.rank == Rank.ACE and not hand.from_split and len(hand.cards) == 2:
+        # Insurance — only offered when dealer shows Ace and player has a blackjack
+        if dealer_up.rank == Rank.ACE and hand.is_blackjack():
             if player.is_npc:
                 print(f"  {player.name} (NPC) declines insurance.")
             else:
-                raw = input(f"  Dealer shows A. {player.name}: take insurance? [y/n]: ").strip().lower()
+                raw = input(f"  Dealer shows A and you have Blackjack. {player.name}: take insurance? [y/n]: ").strip().lower()
                 if raw == "y":
                     hand.insured = True
-                    print(f"  {player.name} insures.")
+                    print(f"  {player.name} insures — Blackjack plays as regular 21.")
 
         # Natural blackjack
         if hand.is_blackjack():
@@ -805,6 +799,9 @@ class BlackJackGame:
 
         mode = self._ask_int("Game mode — 1: Normal  2: Drinking: ", 1, 2)
         self._drinking = (mode == 2)
+        if self._drinking:
+            from drinking_rules import verify_rules
+            verify_rules()
 
         n = self._ask_int("Number of players (1-4): ", 1, 4)
         names = []
