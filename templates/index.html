@@ -1969,8 +1969,20 @@ function updateInsuranceVisibility(state) {
   const row = document.getElementById("dig-insurance-row");
   if (!row) return;
   const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
-  const show   = state.phase === "playing" && upCard && upCard.rank === "A";
-  row.style.display = show ? "" : "none";
+  const dealerShowsAce = upCard && upCard.rank === "A";
+
+  // Find the current player's active hand and check if it's a blackjack
+  let activeHandIsBlackjack = false;
+  if (state.phase === "playing" && state.current_turn && myName &&
+      state.current_turn.toLowerCase() === myName.toLowerCase()) {
+    const me = (state.table || []).find(p => p.name.toLowerCase() === myName.toLowerCase());
+    if (me) {
+      const activeHand = (me.hands || []).find(h => !h.done);
+      if (activeHand) activeHandIsBlackjack = activeHand.blackjack;
+    }
+  }
+
+  row.style.display = (dealerShowsAce && activeHandIsBlackjack) ? "" : "none";
 }
 
 function cardEl(card) {
