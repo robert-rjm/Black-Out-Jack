@@ -1003,15 +1003,8 @@
     <!-- ── DIGITAL panel ─────────────────────────────────── -->
     <div id="dig-panel" style="display:none">
       <div class="tabs-bar" id="dig-tabs">
-        <button class="tab active" onclick="switchDigTab('dig-deal', this)">Deal</button>
-        <button class="tab"        onclick="switchDigTab('dig-play', this)">Play</button>
+        <button class="tab active" onclick="switchDigTab('dig-play', this)">Play</button>
         <button class="tab"        onclick="switchDigTab('dig-round', this)">Round</button>
-      </div>
-
-      <!-- DEAL pane — initial deal from shoe -->
-      <div id="pane-dig-deal" class="pane active">
-        <p class="hint">Tap to deal the opening cards to all players from the shoe.</p>
-        <button class="btn-big accent" onclick="sendCmd('deal')">DEAL CARDS</button>
       </div>
 
       <!-- PLAY pane — per-player actions -->
@@ -1704,13 +1697,12 @@ async function startGame() {
     buildGameUI();
     applyState(data);
 
-    if (gameMode === "digital") {
-      appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
-    }
-
     document.getElementById("setup").style.display = "none";
     document.getElementById("app").style.display   = "flex";
     startPolling();
+    if (gameMode === "digital") {
+      await sendCmd("deal");
+    }
   } catch (err) {
     console.error("[startGame] Error launching game:", err);
     alert("Could not launch game: " + err.message + "\n\nCheck the browser console for details.");
@@ -2249,7 +2241,7 @@ function updateRoundPane(state) {
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  if (phase === "pre-deal")        activateDigTab("dig-deal");
+  if (phase === "pre-deal")        activateDigTab("dig-play");
   else if (phase === "playing")    activateDigTab("dig-play");
   else if (phase === "round-over") activateDigTab("dig-round");
 }
@@ -2713,14 +2705,8 @@ async function doNewRound(rotate) {
   clearPeekedCard();
   await sendCmd(rotate ? "newround rotate" : "newround keep");
   buildGameUI();
-  // Auto-deal when any bot is in the session — skip the manual Deal tap
-  const hasBots = (lastState && lastState.table || []).some(s => s.is_npc);
-  if (gameMode === "digital" && hasBots) {
-    await sendCmd("deal");
-    return;
-  }
   if (gameMode === "digital") {
-    activateDigTab("dig-deal");
+    await sendCmd("deal");
   } else {
     const firstTab = document.querySelector("#ref-tabs .tab");
     if (firstTab) switchRefTab("deal", firstTab);
