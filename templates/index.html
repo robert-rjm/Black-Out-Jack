@@ -929,6 +929,10 @@
         <div id="dig-insurance-row" class="btn-row" style="display:none">
           <button class="btn yellow wide" onclick="sendDigitalPlay('insurance')">INSURANCE (dealer shows Ace)</button>
         </div>
+        <!-- Group insurance vote panel — shown to all players when a vote is open -->
+        <div id="insurance-vote-panel" style="display:none;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3)">
+          <div id="insurance-vote-content"></div>
+        </div>
       </div>
 
       <!-- ROUND pane — shown automatically when round ends -->
@@ -2107,7 +2111,77 @@ function updateInsuranceVisibility(state) {
     }
   }
 
-  row.style.display = (dealerShowsAce && activeHandIsBlackjack) ? "" : "none";
+  // Hide the individual button when the vote system already has an entry for this hand
+  // (the vote panel handles it instead)
+  const hasVoteForMyHand = activeHandIsBlackjack && (state.insurance_votes || []).some(v =>
+    !v.resolved && v.bj_player.toLowerCase() === (myName || "").toLowerCase()
+  );
+
+  row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "" : "none";
+  renderInsuranceVotePanel(state);
+}
+
+function renderInsuranceVotePanel(state) {
+  const panel   = document.getElementById("insurance-vote-panel");
+  const content = document.getElementById("insurance-vote-content");
+  if (!panel || !content) return;
+
+  const openVotes = (state.insurance_votes || []).filter(v => !v.resolved);
+  if (!openVotes.length) { panel.style.display = "none"; return; }
+  panel.style.display = "";
+  content.innerHTML   = "";
+
+  openVotes.forEach(v => {
+    const iAmBJHolder = myName && v.bj_player.toLowerCase() === myName.toLowerCase();
+    const myVote      = v.my_vote;   // null = not voted yet, true/false = voted
+    const hasVoted    = myVote !== null && myVote !== undefined;
+
+    const div = document.createElement("div");
+    div.style.marginBottom = "4px";
+
+    if (iAmBJHolder) {
+      div.innerHTML = `<div style="font-size:12px;color:var(--yellow);font-weight:700">
+        ⏳ Insurance vote for your Blackjack (Hand ${v.hand_idx + 1}) in progress…
+      </div>`;
+    } else if (hasVoted) {
+      const voteLabel = myVote ? "INSURE" : "DECLINE";
+      const voteColor = myVote ? "var(--green)" : "var(--red)";
+      div.innerHTML = `<div style="font-size:12px;color:var(--muted)">
+        Your vote on ${v.bj_player} H${v.hand_idx + 1}:
+        <strong style="color:${voteColor}">${voteLabel}</strong> — waiting for others…
+      </div>`;
+    } else {
+      div.innerHTML = `
+        <div style="font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:6px">
+          Insure ${v.bj_player}'s Blackjack? (Hand ${v.hand_idx + 1})
+        </div>
+        <div class="btn-row" style="margin-bottom:0">
+          <button class="btn green wide"
+                  onclick="castInsuranceVote('${v.bj_player}',${v.hand_idx},true)">INSURE</button>
+          <button class="btn red wide"
+                  onclick="castInsuranceVote('${v.bj_player}',${v.hand_idx},false)">DECLINE</button>
+        </div>`;
+    }
+    content.appendChild(div);
+  });
+}
+
+async function castInsuranceVote(bjPlayer, handIdx, vote) {
+  try {
+    const res  = await fetch("/vote_insurance", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        bj_player: bjPlayer, hand_idx: handIdx, vote,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else appendLog(`  Insurance vote failed: ${data.error || "unknown error"}\n`);
+  } catch (_) {
+    appendLog("  Insurance vote failed: network error\n");
+  }
 }
 
 function cardEl(card) {

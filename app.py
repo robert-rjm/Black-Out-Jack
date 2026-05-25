@@ -794,33 +794,28 @@ def _digital_dealer_turn(session: RefereeSession):
 
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
-                if hand.is_blackjack() and hand.result == "win":
-                    if (p.name, i) in voted_keys:
-                        # Resolve via group vote — find the matching vote entry
-                        vote = next(v for v in insurance_votes
-                                    if v["player"] == p.name and v["hand_idx"] == i)
-                        voters      = [x for x in session.all_players if x.name != p.name]
-                        insure_count = sum(1 for v in vote["votes"].values() if v)
-                        # NPCs that haven't voted yet default to decline
-                        npc_pending = sum(
-                            1 for x in voters
-                            if getattr(x, "is_npc", False) and x.name not in vote["votes"]
-                        )
-                        decline_count = len(voters) - insure_count - npc_pending
-                        # npc_pending all count as decline
-                        decline_count += npc_pending
-                        insured = insure_count > decline_count
-                        vote["resolved"] = True
-                        session.tracker.apply(
-                            DrinkingRules.resolve_insurance_vote(
-                                p.name, hand, all_names,
-                                insured=insured, dealer_bj=dealer_bj,
-                                hard_switch_dealer=exempt_dealer))
-                    else:
-                        # No vote held (dealer didn't show Ace) — normal BJ bonus
-                        session.tracker.apply(
-                            DrinkingRules.on_blackjack(p.name, hand, all_names,
-                                                       hard_switch_dealer=exempt_dealer))
+                if hand.is_blackjack() and (p.name, i) in voted_keys:
+                    # Resolve via group vote — always, even when result is "push"
+                    # (dealer BJ causes a push, but insured hands still need resolution).
+                    vote = next(v for v in insurance_votes
+                                if v["player"] == p.name and v["hand_idx"] == i)
+                    voters        = [x for x in session.all_players if x.name != p.name]
+                    insure_count  = sum(1 for v in vote["votes"].values() if v)
+                    # Non-insure voters (human abstain + explicit decline + NPC default decline)
+                    # all simplify to: total voters minus those who voted insure
+                    decline_count = len(voters) - insure_count
+                    insured       = insure_count > decline_count  # tie → decline
+                    vote["resolved"] = True
+                    session.tracker.apply(
+                        DrinkingRules.resolve_insurance_vote(
+                            p.name, hand, all_names,
+                            insured=insured, dealer_bj=dealer_bj,
+                            hard_switch_dealer=exempt_dealer))
+                elif hand.is_blackjack() and hand.result == "win":
+                    # No vote held (dealer didn't show Ace) — normal BJ bonus
+                    session.tracker.apply(
+                        DrinkingRules.on_blackjack(p.name, hand, all_names,
+                                                   hard_switch_dealer=exempt_dealer))
                 session.tracker.apply(
                     DrinkingRules.on_hand_resolved(p.name, hand, all_names,
                                                    dealer_bj=dealer_bj,
@@ -1260,6 +1255,19 @@ def command():
                             print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                         else:
                             hand.insured = True
+                            # Sync with the vote system: force all voters' votes to True so
+                            # _digital_dealer_turn resolves this hand as insured via voted_keys.
+                            hand_idx   = player.hands.index(hand)
+                            vote_entry = next(
+                                (v for v in getattr(game_session, "_insurance_votes", [])
+                                 if v["player"] == player.name and v["hand_idx"] == hand_idx
+                                 and not v.get("resolved")),
+                                None,
+                            )
+                            if vote_entry:
+                                voters = [x for x in game_session.all_players if x.name != player.name]
+                                for x in voters:
+                                    vote_entry["votes"][x.name] = True
                             print(f"  {player.name} {hand_label}: insured.")
 
             elif cmd == "blackjack":

@@ -547,8 +547,8 @@ class RoundManager:
             return
         dealer_up = self.dealer_player.dealer_hand.cards[0]
 
-        # Insurance — only offered when dealer shows Ace and player has a blackjack
-        if dealer_up.rank == Rank.ACE and hand.is_blackjack():
+        # Insurance — only offered in normal mode (drinking mode uses _collect_insurance_votes group vote)
+        if not self.drinking_mode and dealer_up.rank == Rank.ACE and hand.is_blackjack():
             if player.is_npc:
                 print(f"  {player.name} (NPC) declines insurance.")
             else:

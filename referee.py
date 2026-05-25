@@ -318,7 +318,7 @@ class RefereeSession:
             print(f"  {player.name} {hand_label}: {outcome.upper()}")
             dealer    = self._get_dealer()
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
-            if hand.is_blackjack() and outcome == "win":
+            if hand.is_blackjack() and outcome == "win" and not hand.insured:
                 self.tracker.apply(DrinkingRules.on_blackjack(player.name, hand, self._all_names))
             # Buffer on_hand_resolved — fired at endround once hard_switch is known
             self._pending_resolved.append((player.name, hand, dealer_bj))
