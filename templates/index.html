@@ -2232,7 +2232,7 @@ function updateRoundPane(state) {
     }
   }
 
-  // Drinks list — only populate when round is over
+  // Drinks list — populate on round-over; show "waiting" hint mid-round
   const list = document.getElementById("dig-drinks-list");
   if (list) {
     if (isOver) {
@@ -2249,22 +2249,44 @@ function updateRoundPane(state) {
         ).join("");
       }
     } else {
-      list.innerHTML = "";
+      // Player done mid-round — show a holding message
+      list.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:10px 0">
+        ✋ You're done — waiting for results…
+      </div>`;
     }
   }
 
-  // Peeked card — sync it here so it stays live across state polls
-  if (isOver) {
-    const peeked = state.peeked_card;
-    if (peeked) showPeekedCard(peeked); else clearPeekedCard();
+  // Peeked card — sync across state polls; button label reflects current state
+  const peekBtn = document.getElementById("btn-peek");
+  const peeked  = state.peeked_card;
+  if (peeked) {
+    showPeekedCard(peeked);
+    if (peekBtn) peekBtn.textContent = "🃏 Hide next card";
+  } else {
+    clearPeekedCard();
+    if (peekBtn) peekBtn.textContent = "🃏 Next card?";
   }
 }
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  if (phase === "pre-deal")        activateDigTab("dig-play");
-  else if (phase === "playing")    activateDigTab("dig-play");
-  else if (phase === "round-over") activateDigTab("dig-round");
+  if (phase === "pre-deal") {
+    activateDigTab("dig-play");
+  } else if (phase === "playing") {
+    // Non-dealer: if all my hands are done, move me to Drinks so I'm not staring at buttons
+    if (!isMyDealerClient && myName) {
+      const me = (state.table || []).find(p => p.name.toLowerCase() === myName.toLowerCase());
+      if (me && me.done) {
+        activateDigTab("dig-round");
+      } else {
+        activateDigTab("dig-play");
+      }
+    } else {
+      activateDigTab("dig-play");   // dealer stays on Play to execute turns
+    }
+  } else if (phase === "round-over") {
+    activateDigTab("dig-round");
+  }
 }
 
 function activateDigTab(name) {

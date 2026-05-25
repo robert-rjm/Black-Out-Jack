@@ -183,6 +183,18 @@ def _harvest_drink_log(session: RefereeSession):
             last[p.name] = total
     session._last_round_sips = last
 
+    # Detailed per-entry drink list with reasons for the Drinks pane
+    drinks_detail = []
+    for p in session.all_players:
+        for entry in p.drink_log:
+            if entry and len(entry) >= 2 and entry[0] > 0:
+                sips   = entry[0]
+                reason = entry[1]
+                if _classify_rule(reason) is None:   # skip bookkeeping entries
+                    continue
+                drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+    session._last_round_drinks = drinks_detail
+
 
 def _get_client_info(session, client_id: str) -> dict:
     """Return role/name/is_dealer info for a client_id. Safe if _room_clients missing."""
@@ -528,6 +540,8 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "sip_grand_total":   sum(_compute_sip_totals(session).values()),
         # Last completed round's sip counts per player
         "last_round_sips":     getattr(session, "_last_round_sips", {}),
+        # Detailed drink entries for the Drinks pane (name, sips, reason)
+        "last_round_drinks":   getattr(session, "_last_round_drinks", []),
         # Cumulative sips earned while acting as the dealer role (live incl. current round)
         "dealer_role_sips":    _compute_dealer_role_sips(session),
         # Pre-selected player actions and pending dealer suggestions
@@ -1034,6 +1048,7 @@ def setup():
     game_session._sip_ticker             = {}
     game_session._drink_log_harvested    = False
     game_session._last_round_sips        = {}   # per-player sips in the last completed round
+    game_session._last_round_drinks      = []   # detailed drink entries for the Drinks pane
     game_session._dealer_role_ticker     = {}   # cumulative sips earned while acting as dealer
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
@@ -1302,9 +1317,13 @@ def command():
                         print(f"  {player.name} BLACKJACK confirmed.")
 
             elif cmd == "peek":
-                # Reveal the next card in the shoe without dealing it
+                # Toggle: hide peeked card if already shown, otherwise reveal it
                 shoe = getattr(game_session, "shoe", None)
-                if shoe and shoe.cards:
+                if getattr(game_session, "_last_peeked", None):
+                    # Already showing — toggle off
+                    game_session._last_peeked = None
+                    print("  Next card hidden.")
+                elif shoe and shoe.cards:
                     card = shoe.cards[-1]   # pop() takes from the end
                     print(f"  Next card in shoe: {card}")
                     print(f"  ({len(shoe.cards)} cards remaining)")
