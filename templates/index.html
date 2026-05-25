@@ -1010,10 +1010,6 @@
       <!-- PLAY pane — per-player actions -->
       <div id="pane-dig-play" class="pane">
         <div id="dig-play-role-hint"></div>
-        <div class="label">Player</div>
-        <div id="dig-play-players" class="btn-row"></div>
-        <div class="label">Hand</div>
-        <div id="dig-play-hands" class="btn-row"></div>
         <div id="player-vote-display"></div>
         <!-- Suggestion banner shown to the player when dealer proposes a different action -->
         <div id="suggest-banner" style="display:none;margin:8px 0;padding:10px 12px;border-radius:8px;background:rgba(245,200,66,.13);border:1px solid rgba(245,200,66,.4);color:var(--yellow);font-size:13px">
@@ -1742,11 +1738,7 @@ function buildRefereeUI() {
 }
 
 function buildDigitalUI() {
-  buildPlayerButtons("dig-play-players", "digital", false);
-  buildHandButtons("dig-play-hands", "digital");
-  if (players.length > 0) {
-    setPlayerSel("digital", players[0]);
-  }
+  // Player and hand selection is driven automatically by game state (applyTurnGate)
 }
 
 // includeDealer: referee needs "Dealer" in player lists; digital play does not
@@ -1874,7 +1866,7 @@ function syncHandButtonsFor(pane) {
 
 // Resync hand buttons across all panes — called whenever fresh state arrives.
 function syncAllHandButtons() {
-  ["deal", "result", "action", "digital"].forEach(syncHandButtonsFor);
+  ["deal", "result", "action"].forEach(syncHandButtonsFor);
 }
 
 function selectRank(rank, btn) {
@@ -2496,33 +2488,20 @@ function applyTurnGate(state) {
   const currentSeat = (state.table || []).find(s => s.name === state.current_turn);
   const isNpcTurn   = gate && currentSeat && currentSeat.is_npc;
 
-  const playBtns = document.querySelectorAll("#dig-play-players .btn");
-  playBtns.forEach(b => {
-    if (!gate) { b.classList.remove("disabled"); return; }
-    b.classList.toggle("disabled", b.textContent !== state.current_turn);
-  });
-
   // Disable all action buttons while an NPC is taking its turn
   document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     b.classList.toggle("disabled", !!isNpcTurn);
   });
 
-  // Auto-select the current-turn player so taps go to the right person
+  // Auto-select current-turn player and first active hand
   if (gate) {
-    setPlayerSel("digital", state.current_turn);
+    sel.digital.player = state.current_turn;
 
-    // Auto-advance to the first non-done hand for this player
     const seat = (state.table || []).find(s => s.name === state.current_turn);
     if (seat && seat.hands) {
       const firstActiveIdx = seat.hands.findIndex(h => !h.done);
       if (firstActiveIdx >= 0) {
         sel.digital.hand = `hand${firstActiveIdx + 1}`;
-        const handContainer = document.getElementById("dig-play-hands");
-        if (handContainer) {
-          handContainer.querySelectorAll(".btn").forEach((b, i) => {
-            b.classList.toggle("sel", i === firstActiveIdx);
-          });
-        }
       }
     }
   }
