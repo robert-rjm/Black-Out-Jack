@@ -321,8 +321,9 @@ class DrinkingRules:
         - Split wins break immunity (aggregated as winning_split_hands - 1)
         - Other-player-wins-all rule (with immunity tiers)
 
-        dealer_bj: when True (dealer natural blackjack) only net-loss sips are
-                   charged — all bonus/penalty extras are suppressed (auto-insurance).
+        dealer_bj: when True (dealer natural blackjack) only starting hands
+                   (non-split) that lost are charged × wager. splits excluded,
+                   all bonus/penalty extras suppressed (auto-insurance).
         hard_switch_dealer: name of the dealer-player on a hard switch — they are
                             fully exempt from all player-role drinks this round
                             (they already drink via the Hard Switch dealer rule).
@@ -334,6 +335,21 @@ class DrinkingRules:
         def _excluded(player_name: str) -> bool:
             return bool(hard_switch_dealer) and player_name == hard_switch_dealer
 
+        # Dealer blackjack = auto-insurance:
+        # charge starting hands (non-split) that lost × wager — splits excluded.
+        if dealer_bj:
+            for p in players:
+                if _excluded(p.name):
+                    continue
+                starting_losses = sum(
+                    1 for h in p.hands if not h.from_split and h.result == "loss"
+                )
+                if starting_losses > 0:
+                    msgs.append((p.name, starting_losses * wager,
+                        f"{p.name} dealer BJ — {starting_losses} starting hand(s) lost "
+                        f"=> drinks {starting_losses * wager} sip(s) (auto-insurance)"))
+            return msgs
+
         # Net losses — always fire (skip dealer on hard switch)
         for p in players:
             if _excluded(p.name):
@@ -342,10 +358,6 @@ class DrinkingRules:
             if net > 0:
                 msgs.append((p.name, net * wager,
                     f"{p.name} net -{net} hand(s) => drinks {net * wager} sip(s) (net loss)"))
-
-        # Dealer blackjack = auto-insurance: no extras beyond net losses
-        if dealer_bj:
-            return msgs
 
         # Extra sip for each lost double or lost suited hand (skip dealer on hard switch)
         for p in players:
