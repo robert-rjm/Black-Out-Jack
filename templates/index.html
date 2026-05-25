@@ -2212,7 +2212,7 @@ function updateRoundPane(state) {
   const msg    = document.getElementById("round-switch-msg");
   const peek   = document.getElementById("btn-peek");
   const isOver = state.phase === "round-over";
-  if (peek) peek.style.display = isOver ? "" : "none";
+  if (peek) peek.style.display = (isOver && isMyDealerClient) ? "" : "none";
   if (msg) {
     if (isOver && state.switch_this_round === "hard") {
       const dealer = state.dealer || "Dealer";
