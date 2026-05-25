@@ -806,7 +806,7 @@
     The host is setting up the game. This page updates automatically.
   </p>
   <div id="waiting-code-badge" class="room-code-badge" style="margin:6px 0"></div>
-  <button class="btn" style="margin-top:12px" onclick="backToLobby()">← Back to Lobby</button>
+  <button class="btn red" style="margin-top:12px" onclick="backToLobby()">← Back to Lobby</button>
 </div>
 
 <!-- ===== SETUP SCREEN ===== -->
@@ -891,8 +891,9 @@
     </div>
     <div style="display:flex;gap:6px;align-items:center">
       <button id="btn-rules" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openRulesModal()" title="Rules cheat sheet">📖</button>
+      <button id="btn-round-menu" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="showSessionSummary()" title="Summary & Export">📊</button>
       <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
-      <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
+      <button class="btn red" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">🏠 Lobby</button>
     </div>
   </header>
 
@@ -1206,7 +1207,7 @@
     <div id="summary-body"></div>
     <div class="btn-row" style="margin-top:4px">
       <button class="btn wide" onclick="closeSummaryModal()">Close</button>
-      <button class="btn red wide" onclick="closeSummaryModal(); resetToSetup()">🏠 Back to Lobby</button>
+      <button class="btn wide" onclick="closeSummaryModal(); exportDrinkCSV()">⬇️ Export Drinks CSV</button>
     </div>
   </div>
 </div>
