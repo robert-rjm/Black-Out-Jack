@@ -1004,7 +1004,7 @@
     <div id="dig-panel" style="display:none">
       <div class="tabs-bar" id="dig-tabs">
         <button class="tab active" onclick="switchDigTab('dig-play', this)">Play</button>
-        <button class="tab"        onclick="switchDigTab('dig-round', this)">Round</button>
+        <button class="tab" id="dig-drinks-tab" style="display:none" onclick="switchDigTab('dig-round', this)">🍺 Drinks</button>
       </div>
 
       <!-- PLAY pane — per-player actions -->
@@ -1050,10 +1050,17 @@
         </div>
       </div>
 
-      <!-- ROUND pane — shown automatically when round ends -->
+      <!-- DRINKS pane — dealer-only, shown automatically when round ends -->
       <div id="pane-dig-round" class="pane">
         <div id="round-switch-msg" style="display:none;font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(224,92,92,.3);background:rgba(224,92,92,.1);color:var(--red)"></div>
-        <p class="hint">Round complete — drinks are in the chat →</p>
+        <div id="dig-drinks-list" style="margin-bottom:8px;max-height:200px;overflow-y:auto"></div>
+        <div class="btn-row">
+          <button id="btn-peek" class="btn wide" onclick="sendCmd('peek')">🃏 Next card?</button>
+        </div>
+        <div id="peeked-card-wrap" style="display:none;margin-bottom:8px">
+          <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
+          <div id="peeked-card-display" style="display:flex;gap:6px;align-items:center"></div>
+        </div>
         <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
       </div>
     </div><!-- end #dig-panel -->
@@ -1074,23 +1081,6 @@
     </div>
     <button class="btn-big accent" id="modal-next-btn" onclick="doNewRound(_modalRotate)" style="margin-bottom:4px">▶ Next Round</button>
     <button class="btn wide" onclick="closeModal()" style="color:var(--muted);margin-top:4px">Cancel</button>
-  </div>
-</div>
-
-<!-- ===== DEALER ROUND MODAL ===== -->
-<div id="dealer-round-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:150;align-items:center;justify-content:center">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px 20px;width:min(340px,90vw);display:flex;flex-direction:column;gap:10px;max-height:80vh;overflow-y:auto">
-    <h3 style="font-size:17px;font-weight:700">🃏 Round Complete</h3>
-    <div id="dealer-round-drinks" style="font-size:13px;margin-bottom:4px"></div>
-    <div class="btn-row">
-      <button id="btn-peek" class="btn wide" onclick="sendCmd('peek')">🃏 Next card?</button>
-    </div>
-    <div id="peeked-card-wrap" style="display:none;margin-bottom:8px">
-      <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
-      <div id="peeked-card-display" style="display:flex;gap:6px;align-items:center"></div>
-    </div>
-    <button class="btn-big green" onclick="closeDealerRoundModal(); openNewRound()">▶ New Round</button>
-    <button class="btn wide" style="color:var(--muted)" onclick="closeDealerRoundModal()">Close</button>
   </div>
 </div>
 
@@ -1494,7 +1484,8 @@ function _collectNewCardEls(state) {
 // ============================================================
 // LAST ROUND DRINK SUMMARY
 // ============================================================
-let _lastRoundSips = {};   // populated from state
+let _lastRoundSips    = {};   // populated from state
+let _lastRoundDrinks  = [];   // detailed drink entries for the Drinks pane
 
 function openLastRoundModal() {
   const overlay = document.getElementById("last-round-overlay");
@@ -2088,14 +2079,12 @@ function applyState(state) {
     _animToggleOn()
   );
 
-  // Auto-pop dealer round modal when round ends
-  if (prevPhase !== "round-over" && state.phase === "round-over" && isMyDealerClient) {
-    openDealerRoundModal();
-  }
-
-  // Update last-round sips whenever the server provides them.
+  // Update last-round sips/drinks whenever the server provides them.
   if (state.last_round_sips && Object.keys(state.last_round_sips).length) {
     _lastRoundSips = state.last_round_sips;
+  }
+  if (state.last_round_drinks && state.last_round_drinks.length) {
+    _lastRoundDrinks = state.last_round_drinks;
   }
 
   lastState   = state;
@@ -2220,8 +2209,10 @@ const HARD_SWITCH_MSGS = [
 ];
 
 function updateRoundPane(state) {
-  const msg    = document.getElementById("round-switch-msg");
   const isOver = state.phase === "round-over";
+
+  // Hard-switch banner
+  const msg = document.getElementById("round-switch-msg");
   if (msg) {
     if (isOver && state.switch_this_round === "hard") {
       const dealer = state.dealer || "Dealer";
@@ -2232,13 +2223,41 @@ function updateRoundPane(state) {
       msg.style.display = "none";
     }
   }
+
+  // Drinks list — only populate when round is over
+  const list = document.getElementById("dig-drinks-list");
+  if (list) {
+    if (isOver && isMyDealerClient) {
+      const drinks = _lastRoundDrinks;
+      if (!drinks.length) {
+        list.innerHTML = `<div style="color:var(--muted);font-size:13px;margin-bottom:4px;text-align:center">No drinks this round.</div>`;
+      } else {
+        list.innerHTML = drinks.map(d =>
+          `<div style="font-size:12px;line-height:1.5;padding:5px 8px;border-radius:7px;margin-bottom:4px;
+                       color:var(--red);border-left:2px solid var(--red);background:rgba(224,92,92,.08)">
+            <strong>${d.name}</strong> — ${d.sips} sip${d.sips !== 1 ? "s" : ""}
+            <span style="color:var(--muted);font-weight:400">: ${d.reason}</span>
+          </div>`
+        ).join("");
+      }
+    } else {
+      list.innerHTML = "";
+    }
+  }
+
+  // Peeked card — sync it here so it stays live across state polls
+  if (isOver) {
+    const peeked = state.peeked_card;
+    if (peeked) showPeekedCard(peeked); else clearPeekedCard();
+  }
 }
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  if (phase === "pre-deal")        activateDigTab("dig-play");
-  else if (phase === "playing")    activateDigTab("dig-play");
-  else if (phase === "round-over") activateDigTab("dig-round");
+  if (phase === "pre-deal")                           activateDigTab("dig-play");
+  else if (phase === "playing")                       activateDigTab("dig-play");
+  else if (phase === "round-over" && isMyDealerClient) activateDigTab("dig-round");
+  // Non-dealers stay on the Play pane — they wait for the dealer to start the next round
 }
 
 function activateDigTab(name) {
@@ -2675,35 +2694,6 @@ function closeModal() {
   document.getElementById("modal-overlay").classList.remove("open");
 }
 
-// ============================================================
-// DEALER ROUND MODAL
-// ============================================================
-function openDealerRoundModal() {
-  const overlay = document.getElementById("dealer-round-overlay");
-  const body    = document.getElementById("dealer-round-drinks");
-  if (!overlay || !body) return;
-  const sips  = _lastRoundSips;
-  const names = Object.keys(sips);
-  if (!names.length) {
-    body.innerHTML = `<div style="color:var(--muted);text-align:center">No drinks this round.</div>`;
-  } else {
-    const sorted = names.slice().sort((a, b) => sips[b] - sips[a]);
-    body.innerHTML = sorted.map(n => `
-      <div class="lrp-row">
-        <span>${n}</span>
-        <span class="lrp-sips">${sips[n]} sip${sips[n] !== 1 ? "s" : ""}</span>
-      </div>`).join("");
-  }
-  // Show already-peeked card if available
-  const peeked = lastState && lastState.peeked_card;
-  if (peeked) showPeekedCard(peeked); else clearPeekedCard();
-  overlay.style.display = "flex";
-}
-
-function closeDealerRoundModal() {
-  const overlay = document.getElementById("dealer-round-overlay");
-  if (overlay) overlay.style.display = "none";
-}
 
 function clearPeekedCard() {
   const wrap = document.getElementById("peeked-card-wrap");
@@ -2772,6 +2762,10 @@ async function respondSuggest(accept) {
 }
 
 function updateRoleUI(state) {
+  // Show Drinks tab only for the dealer client
+  const drinksTab = document.getElementById("dig-drinks-tab");
+  if (drinksTab) drinksTab.style.display = isMyDealerClient ? "" : "none";
+
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
   const suggestBanner= document.getElementById("suggest-banner");
