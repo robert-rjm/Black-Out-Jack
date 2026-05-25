@@ -183,6 +183,18 @@ def _harvest_drink_log(session: RefereeSession):
             last[p.name] = total
     session._last_round_sips = last
 
+    # Detailed per-entry drink list with reasons for the Drinks pane
+    drinks_detail = []
+    for p in session.all_players:
+        for entry in p.drink_log:
+            if entry and len(entry) >= 2 and entry[0] > 0:
+                sips   = entry[0]
+                reason = entry[1]
+                if _classify_rule(reason) is None:   # skip bookkeeping entries
+                    continue
+                drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+    session._last_round_drinks = drinks_detail
+
 
 def _get_client_info(session, client_id: str) -> dict:
     """Return role/name/is_dealer info for a client_id. Safe if _room_clients missing."""
@@ -528,6 +540,8 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "sip_grand_total":   sum(_compute_sip_totals(session).values()),
         # Last completed round's sip counts per player
         "last_round_sips":     getattr(session, "_last_round_sips", {}),
+        # Detailed drink entries for the Drinks pane (name, sips, reason)
+        "last_round_drinks":   getattr(session, "_last_round_drinks", []),
         # Cumulative sips earned while acting as the dealer role (live incl. current round)
         "dealer_role_sips":    _compute_dealer_role_sips(session),
         # Pre-selected player actions and pending dealer suggestions
@@ -537,6 +551,13 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "kick_votes":        {k: len(v) for k, v in getattr(session, "_kick_votes", {}).items()},
         "kick_votes_mine":   [k for k, v in getattr(session, "_kick_votes", {}).items()
                               if (_ci.get("name") or "").lower() in v],
+        # Voter names per target so UI can display "Alice votes to kick Bob"
+        "kick_votes_detail": {k: sorted(v) for k, v in getattr(session, "_kick_votes", {}).items()},
+        # Rejoin requests — full list shown to admin; just a flag shown to the requesting client
+        "rejoin_requests":   [r for r in getattr(session, "_rejoin_requests", [])
+                              if _ci.get("role") == "admin"],
+        "my_rejoin_pending": any(r["client_id"] == client_id
+                                 for r in getattr(session, "_rejoin_requests", [])),
         # Admin's animation preference (used as default for new joiners)
         "anim_default":      getattr(session, "_anim_default", True),
         # All connected clients (for registration overlay)
@@ -545,6 +566,12 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
             for info in getattr(session, "_room_clients", {}).values()
             if not info.get("kicked")
         ],
+        # Kicked clients — only exposed to admin so they can undo kicks
+        "kicked_clients": [
+            {"client_id": cid, "name": info.get("name") or ""}
+            for cid, info in getattr(session, "_room_clients", {}).items()
+            if info.get("kicked") and info.get("name")
+        ] if _ci.get("role") == "admin" else [],
         # Per-client fields (populated only when client_id is provided)
         "my_role":           _ci.get("role"),
         "my_name":           _ci.get("name"),
@@ -794,33 +821,28 @@ def _digital_dealer_turn(session: RefereeSession):
 
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
-                if hand.is_blackjack() and hand.result == "win":
-                    if (p.name, i) in voted_keys:
-                        # Resolve via group vote — find the matching vote entry
-                        vote = next(v for v in insurance_votes
-                                    if v["player"] == p.name and v["hand_idx"] == i)
-                        voters      = [x for x in session.all_players if x.name != p.name]
-                        insure_count = sum(1 for v in vote["votes"].values() if v)
-                        # NPCs that haven't voted yet default to decline
-                        npc_pending = sum(
-                            1 for x in voters
-                            if getattr(x, "is_npc", False) and x.name not in vote["votes"]
-                        )
-                        decline_count = len(voters) - insure_count - npc_pending
-                        # npc_pending all count as decline
-                        decline_count += npc_pending
-                        insured = insure_count > decline_count
-                        vote["resolved"] = True
-                        session.tracker.apply(
-                            DrinkingRules.resolve_insurance_vote(
-                                p.name, hand, all_names,
-                                insured=insured, dealer_bj=dealer_bj,
-                                hard_switch_dealer=exempt_dealer))
-                    else:
-                        # No vote held (dealer didn't show Ace) — normal BJ bonus
-                        session.tracker.apply(
-                            DrinkingRules.on_blackjack(p.name, hand, all_names,
-                                                       hard_switch_dealer=exempt_dealer))
+                if hand.is_blackjack() and (p.name, i) in voted_keys:
+                    # Resolve via group vote — always, even when result is "push"
+                    # (dealer BJ causes a push, but insured hands still need resolution).
+                    vote = next(v for v in insurance_votes
+                                if v["player"] == p.name and v["hand_idx"] == i)
+                    voters        = [x for x in session.all_players if x.name != p.name]
+                    insure_count  = sum(1 for v in vote["votes"].values() if v)
+                    # Non-insure voters (human abstain + explicit decline + NPC default decline)
+                    # all simplify to: total voters minus those who voted insure
+                    decline_count = len(voters) - insure_count
+                    insured       = insure_count > decline_count  # tie → decline
+                    vote["resolved"] = True
+                    session.tracker.apply(
+                        DrinkingRules.resolve_insurance_vote(
+                            p.name, hand, all_names,
+                            insured=insured, dealer_bj=dealer_bj,
+                            hard_switch_dealer=exempt_dealer))
+                elif hand.is_blackjack() and hand.result == "win":
+                    # No vote held (dealer didn't show Ace) — normal BJ bonus
+                    session.tracker.apply(
+                        DrinkingRules.on_blackjack(p.name, hand, all_names,
+                                                   hard_switch_dealer=exempt_dealer))
                 session.tracker.apply(
                     DrinkingRules.on_hand_resolved(p.name, hand, all_names,
                                                    dealer_bj=dealer_bj,
@@ -1026,12 +1048,14 @@ def setup():
     game_session._sip_ticker             = {}
     game_session._drink_log_harvested    = False
     game_session._last_round_sips        = {}   # per-player sips in the last completed round
+    game_session._last_round_drinks      = []   # detailed drink entries for the Drinks pane
     game_session._dealer_role_ticker     = {}   # cumulative sips earned while acting as dealer
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
     game_session._preselections = {}
     game_session._suggestions   = {}   # pending dealer→player action suggestions
     game_session._kick_votes    = {}   # {target_name_lower: set(voter_name_lower)}
+    game_session._rejoin_requests = []  # [{client_id, display_name}] — kicked players asking to rejoin
     game_session._anim_default  = True # admin's animation preference, broadcast to joiners
     game_session._queued_settings = {}  # settings queued to apply at start of next round
     if client_id:
@@ -1260,6 +1284,19 @@ def command():
                             print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                         else:
                             hand.insured = True
+                            # Sync with the vote system: force all voters' votes to True so
+                            # _digital_dealer_turn resolves this hand as insured via voted_keys.
+                            hand_idx   = player.hands.index(hand)
+                            vote_entry = next(
+                                (v for v in getattr(game_session, "_insurance_votes", [])
+                                 if v["player"] == player.name and v["hand_idx"] == hand_idx
+                                 and not v.get("resolved")),
+                                None,
+                            )
+                            if vote_entry:
+                                voters = [x for x in game_session.all_players if x.name != player.name]
+                                for x in voters:
+                                    vote_entry["votes"][x.name] = True
                             print(f"  {player.name} {hand_label}: insured.")
 
             elif cmd == "blackjack":
@@ -1280,9 +1317,13 @@ def command():
                         print(f"  {player.name} BLACKJACK confirmed.")
 
             elif cmd == "peek":
-                # Reveal the next card in the shoe without dealing it
+                # Toggle: hide peeked card if already shown, otherwise reveal it
                 shoe = getattr(game_session, "shoe", None)
-                if shoe and shoe.cards:
+                if getattr(game_session, "_last_peeked", None):
+                    # Already showing — toggle off
+                    game_session._last_peeked = None
+                    print("  Next card hidden.")
+                elif shoe and shoe.cards:
                     card = shoe.cards[-1]   # pop() takes from the end
                     print(f"  Next card in shoe: {card}")
                     print(f"  ({len(shoe.cards)} cards remaining)")
@@ -1319,6 +1360,7 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
+                game_session._kick_votes    = {}  # reset vote-kick tally each round
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -1393,6 +1435,7 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
+                game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -1436,6 +1479,13 @@ def register():
 
     existing = session._room_clients.get(client_id, {})
     if existing.get("kicked"):
+        if not name:
+            # Kicked player wants to spectate — allow it, clear kicked flag
+            session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
+            # Remove any pending rejoin request for this client
+            session._rejoin_requests = [r for r in getattr(session, "_rejoin_requests", [])
+                                        if r["client_id"] != client_id]
+            return jsonify({**_serialize_state(session, client_id), "ok": True})
         return jsonify({"ok": False, "error": "You have been removed from this session."})
 
     if not name:
@@ -1474,6 +1524,10 @@ def kick():
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
 
+    admin_name_lc = (admin_info.get("name") or "").lower()
+    if target_name.lower() == admin_name_lc:
+        return jsonify({"ok": False, "error": "Cannot kick yourself."})
+
     for cid, info in clients.items():
         if (cid != client_id and not info.get("kicked")
                 and (info.get("name") or "").lower() == target_name.lower()):
@@ -1481,6 +1535,37 @@ def kick():
             return jsonify({"ok": True})
 
     return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+
+
+@app.route("/undo_kick", methods=["POST"])
+def undo_kick():
+    """Admin reinstates a previously kicked client as a spectator.
+    Body: { room_code, client_id, target_client_id }"""
+    data             = request.json or {}
+    room_code        = (data.get("room_code") or "").strip()
+    client_id        = (data.get("client_id") or "").strip()
+    target_client_id = (data.get("target_client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    target_info = clients.get(target_client_id)
+    if not target_info:
+        return jsonify({"ok": False, "error": "Client not found."})
+    if not target_info.get("kicked"):
+        return jsonify({"ok": False, "error": "Player is not kicked."})
+
+    # Reinstate as spectator — they can then request to rejoin as a player
+    target_info["kicked"] = False
+    target_info["role"]   = "spectator"
+
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/make_bot", methods=["POST"])
@@ -1613,11 +1698,15 @@ def vote_kick():
     if voter_name == target_name.lower():
         return jsonify({"ok": False, "error": "Cannot vote to kick yourself."})
 
-    # Verify target exists as a connected, non-bot player
-    target_connected = any(
-        not v.get("kicked") and (v.get("name") or "").lower() == target_name.lower()
-        for v in clients.values()
+    # Verify target exists as a connected, non-bot, non-admin player
+    target_info = next(
+        (v for v in clients.values()
+         if not v.get("kicked") and (v.get("name") or "").lower() == target_name.lower()),
+        None,
     )
+    if target_info and target_info.get("role") == "admin":
+        return jsonify({"ok": False, "error": "Cannot vote to kick the admin."})
+    target_connected = target_info is not None
     if not target_connected:
         return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
 
@@ -1653,6 +1742,66 @@ def vote_kick():
     state = _serialize_state(session, client_id)
     state["ok"]    = True
     state["kicked"] = kicked
+    return jsonify(state)
+
+
+@app.route("/request_rejoin", methods=["POST"])
+def request_rejoin():
+    """Spectator (formerly kicked) asks admin to let them rejoin.
+    Body: { room_code, client_id, display_name }"""
+    data         = request.json or {}
+    room_code    = (data.get("room_code") or "").strip()
+    client_id    = (data.get("client_id") or "").strip()
+    display_name = (data.get("display_name") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not in session."})
+
+    requests_list = getattr(session, "_rejoin_requests", [])
+    # Avoid duplicate requests
+    if any(r["client_id"] == client_id for r in requests_list):
+        return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+    requests_list.append({"client_id": client_id, "display_name": display_name or "Unknown"})
+    session._rejoin_requests = requests_list
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/handle_rejoin", methods=["POST"])
+def handle_rejoin():
+    """Admin approves or denies a rejoin request.
+    Body: { room_code, client_id, target_client_id, approve: bool }"""
+    data             = request.json or {}
+    room_code        = (data.get("room_code") or "").strip()
+    client_id        = (data.get("client_id") or "").strip()
+    target_client_id = (data.get("target_client_id") or "").strip()
+    approve          = bool(data.get("approve", False))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    # Remove from rejoin requests regardless of decision
+    session._rejoin_requests = [r for r in getattr(session, "_rejoin_requests", [])
+                                 if r["client_id"] != target_client_id]
+
+    if approve:
+        # Remove the client entry so they get the register overlay on next poll
+        clients.pop(target_client_id, None)
+
+    state = _serialize_state(session, client_id)
+    state["ok"] = True
     return jsonify(state)
 
 
@@ -1940,10 +2089,12 @@ def update_settings():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
-    if clients.get(client_id, {}).get("role") != "admin":
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Admin only."})
 
+    admin_name_lc = (admin_info.get("name") or "").lower()
     queued = getattr(session, "_queued_settings", {})
 
     # Validate and queue each provided setting
@@ -1974,6 +2125,14 @@ def update_settings():
     if "remove_player" in data:
         name = str(data["remove_player"]).strip().capitalize()
         if name:
+            if name.lower() == admin_name_lc:
+                return jsonify({"ok": False, "error": "Cannot remove your own seat."})
+            target = next(
+                (p for p in session.all_players if p.name.lower() == name.lower()),
+                None,
+            )
+            if target and getattr(target, "is_dealer", False):
+                return jsonify({"ok": False, "error": "Cannot remove the current dealer's seat."})
             removes = queued.get("remove_players", [])
             if name not in removes:
                 removes.append(name)

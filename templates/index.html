@@ -648,13 +648,135 @@
   .kick-name     { font-size: 14px; font-weight: 600; }
   .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
   .kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: rgba(224,92,92,.15); color: var(--red); border-color: rgba(224,92,92,.3); }
+
+  /* ---- AGE GATE ---- */
+  #age-gate {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px; gap: 20px;
+    text-align: center;
+  }
+  #age-gate-card {
+    width: 100%; max-width: 400px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .gate-logo { font-size: 52px; line-height: 1; }
+  #age-gate h1 { font-size: 26px; font-weight: 800; letter-spacing: .3px; }
+  .gate-sub { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 320px; }
+  .gate-legal {
+    font-size: 13px; color: var(--muted); line-height: 1.55;
+    background: rgba(245,200,66,.07); border: 1px solid rgba(245,200,66,.18);
+    border-radius: 10px; padding: 12px 16px;
+    width: 100%; max-width: 400px; text-align: left;
+  }
+  .gate-legal strong { color: var(--yellow); }
+  #age-gate-msg { font-size: 13px; color: var(--red); min-height: 18px; }
+  .gate-btn-confirm {
+    width: 100%; max-width: 400px;
+    height: 56px; border-radius: var(--radius);
+    background: var(--green); border: none;
+    color: #000; font-size: 17px; font-weight: 800;
+    cursor: pointer; transition: opacity .12s, transform .08s;
+  }
+  .gate-btn-confirm:active { transform: scale(.97); }
+  .gate-btn-decline {
+    background: none; border: none;
+    color: var(--muted); font-size: 13px;
+    cursor: pointer; text-decoration: underline; padding: 4px 8px;
+  }
+  .gate-btn-decline:hover { color: var(--text); }
+
+  /* ---- DRINK NOTICE ---- */
+  .drink-notice {
+    width: 100%; max-width: 420px;
+    background: rgba(245,200,66,.06); border: 1px solid rgba(245,200,66,.16);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 12px; color: var(--muted); line-height: 1.55; text-align: center;
+  }
+  .drink-notice strong { color: var(--yellow); }
+
+  /* ---- LOBBY CREDITS ---- */
+  .lobby-credits {
+    font-size: 11px; color: var(--muted);
+    text-align: center; line-height: 1.7; margin-top: 4px;
+    width: 100%; max-width: 420px;
+  }
+
+  /* ---- DEALER TOAST ---- */
+  #dealer-toast {
+    position: fixed;
+    top: max(64px, calc(env(safe-area-inset-top) + 64px));
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    background: var(--yellow);
+    color: #000;
+    font-size: 15px; font-weight: 800;
+    padding: 12px 22px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    z-index: 900;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space: nowrap;
+    letter-spacing: .2px;
+  }
+  #dealer-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ---- PLAYER DRINK TOAST ---- */
+  #player-toast {
+    position: fixed;
+    top: max(64px, calc(env(safe-area-inset-top) + 64px));
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    font-size: 15px; font-weight: 800;
+    padding: 12px 22px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    z-index: 900;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space: nowrap;
+    letter-spacing: .2px;
+  }
+  #player-toast.drink { background: var(--red);   color: #fff; }
+  #player-toast.clean { background: var(--green); color: #000; }
+  #player-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
 
+<!-- ===== AGE GATE ===== -->
+<div id="age-gate">
+  <div id="age-gate-card">
+    <div class="gate-logo">🃏</div>
+    <h1>Black-Out-Jack</h1>
+    <p class="gate-sub">Drinking Blackjack with friends</p>
+
+    <div class="gate-legal">
+      This game involves alcohol. You must be <strong>18 years of age or older</strong> (or the legal drinking age in your country) to play. By continuing you confirm you meet the minimum age requirement.
+    </div>
+
+    <button class="gate-btn-confirm"
+      onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''"
+      ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform=''"
+      onclick="confirmAge()">I am 18 or older →</button>
+
+    <div id="age-gate-msg"></div>
+
+    <button class="gate-btn-decline" onclick="declineAge()">I am under 18</button>
+  </div>
+</div>
+
 <!-- ===== LOBBY SCREEN ===== -->
 <div id="lobby">
-  <h2>🃏 Black-Out Jack</h2>
+  <h2>🃏 Black-Out-Jack</h2>
   <p style="color:var(--muted);font-size:14px;text-align:center">Drinking Blackjack with friends</p>
 
   <button
@@ -676,6 +798,26 @@
     onclick="joinRoom()">Join Room →</button>
 
   <div id="lobby-msg"></div>
+
+  <div class="drink-notice">
+    🍺 <strong>Drink Responsibly.</strong> Know your limits, stay hydrated, and never drink and drive. This game is intended for adults of legal drinking age only.
+  </div>
+
+  <button onclick="openRulesModal()"
+    style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:3px"
+    onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+    📖 Game Rules &amp; Cheat Sheet
+  </button>
+
+  <div class="lobby-credits">
+    Black-Out-Jack &bull; Made by Robert Michels<br>
+    <a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener"
+       style="color:var(--muted);text-decoration:none;font-size:11px"
+       onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+      🔗 github.com/robert-rjm/Black-Out-Jack
+    </a><br>
+    <span style="font-size:10px;opacity:.7">Play smart &bull; Drink smart &bull; Stay safe</span>
+  </div>
 </div>
 
 <!-- ===== WAITING SCREEN ===== -->
@@ -685,7 +827,7 @@
     The host is setting up the game. This page updates automatically.
   </p>
   <div id="waiting-code-badge" class="room-code-badge" style="margin:6px 0"></div>
-  <button class="btn" style="margin-top:12px" onclick="backToLobby()">← Back to Lobby</button>
+  <button class="btn red" style="margin-top:12px" onclick="backToLobby()">← Back to Lobby</button>
 </div>
 
 <!-- ===== SETUP SCREEN ===== -->
@@ -731,7 +873,7 @@
       <input type="number" id="num-hands-ref" value="2" min="1" max="4">
     </div>
   </div>
-  <div id="settings-dig" class="three-col" style="display:block">
+  <div id="settings-dig" class="three-col" style="display:grid">
     <div class="field" id="wager-dig-cell" style="max-width:none">
       <label>Sips / hand</label>
       <input type="number" id="wager-dig" value="1" min="1" max="10">
@@ -770,13 +912,22 @@
     </div>
     <div style="display:flex;gap:6px;align-items:center">
       <button id="btn-rules" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openRulesModal()" title="Rules cheat sheet">📖</button>
+      <button id="btn-round-menu" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="showSessionSummary()" title="Summary & Export">📊</button>
+      <button id="btn-last-round-header" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openLastRoundModal()" title="Last round drinks">🍺</button>
       <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
-      <button class="btn" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">Reset</button>
+      <button class="btn red" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">🏠 Lobby</button>
     </div>
   </header>
 
   <div id="sip-ticker"></div>
 
+  <!-- Kick vote banner: visible in-game when active kick votes exist -->
+  <div id="kick-vote-banner" style="display:none;padding:6px 14px;font-size:12px;background:rgba(224,92,92,.1);border-bottom:1px solid rgba(224,92,92,.25);color:var(--red);line-height:1.6"></div>
+  <!-- Spectator rejoin request banner -->
+  <div id="spectator-rejoin-banner" style="display:none;padding:7px 14px;font-size:12px;background:rgba(245,200,66,.08);border-bottom:1px solid rgba(245,200,66,.2);color:var(--yellow);display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <span>You were removed from this session.</span>
+    <button id="rejoin-req-btn" class="btn" style="height:28px;padding:0 10px;font-size:11px" onclick="doRequestRejoin()">Request to rejoin</button>
+  </div>
   <div id="main-content">
     <div id="left-col"></div>
     <div id="right-col">
@@ -873,28 +1024,13 @@
     <!-- ── DIGITAL panel ─────────────────────────────────── -->
     <div id="dig-panel" style="display:none">
       <div class="tabs-bar" id="dig-tabs">
-        <button class="tab active" onclick="switchDigTab('dig-deal', this)">Deal</button>
-        <button class="tab"        onclick="switchDigTab('dig-play', this)">Play</button>
-        <button class="tab"        onclick="switchDigTab('dig-round', this)">Round</button>
-      </div>
-
-      <!-- DEAL pane — initial deal from shoe -->
-      <div id="pane-dig-deal" class="pane active">
-        <p class="hint">Tap to deal the opening cards to all players from the shoe.</p>
-        <button class="btn-big accent" onclick="sendCmd('deal')">DEAL CARDS</button>
-        <div class="btn-row">
-          <button class="btn wide" id="btn-last-round" onclick="toggleLastRoundPanel()">🍺 Last Round</button>
-        </div>
-        <div id="last-round-panel"></div>
+        <button class="tab active" onclick="switchDigTab('dig-play', this)">Play</button>
+        <button class="tab" id="dig-drinks-tab" onclick="switchDigTab('dig-round', this)">🍺 Drinks</button>
       </div>
 
       <!-- PLAY pane — per-player actions -->
       <div id="pane-dig-play" class="pane">
         <div id="dig-play-role-hint"></div>
-        <div class="label">Player</div>
-        <div id="dig-play-players" class="btn-row"></div>
-        <div class="label">Hand</div>
-        <div id="dig-play-hands" class="btn-row"></div>
         <div id="player-vote-display"></div>
         <!-- Suggestion banner shown to the player when dealer proposes a different action -->
         <div id="suggest-banner" style="display:none;margin:8px 0;padding:10px 12px;border-radius:8px;background:rgba(245,200,66,.13);border:1px solid rgba(245,200,66,.4);color:var(--yellow);font-size:13px">
@@ -929,23 +1065,51 @@
         <div id="dig-insurance-row" class="btn-row" style="display:none">
           <button class="btn yellow wide" onclick="sendDigitalPlay('insurance')">INSURANCE (dealer shows Ace)</button>
         </div>
+        <!-- Group insurance vote panel — shown to all players when a vote is open -->
+        <div id="insurance-vote-panel" style="display:none;margin-top:8px;padding:10px 12px;border-radius:10px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3)">
+          <div id="insurance-vote-content"></div>
+        </div>
       </div>
 
-      <!-- ROUND pane — shown automatically when round ends -->
+      <!-- DRINKS pane — all players see it on round-over; dealer actions hidden for non-dealers -->
       <div id="pane-dig-round" class="pane">
         <div id="round-switch-msg" style="display:none;font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(224,92,92,.3);background:rgba(224,92,92,.1);color:var(--red)"></div>
-        <p class="hint">Round complete — drinks are in the chat →</p>
-        <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
-        <div class="btn-row">
-          <button class="btn wide" id="btn-peek" onclick="sendCmd('peek')" style="display:none">🃏 Next card?</button>
-          <button class="btn wide" onclick="showSessionSummary()">📊 Final Summary</button>
+
+        <!-- mid-round placeholder: player finished but round not yet over -->
+        <div id="dig-drinks-progress" style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:12px 0">
+          ✋ You're done — waiting for results…
         </div>
-        <div class="btn-row">
-          <button class="btn wide" onclick="exportDrinkCSV()">📊 Export Drinks CSV</button>
+
+        <!-- two-column layout (round-over): grid left | detail right -->
+        <div id="dig-drinks-panel" style="display:none;flex-direction:row;gap:0;margin-bottom:8px">
+          <!-- left: 2-col grid of player cards (tappable) -->
+          <div id="dig-drinks-agg" style="display:grid;grid-template-columns:96px 96px;gap:4px;flex-shrink:0;align-content:start;padding-right:8px"></div>
+          <!-- divider -->
+          <div style="width:1px;background:var(--border);flex-shrink:0;align-self:stretch;margin-right:8px"></div>
+          <!-- right: selected-player detail -->
+          <div id="dig-drinks-detail" style="flex:1;overflow-y:auto;max-height:160px"></div>
         </div>
-        <div id="peeked-card-wrap" style="display:none;margin-top:8px">
+
+        <!-- no-drinks fallback -->
+        <div id="dig-drinks-none" style="display:none;color:var(--muted);font-size:13px;text-align:center;margin-bottom:8px;padding:10px 0">
+          No drinks this round 🎉
+        </div>
+
+        <!-- peeked card — shown to all once dealer peeks -->
+        <div id="peeked-card-wrap" style="display:none;margin-bottom:8px">
           <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
           <div id="peeked-card-display" style="display:flex;gap:6px;align-items:center"></div>
+        </div>
+        <!-- dealer-only controls -->
+        <div id="dig-drinks-dealer-actions" style="display:none">
+          <div class="btn-row">
+            <button id="btn-peek" class="btn wide" onclick="sendCmd('peek')">🃏 Next card?</button>
+          </div>
+          <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
+        </div>
+        <!-- non-dealer waiting hint -->
+        <div id="dig-drinks-waiting" style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:6px 0">
+          Waiting for dealer to start the next round…
         </div>
       </div>
     </div><!-- end #dig-panel -->
@@ -1063,6 +1227,21 @@
   </div>
 </div>
 
+<!-- ===== LAST ROUND OVERLAY ===== -->
+<div id="last-round-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center" onclick="closeLastRoundModal()">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;width:min(300px,88vw)" onclick="event.stopPropagation()">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:12px">🍺 Last Round</h3>
+    <div id="last-round-modal-body"></div>
+    <button class="btn wide" style="margin-top:12px;color:var(--muted)" onclick="closeLastRoundModal()">Close</button>
+  </div>
+</div>
+
+<!-- ===== DEALER TOAST ===== -->
+<div id="dealer-toast">🃏 You are the dealer now!</div>
+
+<!-- ===== PLAYER DRINK TOAST ===== -->
+<div id="player-toast"></div>
+
 <!-- ===== FINAL SUMMARY OVERLAY ===== -->
 <div id="summary-overlay">
   <div id="summary-card">
@@ -1071,7 +1250,7 @@
     <div id="summary-body"></div>
     <div class="btn-row" style="margin-top:4px">
       <button class="btn wide" onclick="closeSummaryModal()">Close</button>
-      <button class="btn red wide" onclick="closeSummaryModal(); resetToSetup()">🏠 Back to Lobby</button>
+      <button class="btn wide" onclick="closeSummaryModal(); exportDrinkCSV()">⬇️ Export Drinks CSV</button>
     </div>
   </div>
 </div>
@@ -1107,6 +1286,19 @@ let isMyDealerClient = false; // true when this client can execute game commands
 // Shared log sync — tracks which server-side log entries have been displayed
 let logCount   = 0;
 let logVersion = -1;   // -1 so the first state response always triggers a sync
+
+// ============================================================
+// AGE GATE
+// ============================================================
+function confirmAge() {
+  try { sessionStorage.setItem("bjAgeOk", "1"); } catch(_) {}
+  document.getElementById("age-gate").style.display = "none";
+}
+
+function declineAge() {
+  document.getElementById("age-gate-msg").textContent =
+    "Sorry — this game is for adults (18+) only.";
+}
 
 // ============================================================
 // LOBBY
@@ -1344,33 +1536,32 @@ function _collectNewCardEls(state) {
 // ============================================================
 // LAST ROUND DRINK SUMMARY
 // ============================================================
-let _lastRoundSips = {};   // populated from state
+let _lastRoundSips      = {};   // populated from state
+let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
+let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
 
-function toggleLastRoundPanel() {
-  const panel = document.getElementById("last-round-panel");
-  if (!panel) return;
-  const showing = panel.style.display === "block";
-  if (showing) { panel.style.display = "none"; return; }
-  renderLastRoundPanel();
-  panel.style.display = "block";
-}
-
-function renderLastRoundPanel() {
-  const panel = document.getElementById("last-round-panel");
-  if (!panel) return;
+function openLastRoundModal() {
+  const overlay = document.getElementById("last-round-overlay");
+  const body    = document.getElementById("last-round-modal-body");
+  if (!overlay || !body) return;
   const sips  = _lastRoundSips;
   const names = Object.keys(sips);
   if (!names.length) {
-    panel.innerHTML = `<div style="color:var(--muted);text-align:center">No rounds completed yet.</div>`;
-    return;
-  }
-  const sorted = names.slice().sort((a, b) => sips[b] - sips[a]);
-  panel.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:var(--muted);font-size:11px;letter-spacing:.05em">LAST ROUND</div>`
-    + sorted.map(n => `
+    body.innerHTML = `<div style="color:var(--muted);text-align:center;font-size:13px">No rounds completed yet.</div>`;
+  } else {
+    const sorted = names.slice().sort((a, b) => sips[b] - sips[a]);
+    body.innerHTML = sorted.map(n => `
       <div class="lrp-row">
         <span>${n}</span>
         <span class="lrp-sips">${sips[n]} sip${sips[n] !== 1 ? "s" : ""}</span>
       </div>`).join("");
+  }
+  overlay.style.display = "flex";
+}
+
+function closeLastRoundModal() {
+  const overlay = document.getElementById("last-round-overlay");
+  if (overlay) overlay.style.display = "none";
 }
 
 // While waiting for the host to start, poll until the game exists
@@ -1547,18 +1738,22 @@ async function startGame() {
   myName           = data.my_name          || null;
   isMyDealerClient = data.is_dealer_client !== false;  // admin always starts as dealer
 
-  updateHeader(data);
-  buildGameUI();
-  applyState(data);   // syncLogFromState inside here handles the setup output
+  try {
+    updateHeader(data);
+    buildGameUI();
+    applyState(data);
 
-  if (gameMode === "digital") {
-    // Local hint for the host only — not stored on server
-    appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("app").style.display   = "flex";
+    startPolling();
+    if (gameMode === "digital") {
+      await sendCmd("deal");
+    }
+  } catch (err) {
+    console.error("[startGame] Error launching game:", err);
+    alert("Could not launch game: " + err.message + "\n\nCheck the browser console for details.");
+    btn.disabled = false;
   }
-
-  document.getElementById("setup").style.display = "none";
-  document.getElementById("app").style.display   = "flex";
-  startPolling();
 }
 
 // ============================================================
@@ -1593,11 +1788,7 @@ function buildRefereeUI() {
 }
 
 function buildDigitalUI() {
-  buildPlayerButtons("dig-play-players", "digital", false);
-  buildHandButtons("dig-play-hands", "digital");
-  if (players.length > 0) {
-    setPlayerSel("digital", players[0]);
-  }
+  // Player and hand selection is driven automatically by game state (applyTurnGate)
 }
 
 // includeDealer: referee needs "Dealer" in player lists; digital play does not
@@ -1725,7 +1916,7 @@ function syncHandButtonsFor(pane) {
 
 // Resync hand buttons across all panes — called whenever fresh state arrives.
 function syncAllHandButtons() {
-  ["deal", "result", "action", "digital"].forEach(syncHandButtonsFor);
+  ["deal", "result", "action"].forEach(syncHandButtonsFor);
 }
 
 function selectRank(rank, btn) {
@@ -1889,6 +2080,8 @@ function applyState(state) {
 
   // Handle kicked status first
   if (state.my_role === "kicked") {
+    // If the user already acknowledged and chose to spectate, skip the popup
+    if (myRole === "spectator") return;
     stopPolling();
     const leave = confirm("You have been removed from this session.\n\nPress OK to return to the lobby, or Cancel to stay and watch as a spectator.");
     if (leave) {
@@ -1906,8 +2099,8 @@ function applyState(state) {
       players  = [];
       gameMode = "referee";
     } else {
-      myRole = "spectator";
-      startPolling();
+      // Register as spectator server-side so server stops returning "kicked"
+      doSpectate();
     }
     return;
   }
@@ -1915,6 +2108,7 @@ function applyState(state) {
   // Update client identity from server.
   // Only downgrade to null if we have no role yet — prevents a stale poll from
   // clearing a valid role that was just set by a fresh /register response.
+  const _prevDealer = isMyDealerClient;
   if (state.my_role !== undefined) {
     if (state.my_role !== null) {
       myRole           = state.my_role;
@@ -1926,6 +2120,8 @@ function applyState(state) {
       isMyDealerClient = false;
     }
   }
+  // Show toast when dealer role is newly rotated to this client (skip initial load)
+  if (lastState !== null && !_prevDealer && isMyDealerClient) showDealerToast();
 
   // Detect a fresh deal: previous state had no cards, new state has cards.
   const prevPhase = lastState ? lastState.phase : null;
@@ -1936,9 +2132,17 @@ function applyState(state) {
     _animToggleOn()
   );
 
-  // Update last-round sips whenever the server provides them.
+  // Update last-round sips/drinks whenever the server provides them.
   if (state.last_round_sips && Object.keys(state.last_round_sips).length) {
     _lastRoundSips = state.last_round_sips;
+  }
+  if (state.last_round_drinks && state.last_round_drinks.length) {
+    _lastRoundDrinks = state.last_round_drinks;
+  }
+
+  // Player drink toast — fires once on round-over transition for registered players
+  if (prevPhase !== "round-over" && state.phase === "round-over" && myName && myRole !== "spectator") {
+    showPlayerDrinkToast(_lastRoundSips[myName] || 0);
   }
 
   lastState   = state;
@@ -1963,6 +2167,22 @@ function applyState(state) {
 
   // Registration overlay — show when not yet registered
   updateRegisterOverlay(state);
+
+  // Kick vote banner
+  renderKickVoteBanner(state);
+
+  // Spectator rejoin banner (shown to clients who were kicked and chose to spectate)
+  const rejoinBanner = document.getElementById("spectator-rejoin-banner");
+  const rejoinBtn    = document.getElementById("rejoin-req-btn");
+  if (rejoinBanner) {
+    if (myRole === "spectator" && state.my_name === null) {
+      rejoinBanner.style.display = "flex";
+      if (rejoinBtn) rejoinBtn.disabled = !!state.my_rejoin_pending;
+      if (rejoinBtn) rejoinBtn.textContent = state.my_rejoin_pending ? "Request sent ✓" : "Request to rejoin";
+    } else {
+      rejoinBanner.style.display = "none";
+    }
+  }
 
   if (gameMode === "digital") {
     autoSwitchDigTab(state);
@@ -2046,11 +2266,55 @@ const HARD_SWITCH_MSGS = [
   "Dealer goes down! {dealer} takes the Hard Switch. 🃏",
 ];
 
+// ── Drinks pane: player card selection ──────────────────────────────────────
+function selectDrinksPlayer(name) {
+  // Toggle: tap same card again to deselect
+  _drinksPaneSelected = (_drinksPaneSelected === name) ? null : name;
+  renderDrinksDetail();
+  // Re-highlight cards
+  document.querySelectorAll(".drinks-card").forEach(el => {
+    el.style.outline = el.dataset.name === _drinksPaneSelected
+      ? "2px solid var(--accent)" : "none";
+  });
+}
+
+function renderDrinksDetail() {
+  const detail = document.getElementById("dig-drinks-detail");
+  if (!detail) return;
+  if (!_drinksPaneSelected) {
+    detail.innerHTML = `<div style="color:var(--muted);font-size:12px;text-align:center;
+      padding:20px 8px;opacity:.55;line-height:1.5">← tap a name<br>to see details</div>`;
+    return;
+  }
+  const entries = _lastRoundDrinks.filter(d => d.name === _drinksPaneSelected);
+  const total   = _lastRoundSips[_drinksPaneSelected] || 0;
+  if (!entries.length) {
+    detail.innerHTML = `<div style="color:var(--green);font-size:12px;text-align:center;padding:10px 4px">
+      ${_drinksPaneSelected} — no drinks 🎉</div>`;
+    return;
+  }
+  detail.innerHTML =
+    `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+                 letter-spacing:.5px;margin-bottom:5px">${_drinksPaneSelected} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
+    entries.map(d =>
+      `<div style="font-size:11px;line-height:1.45;padding:4px 6px;border-radius:6px;margin-bottom:3px;
+                   color:var(--red);border-left:2px solid var(--red);background:rgba(224,92,92,.08)">
+        <span style="font-weight:700">+${d.sips}</span>
+        <span style="color:var(--muted)"> ${d.reason}</span>
+      </div>`
+    ).join("");
+}
+
 function updateRoundPane(state) {
-  const msg    = document.getElementById("round-switch-msg");
-  const peek   = document.getElementById("btn-peek");
-  const isOver = state.phase === "round-over";
-  if (peek) peek.style.display = isOver ? "" : "none";
+  const isOver   = state.phase === "round-over";
+  const panel    = document.getElementById("dig-drinks-panel");
+  const agg      = document.getElementById("dig-drinks-agg");
+  const detail   = document.getElementById("dig-drinks-detail");
+  const none     = document.getElementById("dig-drinks-none");
+  const progress = document.getElementById("dig-drinks-progress");
+
+  // Hard-switch banner
+  const msg = document.getElementById("round-switch-msg");
   if (msg) {
     if (isOver && state.switch_this_round === "hard") {
       const dealer = state.dealer || "Dealer";
@@ -2061,23 +2325,84 @@ function updateRoundPane(state) {
       msg.style.display = "none";
     }
   }
-  // Show peeked card to ALL players (state persists until newround/deal clears it)
-  if (isOver && state.peeked_card) {
-    showPeekedCard(state.peeked_card);
+
+  if (isOver) {
+    if (progress) progress.style.display = "none";
+    // Always include all players; ensure dealer card shows even with 0 sips
+    const allPlayers = [...new Set([...(state.players || []),
+                                    ...(state.dealer ? [state.dealer] : [])])];
+
+    if (panel) panel.style.display = "flex";
+    if (none)  none.style.display  = "none";
+
+    // LEFT: 2-col grid of tappable player cards
+    if (agg) {
+      agg.innerHTML = allPlayers.map(name => {
+        const sips       = _lastRoundSips[name] || 0;
+        const hot        = sips > 0;
+        const isSelected = _drinksPaneSelected === name;
+        const bg         = hot ? "rgba(224,92,92,.18)"  : "rgba(62,207,110,.14)";
+        const border     = hot ? "rgba(224,92,92,.4)"   : "rgba(62,207,110,.4)";
+        const color      = hot ? "var(--red)"           : "var(--green)";
+        const outline    = isSelected ? "outline:2px solid var(--accent);outline-offset:1px;" : "";
+        return `<button class="drinks-card" data-name="${name}"
+          onclick="selectDrinksPlayer('${name}')"
+          style="padding:7px 4px;border-radius:9px;text-align:center;cursor:pointer;
+                 background:${bg};border:1.5px solid ${border};${outline}
+                 transition:outline .1s;-webkit-tap-highlight-color:transparent">
+          <div style="font-size:10px;color:var(--muted);font-weight:700;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                      max-width:100%;padding:0 2px">${name}</div>
+          <div style="font-size:21px;font-weight:800;line-height:1.2;color:${color}">${sips}</div>
+          <div style="font-size:10px;color:${color};opacity:.85">sip${sips !== 1 ? "s" : ""}</div>
+        </button>`;
+      }).join("");
+    }
+
+    // RIGHT: detail for selected player (or prompt if none selected)
+    renderDrinksDetail();
+
+  } else {
+    // Mid-round: player finished their turn, waiting for others
+    _drinksPaneSelected = null;
+    if (panel)    panel.style.display    = "none";
+    if (none)     none.style.display     = "none";
+    if (progress) progress.style.display = "";
+    if (agg)      agg.innerHTML          = "";
+    if (detail)   detail.innerHTML       = "";
+  }
+
+  // Peeked card — sync across state polls; button label reflects toggle state
+  const peekBtn = document.getElementById("btn-peek");
+  const peeked  = state.peeked_card;
+  if (peeked) {
+    showPeekedCard(peeked);
+    if (peekBtn) peekBtn.textContent = "🃏 Hide next card";
   } else {
     clearPeekedCard();
+    if (peekBtn) peekBtn.textContent = "🃏 Next card?";
   }
 }
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  // Don't yank the user away from the Deal tab if they have Last Round open
-  const lrPanel = document.getElementById("last-round-panel");
-  const lrOpen  = lrPanel && lrPanel.style.display === "block";
-  if (lrOpen && phase === "playing") return;   // stay on Deal tab
-  if (phase === "pre-deal")        activateDigTab("dig-deal");
-  else if (phase === "playing")    activateDigTab("dig-play");
-  else if (phase === "round-over") activateDigTab("dig-round");
+  if (phase === "pre-deal") {
+    activateDigTab("dig-play");
+  } else if (phase === "playing") {
+    // Non-dealer: if all my hands are done, move me to Drinks so I'm not staring at buttons
+    if (!isMyDealerClient && myName) {
+      const me = (state.table || []).find(p => p.name.toLowerCase() === myName.toLowerCase());
+      if (me && me.done) {
+        activateDigTab("dig-round");
+      } else {
+        activateDigTab("dig-play");
+      }
+    } else {
+      activateDigTab("dig-play");   // dealer stays on Play to execute turns
+    }
+  } else if (phase === "round-over") {
+    activateDigTab("dig-round");
+  }
 }
 
 function activateDigTab(name) {
@@ -2107,7 +2432,77 @@ function updateInsuranceVisibility(state) {
     }
   }
 
-  row.style.display = (dealerShowsAce && activeHandIsBlackjack) ? "" : "none";
+  // Hide the individual button when the vote system already has an entry for this hand
+  // (the vote panel handles it instead)
+  const hasVoteForMyHand = activeHandIsBlackjack && (state.insurance_votes || []).some(v =>
+    !v.resolved && v.bj_player.toLowerCase() === (myName || "").toLowerCase()
+  );
+
+  row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "" : "none";
+  renderInsuranceVotePanel(state);
+}
+
+function renderInsuranceVotePanel(state) {
+  const panel   = document.getElementById("insurance-vote-panel");
+  const content = document.getElementById("insurance-vote-content");
+  if (!panel || !content) return;
+
+  const openVotes = (state.insurance_votes || []).filter(v => !v.resolved);
+  if (!openVotes.length) { panel.style.display = "none"; return; }
+  panel.style.display = "";
+  content.innerHTML   = "";
+
+  openVotes.forEach(v => {
+    const iAmBJHolder = myName && v.bj_player.toLowerCase() === myName.toLowerCase();
+    const myVote      = v.my_vote;   // null = not voted yet, true/false = voted
+    const hasVoted    = myVote !== null && myVote !== undefined;
+
+    const div = document.createElement("div");
+    div.style.marginBottom = "4px";
+
+    if (iAmBJHolder) {
+      div.innerHTML = `<div style="font-size:12px;color:var(--yellow);font-weight:700">
+        ⏳ Insurance vote for your Blackjack (Hand ${v.hand_idx + 1}) in progress…
+      </div>`;
+    } else if (hasVoted) {
+      const voteLabel = myVote ? "INSURE" : "DECLINE";
+      const voteColor = myVote ? "var(--green)" : "var(--red)";
+      div.innerHTML = `<div style="font-size:12px;color:var(--muted)">
+        Your vote on ${v.bj_player} H${v.hand_idx + 1}:
+        <strong style="color:${voteColor}">${voteLabel}</strong> — waiting for others…
+      </div>`;
+    } else {
+      div.innerHTML = `
+        <div style="font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:6px">
+          Insure ${v.bj_player}'s Blackjack? (Hand ${v.hand_idx + 1})
+        </div>
+        <div class="btn-row" style="margin-bottom:0">
+          <button class="btn green wide"
+                  onclick="castInsuranceVote('${v.bj_player}',${v.hand_idx},true)">INSURE</button>
+          <button class="btn red wide"
+                  onclick="castInsuranceVote('${v.bj_player}',${v.hand_idx},false)">DECLINE</button>
+        </div>`;
+    }
+    content.appendChild(div);
+  });
+}
+
+async function castInsuranceVote(bjPlayer, handIdx, vote) {
+  try {
+    const res  = await fetch("/vote_insurance", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        bj_player: bjPlayer, hand_idx: handIdx, vote,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else appendLog(`  Insurance vote failed: ${data.error || "unknown error"}\n`);
+  } catch (_) {
+    appendLog("  Insurance vote failed: network error\n");
+  }
 }
 
 function cardEl(card) {
@@ -2260,33 +2655,20 @@ function applyTurnGate(state) {
   const currentSeat = (state.table || []).find(s => s.name === state.current_turn);
   const isNpcTurn   = gate && currentSeat && currentSeat.is_npc;
 
-  const playBtns = document.querySelectorAll("#dig-play-players .btn");
-  playBtns.forEach(b => {
-    if (!gate) { b.classList.remove("disabled"); return; }
-    b.classList.toggle("disabled", b.textContent !== state.current_turn);
-  });
-
   // Disable all action buttons while an NPC is taking its turn
   document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
     b.classList.toggle("disabled", !!isNpcTurn);
   });
 
-  // Auto-select the current-turn player so taps go to the right person
+  // Auto-select current-turn player and first active hand
   if (gate) {
-    setPlayerSel("digital", state.current_turn);
+    sel.digital.player = state.current_turn;
 
-    // Auto-advance to the first non-done hand for this player
     const seat = (state.table || []).find(s => s.name === state.current_turn);
     if (seat && seat.hands) {
       const firstActiveIdx = seat.hands.findIndex(h => !h.done);
       if (firstActiveIdx >= 0) {
         sel.digital.hand = `hand${firstActiveIdx + 1}`;
-        const handContainer = document.getElementById("dig-play-hands");
-        if (handContainer) {
-          handContainer.querySelectorAll(".btn").forEach((b, i) => {
-            b.classList.toggle("sel", i === firstActiveIdx);
-          });
-        }
       }
     }
   }
@@ -2353,6 +2735,53 @@ function showPeekedCard(card) {
   lbl.textContent = `${card.rank}${card.symbol || ""}`;
   display.appendChild(lbl);
   wrap.style.display = "";
+}
+
+// ============================================================
+// DEALER TOAST
+// ============================================================
+let _dealerToastTimer = null;
+function showDealerToast() {
+  const el = document.getElementById("dealer-toast");
+  if (!el) return;
+  // Cross-dismiss: hide drink toast if it's still up
+  _dismissPlayerToast();
+  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
+  el.classList.add("show");
+  _dealerToastTimer = setTimeout(() => {
+    el.classList.remove("show");
+    _dealerToastTimer = null;
+  }, 3500);
+}
+
+// ============================================================
+// PLAYER DRINK TOAST
+// ============================================================
+let _playerToastTimer = null;
+function _dismissPlayerToast() {
+  const el = document.getElementById("player-toast");
+  if (el) el.classList.remove("show");
+  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+}
+function showPlayerDrinkToast(sips) {
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+  // Cross-dismiss: hide dealer toast if it's still up
+  const dt = document.getElementById("dealer-toast");
+  if (dt) dt.classList.remove("show");
+  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
+  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+  if (sips > 0) {
+    el.textContent = `🍺 You drink ${sips} sip${sips !== 1 ? "s" : ""}!`;
+    el.className   = "drink show";
+  } else {
+    el.textContent = "🎉 Clean round!";
+    el.className   = "clean show";
+  }
+  _playerToastTimer = setTimeout(() => {
+    el.classList.remove("show");
+    _playerToastTimer = null;
+  }, 3500);
 }
 
 // ============================================================
@@ -2442,6 +2871,7 @@ function closeModal() {
   document.getElementById("modal-overlay").classList.remove("open");
 }
 
+
 function clearPeekedCard() {
   const wrap = document.getElementById("peeked-card-wrap");
   if (wrap) wrap.style.display = "none";
@@ -2454,14 +2884,8 @@ async function doNewRound(rotate) {
   clearPeekedCard();
   await sendCmd(rotate ? "newround rotate" : "newround keep");
   buildGameUI();
-  // Auto-deal when any bot is in the session — skip the manual Deal tap
-  const hasBots = (lastState && lastState.table || []).some(s => s.is_npc);
-  if (gameMode === "digital" && hasBots) {
-    await sendCmd("deal");
-    return;
-  }
   if (gameMode === "digital") {
-    activateDigTab("dig-deal");
+    await sendCmd("deal");
   } else {
     const firstTab = document.querySelector("#ref-tabs .tab");
     if (firstTab) switchRefTab("deal", firstTab);
@@ -2515,6 +2939,12 @@ async function respondSuggest(accept) {
 }
 
 function updateRoleUI(state) {
+  // Drinks tab is visible to all; dealer-only actions inside the pane are toggled separately
+  const dealerActions = document.getElementById("dig-drinks-dealer-actions");
+  const waitingHint   = document.getElementById("dig-drinks-waiting");
+  if (dealerActions) dealerActions.style.display = isMyDealerClient ? "" : "none";
+  if (waitingHint)   waitingHint.style.display   = (isMyDealerClient || myRole === "spectator") ? "none" : "";
+
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
   const suggestBanner= document.getElementById("suggest-banner");
@@ -2734,6 +3164,7 @@ function openKickModal() {
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
   const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
+  const adminNames   = new Set(clients.filter(c => c.role === "admin").map(c => (c.name || "").toLowerCase()));
   const myNameLc   = (myName || "").toLowerCase();
   const kickVotes  = (lastState && lastState.kick_votes) || {};
   const isAdmin    = myRole === "admin";
@@ -2770,9 +3201,11 @@ function openKickModal() {
       row.innerHTML  = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${statusTxt}</span>${voteTxt}</span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
 
+      const isAdminRow = adminNames.has(r.name.toLowerCase());
+      const isSelf = myNameLc && r.name.toLowerCase() === myNameLc;
       if (isAdmin) {
-        // Admin controls: bot + kick
-        if (r.seated && !r.isBot) {
+        // Admin controls: bot + kick (never shown for self)
+        if (r.seated && !r.isBot && !isSelf) {
           const botBtn       = document.createElement("button");
           botBtn.className   = "btn";
           botBtn.textContent = "🤖 Bot";
@@ -2780,7 +3213,7 @@ function openKickModal() {
           botBtn.onclick     = () => doMakeBot(r.name);
           btns.appendChild(botBtn);
         }
-        if (r.connected && !r.isBot) {
+        if (r.connected && !r.isBot && !isSelf) {
           const kickBtn       = document.createElement("button");
           kickBtn.className   = "btn kick-btn";
           kickBtn.textContent = "Kick";
@@ -2788,8 +3221,8 @@ function openKickModal() {
           btns.appendChild(kickBtn);
         }
       } else {
-        // Player controls: vote to kick (only for connected non-bot players)
-        if (r.connected && !r.isBot) {
+        // Player controls: vote to kick (never allowed against the admin)
+        if (r.connected && !r.isBot && !isAdminRow) {
           const myVoted      = (lastState.kick_votes_mine || []).includes(r.name.toLowerCase());
           const voteBtn      = document.createElement("button");
           voteBtn.className  = "btn" + (myVoted ? " kick-btn" : "");
@@ -2823,6 +3256,69 @@ function openKickModal() {
         transferList.appendChild(row);
       });
     }
+  }
+
+  // Kicked players (admin only) — show with undo option
+  let kickedSection = document.getElementById("kicked-players-section");
+  if (!kickedSection) {
+    kickedSection = document.createElement("div");
+    kickedSection.id = "kicked-players-section";
+    const kickCard = document.getElementById("kick-card");
+    if (kickCard) kickCard.insertBefore(kickedSection, document.getElementById("game-settings-section").nextSibling || null);
+  }
+  const kickedClients = (isAdmin && lastState.kicked_clients) || [];
+  if (isAdmin && kickedClients.length > 0) {
+    kickedSection.style.display = "";
+    kickedSection.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">🚫 KICKED PLAYERS</div>`;
+    kickedClients.forEach(kc => {
+      const row = document.createElement("div");
+      row.className = "kick-row";
+      row.innerHTML = `<span><span class="kick-name">${kc.name}</span><span class="kick-role"> (kicked)</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+      const undoBtn = document.createElement("button");
+      undoBtn.className   = "btn";
+      undoBtn.textContent = "↩ Undo Kick";
+      undoBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
+      undoBtn.onclick = () => doUndoKick(kc.client_id);
+      btns.appendChild(undoBtn);
+      kickedSection.appendChild(row);
+    });
+  } else if (kickedSection) {
+    kickedSection.style.display = "none";
+  }
+
+  // Rejoin requests (admin only)
+  let rejoinSection = document.getElementById("rejoin-requests-section");
+  if (!rejoinSection) {
+    rejoinSection = document.createElement("div");
+    rejoinSection.id = "rejoin-requests-section";
+    const kickCard = document.getElementById("kick-card");
+    if (kickCard) kickCard.insertBefore(rejoinSection, document.getElementById("game-settings-section").nextSibling || null);
+  }
+  const rejoinReqs = (isAdmin && lastState.rejoin_requests) || [];
+  if (isAdmin && rejoinReqs.length > 0) {
+    rejoinSection.style.display = "";
+    rejoinSection.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--yellow);letter-spacing:.05em;margin:14px 0 6px">🔄 REJOIN REQUESTS</div>`;
+    rejoinReqs.forEach(req => {
+      const row = document.createElement("div");
+      row.className = "kick-row";
+      row.innerHTML = `<span><span class="kick-name">${req.display_name}</span><span class="kick-role"> wants to rejoin</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+      const approveBtn = document.createElement("button");
+      approveBtn.className   = "btn";
+      approveBtn.textContent = "✓ Allow";
+      approveBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
+      approveBtn.onclick = () => doHandleRejoin(req.client_id, true);
+      const denyBtn = document.createElement("button");
+      denyBtn.className   = "btn kick-btn";
+      denyBtn.textContent = "✗ Deny";
+      denyBtn.onclick = () => doHandleRejoin(req.client_id, false);
+      btns.appendChild(approveBtn);
+      btns.appendChild(denyBtn);
+      rejoinSection.appendChild(row);
+    });
+  } else if (rejoinSection) {
+    rejoinSection.style.display = "none";
   }
 
   // Populate game settings section (admin only)
@@ -2892,9 +3388,66 @@ async function doKick(targetName) {
   } catch (_) { alert("Network error."); }
 }
 
+async function doUndoKick(targetClientId) {
+  try {
+    const res  = await fetch("/undo_kick", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_client_id: targetClientId }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); openKickModal(); }
+    else         { alert(data.error || "Could not undo kick."); }
+  } catch (_) { alert("Network error."); }
+}
+
 function closeKickModal() {
   const overlay = document.getElementById("kick-overlay");
   if (overlay) overlay.style.display = "none";
+}
+
+async function doHandleRejoin(targetClientId, approve) {
+  try {
+    const res  = await fetch("/handle_rejoin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId,
+                                target_client_id: targetClientId, approve }),
+    });
+    const data = await res.json();
+    if (data.ok) { openKickModal(); applyState(data); }
+    else         { alert(data.error || "Could not process request."); }
+  } catch (_) { alert("Network error."); }
+}
+
+async function doRequestRejoin() {
+  try {
+    const res  = await fetch("/request_rejoin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId,
+                                display_name: myName || clientId.slice(0, 6) }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+// ============================================================
+// KICK VOTE BANNER
+// ============================================================
+function renderKickVoteBanner(state) {
+  let banner = document.getElementById("kick-vote-banner");
+  if (!banner) return;
+  const votes  = state.kick_votes_detail || {};
+  const entries = Object.entries(votes).filter(([, voters]) => voters.length > 0);
+  if (entries.length === 0) { banner.style.display = "none"; return; }
+  banner.style.display = "";
+  banner.innerHTML = entries.map(([target, voters]) => {
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    const who = voters.map(cap).join(", ");
+    return `<span>&#128683; <b>${who}</b> vote${voters.length > 1 ? "s" : ""} to kick <b>${cap(target)}</b></span>`;
+  }).join("<br>");
 }
 
 // ============================================================
@@ -2964,16 +3517,17 @@ function _populateSettingsUI(state) {
   if (decksEl)   decksEl.value    = 1;
   if (decksRow)  decksRow.style.display = (state.mode === "digital") ? "flex" : "none";
 
-  // Populate remove-player dropdown (all non-dealer seats)
+  // Populate remove-player dropdown — exclude dealer seat and admin's own seat
   if (removeEl) {
     removeEl.innerHTML = "";
+    const adminNameLc = (myName || "").toLowerCase();
     (state.table || []).forEach(seat => {
-      if (!seat.is_dealer) {
-        const opt = document.createElement("option");
-        opt.value = seat.name;
-        opt.textContent = seat.name + (seat.is_npc ? " 🤖" : "");
-        removeEl.appendChild(opt);
-      }
+      if (seat.is_dealer) return;
+      if (seat.name.toLowerCase() === adminNameLc) return;
+      const opt = document.createElement("option");
+      opt.value = seat.name;
+      opt.textContent = seat.name + (seat.is_npc ? " 🤖" : "");
+      removeEl.appendChild(opt);
     });
     if (!removeEl.options.length) {
       const opt = document.createElement("option");
@@ -3179,6 +3733,16 @@ function resetToSetup() {
 // INIT — generate clientId, then reconnect to existing server session on page reload
 // ============================================================
 (async () => {
+  // Hide age gate if already confirmed this session
+  try {
+    if (sessionStorage.getItem('bjAgeOk') === '1') {
+      document.getElementById("age-gate").style.display = "none";
+    }
+  } catch(_) {
+    // sessionStorage blocked (e.g. private browsing) — skip gate
+    document.getElementById("age-gate").style.display = "none";
+  }
+
   // Restore deal-animation toggle from localStorage (default: on)
   setAnimToggle(lsGet("bjDealAnim") !== "0");
 
