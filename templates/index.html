@@ -1062,7 +1062,7 @@
         <!-- two-column layout (round-over): grid left | detail right -->
         <div id="dig-drinks-panel" style="display:none;flex-direction:row;gap:0;margin-bottom:8px">
           <!-- left: 2-col grid of player cards (tappable) -->
-          <div id="dig-drinks-agg" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:48%;flex-shrink:0;align-content:start;padding-right:8px"></div>
+          <div id="dig-drinks-agg" style="display:grid;grid-template-columns:96px 96px;gap:4px;flex-shrink:0;align-content:start;padding-right:8px"></div>
           <!-- divider -->
           <div style="width:1px;background:var(--border);flex-shrink:0;align-self:stretch;margin-right:8px"></div>
           <!-- right: selected-player detail -->
@@ -2299,8 +2299,9 @@ function updateRoundPane(state) {
 
   if (isOver) {
     if (progress) progress.style.display = "none";
-    const allPlayers = state.players || [];
-    const anyDrinks  = allPlayers.some(n => (_lastRoundSips[n] || 0) > 0);
+    // Always include all players; ensure dealer card shows even with 0 sips
+    const allPlayers = [...new Set([...(state.players || []),
+                                    ...(state.dealer ? [state.dealer] : [])])];
 
     if (panel) panel.style.display = "flex";
     if (none)  none.style.display  = "none";
