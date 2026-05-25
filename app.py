@@ -1341,6 +1341,7 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
+                game_session._kick_votes    = {}  # reset vote-kick tally each round
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -1415,6 +1416,7 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
+                game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -1503,11 +1505,13 @@ def kick():
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
 
+    admin_name_lc = (admin_info.get("name") or "").lower()
+    if target_name.lower() == admin_name_lc:
+        return jsonify({"ok": False, "error": "Cannot kick yourself."})
+
     for cid, info in clients.items():
         if (cid != client_id and not info.get("kicked")
                 and (info.get("name") or "").lower() == target_name.lower()):
-            if info.get("role") == "admin":
-                return jsonify({"ok": False, "error": "Cannot kick the admin."})
             info["kicked"] = True
             return jsonify({"ok": True})
 
@@ -2066,10 +2070,12 @@ def update_settings():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
-    if clients.get(client_id, {}).get("role") != "admin":
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Admin only."})
 
+    admin_name_lc = (admin_info.get("name") or "").lower()
     queued = getattr(session, "_queued_settings", {})
 
     # Validate and queue each provided setting
@@ -2100,6 +2106,14 @@ def update_settings():
     if "remove_player" in data:
         name = str(data["remove_player"]).strip().capitalize()
         if name:
+            if name.lower() == admin_name_lc:
+                return jsonify({"ok": False, "error": "Cannot remove your own seat."})
+            target = next(
+                (p for p in session.all_players if p.name.lower() == name.lower()),
+                None,
+            )
+            if target and getattr(target, "is_dealer", False):
+                return jsonify({"ok": False, "error": "Cannot remove the current dealer's seat."})
             removes = queued.get("remove_players", [])
             if name not in removes:
                 removes.append(name)
