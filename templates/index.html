@@ -1053,7 +1053,27 @@
       <!-- DRINKS pane — all players see it on round-over; dealer actions hidden for non-dealers -->
       <div id="pane-dig-round" class="pane">
         <div id="round-switch-msg" style="display:none;font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(224,92,92,.3);background:rgba(224,92,92,.1);color:var(--red)"></div>
-        <div id="dig-drinks-list" style="margin-bottom:8px;max-height:200px;overflow-y:auto"></div>
+
+        <!-- mid-round placeholder: player finished but round not yet over -->
+        <div id="dig-drinks-progress" style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:12px 0">
+          ✋ You're done — waiting for results…
+        </div>
+
+        <!-- two-column layout (round-over): grid left | detail right -->
+        <div id="dig-drinks-panel" style="display:none;flex-direction:row;gap:0;margin-bottom:8px">
+          <!-- left: 2-col grid of player cards (tappable) -->
+          <div id="dig-drinks-agg" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:48%;flex-shrink:0;align-content:start;padding-right:8px"></div>
+          <!-- divider -->
+          <div style="width:1px;background:var(--border);flex-shrink:0;align-self:stretch;margin-right:8px"></div>
+          <!-- right: selected-player detail -->
+          <div id="dig-drinks-detail" style="flex:1;overflow-y:auto;max-height:160px"></div>
+        </div>
+
+        <!-- no-drinks fallback -->
+        <div id="dig-drinks-none" style="display:none;color:var(--muted);font-size:13px;text-align:center;margin-bottom:8px;padding:10px 0">
+          No drinks this round 🎉
+        </div>
+
         <!-- peeked card — shown to all once dealer peeks -->
         <div id="peeked-card-wrap" style="display:none;margin-bottom:8px">
           <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
@@ -1492,8 +1512,9 @@ function _collectNewCardEls(state) {
 // ============================================================
 // LAST ROUND DRINK SUMMARY
 // ============================================================
-let _lastRoundSips    = {};   // populated from state
-let _lastRoundDrinks  = [];   // detailed drink entries for the Drinks pane
+let _lastRoundSips      = {};   // populated from state
+let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
+let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
 
 function openLastRoundModal() {
   const overlay = document.getElementById("last-round-overlay");
@@ -2216,8 +2237,52 @@ const HARD_SWITCH_MSGS = [
   "Dealer goes down! {dealer} takes the Hard Switch. 🃏",
 ];
 
+// ── Drinks pane: player card selection ──────────────────────────────────────
+function selectDrinksPlayer(name) {
+  // Toggle: tap same card again to deselect
+  _drinksPaneSelected = (_drinksPaneSelected === name) ? null : name;
+  renderDrinksDetail();
+  // Re-highlight cards
+  document.querySelectorAll(".drinks-card").forEach(el => {
+    el.style.outline = el.dataset.name === _drinksPaneSelected
+      ? "2px solid var(--accent)" : "none";
+  });
+}
+
+function renderDrinksDetail() {
+  const detail = document.getElementById("dig-drinks-detail");
+  if (!detail) return;
+  if (!_drinksPaneSelected) {
+    detail.innerHTML = `<div style="color:var(--muted);font-size:12px;text-align:center;
+      padding:20px 8px;opacity:.55;line-height:1.5">← tap a name<br>to see details</div>`;
+    return;
+  }
+  const entries = _lastRoundDrinks.filter(d => d.name === _drinksPaneSelected);
+  const total   = _lastRoundSips[_drinksPaneSelected] || 0;
+  if (!entries.length) {
+    detail.innerHTML = `<div style="color:var(--green);font-size:12px;text-align:center;padding:10px 4px">
+      ${_drinksPaneSelected} — no drinks 🎉</div>`;
+    return;
+  }
+  detail.innerHTML =
+    `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+                 letter-spacing:.5px;margin-bottom:5px">${_drinksPaneSelected} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
+    entries.map(d =>
+      `<div style="font-size:11px;line-height:1.45;padding:4px 6px;border-radius:6px;margin-bottom:3px;
+                   color:var(--red);border-left:2px solid var(--red);background:rgba(224,92,92,.08)">
+        <span style="font-weight:700">+${d.sips}</span>
+        <span style="color:var(--muted)"> ${d.reason}</span>
+      </div>`
+    ).join("");
+}
+
 function updateRoundPane(state) {
-  const isOver = state.phase === "round-over";
+  const isOver   = state.phase === "round-over";
+  const panel    = document.getElementById("dig-drinks-panel");
+  const agg      = document.getElementById("dig-drinks-agg");
+  const detail   = document.getElementById("dig-drinks-detail");
+  const none     = document.getElementById("dig-drinks-none");
+  const progress = document.getElementById("dig-drinks-progress");
 
   // Hard-switch banner
   const msg = document.getElementById("round-switch-msg");
@@ -2232,31 +2297,52 @@ function updateRoundPane(state) {
     }
   }
 
-  // Drinks list — populate on round-over; show "waiting" hint mid-round
-  const list = document.getElementById("dig-drinks-list");
-  if (list) {
-    if (isOver) {
-      const drinks = _lastRoundDrinks;
-      if (!drinks.length) {
-        list.innerHTML = `<div style="color:var(--muted);font-size:13px;margin-bottom:4px;text-align:center">No drinks this round.</div>`;
-      } else {
-        list.innerHTML = drinks.map(d =>
-          `<div style="font-size:12px;line-height:1.5;padding:5px 8px;border-radius:7px;margin-bottom:4px;
-                       color:var(--red);border-left:2px solid var(--red);background:rgba(224,92,92,.08)">
-            <strong>${d.name}</strong> — ${d.sips} sip${d.sips !== 1 ? "s" : ""}
-            <span style="color:var(--muted);font-weight:400">: ${d.reason}</span>
-          </div>`
-        ).join("");
-      }
-    } else {
-      // Player done mid-round — show a holding message
-      list.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:10px 0">
-        ✋ You're done — waiting for results…
-      </div>`;
+  if (isOver) {
+    if (progress) progress.style.display = "none";
+    const allPlayers = state.players || [];
+    const anyDrinks  = allPlayers.some(n => (_lastRoundSips[n] || 0) > 0);
+
+    if (panel) panel.style.display = "flex";
+    if (none)  none.style.display  = "none";
+
+    // LEFT: 2-col grid of tappable player cards
+    if (agg) {
+      agg.innerHTML = allPlayers.map(name => {
+        const sips       = _lastRoundSips[name] || 0;
+        const hot        = sips > 0;
+        const isSelected = _drinksPaneSelected === name;
+        const bg         = hot ? "rgba(224,92,92,.18)"  : "rgba(62,207,110,.14)";
+        const border     = hot ? "rgba(224,92,92,.4)"   : "rgba(62,207,110,.4)";
+        const color      = hot ? "var(--red)"           : "var(--green)";
+        const outline    = isSelected ? "outline:2px solid var(--accent);outline-offset:1px;" : "";
+        return `<button class="drinks-card" data-name="${name}"
+          onclick="selectDrinksPlayer('${name}')"
+          style="padding:7px 4px;border-radius:9px;text-align:center;cursor:pointer;
+                 background:${bg};border:1.5px solid ${border};${outline}
+                 transition:outline .1s;-webkit-tap-highlight-color:transparent">
+          <div style="font-size:10px;color:var(--muted);font-weight:700;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+                      max-width:100%;padding:0 2px">${name}</div>
+          <div style="font-size:21px;font-weight:800;line-height:1.2;color:${color}">${sips}</div>
+          <div style="font-size:10px;color:${color};opacity:.85">sip${sips !== 1 ? "s" : ""}</div>
+        </button>`;
+      }).join("");
     }
+
+    // RIGHT: detail for selected player (or prompt if none selected)
+    renderDrinksDetail();
+
+  } else {
+    // Mid-round: player finished their turn, waiting for others
+    _drinksPaneSelected = null;
+    if (panel)    panel.style.display    = "none";
+    if (none)     none.style.display     = "none";
+    if (progress) progress.style.display = "";
+    if (agg)      agg.innerHTML          = "";
+    if (detail)   detail.innerHTML       = "";
   }
 
-  // Peeked card — sync across state polls; button label reflects current state
+  // Peeked card — sync across state polls; button label reflects toggle state
   const peekBtn = document.getElementById("btn-peek");
   const peeked  = state.peeked_card;
   if (peeked) {
