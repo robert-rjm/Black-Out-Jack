@@ -703,6 +703,30 @@
     text-align: center; line-height: 1.7; margin-top: 4px;
     width: 100%; max-width: 420px;
   }
+
+  /* ---- DEALER TOAST ---- */
+  #dealer-toast {
+    position: fixed;
+    top: max(64px, calc(env(safe-area-inset-top) + 64px));
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    background: var(--yellow);
+    color: #000;
+    font-size: 15px; font-weight: 800;
+    padding: 12px 22px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    z-index: 900;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space: nowrap;
+    letter-spacing: .2px;
+  }
+  #dealer-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 </style>
 </head>
 <body>
@@ -1164,6 +1188,9 @@
     <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
   </div>
 </div>
+
+<!-- ===== DEALER TOAST ===== -->
+<div id="dealer-toast">🃏 You are the dealer now!</div>
 
 <!-- ===== FINAL SUMMARY OVERLAY ===== -->
 <div id="summary-overlay">
@@ -2037,6 +2064,7 @@ function applyState(state) {
   // Update client identity from server.
   // Only downgrade to null if we have no role yet — prevents a stale poll from
   // clearing a valid role that was just set by a fresh /register response.
+  const _prevDealer = isMyDealerClient;
   if (state.my_role !== undefined) {
     if (state.my_role !== null) {
       myRole           = state.my_role;
@@ -2048,6 +2076,8 @@ function applyState(state) {
       isMyDealerClient = false;
     }
   }
+  // Show toast when dealer role is newly rotated to this client (skip initial load)
+  if (lastState !== null && !_prevDealer && isMyDealerClient) showDealerToast();
 
   // Detect a fresh deal: previous state had no cards, new state has cards.
   const prevPhase = lastState ? lastState.phase : null;
@@ -2561,6 +2591,21 @@ function showPeekedCard(card) {
   lbl.textContent = `${card.rank}${card.symbol || ""}`;
   display.appendChild(lbl);
   wrap.style.display = "";
+}
+
+// ============================================================
+// DEALER TOAST
+// ============================================================
+let _dealerToastTimer = null;
+function showDealerToast() {
+  const el = document.getElementById("dealer-toast");
+  if (!el) return;
+  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
+  el.classList.add("show");
+  _dealerToastTimer = setTimeout(() => {
+    el.classList.remove("show");
+    _dealerToastTimer = null;
+  }, 3500);
 }
 
 // ============================================================
