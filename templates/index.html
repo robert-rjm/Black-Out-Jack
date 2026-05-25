@@ -727,6 +727,27 @@
     opacity: 1;
     transform: translateX(-50%) translateY(0);
   }
+
+  /* ---- PLAYER DRINK TOAST ---- */
+  #player-toast {
+    position: fixed;
+    top: max(64px, calc(env(safe-area-inset-top) + 64px));
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    font-size: 15px; font-weight: 800;
+    padding: 12px 22px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    z-index: 900;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space: nowrap;
+    letter-spacing: .2px;
+  }
+  #player-toast.drink { background: var(--red);   color: #fff; }
+  #player-toast.clean { background: var(--green); color: #000; }
+  #player-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -1217,6 +1238,9 @@
 
 <!-- ===== DEALER TOAST ===== -->
 <div id="dealer-toast">🃏 You are the dealer now!</div>
+
+<!-- ===== PLAYER DRINK TOAST ===== -->
+<div id="player-toast"></div>
 
 <!-- ===== FINAL SUMMARY OVERLAY ===== -->
 <div id="summary-overlay">
@@ -2116,6 +2140,11 @@ function applyState(state) {
     _lastRoundDrinks = state.last_round_drinks;
   }
 
+  // Player drink toast — fires once on round-over transition for registered players
+  if (prevPhase !== "round-over" && state.phase === "round-over" && myName && myRole !== "spectator") {
+    showPlayerDrinkToast(_lastRoundSips[myName] || 0);
+  }
+
   lastState   = state;
   currentTurn = state.current_turn || null;
   syncLogFromState(state);   // shared log — all players see same entries
@@ -2715,11 +2744,43 @@ let _dealerToastTimer = null;
 function showDealerToast() {
   const el = document.getElementById("dealer-toast");
   if (!el) return;
+  // Cross-dismiss: hide drink toast if it's still up
+  _dismissPlayerToast();
   if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
   el.classList.add("show");
   _dealerToastTimer = setTimeout(() => {
     el.classList.remove("show");
     _dealerToastTimer = null;
+  }, 3500);
+}
+
+// ============================================================
+// PLAYER DRINK TOAST
+// ============================================================
+let _playerToastTimer = null;
+function _dismissPlayerToast() {
+  const el = document.getElementById("player-toast");
+  if (el) el.classList.remove("show");
+  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+}
+function showPlayerDrinkToast(sips) {
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+  // Cross-dismiss: hide dealer toast if it's still up
+  const dt = document.getElementById("dealer-toast");
+  if (dt) dt.classList.remove("show");
+  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
+  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+  if (sips > 0) {
+    el.textContent = `🍺 You drink ${sips} sip${sips !== 1 ? "s" : ""}!`;
+    el.className   = "drink show";
+  } else {
+    el.textContent = "🎉 Clean round!";
+    el.className   = "clean show";
+  }
+  _playerToastTimer = setTimeout(() => {
+    el.classList.remove("show");
+    _playerToastTimer = null;
   }, 3500);
 }
 
