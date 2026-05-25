@@ -868,6 +868,13 @@
 
   <div id="sip-ticker"></div>
 
+  <!-- Kick vote banner: visible in-game when active kick votes exist -->
+  <div id="kick-vote-banner" style="display:none;padding:6px 14px;font-size:12px;background:rgba(224,92,92,.1);border-bottom:1px solid rgba(224,92,92,.25);color:var(--red);line-height:1.6"></div>
+  <!-- Spectator rejoin request banner -->
+  <div id="spectator-rejoin-banner" style="display:none;padding:7px 14px;font-size:12px;background:rgba(245,200,66,.08);border-bottom:1px solid rgba(245,200,66,.2);color:var(--yellow);display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <span>You were removed from this session.</span>
+    <button id="rejoin-req-btn" class="btn" style="height:28px;padding:0 10px;font-size:11px" onclick="doRequestRejoin()">Request to rejoin</button>
+  </div>
   <div id="main-content">
     <div id="left-col"></div>
     <div id="right-col">
@@ -1655,18 +1662,23 @@ async function startGame() {
   myName           = data.my_name          || null;
   isMyDealerClient = data.is_dealer_client !== false;  // admin always starts as dealer
 
-  updateHeader(data);
-  buildGameUI();
-  applyState(data);   // syncLogFromState inside here handles the setup output
+  try {
+    updateHeader(data);
+    buildGameUI();
+    applyState(data);
 
-  if (gameMode === "digital") {
-    // Local hint for the host only — not stored on server
-    appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
+    if (gameMode === "digital") {
+      appendLog("  Tap 'DEAL CARDS' on the Deal tab to start.\n");
+    }
+
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("app").style.display   = "flex";
+    startPolling();
+  } catch (err) {
+    console.error("[startGame] Error launching game:", err);
+    alert("Could not launch game: " + err.message + "\n\nCheck the browser console for details.");
+    btn.disabled = false;
   }
-
-  document.getElementById("setup").style.display = "none";
-  document.getElementById("app").style.display   = "flex";
-  startPolling();
 }
 
 // ============================================================
@@ -1997,6 +2009,8 @@ function applyState(state) {
 
   // Handle kicked status first
   if (state.my_role === "kicked") {
+    // If the user already acknowledged and chose to spectate, skip the popup
+    if (myRole === "spectator") return;
     stopPolling();
     const leave = confirm("You have been removed from this session.\n\nPress OK to return to the lobby, or Cancel to stay and watch as a spectator.");
     if (leave) {
@@ -2014,8 +2028,8 @@ function applyState(state) {
       players  = [];
       gameMode = "referee";
     } else {
-      myRole = "spectator";
-      startPolling();
+      // Register as spectator server-side so server stops returning "kicked"
+      doSpectate();
     }
     return;
   }
@@ -2071,6 +2085,22 @@ function applyState(state) {
 
   // Registration overlay — show when not yet registered
   updateRegisterOverlay(state);
+
+  // Kick vote banner
+  renderKickVoteBanner(state);
+
+  // Spectator rejoin banner (shown to clients who were kicked and chose to spectate)
+  const rejoinBanner = document.getElementById("spectator-rejoin-banner");
+  const rejoinBtn    = document.getElementById("rejoin-req-btn");
+  if (rejoinBanner) {
+    if (myRole === "spectator" && state.my_name === null) {
+      rejoinBanner.style.display = "flex";
+      if (rejoinBtn) rejoinBtn.disabled = !!state.my_rejoin_pending;
+      if (rejoinBtn) rejoinBtn.textContent = state.my_rejoin_pending ? "Request sent ✓" : "Request to rejoin";
+    } else {
+      rejoinBanner.style.display = "none";
+    }
+  }
 
   if (gameMode === "digital") {
     autoSwitchDigTab(state);
@@ -2912,6 +2942,7 @@ function openKickModal() {
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
   const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
+  const adminNames   = new Set(clients.filter(c => c.role === "admin").map(c => (c.name || "").toLowerCase()));
   const myNameLc   = (myName || "").toLowerCase();
   const kickVotes  = (lastState && lastState.kick_votes) || {};
   const isAdmin    = myRole === "admin";
@@ -2948,9 +2979,10 @@ function openKickModal() {
       row.innerHTML  = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${statusTxt}</span>${voteTxt}</span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
 
+      const isAdminRow = adminNames.has(r.name.toLowerCase());
       if (isAdmin) {
-        // Admin controls: bot + kick
-        if (r.seated && !r.isBot) {
+        // Admin controls: bot + kick (never shown for the admin player themselves)
+        if (r.seated && !r.isBot && !isAdminRow) {
           const botBtn       = document.createElement("button");
           botBtn.className   = "btn";
           botBtn.textContent = "🤖 Bot";
@@ -2958,7 +2990,7 @@ function openKickModal() {
           botBtn.onclick     = () => doMakeBot(r.name);
           btns.appendChild(botBtn);
         }
-        if (r.connected && !r.isBot) {
+        if (r.connected && !r.isBot && !isAdminRow) {
           const kickBtn       = document.createElement("button");
           kickBtn.className   = "btn kick-btn";
           kickBtn.textContent = "Kick";
@@ -2966,8 +2998,8 @@ function openKickModal() {
           btns.appendChild(kickBtn);
         }
       } else {
-        // Player controls: vote to kick (only for connected non-bot players)
-        if (r.connected && !r.isBot) {
+        // Player controls: vote to kick (never allowed against the admin)
+        if (r.connected && !r.isBot && !isAdminRow) {
           const myVoted      = (lastState.kick_votes_mine || []).includes(r.name.toLowerCase());
           const voteBtn      = document.createElement("button");
           voteBtn.className  = "btn" + (myVoted ? " kick-btn" : "");
@@ -3001,6 +3033,69 @@ function openKickModal() {
         transferList.appendChild(row);
       });
     }
+  }
+
+  // Kicked players (admin only) — show with undo option
+  let kickedSection = document.getElementById("kicked-players-section");
+  if (!kickedSection) {
+    kickedSection = document.createElement("div");
+    kickedSection.id = "kicked-players-section";
+    const kickCard = document.getElementById("kick-card");
+    if (kickCard) kickCard.insertBefore(kickedSection, document.getElementById("game-settings-section").nextSibling || null);
+  }
+  const kickedClients = (isAdmin && lastState.kicked_clients) || [];
+  if (isAdmin && kickedClients.length > 0) {
+    kickedSection.style.display = "";
+    kickedSection.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">🚫 KICKED PLAYERS</div>`;
+    kickedClients.forEach(kc => {
+      const row = document.createElement("div");
+      row.className = "kick-row";
+      row.innerHTML = `<span><span class="kick-name">${kc.name}</span><span class="kick-role"> (kicked)</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+      const undoBtn = document.createElement("button");
+      undoBtn.className   = "btn";
+      undoBtn.textContent = "↩ Undo Kick";
+      undoBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
+      undoBtn.onclick = () => doUndoKick(kc.client_id);
+      btns.appendChild(undoBtn);
+      kickedSection.appendChild(row);
+    });
+  } else if (kickedSection) {
+    kickedSection.style.display = "none";
+  }
+
+  // Rejoin requests (admin only)
+  let rejoinSection = document.getElementById("rejoin-requests-section");
+  if (!rejoinSection) {
+    rejoinSection = document.createElement("div");
+    rejoinSection.id = "rejoin-requests-section";
+    const kickCard = document.getElementById("kick-card");
+    if (kickCard) kickCard.insertBefore(rejoinSection, document.getElementById("game-settings-section").nextSibling || null);
+  }
+  const rejoinReqs = (isAdmin && lastState.rejoin_requests) || [];
+  if (isAdmin && rejoinReqs.length > 0) {
+    rejoinSection.style.display = "";
+    rejoinSection.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--yellow);letter-spacing:.05em;margin:14px 0 6px">🔄 REJOIN REQUESTS</div>`;
+    rejoinReqs.forEach(req => {
+      const row = document.createElement("div");
+      row.className = "kick-row";
+      row.innerHTML = `<span><span class="kick-name">${req.display_name}</span><span class="kick-role"> wants to rejoin</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+      const approveBtn = document.createElement("button");
+      approveBtn.className   = "btn";
+      approveBtn.textContent = "✓ Allow";
+      approveBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
+      approveBtn.onclick = () => doHandleRejoin(req.client_id, true);
+      const denyBtn = document.createElement("button");
+      denyBtn.className   = "btn kick-btn";
+      denyBtn.textContent = "✗ Deny";
+      denyBtn.onclick = () => doHandleRejoin(req.client_id, false);
+      btns.appendChild(approveBtn);
+      btns.appendChild(denyBtn);
+      rejoinSection.appendChild(row);
+    });
+  } else if (rejoinSection) {
+    rejoinSection.style.display = "none";
   }
 
   // Populate game settings section (admin only)
@@ -3070,9 +3165,66 @@ async function doKick(targetName) {
   } catch (_) { alert("Network error."); }
 }
 
+async function doUndoKick(targetClientId) {
+  try {
+    const res  = await fetch("/undo_kick", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_client_id: targetClientId }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); openKickModal(); }
+    else         { alert(data.error || "Could not undo kick."); }
+  } catch (_) { alert("Network error."); }
+}
+
 function closeKickModal() {
   const overlay = document.getElementById("kick-overlay");
   if (overlay) overlay.style.display = "none";
+}
+
+async function doHandleRejoin(targetClientId, approve) {
+  try {
+    const res  = await fetch("/handle_rejoin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId,
+                                target_client_id: targetClientId, approve }),
+    });
+    const data = await res.json();
+    if (data.ok) { openKickModal(); applyState(data); }
+    else         { alert(data.error || "Could not process request."); }
+  } catch (_) { alert("Network error."); }
+}
+
+async function doRequestRejoin() {
+  try {
+    const res  = await fetch("/request_rejoin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId,
+                                display_name: myName || clientId.slice(0, 6) }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+// ============================================================
+// KICK VOTE BANNER
+// ============================================================
+function renderKickVoteBanner(state) {
+  let banner = document.getElementById("kick-vote-banner");
+  if (!banner) return;
+  const votes  = state.kick_votes_detail || {};
+  const entries = Object.entries(votes).filter(([, voters]) => voters.length > 0);
+  if (entries.length === 0) { banner.style.display = "none"; return; }
+  banner.style.display = "";
+  banner.innerHTML = entries.map(([target, voters]) => {
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    const who = voters.map(cap).join(", ");
+    return `<span>&#128683; <b>${who}</b> vote${voters.length > 1 ? "s" : ""} to kick <b>${cap(target)}</b></span>`;
+  }).join("<br>");
 }
 
 // ============================================================

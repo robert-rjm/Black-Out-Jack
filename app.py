@@ -537,6 +537,13 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "kick_votes":        {k: len(v) for k, v in getattr(session, "_kick_votes", {}).items()},
         "kick_votes_mine":   [k for k, v in getattr(session, "_kick_votes", {}).items()
                               if (_ci.get("name") or "").lower() in v],
+        # Voter names per target so UI can display "Alice votes to kick Bob"
+        "kick_votes_detail": {k: sorted(v) for k, v in getattr(session, "_kick_votes", {}).items()},
+        # Rejoin requests — full list shown to admin; just a flag shown to the requesting client
+        "rejoin_requests":   [r for r in getattr(session, "_rejoin_requests", [])
+                              if _ci.get("role") == "admin"],
+        "my_rejoin_pending": any(r["client_id"] == client_id
+                                 for r in getattr(session, "_rejoin_requests", [])),
         # Admin's animation preference (used as default for new joiners)
         "anim_default":      getattr(session, "_anim_default", True),
         # All connected clients (for registration overlay)
@@ -545,6 +552,12 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
             for info in getattr(session, "_room_clients", {}).values()
             if not info.get("kicked")
         ],
+        # Kicked clients — only exposed to admin so they can undo kicks
+        "kicked_clients": [
+            {"client_id": cid, "name": info.get("name") or ""}
+            for cid, info in getattr(session, "_room_clients", {}).items()
+            if info.get("kicked") and info.get("name")
+        ] if _ci.get("role") == "admin" else [],
         # Per-client fields (populated only when client_id is provided)
         "my_role":           _ci.get("role"),
         "my_name":           _ci.get("name"),
@@ -1027,6 +1040,7 @@ def setup():
     game_session._preselections = {}
     game_session._suggestions   = {}   # pending dealer→player action suggestions
     game_session._kick_votes    = {}   # {target_name_lower: set(voter_name_lower)}
+    game_session._rejoin_requests = []  # [{client_id, display_name}] — kicked players asking to rejoin
     game_session._anim_default  = True # admin's animation preference, broadcast to joiners
     game_session._queued_settings = {}  # settings queued to apply at start of next round
     if client_id:
@@ -1444,6 +1458,13 @@ def register():
 
     existing = session._room_clients.get(client_id, {})
     if existing.get("kicked"):
+        if not name:
+            # Kicked player wants to spectate — allow it, clear kicked flag
+            session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
+            # Remove any pending rejoin request for this client
+            session._rejoin_requests = [r for r in getattr(session, "_rejoin_requests", [])
+                                        if r["client_id"] != client_id]
+            return jsonify({**_serialize_state(session, client_id), "ok": True})
         return jsonify({"ok": False, "error": "You have been removed from this session."})
 
     if not name:
@@ -1485,10 +1506,43 @@ def kick():
     for cid, info in clients.items():
         if (cid != client_id and not info.get("kicked")
                 and (info.get("name") or "").lower() == target_name.lower()):
+            if info.get("role") == "admin":
+                return jsonify({"ok": False, "error": "Cannot kick the admin."})
             info["kicked"] = True
             return jsonify({"ok": True})
 
     return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+
+
+@app.route("/undo_kick", methods=["POST"])
+def undo_kick():
+    """Admin reinstates a previously kicked client as a spectator.
+    Body: { room_code, client_id, target_client_id }"""
+    data             = request.json or {}
+    room_code        = (data.get("room_code") or "").strip()
+    client_id        = (data.get("client_id") or "").strip()
+    target_client_id = (data.get("target_client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    target_info = clients.get(target_client_id)
+    if not target_info:
+        return jsonify({"ok": False, "error": "Client not found."})
+    if not target_info.get("kicked"):
+        return jsonify({"ok": False, "error": "Player is not kicked."})
+
+    # Reinstate as spectator — they can then request to rejoin as a player
+    target_info["kicked"] = False
+    target_info["role"]   = "spectator"
+
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/make_bot", methods=["POST"])
@@ -1621,11 +1675,15 @@ def vote_kick():
     if voter_name == target_name.lower():
         return jsonify({"ok": False, "error": "Cannot vote to kick yourself."})
 
-    # Verify target exists as a connected, non-bot player
-    target_connected = any(
-        not v.get("kicked") and (v.get("name") or "").lower() == target_name.lower()
-        for v in clients.values()
+    # Verify target exists as a connected, non-bot, non-admin player
+    target_info = next(
+        (v for v in clients.values()
+         if not v.get("kicked") and (v.get("name") or "").lower() == target_name.lower()),
+        None,
     )
+    if target_info and target_info.get("role") == "admin":
+        return jsonify({"ok": False, "error": "Cannot vote to kick the admin."})
+    target_connected = target_info is not None
     if not target_connected:
         return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
 
@@ -1661,6 +1719,66 @@ def vote_kick():
     state = _serialize_state(session, client_id)
     state["ok"]    = True
     state["kicked"] = kicked
+    return jsonify(state)
+
+
+@app.route("/request_rejoin", methods=["POST"])
+def request_rejoin():
+    """Spectator (formerly kicked) asks admin to let them rejoin.
+    Body: { room_code, client_id, display_name }"""
+    data         = request.json or {}
+    room_code    = (data.get("room_code") or "").strip()
+    client_id    = (data.get("client_id") or "").strip()
+    display_name = (data.get("display_name") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients = getattr(session, "_room_clients", {})
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not in session."})
+
+    requests_list = getattr(session, "_rejoin_requests", [])
+    # Avoid duplicate requests
+    if any(r["client_id"] == client_id for r in requests_list):
+        return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+    requests_list.append({"client_id": client_id, "display_name": display_name or "Unknown"})
+    session._rejoin_requests = requests_list
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
+
+
+@app.route("/handle_rejoin", methods=["POST"])
+def handle_rejoin():
+    """Admin approves or denies a rejoin request.
+    Body: { room_code, client_id, target_client_id, approve: bool }"""
+    data             = request.json or {}
+    room_code        = (data.get("room_code") or "").strip()
+    client_id        = (data.get("client_id") or "").strip()
+    target_client_id = (data.get("target_client_id") or "").strip()
+    approve          = bool(data.get("approve", False))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    # Remove from rejoin requests regardless of decision
+    session._rejoin_requests = [r for r in getattr(session, "_rejoin_requests", [])
+                                 if r["client_id"] != target_client_id]
+
+    if approve:
+        # Remove the client entry so they get the register overlay on next poll
+        clients.pop(target_client_id, None)
+
+    state = _serialize_state(session, client_id)
+    state["ok"] = True
     return jsonify(state)
 
 
