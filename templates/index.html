@@ -2980,9 +2980,10 @@ function openKickModal() {
       const btns = row.querySelector("span:last-child");
 
       const isAdminRow = adminNames.has(r.name.toLowerCase());
+      const isSelf = myNameLc && r.name.toLowerCase() === myNameLc;
       if (isAdmin) {
-        // Admin controls: bot + kick (never shown for the admin player themselves)
-        if (r.seated && !r.isBot && !isAdminRow) {
+        // Admin controls: bot + kick (never shown for self)
+        if (r.seated && !r.isBot && !isSelf) {
           const botBtn       = document.createElement("button");
           botBtn.className   = "btn";
           botBtn.textContent = "🤖 Bot";
@@ -2990,7 +2991,7 @@ function openKickModal() {
           botBtn.onclick     = () => doMakeBot(r.name);
           btns.appendChild(botBtn);
         }
-        if (r.connected && !r.isBot && !isAdminRow) {
+        if (r.connected && !r.isBot && !isSelf) {
           const kickBtn       = document.createElement("button");
           kickBtn.className   = "btn kick-btn";
           kickBtn.textContent = "Kick";
@@ -3294,16 +3295,17 @@ function _populateSettingsUI(state) {
   if (decksEl)   decksEl.value    = 1;
   if (decksRow)  decksRow.style.display = (state.mode === "digital") ? "flex" : "none";
 
-  // Populate remove-player dropdown (all non-dealer seats)
+  // Populate remove-player dropdown — exclude dealer seat and admin's own seat
   if (removeEl) {
     removeEl.innerHTML = "";
+    const adminNameLc = (myName || "").toLowerCase();
     (state.table || []).forEach(seat => {
-      if (!seat.is_dealer) {
-        const opt = document.createElement("option");
-        opt.value = seat.name;
-        opt.textContent = seat.name + (seat.is_npc ? " 🤖" : "");
-        removeEl.appendChild(opt);
-      }
+      if (seat.is_dealer) return;
+      if (seat.name.toLowerCase() === adminNameLc) return;
+      const opt = document.createElement("option");
+      opt.value = seat.name;
+      opt.textContent = seat.name + (seat.is_npc ? " 🤖" : "");
+      removeEl.appendChild(opt);
     });
     if (!removeEl.options.length) {
       const opt = document.createElement("option");
