@@ -648,13 +648,90 @@
   .kick-name     { font-size: 14px; font-weight: 600; }
   .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
   .kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: rgba(224,92,92,.15); color: var(--red); border-color: rgba(224,92,92,.3); }
+
+  /* ---- AGE GATE ---- */
+  #age-gate {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px; gap: 20px;
+    text-align: center;
+  }
+  #age-gate-card {
+    width: 100%; max-width: 400px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .gate-logo { font-size: 52px; line-height: 1; }
+  #age-gate h1 { font-size: 26px; font-weight: 800; letter-spacing: .3px; }
+  .gate-sub { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 320px; }
+  .gate-legal {
+    font-size: 13px; color: var(--muted); line-height: 1.55;
+    background: rgba(245,200,66,.07); border: 1px solid rgba(245,200,66,.18);
+    border-radius: 10px; padding: 12px 16px;
+    width: 100%; max-width: 400px; text-align: left;
+  }
+  .gate-legal strong { color: var(--yellow); }
+  #age-gate-msg { font-size: 13px; color: var(--red); min-height: 18px; }
+  .gate-btn-confirm {
+    width: 100%; max-width: 400px;
+    height: 56px; border-radius: var(--radius);
+    background: var(--green); border: none;
+    color: #000; font-size: 17px; font-weight: 800;
+    cursor: pointer; transition: opacity .12s, transform .08s;
+  }
+  .gate-btn-confirm:active { transform: scale(.97); }
+  .gate-btn-decline {
+    background: none; border: none;
+    color: var(--muted); font-size: 13px;
+    cursor: pointer; text-decoration: underline; padding: 4px 8px;
+  }
+  .gate-btn-decline:hover { color: var(--text); }
+
+  /* ---- DRINK NOTICE ---- */
+  .drink-notice {
+    width: 100%; max-width: 420px;
+    background: rgba(245,200,66,.06); border: 1px solid rgba(245,200,66,.16);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 12px; color: var(--muted); line-height: 1.55; text-align: center;
+  }
+  .drink-notice strong { color: var(--yellow); }
+
+  /* ---- LOBBY CREDITS ---- */
+  .lobby-credits {
+    font-size: 11px; color: var(--muted);
+    text-align: center; line-height: 1.7; margin-top: 4px;
+    width: 100%; max-width: 420px;
+  }
 </style>
 </head>
 <body>
 
+<!-- ===== AGE GATE ===== -->
+<div id="age-gate">
+  <div id="age-gate-card">
+    <div class="gate-logo">🃏</div>
+    <h1>Black-Out-Jack</h1>
+    <p class="gate-sub">Drinking Blackjack — for adults only</p>
+
+    <div class="gate-legal">
+      This game involves alcohol. You must be <strong>18 years of age or older</strong> (or the legal drinking age in your country) to play. By continuing you confirm you meet the minimum age requirement.
+    </div>
+
+    <button class="gate-btn-confirm"
+      onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''"
+      ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform=''"
+      onclick="confirmAge()">I am 18 or older →</button>
+
+    <div id="age-gate-msg"></div>
+
+    <button class="gate-btn-decline" onclick="declineAge()">I am under 18</button>
+  </div>
+</div>
+
 <!-- ===== LOBBY SCREEN ===== -->
 <div id="lobby">
-  <h2>🃏 Black-Out Jack</h2>
+  <h2>🃏 Black-Out-Jack</h2>
   <p style="color:var(--muted);font-size:14px;text-align:center">Drinking Blackjack with friends</p>
 
   <button
@@ -676,6 +753,20 @@
     onclick="joinRoom()">Join Room →</button>
 
   <div id="lobby-msg"></div>
+
+  <div class="drink-notice">
+    🍺 <strong>Drink Responsibly.</strong> Know your limits, stay hydrated, and never drink and drive. This game is intended for adults of legal drinking age only.
+  </div>
+
+  <div class="lobby-credits">
+    Black-Out-Jack &bull; Made by Robert Michels<br>
+    <a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener"
+       style="color:var(--muted);text-decoration:none;font-size:11px"
+       onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">
+      🔗 github.com/robert-rjm/Black-Out-Jack
+    </a><br>
+    <span style="font-size:10px;opacity:.7">Play smart &bull; Drink smart &bull; Stay safe</span>
+  </div>
 </div>
 
 <!-- ===== WAITING SCREEN ===== -->
@@ -731,7 +822,7 @@
       <input type="number" id="num-hands-ref" value="2" min="1" max="4">
     </div>
   </div>
-  <div id="settings-dig" class="three-col" style="display:block">
+  <div id="settings-dig" class="three-col" style="display:grid">
     <div class="field" id="wager-dig-cell" style="max-width:none">
       <label>Sips / hand</label>
       <input type="number" id="wager-dig" value="1" min="1" max="10">
@@ -1111,6 +1202,19 @@ let isMyDealerClient = false; // true when this client can execute game commands
 // Shared log sync — tracks which server-side log entries have been displayed
 let logCount   = 0;
 let logVersion = -1;   // -1 so the first state response always triggers a sync
+
+// ============================================================
+// AGE GATE
+// ============================================================
+function confirmAge() {
+  try { sessionStorage.setItem("bjAgeOk", "1"); } catch(_) {}
+  document.getElementById("age-gate").style.display = "none";
+}
+
+function declineAge() {
+  document.getElementById("age-gate-msg").textContent =
+    "Sorry — this game is for adults (18+) only.";
+}
 
 // ============================================================
 // LOBBY
@@ -3253,6 +3357,16 @@ function resetToSetup() {
 // INIT — generate clientId, then reconnect to existing server session on page reload
 // ============================================================
 (async () => {
+  // Hide age gate if already confirmed this session
+  try {
+    if (sessionStorage.getItem('bjAgeOk') === '1') {
+      document.getElementById("age-gate").style.display = "none";
+    }
+  } catch(_) {
+    // sessionStorage blocked (e.g. private browsing) — skip gate
+    document.getElementById("age-gate").style.display = "none";
+  }
+
   // Restore deal-animation toggle from localStorage (default: on)
   setAnimToggle(lsGet("bjDealAnim") !== "0");
 
