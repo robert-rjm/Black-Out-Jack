@@ -892,6 +892,7 @@
     <div style="display:flex;gap:6px;align-items:center">
       <button id="btn-rules" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openRulesModal()" title="Rules cheat sheet">📖</button>
       <button id="btn-round-menu" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="showSessionSummary()" title="Summary & Export">📊</button>
+      <button id="btn-last-round-header" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openLastRoundModal()" title="Last round drinks">🍺</button>
       <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
       <button class="btn red" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">🏠 Lobby</button>
     </div>
@@ -1011,10 +1012,6 @@
       <div id="pane-dig-deal" class="pane active">
         <p class="hint">Tap to deal the opening cards to all players from the shoe.</p>
         <button class="btn-big accent" onclick="sendCmd('deal')">DEAL CARDS</button>
-        <div class="btn-row">
-          <button class="btn wide" id="btn-last-round" onclick="toggleLastRoundPanel()">🍺 Last Round</button>
-        </div>
-        <div id="last-round-panel"></div>
       </div>
 
       <!-- PLAY pane — per-player actions -->
@@ -1193,6 +1190,15 @@
     </div>
 
     <button class="btn wide" style="margin-top:10px" onclick="closeKickModal()">Close</button>
+  </div>
+</div>
+
+<!-- ===== LAST ROUND OVERLAY ===== -->
+<div id="last-round-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center" onclick="closeLastRoundModal()">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;width:min(300px,88vw)" onclick="event.stopPropagation()">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:12px">🍺 Last Round</h3>
+    <div id="last-round-modal-body"></div>
+    <button class="btn wide" style="margin-top:12px;color:var(--muted)" onclick="closeLastRoundModal()">Close</button>
   </div>
 </div>
 
@@ -1495,31 +1501,28 @@ function _collectNewCardEls(state) {
 // ============================================================
 let _lastRoundSips = {};   // populated from state
 
-function toggleLastRoundPanel() {
-  const panel = document.getElementById("last-round-panel");
-  if (!panel) return;
-  const showing = panel.style.display === "block";
-  if (showing) { panel.style.display = "none"; return; }
-  renderLastRoundPanel();
-  panel.style.display = "block";
-}
-
-function renderLastRoundPanel() {
-  const panel = document.getElementById("last-round-panel");
-  if (!panel) return;
+function openLastRoundModal() {
+  const overlay = document.getElementById("last-round-overlay");
+  const body    = document.getElementById("last-round-modal-body");
+  if (!overlay || !body) return;
   const sips  = _lastRoundSips;
   const names = Object.keys(sips);
   if (!names.length) {
-    panel.innerHTML = `<div style="color:var(--muted);text-align:center">No rounds completed yet.</div>`;
-    return;
-  }
-  const sorted = names.slice().sort((a, b) => sips[b] - sips[a]);
-  panel.innerHTML = `<div style="font-weight:600;margin-bottom:6px;color:var(--muted);font-size:11px;letter-spacing:.05em">LAST ROUND</div>`
-    + sorted.map(n => `
+    body.innerHTML = `<div style="color:var(--muted);text-align:center;font-size:13px">No rounds completed yet.</div>`;
+  } else {
+    const sorted = names.slice().sort((a, b) => sips[b] - sips[a]);
+    body.innerHTML = sorted.map(n => `
       <div class="lrp-row">
         <span>${n}</span>
         <span class="lrp-sips">${sips[n]} sip${sips[n] !== 1 ? "s" : ""}</span>
       </div>`).join("");
+  }
+  overlay.style.display = "flex";
+}
+
+function closeLastRoundModal() {
+  const overlay = document.getElementById("last-round-overlay");
+  if (overlay) overlay.style.display = "none";
 }
 
 // While waiting for the host to start, poll until the game exists
@@ -2246,10 +2249,6 @@ function updateRoundPane(state) {
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  // Don't yank the user away from the Deal tab if they have Last Round open
-  const lrPanel = document.getElementById("last-round-panel");
-  const lrOpen  = lrPanel && lrPanel.style.display === "block";
-  if (lrOpen && phase === "playing") return;   // stay on Deal tab
   if (phase === "pre-deal")        activateDigTab("dig-deal");
   else if (phase === "playing")    activateDigTab("dig-play");
   else if (phase === "round-over") activateDigTab("dig-round");
