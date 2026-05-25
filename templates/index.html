@@ -1004,7 +1004,7 @@
     <div id="dig-panel" style="display:none">
       <div class="tabs-bar" id="dig-tabs">
         <button class="tab active" onclick="switchDigTab('dig-play', this)">Play</button>
-        <button class="tab" id="dig-drinks-tab" style="display:none" onclick="switchDigTab('dig-round', this)">🍺 Drinks</button>
+        <button class="tab" id="dig-drinks-tab" onclick="switchDigTab('dig-round', this)">🍺 Drinks</button>
       </div>
 
       <!-- PLAY pane — per-player actions -->
@@ -1050,18 +1050,26 @@
         </div>
       </div>
 
-      <!-- DRINKS pane — dealer-only, shown automatically when round ends -->
+      <!-- DRINKS pane — all players see it on round-over; dealer actions hidden for non-dealers -->
       <div id="pane-dig-round" class="pane">
         <div id="round-switch-msg" style="display:none;font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(224,92,92,.3);background:rgba(224,92,92,.1);color:var(--red)"></div>
         <div id="dig-drinks-list" style="margin-bottom:8px;max-height:200px;overflow-y:auto"></div>
-        <div class="btn-row">
-          <button id="btn-peek" class="btn wide" onclick="sendCmd('peek')">🃏 Next card?</button>
-        </div>
+        <!-- peeked card — shown to all once dealer peeks -->
         <div id="peeked-card-wrap" style="display:none;margin-bottom:8px">
           <div class="label" style="margin-bottom:6px">Next card in shoe:</div>
           <div id="peeked-card-display" style="display:flex;gap:6px;align-items:center"></div>
         </div>
-        <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
+        <!-- dealer-only controls -->
+        <div id="dig-drinks-dealer-actions" style="display:none">
+          <div class="btn-row">
+            <button id="btn-peek" class="btn wide" onclick="sendCmd('peek')">🃏 Next card?</button>
+          </div>
+          <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
+        </div>
+        <!-- non-dealer waiting hint -->
+        <div id="dig-drinks-waiting" style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:6px 0">
+          Waiting for dealer to start the next round…
+        </div>
       </div>
     </div><!-- end #dig-panel -->
 
@@ -2227,7 +2235,7 @@ function updateRoundPane(state) {
   // Drinks list — only populate when round is over
   const list = document.getElementById("dig-drinks-list");
   if (list) {
-    if (isOver && isMyDealerClient) {
+    if (isOver) {
       const drinks = _lastRoundDrinks;
       if (!drinks.length) {
         list.innerHTML = `<div style="color:var(--muted);font-size:13px;margin-bottom:4px;text-align:center">No drinks this round.</div>`;
@@ -2254,10 +2262,9 @@ function updateRoundPane(state) {
 
 function autoSwitchDigTab(state) {
   const phase = state.phase;
-  if (phase === "pre-deal")                           activateDigTab("dig-play");
-  else if (phase === "playing")                       activateDigTab("dig-play");
-  else if (phase === "round-over" && isMyDealerClient) activateDigTab("dig-round");
-  // Non-dealers stay on the Play pane — they wait for the dealer to start the next round
+  if (phase === "pre-deal")        activateDigTab("dig-play");
+  else if (phase === "playing")    activateDigTab("dig-play");
+  else if (phase === "round-over") activateDigTab("dig-round");
 }
 
 function activateDigTab(name) {
@@ -2762,9 +2769,11 @@ async function respondSuggest(accept) {
 }
 
 function updateRoleUI(state) {
-  // Show Drinks tab only for the dealer client
-  const drinksTab = document.getElementById("dig-drinks-tab");
-  if (drinksTab) drinksTab.style.display = isMyDealerClient ? "" : "none";
+  // Drinks tab is visible to all; dealer-only actions inside the pane are toggled separately
+  const dealerActions = document.getElementById("dig-drinks-dealer-actions");
+  const waitingHint   = document.getElementById("dig-drinks-waiting");
+  if (dealerActions) dealerActions.style.display = isMyDealerClient ? "" : "none";
+  if (waitingHint)   waitingHint.style.display   = (isMyDealerClient || myRole === "spectator") ? "none" : "";
 
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
