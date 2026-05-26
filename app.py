@@ -16,6 +16,7 @@ import csv
 import io
 import contextlib
 import os
+import re
 import random
 import socket
 from collections import defaultdict
@@ -46,6 +47,26 @@ def _generate_room_code() -> str:
         code = f"{random.choice(ROOM_WORDS)}-{random.randint(10, 99)}"
         if code not in game_sessions:
             return code
+
+
+_NAME_STRIP_RE = re.compile(r"[<>\"'`\\]")
+
+def _sanitize_name(raw: str) -> str:
+    """Sanitize a player name before storing it.
+
+    Strips HTML tags, removes characters that could break out of HTML
+    attribute or script contexts (<>"'\`\\), trims whitespace, capitalizes,
+    and caps length at 20 characters.  Returns an empty string if nothing
+    is left after sanitization.
+    """
+    # Remove HTML tags first
+    name = re.sub(r"<[^>]*>", "", raw)
+    # Strip characters dangerous in HTML/JS contexts
+    name = _NAME_STRIP_RE.sub("", name)
+    name = name.strip()
+    if not name:
+        return ""
+    return name.capitalize()[:20]
 
 
 # ---------------------------------------------------------------------------
@@ -1018,7 +1039,8 @@ def setup():
     if room_code not in game_sessions:
         return jsonify({"ok": False, "output": "Room not found."})
 
-    names = [n.strip().capitalize() for n in data["players"] if n.strip()]
+    names = [_sanitize_name(n) for n in data["players"] if n.strip()]
+    names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
         return jsonify({"ok": False, "output": "No player names provided."})
 
@@ -1028,7 +1050,7 @@ def setup():
     wager       = int(data.get("wager", 1))
     num_hands   = int(data.get("num_hands", 2))
 
-    npc_names = {n.strip().capitalize() for n in data.get("npcs", []) if n.strip()}
+    npc_names = {_sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
 
     players = []
     for name in names:
@@ -1479,7 +1501,7 @@ def register():
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
-    name      = (data.get("name") or "").strip().capitalize()
+    name      = _sanitize_name((data.get("name") or "").strip())
 
     session = game_sessions.get(room_code)
     if not session:
