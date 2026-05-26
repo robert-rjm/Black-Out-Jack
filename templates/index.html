@@ -1320,7 +1320,7 @@ function showLobbyMsg(text, type = "error") {
   const el = document.getElementById("lobby-msg");
   el.textContent  = text;
   el.className    = type;
-  el.style.display = "";
+  el.style.display = "block";
 }
 function hideLobbyMsg() {
   document.getElementById("lobby-msg").style.display = "none";
