@@ -44,7 +44,7 @@ ROOM_WORDS = [
 def _generate_room_code() -> str:
     """Return a unique code like 'Jack-21' not already in game_sessions."""
     while True:
-        code = f"{random.choice(ROOM_WORDS)}-{random.randint(10, 99)}"
+        code = f"{random.choice(ROOM_WORDS)}{random.randint(10, 99)}"
         if code not in game_sessions:
             return code
 

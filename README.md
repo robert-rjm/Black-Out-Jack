@@ -29,6 +29,7 @@ python referee.py                # Terminal referee for real-life play
 - [File Architecture](#file-architecture)
 - [Contributing](#contributing)
 - [License](#license)
+- [Credits](#credits)
 
 ---
 
@@ -125,6 +126,7 @@ Black-Out-Jack/
 ├── referee.py               # Terminal referee for real-life play
 ├── simulation.py            # Round simulation with stats output
 ├── requirements.txt         # Python dependencies for deployment
+├── .gitignore
 ├── README.md
 └── LICENSE
 ```
@@ -248,6 +250,11 @@ Rule ideas are especially welcome — if it made the game more fun, it probably 
 ## License
 
 This project is licensed under the MIT License, please see the [LICENSE](LICENSE) file for details.
+
+## Credits
+
+Game concept & rules: R. Michels, D. Irrgang, M. Cvijic  
+Development: R. Michels
 
 ---
 
