@@ -10,6 +10,9 @@
 <link rel="manifest" href="/manifest.json">
 <title>Black-Out-Jack</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"
+        integrity="sha384-VBVexlmJSlZMWCLMgA2ABNms3zEJSPOYHPaGCKf0MWG8R0tXQdMXlEA5bUACE3s"
+        crossorigin="anonymous"></script>
 <style>
   :root {
     --bg:      #0f1117;
@@ -3510,10 +3513,10 @@ async function openRulesModal() {
     const res  = await fetch(`/rules?_=${Date.now()}`);
     const data = await res.json();
     if (data.ok && typeof marked !== "undefined") {
-      _rulesCached = marked.parse(data.content);
+      _rulesCached = DOMPurify.sanitize(marked.parse(data.content));
     } else if (data.ok) {
       // marked.js not loaded — plain text fallback
-      _rulesCached = `<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`;
+      _rulesCached = DOMPurify.sanitize(`<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`);
     } else {
       _rulesCached = '<span style="color:var(--red)">Could not load rules.</span>';
     }
