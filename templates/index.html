@@ -1275,6 +1275,24 @@ let players    = [];
 let numHands   = 2;
 let gameMode   = "referee";   // "referee" | "digital"
 // ---------------------------------------------------------------------------
+// BJ multiplier — mirrors _bj_multiplier() in drinking_rules.py.
+// cards: array of {rank, suit} objects from state.table.
+// ---------------------------------------------------------------------------
+function bjMultiplier(cards) {
+  if (!cards || cards.length < 2) return 1;
+  const suits  = cards.map(c => c.suit);
+  const ranks  = cards.map(c => c.rank);
+  const isSuited   = new Set(suits).size === 1;
+  const hasAceJack = ranks.includes("A") && ranks.includes("J");
+  const isAllBlack = suits.every(s => s === "spades" || s === "clubs");
+  let mult = 1;
+  if (isSuited)   mult *= 2;
+  if (hasAceJack) mult *= 2;
+  if (isAllBlack) mult *= 2;
+  return mult;
+}
+
+// ---------------------------------------------------------------------------
 // Security helper — escape user-controlled strings before inserting into HTML
 // ---------------------------------------------------------------------------
 function escapeHtml(s) {
@@ -2488,8 +2506,20 @@ function renderInsuranceVotePanel(state) {
     div.style.marginBottom = "4px";
 
     if (iAmBJHolder) {
-      div.innerHTML = `<div style="font-size:12px;color:var(--yellow);font-weight:700">
+      const wager2      = (state && state.wager) || 1;
+      const myEntry     = (state && state.table || []).find(
+        p => p.name.toLowerCase() === v.bj_player.toLowerCase());
+      const myBjHand    = myEntry && myEntry.hands[v.hand_idx];
+      const mult2       = myBjHand ? bjMultiplier(myBjHand.cards) : 1;
+      const norm2       = mult2 * wager2;
+      const dbl2        = mult2 * 2 * wager2;
+      const sip2        = n => `${n} sip${n !== 1 ? "s" : ""}`;
+      div.innerHTML = `<div style="font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:4px">
         ⏳ Insurance vote for your Blackjack (Hand ${v.hand_idx + 1}) in progress…
+      </div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6">
+        If the group insures and dealer has BJ → you drink ${sip2(norm2)}, they're safe<br>
+        If the group insures and dealer has no BJ → they each drink ${sip2(dbl2)}
       </div>`;
     } else if (hasVoted) {
       const voteLabel  = myVote ? "INSURE" : "DECLINE";
@@ -2526,10 +2556,30 @@ function renderInsuranceVotePanel(state) {
       btnRow.style.marginBottom = "0";
       btnRow.appendChild(insureBtn);
       btnRow.appendChild(declineBtn);
+
+      // Compute actual sip counts from card data already in state.table
+      const wager       = (state && state.wager) || 1;
+      const playerEntry = (state && state.table || []).find(
+        p => p.name.toLowerCase() === v.bj_player.toLowerCase());
+      const bjHand      = playerEntry && playerEntry.hands[v.hand_idx];
+      const mult        = bjHand ? bjMultiplier(bjHand.cards) : 1;
+      const normalSips  = mult * wager;
+      const doubleSips  = mult * 2 * wager;
+      const sip         = n => `${n} sip${n !== 1 ? "s" : ""}`;
+
       const label = document.createElement("div");
       label.style.cssText = "font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:6px";
-      label.textContent = `Insure ${v.bj_player}'s Blackjack? (Hand ${v.hand_idx + 1})`;
+      label.textContent = `Insure ${escapeHtml(v.bj_player)}'s Blackjack? (Hand ${v.hand_idx + 1})`;
+
+      const stakes = document.createElement("div");
+      stakes.style.cssText = "font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.6";
+      stakes.innerHTML =
+        `<span style="color:var(--green)">INSURE + dealer BJ:</span> group safe · ${escapeHtml(v.bj_player)} drinks ${sip(normalSips)}<br>` +
+        `<span style="color:var(--red)">INSURE + no dealer BJ:</span> group drinks <strong>${sip(doubleSips)} each</strong><br>` +
+        `<span style="color:var(--muted)">DECLINE:</span> normal BJ bonus of ${sip(normalSips)} each &nbsp;·&nbsp; tie or no vote = decline`;
+
       div.appendChild(label);
+      div.appendChild(stakes);
       div.appendChild(btnRow);
     }
     content.appendChild(div);

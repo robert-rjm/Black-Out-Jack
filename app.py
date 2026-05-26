@@ -567,6 +567,7 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "dealer":          session.dealer_name,
         "players":         [p.name for p in session.all_players],
         "num_hands":       session.num_hands,
+        "wager":           session.wager,
         "mode":            getattr(session, "mode", "referee"),
         "table":           table,
         "dealer_hand":     d_hand_state,
