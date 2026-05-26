@@ -304,23 +304,25 @@ class NPC_Player(Player):
         d_val   = min(dealer_up_card.rank.blackjack_value, 10)
         is_soft = NPC_Player._is_soft_hand(hand)
 
+        # --- Drinking Mode Overrides ---
+        if drinking_mode:
+            if "sp" in valid_actions and hand.can_split():
+                rv  = hand.cards[0].rank.blackjack_value
+                # always split 10s (unless suited)
+                if rv == 10 and not hand.is_suited():
+                    return "sp"
+                if rv == 5 and "d" in valid_actions:
+                    return "d"
+            if score in (9, 10, 11) and "d" in valid_actions:                    
+                return "d"
+                
         # --- Pair split ---
         if "sp" in valid_actions and hand.can_split():
             rv  = hand.cards[0].rank.blackjack_value
-            # Drinking mode: always split 10s — unless they are suited (per house rules)
-            if rv == 10 and drinking_mode and not hand.is_suited():
-                return "sp"
             raw = _BS_PAIR.get((rv, d_val), "h")
-            if raw == "sp":
-                return "sp"
-            if raw == "d":
-                return "d" if "d" in valid_actions else "h"
-            # raw is the fallback ("s" or "h") — don't split
-            return raw if raw in valid_actions else "s"
-
-        # Drinking mode: always double on hard 9, 10, or 11 (stronger push than basic strategy)
-        if drinking_mode and not is_soft and score in (9, 10, 11) and "d" in valid_actions:
-            return "d"
+            if raw in valid_actions:
+                return raw
+            return "h" if raw == "d" else "s"
 
         # --- Hard / soft table ---
         table = _BS_SOFT if is_soft else _BS_HARD
