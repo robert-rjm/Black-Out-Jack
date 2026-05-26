@@ -1105,6 +1105,14 @@ def setup():
     if room_code not in game_sessions:
         return jsonify({"ok": False, "output": "Room not found."})
 
+    # Prevent any client from overwriting an active game.
+    # The admin (session creator) may reconfigure; everyone else is blocked.
+    existing = game_sessions[room_code]
+    if existing is not None:
+        clients = getattr(existing, "_room_clients", {})
+        if clients.get(client_id, {}).get("role") != "admin":
+            return jsonify({"ok": False, "output": "Game already in progress."})
+
     names = [_sanitize_name(n) for n in data["players"] if n.strip()]
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
@@ -1851,7 +1859,7 @@ def request_rejoin():
     data         = request.json or {}
     room_code    = (data.get("room_code") or "").strip()
     client_id    = (data.get("client_id") or "").strip()
-    display_name = (data.get("display_name") or "").strip()
+    display_name = _sanitize_name((data.get("display_name") or "").strip()) or "Unknown"
 
     session = game_sessions.get(room_code)
     if not session:
