@@ -693,9 +693,12 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
         is_dealer_hand = (dealer is not None and hand is dealer.dealer_hand)
         # card_pos==2 on the dealer hand = the hidden hole card; defer messages
         # until _digital_dealer_turn so the ace is not spoiled in the log.
+        # hand.doubled being True when _digital_deal_card is called means this
+        # card is the face-down doubled card — defer for the same reason.
         # Note: on_card_dealt already mutates ace_clubs_flag directly before
         # returning, so the game-mechanic side-effect is always immediate.
         is_hole_card   = is_dealer_hand and card_pos == 2
+        is_double_card = (not is_dealer_hand) and hand.doubled  # face-down doubled card
         msgs = DrinkingRules.on_card_dealt(
             card, recipient_name, card_pos,
             all_names, session.dealer_name,
@@ -708,8 +711,9 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
                 # Ace-clubs credit — only ever fires for player hands, never hole card
                 session._ace_credits.append(recipient_name)
                 print(f"    (i) {reason}")
-            elif is_hole_card:
-                # Defer: don't print or assign drinks until the hole card is revealed
+            elif is_hole_card or is_double_card:
+                # Defer: don't print or assign drinks until the card is revealed
+                # (hole card revealed at dealer turn; doubled card revealed at round-over)
                 if not hasattr(session, "_deferred_hole_card_msgs"):
                     session._deferred_hole_card_msgs = []
                 session._deferred_hole_card_msgs.append(msg)
@@ -770,8 +774,9 @@ def _digital_dealer_turn(session: RefereeSession):
     dealer = session._get_dealer()
     d_hand = dealer.dealer_hand
 
-    # Now that the hole card is visible, apply any ace drinking rules that
-    # were deferred during the initial deal to avoid spoiling the hidden card.
+    # Now that the dealer hand is revealed, apply any ace drinking rules that
+    # were deferred to avoid spoiling hidden cards (dealer hole card + any
+    # face-down doubled cards dealt during the round).
     deferred = getattr(session, "_deferred_hole_card_msgs", [])
     if deferred:
         session.tracker.apply(deferred)
