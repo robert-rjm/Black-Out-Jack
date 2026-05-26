@@ -210,7 +210,7 @@ On **Android**: tap the browser menu → "Add to Home Screen" or "Install app"
 
 Curious whether the rules are balanced or which rule is responsible for most of the drinking?
 
-Track every drink event from start to finish in a simulation (3 players, 2 hands each, rotating dealer). Frequency and rule breakdown are output in `simulation_result.txt` and `simulation_log.csv` respectively.
+Track every drink event from start to finish in a simulation (3 players, 2 hands each, rotating dealer). Frequency and rule breakdown are output in `simulation_results.txt` and `simulation_log.csv` respectively.
 
 ```bash
 python simulation.py
