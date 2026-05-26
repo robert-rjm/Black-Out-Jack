@@ -2,7 +2,7 @@
 simulation.py -- 10,000-round Drinking Blackjack simulation.
 3 NPC players, 2 hands each, dealer rotates every 3 rounds.
 Outputs: simulation_results.txt, simulation_log.csv
-Run: python test_simulation.py
+Run: python simulation.py
 """
 
 import io, os, csv, contextlib
