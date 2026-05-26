@@ -527,8 +527,9 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "best_play":          _compute_best_play(session, turn, phase),
         "suggest_rotate":     suggest_rotate,
         "rotate_reason":      rotate_reason,
-        "rounds_this_dealer": rounds_td,
-        "switch_this_round":  switch,   # None | "hard" | "soft"
+        "rounds_this_dealer":  rounds_td,
+        "dealer_rotate_every": getattr(session, "_dealer_rotate_every", 1),
+        "switch_this_round":   switch,   # None | "hard" | "soft"
         # Shared log — all players see the same entries via polling
         "log_entries":        getattr(session, "_log_entries", []),
         "log_count":          len(getattr(session, "_log_entries", [])),
@@ -1038,6 +1039,7 @@ def setup():
     game_session.drinking_mode           = drinking
     game_session.rounds_this_dealer      = 1   # rounds the current dealer has held the role
     game_session.switch_this_round       = None  # None | "hard" | "soft"
+    game_session._dealer_rotate_every    = len(players)   # rotate after N rounds (default = one full cycle through all players)
     # Shared log — broadcast to all players via /state polling
     game_session._log_entries            = []
     game_session._log_version            = 0
@@ -2141,10 +2143,39 @@ def update_settings():
     if "clear_queued" in data and data["clear_queued"]:
         queued = {}
 
+    # dealer_rotate_every is a live setting — applied immediately, not queued
+    if "dealer_rotate_every" in data:
+        v = int(data["dealer_rotate_every"])
+        if v >= 1:
+            session._dealer_rotate_every = v
+
     session._queued_settings = queued
     state = _serialize_state(session, client_id)
     state["output"] = ""
     return jsonify(state)
+
+
+@app.route("/rotate_dealer", methods=["POST"])
+def rotate_dealer():
+    """Admin immediately rotates the dealer to the next player (lobby/name order).
+    Resets rounds_this_dealer to 1. Does not start a new round.
+    Body: { room_code, client_id }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = getattr(session, "_room_clients", {})
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."})
+
+    _newround_rotate(session)
+    session.rounds_this_dealer = 1
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/rules")

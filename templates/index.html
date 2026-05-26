@@ -445,22 +445,6 @@
   }
   #start-btn:disabled { opacity: .45; }
 
-  /* ---- NEW ROUND MODAL ---- */
-  #modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,.7); z-index: 100;
-    align-items: center; justify-content: center;
-  }
-  #modal-overlay.open { display: flex; }
-  #modal {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 18px; padding: 28px 24px;
-    width: min(340px, 90vw); display: flex; flex-direction: column; gap: 14px;
-  }
-  #modal h3 { font-size: 18px; font-weight: 700; }
-  #modal p  { color: var(--muted); font-size: 14px; }
-  #modal .btn-row { margin-bottom: 0; }
-
   /* digital hint text */
   .hint { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
 
@@ -748,6 +732,22 @@
   #player-toast.drink { background: var(--red);   color: #fff; }
   #player-toast.clean { background: var(--green); color: #000; }
   #player-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---- SWITCH TOAST (hard/soft dealer switch — everyone sees it) ---- */
+  #switch-toast {
+    position: fixed;
+    top: max(120px, calc(env(safe-area-inset-top) + 120px));
+    left: 50%;
+    transform: translateX(-50%) translateY(-16px);
+    font-size: 14px; font-weight: 800;
+    padding: 10px 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.5);
+    z-index: 898; opacity: 0; pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space: nowrap; letter-spacing: .2px;
+  }
+  #switch-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -1005,7 +1005,7 @@
       <div id="pane-round" class="pane">
         <div class="btn-row">
           <button class="btn green wide" onclick="sendCmd('endround')">END ROUND</button>
-          <button class="btn wide"       onclick="openNewRound()">NEW ROUND</button>
+          <button class="btn wide"       onclick="doNewRound()">NEW ROUND</button>
         </div>
         <div class="btn-row">
           <button class="btn wide" onclick="sendCmd('status')">STATUS</button>
@@ -1073,8 +1073,6 @@
 
       <!-- DRINKS pane — all players see it on round-over; dealer actions hidden for non-dealers -->
       <div id="pane-dig-round" class="pane">
-        <div id="round-switch-msg" style="display:none;font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(224,92,92,.3);background:rgba(224,92,92,.1);color:var(--red)"></div>
-
         <!-- mid-round placeholder: player finished but round not yet over -->
         <div id="dig-drinks-progress" style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:12px 0">
           ✋ You're done — waiting for results…
@@ -1105,7 +1103,7 @@
           <div class="btn-row">
             <button id="btn-peek" class="btn wide" onclick="sendCmd('peek')">🃏 Next card?</button>
           </div>
-          <button class="btn-big green" onclick="openNewRound()">NEW ROUND</button>
+          <button class="btn-big green" onclick="doNewRound()">NEW ROUND</button>
         </div>
         <!-- non-dealer waiting hint -->
         <div id="dig-drinks-waiting" style="display:none;color:var(--muted);font-size:13px;text-align:center;padding:6px 0">
@@ -1117,21 +1115,6 @@
   </div><!-- end #panel -->
 </div>
 
-<!-- NEW ROUND MODAL -->
-<div id="modal-overlay">
-  <div id="modal">
-    <h3 id="modal-title">New Round</h3>
-    <div id="modal-dealer-info" style="font-size:13px;color:var(--muted);margin-bottom:2px"></div>
-    <div id="modal-reason" style="font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:4px;display:none"></div>
-    <p style="color:var(--muted);font-size:13px">Choose dealer for next round:</p>
-    <div class="btn-row" style="gap:8px;margin-bottom:10px">
-      <button id="modal-rotate-btn" class="btn wide" onclick="selectModalDealer(true)">↺ Rotate Dealer</button>
-      <button id="modal-keep-btn"   class="btn wide" onclick="selectModalDealer(false)">Keep Dealer</button>
-    </div>
-    <button class="btn-big accent" id="modal-next-btn" onclick="doNewRound(_modalRotate)" style="margin-bottom:4px">▶ Next Round</button>
-    <button class="btn wide" onclick="closeModal()" style="color:var(--muted);margin-top:4px">Cancel</button>
-  </div>
-</div>
 
 <!-- ===== REGISTRATION OVERLAY ===== -->
 <div id="register-overlay">
@@ -1198,6 +1181,20 @@
         <input type="number" id="setting-num-decks" min="1" max="8" value="1" style="width:72px">
       </div>
 
+      <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:18px 0 6px">DEALER ROTATION</div>
+      <div class="settings-row">
+        <label>Rotate every</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="setting-rotate-every" min="1" max="20" value="1" style="width:52px">
+          <span style="font-size:12px;color:var(--muted)">rounds</span>
+          <button class="btn" style="height:28px;padding:0 10px;font-size:11px" onclick="saveRotateEvery()">Save</button>
+        </div>
+      </div>
+      <div class="settings-row" style="border-bottom:none;padding-bottom:4px">
+        <label>Force rotate now</label>
+        <button class="btn" style="height:32px;padding:0 12px;font-size:12px;background:rgba(79,142,247,.15);color:var(--accent);border-color:rgba(79,142,247,.3)" onclick="rotateDealer()">🔄 Rotate Now</button>
+      </div>
+
       <div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">ADD PLAYER SEAT</div>
       <div class="settings-add-row">
         <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
@@ -1241,6 +1238,9 @@
 
 <!-- ===== PLAYER DRINK TOAST ===== -->
 <div id="player-toast"></div>
+
+<!-- ===== SWITCH TOAST (hard/soft dealer switch) ===== -->
+<div id="switch-toast"></div>
 
 <!-- ===== FINAL SUMMARY OVERLAY ===== -->
 <div id="summary-overlay">
@@ -2144,6 +2144,10 @@ function applyState(state) {
   if (prevPhase !== "round-over" && state.phase === "round-over" && myName && myRole !== "spectator") {
     showPlayerDrinkToast(_lastRoundSips[myName] || 0);
   }
+  // Switch toast — fires on round-over with hard/soft switch (visible to all)
+  if (prevPhase !== "round-over" && state.phase === "round-over" && state.switch_this_round) {
+    showSwitchToast(state.switch_this_round, state.dealer || "Dealer");
+  }
 
   lastState   = state;
   currentTurn = state.current_turn || null;
@@ -2259,13 +2263,6 @@ function updateBestPlay(state) {
   });
 }
 
-const HARD_SWITCH_MSGS = [
-  "Ouch {dealer}! Lost every hand — that's a Hard Switch. 💀",
-  "Rough round, {dealer}. The table swept you clean. 😬",
-  "Sorry {dealer}, everyone wins and you drink. Hard Switch! 🫠",
-  "Dealer goes down! {dealer} takes the Hard Switch. 🃏",
-];
-
 // ── Drinks pane: player card selection ──────────────────────────────────────
 function selectDrinksPlayer(name) {
   // Toggle: tap same card again to deselect
@@ -2312,19 +2309,6 @@ function updateRoundPane(state) {
   const detail   = document.getElementById("dig-drinks-detail");
   const none     = document.getElementById("dig-drinks-none");
   const progress = document.getElementById("dig-drinks-progress");
-
-  // Hard-switch banner
-  const msg = document.getElementById("round-switch-msg");
-  if (msg) {
-    if (isOver && state.switch_this_round === "hard") {
-      const dealer = state.dealer || "Dealer";
-      const tmpl   = HARD_SWITCH_MSGS[Math.floor(Math.random() * HARD_SWITCH_MSGS.length)];
-      msg.textContent   = tmpl.replace("{dealer}", dealer);
-      msg.style.display = "";
-    } else {
-      msg.style.display = "none";
-    }
-  }
 
   if (isOver) {
     if (progress) progress.style.display = "none";
@@ -2785,6 +2769,43 @@ function showPlayerDrinkToast(sips) {
 }
 
 // ============================================================
+// SWITCH TOAST (hard / soft dealer switch — shown to all players)
+// ============================================================
+const _HARD_MSGS = [
+  "💀 {d} lost every hand — Hard Switch!",
+  "😬 {d} got swept. Hard Switch!",
+  "🫠 Everyone wins, {d} drinks. Hard Switch!",
+  "🃏 {d} goes down! Hard Switch!",
+];
+const _SOFT_MSGS = [
+  "😏 {d} dominated! Soft Switch.",
+  "🎰 {d} won all hands — Soft Switch!",
+  "🤑 Table wrecked by {d}. Soft Switch!",
+];
+
+let _switchToastTimer = null;
+function showSwitchToast(switchType, dealerName) {
+  const el = document.getElementById("switch-toast");
+  if (!el) return;
+  if (_switchToastTimer) { clearTimeout(_switchToastTimer); _switchToastTimer = null; }
+  const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
+  const tmpl = pool[Math.floor(Math.random() * pool.length)];
+  el.textContent = tmpl.replace("{d}", dealerName);
+  if (switchType === "hard") {
+    el.style.background = "var(--red)";
+    el.style.color      = "#fff";
+  } else {
+    el.style.background = "var(--green)";
+    el.style.color      = "#000";
+  }
+  el.classList.add("show");
+  _switchToastTimer = setTimeout(() => {
+    el.classList.remove("show");
+    _switchToastTimer = null;
+  }, 4500);
+}
+
+// ============================================================
 // HEADER
 // ============================================================
 function updateHeader(data) {
@@ -2821,57 +2842,8 @@ function switchDigTab(name, el) {
 }
 
 // ============================================================
-// NEW ROUND MODAL
+// NEW ROUND — auto-decides rotation; no modal needed
 // ============================================================
-let _modalRotate = false;   // tracks current selection (rotate=true / keep=false)
-
-function selectModalDealer(rotate) {
-  _modalRotate = rotate;
-  document.getElementById("modal-rotate-btn").className = "btn wide" + ( rotate ? " sel" : "");
-  document.getElementById("modal-keep-btn").className   = "btn wide" + (!rotate ? " sel" : "");
-}
-
-function openNewRound() {
-  const state       = lastState || {};
-  const nextRound   = (state.round || 0) + 1;
-  const suggest     = state.suggest_rotate || false;
-  const reason      = state.rotate_reason  || "";
-  const dealer      = state.dealer         || "";
-  const roundsTD    = state.rounds_this_dealer || 1;
-  const numPlayers  = (state.players || []).length;
-
-  document.getElementById("modal-title").textContent = `Round ${nextRound}`;
-  document.getElementById("modal-dealer-info").textContent =
-    `Current dealer: ${dealer}  (${roundsTD} of ${numPlayers} rounds)`;
-
-  const reasonEl = document.getElementById("modal-reason");
-  if (suggest) {
-    reasonEl.style.display     = "";
-    reasonEl.style.background  = "rgba(245,200,66,.12)";
-    reasonEl.style.color       = "var(--yellow)";
-    reasonEl.style.border      = "1px solid rgba(245,200,66,.3)";
-    reasonEl.textContent       = "⚡ " + reason + " — rotation suggested";
-  } else if (reason) {
-    reasonEl.style.display     = "";
-    reasonEl.style.background  = "rgba(122,127,150,.08)";
-    reasonEl.style.color       = "var(--muted)";
-    reasonEl.style.border      = "1px solid var(--border)";
-    reasonEl.textContent       = reason;
-  } else {
-    reasonEl.style.display     = "none";
-  }
-
-  // Pre-select the suggested option
-  selectModalDealer(suggest);
-
-  document.getElementById("modal-overlay").classList.add("open");
-}
-
-function closeModal() {
-  document.getElementById("modal-overlay").classList.remove("open");
-}
-
-
 function clearPeekedCard() {
   const wrap = document.getElementById("peeked-card-wrap");
   if (wrap) wrap.style.display = "none";
@@ -2879,10 +2851,15 @@ function clearPeekedCard() {
   if (display) display.innerHTML = "";
 }
 
-async function doNewRound(rotate) {
-  closeModal();
+async function doNewRound() {
+  const state       = lastState || {};
+  const switchType  = state.switch_this_round;        // "hard" | "soft" | null
+  const roundsTD    = state.rounds_this_dealer || 1;
+  const rotateEvery = state.dealer_rotate_every || 1;
+  // Auto-rotate when hard/soft switch fired, or when rotation interval is reached
+  const rotate = !!(switchType || roundsTD >= rotateEvery);
   clearPeekedCard();
-  await sendCmd(rotate ? "newround rotate" : "newround keep");
+  await sendCmd(rotate ? "newround rotate" : "newround");
   buildGameUI();
   if (gameMode === "digital") {
     await sendCmd("deal");
@@ -3512,10 +3489,12 @@ function _populateSettingsUI(state) {
   const decksRow   = document.getElementById("setting-decks-row");
   const removeEl   = document.getElementById("setting-remove-name");
 
-  if (wagerEl)   wagerEl.value    = state.wager       || 1;
-  if (handsEl)   handsEl.value    = state.num_hands    || 2;
+  if (wagerEl)   wagerEl.value    = state.wager            || 1;
+  if (handsEl)   handsEl.value    = state.num_hands         || 2;
   if (decksEl)   decksEl.value    = 1;
   if (decksRow)  decksRow.style.display = (state.mode === "digital") ? "flex" : "none";
+  const rotateEl = document.getElementById("setting-rotate-every");
+  if (rotateEl)  rotateEl.value  = state.dealer_rotate_every || 1;
 
   // Populate remove-player dropdown — exclude dealer seat and admin's own seat
   if (removeEl) {
@@ -3642,6 +3621,32 @@ async function clearQueuedSettings() {
       _renderQueuedBanner({});
     }
   } catch (_) {}
+}
+
+async function saveRotateEvery() {
+  const v = parseInt(document.getElementById("setting-rotate-every")?.value || "1");
+  if (isNaN(v) || v < 1) return;
+  try {
+    const res  = await fetch("/update_settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, dealer_rotate_every: v }),
+    });
+    const data = await res.json();
+    if (data.ok) lastState = data;
+    else alert(data.error || "Could not save.");
+  } catch (_) { alert("Network error."); }
+}
+
+async function rotateDealer() {
+  try {
+    const res  = await fetch("/rotate_dealer", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); closeKickModal(); }
+    else alert(data.error || "Could not rotate dealer.");
+  } catch (_) { alert("Network error."); }
 }
 
 // ============================================================
