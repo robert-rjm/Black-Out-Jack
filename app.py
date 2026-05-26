@@ -610,11 +610,16 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         # Insurance votes — pending entries visible to all players so UI can prompt
         "insurance_votes": [
             {
-                "bj_player": v["player"],
-                "hand_idx":  v["hand_idx"],
-                "resolved":  v["resolved"],
-                "my_vote":   v["votes"].get(_ci.get("name") or "", None),
-                # Show vote counts only after resolution (no spoilers)
+                "bj_player":    v["player"],
+                "hand_idx":     v["hand_idx"],
+                "resolved":     v["resolved"],
+                "my_vote":      v["votes"].get(_ci.get("name") or "", None),
+                # How many votes are cast vs. needed — lets the UI know when
+                # all eligible voters have responded (without spoiling who voted how)
+                "votes_cast":   len(v["votes"]),
+                "votes_needed": sum(1 for p in session.all_players
+                                    if p.name.lower() != v["player"].lower()),
+                # Show vote counts only after resolution (no spoilers before then)
                 "insure_count":  sum(1 for x in v["votes"].values() if x)     if v["resolved"] else None,
                 "decline_count": sum(1 for x in v["votes"].values() if not x) if v["resolved"] else None,
             }
@@ -653,7 +658,28 @@ def _deal_pending_split_cards(session: RefereeSession):
                     continue
                 card = _digital_deal_card(session, hand, p.name)
                 print(f"  {p.name} hand{i+1}: second card dealt — {hand}")
-                if hand.score() == 21:
+                if hand.is_blackjack():
+                    hand.stood = True
+                    print(f"  {p.name} hand{i+1}: BLACKJACK! auto-stands.")
+                    # Create an insurance vote entry for this split BJ if dealer
+                    # shows Ace and one doesn't already exist for this hand.
+                    dealer = session._get_dealer()
+                    if (dealer and dealer.dealer_hand and dealer.dealer_hand.cards
+                            and dealer.dealer_hand.cards[0].rank.label == "A"
+                            and getattr(session, "drinking_mode", True)):
+                        existing = next(
+                            (v for v in getattr(session, "_insurance_votes", [])
+                             if v["player"] == p.name and v["hand_idx"] == i),
+                            None,
+                        )
+                        if not existing:
+                            session._insurance_votes.append({
+                                "player":   p.name,
+                                "hand_idx": i,
+                                "votes":    {},
+                                "resolved": False,
+                            })
+                elif hand.score() == 21:
                     hand.stood = True
                     print(f"  {p.name} hand{i+1}: auto-stands at 21.")
                 elif hand.is_bust():

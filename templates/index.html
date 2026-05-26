@@ -2489,11 +2489,16 @@ function renderInsuranceVotePanel(state) {
         ⏳ Insurance vote for your Blackjack (Hand ${v.hand_idx + 1}) in progress…
       </div>`;
     } else if (hasVoted) {
-      const voteLabel = myVote ? "INSURE" : "DECLINE";
-      const voteColor = myVote ? "var(--green)" : "var(--red)";
+      const voteLabel  = myVote ? "INSURE" : "DECLINE";
+      const voteColor  = myVote ? "var(--green)" : "var(--red)";
+      const allIn      = (v.votes_cast != null && v.votes_needed != null
+                          && v.votes_cast >= v.votes_needed);
+      const waitingMsg = allIn
+        ? "All votes in — waiting for dealer to reveal"
+        : "Waiting for others…";
       div.innerHTML = `<div style="font-size:12px;color:var(--muted)">
         Your vote on ${escapeHtml(v.bj_player)} H${v.hand_idx + 1}:
-        <strong style="color:${voteColor}">${voteLabel}</strong> — waiting for others…
+        <strong style="color:${voteColor}">${voteLabel}</strong> — ${waitingMsg}
       </div>`;
     } else {
       // Use data attributes so player name never appears in an onclick string
