@@ -1536,25 +1536,40 @@ function _collectNewCardEls(state) {
 // ============================================================
 // LAST ROUND DRINK SUMMARY
 // ============================================================
-let _lastRoundSips      = {};   // populated from state
+let _lastRoundSips      = {};   // current completed round — shown in Drinks pane
 let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
+let _prevRoundSips      = {};   // round before last — shown in 🍺 header modal
+let _prevRoundDrinks    = [];   // detailed drink entries for the previous round
 let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
 
 function openLastRoundModal() {
   const overlay = document.getElementById("last-round-overlay");
   const body    = document.getElementById("last-round-modal-body");
   if (!overlay || !body) return;
-  const sips  = _lastRoundSips;
+
+  const sips  = _prevRoundSips;
   const names = Object.keys(sips);
   if (!names.length) {
-    body.innerHTML = `<div style="color:var(--muted);text-align:center;font-size:13px">No rounds completed yet.</div>`;
+    body.innerHTML = `<div style="color:var(--muted);text-align:center;font-size:13px">No previous round yet.</div>`;
   } else {
-    const sorted = names.slice().sort((a, b) => sips[b] - sips[a]);
-    body.innerHTML = sorted.map(n => `
-      <div class="lrp-row">
+    // All players in play order, not just those who drank
+    const allNames = (lastState && lastState.players) || names;
+    const sorted   = allNames.slice().sort((a, b) => (sips[b] || 0) - (sips[a] || 0));
+    body.innerHTML = sorted.map(n => {
+      const prev = sips[n] || 0;
+      const cur  = _lastRoundSips[n] || 0;
+      const diff = cur - prev;
+      const diffStr = diff === 0 ? "" :
+        `<span style="font-size:11px;color:${diff > 0 ? "var(--red)" : "var(--green)"};margin-left:4px">${diff > 0 ? "▲" : "▼"}${Math.abs(diff)}</span>`;
+      return `<div class="lrp-row">
         <span>${n}</span>
-        <span class="lrp-sips">${sips[n]} sip${sips[n] !== 1 ? "s" : ""}</span>
-      </div>`).join("");
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--muted)">prev</span>
+          <span class="lrp-sips">${prev} sip${prev !== 1 ? "s" : ""}</span>
+          ${diffStr}
+        </span>
+      </div>`;
+    }).join("");
   }
   overlay.style.display = "flex";
 }
@@ -2132,13 +2147,15 @@ function applyState(state) {
     _animToggleOn()
   );
 
-  // Update last-round sips/drinks whenever the server provides them.
+  // Update last-round and prev-round sips/drinks whenever the server provides them.
   if (state.last_round_sips && Object.keys(state.last_round_sips).length) {
     _lastRoundSips = state.last_round_sips;
   }
   if (state.last_round_drinks && state.last_round_drinks.length) {
     _lastRoundDrinks = state.last_round_drinks;
   }
+  if (state.prev_round_sips !== undefined) _prevRoundSips  = state.prev_round_sips  || {};
+  if (state.prev_round_drinks !== undefined) _prevRoundDrinks = state.prev_round_drinks || [];
 
   // Player drink toast — fires once on round-over transition for registered players
   if (prevPhase !== "round-over" && state.phase === "round-over" && myName && myRole !== "spectator") {
@@ -2329,6 +2346,15 @@ function updateRoundPane(state) {
         const border     = hot ? "rgba(224,92,92,.4)"   : "rgba(62,207,110,.4)";
         const color      = hot ? "var(--red)"           : "var(--green)";
         const outline    = isSelected ? "outline:2px solid var(--accent);outline-offset:1px;" : "";
+        const prev    = _prevRoundSips[name] ?? null;
+        const hasPrev = prev !== null;
+        const diff    = hasPrev ? sips - prev : 0;
+        const diffColor = diff > 0 ? "var(--red)" : "var(--green)";
+        const diffStr = hasPrev
+          ? `<div style="font-size:9px;color:${diff === 0 ? "var(--muted)" : diffColor};line-height:1.3">
+               ${diff > 0 ? "▲" : diff < 0 ? "▼" : "="}&thinsp;${Math.abs(diff)} prev
+             </div>`
+          : "";
         return `<button class="drinks-card" data-name="${name}"
           onclick="selectDrinksPlayer('${name}')"
           style="padding:7px 4px;border-radius:9px;text-align:center;cursor:pointer;
@@ -2339,6 +2365,7 @@ function updateRoundPane(state) {
                       max-width:100%;padding:0 2px">${name}</div>
           <div style="font-size:21px;font-weight:800;line-height:1.2;color:${color}">${sips}</div>
           <div style="font-size:10px;color:${color};opacity:.85">sip${sips !== 1 ? "s" : ""}</div>
+          ${diffStr}
         </button>`;
       }).join("");
     }

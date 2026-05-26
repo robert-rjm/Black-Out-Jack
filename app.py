@@ -175,6 +175,10 @@ def _harvest_drink_log(session: RefereeSession):
                 d_ticker[p.name] = d_ticker.get(p.name, 0) + sips
     session._dealer_role_ticker = d_ticker
 
+    # Shift previous snapshot before overwriting (enables round-over comparison)
+    session._prev_round_sips   = getattr(session, "_last_round_sips",   {})
+    session._prev_round_drinks = getattr(session, "_last_round_drinks", [])
+
     # Snapshot this round's per-player sip totals for the "Last Round" panel
     last = {}
     for p in session.all_players:
@@ -540,9 +544,12 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "sip_totals":        _compute_sip_totals(session),
         "sip_grand_total":   sum(_compute_sip_totals(session).values()),
         # Last completed round's sip counts per player
-        "last_round_sips":     getattr(session, "_last_round_sips", {}),
+        "last_round_sips":     getattr(session, "_last_round_sips",   {}),
         # Detailed drink entries for the Drinks pane (name, sips, reason)
         "last_round_drinks":   getattr(session, "_last_round_drinks", []),
+        # Round before last — for comparison ("this round vs last round")
+        "prev_round_sips":     getattr(session, "_prev_round_sips",   {}),
+        "prev_round_drinks":   getattr(session, "_prev_round_drinks", []),
         # Cumulative sips earned while acting as the dealer role (live incl. current round)
         "dealer_role_sips":    _compute_dealer_role_sips(session),
         # Pre-selected player actions and pending dealer suggestions
@@ -1051,6 +1058,8 @@ def setup():
     game_session._drink_log_harvested    = False
     game_session._last_round_sips        = {}   # per-player sips in the last completed round
     game_session._last_round_drinks      = []   # detailed drink entries for the Drinks pane
+    game_session._prev_round_sips        = {}   # sips from the round before last (for comparison)
+    game_session._prev_round_drinks      = []   # drinks from the round before last
     game_session._dealer_role_ticker     = {}   # cumulative sips earned while acting as dealer
     # Identity — session creator is admin, auto-registered with the dealer's name
     game_session._room_clients  = {}
