@@ -1271,6 +1271,19 @@ function lsRemove(k) { try { localStorage.removeItem(k);        } catch(_) {} }
 let players    = [];
 let numHands   = 2;
 let gameMode   = "referee";   // "referee" | "digital"
+// ---------------------------------------------------------------------------
+// Security helper — escape user-controlled strings before inserting into HTML
+// ---------------------------------------------------------------------------
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 let lastState  = null;        // last /command or /state response
 let currentTurn = null;       // player name whose turn it is (digital only)
 let roomCode   = "";          // active room code (e.g. "Jack-21")
@@ -1562,7 +1575,7 @@ function openLastRoundModal() {
       const diffStr = diff === 0 ? "" :
         `<span style="font-size:11px;color:${diff > 0 ? "var(--red)" : "var(--green)"};margin-left:4px">${diff > 0 ? "▲" : "▼"}${Math.abs(diff)}</span>`;
       return `<div class="lrp-row">
-        <span>${n}</span>
+        <span>${escapeHtml(n)}</span>
         <span style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--muted)">prev</span>
           <span class="lrp-sips">${prev} sip${prev !== 1 ? "s" : ""}</span>
@@ -2304,17 +2317,17 @@ function renderDrinksDetail() {
   const total   = _lastRoundSips[_drinksPaneSelected] || 0;
   if (!entries.length) {
     detail.innerHTML = `<div style="color:var(--green);font-size:12px;text-align:center;padding:10px 4px">
-      ${_drinksPaneSelected} — no drinks 🎉</div>`;
+      ${escapeHtml(_drinksPaneSelected)} — no drinks 🎉</div>`;
     return;
   }
   detail.innerHTML =
     `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
-                 letter-spacing:.5px;margin-bottom:5px">${_drinksPaneSelected} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
+                 letter-spacing:.5px;margin-bottom:5px">${escapeHtml(_drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
     entries.map(d =>
       `<div style="font-size:11px;line-height:1.45;padding:4px 6px;border-radius:6px;margin-bottom:3px;
                    color:var(--red);border-left:2px solid var(--red);background:rgba(224,92,92,.08)">
         <span style="font-weight:700">+${d.sips}</span>
-        <span style="color:var(--muted)"> ${d.reason}</span>
+        <span style="color:var(--muted)"> ${escapeHtml(d.reason)}</span>
       </div>`
     ).join("");
 }
@@ -2355,14 +2368,14 @@ function updateRoundPane(state) {
                ${diff > 0 ? "▲" : diff < 0 ? "▼" : "="}&thinsp;${Math.abs(diff)} prev
              </div>`
           : "";
-        return `<button class="drinks-card" data-name="${name}"
-          onclick="selectDrinksPlayer('${name}')"
+        return `<button class="drinks-card" data-name="${escapeHtml(name)}"
+          onclick="selectDrinksPlayer(this.dataset.name)"
           style="padding:7px 4px;border-radius:9px;text-align:center;cursor:pointer;
                  background:${bg};border:1.5px solid ${border};${outline}
                  transition:outline .1s;-webkit-tap-highlight-color:transparent">
           <div style="font-size:10px;color:var(--muted);font-weight:700;
                       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                      max-width:100%;padding:0 2px">${name}</div>
+                      max-width:100%;padding:0 2px">${escapeHtml(name)}</div>
           <div style="font-size:21px;font-weight:800;line-height:1.2;color:${color}">${sips}</div>
           <div style="font-size:10px;color:${color};opacity:.85">sip${sips !== 1 ? "s" : ""}</div>
           ${diffStr}
@@ -2479,20 +2492,37 @@ function renderInsuranceVotePanel(state) {
       const voteLabel = myVote ? "INSURE" : "DECLINE";
       const voteColor = myVote ? "var(--green)" : "var(--red)";
       div.innerHTML = `<div style="font-size:12px;color:var(--muted)">
-        Your vote on ${v.bj_player} H${v.hand_idx + 1}:
+        Your vote on ${escapeHtml(v.bj_player)} H${v.hand_idx + 1}:
         <strong style="color:${voteColor}">${voteLabel}</strong> — waiting for others…
       </div>`;
     } else {
-      div.innerHTML = `
-        <div style="font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:6px">
-          Insure ${v.bj_player}'s Blackjack? (Hand ${v.hand_idx + 1})
-        </div>
-        <div class="btn-row" style="margin-bottom:0">
-          <button class="btn green wide"
-                  onclick="castInsuranceVote('${v.bj_player}',${v.hand_idx},true)">INSURE</button>
-          <button class="btn red wide"
-                  onclick="castInsuranceVote('${v.bj_player}',${v.hand_idx},false)">DECLINE</button>
-        </div>`;
+      // Use data attributes so player name never appears in an onclick string
+      const insureBtn  = document.createElement("button");
+      insureBtn.className = "btn green wide";
+      insureBtn.textContent = "INSURE";
+      insureBtn.dataset.bjPlayer = v.bj_player;
+      insureBtn.dataset.handIdx  = v.hand_idx;
+      insureBtn.addEventListener("click", function() {
+        castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), true);
+      });
+      const declineBtn = document.createElement("button");
+      declineBtn.className = "btn red wide";
+      declineBtn.textContent = "DECLINE";
+      declineBtn.dataset.bjPlayer = v.bj_player;
+      declineBtn.dataset.handIdx  = v.hand_idx;
+      declineBtn.addEventListener("click", function() {
+        castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), false);
+      });
+      const btnRow = document.createElement("div");
+      btnRow.className = "btn-row";
+      btnRow.style.marginBottom = "0";
+      btnRow.appendChild(insureBtn);
+      btnRow.appendChild(declineBtn);
+      const label = document.createElement("div");
+      label.style.cssText = "font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:6px";
+      label.textContent = `Insure ${v.bj_player}'s Blackjack? (Hand ${v.hand_idx + 1})`;
+      div.appendChild(label);
+      div.appendChild(btnRow);
     }
     content.appendChild(div);
   });
@@ -2591,7 +2621,7 @@ function renderDealer(state) {
   const hdr = document.createElement("div");
   hdr.className = "dp-header";
   hdr.innerHTML = `
-    <div><span class="dp-name">Dealer</span><span class="dp-role">${dealerName}</span></div>
+    <div><span class="dp-name">Dealer</span><span class="dp-role">${escapeHtml(dealerName)}</span></div>
     <div>${sipBadge}</div>`;
   root.appendChild(hdr);
 
@@ -2643,7 +2673,7 @@ function renderPlayers(state) {
     const sips     = (state.sip_totals || {})[s.name] || 0;
     const sipBadge = (state.drinking_mode !== false && sips > 0)
       ? `<span class="seat-sip-badge">🍺 ${sips}</span>` : "";
-    hdr.innerHTML = `<div class="seat-name">${s.name}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
@@ -2729,7 +2759,7 @@ function updateSipTicker(state) {
   order.forEach(name => {
     const div = document.createElement("div"); div.className = "st-div"; el.appendChild(div);
     const p   = document.createElement("div"); p.className   = "st-player";
-    p.innerHTML = `<span class="st-name">${name}</span><span class="st-count">${totals[name] || 0}</span>`;
+    p.innerHTML = `<span class="st-name">${escapeHtml(name)}</span><span class="st-count">${totals[name] || 0}</span>`;
     el.appendChild(p);
   });
 }
@@ -3202,7 +3232,7 @@ function openKickModal() {
       const statusTxt = r.isBot ? " 🤖 bot"
                       : r.spectator ? " (spectating)"
                       : !r.connected ? " (disconnected)" : "";
-      row.innerHTML  = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${statusTxt}</span>${voteTxt}</span><span style="display:flex;gap:4px"></span>`;
+      row.innerHTML  = `<span><span class="kick-name">${escapeHtml(r.name)}</span><span class="kick-role">${escapeHtml(statusTxt)}</span>${voteTxt}</span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
 
       const isAdminRow = adminNames.has(r.name.toLowerCase());
@@ -3251,7 +3281,7 @@ function openKickModal() {
       candidates.forEach(r => {
         const row     = document.createElement("div");
         row.className = "kick-row";
-        row.innerHTML = `<span><span class="kick-name">${r.name}</span><span class="kick-role">${r.spectator ? " (spectating)" : ""}</span></span>`;
+        row.innerHTML = `<span><span class="kick-name">${escapeHtml(r.name)}</span><span class="kick-role">${r.spectator ? " (spectating)" : ""}</span></span>`;
         const btn      = document.createElement("button");
         btn.className  = "btn";
         btn.textContent = "👑 Make Admin";
@@ -3277,7 +3307,7 @@ function openKickModal() {
     kickedClients.forEach(kc => {
       const row = document.createElement("div");
       row.className = "kick-row";
-      row.innerHTML = `<span><span class="kick-name">${kc.name}</span><span class="kick-role"> (kicked)</span></span><span style="display:flex;gap:4px"></span>`;
+      row.innerHTML = `<span><span class="kick-name">${escapeHtml(kc.name)}</span><span class="kick-role"> (kicked)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const undoBtn = document.createElement("button");
       undoBtn.className   = "btn";
@@ -3306,7 +3336,7 @@ function openKickModal() {
     rejoinReqs.forEach(req => {
       const row = document.createElement("div");
       row.className = "kick-row";
-      row.innerHTML = `<span><span class="kick-name">${req.display_name}</span><span class="kick-role"> wants to rejoin</span></span><span style="display:flex;gap:4px"></span>`;
+      row.innerHTML = `<span><span class="kick-name">${escapeHtml(req.display_name)}</span><span class="kick-role"> wants to rejoin</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const approveBtn = document.createElement("button");
       approveBtn.className   = "btn";
@@ -3449,8 +3479,8 @@ function renderKickVoteBanner(state) {
   banner.style.display = "";
   banner.innerHTML = entries.map(([target, voters]) => {
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-    const who = voters.map(cap).join(", ");
-    return `<span>&#128683; <b>${who}</b> vote${voters.length > 1 ? "s" : ""} to kick <b>${cap(target)}</b></span>`;
+    const who = voters.map(v => escapeHtml(cap(v))).join(", ");
+    return `<span>&#128683; <b>${who}</b> vote${voters.length > 1 ? "s" : ""} to kick <b>${escapeHtml(cap(target))}</b></span>`;
   }).join("<br>");
 }
 
@@ -3555,8 +3585,8 @@ function _renderQueuedBanner(queued) {
   if ("wager"     in queued) items.push(`Sips/hand → ${queued.wager}`);
   if ("num_hands" in queued) items.push(`Hands/player → ${queued.num_hands}`);
   if ("num_decks" in queued) items.push(`Decks → ${queued.num_decks}`);
-  (queued.add_players    || []).forEach(p => items.push(`Add ${p.is_npc ? "bot" : "player"}: ${p.name}`));
-  (queued.remove_players || []).forEach(n => items.push(`Remove player: ${n}`));
+  (queued.add_players    || []).forEach(p => items.push(`Add ${p.is_npc ? "bot" : "player"}: ${escapeHtml(p.name)}`));
+  (queued.remove_players || []).forEach(n => items.push(`Remove player: ${escapeHtml(n)}`));
 
   if (items.length === 0) {
     banner.style.display = "none";
@@ -3713,7 +3743,7 @@ async function showSessionSummary() {
     data.players.forEach(p => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td style="font-weight:600">${p.name}</td>
+        <td style="font-weight:600">${escapeHtml(p.name)}</td>
         <td>${p.player_sips}</td>
         <td>${p.dealer_sips}</td>
         <td class="sum-total">${p.total_sips}</td>`;
