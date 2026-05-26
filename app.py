@@ -253,6 +253,54 @@ def _harvest_drink_log(session: RefereeSession):
                 drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
     session._last_round_drinks = drinks_detail
 
+    # Track hand outcomes (win/loss/push, split and double breakdowns) per player
+    hand_stats = getattr(session, "_hand_stats", {})
+    for p in session.all_players:
+        if p.is_dealer:
+            continue
+        if p.name not in hand_stats:
+            hand_stats[p.name] = {
+                "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
+                "split_hands": 0, "split_wins": 0,
+                "double_hands": 0, "double_wins": 0,
+            }
+        hs = hand_stats[p.name]
+        for hand in p.hands:
+            result = getattr(hand, "result", None)
+            if result not in ("win", "loss", "push"):
+                continue
+            hs["hands"] += 1
+            if result == "win":    hs["wins"]   += 1
+            elif result == "loss": hs["losses"] += 1
+            elif result == "push": hs["pushes"] += 1
+            if getattr(hand, "from_split", False):
+                hs["split_hands"] += 1
+                if result == "win": hs["split_wins"] += 1
+            if getattr(hand, "doubled", False):
+                hs["double_hands"] += 1
+                if result == "win": hs["double_wins"] += 1
+    session._hand_stats = hand_stats
+
+    # Track how each player fared as dealer — wins/losses/pushes from dealer's POV
+    # (Player hand "win" = dealer lost that hand, and vice versa)
+    dealer_stats = getattr(session, "_dealer_hand_stats", {})
+    dname = session.dealer_name
+    if dname not in dealer_stats:
+        dealer_stats[dname] = {"hands": 0, "wins": 0, "losses": 0, "pushes": 0}
+    ds = dealer_stats[dname]
+    for p in session.all_players:
+        if p.is_dealer:
+            continue
+        for hand in p.hands:
+            result = getattr(hand, "result", None)
+            if result not in ("win", "loss", "push"):
+                continue
+            ds["hands"] += 1
+            if result == "win":    ds["losses"] += 1  # player wins = dealer lost
+            elif result == "loss": ds["wins"]   += 1  # player loses = dealer won
+            elif result == "push": ds["pushes"] += 1
+    session._dealer_hand_stats = dealer_stats
+
 
 def _check_and_set_milestone(session: RefereeSession):
     """
@@ -1273,6 +1321,8 @@ def setup():
     game_session._rejoin_requests = []  # [{client_id, display_name}] — kicked players asking to rejoin
     game_session._anim_default  = True # admin's animation preference, broadcast to joiners
     game_session._queued_settings = {}  # settings queued to apply at start of next round
+    game_session._hand_stats            = {}   # {player: {wins, losses, pushes, ...}}
+    game_session._dealer_hand_stats     = {}   # {dealer_name: {wins, losses, pushes, hands}}
     game_session._milestones_claimed    = {}   # boundary → winner name; never reset
     game_session._pending_milestone     = None # current unclaimed handout (or None)
     game_session._last_milestone_result = None # most recent claim result, shown ~15s
@@ -2207,11 +2257,25 @@ def export_csv():
     buf = io.StringIO()
     w   = csv.writer(buf)
 
+    hand_stats  = getattr(session, "_hand_stats",       {})
+    milestones  = getattr(session, "_milestones_claimed", {})
+
+    def _pct(n, d):
+        return f"{n/d*100:.1f}%" if d else "—"
+
     # Header metadata
     w.writerow(["Drinking Blackjack — Session Summary"])
     w.writerow(["Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
     w.writerow(["Rounds completed", num_rounds])
     w.writerow([])
+
+    # Milestone winners — who crossed each 50-sip threshold first
+    if milestones:
+        w.writerow(["MILESTONES"])
+        w.writerow(["Threshold", "First to reach"])
+        for boundary in sorted(milestones):
+            w.writerow([f"{boundary} sips", milestones[boundary]])
+        w.writerow([])
 
     # Per-player tables
     for name in players_seen:
@@ -2225,6 +2289,21 @@ def export_csv():
             f"as dealer: {dt}",
             f"sips/round: {gt/num_rounds:.2f}",
         ])
+        # Hand outcome stats
+        hs = hand_stats.get(name)
+        if hs and hs["hands"]:
+            h = hs["hands"]
+            row = [
+                f"Hands: {h}",
+                f"Won: {hs['wins']} ({_pct(hs['wins'], h)})",
+                f"Lost: {hs['losses']} ({_pct(hs['losses'], h)})",
+                f"Push: {hs['pushes']} ({_pct(hs['pushes'], h)})",
+            ]
+            if hs["split_hands"]:
+                row.append(f"Splits won: {hs['split_wins']} of {hs['split_hands']} ({_pct(hs['split_wins'], hs['split_hands'])})")
+            if hs["double_hands"]:
+                row.append(f"Doubles won: {hs['double_wins']} of {hs['double_hands']} ({_pct(hs['double_wins'], hs['double_hands'])})")
+            w.writerow(row)
         w.writerow(["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
         for rule in all_rules:
             ps = player_sips[name].get(rule, 0)
@@ -2249,13 +2328,47 @@ def export_csv():
     w.writerow(["Rule", "Total sips", "Sips/round", "% of total"])
     for rule in sorted(rule_totals, key=lambda r: -rule_totals[r]):
         total = rule_totals[rule]
-        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "\u2014"
+        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "—"
         w.writerow([rule, total, f"{total/num_rounds:.2f}", pct])
     w.writerow([])
     w.writerow(["Grand total", grand_total, f"{grand_total/num_rounds:.2f} sips/round"])
 
+    # Hand stats summary table (all players)
+    w.writerow([])
+    w.writerow(["HAND OUTCOMES"])
+    w.writerow(["Player", "Hands", "Won", "Win%", "Lost", "Loss%", "Push", "Push%",
+                "Splits won", "Split win%", "Doubles won", "Double win%"])
+    for name in players_seen:
+        hs = hand_stats.get(name, {"hands":0,"wins":0,"losses":0,"pushes":0,"split_hands":0,"split_wins":0,"double_hands":0,"double_wins":0})
+        h  = hs["hands"]
+        w.writerow([
+            name, h if h else "-",
+            hs["wins"]   if h else "-", _pct(hs["wins"],   h),
+            hs["losses"] if h else "-", _pct(hs["losses"],  h),
+            hs["pushes"] if h else "-", _pct(hs["pushes"],  h),
+            f"{hs['split_wins']} of {hs['split_hands']}" if hs["split_hands"]  else "-",
+            _pct(hs["split_wins"],  hs["split_hands"]),
+            f"{hs['double_wins']} of {hs['double_hands']}" if hs["double_hands"] else "-",
+            _pct(hs["double_wins"], hs["double_hands"]),
+        ])
+
+    # Dealer stats
+    dealer_stats = getattr(session, "_dealer_hand_stats", {})
+    if dealer_stats:
+        w.writerow([])
+        w.writerow(["DEALER STATS (per dealing stint)"])
+        w.writerow(["Dealer", "Hands dealt", "Won", "Win%", "Lost", "Loss%", "Push", "Push%"])
+        for dname, ds in sorted(dealer_stats.items()):
+            dh = ds["hands"]
+            w.writerow([
+                dname, dh,
+                ds["wins"],   _pct(ds["wins"],   dh),
+                ds["losses"], _pct(ds["losses"],  dh),
+                ds["pushes"], _pct(ds["pushes"],  dh),
+            ])
+
     return Response(
-        buf.getvalue().encode("utf-8"),
+        b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
         status=200,
         mimetype="text/csv",
         headers={"Content-Disposition": 'attachment; filename="drinks_summary.csv"'},
@@ -2449,9 +2562,22 @@ def claim_milestone():
         ticker[name] = ticker.get(name, 0) + s
     session._sip_ticker = ticker
 
-    # Log the handout
+    # Write milestone handout into the CSV accumulator so it appears in exports
     winner    = milestone["winner"]
     boundary  = milestone["boundary"]
+    csv_rows  = getattr(session, "_drink_csv_rows", [])
+    for name, s in alloc.items():
+        csv_rows.append({
+            "round":  session.round_count,
+            "dealer": session.dealer_name,
+            "player": name,
+            "role":   "player",
+            "rule":   "Milestone handout",
+            "sips":   s,
+        })
+    session._drink_csv_rows = csv_rows
+
+    # Log the handout
     log_lines = [f"🎉 {winner} reached {boundary} sips — milestone handout!"]
     for name, s in alloc.items():
         sip_word = "sip" if s == 1 else "sips"
