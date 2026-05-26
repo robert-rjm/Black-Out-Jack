@@ -10,8 +10,8 @@ import hashlib
 import urllib.request
 from blackjack import Rank, Suit, Hand, Player
 
-_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Black-Out-Jack/main/Rules.md"
-_RULES_HASH  = "a1930215052140a7784281c4af1fb6bb62b799a5cc520538aa1e58df0b479ac0"
+_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Black-Out-Jack/main/docs/Rules.md"
+_RULES_HASH  = "CC092107596D44EE4068E5782E8663CF12EF360234FB8D39AE700756AEBF32CC"
 _RULES_DATE  = "2026-05-22"
 
 
@@ -101,6 +101,14 @@ class DrinkingRules:
             if s == Suit.CLUBS:
                 msgs.append((recipient, -1,
                     f"A{s.symbol} dealt to {recipient} => -1 sip credit at round end"))
+                # Dealer-player's betting-hand A♣ gives double protection:
+                # the Hard Switch flag is set (no drinking if switch occurs)
+                # AND the -1 credit still applies when no switch occurs.
+                if recipient.lower() == dealer_name.lower():
+                    ace_clubs_flag["protected"] = True
+                    msgs.append((None, 0,
+                        f"A{s.symbol} dealt to {recipient} (also dealer) "
+                        f"=> also exempt from Hard Dealer Switch drinking"))
             elif s == Suit.SPADES:
                 idx    = all_player_names.index(recipient)
                 target = all_player_names[(idx + card_pos) % len(all_player_names)]
