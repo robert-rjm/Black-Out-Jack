@@ -1910,8 +1910,8 @@ def suggest_action():
 
     clients = getattr(session, "_room_clients", {})
     info    = clients.get(client_id, {})
-    if info.get("role") not in ("admin",):
-        return jsonify({"ok": False, "error": "Only the dealer/admin can suggest actions."})
+    if not _is_dealer_client(session, client_id):
+        return jsonify({"ok": False, "error": "Only the dealer can suggest actions."})
 
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
