@@ -1062,10 +1062,26 @@ def serve_manifest():
 # Lobby routes
 # ---------------------------------------------------------------------------
 
+_SESSION_TTL      = 12 * 3600   # seconds — rooms older than this are eligible for cleanup
+_room_created_at: dict[str, float] = {}   # room_code → time.monotonic() at creation
+
+
+def _cleanup_stale_sessions():
+    """Drop rooms that were never set up (value is None) and are older than TTL."""
+    cutoff = time.monotonic() - _SESSION_TTL
+    stale  = [code for code, s in game_sessions.items()
+               if s is None and _room_created_at.get(code, 0) < cutoff]
+    for code in stale:
+        del game_sessions[code]
+        _room_created_at.pop(code, None)
+
+
 @app.route("/create_room", methods=["POST"])
 def create_room():
+    _cleanup_stale_sessions()
     code = _generate_room_code()
-    game_sessions[code] = None   # slot reserved; game not yet started
+    game_sessions[code]     = None   # slot reserved; game not yet started
+    _room_created_at[code]  = time.monotonic()
     return jsonify({"ok": True, "code": code})
 
 
@@ -1099,7 +1115,10 @@ def join_room():
 
 @app.route("/setup", methods=["POST"])
 def setup():
-    data      = request.json
+    data = request.json
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "output": "Invalid request body."})
+
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
     if room_code not in game_sessions:
@@ -1113,16 +1132,22 @@ def setup():
         if clients.get(client_id, {}).get("role") != "admin":
             return jsonify({"ok": False, "output": "Game already in progress."})
 
-    names = [_sanitize_name(n) for n in data["players"] if n.strip()]
+    raw_players = data.get("players")
+    if not isinstance(raw_players, list):
+        return jsonify({"ok": False, "output": "Invalid players list."})
+    names = [_sanitize_name(n) for n in raw_players if isinstance(n, str) and n.strip()]
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
         return jsonify({"ok": False, "output": "No player names provided."})
 
-    mode        = data.get("mode", "referee")   # "referee" | "digital"
-    dealer_idx  = int(data.get("dealer_index", 0))
+    try:
+        mode       = data.get("mode", "referee")   # "referee" | "digital"
+        dealer_idx = int(data.get("dealer_index", 0))
+        wager      = max(1, int(data.get("wager", 1)))
+        num_hands  = max(1, int(data.get("num_hands", 2)))
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "output": "Invalid numeric field."})
     dealer_name = names[min(dealer_idx, len(names) - 1)]
-    wager       = int(data.get("wager", 1))
-    num_hands   = int(data.get("num_hands", 2))
 
     npc_names = {_sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
 
@@ -1923,8 +1948,11 @@ def vote_insurance():
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
     bj_player = (data.get("bj_player") or "").strip().capitalize()
-    hand_idx  = int(data.get("hand_idx", 0))
-    vote      = bool(data.get("vote", False))   # True = insure, False = decline
+    try:
+        hand_idx = int(data.get("hand_idx", 0))
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Invalid hand index."})
+    vote = bool(data.get("vote", False))   # True = insure, False = decline
 
     session = game_sessions.get(room_code)
     if not session:
@@ -2205,20 +2233,23 @@ def update_settings():
     queued = getattr(session, "_queued_settings", {})
 
     # Validate and queue each provided setting
-    if "wager" in data:
-        v = int(data["wager"])
-        if v >= 1:
-            queued["wager"] = v
+    try:
+        if "wager" in data:
+            v = int(data["wager"])
+            if v >= 1:
+                queued["wager"] = v
 
-    if "num_hands" in data:
-        v = int(data["num_hands"])
-        if v >= 1:
-            queued["num_hands"] = v
+        if "num_hands" in data:
+            v = int(data["num_hands"])
+            if v >= 1:
+                queued["num_hands"] = v
 
-    if "num_decks" in data:
-        v = int(data["num_decks"])
-        if 1 <= v <= 8:
-            queued["num_decks"] = v
+        if "num_decks" in data:
+            v = int(data["num_decks"])
+            if 1 <= v <= 8:
+                queued["num_decks"] = v
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Invalid numeric setting."})
 
     if "add_player" in data:
         name = str(data["add_player"]).strip().capitalize()
@@ -2250,9 +2281,12 @@ def update_settings():
 
     # dealer_rotate_every is a live setting — applied immediately, not queued
     if "dealer_rotate_every" in data:
-        v = int(data["dealer_rotate_every"])
-        if v >= 1:
-            session._dealer_rotate_every = v
+        try:
+            v = int(data["dealer_rotate_every"])
+            if v >= 1:
+                session._dealer_rotate_every = v
+        except (ValueError, TypeError):
+            pass   # silently ignore a malformed value; non-critical setting
 
     session._queued_settings = queued
     state = _serialize_state(session, client_id)
