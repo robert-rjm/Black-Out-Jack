@@ -1621,7 +1621,7 @@ def make_bot():
             d.pop(k, None)
 
     # If it's the new bot's turn, auto-play immediately
-    if getattr(session, "phase", None) == "playing":
+    if _round_phase(session) == "playing":
         _auto_play_npc_turns(session)
 
     return jsonify({**_serialize_state(session, client_id), "ok": True})
