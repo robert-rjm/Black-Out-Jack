@@ -709,6 +709,9 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
             "winner":           m["winner"],
             "handout":          m["handout"],
             "seconds_left":     max(0, round(m["expires_at"] - time.monotonic())),
+            # Server-authoritative flag — avoids JS-side name-matching issues
+            "i_am_winner":      bool(_ci.get("name") and
+                                     m["winner"].lower() == _ci["name"].lower()),
         } if m and time.monotonic() < m["expires_at"] else None)(
             getattr(session, "_pending_milestone", None)
         ),

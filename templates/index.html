@@ -1130,6 +1130,8 @@
 
     <!-- ── DIGITAL panel ─────────────────────────────────── -->
     <div id="dig-panel" style="display:none">
+      <!-- Milestone waiting banner — in-flow, sits exactly above the tab bar -->
+      <div id="ms-waiting-slot" style="display:none;margin:6px 8px 0;padding:9px 14px;border-radius:12px;background:rgba(245,200,66,.12);border:1.5px solid rgba(245,200,66,.4);color:var(--yellow);font-size:13px;font-weight:700;text-align:center"></div>
       <div class="tabs-bar" id="dig-tabs">
         <button class="tab active" onclick="switchDigTab('dig-play', this)">Play</button>
         <button class="tab" id="dig-drinks-tab" onclick="switchDigTab('dig-round', this)">🍺 Drinks</button>
@@ -1707,10 +1709,11 @@ let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
 let _prevRoundSips      = {};   // round before last — shown in 🍺 header modal
 let _prevRoundDrinks    = [];   // detailed drink entries for the previous round
 let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
-let _lastMilestoneKey       = null; // "boundary:winner" — prevents re-showing toast on every poll
-let _lastMilestoneResultKey = null; // same format — prevents re-showing drink toast on every poll
-let _milestoneAllocations   = {};   // { playerName: sips } — stepper state in modal
-let _milestoneTimerID       = null; // setInterval handle for the modal countdown
+let _lastMilestoneKey       = null;  // "boundary:winner" — prevents re-showing toast on every poll
+let _lastMilestoneResultKey = null;  // same format — prevents re-showing drink toast on every poll
+let _milestoneModalOpened   = null;  // key for which we already opened the modal (prevents re-open on re-poll)
+let _milestoneAllocations   = {};    // { playerName: sips } — stepper state in modal
+let _milestoneTimerID       = null;  // setInterval handle for the modal countdown
 
 function openLastRoundModal() {
   const overlay = document.getElementById("last-round-overlay");
@@ -2778,27 +2781,29 @@ function renderMilestoneState(state) {
   }
 
   const key       = `${ms.boundary}:${ms.winner}`;
-  const iAmWinner = myName && ms.winner.toLowerCase() === myName.toLowerCase();
+  const iAmWinner = !!ms.i_am_winner;  // server-authoritative; no JS name-matching needed
 
   // Show announcement toast exactly once per new milestone (all players)
   if (key !== _lastMilestoneKey) {
     _lastMilestoneKey     = key;
     _milestoneAllocations = {};
     _showMilestoneToast(ms);
-
-    if (iAmWinner) {
-      // Winner: open handout modal after toast
-      setTimeout(() => _openMilestoneModal(ms, state), 900);
-    }
   }
 
-  // Non-winners: show/update the persistent waiting banner
-  if (!iAmWinner) {
-    _showWaitingBanner(ms);
-  } else {
+  if (iAmWinner) {
     _hideWaitingBanner();
-    // Keep modal timer in sync
-    _updateMilestoneTimer(ms.seconds_left);
+    // Open the handout modal exactly once for this milestone
+    if (_milestoneModalOpened !== key) {
+      _milestoneModalOpened = key;
+      // Short delay so the toast is visible before modal covers it
+      setTimeout(() => _openMilestoneModal(ms, state), 600);
+    } else {
+      // Modal already open — just keep the timer in sync
+      _updateMilestoneTimer(ms.seconds_left);
+    }
+  } else {
+    // Non-winners: persistent waiting banner with live countdown
+    _showWaitingBanner(ms);
   }
 }
 
@@ -2820,17 +2825,28 @@ function _hideMilestoneToast() {
 }
 
 function _showWaitingBanner(ms) {
-  const banner = document.getElementById("ms-waiting-banner");
-  if (!banner) return;
-  const s = ms.seconds_left;
+  // In-flow slot (digital mode — sits exactly above the tab bar)
+  const slot = document.getElementById("ms-waiting-slot");
+  const s    = ms.seconds_left;
   const timerStr = s > 0 ? ` · ⏱ ${s}s` : "";
-  banner.innerHTML = `🎉 <strong>${escapeHtml(ms.winner)}</strong> is handing out ${ms.handout} milestone sips…${timerStr}`;
-  banner.classList.add("show");
+  const html = `🎉 <strong>${escapeHtml(ms.winner)}</strong> is handing out ${ms.handout} milestone sips…${timerStr}`;
+  if (slot) {
+    slot.innerHTML     = html;
+    slot.style.display = "";
+  }
+  // Fallback fixed banner (referee mode / any other context)
+  const fixed = document.getElementById("ms-waiting-banner");
+  if (fixed && !slot) {
+    fixed.innerHTML = html;
+    fixed.classList.add("show");
+  }
 }
 
 function _hideWaitingBanner() {
-  const banner = document.getElementById("ms-waiting-banner");
-  if (banner) banner.classList.remove("show");
+  const slot = document.getElementById("ms-waiting-slot");
+  if (slot) slot.style.display = "none";
+  const fixed = document.getElementById("ms-waiting-banner");
+  if (fixed) fixed.classList.remove("show");
 }
 
 function _showDrinkToast(sips, winner) {
@@ -2943,7 +2959,8 @@ async function submitMilestoneHandout() {
     const data = await res.json();
     if (data.ok) {
       _closeMilestoneModal();
-      _lastMilestoneKey = null;
+      _lastMilestoneKey     = null;
+      _milestoneModalOpened = null;
       applyState(data);
     } else {
       alert(data.error || "Could not claim milestone.");
