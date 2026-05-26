@@ -2,11 +2,9 @@
 
 ## Bugs
 
-- [ ] BJ insurance
+- [X] BJ insurance
   - not completing "waiting for others"
   - not launching on splits
-- [ ] Player (as dealer) ace of clubs protection against hard dealer switch
-- [ ] only admin can give "dealer suggestion" for alternative strategy
 
 ### Check
 
