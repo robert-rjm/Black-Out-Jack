@@ -18,7 +18,9 @@ import contextlib
 import os
 import re
 import random
+import secrets
 import socket
+import time
 from collections import defaultdict
 from datetime import datetime
 
@@ -31,22 +33,45 @@ from drinking_rules import DrinkingRules
 app = Flask(__name__)
 
 # ---------------------------------------------------------------------------
-# Multi-room state — keyed by room code (e.g. "Jack-21")
+# Multi-room state — keyed by room code (e.g. "Jack21")
 # ---------------------------------------------------------------------------
 game_sessions: dict[str, "RefereeSession | None"] = {}   # room_code → session
 
 ROOM_WORDS = [
-    "Jack", "Queen", "King", "Ace", "Joker", "Spade", "Club",
-    "Heart", "Diamond", "Flush", "Bust", "Deal", "Hit", "Stand",
+    # Original set
+    "Ace", "Bets", "Bluff", "Bust", "Cards", "Club", "Deal", "Diamond", "Double", "Flush", "Heart",
+    "Hit", "Jack", "Joker", "King", "Luck", "Queen", "Spade", "Split", "Stand", "Suit", "Table",
 ]
 
-
 def _generate_room_code() -> str:
-    """Return a unique code like 'Jack-21' not already in game_sessions."""
+    """Return a unique code like 'Jack21' not already in game_sessions."""
     while True:
-        code = f"{random.choice(ROOM_WORDS)}{random.randint(10, 99)}"
+        word   = secrets.choice(ROOM_WORDS)
+        number = 1 + secrets.randbelow(999)   # 1–999
+        code   = f"{word}{number}"
         if code not in game_sessions:
             return code
+
+
+# ---------------------------------------------------------------------------
+# Join rate-limiter — per source IP, applied to /join_room only.
+# ---------------------------------------------------------------------------
+_join_attempts: dict[str, list[float]] = defaultdict(list)
+_JOIN_RATE_LIMIT  = 5   # max failed attempts
+_JOIN_RATE_WINDOW = 30   # per N seconds
+
+
+def _join_rate_limited(ip: str) -> bool:
+    """Return True when this IP has exceeded the failed-join rate limit."""
+    now    = time.monotonic()
+    cutoff = now - _JOIN_RATE_WINDOW
+    prev   = _join_attempts[ip]
+    # Drop expired entries
+    _join_attempts[ip] = [t for t in prev if t > cutoff]
+    if len(_join_attempts[ip]) >= _JOIN_RATE_LIMIT:
+        return True
+    _join_attempts[ip].append(now)
+    return False
 
 
 _NAME_STRIP_RE = re.compile(r"[<>\"'`\\]")
@@ -1046,13 +1071,23 @@ def create_room():
 
 @app.route("/join_room", methods=["POST"])
 def join_room():
-    data     = request.json or {}
-    raw      = (data.get("code") or "").strip()
+    data      = request.json or {}
+    raw       = (data.get("code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
-    # Case-insensitive lookup (codes are stored as "Jack-21" etc.)
-    code     = next((k for k in game_sessions if k.lower() == raw.lower()), None)
+
+    # Generic error — same message whether the code is malformed or simply absent, so the response cannot be used as a room-existence oracle.
+    _bad = {"ok": False, "error": "Invalid room code. Check the code and try again."}
+
+    # Rate-limit failed join attempts per source IP to slow enumeration.
+    ip   = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    if _join_rate_limited(ip):
+        return jsonify({"ok": False, "error": "Too many attempts. Please wait a moment."}), 429
+
+    # Case-insensitive lookup (codes are stored as "Ace427" etc.)
+    code = next((k for k in game_sessions if k.lower() == raw.lower()), None)
     if code is None:
-        return jsonify({"ok": False, "error": "Room not found. Check the code and try again."})
+        return jsonify(_bad)
+
     session  = game_sessions[code]
     has_game = session is not None
     state    = _serialize_state(session, client_id)
