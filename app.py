@@ -60,6 +60,14 @@ _join_attempts: dict[str, list[float]] = defaultdict(list)
 _JOIN_RATE_LIMIT  = 5   # max failed attempts
 _JOIN_RATE_WINDOW = 30   # per N seconds
 
+# ---------------------------------------------------------------------------
+# Milestone feature — first player to cross each 50-sip boundary wins 5 sips
+# to hand out (split however they like, cannot give to self).
+# ---------------------------------------------------------------------------
+_MILESTONE_STEP         = 50   # sip threshold multiples to celebrate
+_MILESTONE_HANDOUT_SIPS = 5    # sips the winner distributes
+_MILESTONE_TTL          = 60   # seconds before unclaimed handout is forfeited
+
 
 def _join_rate_limited(ip: str) -> bool:
     """Return True when this IP has exceeded the failed-join rate limit."""
@@ -244,6 +252,60 @@ def _harvest_drink_log(session: RefereeSession):
                     continue
                 drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
     session._last_round_drinks = drinks_detail
+
+
+def _check_and_set_milestone(session: RefereeSession):
+    """
+    After harvesting a round's drink log, check whether any player has newly
+    crossed a _MILESTONE_STEP boundary.  If so, record the winner in
+    session._pending_milestone so the frontend can display the handout UI.
+
+    Tiebreak: if two players hit the same boundary this round, the one with
+    fewest sips THIS round wins (prevents gaming the last round).  Alphabetical
+    name order breaks any remaining tie.
+
+    A boundary is only triggered once (tracked in session._milestones_claimed).
+    """
+    ticker  = getattr(session, "_sip_ticker", {})
+    last    = getattr(session, "_last_round_sips", {})
+    claimed = getattr(session, "_milestones_claimed", {})
+
+    # Build (boundary → list of candidates) for thresholds newly crossed
+    newly_hit: dict[int, list[tuple[int, str]]] = {}  # boundary → [(round_sips, name)]
+    for name, total in ticker.items():
+        # Find the highest unclaimed boundary this player has crossed
+        highest = (total // _MILESTONE_STEP) * _MILESTONE_STEP
+        if highest <= 0:
+            continue
+        # Walk backwards to find the lowest newly-crossed boundary for this player
+        prev_total = total - last.get(name, 0)
+        prev_boundary = (prev_total // _MILESTONE_STEP) * _MILESTONE_STEP
+        for boundary in range(prev_boundary + _MILESTONE_STEP, highest + 1, _MILESTONE_STEP):
+            if claimed.get(boundary):
+                continue  # someone else already owns this boundary
+            if boundary not in newly_hit:
+                newly_hit[boundary] = []
+            newly_hit[boundary].append((last.get(name, 0), name))
+
+    if not newly_hit:
+        return
+
+    # Only the lowest unclaimed boundary fires (one milestone at a time per round)
+    boundary = min(newly_hit.keys())
+    candidates = newly_hit[boundary]
+
+    # Tiebreak: fewest sips this round wins; alphabetical on tie
+    candidates.sort(key=lambda t: (t[0], t[1].lower()))
+    _round_sips, winner = candidates[0]
+
+    claimed[boundary] = winner
+    session._milestones_claimed = claimed
+    session._pending_milestone  = {
+        "boundary":   boundary,
+        "winner":     winner,
+        "handout":    _MILESTONE_HANDOUT_SIPS,
+        "expires_at": time.monotonic() + _MILESTONE_TTL,
+    }
 
 
 def _get_client_info(session, client_id: str) -> dict:
@@ -633,6 +695,23 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "is_dealer_client":  _ci.get("is_dealer", False) or _ci.get("role") == "admin",
         # Queued settings — applied at next newround (admin only writes; all can read pending)
         "queued_settings":   getattr(session, "_queued_settings", {}),
+        # Milestone handout — visible to all players during the claim window
+        "last_milestone_result": (lambda r: {
+            "winner":      r["winner"],
+            "boundary":    r["boundary"],
+            "allocations": r["allocations"],
+            "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
+        } if r and time.monotonic() - r["set_at"] < 15 else None)(
+            getattr(session, "_last_milestone_result", None)
+        ),
+        "pending_milestone": (lambda m: {
+            "boundary":         m["boundary"],
+            "winner":           m["winner"],
+            "handout":          m["handout"],
+            "seconds_left":     max(0, round(m["expires_at"] - time.monotonic())),
+        } if m and time.monotonic() < m["expires_at"] else None)(
+            getattr(session, "_pending_milestone", None)
+        ),
         # Insurance votes — pending entries visible to all players so UI can prompt
         "insurance_votes": [
             {
@@ -1191,6 +1270,9 @@ def setup():
     game_session._rejoin_requests = []  # [{client_id, display_name}] — kicked players asking to rejoin
     game_session._anim_default  = True # admin's animation preference, broadcast to joiners
     game_session._queued_settings = {}  # settings queued to apply at start of next round
+    game_session._milestones_claimed    = {}   # boundary → winner name; never reset
+    game_session._pending_milestone     = None # current unclaimed handout (or None)
+    game_session._last_milestone_result = None # most recent claim result, shown ~15s
     if client_id:
         game_session._room_clients[client_id] = {
             "name": dealer_name, "role": "admin", "kicked": False,
@@ -1472,6 +1554,7 @@ def command():
             elif cmd == "endround":
                 game_session.cmd_endround()
                 _harvest_drink_log(game_session)
+                _check_and_set_milestone(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
@@ -1494,6 +1577,7 @@ def command():
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
+                game_session._pending_milestone = None  # clear between rounds
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -1526,6 +1610,7 @@ def command():
                     _digital_dealer_turn(game_session)
                     game_session.cmd_endround()
                     _harvest_drink_log(game_session)
+                    _check_and_set_milestone(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
@@ -1548,6 +1633,7 @@ def command():
             elif cmd == "endround":
                 game_session.cmd_endround()
                 _harvest_drink_log(game_session)
+                _check_and_set_milestone(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
@@ -1569,6 +1655,7 @@ def command():
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
+                game_session._pending_milestone = None  # clear between rounds
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -2293,6 +2380,92 @@ def update_settings():
     state = _serialize_state(session, client_id)
     state["output"] = ""
     return jsonify(state)
+
+
+@app.route("/claim_milestone", methods=["POST"])
+def claim_milestone():
+    """
+    Winner submits their sip-handout allocation.
+    Body: { room_code, client_id, allocations: {player_name: sips, ...} }
+
+    Rules enforced server-side:
+      - Only the milestone winner may submit.
+      - Cannot allocate to self.
+      - Total must equal _MILESTONE_HANDOUT_SIPS (5).
+      - Each allocation must be a non-negative integer.
+      - Must be submitted before the TTL expires.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    milestone = getattr(session, "_pending_milestone", None)
+    if not milestone:
+        return jsonify({"ok": False, "error": "No active milestone."})
+    if time.monotonic() >= milestone["expires_at"]:
+        session._pending_milestone = None
+        return jsonify({"ok": False, "error": "Milestone claim window has expired."})
+
+    # Verify caller is the winner
+    clients     = getattr(session, "_room_clients", {})
+    caller_info = clients.get(client_id, {})
+    caller_name = caller_info.get("name", "")
+    if caller_name.lower() != milestone["winner"].lower():
+        return jsonify({"ok": False, "error": "Only the milestone winner can submit the handout."})
+
+    raw_alloc = data.get("allocations", {})
+    if not isinstance(raw_alloc, dict):
+        return jsonify({"ok": False, "error": "allocations must be an object."})
+
+    # Validate: non-negative ints, no self-allocation, sum = handout total
+    alloc: dict[str, int] = {}
+    for name, sips in raw_alloc.items():
+        try:
+            s = int(sips)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": f"Invalid sip count for {name}."})
+        if s < 0:
+            return jsonify({"ok": False, "error": "Sip counts must be non-negative."})
+        if name.lower() == caller_name.lower():
+            return jsonify({"ok": False, "error": "Cannot assign sips to yourself."})
+        if s > 0:
+            alloc[name] = s
+
+    total = sum(alloc.values())
+    if total != _MILESTONE_HANDOUT_SIPS:
+        return jsonify({"ok": False,
+                        "error": f"Must distribute exactly {_MILESTONE_HANDOUT_SIPS} sips (got {total})."})
+
+    # Apply to sip ticker — these sips go to the recipients, not to the winner
+    ticker = getattr(session, "_sip_ticker", {})
+    for name, s in alloc.items():
+        ticker[name] = ticker.get(name, 0) + s
+    session._sip_ticker = ticker
+
+    # Log the handout
+    winner    = milestone["winner"]
+    boundary  = milestone["boundary"]
+    log_lines = [f"🎉 {winner} reached {boundary} sips — milestone handout!"]
+    for name, s in alloc.items():
+        sip_word = "sip" if s == 1 else "sips"
+        log_lines.append(f"  → {name} drinks {s} {sip_word}")
+    game_sessions[room_code]._log_entries = (
+        getattr(session, "_log_entries", []) + ["\n".join(log_lines)]
+    )
+    game_sessions[room_code]._log_version = getattr(session, "_log_version", 0) + 1
+
+    session._pending_milestone     = None
+    session._last_milestone_result = {
+        "winner":      winner,
+        "boundary":    boundary,
+        "allocations": alloc,         # {name: sips} — only non-zero entries
+        "set_at":      time.monotonic(),
+    }
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/rotate_dealer", methods=["POST"])

@@ -751,6 +751,110 @@
     white-space: nowrap; letter-spacing: .2px;
   }
   #switch-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---- MILESTONE ---- */
+  @keyframes ms-pop {
+    0%   { transform: scale(.55) translateY(18px); opacity: 0; }
+    60%  { transform: scale(1.07) translateY(-4px); opacity: 1; }
+    80%  { transform: scale(.97) translateY(0); }
+    100% { transform: scale(1)   translateY(0); opacity: 1; }
+  }
+  @keyframes ms-fade-out {
+    to { opacity: 0; transform: translateY(-14px) scale(.95); }
+  }
+  #milestone-toast {
+    position: fixed; left: 50%; bottom: 90px;
+    transform: translateX(-50%) translateY(24px);
+    background: linear-gradient(135deg, #2a1f00, #1a2a00);
+    border: 2px solid var(--yellow);
+    color: var(--yellow);
+    padding: 12px 22px; border-radius: 16px;
+    font-size: 15px; font-weight: 800;
+    text-align: center;
+    box-shadow: 0 4px 28px rgba(245,200,66,.35);
+    z-index: 901; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    white-space: nowrap;
+  }
+  #milestone-toast.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+    animation: ms-pop .45s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  /* Full-screen overlay for the handout modal */
+  #milestone-modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.72);
+    z-index: 910;
+    align-items: center; justify-content: center;
+  }
+  #milestone-modal-overlay.open { display: flex; }
+  #milestone-modal {
+    background: var(--surface);
+    border: 1.5px solid var(--yellow);
+    border-radius: 18px;
+    padding: 22px 20px 18px;
+    width: min(340px, 92vw);
+    box-shadow: 0 8px 40px rgba(0,0,0,.6);
+    animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+  }
+  .ms-stepper {
+    display: flex; align-items: center; gap: 10px;
+    margin: 7px 0;
+  }
+  .ms-stepper .ms-name {
+    flex: 1; font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ms-stepper button {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--bg); color: var(--text);
+    font-size: 18px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none;
+  }
+  .ms-stepper button:active { opacity: .7; }
+  .ms-stepper .ms-count {
+    width: 28px; text-align: center;
+    font-size: 16px; font-weight: 700;
+  }
+
+  /* Waiting banner shown to non-winners while handout is pending */
+  #ms-waiting-banner {
+    display: none;
+    position: fixed; left: 50%; bottom: 90px;
+    transform: translateX(-50%);
+    background: rgba(245,200,66,.12);
+    border: 1.5px solid rgba(245,200,66,.4);
+    color: var(--yellow);
+    padding: 9px 18px; border-radius: 14px;
+    font-size: 13px; font-weight: 700;
+    text-align: center; white-space: nowrap;
+    z-index: 900;
+    box-shadow: 0 2px 14px rgba(0,0,0,.4);
+  }
+  #ms-waiting-banner.show { display: block; }
+
+  /* Drink notification toast (recipient alert) */
+  #ms-drink-toast {
+    position: fixed; left: 50%; bottom: 90px;
+    transform: translateX(-50%) translateY(24px);
+    background: linear-gradient(135deg, #2a0000, #1a000a);
+    border: 2px solid var(--red);
+    color: var(--red);
+    padding: 12px 22px; border-radius: 16px;
+    font-size: 15px; font-weight: 800;
+    text-align: center;
+    box-shadow: 0 4px 28px rgba(224,92,92,.35);
+    z-index: 902; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    white-space: nowrap;
+  }
+  #ms-drink-toast.show {
+    opacity: 1; transform: translateX(-50%) translateY(0);
+    animation: ms-pop .45s cubic-bezier(.22,1,.36,1) forwards;
+  }
 </style>
 </head>
 <body>
@@ -1245,6 +1349,34 @@
 <!-- ===== SWITCH TOAST (hard/soft dealer switch) ===== -->
 <div id="switch-toast"></div>
 
+<!-- ===== MILESTONE TOAST (winner announcement, all players) ===== -->
+<div id="milestone-toast"></div>
+
+<!-- ===== MILESTONE WAITING BANNER (non-winners, persistent) ===== -->
+<div id="ms-waiting-banner"></div>
+
+<!-- ===== MILESTONE DRINK NOTIFICATION (recipients only) ===== -->
+<div id="ms-drink-toast"></div>
+
+<!-- ===== MILESTONE HANDOUT MODAL ===== -->
+<div id="milestone-modal-overlay">
+  <div id="milestone-modal">
+    <div id="milestone-modal-header" style="text-align:center;margin-bottom:14px">
+      <div style="font-size:28px;line-height:1">🎉</div>
+      <div id="milestone-modal-title" style="font-size:17px;font-weight:800;color:var(--yellow);margin-top:6px"></div>
+      <div id="milestone-modal-sub" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+    </div>
+    <div id="milestone-steppers"></div>
+    <div id="milestone-remaining" style="text-align:center;font-size:13px;margin:10px 0 4px;font-weight:700"></div>
+    <div id="milestone-timer" style="text-align:center;font-size:11px;color:var(--muted);margin-bottom:12px"></div>
+    <button id="milestone-submit-btn" onclick="submitMilestoneHandout()"
+      style="width:100%;padding:12px;border-radius:12px;border:none;
+             background:var(--yellow);color:#000;font-size:15px;font-weight:800;cursor:pointer">
+      Hand out sips
+    </button>
+  </div>
+</div>
+
 <!-- ===== FINAL SUMMARY OVERLAY ===== -->
 <div id="summary-overlay">
   <div id="summary-card">
@@ -1575,6 +1707,10 @@ let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
 let _prevRoundSips      = {};   // round before last — shown in 🍺 header modal
 let _prevRoundDrinks    = [];   // detailed drink entries for the previous round
 let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
+let _lastMilestoneKey       = null; // "boundary:winner" — prevents re-showing toast on every poll
+let _lastMilestoneResultKey = null; // same format — prevents re-showing drink toast on every poll
+let _milestoneAllocations   = {};   // { playerName: sips } — stepper state in modal
+let _milestoneTimerID       = null; // setInterval handle for the modal countdown
 
 function openLastRoundModal() {
   const overlay = document.getElementById("last-round-overlay");
@@ -2266,6 +2402,8 @@ function applyState(state) {
       updateRoleUI(state);         // role hint, vote lock, inactive-player gate
     }
   }
+
+  renderMilestoneState(state);
 }
 
 // Disable SPLIT when the active hand can't be split (limit reached or cards don't match).
@@ -2601,6 +2739,219 @@ async function castInsuranceVote(bjPlayer, handIdx, vote) {
     else appendLog(`  Insurance vote failed: ${data.error || "unknown error"}\n`);
   } catch (_) {
     appendLog("  Insurance vote failed: network error\n");
+  }
+}
+
+// ── Milestone: 50-sip handout feature ───────────────────────────────────────
+
+function renderMilestoneState(state) {
+  const ms     = state && state.pending_milestone;
+  const result = state && state.last_milestone_result;
+
+  // ── Drink notification for recipients (fires once per result) ──────────
+  if (result) {
+    const rKey = `${result.boundary}:${result.winner}`;
+    if (rKey !== _lastMilestoneResultKey) {
+      _lastMilestoneResultKey = rKey;
+      // Check if I'm a recipient
+      if (myName) {
+        // allocations keys might be capitalised differently — case-insensitive lookup
+        const myEntry = Object.entries(result.allocations || {})
+          .find(([n]) => n.toLowerCase() === myName.toLowerCase());
+        if (myEntry) {
+          const [, sipCount] = myEntry;
+          _showDrinkToast(sipCount, result.winner);
+        }
+      }
+    }
+  }
+
+  // ── Pending milestone handling ─────────────────────────────────────────
+  if (!ms) {
+    _hideMilestoneToast();
+    _hideWaitingBanner();
+    // Close modal if the TTL expired server-side while modal was open
+    if (_lastMilestoneKey && document.getElementById("milestone-modal-overlay").classList.contains("open")) {
+      _closeMilestoneModal();
+    }
+    return;
+  }
+
+  const key       = `${ms.boundary}:${ms.winner}`;
+  const iAmWinner = myName && ms.winner.toLowerCase() === myName.toLowerCase();
+
+  // Show announcement toast exactly once per new milestone (all players)
+  if (key !== _lastMilestoneKey) {
+    _lastMilestoneKey     = key;
+    _milestoneAllocations = {};
+    _showMilestoneToast(ms);
+
+    if (iAmWinner) {
+      // Winner: open handout modal after toast
+      setTimeout(() => _openMilestoneModal(ms, state), 900);
+    }
+  }
+
+  // Non-winners: show/update the persistent waiting banner
+  if (!iAmWinner) {
+    _showWaitingBanner(ms);
+  } else {
+    _hideWaitingBanner();
+    // Keep modal timer in sync
+    _updateMilestoneTimer(ms.seconds_left);
+  }
+}
+
+function _showMilestoneToast(ms) {
+  const toast = document.getElementById("milestone-toast");
+  if (!toast) return;
+  toast.innerHTML = `🎉 ${escapeHtml(ms.winner)} hit ${ms.boundary} sips!`;
+  toast.classList.remove("show");
+  // Force reflow so animation restarts cleanly
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  // Auto-hide after 5 seconds
+  setTimeout(() => _hideMilestoneToast(), 5000);
+}
+
+function _hideMilestoneToast() {
+  const toast = document.getElementById("milestone-toast");
+  if (toast) toast.classList.remove("show");
+}
+
+function _showWaitingBanner(ms) {
+  const banner = document.getElementById("ms-waiting-banner");
+  if (!banner) return;
+  const s = ms.seconds_left;
+  const timerStr = s > 0 ? ` · ⏱ ${s}s` : "";
+  banner.innerHTML = `🎉 <strong>${escapeHtml(ms.winner)}</strong> is handing out ${ms.handout} milestone sips…${timerStr}`;
+  banner.classList.add("show");
+}
+
+function _hideWaitingBanner() {
+  const banner = document.getElementById("ms-waiting-banner");
+  if (banner) banner.classList.remove("show");
+}
+
+function _showDrinkToast(sips, winner) {
+  const toast = document.getElementById("ms-drink-toast");
+  if (!toast) return;
+  const sipWord = sips === 1 ? "sip" : "sips";
+  toast.innerHTML = `🍺 Drink ${sips} ${sipWord}!<br><span style="font-size:11px;font-weight:500;opacity:.8">${escapeHtml(winner)}'s milestone handout</span>`;
+  toast.classList.remove("show");
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 8000);
+}
+
+function _openMilestoneModal(ms, state) {
+  const overlay = document.getElementById("milestone-modal-overlay");
+  if (!overlay) return;
+
+  const title = document.getElementById("milestone-modal-title");
+  const sub   = document.getElementById("milestone-modal-sub");
+  if (title) title.textContent = `You hit ${ms.boundary} sips first! 🏆`;
+  if (sub)   sub.textContent   = `Hand out ${ms.handout} sips — split however you like (not yourself).`;
+
+  // Build stepper list from current players except self
+  const players = (lastState && lastState.players || []).filter(
+    n => n.toLowerCase() !== (myName || "").toLowerCase()
+  );
+  // Initialize allocations to 0 for everyone
+  players.forEach(n => { if (!(_milestoneAllocations[n] >= 0)) _milestoneAllocations[n] = 0; });
+
+  _renderMilestoneSteppers(players, ms.handout);
+  _updateMilestoneTimer(ms.seconds_left);
+  overlay.classList.add("open");
+}
+
+function _closeMilestoneModal() {
+  const overlay = document.getElementById("milestone-modal-overlay");
+  if (overlay) overlay.classList.remove("open");
+  if (_milestoneTimerID) { clearInterval(_milestoneTimerID); _milestoneTimerID = null; }
+}
+
+function _renderMilestoneSteppers(players, total) {
+  const container = document.getElementById("milestone-steppers");
+  if (!container) return;
+  container.innerHTML = "";
+  players.forEach(name => {
+    const row = document.createElement("div");
+    row.className = "ms-stepper";
+    const val = _milestoneAllocations[name] || 0;
+    row.innerHTML = `
+      <span class="ms-name">${escapeHtml(name)}</span>
+      <button onclick="milestoneAdjust('${escapeHtml(name)}', -1)">−</button>
+      <span class="ms-count" id="ms-count-${escapeHtml(name)}">${val}</span>
+      <button onclick="milestoneAdjust('${escapeHtml(name)}', +1)">+</button>`;
+    container.appendChild(row);
+  });
+  _updateMilestoneRemaining(total);
+}
+
+function milestoneAdjust(name, delta) {
+  const ms = lastState && lastState.pending_milestone;
+  const total = ms ? ms.handout : 5;
+  const cur   = _milestoneAllocations[name] || 0;
+  const used  = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
+  const newVal = Math.max(0, Math.min(cur + delta, cur + (total - used) + (delta < 0 ? 0 : 0)));
+
+  if (delta > 0 && used >= total) return;  // budget exhausted
+
+  _milestoneAllocations[name] = Math.max(0, cur + delta);
+  const el = document.getElementById(`ms-count-${name}`);
+  if (el) el.textContent = _milestoneAllocations[name];
+  _updateMilestoneRemaining(total);
+}
+
+function _updateMilestoneRemaining(total) {
+  const used = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
+  const left = total - used;
+  const rem  = document.getElementById("milestone-remaining");
+  const btn  = document.getElementById("milestone-submit-btn");
+  if (rem) {
+    rem.textContent = left === 0 ? "✓ All sips assigned" : `${left} sip${left !== 1 ? "s" : ""} left to assign`;
+    rem.style.color = left === 0 ? "var(--green)" : "var(--yellow)";
+  }
+  if (btn) btn.disabled = (left !== 0);
+}
+
+function _updateMilestoneTimer(secondsLeft) {
+  const timerEl = document.getElementById("milestone-timer");
+  if (!timerEl) return;
+  if (secondsLeft == null) return;
+  const s = Math.max(0, secondsLeft);
+  timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "⏱ Time's up!";
+  timerEl.style.color = s <= 10 ? "var(--red)" : "var(--muted)";
+}
+
+async function submitMilestoneHandout() {
+  const ms = lastState && lastState.pending_milestone;
+  if (!ms) return;
+  const used = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
+  if (used !== ms.handout) return;  // shouldn't happen (button is disabled), but guard anyway
+
+  const btn = document.getElementById("milestone-submit-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+
+  try {
+    const res = await fetch("/claim_milestone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, allocations: _milestoneAllocations }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      _closeMilestoneModal();
+      _lastMilestoneKey = null;
+      applyState(data);
+    } else {
+      alert(data.error || "Could not claim milestone.");
+      if (btn) { btn.disabled = false; btn.textContent = "Hand out sips"; }
+    }
+  } catch (_) {
+    alert("Network error — try again.");
+    if (btn) { btn.disabled = false; btn.textContent = "Hand out sips"; }
   }
 }
 
