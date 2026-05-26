@@ -80,7 +80,7 @@ def _sanitize_name(raw: str) -> str:
     """Sanitize a player name before storing it.
 
     Strips HTML tags, removes characters that could break out of HTML
-    attribute or script contexts (<>"'\`\\), trims whitespace, capitalizes,
+    attribute or script contexts (<>\"'`\\), trims whitespace, capitalizes,
     and caps length at 20 characters.  Returns an empty string if nothing
     is left after sanitization.
     """
