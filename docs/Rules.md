@@ -101,7 +101,7 @@ The Dealer does **not** peek at the hole card. The outcome is revealed at the en
 
 | Card | Effect |
 |---|---|
-| ♣ Ace of Clubs | Subtract 1 sip from your net total at the end of the round (minimum 0) |
+| ♣ Ace of Clubs | Subtract 1 sip from your net total (minimum 0). Additional Hard Switch protection if you are dealer (see below). |
 | ♠ Ace of Spades | If dealt as 1st card, next Player drinks 1 sip. 2nd card → 2nd Player, etc. |
 | ♥ Ace of Hearts | Treat yourself to a sip (drink 1 sip) |
 | ♦ Ace of Diamonds | Dealer drinks 1 sip |
@@ -227,7 +227,7 @@ Ace effects still apply normally. Two exceptions specific to the Hard Switch cal
 - Dealer's own Blackjack counts as 1 sip (no multiplier)
 - Dealer's own Ace of Clubs subtracts 1 sip from the Dealer's total
 
-**Ace of Clubs protection:** If ♣A is dealt to the Dealer, the switch still occurs but the Dealer drinks 0 sips. Players still drink normally.
+**Ace of Clubs protection:** If ♣A is dealt to the Dealer or their player's hands, the switch still occurs but the Dealer drinks 0 sips. Players still drink normally.
 
 ---
 
