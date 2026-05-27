@@ -321,8 +321,8 @@ class DrinkingRules:
         if not all_cards:
             return []
 
-        first_suit    = all_cards[0].suit.label
-        all_same_suit = all(c.suit.label == first_suit for c in all_cards)
+        first_suit    = all_cards[0].suit.value
+        all_same_suit = all(c.suit.value == first_suit for c in all_cards)
         all_21 = all(h.score() == 21 for h in player_hands)
 
         if not (all_same_suit or all_21):
