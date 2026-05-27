@@ -1610,8 +1610,11 @@ def command():
                     game_session._last_peeked = None
 
             elif cmd == "dealer":
-                # Auto-run dealer turn + evaluate all hands
+                # Auto-run dealer turn + evaluate all hands + assign drinks
                 _digital_dealer_turn(game_session)
+                game_session.cmd_endround()
+                _harvest_drink_log(game_session)
+                _check_and_set_milestone(game_session)
 
             elif cmd == "endround":
                 game_session.cmd_endround()
