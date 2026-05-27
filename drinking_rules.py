@@ -34,7 +34,10 @@ def verify_rules():
         print(f"  Expected hash : {_RULES_HASH[:16]}...")
         print(f"  Current hash  : {current_hash[:16]}...")
         print("  drinking_rules.py may not reflect the latest rules.")
-        print(f"  Review changes at: {_RULES_URL.replace('raw.githubusercontent.com', 'github.com').replace('/main/', '/blob/main/')}")
+        review_url = (_RULES_URL
+                      .replace('raw.githubusercontent.com', 'github.com')
+                      .replace('/main/', '/blob/main/'))
+        print(f"  Review changes at: {review_url}")
         print("  Update _RULES_HASH and _RULES_DATE in drinking_rules.py.")
         print("=" * 52 + "\n")
 

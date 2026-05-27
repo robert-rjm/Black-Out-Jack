@@ -1,9 +1,10 @@
 [flake8]
 max-line-length = 120
 # E221/E272 — alignment spacing (intentional style throughout codebase)
+# E271      — multiple spaces after keyword (intentional if/elif alignment)
 # E701      — one-liners with colon (intentional)
-# E131/E127 — continuation line indent (visual preference)
+# E128/E131/E127 — continuation line indent (visual preference)
 # E261      — inline comment spacing
 # E231      — compact dict literals in CSV rows
 # E302      — 1 blank line between sections (intentional)
-extend-ignore = E221,E272,E701,E131,E127,E261,E231,E302
+extend-ignore = E221,E272,E271,E701,E128,E131,E127,E261,E231,E302

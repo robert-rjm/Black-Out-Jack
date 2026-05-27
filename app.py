@@ -17,7 +17,6 @@ import io
 import contextlib
 import os
 import re
-import random
 import secrets
 import socket
 import time
@@ -812,7 +811,7 @@ def _deal_pending_split_cards(session: RefereeSession):
                                   prev.is_bust() or prev.is_blackjack()))
                 if not prev_done:
                     continue
-                card = _digital_deal_card(session, hand, p.name)
+                _digital_deal_card(session, hand, p.name)
                 print(f"  {p.name} hand{i+1}: second card dealt — {hand}")
                 if hand.is_blackjack():
                     hand.stood = True
@@ -888,7 +887,7 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
             is_dealer_hand=is_dealer_hand,
         )
         for msg in msgs:
-            r, s, reason = msg[0], msg[1], msg[2]
+            _, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
                 # Ace-clubs credit — only ever fires for player hands, never hole card
                 session._ace_credits.append(recipient_name)
@@ -907,8 +906,7 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
 def _digital_initial_deal(session: RefereeSession):
     """Deal 2 cards to every player hand and the dealer hand from the shoe."""
     session._deferred_hole_card_msgs = []   # reset for fresh deal
-    dealer    = session._get_dealer()
-    all_names = [p.name for p in session.all_players]
+    dealer = session._get_dealer()
 
     print("\n--- Dealing ---")
     for _ in range(2):
@@ -988,7 +986,6 @@ def _digital_dealer_turn(session: RefereeSession):
     print("\n--- Results ---")
     dealer_bj       = d_hand.is_blackjack()
     winning_hds     = []
-    dealer_lost_all = True
     all_names       = [p.name for p in session.all_players]
 
     if dealer_bj and drinking:
@@ -1003,8 +1000,6 @@ def _digital_dealer_turn(session: RefereeSession):
             print(f"  {p.name} Hand {i+1}: {hand}  => {icon}")
             if hand.result == "win":
                 winning_hds.append((p.name, hand))
-            else:
-                dealer_lost_all = False
 
     # Detect hard / soft dealer switch for rotation suggestion.
     # A push on ANY hand cancels both switches — all results must be uniform.
@@ -1231,7 +1226,8 @@ def join_room():
     raw       = (data.get("code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
 
-    # Generic error — same message whether the code is malformed or simply absent, so the response cannot be used as a room-existence oracle.
+    # Generic error — same message whether code is malformed or absent,
+    # so the response cannot be used as a room-existence oracle.
     _bad = {"ok": False, "error": "Invalid room code. Check the code and try again."}
 
     # Rate-limit failed join attempts per source IP to slow enumeration.
@@ -1307,7 +1303,7 @@ def setup():
     game_session.drinking_mode           = drinking
     game_session.rounds_this_dealer      = 1   # rounds the current dealer has held the role
     game_session.switch_this_round       = None  # None | "hard" | "soft"
-    game_session._dealer_rotate_every    = len(players)   # rotate after N rounds (default = one full cycle through all players)
+    game_session._dealer_rotate_every    = len(players)   # rotate after N rounds (one full cycle)
     # Shared log — broadcast to all players via /state polling
     game_session._log_entries            = []
     game_session._log_version            = 0
@@ -1558,7 +1554,7 @@ def command():
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = _digital_get_player_hand(player, hand_label)
                         if not hand.is_blackjack():
-                            print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
+                            print("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                         else:
                             hand.insured = True
                             # Sync with the vote system: force all voters' votes to True so
@@ -2185,8 +2181,6 @@ def suggest_action():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
-    info    = clients.get(client_id, {})
     if not _is_dealer_client(session, client_id):
         return jsonify({"ok": False, "error": "Only the dealer can suggest actions."})
 
@@ -2312,9 +2306,13 @@ def export_csv():
                 f"Push: {hs['pushes']} ({_pct(hs['pushes'], h)})",
             ]
             if hs["split_hands"]:
-                row.append(f"Splits won: {hs['split_wins']} of {hs['split_hands']} ({_pct(hs['split_wins'], hs['split_hands'])})")
+                row.append(
+                    f"Splits won: {hs['split_wins']} of {hs['split_hands']}"
+                    f" ({_pct(hs['split_wins'], hs['split_hands'])})")
             if hs["double_hands"]:
-                row.append(f"Doubles won: {hs['double_wins']} of {hs['double_hands']} ({_pct(hs['double_wins'], hs['double_hands'])})")
+                row.append(
+                    f"Doubles won: {hs['double_wins']} of {hs['double_hands']}"
+                    f" ({_pct(hs['double_wins'], hs['double_hands'])})")
             w.writerow(row)
         w.writerow(["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
         for rule in all_rules:
@@ -2351,7 +2349,10 @@ def export_csv():
     w.writerow(["Player", "Hands", "Won", "Win%", "Lost", "Loss%", "Push", "Push%",
                 "Splits won", "Split win%", "Doubles won", "Double win%"])
     for name in players_seen:
-        hs = hand_stats.get(name, {"hands":0,"wins":0,"losses":0,"pushes":0,"split_hands":0,"split_wins":0,"double_hands":0,"double_wins":0})
+        hs = hand_stats.get(name, {
+            "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
+            "split_hands": 0, "split_wins": 0, "double_hands": 0, "double_wins": 0,
+        })
         h  = hs["hands"]
         w.writerow([
             name, h if h else "-",
@@ -2642,7 +2643,7 @@ def rules():
         return jsonify({"ok": True, "content": content})
     except FileNotFoundError:
         return jsonify({"ok": False, "content": "# Rules\n\nRules file not found."})
-    
+
 # ---------------------------------------------------------------------------
 # Digital help
 # ---------------------------------------------------------------------------
@@ -2701,7 +2702,7 @@ if __name__ == "__main__":
         local_ip = "unknown"
 
     print("\n  Drinking Blackjack Referee -- Web Mode")
-    print(f"  Local:   http://localhost:5000")
+    print("  Local:   http://localhost:5000")
     print(f"  iPhone:  http://{local_ip}:5000  (same WiFi)")
     print("  (Ctrl+C to stop)\n")
 
