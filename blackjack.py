@@ -744,7 +744,8 @@ class RoundManager:
         hard_switch = getattr(self, "_hard_switch", False)
         self.tracker.apply(DrinkingRules.on_round_end(
             self.players, w, dealer_bj=dealer_bj,
-            hard_switch_dealer=self.dealer_player.name if hard_switch else ""))
+            hard_switch_dealer=self.dealer_player.name if hard_switch else "",
+            num_hands=self.num_hands))
         for name in self._ace_credits:
             p = next((x for x in self.players if x.name.lower() == name.lower()), None)
             if p: self.tracker.apply_ace_clubs_credit(p)

@@ -434,7 +434,8 @@ class RefereeSession:
             print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         self.tracker.apply(DrinkingRules.on_round_end(
             players, w, dealer_bj=dealer_bj,
-            hard_switch_dealer=self.dealer_name if hard_switch else ""))
+            hard_switch_dealer=self.dealer_name if hard_switch else "",
+            num_hands=self.num_hands))
 
         # Ace-of-clubs credits
         for name in self._ace_credits:

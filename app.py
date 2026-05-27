@@ -2642,6 +2642,7 @@ def rules():
         return jsonify({"ok": True, "content": content})
     except FileNotFoundError:
         return jsonify({"ok": False, "content": "# Rules\n\nRules file not found."})
+    
 # ---------------------------------------------------------------------------
 # Digital help
 # ---------------------------------------------------------------------------
