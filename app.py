@@ -1064,6 +1064,15 @@ def _digital_dealer_turn(session: RefereeSession):
                                                    dealer_bj=dealer_bj,
                                                    dealer_name=exempt_dealer))
 
+        # All-hands sweep (same suit or all-21 across split hands)
+        for p in session.all_players:
+            if p.is_dealer:
+                continue
+            session.tracker.apply(
+                DrinkingRules.check_all_hands_sweep(
+                    p.name, p.hands, all_names, session.wager,
+                    dealer_name=exempt_dealer, dealer_bj=dealer_bj))
+
         # Four-aces end-of-round check
         all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += d_hand.cards

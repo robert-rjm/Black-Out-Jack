@@ -414,6 +414,16 @@ class RefereeSession:
         w         = self.wager
         dealer    = self._get_dealer()
         dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+
+        # All-hands sweep (same suit or all-21 across split hands)
+        for p in players:
+            if p.is_dealer:
+                continue
+            self.tracker.apply(
+                DrinkingRules.check_all_hands_sweep(
+                    p.name, p.hands, self._all_names, self.wager,
+                    dealer_name=self.dealer_name if hard_switch else "",
+                    dealer_bj=dealer_bj))
         if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
             w *= 2
             print(f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards — wager doubled to {w} sip(s) this round!")

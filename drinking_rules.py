@@ -295,6 +295,56 @@ class DrinkingRules:
 
         return msgs
 
+    # ---------------------------------------------------------------- all-hands sweep (player)
+
+    @staticmethod
+    def check_all_hands_sweep(player_name: str, player_hands: list,
+                               all_player_names: list, wager: int,
+                               dealer_name: str = "",
+                               dealer_bj: bool = False) -> list:
+        """
+        Fires when a player has 2+ hands (starting hands or from a split) and EITHER:
+          - Every card across every hand shares the same suit, OR
+          - Every hand scores exactly 21 (BJ counts as 21).
+        Win/push/loss outcome is irrelevant — only the cards matter.
+
+        Payout: wager × 2 per condition met (both = wager × 4).
+        Suppressed when dealer has BJ (consistent with auto-insurance).
+        Stacks with all other win-bonus rules.
+        """
+        if dealer_bj:
+            return []
+        if len(player_hands) < 2:
+            return []
+
+        all_cards = [c for h in player_hands for c in h.cards]
+        if not all_cards:
+            return []
+
+        first_suit    = all_cards[0].suit.label
+        all_same_suit = all(c.suit.label == first_suit for c in all_cards)
+        all_21 = all(h.score() == 21 for h in player_hands)
+
+        if not (all_same_suit or all_21):
+            return []
+
+        # Stacking: both conditions together = wager * 4, each alone = wager * 2
+        multiplier = 4 if (all_same_suit and all_21) else 2
+        sips       = wager * multiplier
+
+        if all_same_suit and all_21:
+            reason = f"all {all_cards[0].suit.symbol} suited + all 21 (x{multiplier})"
+        elif all_same_suit:
+            reason = f"all {all_cards[0].suit.symbol} suited across all hands"
+        else:
+            reason = "all hands scored 21"
+
+        others = [p for p in all_player_names
+                  if p != player_name and p != dealer_name]
+        return [(p, sips,
+                 f"{player_name} all-hands sweep ({reason}) => {p} drinks {sips} sip(s)")
+                for p in others]
+
     # ---------------------------------------------------------------- dealer 21 with 5+ cards
 
     @staticmethod
