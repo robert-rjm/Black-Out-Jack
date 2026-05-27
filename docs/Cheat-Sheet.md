@@ -73,6 +73,8 @@ Everyone drinks **1 sip** when any Player gets Blackjack. Multiplied:
 | Dealer's hand is suited | All Players drink 2 |
 | All 4 Aces on first deal | Everyone drinks 2 |
 | All 4 Aces at end of round | Everyone drinks 1 |
+| All Players hands entirely suited | All wagers doubled this round |
+| All Players hands exactly 21 | All wagers doubled this round |
 
 ---
 
