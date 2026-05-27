@@ -60,6 +60,14 @@ _join_attempts: dict[str, list[float]] = defaultdict(list)
 _JOIN_RATE_LIMIT  = 5   # max failed attempts
 _JOIN_RATE_WINDOW = 30   # per N seconds
 
+# ---------------------------------------------------------------------------
+# Milestone feature — first player to cross each 50-sip boundary wins 5 sips
+# to hand out (split however they like, cannot give to self).
+# ---------------------------------------------------------------------------
+_MILESTONE_STEP         = 50   # sip threshold multiples to celebrate
+_MILESTONE_HANDOUT_SIPS = 5    # sips the winner distributes
+_MILESTONE_TTL          = 60   # seconds before unclaimed handout is forfeited
+
 
 def _join_rate_limited(ip: str) -> bool:
     """Return True when this IP has exceeded the failed-join rate limit."""
@@ -80,7 +88,7 @@ def _sanitize_name(raw: str) -> str:
     """Sanitize a player name before storing it.
 
     Strips HTML tags, removes characters that could break out of HTML
-    attribute or script contexts (<>"'\`\\), trims whitespace, capitalizes,
+    attribute or script contexts (<>\"'`\\), trims whitespace, capitalizes,
     and caps length at 20 characters.  Returns an empty string if nothing
     is left after sanitization.
     """
@@ -244,6 +252,108 @@ def _harvest_drink_log(session: RefereeSession):
                     continue
                 drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
     session._last_round_drinks = drinks_detail
+
+    # Track hand outcomes (win/loss/push, split and double breakdowns) per player
+    hand_stats = getattr(session, "_hand_stats", {})
+    for p in session.all_players:
+        if p.is_dealer:
+            continue
+        if p.name not in hand_stats:
+            hand_stats[p.name] = {
+                "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
+                "split_hands": 0, "split_wins": 0,
+                "double_hands": 0, "double_wins": 0,
+            }
+        hs = hand_stats[p.name]
+        for hand in p.hands:
+            result = getattr(hand, "result", None)
+            if result not in ("win", "loss", "push"):
+                continue
+            hs["hands"] += 1
+            if result == "win":    hs["wins"]   += 1
+            elif result == "loss": hs["losses"] += 1
+            elif result == "push": hs["pushes"] += 1
+            if getattr(hand, "from_split", False):
+                hs["split_hands"] += 1
+                if result == "win": hs["split_wins"] += 1
+            if getattr(hand, "doubled", False):
+                hs["double_hands"] += 1
+                if result == "win": hs["double_wins"] += 1
+    session._hand_stats = hand_stats
+
+    # Track how each player fared as dealer — wins/losses/pushes from dealer's POV
+    # (Player hand "win" = dealer lost that hand, and vice versa)
+    dealer_stats = getattr(session, "_dealer_hand_stats", {})
+    dname = session.dealer_name
+    if dname not in dealer_stats:
+        dealer_stats[dname] = {"hands": 0, "wins": 0, "losses": 0, "pushes": 0}
+    ds = dealer_stats[dname]
+    for p in session.all_players:
+        if p.is_dealer:
+            continue
+        for hand in p.hands:
+            result = getattr(hand, "result", None)
+            if result not in ("win", "loss", "push"):
+                continue
+            ds["hands"] += 1
+            if result == "win":    ds["losses"] += 1  # player wins = dealer lost
+            elif result == "loss": ds["wins"]   += 1  # player loses = dealer won
+            elif result == "push": ds["pushes"] += 1
+    session._dealer_hand_stats = dealer_stats
+
+
+def _check_and_set_milestone(session: RefereeSession):
+    """
+    After harvesting a round's drink log, check whether any player has newly
+    crossed a _MILESTONE_STEP boundary.  If so, record the winner in
+    session._pending_milestone so the frontend can display the handout UI.
+
+    Tiebreak: if two players hit the same boundary this round, the one with
+    fewest sips THIS round wins (prevents gaming the last round).  Alphabetical
+    name order breaks any remaining tie.
+
+    A boundary is only triggered once (tracked in session._milestones_claimed).
+    """
+    ticker  = getattr(session, "_sip_ticker", {})
+    last    = getattr(session, "_last_round_sips", {})
+    claimed = getattr(session, "_milestones_claimed", {})
+
+    # Build (boundary → list of candidates) for thresholds newly crossed
+    newly_hit: dict[int, list[tuple[int, str]]] = {}  # boundary → [(round_sips, name)]
+    for name, total in ticker.items():
+        # Find the highest unclaimed boundary this player has crossed
+        highest = (total // _MILESTONE_STEP) * _MILESTONE_STEP
+        if highest <= 0:
+            continue
+        # Walk backwards to find the lowest newly-crossed boundary for this player
+        prev_total = total - last.get(name, 0)
+        prev_boundary = (prev_total // _MILESTONE_STEP) * _MILESTONE_STEP
+        for boundary in range(prev_boundary + _MILESTONE_STEP, highest + 1, _MILESTONE_STEP):
+            if claimed.get(boundary):
+                continue  # someone else already owns this boundary
+            if boundary not in newly_hit:
+                newly_hit[boundary] = []
+            newly_hit[boundary].append((last.get(name, 0), name))
+
+    if not newly_hit:
+        return
+
+    # Only the lowest unclaimed boundary fires (one milestone at a time per round)
+    boundary = min(newly_hit.keys())
+    candidates = newly_hit[boundary]
+
+    # Tiebreak: fewest sips this round wins; alphabetical on tie
+    candidates.sort(key=lambda t: (t[0], t[1].lower()))
+    _round_sips, winner = candidates[0]
+
+    claimed[boundary] = winner
+    session._milestones_claimed = claimed
+    session._pending_milestone  = {
+        "boundary":   boundary,
+        "winner":     winner,
+        "handout":    _MILESTONE_HANDOUT_SIPS,
+        "expires_at": time.monotonic() + _MILESTONE_TTL,
+    }
 
 
 def _get_client_info(session, client_id: str) -> dict:
@@ -567,6 +677,7 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "dealer":          session.dealer_name,
         "players":         [p.name for p in session.all_players],
         "num_hands":       session.num_hands,
+        "wager":           session.wager,
         "mode":            getattr(session, "mode", "referee"),
         "table":           table,
         "dealer_hand":     d_hand_state,
@@ -632,6 +743,26 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
         "is_dealer_client":  _ci.get("is_dealer", False) or _ci.get("role") == "admin",
         # Queued settings — applied at next newround (admin only writes; all can read pending)
         "queued_settings":   getattr(session, "_queued_settings", {}),
+        # Milestone handout — visible to all players during the claim window
+        "last_milestone_result": (lambda r: {
+            "winner":      r["winner"],
+            "boundary":    r["boundary"],
+            "allocations": r["allocations"],
+            "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
+        } if r and time.monotonic() - r["set_at"] < 15 else None)(
+            getattr(session, "_last_milestone_result", None)
+        ),
+        "pending_milestone": (lambda m: {
+            "boundary":         m["boundary"],
+            "winner":           m["winner"],
+            "handout":          m["handout"],
+            "seconds_left":     max(0, round(m["expires_at"] - time.monotonic())),
+            # Server-authoritative flag — avoids JS-side name-matching issues
+            "i_am_winner":      bool(_ci.get("name") and
+                                     m["winner"].lower() == _ci["name"].lower()),
+        } if m and time.monotonic() < m["expires_at"] else None)(
+            getattr(session, "_pending_milestone", None)
+        ),
         # Insurance votes — pending entries visible to all players so UI can prompt
         "insurance_votes": [
             {
@@ -933,6 +1064,15 @@ def _digital_dealer_turn(session: RefereeSession):
                                                    dealer_bj=dealer_bj,
                                                    dealer_name=exempt_dealer))
 
+        # All-hands sweep (same suit or all-21 across split hands)
+        for p in session.all_players:
+            if p.is_dealer:
+                continue
+            session.tracker.apply(
+                DrinkingRules.check_all_hands_sweep(
+                    p.name, p.hands, all_names, session.wager,
+                    dealer_name=exempt_dealer, dealer_bj=dealer_bj))
+
         # Four-aces end-of-round check
         all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += d_hand.cards
@@ -1062,10 +1202,26 @@ def serve_manifest():
 # Lobby routes
 # ---------------------------------------------------------------------------
 
+_SESSION_TTL      = 12 * 3600   # seconds — rooms older than this are eligible for cleanup
+_room_created_at: dict[str, float] = {}   # room_code → time.monotonic() at creation
+
+
+def _cleanup_stale_sessions():
+    """Drop rooms that were never set up (value is None) and are older than TTL."""
+    cutoff = time.monotonic() - _SESSION_TTL
+    stale  = [code for code, s in game_sessions.items()
+               if s is None and _room_created_at.get(code, 0) < cutoff]
+    for code in stale:
+        del game_sessions[code]
+        _room_created_at.pop(code, None)
+
+
 @app.route("/create_room", methods=["POST"])
 def create_room():
+    _cleanup_stale_sessions()
     code = _generate_room_code()
-    game_sessions[code] = None   # slot reserved; game not yet started
+    game_sessions[code]     = None   # slot reserved; game not yet started
+    _room_created_at[code]  = time.monotonic()
     return jsonify({"ok": True, "code": code})
 
 
@@ -1099,22 +1255,39 @@ def join_room():
 
 @app.route("/setup", methods=["POST"])
 def setup():
-    data      = request.json
+    data = request.json
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "output": "Invalid request body."})
+
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
     if room_code not in game_sessions:
         return jsonify({"ok": False, "output": "Room not found."})
 
-    names = [_sanitize_name(n) for n in data["players"] if n.strip()]
+    # Prevent any client from overwriting an active game.
+    # The admin (session creator) may reconfigure; everyone else is blocked.
+    existing = game_sessions[room_code]
+    if existing is not None:
+        clients = getattr(existing, "_room_clients", {})
+        if clients.get(client_id, {}).get("role") != "admin":
+            return jsonify({"ok": False, "output": "Game already in progress."})
+
+    raw_players = data.get("players")
+    if not isinstance(raw_players, list):
+        return jsonify({"ok": False, "output": "Invalid players list."})
+    names = [_sanitize_name(n) for n in raw_players if isinstance(n, str) and n.strip()]
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
         return jsonify({"ok": False, "output": "No player names provided."})
 
-    mode        = data.get("mode", "referee")   # "referee" | "digital"
-    dealer_idx  = int(data.get("dealer_index", 0))
+    try:
+        mode       = data.get("mode", "referee")   # "referee" | "digital"
+        dealer_idx = int(data.get("dealer_index", 0))
+        wager      = max(1, int(data.get("wager", 1)))
+        num_hands  = max(1, int(data.get("num_hands", 2)))
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "output": "Invalid numeric field."})
     dealer_name = names[min(dealer_idx, len(names) - 1)]
-    wager       = int(data.get("wager", 1))
-    num_hands   = int(data.get("num_hands", 2))
 
     npc_names = {_sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
 
@@ -1157,6 +1330,11 @@ def setup():
     game_session._rejoin_requests = []  # [{client_id, display_name}] — kicked players asking to rejoin
     game_session._anim_default  = True # admin's animation preference, broadcast to joiners
     game_session._queued_settings = {}  # settings queued to apply at start of next round
+    game_session._hand_stats            = {}   # {player: {wins, losses, pushes, ...}}
+    game_session._dealer_hand_stats     = {}   # {dealer_name: {wins, losses, pushes, hands}}
+    game_session._milestones_claimed    = {}   # boundary → winner name; never reset
+    game_session._pending_milestone     = None # current unclaimed handout (or None)
+    game_session._last_milestone_result = None # most recent claim result, shown ~15s
     if client_id:
         game_session._room_clients[client_id] = {
             "name": dealer_name, "role": "admin", "kicked": False,
@@ -1432,12 +1610,16 @@ def command():
                     game_session._last_peeked = None
 
             elif cmd == "dealer":
-                # Auto-run dealer turn + evaluate all hands
+                # Auto-run dealer turn + evaluate all hands + assign drinks
                 _digital_dealer_turn(game_session)
+                game_session.cmd_endround()
+                _harvest_drink_log(game_session)
+                _check_and_set_milestone(game_session)
 
             elif cmd == "endround":
                 game_session.cmd_endround()
                 _harvest_drink_log(game_session)
+                _check_and_set_milestone(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
@@ -1460,6 +1642,7 @@ def command():
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
+                game_session._pending_milestone = None  # clear between rounds
                 if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
@@ -1492,6 +1675,7 @@ def command():
                     _digital_dealer_turn(game_session)
                     game_session.cmd_endround()
                     _harvest_drink_log(game_session)
+                    _check_and_set_milestone(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
@@ -1514,6 +1698,7 @@ def command():
             elif cmd == "endround":
                 game_session.cmd_endround()
                 _harvest_drink_log(game_session)
+                _check_and_set_milestone(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
@@ -1535,6 +1720,7 @@ def command():
                 game_session._suggestions   = {}
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
+                game_session._pending_milestone = None  # clear between rounds
                 game_session.start_round()
                 _patch_tracker(game_session)
 
@@ -1851,7 +2037,7 @@ def request_rejoin():
     data         = request.json or {}
     room_code    = (data.get("room_code") or "").strip()
     client_id    = (data.get("client_id") or "").strip()
-    display_name = (data.get("display_name") or "").strip()
+    display_name = _sanitize_name((data.get("display_name") or "").strip()) or "Unknown"
 
     session = game_sessions.get(room_code)
     if not session:
@@ -1915,8 +2101,11 @@ def vote_insurance():
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
     bj_player = (data.get("bj_player") or "").strip().capitalize()
-    hand_idx  = int(data.get("hand_idx", 0))
-    vote      = bool(data.get("vote", False))   # True = insure, False = decline
+    try:
+        hand_idx = int(data.get("hand_idx", 0))
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Invalid hand index."})
+    vote = bool(data.get("vote", False))   # True = insure, False = decline
 
     session = game_sessions.get(room_code)
     if not session:
@@ -2080,11 +2269,25 @@ def export_csv():
     buf = io.StringIO()
     w   = csv.writer(buf)
 
+    hand_stats  = getattr(session, "_hand_stats",       {})
+    milestones  = getattr(session, "_milestones_claimed", {})
+
+    def _pct(n, d):
+        return f"{n/d*100:.1f}%" if d else "—"
+
     # Header metadata
     w.writerow(["Drinking Blackjack — Session Summary"])
     w.writerow(["Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
     w.writerow(["Rounds completed", num_rounds])
     w.writerow([])
+
+    # Milestone winners — who crossed each 50-sip threshold first
+    if milestones:
+        w.writerow(["MILESTONES"])
+        w.writerow(["Threshold", "First to reach"])
+        for boundary in sorted(milestones):
+            w.writerow([f"{boundary} sips", milestones[boundary]])
+        w.writerow([])
 
     # Per-player tables
     for name in players_seen:
@@ -2098,6 +2301,21 @@ def export_csv():
             f"as dealer: {dt}",
             f"sips/round: {gt/num_rounds:.2f}",
         ])
+        # Hand outcome stats
+        hs = hand_stats.get(name)
+        if hs and hs["hands"]:
+            h = hs["hands"]
+            row = [
+                f"Hands: {h}",
+                f"Won: {hs['wins']} ({_pct(hs['wins'], h)})",
+                f"Lost: {hs['losses']} ({_pct(hs['losses'], h)})",
+                f"Push: {hs['pushes']} ({_pct(hs['pushes'], h)})",
+            ]
+            if hs["split_hands"]:
+                row.append(f"Splits won: {hs['split_wins']} of {hs['split_hands']} ({_pct(hs['split_wins'], hs['split_hands'])})")
+            if hs["double_hands"]:
+                row.append(f"Doubles won: {hs['double_wins']} of {hs['double_hands']} ({_pct(hs['double_wins'], hs['double_hands'])})")
+            w.writerow(row)
         w.writerow(["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
         for rule in all_rules:
             ps = player_sips[name].get(rule, 0)
@@ -2122,13 +2340,47 @@ def export_csv():
     w.writerow(["Rule", "Total sips", "Sips/round", "% of total"])
     for rule in sorted(rule_totals, key=lambda r: -rule_totals[r]):
         total = rule_totals[rule]
-        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "\u2014"
+        pct   = f"{total/grand_total*100:.1f}%" if grand_total else "—"
         w.writerow([rule, total, f"{total/num_rounds:.2f}", pct])
     w.writerow([])
     w.writerow(["Grand total", grand_total, f"{grand_total/num_rounds:.2f} sips/round"])
 
+    # Hand stats summary table (all players)
+    w.writerow([])
+    w.writerow(["HAND OUTCOMES"])
+    w.writerow(["Player", "Hands", "Won", "Win%", "Lost", "Loss%", "Push", "Push%",
+                "Splits won", "Split win%", "Doubles won", "Double win%"])
+    for name in players_seen:
+        hs = hand_stats.get(name, {"hands":0,"wins":0,"losses":0,"pushes":0,"split_hands":0,"split_wins":0,"double_hands":0,"double_wins":0})
+        h  = hs["hands"]
+        w.writerow([
+            name, h if h else "-",
+            hs["wins"]   if h else "-", _pct(hs["wins"],   h),
+            hs["losses"] if h else "-", _pct(hs["losses"],  h),
+            hs["pushes"] if h else "-", _pct(hs["pushes"],  h),
+            f"{hs['split_wins']} of {hs['split_hands']}" if hs["split_hands"]  else "-",
+            _pct(hs["split_wins"],  hs["split_hands"]),
+            f"{hs['double_wins']} of {hs['double_hands']}" if hs["double_hands"] else "-",
+            _pct(hs["double_wins"], hs["double_hands"]),
+        ])
+
+    # Dealer stats
+    dealer_stats = getattr(session, "_dealer_hand_stats", {})
+    if dealer_stats:
+        w.writerow([])
+        w.writerow(["DEALER STATS (per dealing stint)"])
+        w.writerow(["Dealer", "Hands dealt", "Won", "Win%", "Lost", "Loss%", "Push", "Push%"])
+        for dname, ds in sorted(dealer_stats.items()):
+            dh = ds["hands"]
+            w.writerow([
+                dname, dh,
+                ds["wins"],   _pct(ds["wins"],   dh),
+                ds["losses"], _pct(ds["losses"],  dh),
+                ds["pushes"], _pct(ds["pushes"],  dh),
+            ])
+
     return Response(
-        buf.getvalue().encode("utf-8"),
+        b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
         status=200,
         mimetype="text/csv",
         headers={"Content-Disposition": 'attachment; filename="drinks_summary.csv"'},
@@ -2197,20 +2449,23 @@ def update_settings():
     queued = getattr(session, "_queued_settings", {})
 
     # Validate and queue each provided setting
-    if "wager" in data:
-        v = int(data["wager"])
-        if v >= 1:
-            queued["wager"] = v
+    try:
+        if "wager" in data:
+            v = int(data["wager"])
+            if v >= 1:
+                queued["wager"] = v
 
-    if "num_hands" in data:
-        v = int(data["num_hands"])
-        if v >= 1:
-            queued["num_hands"] = v
+        if "num_hands" in data:
+            v = int(data["num_hands"])
+            if v >= 1:
+                queued["num_hands"] = v
 
-    if "num_decks" in data:
-        v = int(data["num_decks"])
-        if 1 <= v <= 8:
-            queued["num_decks"] = v
+        if "num_decks" in data:
+            v = int(data["num_decks"])
+            if 1 <= v <= 8:
+                queued["num_decks"] = v
+    except (ValueError, TypeError):
+        return jsonify({"ok": False, "error": "Invalid numeric setting."})
 
     if "add_player" in data:
         name = str(data["add_player"]).strip().capitalize()
@@ -2242,14 +2497,116 @@ def update_settings():
 
     # dealer_rotate_every is a live setting — applied immediately, not queued
     if "dealer_rotate_every" in data:
-        v = int(data["dealer_rotate_every"])
-        if v >= 1:
-            session._dealer_rotate_every = v
+        try:
+            v = int(data["dealer_rotate_every"])
+            if v >= 1:
+                session._dealer_rotate_every = v
+        except (ValueError, TypeError):
+            pass   # silently ignore a malformed value; non-critical setting
 
     session._queued_settings = queued
     state = _serialize_state(session, client_id)
     state["output"] = ""
     return jsonify(state)
+
+
+@app.route("/claim_milestone", methods=["POST"])
+def claim_milestone():
+    """
+    Winner submits their sip-handout allocation.
+    Body: { room_code, client_id, allocations: {player_name: sips, ...} }
+
+    Rules enforced server-side:
+      - Only the milestone winner may submit.
+      - Cannot allocate to self.
+      - Total must equal _MILESTONE_HANDOUT_SIPS (5).
+      - Each allocation must be a non-negative integer.
+      - Must be submitted before the TTL expires.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    milestone = getattr(session, "_pending_milestone", None)
+    if not milestone:
+        return jsonify({"ok": False, "error": "No active milestone."})
+    if time.monotonic() >= milestone["expires_at"]:
+        session._pending_milestone = None
+        return jsonify({"ok": False, "error": "Milestone claim window has expired."})
+
+    # Verify caller is the winner
+    clients     = getattr(session, "_room_clients", {})
+    caller_info = clients.get(client_id, {})
+    caller_name = caller_info.get("name", "")
+    if caller_name.lower() != milestone["winner"].lower():
+        return jsonify({"ok": False, "error": "Only the milestone winner can submit the handout."})
+
+    raw_alloc = data.get("allocations", {})
+    if not isinstance(raw_alloc, dict):
+        return jsonify({"ok": False, "error": "allocations must be an object."})
+
+    # Validate: non-negative ints, no self-allocation, sum = handout total
+    alloc: dict[str, int] = {}
+    for name, sips in raw_alloc.items():
+        try:
+            s = int(sips)
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": f"Invalid sip count for {name}."})
+        if s < 0:
+            return jsonify({"ok": False, "error": "Sip counts must be non-negative."})
+        if name.lower() == caller_name.lower():
+            return jsonify({"ok": False, "error": "Cannot assign sips to yourself."})
+        if s > 0:
+            alloc[name] = s
+
+    total = sum(alloc.values())
+    if total != _MILESTONE_HANDOUT_SIPS:
+        return jsonify({"ok": False,
+                        "error": f"Must distribute exactly {_MILESTONE_HANDOUT_SIPS} sips (got {total})."})
+
+    # Apply to sip ticker — these sips go to the recipients, not to the winner
+    ticker = getattr(session, "_sip_ticker", {})
+    for name, s in alloc.items():
+        ticker[name] = ticker.get(name, 0) + s
+    session._sip_ticker = ticker
+
+    # Write milestone handout into the CSV accumulator so it appears in exports
+    winner    = milestone["winner"]
+    boundary  = milestone["boundary"]
+    csv_rows  = getattr(session, "_drink_csv_rows", [])
+    for name, s in alloc.items():
+        csv_rows.append({
+            "round":  session.round_count,
+            "dealer": session.dealer_name,
+            "player": name,
+            "role":   "player",
+            "rule":   "Milestone handout",
+            "sips":   s,
+        })
+    session._drink_csv_rows = csv_rows
+
+    # Log the handout
+    log_lines = [f"🎉 {winner} reached {boundary} sips — milestone handout!"]
+    for name, s in alloc.items():
+        sip_word = "sip" if s == 1 else "sips"
+        log_lines.append(f"  → {name} drinks {s} {sip_word}")
+    game_sessions[room_code]._log_entries = (
+        getattr(session, "_log_entries", []) + ["\n".join(log_lines)]
+    )
+    game_sessions[room_code]._log_version = getattr(session, "_log_version", 0) + 1
+
+    session._pending_milestone     = None
+    session._last_milestone_result = {
+        "winner":      winner,
+        "boundary":    boundary,
+        "allocations": alloc,         # {name: sips} — only non-zero entries
+        "set_at":      time.monotonic(),
+    }
+    return jsonify({**_serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/rotate_dealer", methods=["POST"])

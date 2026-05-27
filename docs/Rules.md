@@ -155,7 +155,7 @@ Even if you won all your hands, you still drink if another Player wins with:
 
 > **Example:** Player splits twice (3 hands), wins 2 → 1 split won → others drink 1 sip
 
-#### 3. Blackjack bonus (always applies):
+#### 3. Blackjack bonus (exception to immunity):
 
 When any Player gets a Blackjack, **everyone** drinks 1 sip (regardless of own result).
 
@@ -178,26 +178,35 @@ This base sip is **doubled cumulatively**:
 
 These rules apply based on specific card combinations during gameplay.
 
-#### 1. Player reaches 21 with 5+ cards:
+#### 1. 5+ Cards
 
-The Player hands out sips equal to the number of cards (5 cards = 5 sips, 6 = 6, etc.), distributed among other Players however they choose. Does **not** need to win against Dealer.
+These rules trigger when a Player or Dealer holds 5 or more cards in a single hand.
 
-#### 2. Player wins with 5+ cards:
+| # | Who | Condition | Effect |
+|---|-----|-----------|--------|
+| 1 | Player | **Exactly 21** | Distribute sips equal to card count to other Players (e.g. 6 cards = 6 sips) |
+| 2 | Player | **Wins** | All other Players drink 1 sip |
+| 3 | Dealer | **Exactly 21** | All Players' wagers doubled |
 
-All other Players drink 1 sip. Stacks with rule 1 if the hand is exactly 21. A push does not trigger this.
+> **Key clarifications:**
+> - Rule 1 does not require a win.
+> - Rule 1 and 2 stack (win with 21 and 5 cards).
+> - Rule 2 does not trigger on a push.
+> - Rule 3 does not include wages for Blackjack bonus or Aces.
 
-#### 3. Dealer reaches 21 with 5+ cards:
+#### 2. Player all hand bonus
 
-All Players' wagers are doubled for that round.
+If every final hand a Player holds is **entirely one suit** or totals **exactly 21**, all drinks owed by other Players that round are doubled.
 
-> **Example:** Dealer has 21 with 6 cards, standard 1 sip wager:  
-> Player A lost one hand → 2 sips. Player B lost a double → 4 sips.
+> - Does not apply to Blackjack bonus or Aces.
+> - Triggers regardless of win or push or loss.
+> - Stacks with other rules
 
-#### 4. Dealer suited hand:
+#### 3. Dealer suited hand:
 
 If the Dealer's final hand is entirely one suit, all Players drink 2 sips (regardless of Dealer win/loss/bust).
 
-#### 5. Four Aces on the table:
+#### 4. Four Aces on the table:
 
 | Timing | Sips |
 |---|---|
@@ -235,10 +244,7 @@ Ace effects still apply normally. Two exceptions specific to the Hard Switch cal
 _These rules are under consideration and may be added in future versions.
 Playtest feedback is welcome!_
 
-- **Dealer Survivor**: Everyone drinks 1 sip if the Dealer doesn't bust with 6+ cards
-- **Lucky 7s**: Three 7s totalling 21 → all others drink 7 sips
 - **Mirror Hands**: Two Players with same total and same card count → both drink 1
-- **Dealer Blackjack Toast**: Dealer Blackjack → everyone raises and drinks 2
 - **Perfect Split**:  Split with both hands winning at same total → others drink 2
 - **Bust Chain**: 3+ Players bust → last to bust drinks 1 extra per earlier bust
 

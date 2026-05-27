@@ -2,37 +2,22 @@
 
 ## Bugs
 
+### Check
+
 - [X] BJ insurance
   - not completing "waiting for others"
   - not launching on splits
-
-### Check
-
-- [ ] Admin God Mode
-  - still overpowers all (action vote)
-- [ ] check auto insurance
-  - only with Aces
-- [ ] next round dealing automatically
-- [ ] insurance working as intended (group vote)
-- [ ] splits
-- [ ] UI
-
+  - group vote working as intended
 
 ## Future
 ### Features
 
-- [ ] animation for reaching 50 or 100
-  - potential extension: give out drinks for when reached
-- [ ] insurance BJ: say the potential rule (AJ BJ: insure to risk drink 16 etc.)
-- [ ] add win/loss/push % to .csv file
-  - also consider adding extra statistics%split, %double
 - [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
 - [ ] beer counter (with approval by admin)
 
 ### New Rule Idea
 
 - [ ] every hand from player is `suited` or `21`, then all drink *2 their drinks (excluding BJ Bonus)
-- [ ] Dealer wins with 5+ cards, then all drink +2
 - [ ] side bets for Dealer to bust
 - [ ] Endgame option of "busfahrer"
 
