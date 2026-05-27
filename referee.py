@@ -34,9 +34,8 @@ Examples:
     result dealer bust         — dealer busts (all non-busted players win)
 """
 
-import sys
 from blackjack import (
-    Rank, Suit, Card, Hand, Player, HandEvaluator
+    Rank, Suit, Card, Hand, Player
 )
 from drinking_rules import DrinkingRules, DrinkTracker
 from tabulate import tabulate
@@ -219,7 +218,7 @@ class RefereeSession:
             is_dealer_hand=is_dealer_seat,   # True only for the dealer hand, not betting hands
         )
         for msg in msgs:
-            r, s, reason = msg[0], msg[1], msg[2]
+            _, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
                 self._ace_credits.append(recipient_name)
                 print(f"    (i) {reason}")
@@ -268,7 +267,7 @@ class RefereeSession:
 
         elif action == "insurance":
             if not hand.is_blackjack():
-                print(f"  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
+                print("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                 return
             hand.insured = True
             print(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21, no bonus drinks.")
@@ -300,7 +299,7 @@ class RefereeSession:
         if player_name.lower() == "dealer" and outcome == "bust":
             dealer = self._get_dealer()
             dealer.dealer_hand.bust = True
-            print(f"  Dealer busts. Mark each non-busted player hand as 'win'.")
+            print("  Dealer busts. Mark each non-busted player hand as 'win'.")
             # Check dealer suited hand
             self.tracker.apply(
                 DrinkingRules.on_dealer_hand_revealed(dealer.dealer_hand))
@@ -434,7 +433,8 @@ class RefereeSession:
             print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         self.tracker.apply(DrinkingRules.on_round_end(
             players, w, dealer_bj=dealer_bj,
-            hard_switch_dealer=self.dealer_name if hard_switch else ""))
+            hard_switch_dealer=self.dealer_name if hard_switch else "",
+            num_hands=self.num_hands))
 
         # Ace-of-clubs credits
         for name in self._ace_credits:
@@ -609,11 +609,11 @@ def setup_session() -> RefereeSession:
             p.dealer_hand = Hand()
         players.append(p)
 
-    print(f"\n  Session ready.")
+    print("\n  Session ready.")
     print(f"  Players: {', '.join(names)}")
     print(f"  Dealer:  {dealer_name}")
     print(f"  Wager:   {wager} sip(s)/hand  |  {num_hands} hands/player")
-    print(f"  Type 'help' for command reference.\n")
+    print("  Type 'help' for command reference.\n")
 
     return RefereeSession(players, dealer_name, wager, num_hands)
 
@@ -678,12 +678,11 @@ def main():
         elif cmd in ("status", "st"):
             session.cmd_status()
 
-        elif cmd == "help":
-            RefereeSession.print_help()
+        elif cmd in ("help", "h"):
+            session.print_help()
 
         else:
             print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
-
 
 if __name__ == "__main__":
     main()

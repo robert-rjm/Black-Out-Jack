@@ -34,7 +34,10 @@ def verify_rules():
         print(f"  Expected hash : {_RULES_HASH[:16]}...")
         print(f"  Current hash  : {current_hash[:16]}...")
         print("  drinking_rules.py may not reflect the latest rules.")
-        print(f"  Review changes at: {_RULES_URL.replace('raw.githubusercontent.com', 'github.com').replace('/main/', '/blob/main/')}")
+        review_url = (_RULES_URL
+                      .replace('raw.githubusercontent.com', 'github.com')
+                      .replace('/main/', '/blob/main/'))
+        print(f"  Review changes at: {review_url}")
         print("  Update _RULES_HASH and _RULES_DATE in drinking_rules.py.")
         print("=" * 52 + "\n")
 
@@ -370,7 +373,8 @@ class DrinkingRules:
     @staticmethod
     def on_round_end(players: list, wager: int,
                      dealer_bj: bool = False,
-                     hard_switch_dealer: str = "") -> list:
+                     hard_switch_dealer: str = "",
+                     num_hands: int = 0) -> list:
         """
         Called once all hands are resolved.
         Fires:
@@ -379,9 +383,13 @@ class DrinkingRules:
         - Split wins break immunity (aggregated as winning_split_hands - 1)
         - Other-player-wins-all rule (with immunity tiers)
 
-        dealer_bj: when True (dealer natural blackjack) only starting hands
-                   (non-split) that lost are charged × wager. splits excluded,
-                   all bonus/penalty extras suppressed (auto-insurance).
+        dealer_bj: when True (dealer natural blackjack) players are charged for
+                   every starting hand (num_hands) minus any BJ pushes × wager.
+                   Splits do not reduce the charge — a player who started with 2
+                   hands and split one still pays for 2 starting hands.
+                   All bonus/penalty extras are suppressed (auto-insurance).
+        num_hands: configured hands per player (used for dealer BJ charge).
+                   Falls back to counting non-split hands if not supplied.
         hard_switch_dealer: name of the dealer-player on a hard switch — they are
                             fully exempt from all player-role drinks this round
                             (they already drink via the Hard Switch dealer rule).
@@ -394,14 +402,22 @@ class DrinkingRules:
             return bool(hard_switch_dealer) and player_name == hard_switch_dealer
 
         # Dealer blackjack = auto-insurance:
-        # charge starting hands (non-split) that lost × wager — splits excluded.
+        # charge num_hands × wager minus any BJ pushes (player BJ vs dealer BJ).
+        # Splits do not reduce the charge — starting hand count is always num_hands.
         if dealer_bj:
             for p in players:
                 if _excluded(p.name):
                     continue
-                starting_losses = sum(
-                    1 for h in p.hands if not h.from_split and h.result == "loss"
+                # BJ pushes: player had BJ on a starting hand → pushes vs dealer BJ
+                bj_pushes = sum(
+                    1 for h in p.hands
+                    if not h.from_split and h.result == "push" and h.is_blackjack()
                 )
+                # Base = num_hands if supplied; otherwise count non-split hands
+                base = num_hands if num_hands > 0 else sum(
+                    1 for h in p.hands if not h.from_split
+                )
+                starting_losses = max(0, base - bj_pushes)
                 if starting_losses > 0:
                     msgs.append((p.name, starting_losses * wager,
                         f"{p.name} dealer BJ — {starting_losses} starting hand(s) lost "

@@ -11,7 +11,6 @@ Run:
     python blackjack.py
 """
 
-from datetime import datetime
 import random
 from enum import Enum
 from tabulate import tabulate
@@ -445,7 +444,7 @@ class RoundManager:
                 is_dealer_hand=is_dealer_hand,
             )
             for msg in msgs:
-                r, s, reason = msg[0], msg[1], msg[2]
+                _, s, reason = msg[0], msg[1], msg[2]
                 if s == -1:
                     self._ace_credits.append(recipient_name)
                     print(f"    (i) {reason}")
@@ -503,7 +502,7 @@ class RoundManager:
                 print(f"\n--- Insurance vote: {p.name} Hand {i+1} has Blackjack ---")
                 print(f"  Dealer shows Ace. Vote to insure {p.name}'s blackjack?")
                 print(f"  (If insured + dealer BJ: {p.name} drinks own bonus, group safe)")
-                print(f"  (If insured + no dealer BJ: group drinks double bonus)")
+                print("  (If insured + no dealer BJ: group drinks double bonus)")
 
                 insure_count  = 0
                 decline_count = 0
@@ -744,7 +743,8 @@ class RoundManager:
         hard_switch = getattr(self, "_hard_switch", False)
         self.tracker.apply(DrinkingRules.on_round_end(
             self.players, w, dealer_bj=dealer_bj,
-            hard_switch_dealer=self.dealer_player.name if hard_switch else ""))
+            hard_switch_dealer=self.dealer_player.name if hard_switch else "",
+            num_hands=self.num_hands))
         for name in self._ace_credits:
             p = next((x for x in self.players if x.name.lower() == name.lower()), None)
             if p: self.tracker.apply_ace_clubs_credit(p)
