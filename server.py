@@ -17,7 +17,6 @@ import io
 import contextlib
 import os
 import re
-import secrets
 import socket
 import time
 from collections import defaultdict
@@ -29,46 +28,15 @@ from referee import RefereeSession
 from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
 from app.config import (
-    ROOM_WORDS,
-    JOIN_RATE_LIMIT, JOIN_RATE_WINDOW,
     MILESTONE_STEP, MILESTONE_HANDOUT_SIPS, MILESTONE_TTL,
-    SESSION_TTL,
+)
+from app.services.session_store import (
+    game_sessions,
+    reserve_room, get_session, set_session, find_room_code,
+    is_join_rate_limited,
 )
 
 app = Flask(__name__)
-
-# ---------------------------------------------------------------------------
-# Multi-room state — keyed by room code (e.g. "Jack21")
-# ---------------------------------------------------------------------------
-game_sessions: dict[str, "RefereeSession | None"] = {}   # room_code → session
-
-def _generate_room_code() -> str:
-    """Return a unique code like 'Jack21' not already in game_sessions."""
-    while True:
-        word   = secrets.choice(ROOM_WORDS)
-        number = 1 + secrets.randbelow(999)   # 1–999
-        code   = f"{word}{number}"
-        if code not in game_sessions:
-            return code
-
-
-# ---------------------------------------------------------------------------
-# Join rate-limiter — per source IP, applied to /join_room only.
-# ---------------------------------------------------------------------------
-_join_attempts: dict[str, list[float]] = defaultdict(list)
-
-
-def _join_rate_limited(ip: str) -> bool:
-    """Return True when this IP has exceeded the failed-join rate limit."""
-    now    = time.monotonic()
-    cutoff = now - JOIN_RATE_WINDOW
-    prev   = _join_attempts[ip]
-    # Drop expired entries
-    _join_attempts[ip] = [t for t in prev if t > cutoff]
-    if len(_join_attempts[ip]) >= JOIN_RATE_LIMIT:
-        return True
-    _join_attempts[ip].append(now)
-    return False
 
 
 _NAME_STRIP_RE = re.compile(r"[<>\"'`\\]")
@@ -1189,25 +1157,9 @@ def serve_manifest():
 # Lobby routes
 # ---------------------------------------------------------------------------
 
-_room_created_at: dict[str, float] = {}   # room_code → time.monotonic() at creation
-
-
-def _cleanup_stale_sessions():
-    """Drop rooms that were never set up (value is None) and are older than TTL."""
-    cutoff = time.monotonic() - SESSION_TTL
-    stale  = [code for code, s in game_sessions.items()
-               if s is None and _room_created_at.get(code, 0) < cutoff]
-    for code in stale:
-        del game_sessions[code]
-        _room_created_at.pop(code, None)
-
-
 @app.route("/create_room", methods=["POST"])
 def create_room():
-    _cleanup_stale_sessions()
-    code = _generate_room_code()
-    game_sessions[code]     = None   # slot reserved; game not yet started
-    _room_created_at[code]  = time.monotonic()
+    code = reserve_room()
     return jsonify({"ok": True, "code": code})
 
 
@@ -1223,11 +1175,11 @@ def join_room():
 
     # Rate-limit failed join attempts per source IP to slow enumeration.
     ip   = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
-    if _join_rate_limited(ip):
+    if is_join_rate_limited(ip):
         return jsonify({"ok": False, "error": "Too many attempts. Please wait a moment."}), 429
 
     # Case-insensitive lookup (codes are stored as "Ace427" etc.)
-    code = next((k for k in game_sessions if k.lower() == raw.lower()), None)
+    code = find_room_code(raw)
     if code is None:
         return jsonify(_bad)
 
@@ -1289,7 +1241,7 @@ def setup():
     drinking = bool(data.get("drinking", True))
 
     game_session                         = RefereeSession(players, dealer_name, wager, num_hands)
-    game_sessions[room_code]             = game_session   # store in room slot
+    set_session(room_code, game_session)
     game_session.mode                    = mode
     game_session.drinking_mode           = drinking
     game_session.rounds_this_dealer      = 1   # rounds the current dealer has held the role
@@ -2586,10 +2538,8 @@ def claim_milestone():
     for name, s in alloc.items():
         sip_word = "sip" if s == 1 else "sips"
         log_lines.append(f"  → {name} drinks {s} {sip_word}")
-    game_sessions[room_code]._log_entries = (
-        getattr(session, "_log_entries", []) + ["\n".join(log_lines)]
-    )
-    game_sessions[room_code]._log_version = getattr(session, "_log_version", 0) + 1
+    session._log_entries = getattr(session, "_log_entries", []) + ["\n".join(log_lines)]
+    session._log_version = getattr(session, "_log_version", 0) + 1
 
     session._pending_milestone     = None
     session._last_milestone_result = {
