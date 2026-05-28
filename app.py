@@ -889,9 +889,11 @@ def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str)
         for msg in msgs:
             _, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
-                # Ace-clubs credit — only ever fires for player hands, never hole card
+                # Ace-clubs credit — track immediately but suppress the print if
+                # the card is face-down (doubled hand) to avoid revealing it early.
                 session._ace_credits.append(recipient_name)
-                print(f"    (i) {reason}")
+                if not is_double_card:
+                    print(f"    (i) {reason}")
             elif is_hole_card or is_double_card:
                 # Defer: don't print or assign drinks until the card is revealed
                 # (hole card revealed at dealer turn; doubled card revealed at round-over)
