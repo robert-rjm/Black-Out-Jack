@@ -24,8 +24,9 @@ def sanitize_name(raw: str) -> str:
     and caps length at 20 characters.  Returns an empty string if nothing
     is left after sanitization.
     """
+    raw = raw[:40]                            # cap before regex (ReDoS guard)
     name = re.sub(r"<[^>]*>", "", raw)        # strip HTML tags
-    name = _NAME_STRIP_RE.sub("", name)        # strip dangerous chars
+    name = _NAME_STRIP_RE.sub("", name)       # strip dangerous chars
     name = name.strip()
     if not name:
         return ""
