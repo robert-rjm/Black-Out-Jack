@@ -16,7 +16,6 @@ import csv
 import io
 import contextlib
 import os
-import re
 import socket
 import time
 from collections import defaultdict
@@ -35,28 +34,11 @@ from app.services.session_store import (
     reserve_room, get_session, set_session, find_room_code,
     is_join_rate_limited,
 )
+from app.services.validators import sanitize_name, get_client_info, is_dealer_client
 
 app = Flask(__name__)
 
 
-_NAME_STRIP_RE = re.compile(r"[<>\"'`\\]")
-
-def _sanitize_name(raw: str) -> str:
-    """Sanitize a player name before storing it.
-
-    Strips HTML tags, removes characters that could break out of HTML
-    attribute or script contexts (<>\"'`\\), trims whitespace, capitalizes,
-    and caps length at 20 characters.  Returns an empty string if nothing
-    is left after sanitization.
-    """
-    # Remove HTML tags first
-    name = re.sub(r"<[^>]*>", "", raw)
-    # Strip characters dangerous in HTML/JS contexts
-    name = _NAME_STRIP_RE.sub("", name)
-    name = name.strip()
-    if not name:
-        return ""
-    return name.capitalize()[:20]
 
 
 # ---------------------------------------------------------------------------
@@ -313,27 +295,6 @@ def _check_and_set_milestone(session: RefereeSession):
     }
 
 
-def _get_client_info(session, client_id: str) -> dict:
-    """Return role/name/is_dealer info for a client_id. Safe if _room_clients missing."""
-    clients = getattr(session, "_room_clients", {})
-    info    = clients.get(client_id)          # None if not registered at all
-    if info is None:
-        return {"role": None, "name": None, "is_dealer": False}
-    if info.get("kicked"):
-        return {"role": "kicked", "name": None, "is_dealer": False}
-    role = info.get("role") or "spectator"
-    name = info.get("name")
-    # Dealer control follows the seat name, not the admin flag.
-    # Admin retains session management (kick etc.) but is only the
-    # dealer client when their registered name matches the current dealer.
-    is_dealer = (bool(name and name.lower() == session.dealer_name.lower()) or role == "admin")
-    return {"role": role, "name": name, "is_dealer": is_dealer}
-
-
-def _is_dealer_client(session, client_id: str) -> bool:
-    """True if this client is the admin or is registered as the current dealer."""
-    info = _get_client_info(session, client_id)
-    return info["is_dealer"] or info.get("role") == "admin"
 
 
 def _apply_queued_settings(session: RefereeSession) -> list[str]:
@@ -564,7 +525,7 @@ def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dic
     if not session:
         return {"ok": False}
 
-    _ci = _get_client_info(session, client_id) if client_id else {}
+    _ci = get_client_info(session, client_id) if client_id else {}
 
     dealer = session._get_dealer()
     phase  = _round_phase(session)
@@ -1214,7 +1175,7 @@ def setup():
     raw_players = data.get("players")
     if not isinstance(raw_players, list):
         return jsonify({"ok": False, "output": "Invalid players list."})
-    names = [_sanitize_name(n) for n in raw_players if isinstance(n, str) and n.strip()]
+    names = [sanitize_name(n) for n in raw_players if isinstance(n, str) and n.strip()]
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
         return jsonify({"ok": False, "output": "No player names provided."})
@@ -1228,7 +1189,7 @@ def setup():
         return jsonify({"ok": False, "output": "Invalid numeric field."})
     dealer_name = names[min(dealer_idx, len(names) - 1)]
 
-    npc_names = {_sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
+    npc_names = {sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
 
     players = []
     for name in names:
@@ -1354,7 +1315,7 @@ def command():
     }
     if (cmd in DEALER_GATED_CMDS
             and getattr(game_session, "_room_clients", None)
-            and not _is_dealer_client(game_session, client_id)):
+            and not is_dealer_client(game_session, client_id)):
         state = _serialize_state(game_session, client_id)
         state["output"] = "  Not authorised — only the dealer can do that.\n"
         return jsonify(state)
@@ -1692,7 +1653,7 @@ def register():
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
-    name      = _sanitize_name((data.get("name") or "").strip())
+    name      = sanitize_name((data.get("name") or "").strip())
 
     session = game_sessions.get(room_code)
     if not session:
@@ -1976,7 +1937,7 @@ def request_rejoin():
     data         = request.json or {}
     room_code    = (data.get("room_code") or "").strip()
     client_id    = (data.get("client_id") or "").strip()
-    display_name = _sanitize_name((data.get("display_name") or "").strip()) or "Unknown"
+    display_name = sanitize_name((data.get("display_name") or "").strip()) or "Unknown"
 
     session = game_sessions.get(room_code)
     if not session:
@@ -2124,7 +2085,7 @@ def suggest_action():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    if not _is_dealer_client(session, client_id):
+    if not is_dealer_client(session, client_id):
         return jsonify({"ok": False, "error": "Only the dealer can suggest actions."})
 
     if action not in ("h", "s", "d", "sp"):
