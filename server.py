@@ -43,320 +43,17 @@ from app.services.game_engine import (
     deal_card, deal_pending_split_cards,
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
 )
+from app.services.drink_tracker import classify_rule, harvest_drink_log, check_and_set_milestone
+from app.services.room_manager import (
+    NullTracker, patch_tracker, capture,
+    apply_queued_settings, rotate_dealer,
+)
 
 app = Flask(__name__)
 
 
 
 
-# ---------------------------------------------------------------------------
-# Null tracker — used in non-drinking mode so all tracker.apply() calls
-# become silent no-ops without touching referee.py or drinking_rules.py.
-# ---------------------------------------------------------------------------
-
-class _NullTracker:
-    """Drop-in replacement for DrinkTracker when drinking mode is off."""
-    def apply(self, msgs):                    pass
-    def apply_ace_clubs_credit(self, player): pass
-    def print_round_summary(self):            pass
-    def _handle_handout(self, *a, **kw):      pass
-
-
-# ---------------------------------------------------------------------------
-# Helpers (shared)
-# ---------------------------------------------------------------------------
-
-def _patch_tracker(session: RefereeSession):
-    """
-    Replace the interactive sip-handout prompt with auto round-robin so the
-    web version never blocks waiting for terminal input.
-    """
-    tracker = session.tracker
-
-    def web_handout(giver: str, total: int, reason: str):
-        print(f"    [drink] {reason}")
-        others = [p for p in tracker.players if p.name.lower() != giver.lower()]
-        if not others:
-            return
-        print(f"    {giver} auto-distributes {total} sip(s) round-robin")
-        for i in range(total):
-            t = others[i % len(others)]
-            t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)", "player")
-            print(f"    -> {t.name} +1 sip")
-
-    tracker._handle_handout = web_handout
-
-
-def _capture(fn, *args):
-    """Call fn(*args) and return everything it printed as a string."""
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        fn(*args)
-    return buf.getvalue()
-
-
-def _classify_rule(reason: str):
-    """
-    Normalise a raw drink-reason string to a short canonical rule name.
-    Returns None for bookkeeping entries that should not appear in the CSV.
-    Mirrors classify_rule() in simulation.py.
-    """
-    r = reason
-    if "A♣" in r and "credit" in r:          return None
-    if "protects" in r:                        return None
-    if "exempt" in r:                          return None
-    if "Hard Dealer Switch" in r:             return "Hard Dealer Switch"
-    if "net loss" in r:                       return "Net hand losses"
-    if "lost a doubled hand" in r:            return "Lost doubled hand"
-    if "lost a suited hand" in r:             return "Lost suited hand"
-    if "immunity exception" in r:             return "Doubled win (immunity break)"
-    if "won suited hand" in r:                return "Suited winning hand"
-    if "split hand" in r:                     return "Split win (immunity break)"
-    if "swept all hands" in r:               return "Other-player sweep"
-    if "Blackjack by" in r:                   return "Blackjack bonus"
-    if "4 Aces" in r and "first deal" in r:  return "Four Aces (first deal)"
-    if "4 Aces" in r and "end of round" in r: return "Four Aces (end of round)"
-    if "Dealer hand is all" in r:             return "Dealer suited hand"
-    if "handed" in r and "5-card 21" in r:   return "5-card 21 handout received"
-    if "won with" in r and "cards" in r:      return "5+ card win"
-    if "A♠" in r and "to dealer" in r:       return "Ace dealt: Ace of Spades (dealer hand)"
-    if "A♥" in r and "dealer" in r:          return "Ace dealt: Ace of Hearts (dealer hand)"
-    if "A♦" in r and "dealer" in r:          return "Ace dealt: Ace of Diamonds (dealer hand)"
-    if "A♠" in r:                            return "Ace dealt: Ace of Spades (player hand)"
-    if "A♥" in r:                            return "Ace dealt: Ace of Hearts (player hand)"
-    if "A♦" in r:                            return "Ace dealt: Ace of Diamonds (player hand)"
-    return "Other"
-
-
-def _harvest_drink_log(session: RefereeSession):
-    """
-    Copy the current round's drink_log entries from every player into the
-    session-wide CSV accumulator.  Call this right after cmd_endround() and
-    before start_round() resets drink_log to [].
-    """
-    rows = getattr(session, "_drink_csv_rows", [])
-    round_num = session.round_count
-    dealer    = session.dealer_name
-    for p in session.all_players:
-        for entry in p.drink_log:
-            sips   = entry[0]
-            reason = entry[1]
-            role   = entry[2] if len(entry) > 2 else "player"
-            if sips <= 0:
-                continue
-            rule = _classify_rule(reason)
-            if rule is None:
-                continue
-            rows.append({
-                "round":  round_num,
-                "dealer": dealer,
-                "player": p.name,
-                "role":   role,
-                "rule":   rule,
-                "sips":   sips,
-            })
-    session._drink_csv_rows = rows
-    # Update live sip ticker (raw totals, unfiltered)
-    ticker = getattr(session, "_sip_ticker", {})
-    for p in session.all_players:
-        for entry in p.drink_log:
-            sips = entry[0] if entry else 0
-            if sips > 0:
-                ticker[p.name] = ticker.get(p.name, 0) + sips
-    session._sip_ticker          = ticker
-    session._drink_log_harvested = True
-
-    # Track cumulative dealer-role sips separately (shown in dealer panel)
-    d_ticker = getattr(session, "_dealer_role_ticker", {})
-    for p in session.all_players:
-        for entry in p.drink_log:
-            sips = entry[0] if entry else 0
-            role = entry[2] if len(entry) > 2 else "player"
-            if sips > 0 and role == "dealer":
-                d_ticker[p.name] = d_ticker.get(p.name, 0) + sips
-    session._dealer_role_ticker = d_ticker
-
-    # Shift previous snapshot before overwriting (enables round-over comparison)
-    session._prev_round_sips   = getattr(session, "_last_round_sips",   {})
-    session._prev_round_drinks = getattr(session, "_last_round_drinks", [])
-
-    # Snapshot this round's per-player sip totals for the "Last Round" panel
-    last = {}
-    for p in session.all_players:
-        total = sum(e[0] for e in p.drink_log if e and e[0] > 0)
-        if total > 0:
-            last[p.name] = total
-    session._last_round_sips = last
-
-    # Detailed per-entry drink list with reasons for the Drinks pane
-    drinks_detail = []
-    for p in session.all_players:
-        for entry in p.drink_log:
-            if entry and len(entry) >= 2 and entry[0] > 0:
-                sips   = entry[0]
-                reason = entry[1]
-                if _classify_rule(reason) is None:   # skip bookkeeping entries
-                    continue
-                drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
-    session._last_round_drinks = drinks_detail
-
-    # Track hand outcomes (win/loss/push, split and double breakdowns) per player
-    hand_stats = getattr(session, "_hand_stats", {})
-    for p in session.all_players:
-        if p.is_dealer:
-            continue
-        if p.name not in hand_stats:
-            hand_stats[p.name] = {
-                "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
-                "split_hands": 0, "split_wins": 0,
-                "double_hands": 0, "double_wins": 0,
-            }
-        hs = hand_stats[p.name]
-        for hand in p.hands:
-            result = getattr(hand, "result", None)
-            if result not in ("win", "loss", "push"):
-                continue
-            hs["hands"] += 1
-            if result == "win":    hs["wins"]   += 1
-            elif result == "loss": hs["losses"] += 1
-            elif result == "push": hs["pushes"] += 1
-            if getattr(hand, "from_split", False):
-                hs["split_hands"] += 1
-                if result == "win": hs["split_wins"] += 1
-            if getattr(hand, "doubled", False):
-                hs["double_hands"] += 1
-                if result == "win": hs["double_wins"] += 1
-    session._hand_stats = hand_stats
-
-    # Track how each player fared as dealer — wins/losses/pushes from dealer's POV
-    # (Player hand "win" = dealer lost that hand, and vice versa)
-    dealer_stats = getattr(session, "_dealer_hand_stats", {})
-    dname = session.dealer_name
-    if dname not in dealer_stats:
-        dealer_stats[dname] = {"hands": 0, "wins": 0, "losses": 0, "pushes": 0}
-    ds = dealer_stats[dname]
-    for p in session.all_players:
-        if p.is_dealer:
-            continue
-        for hand in p.hands:
-            result = getattr(hand, "result", None)
-            if result not in ("win", "loss", "push"):
-                continue
-            ds["hands"] += 1
-            if result == "win":    ds["losses"] += 1  # player wins = dealer lost
-            elif result == "loss": ds["wins"]   += 1  # player loses = dealer won
-            elif result == "push": ds["pushes"] += 1
-    session._dealer_hand_stats = dealer_stats
-
-
-def _check_and_set_milestone(session: RefereeSession):
-    """
-    After harvesting a round's drink log, check whether any player has newly
-    crossed a MILESTONE_STEP boundary.  If so, record the winner in
-    session._pending_milestone so the frontend can display the handout UI.
-
-    Tiebreak: if two players hit the same boundary this round, the one with
-    fewest sips THIS round wins (prevents gaming the last round).  Alphabetical
-    name order breaks any remaining tie.
-
-    A boundary is only triggered once (tracked in session._milestones_claimed).
-    """
-    ticker  = getattr(session, "_sip_ticker", {})
-    last    = getattr(session, "_last_round_sips", {})
-    claimed = getattr(session, "_milestones_claimed", {})
-
-    # Build (boundary → list of candidates) for thresholds newly crossed
-    newly_hit: dict[int, list[tuple[int, str]]] = {}  # boundary → [(round_sips, name)]
-    for name, total in ticker.items():
-        # Find the highest unclaimed boundary this player has crossed
-        highest = (total // MILESTONE_STEP) * MILESTONE_STEP
-        if highest <= 0:
-            continue
-        # Walk backwards to find the lowest newly-crossed boundary for this player
-        prev_total = total - last.get(name, 0)
-        prev_boundary = (prev_total // MILESTONE_STEP) * MILESTONE_STEP
-        for boundary in range(prev_boundary + MILESTONE_STEP, highest + 1, MILESTONE_STEP):
-            if claimed.get(boundary):
-                continue  # someone else already owns this boundary
-            if boundary not in newly_hit:
-                newly_hit[boundary] = []
-            newly_hit[boundary].append((last.get(name, 0), name))
-
-    if not newly_hit:
-        return
-
-    # Only the lowest unclaimed boundary fires (one milestone at a time per round)
-    boundary = min(newly_hit.keys())
-    candidates = newly_hit[boundary]
-
-    # Tiebreak: fewest sips this round wins; alphabetical on tie
-    candidates.sort(key=lambda t: (t[0], t[1].lower()))
-    _round_sips, winner = candidates[0]
-
-    claimed[boundary] = winner
-    session._milestones_claimed = claimed
-    session._pending_milestone  = {
-        "boundary":   boundary,
-        "winner":     winner,
-        "handout":    MILESTONE_HANDOUT_SIPS,
-        "expires_at": time.monotonic() + MILESTONE_TTL,
-    }
-
-
-
-
-def _apply_queued_settings(session: RefereeSession) -> list[str]:
-    """Apply any queued settings to the session before a new round starts.
-    Returns a list of human-readable change descriptions."""
-    queued = getattr(session, "_queued_settings", {})
-    if not queued:
-        return []
-
-    changes = []
-
-    if "wager" in queued:
-        session.wager = queued["wager"]
-        changes.append(f"Sips/hand set to {queued['wager']}")
-
-    if "num_hands" in queued:
-        session.num_hands = queued["num_hands"]
-        changes.append(f"Hands/player set to {queued['num_hands']}")
-
-    if "num_decks" in queued and getattr(session, "mode", "referee") == "digital":
-        from blackjack import Shoe
-        session.shoe = Shoe(queued["num_decks"])
-        session.shoe.shuffle()
-        changes.append(f"Deck count set to {queued['num_decks']}")
-
-    for entry in queued.get("add_players", []):
-        name   = entry["name"]
-        is_npc = entry["is_npc"]
-        if not any(p.name == name for p in session.all_players):
-            p = NPC_Player(name) if is_npc else Player(name)
-            p.is_dealer = False
-            session.all_players.append(p)
-            changes.append(f"Added {'bot' if is_npc else 'player'} {name}")
-
-    for name in queued.get("remove_players", []):
-        before = len(session.all_players)
-        session.all_players = [p for p in session.all_players if p.name != name or p.is_dealer]
-        if len(session.all_players) < before:
-            changes.append(f"Removed player {name}")
-
-    session._queued_settings = {}
-    return changes
-
-
-def _newround_rotate(session: RefereeSession):
-    """Rotate the dealer role one seat clockwise."""
-    all_names  = [p.name for p in session.all_players]
-    cur_idx    = all_names.index(session.dealer_name)
-    new_dealer = all_names[(cur_idx + 1) % len(all_names)]
-    for p in session.all_players:
-        p.is_dealer   = (p.name == new_dealer)
-        p.dealer_hand = Hand() if p.is_dealer else None
-    session.dealer_name = new_dealer
-    print(f"  Dealer rotates => {new_dealer} is now dealer.")
 
 
 
@@ -536,11 +233,11 @@ def setup():
         game_session.shoe.shuffle()
 
     if drinking:
-        _patch_tracker(game_session)
+        patch_tracker(game_session)
     else:
-        game_session.tracker = _NullTracker()
+        game_session.tracker = NullTracker()
 
-    output = _capture(game_session.start_round)
+    output = capture(game_session.start_round)
     if output.strip():
         game_session._log_entries.append(output)
     state  = serialize_state(game_session, client_id)
@@ -803,22 +500,22 @@ def command():
                 # Auto-run dealer turn + evaluate all hands + assign drinks
                 dealer_turn(game_session)
                 game_session.cmd_endround()
-                _harvest_drink_log(game_session)
-                _check_and_set_milestone(game_session)
+                harvest_drink_log(game_session)
+                check_and_set_milestone(game_session)
 
             elif cmd == "endround":
                 game_session.cmd_endround()
-                _harvest_drink_log(game_session)
-                _check_and_set_milestone(game_session)
+                harvest_drink_log(game_session)
+                check_and_set_milestone(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
                 # Apply queued settings before the round starts
-                setting_changes = _apply_queued_settings(game_session)
+                setting_changes = apply_queued_settings(game_session)
                 for msg in setting_changes:
                     print(f"  ⚙️  {msg}")
                 if rotate:
-                    _newround_rotate(game_session)
+                    rotate_dealer(game_session)
                     game_session.rounds_this_dealer = 1
                 else:
                     game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
@@ -837,7 +534,7 @@ def command():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
                 game_session.start_round()
-                _patch_tracker(game_session)
+                patch_tracker(game_session)
 
             elif cmd in ("status", "st"):
                 game_session.cmd_status()
@@ -864,8 +561,8 @@ def command():
                     print("\n  (All players done — dealer plays automatically)")
                     dealer_turn(game_session)
                     game_session.cmd_endround()
-                    _harvest_drink_log(game_session)
-                    _check_and_set_milestone(game_session)
+                    harvest_drink_log(game_session)
+                    check_and_set_milestone(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
@@ -887,17 +584,17 @@ def command():
 
             elif cmd == "endround":
                 game_session.cmd_endround()
-                _harvest_drink_log(game_session)
-                _check_and_set_milestone(game_session)
+                harvest_drink_log(game_session)
+                check_and_set_milestone(game_session)
 
             elif cmd == "newround":
                 rotate = len(parts) > 1 and parts[1].lower() == "rotate"
                 # Apply queued settings before the round starts
-                setting_changes = _apply_queued_settings(game_session)
+                setting_changes = apply_queued_settings(game_session)
                 for msg in setting_changes:
                     print(f"  ⚙️  {msg}")
                 if rotate:
-                    _newround_rotate(game_session)
+                    rotate_dealer(game_session)
                     game_session.rounds_this_dealer = 1
                 else:
                     game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
@@ -912,7 +609,7 @@ def command():
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session._pending_milestone = None  # clear between rounds
                 game_session.start_round()
-                _patch_tracker(game_session)
+                patch_tracker(game_session)
 
             elif cmd in ("status", "st"):
                 game_session.cmd_status()
@@ -1820,7 +1517,7 @@ def rotate_dealer():
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Admin only."})
 
-    _newround_rotate(session)
+    rotate_dealer(session)
     session.rounds_this_dealer = 1
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
