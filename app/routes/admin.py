@@ -22,7 +22,6 @@ from flask import Blueprint, jsonify, request
 
 from app.config import MILESTONE_HANDOUT_SIPS
 from app.services.session_store import game_sessions
-from app.services.validators    import is_dealer_client
 from app.services.serializer    import serialize_state, round_phase
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
