@@ -28,6 +28,12 @@ from flask import Flask, request, jsonify, render_template, Response, send_from_
 from referee import RefereeSession
 from blackjack import Player, Hand, Shoe, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
+from app.config import (
+    ROOM_WORDS,
+    JOIN_RATE_LIMIT, JOIN_RATE_WINDOW,
+    MILESTONE_STEP, MILESTONE_HANDOUT_SIPS, MILESTONE_TTL,
+    SESSION_TTL,
+)
 
 app = Flask(__name__)
 
@@ -35,12 +41,6 @@ app = Flask(__name__)
 # Multi-room state — keyed by room code (e.g. "Jack21")
 # ---------------------------------------------------------------------------
 game_sessions: dict[str, "RefereeSession | None"] = {}   # room_code → session
-
-ROOM_WORDS = [
-    # Original set
-    "Ace", "Bets", "Bluff", "Bust", "Cards", "Club", "Deal", "Diamond", "Double", "Flush", "Heart",
-    "Hit", "Jack", "Joker", "King", "Luck", "Queen", "Spade", "Split", "Stand", "Suit", "Table",
-]
 
 def _generate_room_code() -> str:
     """Return a unique code like 'Jack21' not already in game_sessions."""
@@ -56,26 +56,16 @@ def _generate_room_code() -> str:
 # Join rate-limiter — per source IP, applied to /join_room only.
 # ---------------------------------------------------------------------------
 _join_attempts: dict[str, list[float]] = defaultdict(list)
-_JOIN_RATE_LIMIT  = 5   # max failed attempts
-_JOIN_RATE_WINDOW = 30   # per N seconds
-
-# ---------------------------------------------------------------------------
-# Milestone feature — first player to cross each 50-sip boundary wins 5 sips
-# to hand out (split however they like, cannot give to self).
-# ---------------------------------------------------------------------------
-_MILESTONE_STEP         = 50   # sip threshold multiples to celebrate
-_MILESTONE_HANDOUT_SIPS = 5    # sips the winner distributes
-_MILESTONE_TTL          = 60   # seconds before unclaimed handout is forfeited
 
 
 def _join_rate_limited(ip: str) -> bool:
     """Return True when this IP has exceeded the failed-join rate limit."""
     now    = time.monotonic()
-    cutoff = now - _JOIN_RATE_WINDOW
+    cutoff = now - JOIN_RATE_WINDOW
     prev   = _join_attempts[ip]
     # Drop expired entries
     _join_attempts[ip] = [t for t in prev if t > cutoff]
-    if len(_join_attempts[ip]) >= _JOIN_RATE_LIMIT:
+    if len(_join_attempts[ip]) >= JOIN_RATE_LIMIT:
         return True
     _join_attempts[ip].append(now)
     return False
@@ -304,7 +294,7 @@ def _harvest_drink_log(session: RefereeSession):
 def _check_and_set_milestone(session: RefereeSession):
     """
     After harvesting a round's drink log, check whether any player has newly
-    crossed a _MILESTONE_STEP boundary.  If so, record the winner in
+    crossed a MILESTONE_STEP boundary.  If so, record the winner in
     session._pending_milestone so the frontend can display the handout UI.
 
     Tiebreak: if two players hit the same boundary this round, the one with
@@ -321,13 +311,13 @@ def _check_and_set_milestone(session: RefereeSession):
     newly_hit: dict[int, list[tuple[int, str]]] = {}  # boundary → [(round_sips, name)]
     for name, total in ticker.items():
         # Find the highest unclaimed boundary this player has crossed
-        highest = (total // _MILESTONE_STEP) * _MILESTONE_STEP
+        highest = (total // MILESTONE_STEP) * MILESTONE_STEP
         if highest <= 0:
             continue
         # Walk backwards to find the lowest newly-crossed boundary for this player
         prev_total = total - last.get(name, 0)
-        prev_boundary = (prev_total // _MILESTONE_STEP) * _MILESTONE_STEP
-        for boundary in range(prev_boundary + _MILESTONE_STEP, highest + 1, _MILESTONE_STEP):
+        prev_boundary = (prev_total // MILESTONE_STEP) * MILESTONE_STEP
+        for boundary in range(prev_boundary + MILESTONE_STEP, highest + 1, MILESTONE_STEP):
             if claimed.get(boundary):
                 continue  # someone else already owns this boundary
             if boundary not in newly_hit:
@@ -350,8 +340,8 @@ def _check_and_set_milestone(session: RefereeSession):
     session._pending_milestone  = {
         "boundary":   boundary,
         "winner":     winner,
-        "handout":    _MILESTONE_HANDOUT_SIPS,
-        "expires_at": time.monotonic() + _MILESTONE_TTL,
+        "handout":    MILESTONE_HANDOUT_SIPS,
+        "expires_at": time.monotonic() + MILESTONE_TTL,
     }
 
 
@@ -1199,13 +1189,12 @@ def serve_manifest():
 # Lobby routes
 # ---------------------------------------------------------------------------
 
-_SESSION_TTL      = 12 * 3600   # seconds — rooms older than this are eligible for cleanup
 _room_created_at: dict[str, float] = {}   # room_code → time.monotonic() at creation
 
 
 def _cleanup_stale_sessions():
     """Drop rooms that were never set up (value is None) and are older than TTL."""
-    cutoff = time.monotonic() - _SESSION_TTL
+    cutoff = time.monotonic() - SESSION_TTL
     stale  = [code for code, s in game_sessions.items()
                if s is None and _room_created_at.get(code, 0) < cutoff]
     for code in stale:
@@ -2522,7 +2511,7 @@ def claim_milestone():
     Rules enforced server-side:
       - Only the milestone winner may submit.
       - Cannot allocate to self.
-      - Total must equal _MILESTONE_HANDOUT_SIPS (5).
+      - Total must equal MILESTONE_HANDOUT_SIPS (5).
       - Each allocation must be a non-negative integer.
       - Must be submitted before the TTL expires.
     """
@@ -2567,9 +2556,9 @@ def claim_milestone():
             alloc[name] = s
 
     total = sum(alloc.values())
-    if total != _MILESTONE_HANDOUT_SIPS:
+    if total != MILESTONE_HANDOUT_SIPS:
         return jsonify({"ok": False,
-                        "error": f"Must distribute exactly {_MILESTONE_HANDOUT_SIPS} sips (got {total})."})
+                        "error": f"Must distribute exactly {MILESTONE_HANDOUT_SIPS} sips (got {total})."})
 
     # Apply to sip ticker — these sips go to the recipients, not to the winner
     ticker = getattr(session, "_sip_ticker", {})
