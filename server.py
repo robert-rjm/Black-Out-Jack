@@ -39,6 +39,10 @@ from app.services.serializer import (
     serialize_state, serialize_card,
     round_phase, current_turn, hand_done, play_order,
 )
+from app.services.game_engine import (
+    deal_card, deal_pending_split_cards,
+    get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
+)
 
 app = Flask(__name__)
 
@@ -357,375 +361,6 @@ def _newround_rotate(session: RefereeSession):
 
 
 
-# ---------------------------------------------------------------------------
-# Digital mode helpers
-# ---------------------------------------------------------------------------
-
-def _deal_pending_split_cards(session: RefereeSession):
-    """
-    After any player action, check whether a split hand is waiting for its
-    second card and its predecessor is now fully done (stood/bust/BJ).
-    Deals the second card automatically so the player can immediately play it.
-    Handles chain splits by looping until no more cards need to be dealt.
-    """
-    changed = True
-    while changed:
-        changed = False
-        for p in session.all_players:
-            for i, hand in enumerate(p.hands):
-                if not (hand.from_split and len(hand.cards) == 1):
-                    continue
-                # Use raw done-ness of predecessor (bypass the 1-card guard in hand_done)
-                if i == 0:
-                    prev_done = True
-                else:
-                    prev = p.hands[i - 1]
-                    prev_done = (len(prev.cards) >= 2 and
-                                 (prev.stood or prev.bust or
-                                  prev.is_bust() or prev.is_blackjack()))
-                if not prev_done:
-                    continue
-                _digital_deal_card(session, hand, p.name)
-                print(f"  {p.name} hand{i+1}: second card dealt — {hand}")
-                if hand.is_blackjack():
-                    hand.stood = True
-                    print(f"  {p.name} hand{i+1}: BLACKJACK! auto-stands.")
-                    # Create an insurance vote entry for this split BJ if dealer
-                    # shows Ace and one doesn't already exist for this hand.
-                    dealer = session._get_dealer()
-                    if (dealer and dealer.dealer_hand and dealer.dealer_hand.cards
-                            and dealer.dealer_hand.cards[0].rank.label == "A"
-                            and getattr(session, "drinking_mode", True)):
-                        existing = next(
-                            (v for v in getattr(session, "_insurance_votes", [])
-                             if v["player"] == p.name and v["hand_idx"] == i),
-                            None,
-                        )
-                        if not existing:
-                            session._insurance_votes.append({
-                                "player":   p.name,
-                                "hand_idx": i,
-                                "votes":    {},
-                                "resolved": False,
-                            })
-                elif hand.score() == 21:
-                    hand.stood = True
-                    print(f"  {p.name} hand{i+1}: auto-stands at 21.")
-                elif hand.is_bust():
-                    hand.bust = hand.stood = True
-                    hand.result = "loss"
-                    print(f"  {p.name} hand{i+1}: BUST on second card!")
-                changed = True
-                break          # restart scan after each deal
-            if changed:
-                break
-
-
-def _digital_get_player_hand(player, hand_label: str):
-    """
-    Get a player's betting hand by label, always using player.hands[idx].
-    Unlike RefereeSession._get_hand, this never redirects to dealer_hand,
-    so the dealer-player can still play their own betting hands.
-    """
-    try:
-        idx = int(hand_label.lower().replace("hand", "").strip()) - 1
-    except (ValueError, AttributeError):
-        idx = 0
-    while len(player.hands) <= idx:
-        player.hands.append(Hand())
-    return player.hands[idx]
-
-
-def _digital_deal_card(session: RefereeSession, hand: Hand, recipient_name: str):
-    """Deal one card from shoe into hand and fire ace drinking rules."""
-    card     = session.shoe.deal_card()
-    card_pos = len(hand.cards) + 1
-    hand.cards.append(card)
-
-    if getattr(session, "drinking_mode", True):
-        all_names      = [p.name for p in session.all_players]
-        dealer         = session._get_dealer()
-        is_dealer_hand = (dealer is not None and hand is dealer.dealer_hand)
-        # card_pos==2 on the dealer hand = the hidden hole card; defer messages
-        # until _digital_dealer_turn so the ace is not spoiled in the log.
-        # hand.doubled being True when _digital_deal_card is called means this
-        # card is the face-down doubled card — defer for the same reason.
-        # Note: on_card_dealt already mutates ace_clubs_flag directly before
-        # returning, so the game-mechanic side-effect is always immediate.
-        is_hole_card   = is_dealer_hand and card_pos == 2
-        is_double_card = (not is_dealer_hand) and hand.doubled  # face-down doubled card
-        msgs = DrinkingRules.on_card_dealt(
-            card, recipient_name, card_pos,
-            all_names, session.dealer_name,
-            session._ace_clubs_flag,
-            is_dealer_hand=is_dealer_hand,
-        )
-        for msg in msgs:
-            _, s, reason = msg[0], msg[1], msg[2]
-            if s == -1:
-                # Ace-clubs credit — track immediately but suppress the print if
-                # the card is face-down (doubled hand) to avoid revealing it early.
-                session._ace_credits.append(recipient_name)
-                if not is_double_card:
-                    print(f"    (i) {reason}")
-            elif is_hole_card or is_double_card:
-                # Defer: don't print or assign drinks until the card is revealed
-                # (hole card revealed at dealer turn; doubled card revealed at round-over)
-                if not hasattr(session, "_deferred_hole_card_msgs"):
-                    session._deferred_hole_card_msgs = []
-                session._deferred_hole_card_msgs.append(msg)
-            else:
-                session.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
-    return card
-
-
-def _digital_initial_deal(session: RefereeSession):
-    """Deal 2 cards to every player hand and the dealer hand from the shoe."""
-    session._deferred_hole_card_msgs = []   # reset for fresh deal
-    dealer = session._get_dealer()
-
-    print("\n--- Dealing ---")
-    for _ in range(2):
-        for p in session.all_players:
-            for hand in p.hands:
-                _digital_deal_card(session, hand, p.name)
-        _digital_deal_card(session, dealer.dealer_hand, dealer.name)
-
-    print(f"\n  Dealer ({dealer.name}) shows: {dealer.dealer_hand.cards[0]}, ?")
-    for p in session.all_players:
-        for i, hand in enumerate(p.hands):
-            tag = " (also dealer)" if p.is_dealer else ""
-            print(f"  {p.name}{tag} Hand {i+1}: {hand}")
-            if hand.is_blackjack():
-                print(f"  *** {p.name} Hand {i+1} — BLACKJACK! ***")
-
-    # Four-aces check after first deal (drinking mode only)
-    if getattr(session, "drinking_mode", True):
-        all_cards = [c for p in session.all_players for h in p.hands for c in h.cards]
-        all_cards += dealer.dealer_hand.cards
-        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, "first_deal", session._four_aces_fd)
-        session.tracker.apply(msgs)
-
-    # Set up insurance vote slots if dealer shows Ace
-    # Each entry: { "player": name, "hand_idx": i, "votes": {voter: bool}, "resolved": False }
-    session._insurance_votes = []
-    if dealer.dealer_hand.cards[0].rank.label == "A" and getattr(session, "drinking_mode", True):
-        for p in session.all_players:
-            for i, hand in enumerate(p.hands):
-                if hand.is_blackjack():
-                    session._insurance_votes.append({
-                        "player":   p.name,
-                        "hand_idx": i,
-                        "votes":    {},      # voter_name -> True (insure) / False (decline)
-                        "resolved": False,
-                    })
-
-
-def _digital_dealer_turn(session: RefereeSession):
-    """
-    Reveal dealer hole card, hit until 17+, then auto-evaluate all player
-    hands and fire the relevant drinking rules.
-    """
-    dealer = session._get_dealer()
-    d_hand = dealer.dealer_hand
-
-    # Now that the dealer hand is revealed, apply any ace drinking rules that
-    # were deferred to avoid spoiling hidden cards (dealer hole card + any
-    # face-down doubled cards dealt during the round).
-    deferred = getattr(session, "_deferred_hole_card_msgs", [])
-    if deferred:
-        session.tracker.apply(deferred)
-        session._deferred_hole_card_msgs = []
-
-    print(f"\n--- Dealer ({dealer.name}) reveals ---")
-    print(f"  Full hand: {d_hand}")
-
-    if d_hand.is_blackjack():
-        print("  Dealer BLACKJACK!")
-    else:
-        while d_hand.score() < 17:
-            card = _digital_deal_card(session, d_hand, dealer.name)
-            print(f"  Dealer hits: {card}  -> {d_hand}")
-        if d_hand.is_bust():
-            print("  Dealer BUSTS!")
-        else:
-            print(f"  Dealer stands at {d_hand.score()}.")
-
-    drinking = getattr(session, "drinking_mode", True)
-    if drinking:
-        session.tracker.apply(DrinkingRules.on_dealer_hand_revealed(d_hand))
-        if DrinkingRules.dealer_21_five_cards(d_hand):
-            print(f"\n  ★ Dealer 21 with {len(d_hand.cards)} cards — wager DOUBLED this round!")
-
-    # Auto-evaluate every player hand
-    print("\n--- Results ---")
-    dealer_bj       = d_hand.is_blackjack()
-    winning_hds     = []
-    all_names       = [p.name for p in session.all_players]
-
-    if dealer_bj and drinking:
-        print("  ★ Dealer blackjack — auto-insurance: only net-loss sips will apply.")
-
-    # Pass 1 — evaluate all results, collect wins/losses (no drinking events yet)
-    for p in session.all_players:
-        for i, hand in enumerate(p.hands):
-            if not hand.result:
-                hand.result = HandEvaluator.compare(hand, d_hand)
-            icon = {"win": "WIN", "loss": "LOSS", "push": "PUSH"}[hand.result]
-            print(f"  {p.name} Hand {i+1}: {hand}  => {icon}")
-            if hand.result == "win":
-                winning_hds.append((p.name, hand))
-
-    # Detect hard / soft dealer switch for rotation suggestion.
-    # A push on ANY hand cancels both switches — all results must be uniform.
-    all_results = [h.result for p in session.all_players for h in p.hands]
-    hard_switch = bool(all_results) and all(r == "win"  for r in all_results)
-    soft_switch = bool(all_results) and all(r == "loss" for r in all_results)
-    if soft_switch:
-        insured_bj = any(
-            h.insured and h.is_blackjack()
-            for p in session.all_players for h in p.hands
-        )
-        if insured_bj:
-            soft_switch = False
-            print("  Soft Switch suppressed — insurance on blackjack.")
-    if hard_switch:
-        session.switch_this_round = "hard"
-        print("  >>> HARD DEALER SWITCH <<<")
-    elif soft_switch:
-        session.switch_this_round = "soft"
-        print("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
-    else:
-        session.switch_this_round = None
-
-    # Pass 2 — fire drinking events now that hard_switch is known.
-    # Dealer is exempt from bonus-win drinks ONLY on a hard switch.
-    if drinking:
-        exempt_dealer  = session.dealer_name if hard_switch else ""
-        insurance_votes = getattr(session, "_insurance_votes", [])
-        voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
-
-        for p in session.all_players:
-            for i, hand in enumerate(p.hands):
-                if hand.is_blackjack() and (p.name, i) in voted_keys:
-                    # Resolve via group vote — always, even when result is "push"
-                    # (dealer BJ causes a push, but insured hands still need resolution).
-                    vote = next(v for v in insurance_votes
-                                if v["player"] == p.name and v["hand_idx"] == i)
-                    voters        = [x for x in session.all_players if x.name != p.name]
-                    insure_count  = sum(1 for v in vote["votes"].values() if v)
-                    # Non-insure voters (human abstain + explicit decline + NPC default decline)
-                    # all simplify to: total voters minus those who voted insure
-                    decline_count = len(voters) - insure_count
-                    insured       = insure_count > decline_count  # tie → decline
-                    vote["resolved"] = True
-                    session.tracker.apply(
-                        DrinkingRules.resolve_insurance_vote(
-                            p.name, hand, all_names,
-                            insured=insured, dealer_bj=dealer_bj,
-                            hard_switch_dealer=exempt_dealer))
-                elif hand.is_blackjack() and hand.result == "win":
-                    # No vote held (dealer didn't show Ace) — normal BJ bonus
-                    session.tracker.apply(
-                        DrinkingRules.on_blackjack(p.name, hand, all_names,
-                                                   hard_switch_dealer=exempt_dealer))
-                session.tracker.apply(
-                    DrinkingRules.on_hand_resolved(p.name, hand, all_names,
-                                                   dealer_bj=dealer_bj,
-                                                   dealer_name=exempt_dealer))
-
-        # All-hands sweep (same suit or all-21 across split hands)
-        for p in session.all_players:
-            if p.is_dealer:
-                continue
-            session.tracker.apply(
-                DrinkingRules.check_all_hands_sweep(
-                    p.name, p.hands, all_names, session.wager,
-                    dealer_name=exempt_dealer, dealer_bj=dealer_bj))
-
-        # Four-aces end-of-round check
-        all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
-        all_cards += d_hand.cards
-        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, "end_of_round", session._four_aces_fd)
-        session.tracker.apply(msgs)
-
-
-# ---------------------------------------------------------------------------
-# NPC auto-play
-# ---------------------------------------------------------------------------
-
-def _auto_play_npc_turns(session: RefereeSession):
-    """
-    Auto-play all consecutive NPC turns using basic strategy.
-    Loops until the current turn belongs to a human player, no one
-    is up, or the phase leaves 'playing'. Safety-capped at 100 steps.
-    """
-    for _ in range(100):
-        _deal_pending_split_cards(session)
-        if round_phase(session) != "playing":
-            break
-        turn = current_turn(session)
-        if not turn:
-            break
-        player = session._get_player(turn)
-        if not player or not getattr(player, "is_npc", False):
-            break  # human's turn — stop
-
-        hand = next((h for h in player.hands if not hand_done(h)), None)
-        if not hand:
-            break
-
-        hand_idx   = player.hands.index(hand)
-        hand_label = f"hand{hand_idx + 1}"
-        dealer     = session._get_dealer()
-        dealer_up  = dealer.dealer_hand.cards[0]
-
-        valid = ["h", "s"]
-        if len(hand.cards) == 2 and not hand.doubled:
-            valid.append("d")
-        if hand.can_split():
-            valid.append("sp")
-
-        action = NPC_Player.best_play(
-            hand, dealer_up, valid,
-            drinking_mode=getattr(session, "drinking_mode", True))
-        print(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
-
-        if action == "h":
-            card = _digital_deal_card(session, hand, player.name)
-            print(f"  {player.name} {hand_label} hits {card}: {hand}")
-            if hand.is_bust():
-                hand.bust = hand.stood = True
-                hand.result = "loss"
-                print("  BUST!")
-            elif hand.score() == 21:
-                hand.stood = True
-                print(f"  {player.name} {hand_label}: auto-stands at 21.")
-
-        elif action == "s":
-            hand.stood = True
-            print(f"  {player.name} {hand_label}: stands at {hand.score()}.")
-
-        elif action == "d":
-            hand.doubled = True
-            _digital_deal_card(session, hand, player.name)
-            hand.stood = True
-            print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
-            if hand.is_bust():
-                hand.bust = True
-                hand.result = "loss"
-
-        elif action == "sp":
-            new_hand = Hand(from_split=True)
-            new_hand.cards.append(hand.cards.pop())
-            hand.from_split    = True
-            hand.split_count  += 1
-            new_hand.split_count = hand.split_count
-            player.hands.insert(hand_idx + 1, new_hand)
-            _digital_deal_card(session, hand, player.name)
-            print(f"  {player.name} splits {hand_label}")
 
 
 # ---------------------------------------------------------------------------
@@ -986,8 +621,8 @@ def command():
                 game_session._last_peeked = None   # peeked card is now stale
                 game_session._preselections = {}
                 game_session._suggestions   = {}
-                _digital_initial_deal(game_session)
-                _auto_play_npc_turns(game_session)
+                initial_deal(game_session)
+                auto_play_npc_turns(game_session)
 
             elif cmd == "hit":
                 # hit <player> [hand<n>]
@@ -999,11 +634,11 @@ def command():
                         print(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
-                        hand       = _digital_get_player_hand(player, hand_label)
+                        hand       = get_player_hand(player, hand_label)
                         if hand.stood or hand.bust:
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
-                            card = _digital_deal_card(game_session, hand, player.name)
+                            card = deal_card(game_session, hand, player.name)
                             print(f"  {player.name} {hand_label} hits {card}: {hand}")
                             if hand.is_bust():
                                 hand.bust = hand.stood = True
@@ -1023,7 +658,7 @@ def command():
                         print(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label  = parts[2] if len(parts) > 2 else "hand1"
-                        hand        = _digital_get_player_hand(player, hand_label)
+                        hand        = get_player_hand(player, hand_label)
                         if hand.stood or hand.bust:
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
@@ -1040,14 +675,14 @@ def command():
                         print(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
-                        hand       = _digital_get_player_hand(player, hand_label)
+                        hand       = get_player_hand(player, hand_label)
                         if len(hand.cards) != 2:
                             print("  Can only double on first two cards.")
                         elif hand.stood or hand.bust:
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
                             hand.doubled = True
-                            _digital_deal_card(game_session, hand, player.name)
+                            deal_card(game_session, hand, player.name)
                             hand.stood   = True
                             print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
                             if hand.is_bust():
@@ -1064,7 +699,7 @@ def command():
                         print(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
-                        hand       = _digital_get_player_hand(player, hand_label)
+                        hand       = get_player_hand(player, hand_label)
                         if not hand.can_split():
                             # Give a specific message when the split limit is the reason
                             if (len(hand.cards) == 2
@@ -1084,7 +719,7 @@ def command():
                             new_label = f"hand{idx + 2}"
                             player.hands.insert(idx + 1, new_hand)
                             # Deal second card to H1; check for instant 21/bust
-                            _digital_deal_card(game_session, hand, player.name)
+                            deal_card(game_session, hand, player.name)
                             if hand.score() == 21:
                                 hand.stood = True
                                 print(f"  {player.name} splits:")
@@ -1111,13 +746,13 @@ def command():
                         print(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
-                        hand       = _digital_get_player_hand(player, hand_label)
+                        hand       = get_player_hand(player, hand_label)
                         if not hand.is_blackjack():
                             print("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                         else:
                             hand.insured = True
                             # Sync with the vote system: force all voters' votes to True so
-                            # _digital_dealer_turn resolves this hand as insured via voted_keys.
+                            # dealer_turn resolves this hand as insured via voted_keys.
                             hand_idx   = player.hands.index(hand)
                             vote_entry = next(
                                 (v for v in getattr(game_session, "_insurance_votes", [])
@@ -1141,7 +776,7 @@ def command():
                         print(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
-                        hand       = _digital_get_player_hand(player, hand_label)
+                        hand       = get_player_hand(player, hand_label)
                         hand.stood = True
                         all_names  = [p.name for p in game_session.all_players]
                         game_session.tracker.apply(
@@ -1166,7 +801,7 @@ def command():
 
             elif cmd == "dealer":
                 # Auto-run dealer turn + evaluate all hands + assign drinks
-                _digital_dealer_turn(game_session)
+                dealer_turn(game_session)
                 game_session.cmd_endround()
                 _harvest_drink_log(game_session)
                 _check_and_set_milestone(game_session)
@@ -1223,11 +858,11 @@ def command():
             # After any player action: deal pending second cards to split hands
             # whose predecessor just finished, then check if dealer should auto-play
             if cmd in {"hit", "stand", "double", "split"}:
-                _deal_pending_split_cards(game_session)
-                _auto_play_npc_turns(game_session)
+                deal_pending_split_cards(game_session)
+                auto_play_npc_turns(game_session)
                 if round_phase(game_session) == "dealer-ready":
                     print("\n  (All players done — dealer plays automatically)")
-                    _digital_dealer_turn(game_session)
+                    dealer_turn(game_session)
                     game_session.cmd_endround()
                     _harvest_drink_log(game_session)
                     _check_and_set_milestone(game_session)
@@ -1451,7 +1086,7 @@ def make_bot():
 
     # If it's the new bot's turn, auto-play immediately
     if round_phase(session) == "playing":
-        _auto_play_npc_turns(session)
+        auto_play_npc_turns(session)
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
