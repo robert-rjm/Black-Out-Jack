@@ -35,6 +35,10 @@ from app.services.session_store import (
     is_join_rate_limited,
 )
 from app.services.validators import sanitize_name, get_client_info, is_dealer_client
+from app.services.serializer import (
+    serialize_state, serialize_card,
+    round_phase, current_turn, hand_done, play_order,
+)
 
 app = Flask(__name__)
 
@@ -351,355 +355,6 @@ def _newround_rotate(session: RefereeSession):
     print(f"  Dealer rotates => {new_dealer} is now dealer.")
 
 
-# ---------------------------------------------------------------------------
-# State serialization & turn tracking
-# ---------------------------------------------------------------------------
-
-def _play_order(session: RefereeSession):
-    """
-    Turn order: dealer's left clockwise, dealer-player goes last.
-    Returns list of player names.
-    """
-    all_names = [p.name for p in session.all_players]
-    if session.dealer_name not in all_names:
-        return all_names
-    d_idx = all_names.index(session.dealer_name)
-    order = []
-    for i in range(1, len(all_names)):
-        order.append(all_names[(d_idx + i) % len(all_names)])
-    order.append(session.dealer_name)  # dealer plays their player hands last
-    return order
-
-
-def _hand_done(hand: Hand) -> bool:
-    """True if hand cannot/should not act anymore."""
-    # Split hand with only 1 card is waiting for its second card — not playable yet
-    if hand.from_split and len(hand.cards) < 2:
-        return True
-    return hand.stood or hand.bust or hand.is_bust() or hand.is_blackjack()
-
-
-def _player_done(player) -> bool:
-    """True if every betting hand for this player is finished."""
-    if not player.hands:
-        return True
-    return all(_hand_done(h) for h in player.hands)
-
-
-def _current_turn(session: RefereeSession):
-    """
-    Whose turn is it right now?
-    Returns the player name, or None if no one is up (pre-deal or dealer phase).
-    Only meaningful when initial deal has happened.
-    """
-    # Any cards on the table?
-    has_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
-    if not has_cards:
-        return None
-
-    for name in _play_order(session):
-        p = session._get_player(name)
-        if p and not _player_done(p):
-            return name
-    return None  # all player hands done -> dealer phase
-
-
-def _round_phase(session: RefereeSession) -> str:
-    """
-    'pre-deal'     -> waiting for initial deal
-    'playing'      -> at least one player still has an active hand
-    'dealer-ready' -> all player hands done, dealer hand not yet fully revealed
-    'round-over'   -> dealer has stood/busted, results assigned
-    """
-    dealer = session._get_dealer()
-    has_player_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
-    if not has_player_cards:
-        return "pre-deal"
-
-    if _current_turn(session) is not None:
-        return "playing"
-
-    # Player hands all done. Has dealer hand finished?
-    d_hand = dealer.dealer_hand if dealer else None
-    if d_hand and (d_hand.stood or d_hand.is_bust() or d_hand.score() >= 17 or d_hand.is_blackjack()):
-        # Look for any unresolved results — if all hands have a result, round is over.
-        all_resolved = all(
-            h.result is not None for p in session.all_players for h in p.hands
-        )
-        if all_resolved:
-            return "round-over"
-    return "dealer-ready"
-
-
-def _serialize_card(card) -> dict:
-    """Compact JSON for a single card."""
-    return {
-        "rank": card.rank.label,
-        "suit": card.suit.value,   # 'hearts' | 'diamonds' | 'clubs' | 'spades'
-        "symbol": card.suit.symbol,
-    }
-
-
-def _serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
-    cards = [_serialize_card(c) for c in hand.cards]
-    # Doubled card is dealt face-down until dealer plays
-    is_hidden_double = hide_double and hand.doubled
-    if is_hidden_double and len(cards) > 0:
-        cards[-1] = {"rank": "?", "suit": "hidden", "symbol": "?"}
-    return {
-        "cards":       cards,
-        # Hide score and bust status while the doubled card is still face-down
-        "score":       None if is_hidden_double else (hand.score() if hand.cards else 0),
-        "stood":       hand.stood,
-        "bust":        False if is_hidden_double else (hand.bust or bool(hand.cards and hand.is_bust())),
-        "doubled":     hand.doubled,
-        "from_split":  hand.from_split,
-        "insured":     hand.insured,
-        "result":      None if is_hidden_double else hand.result,
-        "blackjack":   bool(hand.cards) and hand.is_blackjack(),
-        "done":        _hand_done(hand),
-        "can_split":   hand.can_split(),
-    }
-
-
-def _compute_best_play(session: "RefereeSession", turn: str | None, phase: str) -> str | None:
-    """
-    Return the basic-strategy best action ('h'|'s'|'d'|'sp') for the
-    current active hand, or None when it's not applicable.
-    Always assumes drinking mode (web is always drinking mode).
-    """
-    if phase != "playing" or not turn:
-        return None
-    player = session._get_player(turn)
-    if not player:
-        return None
-    dealer = session._get_dealer()
-    if not dealer or not dealer.dealer_hand or not dealer.dealer_hand.cards:
-        return None
-    # First non-done hand
-    hand = next((h for h in player.hands if not _hand_done(h)), None)
-    if not hand or not hand.cards:
-        return None
-    dealer_up = dealer.dealer_hand.cards[0]
-    valid = ["h", "s"]
-    if len(hand.cards) == 2 and not hand.doubled:
-        valid.append("d")
-    if hand.can_split():
-        valid.append("sp")
-    return NPC_Player.best_play(hand, dealer_up, valid, drinking_mode=True)
-
-
-def _compute_sip_totals(session: RefereeSession) -> dict:
-    """Return cumulative sip counts per player: past rounds + current round."""
-    if not getattr(session, "drinking_mode", True):
-        return {}
-    ticker = dict(getattr(session, "_sip_ticker", {}))
-    # Add current round's sips only if they haven't been harvested yet
-    if not getattr(session, "_drink_log_harvested", False):
-        for p in session.all_players:
-            for entry in p.drink_log:
-                sips = entry[0] if entry else 0
-                if sips > 0:
-                    ticker[p.name] = ticker.get(p.name, 0) + sips
-    return ticker
-
-
-def _compute_dealer_role_sips(session: RefereeSession) -> dict:
-    """Return cumulative dealer-role sip counts: past rounds + current round."""
-    if not getattr(session, "drinking_mode", True):
-        return {}
-    ticker = dict(getattr(session, "_dealer_role_ticker", {}))
-    # Add current round's dealer-role sips if not yet harvested
-    if not getattr(session, "_drink_log_harvested", False):
-        for p in session.all_players:
-            for entry in p.drink_log:
-                sips = entry[0] if entry else 0
-                role = entry[2] if len(entry) > 2 else "player"
-                if sips > 0 and role == "dealer":
-                    ticker[p.name] = ticker.get(p.name, 0) + sips
-    return ticker
-
-
-def _serialize_state(session: RefereeSession | None, client_id: str = "") -> dict:
-    """Full snapshot for the UI."""
-    if not session:
-        return {"ok": False}
-
-    _ci = get_client_info(session, client_id) if client_id else {}
-
-    dealer = session._get_dealer()
-    phase  = _round_phase(session)
-    turn   = _current_turn(session)
-
-    hide_double = (phase != "round-over")   # reveal doubled card once round is over
-
-    table = []
-    for p in session.all_players:
-        entry = {
-            "name":      p.name,
-            "is_dealer": p.is_dealer,
-            "is_npc":    getattr(p, "is_npc", False),
-            "hands":     [_serialize_hand(h, hide_double=hide_double) for h in p.hands],
-            "done":      _player_done(p),
-            "is_turn":   (p.name == turn),
-        }
-        table.append(entry)
-
-    # Dealer hand — hide hole card while players are still acting (digital only)
-    mode = getattr(session, "mode", "referee")
-    d_hand_state = None
-    if dealer and dealer.dealer_hand:
-        d_cards = dealer.dealer_hand.cards
-        if mode == "digital" and phase in ("playing", "pre-deal") and len(d_cards) >= 2:
-            d_hand_state = {
-                "cards":     [_serialize_card(d_cards[0]),
-                              {"rank": "?", "suit": "hidden", "symbol": "?"}]
-                              + [_serialize_card(c) for c in d_cards[2:]],
-                "score":     "?",
-                "hidden":    True,
-                "blackjack": False,
-                "bust":      False,
-                "done":      False,
-            }
-        else:
-            d_hand_state = {
-                "cards":     [_serialize_card(c) for c in d_cards],
-                "score":     dealer.dealer_hand.score() if d_cards else 0,
-                "hidden":    False,
-                "blackjack": bool(d_cards) and dealer.dealer_hand.is_blackjack(),
-                "bust":      bool(d_cards) and dealer.dealer_hand.is_bust(),
-                "done":      bool(d_cards) and (
-                    dealer.dealer_hand.stood
-                    or dealer.dealer_hand.is_bust()
-                    or dealer.dealer_hand.score() >= 17
-                ),
-            }
-
-    # Dealer-rotation suggestion
-    switch          = getattr(session, "switch_this_round", None)
-    rounds_td       = getattr(session, "rounds_this_dealer", 1)
-    num_p           = len(session.all_players)
-    suggest_rotate  = bool(switch in ("hard", "soft") or rounds_td >= num_p)
-    if switch == "hard":
-        rotate_reason = "Hard switch — dealer lost all hands"
-    elif switch == "soft":
-        rotate_reason = "Soft switch — dealer won all hands"
-    elif suggest_rotate:
-        rotate_reason = f"Round {rounds_td} of {num_p} — every player has been dealer"
-    else:
-        rotate_reason = f"Round {rounds_td} of {num_p} as dealer"
-
-    return {
-        "ok":              True,
-        "round":           session.round_count,
-        "dealer":          session.dealer_name,
-        "players":         [p.name for p in session.all_players],
-        "num_hands":       session.num_hands,
-        "wager":           session.wager,
-        "mode":            getattr(session, "mode", "referee"),
-        "table":           table,
-        "dealer_hand":     d_hand_state,
-        "current_turn":    turn,
-        "play_order":      _play_order(session),
-        "phase":           phase,
-        "drinking_mode":      getattr(session, "drinking_mode", True),
-        "best_play":          _compute_best_play(session, turn, phase),
-        "suggest_rotate":     suggest_rotate,
-        "rotate_reason":      rotate_reason,
-        "rounds_this_dealer":  rounds_td,
-        "dealer_rotate_every": getattr(session, "_dealer_rotate_every", 1),
-        "switch_this_round":   switch,   # None | "hard" | "soft"
-        # Shared log — all players see the same entries via polling
-        "log_entries":        getattr(session, "_log_entries", []),
-        "log_count":          len(getattr(session, "_log_entries", [])),
-        "log_version":        getattr(session, "_log_version", 0),
-        # Peeked card — visible to all players in the session
-        "peeked_card":        getattr(session, "_last_peeked", None),
-        # Live sip ticker (drinking mode only)
-        "sip_totals":        _compute_sip_totals(session),
-        "sip_grand_total":   sum(_compute_sip_totals(session).values()),
-        # Last completed round's sip counts per player
-        "last_round_sips":     getattr(session, "_last_round_sips",   {}),
-        # Detailed drink entries for the Drinks pane (name, sips, reason)
-        "last_round_drinks":   getattr(session, "_last_round_drinks", []),
-        # Round before last — for comparison ("this round vs last round")
-        "prev_round_sips":     getattr(session, "_prev_round_sips",   {}),
-        "prev_round_drinks":   getattr(session, "_prev_round_drinks", []),
-        # Cumulative sips earned while acting as the dealer role (live incl. current round)
-        "dealer_role_sips":    _compute_dealer_role_sips(session),
-        # Pre-selected player actions and pending dealer suggestions
-        "preselections":     getattr(session, "_preselections", {}),
-        "suggestions":       getattr(session, "_suggestions",   {}),
-        # Vote-to-kick counts visible to all players; which targets this client voted for
-        "kick_votes":        {k: len(v) for k, v in getattr(session, "_kick_votes", {}).items()},
-        "kick_votes_mine":   [k for k, v in getattr(session, "_kick_votes", {}).items()
-                              if (_ci.get("name") or "").lower() in v],
-        # Voter names per target so UI can display "Alice votes to kick Bob"
-        "kick_votes_detail": {k: sorted(v) for k, v in getattr(session, "_kick_votes", {}).items()},
-        # Rejoin requests — full list shown to admin; just a flag shown to the requesting client
-        "rejoin_requests":   [r for r in getattr(session, "_rejoin_requests", [])
-                              if _ci.get("role") == "admin"],
-        "my_rejoin_pending": any(r["client_id"] == client_id
-                                 for r in getattr(session, "_rejoin_requests", [])),
-        # Admin's animation preference (used as default for new joiners)
-        "anim_default":      getattr(session, "_anim_default", True),
-        # All connected clients (for registration overlay)
-        "connected_clients": [
-            {"name": info.get("name"), "role": info.get("role")}
-            for info in getattr(session, "_room_clients", {}).values()
-            if not info.get("kicked")
-        ],
-        # Kicked clients — only exposed to admin so they can undo kicks
-        "kicked_clients": [
-            {"client_id": cid, "name": info.get("name") or ""}
-            for cid, info in getattr(session, "_room_clients", {}).items()
-            if info.get("kicked") and info.get("name")
-        ] if _ci.get("role") == "admin" else [],
-        # Per-client fields (populated only when client_id is provided)
-        "my_role":           _ci.get("role"),
-        "my_name":           _ci.get("name"),
-        "is_dealer_client":  _ci.get("is_dealer", False) or _ci.get("role") == "admin",
-        # Queued settings — applied at next newround (admin only writes; all can read pending)
-        "queued_settings":   getattr(session, "_queued_settings", {}),
-        # Milestone handout — visible to all players during the claim window
-        "last_milestone_result": (lambda r: {
-            "winner":      r["winner"],
-            "boundary":    r["boundary"],
-            "allocations": r["allocations"],
-            "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
-        } if r and time.monotonic() - r["set_at"] < 15 else None)(
-            getattr(session, "_last_milestone_result", None)
-        ),
-        "pending_milestone": (lambda m: {
-            "boundary":         m["boundary"],
-            "winner":           m["winner"],
-            "handout":          m["handout"],
-            "seconds_left":     max(0, round(m["expires_at"] - time.monotonic())),
-            # Server-authoritative flag — avoids JS-side name-matching issues
-            "i_am_winner":      bool(_ci.get("name") and
-                                     m["winner"].lower() == _ci["name"].lower()),
-        } if m and time.monotonic() < m["expires_at"] else None)(
-            getattr(session, "_pending_milestone", None)
-        ),
-        # Insurance votes — pending entries visible to all players so UI can prompt
-        "insurance_votes": [
-            {
-                "bj_player":    v["player"],
-                "hand_idx":     v["hand_idx"],
-                "resolved":     v["resolved"],
-                "my_vote":      v["votes"].get(_ci.get("name") or "", None),
-                # How many votes are cast vs. needed — lets the UI know when
-                # all eligible voters have responded (without spoiling who voted how)
-                "votes_cast":   len(v["votes"]),
-                "votes_needed": sum(1 for p in session.all_players
-                                    if p.name.lower() != v["player"].lower()),
-                # Show vote counts only after resolution (no spoilers before then)
-                "insure_count":  sum(1 for x in v["votes"].values() if x)     if v["resolved"] else None,
-                "decline_count": sum(1 for x in v["votes"].values() if not x) if v["resolved"] else None,
-            }
-            for v in getattr(session, "_insurance_votes", [])
-        ],
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -720,7 +375,7 @@ def _deal_pending_split_cards(session: RefereeSession):
             for i, hand in enumerate(p.hands):
                 if not (hand.from_split and len(hand.cards) == 1):
                     continue
-                # Use raw done-ness of predecessor (bypass the 1-card guard in _hand_done)
+                # Use raw done-ness of predecessor (bypass the 1-card guard in hand_done)
                 if i == 0:
                     prev_done = True
                 else:
@@ -1009,16 +664,16 @@ def _auto_play_npc_turns(session: RefereeSession):
     """
     for _ in range(100):
         _deal_pending_split_cards(session)
-        if _round_phase(session) != "playing":
+        if round_phase(session) != "playing":
             break
-        turn = _current_turn(session)
+        turn = current_turn(session)
         if not turn:
             break
         player = session._get_player(turn)
         if not player or not getattr(player, "is_npc", False):
             break  # human's turn — stop
 
-        hand = next((h for h in player.hands if not _hand_done(h)), None)
+        hand = next((h for h in player.hands if not hand_done(h)), None)
         if not hand:
             break
 
@@ -1146,7 +801,7 @@ def join_room():
 
     session  = game_sessions[code]
     has_game = session is not None
-    state    = _serialize_state(session, client_id)
+    state    = serialize_state(session, client_id)
     state["ok"]        = True
     state["has_game"]  = has_game
     state["room_code"] = code   # return canonical casing
@@ -1253,7 +908,7 @@ def setup():
     output = _capture(game_session.start_round)
     if output.strip():
         game_session._log_entries.append(output)
-    state  = _serialize_state(game_session, client_id)
+    state  = serialize_state(game_session, client_id)
     state["output"] = output   # kept for host's immediate display
     return jsonify(state)
 
@@ -1280,31 +935,31 @@ def command():
     # are session-wide and bypass the gate.)
     TURN_GATED = {"hit", "stand", "double", "split", "insurance", "blackjack"}
     if mode == "digital" and cmd in TURN_GATED and len(parts) >= 2:
-        current = _current_turn(game_session)
+        current = current_turn(game_session)
         target  = parts[1].strip().capitalize()
         if current is None:
             return jsonify({
-                **_serialize_state(game_session),
+                **serialize_state(game_session),
                 "output": "  Not in play phase — deal cards or run dealer turn.\n",
             })
         if target.lower() != current.lower():
             return jsonify({
-                **_serialize_state(game_session),
+                **serialize_state(game_session),
                 "output": f"  Out of order — it's {current}'s turn (not {target}).\n",
             })
 
     # Gate the dealer-reveal command too: only allow when all players are done
     if mode == "digital" and cmd == "dealer":
-        phase = _round_phase(game_session)
+        phase = round_phase(game_session)
         if phase == "pre-deal":
             return jsonify({
-                **_serialize_state(game_session),
+                **serialize_state(game_session),
                 "output": "  Deal cards first.\n",
             })
         if phase == "playing":
-            current = _current_turn(game_session) or "a player"
+            current = current_turn(game_session) or "a player"
             return jsonify({
-                **_serialize_state(game_session),
+                **serialize_state(game_session),
                 "output": f"  Cannot reveal dealer — {current} still has hands to play.\n",
             })
 
@@ -1316,7 +971,7 @@ def command():
     if (cmd in DEALER_GATED_CMDS
             and getattr(game_session, "_room_clients", None)
             and not is_dealer_client(game_session, client_id)):
-        state = _serialize_state(game_session, client_id)
+        state = serialize_state(game_session, client_id)
         state["output"] = "  Not authorised — only the dealer can do that.\n"
         return jsonify(state)
 
@@ -1504,7 +1159,7 @@ def command():
                     card = shoe.cards[-1]   # pop() takes from the end
                     print(f"  Next card in shoe: {card}")
                     print(f"  ({len(shoe.cards)} cards remaining)")
-                    game_session._last_peeked = _serialize_card(card)
+                    game_session._last_peeked = serialize_card(card)
                 else:
                     print("  Shoe is empty or not available.")
                     game_session._last_peeked = None
@@ -1570,7 +1225,7 @@ def command():
             if cmd in {"hit", "stand", "double", "split"}:
                 _deal_pending_split_cards(game_session)
                 _auto_play_npc_turns(game_session)
-                if _round_phase(game_session) == "dealer-ready":
+                if round_phase(game_session) == "dealer-ready":
                     print("\n  (All players done — dealer plays automatically)")
                     _digital_dealer_turn(game_session)
                     game_session.cmd_endround()
@@ -1639,9 +1294,9 @@ def command():
     # new-round start text to the fresh log.
     if output.strip():
         game_session._log_entries.append(output)
-    state = _serialize_state(game_session, client_id)
+    state = serialize_state(game_session, client_id)
     state["output"] = output   # kept for immediate display on the sender's side
-    # peeked_card is included in _serialize_state and persists until cleared
+    # peeked_card is included in serialize_state and persists until cleared
     # by newround/deal so all polling clients can see it.
     return jsonify(state)
 
@@ -1670,12 +1325,12 @@ def register():
             # Remove any pending rejoin request for this client
             session._rejoin_requests = [r for r in getattr(session, "_rejoin_requests", [])
                                         if r["client_id"] != client_id]
-            return jsonify({**_serialize_state(session, client_id), "ok": True})
+            return jsonify({**serialize_state(session, client_id), "ok": True})
         return jsonify({"ok": False, "error": "You have been removed from this session."})
 
     if not name:
         session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
-        return jsonify({**_serialize_state(session, client_id), "ok": True})
+        return jsonify({**serialize_state(session, client_id), "ok": True})
 
     valid_names = [p.name for p in session.all_players]
     if name not in valid_names:
@@ -1689,7 +1344,7 @@ def register():
 
     role = "admin" if existing.get("role") == "admin" else "player"
     session._room_clients[client_id] = {"name": name, "role": role, "kicked": False}
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/kick", methods=["POST"])
@@ -1750,7 +1405,7 @@ def undo_kick():
     target_info["kicked"] = False
     target_info["role"]   = "spectator"
 
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/make_bot", methods=["POST"])
@@ -1795,10 +1450,10 @@ def make_bot():
             d.pop(k, None)
 
     # If it's the new bot's turn, auto-play immediately
-    if _round_phase(session) == "playing":
+    if round_phase(session) == "playing":
         _auto_play_npc_turns(session)
 
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/transfer_admin", methods=["POST"])
@@ -1834,7 +1489,7 @@ def transfer_admin():
     admin_info["role"]            = "player"
     clients[target_cid]["role"]   = "admin"
 
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/set_anim_pref", methods=["POST"])
@@ -1924,7 +1579,7 @@ def vote_kick():
         session._kick_votes.pop(key, None)
         kicked = True
 
-    state = _serialize_state(session, client_id)
+    state = serialize_state(session, client_id)
     state["ok"]    = True
     state["kicked"] = kicked
     return jsonify(state)
@@ -1951,11 +1606,11 @@ def request_rejoin():
     requests_list = getattr(session, "_rejoin_requests", [])
     # Avoid duplicate requests
     if any(r["client_id"] == client_id for r in requests_list):
-        return jsonify({**_serialize_state(session, client_id), "ok": True})
+        return jsonify({**serialize_state(session, client_id), "ok": True})
 
     requests_list.append({"client_id": client_id, "display_name": display_name or "Unknown"})
     session._rejoin_requests = requests_list
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/handle_rejoin", methods=["POST"])
@@ -1985,7 +1640,7 @@ def handle_rejoin():
         # Remove the client entry so they get the register overlay on next poll
         clients.pop(target_client_id, None)
 
-    state = _serialize_state(session, client_id)
+    state = serialize_state(session, client_id)
     state["ok"] = True
     return jsonify(state)
 
@@ -2034,7 +1689,7 @@ def vote_insurance():
         return jsonify({"ok": False, "error": "This vote has already been resolved."})
 
     vote_entry["votes"][voter_name] = vote
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/preselect", methods=["POST"])
@@ -2067,7 +1722,7 @@ def preselect():
         session._preselections = {}
 
     session._preselections[f"{name.lower()}:{hand}"] = action
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/suggest_action", methods=["POST"])
@@ -2095,7 +1750,7 @@ def suggest_action():
         session._suggestions = {}
 
     session._suggestions[f"{target_name.lower()}:{hand}"] = action
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/respond_suggest", methods=["POST"])
@@ -2131,7 +1786,7 @@ def respond_suggest():
         session._preselections[key] = suggestion
 
     session._suggestions.pop(key, None)
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/export_csv")
@@ -2332,7 +1987,7 @@ def state():
     room_code = request.args.get("room_code", "")
     client_id = request.args.get("client_id", "")
     session   = game_sessions.get(room_code)
-    return jsonify(_serialize_state(session, client_id))
+    return jsonify(serialize_state(session, client_id))
 
 
 @app.route("/update_settings", methods=["POST"])
@@ -2410,7 +2065,7 @@ def update_settings():
             pass   # silently ignore a malformed value; non-critical setting
 
     session._queued_settings = queued
-    state = _serialize_state(session, client_id)
+    state = serialize_state(session, client_id)
     state["output"] = ""
     return jsonify(state)
 
@@ -2509,7 +2164,7 @@ def claim_milestone():
         "allocations": alloc,         # {name: sips} — only non-zero entries
         "set_at":      time.monotonic(),
     }
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/rotate_dealer", methods=["POST"])
@@ -2532,7 +2187,7 @@ def rotate_dealer():
 
     _newround_rotate(session)
     session.rounds_this_dealer = 1
-    return jsonify({**_serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @app.route("/rules")
