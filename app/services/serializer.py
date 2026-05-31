@@ -11,8 +11,8 @@ per-client fields (my_role, is_dealer_client, etc.) can be included.
 import time
 
 from blackjack import Hand, NPC_Player
-from referee import RefereeSession
 
+from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
 
 
@@ -20,7 +20,7 @@ from app.services.validators import get_client_info
 # Turn / phase helpers
 # ---------------------------------------------------------------------------
 
-def play_order(session: RefereeSession) -> list[str]:
+def play_order(session: GameRoom) -> list[str]:
     """
     Turn order: dealer's left clockwise, dealer-player goes last.
     Returns list of player names.
@@ -51,7 +51,7 @@ def player_done(player) -> bool:
     return all(hand_done(h) for h in player.hands)
 
 
-def current_turn(session: RefereeSession) -> str | None:
+def current_turn(session: GameRoom) -> str | None:
     """
     Whose turn is it right now?
     Returns the player name, or None if no one is up (pre-deal or dealer phase).
@@ -67,7 +67,7 @@ def current_turn(session: RefereeSession) -> str | None:
     return None   # all player hands done → dealer phase
 
 
-def round_phase(session: RefereeSession) -> str:
+def round_phase(session: GameRoom) -> str:
     """
     'pre-deal'     → waiting for initial deal
     'playing'      → at least one player still has an active hand
@@ -130,12 +130,12 @@ def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
 # Sip / drink aggregation helpers
 # ---------------------------------------------------------------------------
 
-def compute_sip_totals(session: RefereeSession) -> dict:
+def compute_sip_totals(session: GameRoom) -> dict:
     """Return cumulative sip counts per player: past rounds + current round."""
-    if not getattr(session, "drinking_mode", True):
+    if not session.drinking_mode:
         return {}
-    ticker = dict(getattr(session, "_sip_ticker", {}))
-    if not getattr(session, "_drink_log_harvested", False):
+    ticker = dict(session._sip_ticker)
+    if not session._drink_log_harvested:
         for p in session.all_players:
             for entry in p.drink_log:
                 sips = entry[0] if entry else 0
@@ -144,12 +144,12 @@ def compute_sip_totals(session: RefereeSession) -> dict:
     return ticker
 
 
-def compute_dealer_role_sips(session: RefereeSession) -> dict:
+def compute_dealer_role_sips(session: GameRoom) -> dict:
     """Return cumulative dealer-role sip counts: past rounds + current round."""
-    if not getattr(session, "drinking_mode", True):
+    if not session.drinking_mode:
         return {}
-    ticker = dict(getattr(session, "_dealer_role_ticker", {}))
-    if not getattr(session, "_drink_log_harvested", False):
+    ticker = dict(session._dealer_role_ticker)
+    if not session._drink_log_harvested:
         for p in session.all_players:
             for entry in p.drink_log:
                 sips = entry[0] if entry else 0
@@ -159,7 +159,7 @@ def compute_dealer_role_sips(session: RefereeSession) -> dict:
     return ticker
 
 
-def compute_best_play(session: RefereeSession, turn: str | None, phase: str) -> str | None:
+def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | None:
     """
     Return the basic-strategy best action ('h'|'s'|'d'|'sp') for the
     current active hand, or None when it's not applicable.
@@ -189,7 +189,7 @@ def compute_best_play(session: RefereeSession, turn: str | None, phase: str) -> 
 # Full state snapshot
 # ---------------------------------------------------------------------------
 
-def serialize_state(session: RefereeSession | None, client_id: str = "") -> dict:
+def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     """Full snapshot for the UI."""
     if not session:
         return {"ok": False}
@@ -213,7 +213,7 @@ def serialize_state(session: RefereeSession | None, client_id: str = "") -> dict
         })
 
     # Dealer hand — hide hole card while players are still acting (digital only)
-    mode         = getattr(session, "mode", "referee")
+    mode         = session.mode
     d_hand_state = None
     if dealer and dealer.dealer_hand:
         d_cards = dealer.dealer_hand.cards
@@ -243,8 +243,8 @@ def serialize_state(session: RefereeSession | None, client_id: str = "") -> dict
             }
 
     # Dealer-rotation suggestion
-    switch         = getattr(session, "switch_this_round", None)
-    rounds_td      = getattr(session, "rounds_this_dealer", 1)
+    switch         = session.switch_this_round
+    rounds_td      = session.rounds_this_dealer
     num_p          = len(session.all_players)
     suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= num_p)
     if switch == "hard":
@@ -265,62 +265,62 @@ def serialize_state(session: RefereeSession | None, client_id: str = "") -> dict
         "players":         [p.name for p in session.all_players],
         "num_hands":       session.num_hands,
         "wager":           session.wager,
-        "mode":            getattr(session, "mode", "referee"),
+        "mode":            session.mode,
         "table":           table,
         "dealer_hand":     d_hand_state,
         "current_turn":    turn,
         "play_order":      play_order(session),
         "phase":           phase,
-        "drinking_mode":          getattr(session, "drinking_mode", True),
+        "drinking_mode":          session.drinking_mode,
         "best_play":              compute_best_play(session, turn, phase),
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,
         "rounds_this_dealer":     rounds_td,
-        "dealer_rotate_every":    getattr(session, "_dealer_rotate_every", 1),
+        "dealer_rotate_every":    session._dealer_rotate_every,
         "switch_this_round":      switch,
-        "log_entries":            getattr(session, "_log_entries", []),
-        "log_count":              len(getattr(session, "_log_entries", [])),
-        "log_version":            getattr(session, "_log_version", 0),
-        "peeked_card":            getattr(session, "_last_peeked", None),
+        "log_entries":            session._log_entries,
+        "log_count":              len(session._log_entries),
+        "log_version":            session._log_version,
+        "peeked_card":            session._last_peeked,
         "sip_totals":             sip_totals,
         "sip_grand_total":        sum(sip_totals.values()),
-        "last_round_sips":        getattr(session, "_last_round_sips",   {}),
-        "last_round_drinks":      getattr(session, "_last_round_drinks", []),
-        "prev_round_sips":        getattr(session, "_prev_round_sips",   {}),
-        "prev_round_drinks":      getattr(session, "_prev_round_drinks", []),
+        "last_round_sips":        session._last_round_sips,
+        "last_round_drinks":      session._last_round_drinks,
+        "prev_round_sips":        session._prev_round_sips,
+        "prev_round_drinks":      session._prev_round_drinks,
         "dealer_role_sips":       compute_dealer_role_sips(session),
-        "preselections":          getattr(session, "_preselections", {}),
-        "suggestions":            getattr(session, "_suggestions",   {}),
-        "kick_votes":             {k: len(v) for k, v in getattr(session, "_kick_votes", {}).items()},
-        "kick_votes_mine":        [k for k, v in getattr(session, "_kick_votes", {}).items()
+        "preselections":          session._preselections,
+        "suggestions":            session._suggestions,
+        "kick_votes":             {k: len(v) for k, v in session._kick_votes.items()},
+        "kick_votes_mine":        [k for k, v in session._kick_votes.items()
                                    if (_ci.get("name") or "").lower() in v],
-        "kick_votes_detail":      {k: sorted(v) for k, v in getattr(session, "_kick_votes", {}).items()},
-        "rejoin_requests":        [r for r in getattr(session, "_rejoin_requests", [])
+        "kick_votes_detail":      {k: sorted(v) for k, v in session._kick_votes.items()},
+        "rejoin_requests":        [r for r in session._rejoin_requests
                                    if _ci.get("role") == "admin"],
         "my_rejoin_pending":      any(r["client_id"] == client_id
-                                      for r in getattr(session, "_rejoin_requests", [])),
-        "anim_default":           getattr(session, "_anim_default", True),
+                                      for r in session._rejoin_requests),
+        "anim_default":           session._anim_default,
         "connected_clients":      [
             {"name": info.get("name"), "role": info.get("role")}
-            for info in getattr(session, "_room_clients", {}).values()
+            for info in session._room_clients.values()
             if not info.get("kicked")
         ],
         "kicked_clients":         [
             {"client_id": cid, "name": info.get("name") or ""}
-            for cid, info in getattr(session, "_room_clients", {}).items()
+            for cid, info in session._room_clients.items()
             if info.get("kicked") and info.get("name")
         ] if _ci.get("role") == "admin" else [],
         "my_role":                _ci.get("role"),
         "my_name":                _ci.get("name"),
         "is_dealer_client":       _ci.get("is_dealer", False) or _ci.get("role") == "admin",
-        "queued_settings":        getattr(session, "_queued_settings", {}),
+        "queued_settings":        session._queued_settings,
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
             "boundary":    r["boundary"],
             "allocations": r["allocations"],
             "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
         } if r and time.monotonic() - r["set_at"] < 15 else None)(
-            getattr(session, "_last_milestone_result", None)
+            session._last_milestone_result
         ),
         "pending_milestone":      (lambda m: {
             "boundary":     m["boundary"],
@@ -330,7 +330,7 @@ def serialize_state(session: RefereeSession | None, client_id: str = "") -> dict
             "i_am_winner":  bool(_ci.get("name") and
                                  m["winner"].lower() == _ci["name"].lower()),
         } if m and time.monotonic() < m["expires_at"] else None)(
-            getattr(session, "_pending_milestone", None)
+            session._pending_milestone
         ),
         "insurance_votes":        [
             {
@@ -344,6 +344,6 @@ def serialize_state(session: RefereeSession | None, client_id: str = "") -> dict
                 "insure_count":  sum(1 for x in v["votes"].values() if x)     if v["resolved"] else None,
                 "decline_count": sum(1 for x in v["votes"].values() if not x) if v["resolved"] else None,
             }
-            for v in getattr(session, "_insurance_votes", [])
+            for v in session._insurance_votes
         ],
     }

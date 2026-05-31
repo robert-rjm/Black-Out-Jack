@@ -11,8 +11,8 @@ and makes these functions unit-testable without a Flask context.
 
 from blackjack import Hand, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
-from referee import RefereeSession
 
+from app.models.game_room import GameRoom
 from app.services.serializer import hand_done, round_phase, current_turn
 
 
@@ -41,7 +41,7 @@ def get_player_hand(player, hand_label: str) -> Hand:
 # Card dealing
 # ---------------------------------------------------------------------------
 
-def deal_card(session: RefereeSession, hand: Hand, recipient_name: str):
+def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
     """Deal one card from the shoe into hand and fire ace drinking rules.
 
     Defers hole-card and face-down doubled-card drink messages so they are
@@ -51,7 +51,7 @@ def deal_card(session: RefereeSession, hand: Hand, recipient_name: str):
     card_pos = len(hand.cards) + 1
     hand.cards.append(card)
 
-    if getattr(session, "drinking_mode", True):
+    if session.drinking_mode:
         all_names      = [p.name for p in session.all_players]
         dealer         = session._get_dealer()
         is_dealer_hand = (dealer is not None and hand is dealer.dealer_hand)
@@ -83,7 +83,7 @@ def deal_card(session: RefereeSession, hand: Hand, recipient_name: str):
     return card
 
 
-def deal_pending_split_cards(session: RefereeSession) -> None:
+def deal_pending_split_cards(session: GameRoom) -> None:
     """
     After any player action, deal the second card to any split hand whose
     predecessor has finished (stood / bust / BJ).
@@ -120,7 +120,7 @@ def deal_pending_split_cards(session: RefereeSession) -> None:
                             and dealer.dealer_hand.cards[0].rank.label == "A"
                             and getattr(session, "drinking_mode", True)):
                         existing = next(
-                            (v for v in getattr(session, "_insurance_votes", [])
+                            (v for v in session._insurance_votes
                              if v["player"] == p.name and v["hand_idx"] == i),
                             None,
                         )
@@ -149,7 +149,7 @@ def deal_pending_split_cards(session: RefereeSession) -> None:
 # Round flow
 # ---------------------------------------------------------------------------
 
-def initial_deal(session: RefereeSession) -> None:
+def initial_deal(session: GameRoom) -> None:
     """Deal 2 cards to every player hand and the dealer hand from the shoe."""
     session._deferred_hole_card_msgs = []
     dealer = session._get_dealer()
@@ -170,7 +170,7 @@ def initial_deal(session: RefereeSession) -> None:
                 print(f"  *** {p.name} Hand {i+1} — BLACKJACK! ***")
 
     # Four-aces check after first deal (drinking mode only)
-    if getattr(session, "drinking_mode", True):
+    if session.drinking_mode:
         all_cards = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += dealer.dealer_hand.cards
         msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
@@ -191,7 +191,7 @@ def initial_deal(session: RefereeSession) -> None:
                     })
 
 
-def dealer_turn(session: RefereeSession) -> None:
+def dealer_turn(session: GameRoom) -> None:
     """
     Reveal the dealer hole card, hit until 17+, evaluate all player hands,
     and fire all relevant drinking rules.
@@ -200,7 +200,7 @@ def dealer_turn(session: RefereeSession) -> None:
     d_hand = dealer.dealer_hand
 
     # Apply deferred ace messages now that hidden cards are revealed
-    deferred = getattr(session, "_deferred_hole_card_msgs", [])
+    deferred = session._deferred_hole_card_msgs
     if deferred:
         session.tracker.apply(deferred)
         session._deferred_hole_card_msgs = []
@@ -219,7 +219,7 @@ def dealer_turn(session: RefereeSession) -> None:
         else:
             print(f"  Dealer stands at {d_hand.score()}.")
 
-    drinking = getattr(session, "drinking_mode", True)
+    drinking = session.drinking_mode
     if drinking:
         session.tracker.apply(DrinkingRules.on_dealer_hand_revealed(d_hand))
         if DrinkingRules.dealer_21_five_cards(d_hand):
@@ -264,7 +264,7 @@ def dealer_turn(session: RefereeSession) -> None:
     # Pass 2 — fire drinking events
     if drinking:
         exempt_dealer   = session.dealer_name if hard_switch else ""
-        insurance_votes = getattr(session, "_insurance_votes", [])
+        insurance_votes = session._insurance_votes
         voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
 
         for p in session.all_players:
@@ -312,7 +312,7 @@ def dealer_turn(session: RefereeSession) -> None:
 # NPC auto-play
 # ---------------------------------------------------------------------------
 
-def auto_play_npc_turns(session: RefereeSession) -> None:
+def auto_play_npc_turns(session: GameRoom) -> None:
     """
     Auto-play all consecutive NPC turns using basic strategy.
     Stops when it reaches a human player's turn, no one is up,
@@ -346,7 +346,7 @@ def auto_play_npc_turns(session: RefereeSession) -> None:
 
         action = NPC_Player.best_play(
             hand, dealer_up, valid,
-            drinking_mode=getattr(session, "drinking_mode", True))
+            drinking_mode=session.drinking_mode)
         print(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
 
         if action == "h":

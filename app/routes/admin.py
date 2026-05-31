@@ -45,7 +45,7 @@ def kick():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients    = getattr(session, "_room_clients", {})
+    clients    = session._room_clients
     admin_info = clients.get(client_id, {})
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
@@ -76,7 +76,7 @@ def undo_kick():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients    = getattr(session, "_room_clients", {})
+    clients    = session._room_clients
     admin_info = clients.get(client_id, {})
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
@@ -111,13 +111,13 @@ def make_bot():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients    = getattr(session, "_room_clients", {})
+    clients    = session._room_clients
     admin_info = clients.get(client_id, {})
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
 
     player = next(
-        (p for p in getattr(session, "all_players", [])
+        (p for p in session.all_players
          if p.name.lower() == target_name.lower()),
         None,
     )
@@ -135,7 +135,7 @@ def make_bot():
 
     # Clear any pending preselections / suggestions for this player
     key_prefix = f"{target_name.lower()}:"
-    for d in (getattr(session, "_preselections", {}), getattr(session, "_suggestions", {})):
+    for d in (session._preselections, session._suggestions):
         for k in [k for k in d if k.startswith(key_prefix)]:
             d.pop(k, None)
 
@@ -163,7 +163,7 @@ def transfer_admin():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients    = getattr(session, "_room_clients", {})
+    clients    = session._room_clients
     admin_info = clients.get(client_id, {})
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
@@ -203,7 +203,7 @@ def set_anim_pref():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
+    clients = session._room_clients
     if clients.get(client_id, {}).get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
 
@@ -230,7 +230,7 @@ def vote_kick():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
+    clients = session._room_clients
     info    = clients.get(client_id, {})
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered."})
@@ -251,9 +251,6 @@ def vote_kick():
     target_connected = target_info is not None
     if not target_connected:
         return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
-
-    if not hasattr(session, "_kick_votes"):
-        session._kick_votes = {}
 
     key   = target_name.lower()
     votes = session._kick_votes.setdefault(key, set())
@@ -305,12 +302,12 @@ def request_rejoin():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
+    clients = session._room_clients
     info    = clients.get(client_id, {})
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not in session."})
 
-    requests_list = getattr(session, "_rejoin_requests", [])
+    requests_list = session._rejoin_requests
     # Avoid duplicate requests
     if any(r["client_id"] == client_id for r in requests_list):
         return jsonify({**serialize_state(session, client_id), "ok": True})
@@ -334,13 +331,13 @@ def handle_rejoin():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients    = getattr(session, "_room_clients", {})
+    clients    = session._room_clients
     admin_info = clients.get(client_id, {})
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Not authorised."})
 
     # Remove from rejoin requests regardless of decision
-    session._rejoin_requests = [r for r in getattr(session, "_rejoin_requests", [])
+    session._rejoin_requests = [r for r in session._rejoin_requests
                                  if r["client_id"] != target_client_id]
 
     if approve:
@@ -366,13 +363,13 @@ def update_settings():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients    = getattr(session, "_room_clients", {})
+    clients    = session._room_clients
     admin_info = clients.get(client_id, {})
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Admin only."})
 
     admin_name_lc = (admin_info.get("name") or "").lower()
-    queued = getattr(session, "_queued_settings", {})
+    queued = session._queued_settings
 
     # Validate and queue each provided setting
     try:
@@ -461,7 +458,7 @@ def claim_milestone():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    milestone = getattr(session, "_pending_milestone", None)
+    milestone = session._pending_milestone
     if not milestone:
         return jsonify({"ok": False, "error": "No active milestone."})
     if time.monotonic() >= milestone["expires_at"]:
@@ -469,7 +466,7 @@ def claim_milestone():
         return jsonify({"ok": False, "error": "Milestone claim window has expired."})
 
     # Verify caller is the winner
-    clients     = getattr(session, "_room_clients", {})
+    clients     = session._room_clients
     caller_info = clients.get(client_id, {})
     caller_name = caller_info.get("name", "")
     if caller_name.lower() != milestone["winner"].lower():
@@ -499,7 +496,7 @@ def claim_milestone():
                         "error": f"Must distribute exactly {MILESTONE_HANDOUT_SIPS} sips (got {total})."})
 
     # Apply to sip ticker — these sips go to the recipients, not to the winner
-    ticker = getattr(session, "_sip_ticker", {})
+    ticker = session._sip_ticker
     for name, s in alloc.items():
         ticker[name] = ticker.get(name, 0) + s
     session._sip_ticker = ticker
@@ -507,7 +504,7 @@ def claim_milestone():
     # Write milestone handout into the CSV accumulator so it appears in exports
     winner   = milestone["winner"]
     boundary = milestone["boundary"]
-    csv_rows = getattr(session, "_drink_csv_rows", [])
+    csv_rows = session._drink_csv_rows
     for name, s in alloc.items():
         csv_rows.append({
             "round":  session.round_count,
@@ -524,8 +521,8 @@ def claim_milestone():
     for name, s in alloc.items():
         sip_word = "sip" if s == 1 else "sips"
         log_lines.append(f"  → {name} drinks {s} {sip_word}")
-    session._log_entries = getattr(session, "_log_entries", []) + ["\n".join(log_lines)]
-    session._log_version = getattr(session, "_log_version", 0) + 1
+    session._log_entries = session._log_entries + ["\n".join(log_lines)]
+    session._log_version = session._log_version + 1
 
     session._pending_milestone     = None
     session._last_milestone_result = {
@@ -554,7 +551,7 @@ def rotate_dealer():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients    = getattr(session, "_room_clients", {})
+    clients    = session._room_clients
     admin_info = clients.get(client_id, {})
     if admin_info.get("role") != "admin":
         return jsonify({"ok": False, "error": "Admin only."})

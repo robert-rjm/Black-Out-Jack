@@ -102,7 +102,7 @@ def command():
 
     parts = cmd_str.split()
     cmd   = parts[0].lower()
-    mode  = getattr(game_session, "mode", "referee")
+    mode  = game_session.mode
 
     # Turn-order gate: in digital mode, per-player actions must come from the
     # player whose turn it currently is. (deal/dealer/endround/newround/status/help
@@ -143,7 +143,7 @@ def command():
         "dealer", "endround", "newround", "peek", "action", "result", "fouraces",
     }
     if (cmd in DEALER_GATED_CMDS
-            and getattr(game_session, "_room_clients", None)
+            and game_session._room_clients
             and not is_dealer_client(game_session, client_id)):
         state = serialize_state(game_session, client_id)
         state["output"] = "  Not authorised — only the dealer can do that.\n"
@@ -294,7 +294,7 @@ def command():
                             # dealer_turn resolves this hand as insured via voted_keys.
                             hand_idx   = player.hands.index(hand)
                             vote_entry = next(
-                                (v for v in getattr(game_session, "_insurance_votes", [])
+                                (v for v in game_session._insurance_votes
                                  if v["player"] == player.name and v["hand_idx"] == hand_idx
                                  and not v.get("resolved")),
                                 None,
@@ -325,7 +325,7 @@ def command():
             elif cmd == "peek":
                 # Toggle: hide peeked card if already shown, otherwise reveal it
                 shoe = getattr(game_session, "shoe", None)
-                if getattr(game_session, "_last_peeked", None):
+                if game_session._last_peeked:
                     # Already showing — toggle off
                     game_session._last_peeked = None
                     print("  Next card hidden.")
@@ -360,11 +360,11 @@ def command():
                     rotate_dealer(game_session)
                     game_session.rounds_this_dealer = 1
                 else:
-                    game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
+                    game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
                 game_session.switch_this_round = None
                 # Clear shared log and peeked card for the new round
                 game_session._log_entries = []
-                game_session._log_version = getattr(game_session, "_log_version", 0) + 1
+                game_session._log_version = game_session._log_version + 1
                 game_session._deferred_hole_card_msgs = []
                 game_session._last_peeked   = None
                 game_session._preselections = {}
@@ -372,7 +372,7 @@ def command():
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session._pending_milestone = None  # clear between rounds
-                if getattr(game_session, "drinking_mode", True) or game_session.shoe.needs_reshuffle():
+                if game_session.drinking_mode or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     print("  Shoe reshuffled.")
                 game_session.start_round()
@@ -391,8 +391,7 @@ def command():
             if cmd in {"hit", "stand", "double", "split"} and len(parts) >= 2:
                 _p = parts[1].strip().capitalize()
                 _h = (parts[2] if len(parts) > 2 else "hand1").strip().lower()
-                if hasattr(game_session, "_preselections"):
-                    game_session._preselections.pop(f"{_p.lower()}:{_h}", None)
+                game_session._preselections.pop(f"{_p.lower()}:{_h}", None)
 
             # After any player action: deal pending second cards to split hands
             # whose predecessor just finished, then check if dealer should auto-play
@@ -439,11 +438,11 @@ def command():
                     rotate_dealer(game_session)
                     game_session.rounds_this_dealer = 1
                 else:
-                    game_session.rounds_this_dealer = getattr(game_session, "rounds_this_dealer", 0) + 1
+                    game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
                 game_session.switch_this_round = None
                 # Clear the shared log and peeked card for the new round
                 game_session._log_entries = []
-                game_session._log_version = getattr(game_session, "_log_version", 0) + 1
+                game_session._log_version = game_session._log_version + 1
                 game_session._last_peeked   = None
                 game_session._preselections = {}
                 game_session._suggestions   = {}

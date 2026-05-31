@@ -23,8 +23,8 @@ from app.config import (
 # ---------------------------------------------------------------------------
 
 # Value is None while a room is reserved but not yet set up via /setup,
-# and a RefereeSession (or future GameRoom) once the game is configured.
-game_sessions: dict = {}          # room_code → RefereeSession | None
+# and a GameRoom once the game is configured.
+game_sessions: dict = {}          # room_code → GameRoom | None
 
 _room_created_at: dict[str, float] = {}   # room_code → time.monotonic() at creation
 

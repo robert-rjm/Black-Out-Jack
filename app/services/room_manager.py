@@ -15,6 +15,8 @@ import io
 from blackjack import Hand, NPC_Player, Player, Shoe
 from referee import RefereeSession
 
+from app.models.game_room import GameRoom
+
 
 # ---------------------------------------------------------------------------
 # Tracker helpers
@@ -68,11 +70,11 @@ def capture(fn, *args) -> str:
 # Round lifecycle
 # ---------------------------------------------------------------------------
 
-def apply_queued_settings(session: RefereeSession) -> list[str]:
+def apply_queued_settings(session: GameRoom) -> list[str]:
     """Apply any queued settings to the session before a new round starts.
     Returns a list of human-readable change descriptions.
     """
-    queued = getattr(session, "_queued_settings", {})
+    queued = session._queued_settings
     if not queued:
         return []
 
@@ -86,7 +88,7 @@ def apply_queued_settings(session: RefereeSession) -> list[str]:
         session.num_hands = queued["num_hands"]
         changes.append(f"Hands/player set to {queued['num_hands']}")
 
-    if "num_decks" in queued and getattr(session, "mode", "referee") == "digital":
+    if "num_decks" in queued and session.mode == "digital":
         session.shoe = Shoe(queued["num_decks"])
         session.shoe.shuffle()
         changes.append(f"Deck count set to {queued['num_decks']}")
@@ -112,7 +114,7 @@ def apply_queued_settings(session: RefereeSession) -> list[str]:
     return changes
 
 
-def rotate_dealer(session: RefereeSession) -> None:
+def rotate_dealer(session: GameRoom) -> None:
     """Rotate the dealer role one seat clockwise."""
     all_names  = [p.name for p in session.all_players]
     cur_idx    = all_names.index(session.dealer_name)

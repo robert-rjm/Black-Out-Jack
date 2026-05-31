@@ -11,8 +11,7 @@ session down.
 
 import time
 
-from referee import RefereeSession
-
+from app.models.game_room import GameRoom
 from app.config import MILESTONE_STEP, MILESTONE_HANDOUT_SIPS, MILESTONE_TTL
 
 
@@ -57,13 +56,13 @@ def classify_rule(reason: str) -> str | None:
 # Log harvesting
 # ---------------------------------------------------------------------------
 
-def harvest_drink_log(session: RefereeSession) -> None:
+def harvest_drink_log(session: GameRoom) -> None:
     """
     Copy the current round's drink_log entries from every player into the
     session-wide CSV accumulator. Call this right after cmd_endround() and
     before start_round() resets drink_log to [].
     """
-    rows      = getattr(session, "_drink_csv_rows", [])
+    rows      = session._drink_csv_rows
     round_num = session.round_count
     dealer    = session.dealer_name
 
@@ -88,7 +87,7 @@ def harvest_drink_log(session: RefereeSession) -> None:
     session._drink_csv_rows = rows
 
     # Live sip ticker — cumulative raw totals across all rounds
-    ticker = getattr(session, "_sip_ticker", {})
+    ticker = session._sip_ticker
     for p in session.all_players:
         for entry in p.drink_log:
             sips = entry[0] if entry else 0
@@ -98,7 +97,7 @@ def harvest_drink_log(session: RefereeSession) -> None:
     session._drink_log_harvested = True
 
     # Cumulative dealer-role sips (shown in dealer panel)
-    d_ticker = getattr(session, "_dealer_role_ticker", {})
+    d_ticker = session._dealer_role_ticker
     for p in session.all_players:
         for entry in p.drink_log:
             sips = entry[0] if entry else 0
@@ -108,8 +107,8 @@ def harvest_drink_log(session: RefereeSession) -> None:
     session._dealer_role_ticker = d_ticker
 
     # Shift snapshots before overwriting (enables round-over comparison)
-    session._prev_round_sips   = getattr(session, "_last_round_sips",   {})
-    session._prev_round_drinks = getattr(session, "_last_round_drinks", [])
+    session._prev_round_sips   = session._last_round_sips
+    session._prev_round_drinks = session._last_round_drinks
 
     # Per-player sip totals for the "Last Round" panel
     last = {}
@@ -132,7 +131,7 @@ def harvest_drink_log(session: RefereeSession) -> None:
     session._last_round_drinks = drinks_detail
 
     # Hand outcome stats per player (win/loss/push, splits, doubles)
-    hand_stats = getattr(session, "_hand_stats", {})
+    hand_stats = session._hand_stats
     for p in session.all_players:
         if p.is_dealer:
             continue
@@ -161,7 +160,7 @@ def harvest_drink_log(session: RefereeSession) -> None:
 
     # Dealer hand stats — wins/losses/pushes from the dealer's POV
     # (player "win" = dealer lost that hand, and vice versa)
-    dealer_stats = getattr(session, "_dealer_hand_stats", {})
+    dealer_stats = session._dealer_hand_stats
     dname = session.dealer_name
     if dname not in dealer_stats:
         dealer_stats[dname] = {"hands": 0, "wins": 0, "losses": 0, "pushes": 0}
@@ -184,7 +183,7 @@ def harvest_drink_log(session: RefereeSession) -> None:
 # Milestone checking
 # ---------------------------------------------------------------------------
 
-def check_and_set_milestone(session: RefereeSession) -> None:
+def check_and_set_milestone(session: GameRoom) -> None:
     """
     After harvesting a round's drink log, check whether any player has newly
     crossed a MILESTONE_STEP boundary. If so, record the winner in
@@ -195,9 +194,9 @@ def check_and_set_milestone(session: RefereeSession) -> None:
 
     Each boundary fires only once (tracked in session._milestones_claimed).
     """
-    ticker  = getattr(session, "_sip_ticker", {})
-    last    = getattr(session, "_last_round_sips", {})
-    claimed = getattr(session, "_milestones_claimed", {})
+    ticker  = session._sip_ticker
+    last    = session._last_round_sips
+    claimed = session._milestones_claimed
 
     newly_hit: dict[int, list[tuple[int, str]]] = {}
     for name, total in ticker.items():
