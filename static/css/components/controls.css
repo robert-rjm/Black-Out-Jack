@@ -15,7 +15,17 @@
 .pane.active { display: block; }
 
 /* ---- SHARED BUTTON ROWS ---- */
-.btn-row { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 8px; }
+.btn-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 7px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;        /* Firefox */
+  padding-bottom: 2px;          /* room for scroll inertia */
+}
+.btn-row::-webkit-scrollbar { display: none; }  /* Chrome/Safari */
 
 .btn {
   height: var(--tap);
