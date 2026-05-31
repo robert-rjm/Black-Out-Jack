@@ -428,7 +428,10 @@ class RefereeSession:
                 print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
         if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
             w *= 2
-            print(f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
+            print(
+                f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards "
+                f"— wager doubled to {w} sip(s) this round!"
+                )
         if dealer_bj:
             print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         self.tracker.apply(DrinkingRules.on_round_end(
