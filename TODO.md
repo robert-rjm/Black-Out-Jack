@@ -14,10 +14,12 @@
 
 - [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
 - [ ] beer counter (with approval by admin)
+- [ ] improved UI for mobile
+  - shift icons to action bar at bottom
+  - scrolling not forcing back
 
 ### New Rule Idea
 
-- [ ] every hand from player is `suited` or `21`, then all drink *2 their drinks (excluding BJ Bonus)
 - [ ] side bets for Dealer to bust
 - [ ] Endgame option of "busfahrer"
 
