@@ -1131,6 +1131,15 @@ function renderDealer(state) {
 function renderPlayers(state) {
   const root = document.getElementById("left-col");
   if (!root) return;
+  const savedScroll = root.scrollTop;
+
+  // Save each player's horizontal hand scroll before wiping DOM
+  const handScroll = {};
+  root.querySelectorAll(".seat[data-player]").forEach(s => {
+    const row = s.querySelector(".hands-row");
+    if (row) handScroll[s.dataset.player] = row.scrollLeft;
+  });
+
   root.innerHTML = "";
 
   const order = state.play_order && state.play_order.length
@@ -1145,6 +1154,7 @@ function renderPlayers(state) {
     if (!s) return;
     const seat = document.createElement("div");
     seat.className = "seat";
+    seat.dataset.player = s.name;
     if (showTurn && s.is_turn) seat.classList.add("turn");
     if (s.done)                seat.classList.add("done");
 
@@ -1170,6 +1180,16 @@ function renderPlayers(state) {
     }
     seat.appendChild(hands);
     root.appendChild(seat);
+  });
+
+  // Restore vertical + per-player horizontal scroll
+  root.scrollTop = savedScroll;
+  root.querySelectorAll(".seat[data-player]").forEach(s => {
+    const saved = handScroll[s.dataset.player];
+    if (saved) {
+      const row = s.querySelector(".hands-row");
+      if (row) row.scrollLeft = saved;
+    }
   });
 }
 
