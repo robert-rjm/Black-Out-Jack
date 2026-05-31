@@ -181,11 +181,11 @@
       <div id="header-sub">Setting up...</div>
       <div id="header-room"></div>
     </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <button id="btn-rules" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openRulesModal()" title="Rules cheat sheet">📖</button>
-      <button id="btn-round-menu" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="showSessionSummary()" title="Summary & Export">📊</button>
-      <button id="btn-last-round-header" class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openLastRoundModal()" title="Last round drinks">🍺</button>
-      <button id="btn-admin-players" class="btn" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
+    <div id="header-actions">
+      <button class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="openRulesModal()" title="Rules">📖</button>
+      <button class="btn" style="height:36px;padding:0 10px;font-size:16px" onclick="showSessionSummary()" title="Summary">📊</button>
+      <button class="btn" id="btn-last-round-header" style="height:36px;padding:0 10px;font-size:16px" onclick="openLastRoundModal()" title="Last round drinks">🍺</button>
+      <button class="btn" id="btn-admin-players" style="display:none;height:36px;padding:0 10px;font-size:16px" onclick="openKickModal()" title="Settings">⚙️</button>
       <button class="btn red" style="height:36px;padding:0 10px;font-size:12px" onclick="resetToSetup()">🏠 Lobby</button>
     </div>
   </header>
@@ -386,6 +386,29 @@
     </div><!-- end #dig-panel -->
 
   </div><!-- end #panel -->
+
+  <nav id="bottom-nav">
+    <button class="bnav-btn" onclick="openRulesModal()">
+      <span class="bnav-icon">📖</span>
+      <span class="bnav-label">Rules</span>
+    </button>
+    <button class="bnav-btn" onclick="showSessionSummary()">
+      <span class="bnav-icon">📊</span>
+      <span class="bnav-label">Summary</span>
+    </button>
+    <button class="bnav-btn" id="btn-last-round-nav" onclick="openLastRoundModal()">
+      <span class="bnav-icon">🍺</span>
+      <span class="bnav-label">Last Round</span>
+    </button>
+    <button class="bnav-btn" id="btn-admin-nav" style="display:none" onclick="openKickModal()">
+      <span class="bnav-icon">⚙️</span>
+      <span class="bnav-label">Settings</span>
+    </button>
+    <button class="bnav-btn bnav-home" onclick="resetToSetup()">
+      <span class="bnav-icon">🏠</span>
+      <span class="bnav-label">Lobby</span>
+    </button>
+  </nav>
 </div>
 
 
