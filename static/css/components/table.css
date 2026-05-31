@@ -1,0 +1,140 @@
+/* ============================================================
+   table.css — player seats, cards, hands, deal animation
+   ============================================================ */
+
+.seat {
+  background: #1f2230;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  transition: border-color .15s, opacity .15s;
+}
+.seat.dealer  { background: #251c2c; }
+.seat.turn    { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,142,247,.2); }
+.seat.done    { opacity: .55; }
+
+.seat-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 14px; font-weight: 700;
+}
+.seat-name .role {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  margin-left: 6px; text-transform: uppercase; letter-spacing: .5px;
+}
+.turn-tag {
+  background: var(--accent); color: #fff;
+  font-size: 10px; font-weight: 800; letter-spacing: .5px;
+  text-transform: uppercase;
+  padding: 3px 7px; border-radius: 4px;
+}
+
+.hands-row {
+  display: flex; gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.hand-block {
+  flex-shrink: 0;
+  min-width: 124px;
+}
+.hand-block.done { opacity: .65; }
+.hand-label {
+  font-size: 10px; color: var(--muted);
+  margin-bottom: 5px;
+  text-transform: uppercase; letter-spacing: .5px;
+  font-weight: 700;
+}
+.cards-row { display: flex; gap: 5px; flex-wrap: nowrap; }
+
+.card-vis {
+  width: 52px; height: 74px;
+  border-radius: 7px;
+  background: #f6f6f6;
+  color: #111;
+  border: 1px solid rgba(0,0,0,.35);
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 4px 5px;
+  font-weight: 800;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0,0,0,.55);
+  line-height: 1;
+}
+.card-vis.red    { color: #c12525; }
+.card-vis.hidden {
+  background: repeating-linear-gradient(45deg, #1d3a72, #1d3a72 6px, #0d1f44 6px, #0d1f44 12px);
+  color: #cad6ef;
+  border-color: #0d1f44;
+}
+.card-vis .top  { font-size: 13px; align-self: flex-start; }
+.card-vis .mid  { font-size: 22px; align-self: center; }
+.card-vis .bot  { font-size: 13px; align-self: flex-end; transform: rotate(180deg); opacity: .85; }
+.card-vis.hidden .mid { font-size: 18px; opacity: .55; }
+
+.hand-meta {
+  font-size: 11px; color: var(--muted);
+  margin-top: 6px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.hand-meta .score   { color: var(--text); font-weight: 700; }
+.hand-meta .bj      { color: var(--yellow); font-weight: 800; }
+.hand-meta .bust    { color: var(--red);    font-weight: 800; }
+.hand-meta .stood   { color: var(--muted); }
+.hand-meta .win     { color: var(--green);  font-weight: 700; }
+.hand-meta .loss    { color: var(--red);    font-weight: 700; }
+.hand-meta .push    { color: var(--yellow); font-weight: 700; }
+
+/* per-seat sip badge */
+.seat-sip-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(245,200,66,.12);
+  border: 1px solid rgba(245,200,66,.22);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px; font-weight: 700; color: var(--yellow);
+  flex-shrink: 0;
+}
+
+/* ---- CARD PICKER ---- */
+.card-grid { display: grid; gap: 7px; margin-bottom: 10px; }
+#rank-grid { grid-template-columns: repeat(7, 1fr); }
+#suit-grid { grid-template-columns: repeat(4, 1fr); }
+
+.card-btn {
+  height: 54px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  font-size: 19px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .1s, border-color .1s, transform .08s;
+  color: var(--text);
+  width: 100%;
+}
+#suit-grid .card-btn { font-size: 24px; }
+.card-btn:active  { transform: scale(.93); }
+.card-btn.sel     { background: var(--accent); border-color: var(--accent); color: #fff; }
+.card-btn.hearts, .card-btn.diamonds { color: #e05c5c; }
+.card-btn.clubs,  .card-btn.spades   { color: #d0d6f0; }
+.card-btn.hearts.sel, .card-btn.diamonds.sel { background: #b03030; border-color: #b03030; color: #fff; }
+
+/* ---- LAST ROUND DRINK SUMMARY ---- */
+#last-round-panel {
+  display: none;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.06);
+  font-size: 13px;
+}
+#last-round-panel .lrp-row {
+  display: flex; justify-content: space-between;
+  padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.07);
+}
+#last-round-panel .lrp-row:last-child { border-bottom: none; }
+#last-round-panel .lrp-sips { font-weight: 700; color: var(--yellow); }
