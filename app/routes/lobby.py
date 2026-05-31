@@ -11,7 +11,9 @@ POST /setup       — Admin configures and starts the game session
 from flask import Blueprint, jsonify, request
 
 from blackjack import Player, Hand, Shoe, NPC_Player
+from referee import RefereeSession
 
+from app.models.game_room import GameRoom
 from app.services.session_store import (
     game_sessions,
     reserve_room, set_session, find_room_code,
@@ -86,8 +88,7 @@ def setup():
     # The admin (session creator) may reconfigure; everyone else is blocked.
     existing = game_sessions[room_code]
     if existing is not None:
-        clients = getattr(existing, "_room_clients", {})
-        if clients.get(client_id, {}).get("role") != "admin":
+        if existing._room_clients.get(client_id, {}).get("role") != "admin":
             return jsonify({"ok": False, "output": "Game already in progress."})
 
     raw_players = data.get("players")
@@ -119,59 +120,34 @@ def setup():
 
     drinking = bool(data.get("drinking", True))
 
-    from referee import RefereeSession
-    game_session                         = RefereeSession(players, dealer_name, wager, num_hands)
-    set_session(room_code, game_session)
-    game_session.mode                    = mode
-    game_session.drinking_mode           = drinking
-    game_session.rounds_this_dealer      = 1   # rounds the current dealer has held the role
-    game_session.switch_this_round       = None  # None | "hard" | "soft"
-    game_session._dealer_rotate_every    = len(players)   # rotate after N rounds (one full cycle)
-    # Shared log — broadcast to all players via /state polling
-    game_session._log_entries            = []
-    game_session._log_version            = 0
-    game_session._deferred_hole_card_msgs = []
-    # CSV accumulator — survives across rounds; never reset between newrounds
-    game_session._drink_csv_rows         = []
-    # Live sip ticker — cumulative across all rounds
-    game_session._sip_ticker             = {}
-    game_session._drink_log_harvested    = False
-    game_session._last_round_sips        = {}   # per-player sips in the last completed round
-    game_session._last_round_drinks      = []   # detailed drink entries for the Drinks pane
-    game_session._prev_round_sips        = {}   # sips from the round before last (for comparison)
-    game_session._prev_round_drinks      = []   # drinks from the round before last
-    game_session._dealer_role_ticker     = {}   # cumulative sips earned while acting as dealer
-    # Identity — session creator is admin, auto-registered with the dealer's name
-    game_session._room_clients  = {}
-    game_session._preselections = {}
-    game_session._suggestions   = {}   # pending dealer→player action suggestions
-    game_session._kick_votes    = {}   # {target_name_lower: set(voter_name_lower)}
-    game_session._rejoin_requests = []  # [{client_id, display_name}] — kicked players asking to rejoin
-    game_session._anim_default  = True # admin's animation preference, broadcast to joiners
-    game_session._queued_settings = {}  # settings queued to apply at start of next round
-    game_session._hand_stats            = {}   # {player: {wins, losses, pushes, ...}}
-    game_session._dealer_hand_stats     = {}   # {dealer_name: {wins, losses, pushes, hands}}
-    game_session._milestones_claimed    = {}   # boundary → winner name; never reset
-    game_session._pending_milestone     = None # current unclaimed handout (or None)
-    game_session._last_milestone_result = None # most recent claim result, shown ~15s
+    raw_session = RefereeSession(players, dealer_name, wager, num_hands)
+    room = GameRoom(
+        session             = raw_session,
+        mode                = mode,
+        drinking_mode       = drinking,
+        rounds_this_dealer  = 1,
+        switch_this_round   = None,
+        _dealer_rotate_every = len(players),
+    )
     if client_id:
-        game_session._room_clients[client_id] = {
+        room._room_clients[client_id] = {
             "name": dealer_name, "role": "admin", "kicked": False,
         }
+    set_session(room_code, room)
 
     if mode == "digital":
-        num_decks         = int(data.get("num_decks", 1))
-        game_session.shoe = Shoe(num_decks)
-        game_session.shoe.shuffle()
+        num_decks        = int(data.get("num_decks", 1))
+        raw_session.shoe = Shoe(num_decks)
+        raw_session.shoe.shuffle()
 
     if drinking:
-        patch_tracker(game_session)
+        patch_tracker(raw_session)
     else:
-        game_session.tracker = NullTracker()
+        raw_session.tracker = NullTracker()
 
-    output = capture(game_session.start_round)
+    output = capture(raw_session.start_round)
     if output.strip():
-        game_session._log_entries.append(output)
-    state  = serialize_state(game_session, client_id)
+        room._log_entries.append(output)
+    state  = serialize_state(room, client_id)
     state["output"] = output   # kept for host's immediate display
     return jsonify(state)

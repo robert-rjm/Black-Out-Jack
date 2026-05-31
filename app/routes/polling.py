@@ -50,16 +50,13 @@ def register():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    if not hasattr(session, "_room_clients"):
-        session._room_clients = {}
-
     existing = session._room_clients.get(client_id, {})
     if existing.get("kicked"):
         if not name:
             # Kicked player wants to spectate — allow it, clear kicked flag
             session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
             # Remove any pending rejoin request for this client
-            session._rejoin_requests = [r for r in getattr(session, "_rejoin_requests", [])
+            session._rejoin_requests = [r for r in session._rejoin_requests
                                         if r["client_id"] != client_id]
             return jsonify({**serialize_state(session, client_id), "ok": True})
         return jsonify({"ok": False, "error": "You have been removed from this session."})
@@ -101,7 +98,7 @@ def preselect():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
+    clients = session._room_clients
     info    = clients.get(client_id, {})
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered in this session."})
@@ -112,9 +109,6 @@ def preselect():
 
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
-
-    if not hasattr(session, "_preselections"):
-        session._preselections = {}
 
     session._preselections[f"{name.lower()}:{hand}"] = action
     return jsonify({**serialize_state(session, client_id), "ok": True})
@@ -141,9 +135,6 @@ def suggest_action():
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
 
-    if not hasattr(session, "_suggestions"):
-        session._suggestions = {}
-
     session._suggestions[f"{target_name.lower()}:{hand}"] = action
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -162,7 +153,7 @@ def respond_suggest():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
+    clients = session._room_clients
     info    = clients.get(client_id, {})
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered."})
@@ -170,14 +161,11 @@ def respond_suggest():
     name = info.get("name", "")
     key  = f"{name.lower()}:{hand}"
 
-    suggestions = getattr(session, "_suggestions", {})
-    suggestion  = suggestions.get(key)
+    suggestion  = session._suggestions.get(key)
     if not suggestion:
         return jsonify({"ok": False, "error": "No pending suggestion."})
 
     if accept:
-        if not hasattr(session, "_preselections"):
-            session._preselections = {}
         session._preselections[key] = suggestion
 
     session._suggestions.pop(key, None)
@@ -209,7 +197,7 @@ def vote_insurance():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    clients = getattr(session, "_room_clients", {})
+    clients = session._room_clients
     info    = clients.get(client_id, {})
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered."})
@@ -220,9 +208,8 @@ def vote_insurance():
     if voter_name.lower() == bj_player.lower():
         return jsonify({"ok": False, "error": "You cannot vote on your own blackjack."})
 
-    insurance_votes = getattr(session, "_insurance_votes", [])
     vote_entry = next(
-        (v for v in insurance_votes
+        (v for v in session._insurance_votes
          if v["player"].lower() == bj_player.lower() and v["hand_idx"] == hand_idx),
         None,
     )

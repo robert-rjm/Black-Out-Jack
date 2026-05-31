@@ -40,10 +40,9 @@ def sanitize_name(raw: str) -> str:
 def get_client_info(session, client_id: str) -> dict:
     """Return role/name/is_dealer info for a client_id.
 
-    Safe to call even if session._room_clients hasn't been set yet.
     Returned dict always contains: role, name, is_dealer.
     """
-    clients = getattr(session, "_room_clients", {})
+    clients = session._room_clients
     info    = clients.get(client_id)
     if info is None:
         return {"role": None, "name": None, "is_dealer": False}
