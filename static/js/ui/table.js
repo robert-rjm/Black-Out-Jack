@@ -404,9 +404,12 @@ function applyState(state) {
     _renderQueuedBanner(state.queued_settings);
   }
 
-  // Settings button — visible to all registered players (admin gets full controls, players get personal settings + vote kick)
+  // Settings button — visible to all registered players (both header and bottom-nav copies)
+  const showSettings = (myRole === "admin" || myRole === "player") ? "block" : "none";
   const adminBtn = document.getElementById("btn-admin-players");
-  if (adminBtn) adminBtn.style.display = (myRole === "admin" || myRole === "player") ? "block" : "none";
+  if (adminBtn) adminBtn.style.display = showSettings;
+  const adminNav = document.getElementById("btn-admin-nav");
+  if (adminNav) adminNav.style.display = showSettings;
 
   // Apply admin's animation default for first-time joiners who have no local preference
   if (state.anim_default !== undefined && lsGet("bjDealAnim") === null) {

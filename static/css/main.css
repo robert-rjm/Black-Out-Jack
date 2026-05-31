@@ -138,3 +138,47 @@ header h1 { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
 
 /* ---- HEADER ROOM CODE ---- */
 #header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
+
+/* ---- DESKTOP HEADER ACTIONS (hidden on mobile) ---- */
+#header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ---- BOTTOM NAV BAR (mobile only) ---- */
+#bottom-nav {
+  flex-shrink: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bnav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color .15s, background .15s;
+  min-height: 52px;
+}
+.bnav-btn:active { background: rgba(255,255,255,.06); }
+.bnav-icon { font-size: 20px; line-height: 1; }
+.bnav-label { font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
+.bnav-home { color: var(--red); }
+
+/* ---- RESPONSIVE: swap nav location at 640px ---- */
+@media (min-width: 640px) {
+  #bottom-nav   { display: none; }
+  #header-actions { display: flex; }
+}
+@media (max-width: 639px) {
+  #header-actions { display: none; }
+}
