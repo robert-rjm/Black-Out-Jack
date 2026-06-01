@@ -26,8 +26,10 @@ def classify_rule(reason: str) -> str | None:
     Mirrors classify_rule() in simulation.py.
     """
     r = reason
-    if "A♣" in r and "credit" in r:           return None
-    if "bust vote correct" in r:               return None   # -1 credit, not shown in panel
+    if "A♣" in r and "credit" in r:           return None   # A♣ credit
+    if "A♣ protected" in r:                   return None   # display-only waived entry
+    if "A♣ protection credit" in r:           return None   # display-only waived credit
+    if "bust vote correct" in r:               return None   # bust vote credit
     if "protects" in r:                         return None
     if "exempt" in r:                           return None
     if "Bust vote" in r and "wrong" in r:      return "Bust vote wrong call"
@@ -181,12 +183,20 @@ def harvest_drink_log(session: GameRoom) -> None:
             sips   = entry[0]
             reason = entry[1]
             if sips and sips > 0:
-                if classify_rule(reason) is None:
+                rule = classify_rule(reason)
+                if rule is None:
+                    # Display-only waived entry (A♣ protected hard switch) — show but skip CSV
+                    if reason and "A♣ protected" in reason:
+                        drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
                     continue
                 drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
-            elif sips and sips < 0 and reason and "bust vote correct" in reason:
-                drinks_detail.append({"name": p.name, "sips": sips,
-                                      "reason": "-1 sip credit from dealer bust"})
+            elif sips and sips < 0 and reason:
+                # Credit entries — show green in drinks detail, skip CSV
+                if "bust vote correct" in reason:
+                    drinks_detail.append({"name": p.name, "sips": sips,
+                                          "reason": "-1 sip credit from dealer bust"})
+                elif "A♣ protection credit" in reason or ("A♣" in reason and "credit" in reason):
+                    drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
             elif reason and "Hard Switch triggered" in reason:
                 notices.append(reason)
     session._last_round_drinks  = drinks_detail

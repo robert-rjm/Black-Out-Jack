@@ -731,9 +731,28 @@ class RoundManager:
                     hard_switch_dealer=exempt_dealer))
 
             if hard_switch:
+                protected = self._ace_clubs_flag["protected"]
                 self._drink(DrinkingRules.on_hard_dealer_switch(
-                    self.dealer_player.name, winning_hds,
-                    self._ace_clubs_flag["protected"]))
+                    self.dealer_player.name, winning_hds, protected))
+                # When A♣ protects the dealer, add display-only +/- entries so
+                # the drinks summary panel can show what was waived.
+                if protected and winning_hds:
+                    waived = 0
+                    for pname, hand in winning_hds:
+                        if hand.is_blackjack():
+                            waived += 1 if pname == self.dealer_player.name else 2
+                        elif hand.doubled:
+                            waived += 2
+                        else:
+                            waived += 1
+                    if waived > 0:
+                        d = self.dealer_player
+                        d.add_drink(waived,
+                            f"Hard Dealer Switch — A♣ protected: {waived} sip(s) waived",
+                            "dealer")
+                        d.add_drink(-waived,
+                            f"A♣ protection credit: -{waived} sips",
+                            "dealer")
 
     def _round_end_drinks(self):
         from drinking_rules import DrinkingRules
