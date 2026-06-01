@@ -568,6 +568,16 @@ function updateRoundPane(state) {
     if (panel) panel.style.display = "flex";
     if (none)  none.style.display  = "none";
 
+    // Round notices (e.g. "Hard Switch triggered — A♣ protects X from drinking")
+    const noticesEl = document.getElementById("dig-round-notices");
+    if (noticesEl) {
+      const notices = state.round_notices || [];
+      noticesEl.innerHTML = notices.map(n =>
+        `<div class="round-notice">${escapeHtml(n)}</div>`
+      ).join("");
+      noticesEl.style.display = notices.length ? "block" : "none";
+    }
+
     // LEFT: 2-col grid of tappable player cards
     if (agg) {
       agg.innerHTML = allPlayers.map(name => {
@@ -613,6 +623,8 @@ function updateRoundPane(state) {
     if (progress) progress.style.display = "block";
     if (agg)      agg.innerHTML          = "";
     if (detail)   detail.innerHTML       = "";
+    const noticesEl2 = document.getElementById("dig-round-notices");
+    if (noticesEl2) { noticesEl2.innerHTML = ""; noticesEl2.style.display = "none"; }
   }
 
   // Peeked card — sync across state polls; button label reflects toggle state

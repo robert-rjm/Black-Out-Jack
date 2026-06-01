@@ -120,15 +120,21 @@ def harvest_drink_log(session: GameRoom) -> None:
 
     # Detailed drink entries for the Drinks pane
     drinks_detail = []
+    notices       = []
     for p in session.all_players:
         for entry in p.drink_log:
-            if entry and len(entry) >= 2 and entry[0] > 0:
-                sips   = entry[0]
-                reason = entry[1]
+            if not entry or len(entry) < 2:
+                continue
+            sips   = entry[0]
+            reason = entry[1]
+            if sips and sips > 0:
                 if classify_rule(reason) is None:
                     continue
                 drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
-    session._last_round_drinks = drinks_detail
+            elif reason and "Hard Switch triggered" in reason:
+                notices.append(reason)
+    session._last_round_drinks  = drinks_detail
+    session._round_notices      = notices
 
     # Hand outcome stats per player (win/loss/push, splits, doubles)
     hand_stats = session._hand_stats
