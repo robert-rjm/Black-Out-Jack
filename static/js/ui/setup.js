@@ -90,6 +90,15 @@ let selSuit = null;
 let setupMode     = "digital";   // "referee" | "digital"
 let setupDrinking = true;
 
+function setBustVoteSetupToggle(on) {
+  // Update ON/OFF labels — CSS sibling selector can't reach through the
+  // wrapping <label>, so we mirror the same JS approach as setAnimToggle.
+  const off = document.getElementById("bust-vote-lbl-setup");
+  const onEl = document.getElementById("bust-vote-lbl-setup-on");
+  if (off)  off.style.display  = on ? "none"   : "inline";
+  if (onEl) onEl.style.display = on ? "inline" : "none";
+}
+
 function setGameType(type, btn) {
   document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
