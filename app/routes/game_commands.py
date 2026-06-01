@@ -437,6 +437,7 @@ def command():
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                apply_bust_vote_penalties(game_session)
                 harvest_drink_log(game_session)
                 check_and_set_milestone(game_session)
 
@@ -455,12 +456,15 @@ def command():
                 # Clear the shared log and peeked card for the new round
                 game_session._log_entries = []
                 game_session._log_version = game_session._log_version + 1
-                game_session._last_peeked   = None
-                game_session._preselections = {}
-                game_session._suggestions   = {}
-                game_session._drink_log_harvested = False
-                game_session._kick_votes    = {}  # reset vote-kick tally each round
-                game_session._pending_milestone = None  # clear between rounds
+                game_session._last_peeked            = None
+                game_session._preselections          = {}
+                game_session._suggestions            = {}
+                game_session._bust_votes             = {}
+                game_session._bust_vote_expires_at   = None
+                game_session._bust_vote_result       = None
+                game_session._drink_log_harvested    = False
+                game_session._kick_votes             = {}
+                game_session._pending_milestone      = None
                 game_session.start_round()
                 patch_tracker(game_session)
 
