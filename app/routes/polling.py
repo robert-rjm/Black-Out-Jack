@@ -232,3 +232,42 @@ def vote_insurance():
 
     vote_entry["votes"][voter_name] = vote
     return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Bust vote side bet
+# ---------------------------------------------------------------------------
+
+@bp.route("/cast_bust_vote", methods=["POST"])
+def cast_bust_vote():
+    """Player casts or updates their dealer-bust confidence vote.
+    Body: { room_code, client_id, vote: "bust" | "win" }
+    Can be re-cast any time before round-over — last vote wins.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    vote      = (data.get("vote") or "").strip()
+
+    if vote not in ("bust", "none"):
+        return jsonify({"ok": False, "error": "vote must be 'bust' or 'none'."})
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    if not session.bust_vote_enabled:
+        return jsonify({"ok": False, "error": "Bust vote not enabled."})
+
+    from app.services.serializer import round_phase
+    if round_phase(session) == "round-over":
+        return jsonify({"ok": False, "error": "Round is already over."})
+
+    voter_name = session._room_clients.get(client_id, {}).get("name")
+    if not voter_name:
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    if vote == "none":
+        session._bust_votes.pop(voter_name, None)
+    else:
+        session._bust_votes[voter_name] = vote
+    return jsonify({**serialize_state(session, client_id), "ok": True})

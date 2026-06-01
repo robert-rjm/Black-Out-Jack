@@ -137,10 +137,9 @@ def compute_sip_totals(session: GameRoom) -> dict:
     ticker = dict(session._sip_ticker)
     if not session._drink_log_harvested:
         for p in session.all_players:
-            for entry in p.drink_log:
-                sips = entry[0] if entry else 0
-                if sips > 0:
-                    ticker[p.name] = ticker.get(p.name, 0) + sips
+            net = max(0, sum((e[0] or 0) for e in p.drink_log if e))
+            if net > 0:
+                ticker[p.name] = ticker.get(p.name, 0) + net
     return ticker
 
 
@@ -301,6 +300,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "my_rejoin_pending":      any(r["client_id"] == client_id
                                       for r in session._rejoin_requests),
         "anim_default":           session._anim_default,
+        "bust_vote_enabled":      session.bust_vote_enabled,
+        "bust_votes":             dict(session._bust_votes),
+        "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
+        "bust_vote_result":       session._bust_vote_result,
         "connected_clients":      [
             {"name": info.get("name"), "role": info.get("role")}
             for info in session._room_clients.values()

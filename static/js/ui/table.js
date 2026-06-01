@@ -392,6 +392,10 @@ function applyState(state) {
   if (prevPhase !== "round-over" && state.phase === "round-over" && state.switch_this_round) {
     showSwitchToast(state.switch_this_round, state.dealer || "Dealer");
   }
+  // Bust vote toast — fires on round-over when votes were cast (visible to all)
+  if (prevPhase !== "round-over" && state.phase === "round-over" && state.bust_vote_result) {
+    showBustVoteToast(state.bust_vote_result);
+  }
 
   lastState   = state;
   currentTurn = state.current_turn || null;
@@ -441,6 +445,7 @@ function applyState(state) {
     updateHandLocks(state);
     updateRoundPane(state);
     updateBestPlay(state);
+    updateBustVoteUI(state);
   }
 
   if (isDeal) {
@@ -542,13 +547,17 @@ function renderDrinksDetail() {
   detail.innerHTML =
     `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
                  letter-spacing:.5px;margin-bottom:5px">${escapeHtml(_drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
-    entries.map(d =>
-      `<div style="font-size:11px;line-height:1.45;padding:4px 6px;border-radius:6px;margin-bottom:3px;
-                   color:var(--red);border-left:2px solid var(--red);background:rgba(224,92,92,.08)">
-        <span style="font-weight:700">+${d.sips}</span>
+    entries.map(d => {
+      const isCredit = d.sips < 0;
+      const col   = isCredit ? "var(--green)"              : "var(--red)";
+      const bg    = isCredit ? "rgba(62,207,110,.08)"      : "rgba(224,92,92,.08)";
+      const label = isCredit ? `${d.sips}`                 : `+${d.sips}`;
+      return `<div style="font-size:11px;line-height:1.45;padding:4px 6px;border-radius:6px;margin-bottom:3px;
+                   color:${col};border-left:2px solid ${col};background:${bg}">
+        <span style="font-weight:700">${label}</span>
         <span style="color:var(--muted)"> ${escapeHtml(d.reason)}</span>
-      </div>`
-    ).join("");
+      </div>`;
+    }).join("");
 }
 
 function updateRoundPane(state) {

@@ -427,6 +427,11 @@ def update_settings():
         except (ValueError, TypeError):
             pass   # silently ignore a malformed value; non-critical setting
 
+    # bust_vote_enabled is a live setting — toggled immediately
+    if "bust_vote_enabled" in data:
+        session.bust_vote_enabled = bool(data["bust_vote_enabled"])
+        session._bust_votes = {}   # clear any stale votes when toggling
+
     session._queued_settings = queued
     state = serialize_state(session, client_id)
     state["output"] = ""
