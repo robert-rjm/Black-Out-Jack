@@ -13,6 +13,7 @@ Referee commands: deal, action, result, dealer, fouraces, endround,
 
 import contextlib
 import io
+import time
 
 from flask import Blueprint, jsonify, request
 
@@ -162,9 +163,8 @@ def command():
                 game_session._suggestions   = {}
                 game_session._bust_votes    = {}     # fresh votes each deal
                 # Open bust-vote window for 10 seconds (if feature enabled)
-                import time as _t
                 game_session._bust_vote_expires_at = (
-                    _t.monotonic() + 10 if game_session.bust_vote_enabled else None
+                    time.monotonic() + 10 if game_session.bust_vote_enabled else None
                 )
                 initial_deal(game_session)
                 auto_play_npc_turns(game_session)

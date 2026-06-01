@@ -192,8 +192,6 @@
   padding: 10px 0 4px;
   border-top: 1px solid var(--border);
 }
-.bust-btn-bust.voted { background: rgba(224,92,92,.22);  border-color: var(--red);    color: var(--red); }
-.bust-btn-win.voted  { background: rgba(62,207,110,.18); border-color: var(--green);  color: var(--green); }
 .bust-vote-status {
   font-size: 11px;
   color: var(--muted);
