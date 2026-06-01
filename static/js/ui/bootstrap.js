@@ -32,9 +32,9 @@
     });
   }
 
-  window.closeAndExportSummaryCsv = function closeAndExportSummaryCsv() {
-    closeSummaryModal();
+  window.exportDrinksAndClose = function exportDrinksAndClose() {
     exportDrinkCSV();
+    closeSummaryModal();
   };
 
   document.addEventListener("click", (event) => {
