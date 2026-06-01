@@ -60,6 +60,11 @@ class GameRoom:
     _pending_milestone: dict | None = None
     _last_milestone_result: dict | None = None
 
+    # Bust vote side bet
+    bust_vote_enabled: bool = False
+    _bust_votes: dict = field(default_factory=dict)        # player_name → "bust"
+    _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
+
     # Misc UI state
     _last_peeked: dict | None = None
 

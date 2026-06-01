@@ -238,8 +238,10 @@ async function startGame() {
   const nh        = parseInt(document.getElementById(isDigital ? "num-hands-dig" : "num-hands-ref").value) || 2;
   const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
 
+  const bustVoteEnabled = !!(document.getElementById("bust-vote-setup-toggle")?.checked);
+
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {

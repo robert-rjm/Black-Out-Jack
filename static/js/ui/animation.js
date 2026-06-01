@@ -62,6 +62,7 @@ function _renderStateSilent(state) {
     updateActionButtons(state);
     updateRoundPane(state);
     updateBestPlay(state);
+    updateBustVoteUI(state);
     updateRoleUI(state);
   }
 }

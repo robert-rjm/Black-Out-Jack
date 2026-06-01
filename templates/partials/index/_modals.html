@@ -57,6 +57,18 @@
         <input type="number" id="setting-num-decks" min="1" max="8" value="1" class="w-72">
       </div>
 
+      <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
+        </div>
+      </div>
+
       <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
       <div class="settings-row">
         <label>Rotate every</label>

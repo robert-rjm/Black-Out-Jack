@@ -18,6 +18,9 @@
     if (action === "setAnimToggle") {
       return window.setAnimToggle(!!el.checked);
     }
+    if (action === "setBustVoteEnabled") {
+      return window.setBustVoteEnabled(!!el.checked);
+    }
     if (action === "handleRulesBackdropClick") {
       return window.handleRulesBackdropClick(event);
     }

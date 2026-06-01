@@ -157,6 +157,100 @@ function updateRoleUI(state) {
 }
 
 // ============================================================
+// BUST VOTE SIDE BET
+// ============================================================
+
+async function castBustVote() {
+  // Toggle: if already voted bust, cancel (send "none"); otherwise vote "bust"
+  const current = lastState && lastState.my_bust_vote;
+  const vote    = current === "bust" ? "none" : "bust";
+  try {
+    const res  = await fetch("/cast_bust_vote", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, vote }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+async function setBustVoteEnabled(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, bust_vote_enabled: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+function updateBustVoteUI(state) {
+  const panel    = document.getElementById("bust-vote-panel");
+  const statusEl = document.getElementById("bust-vote-status");
+
+  if (!panel) return;
+  const enabled = state.bust_vote_enabled;
+  const phase   = state.phase;
+
+  // Show to any registered non-spectator once a round is active
+  const showPanel = enabled
+    && myRole !== null
+    && myRole !== "spectator"
+    && phase !== "pre-deal";
+
+  panel.style.display = showPanel ? "block" : "none";
+  if (!showPanel) return;
+
+  // Highlight button when voted
+  const myVote = state.my_bust_vote;
+  const btn    = document.querySelector(".bust-btn-bust");
+  if (btn) btn.classList.toggle("voted", myVote === "bust");
+
+  if (!statusEl) return;
+  const votes   = state.bust_votes || {};
+  const bustCnt = Object.values(votes).filter(v => v === "bust").length;
+
+  if (phase === "round-over") {
+    const result = state.bust_vote_result;
+    if (!myVote) {
+      statusEl.textContent = bustCnt ? `${bustCnt} voted bust this round.` : "";
+    } else if (result) {
+      const won = result.winners.includes(myName);
+      const cls = won ? "bust-vote-result-correct" : "bust-vote-result-wrong";
+      const msg = won ? "✓ Called it — -1 sip!" : "✗ Wrong call — +1 sip";
+      statusEl.innerHTML = `<span class="${cls}">${msg}</span>`;
+    }
+  } else {
+    statusEl.textContent = bustCnt
+      ? `${bustCnt} player${bustCnt !== 1 ? "s" : ""} betting bust`
+      : (myVote === "bust" ? "You're betting dealer busts" : "");
+  }
+}
+
+function showBustVoteToast(result) {
+  if (!result) return;
+  const toast = document.getElementById("player-toast");
+  if (!toast) return;
+  const parts = [];
+  if (result.dealer_busted) {
+    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called dealer bust (-1 sip each)`);
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip each)`);
+  } else {
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet on bust — wrong (+1 sip each)`);
+    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called no bust (-1 sip each)`);
+  }
+  if (!parts.length) return;
+  toast.textContent = parts.join(" · ");
+  toast.classList.remove("show");
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 6000);
+}
+
+// ============================================================
 // REGISTRATION
 // ============================================================
 function updateRegisterOverlay(state) {
@@ -616,6 +710,10 @@ function _populateSettingsUI(state) {
   const decksEl    = document.getElementById("setting-num-decks");
   const decksRow   = document.getElementById("setting-decks-row");
   const removeEl   = document.getElementById("setting-remove-name");
+
+  // Sync bust vote pill toggle
+  const bustCb = document.getElementById("bust-vote-toggle-modal");
+  if (bustCb) bustCb.checked = !!state.bust_vote_enabled;
 
   if (wagerEl)   wagerEl.value    = state.wager            || 1;
   if (handsEl)   handsEl.value    = state.num_hands         || 2;

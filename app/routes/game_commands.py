@@ -30,7 +30,7 @@ from app.services.game_engine    import (
     deal_card, deal_pending_split_cards,
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
 )
-from app.services.drink_tracker  import harvest_drink_log, check_and_set_milestone
+from app.services.drink_tracker  import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
 from app.services.room_manager   import apply_queued_settings, rotate_dealer, patch_tracker
 
 bp = Blueprint("game_commands", __name__)
@@ -342,11 +342,13 @@ def command():
                 # Auto-run dealer turn + evaluate all hands + assign drinks
                 dealer_turn(game_session)
                 game_session.cmd_endround()
+                apply_bust_vote_penalties(game_session)
                 harvest_drink_log(game_session)
                 check_and_set_milestone(game_session)
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                apply_bust_vote_penalties(game_session)
                 harvest_drink_log(game_session)
                 check_and_set_milestone(game_session)
 
@@ -369,6 +371,8 @@ def command():
                 game_session._last_peeked   = None
                 game_session._preselections = {}
                 game_session._suggestions   = {}
+                game_session._bust_votes       = {}   # clear bust votes each round
+                game_session._bust_vote_result = None
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session._pending_milestone = None  # clear between rounds
@@ -402,6 +406,7 @@ def command():
                     print("\n  (All players done — dealer plays automatically)")
                     dealer_turn(game_session)
                     game_session.cmd_endround()
+                    apply_bust_vote_penalties(game_session)
                     harvest_drink_log(game_session)
                     check_and_set_milestone(game_session)
 
