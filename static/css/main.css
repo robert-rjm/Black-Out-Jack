@@ -164,8 +164,9 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 6px 4px;
+  gap: 0;
+  padding: 0;
+  min-height: 44px;
   background: none;
   border: none;
   cursor: pointer;
@@ -174,8 +175,16 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   min-height: 52px;
 }
 .bnav-btn:active { background: rgba(255,255,255,.06); }
-.bnav-icon { font-size: 20px; line-height: 1; }
-.bnav-label { font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
+.bnav-icon {
+  font-size: 22px;
+  line-height: 1;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#btn-admin-nav .bnav-icon { transform: translateY(12px); }
+.bnav-label { display: none; }
 .bnav-home { color: var(--red); }
 
 /* ---- RESPONSIVE: swap nav location at 640px ---- */
