@@ -127,6 +127,35 @@ def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Bust-vote window helper
+# ---------------------------------------------------------------------------
+
+def _bust_vote_window(session: GameRoom) -> dict:
+    """Return bust_vote_window_open and bust_vote_seconds_left for the frontend."""
+    if not session.bust_vote_enabled or not session._bust_vote_expires_at:
+        return {"bust_vote_window_open": False, "bust_vote_seconds_left": 0}
+
+    now        = time.monotonic()
+    secs_left  = session._bust_vote_expires_at - now
+    if secs_left <= 0:
+        return {"bust_vote_window_open": False, "bust_vote_seconds_left": 0}
+
+    # Early close: all non-NPC players have voted or passed
+    human_players = [p for p in session.all_players
+                     if not getattr(p, "is_npc", False)]
+    all_decided = bool(human_players) and all(
+        session._bust_votes.get(p.name) is not None for p in human_players
+    )
+    if all_decided:
+        return {"bust_vote_window_open": False, "bust_vote_seconds_left": 0}
+
+    return {
+        "bust_vote_window_open":   True,
+        "bust_vote_seconds_left":  max(1, int(secs_left)),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Sip / drink aggregation helpers
 # ---------------------------------------------------------------------------
 
@@ -137,10 +166,9 @@ def compute_sip_totals(session: GameRoom) -> dict:
     ticker = dict(session._sip_ticker)
     if not session._drink_log_harvested:
         for p in session.all_players:
-            for entry in p.drink_log:
-                sips = entry[0] if entry else 0
-                if sips > 0:
-                    ticker[p.name] = ticker.get(p.name, 0) + sips
+            net = max(0, sum((e[0] or 0) for e in p.drink_log if e))
+            if net > 0:
+                ticker[p.name] = ticker.get(p.name, 0) + net
     return ticker
 
 
@@ -286,6 +314,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "sip_grand_total":        sum(sip_totals.values()),
         "last_round_sips":        session._last_round_sips,
         "last_round_drinks":      session._last_round_drinks,
+        "round_notices":          session._round_notices,
         "prev_round_sips":        session._prev_round_sips,
         "prev_round_drinks":      session._prev_round_drinks,
         "dealer_role_sips":       compute_dealer_role_sips(session),
@@ -299,7 +328,22 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                    if _ci.get("role") == "admin"],
         "my_rejoin_pending":      any(r["client_id"] == client_id
                                       for r in session._rejoin_requests),
+        "pending_registrations":  [{"client_id": r["client_id"], "name": r["name"]}
+                                   for r in session._pending_registrations
+                                   if _ci.get("role") == "admin"],
+        "my_registration_pending": any(r["client_id"] == client_id
+                                       for r in session._pending_registrations),
+        "my_registration_rejected": _ci.get("role") == "denied",         # any denial
+        "my_registration_denied":   (                                     # permanent block
+            _ci.get("role") == "denied" and
+            _ci.get("reg_denials", 0) >= 2
+        ),
         "anim_default":           session._anim_default,
+        "bust_vote_enabled":      session.bust_vote_enabled,
+        "bust_votes":             dict(session._bust_votes),
+        "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
+        "bust_vote_result":       session._bust_vote_result,
+        **_bust_vote_window(session),
         "connected_clients":      [
             {"name": info.get("name"), "role": info.get("role")}
             for info in session._room_clients.values()
@@ -309,6 +353,11 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             {"client_id": cid, "name": info.get("name") or ""}
             for cid, info in session._room_clients.items()
             if info.get("kicked") and info.get("name")
+        ] if _ci.get("role") == "admin" else [],
+        "denied_clients":         [
+            {"client_id": cid}
+            for cid, info in session._room_clients.items()
+            if info.get("role") == "denied" and info.get("reg_denials", 0) >= 2
         ] if _ci.get("role") == "admin" else [],
         "my_role":                _ci.get("role"),
         "my_name":                _ci.get("name"),

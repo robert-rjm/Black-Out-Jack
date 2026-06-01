@@ -90,6 +90,15 @@ let selSuit = null;
 let setupMode     = "digital";   // "referee" | "digital"
 let setupDrinking = true;
 
+function setBustVoteSetupToggle(on) {
+  // Update ON/OFF labels — CSS sibling selector can't reach through the
+  // wrapping <label>, so we mirror the same JS approach as setAnimToggle.
+  const off = document.getElementById("bust-vote-lbl-setup");
+  const onEl = document.getElementById("bust-vote-lbl-setup-on");
+  if (off)  off.style.display  = on ? "none"   : "inline";
+  if (onEl) onEl.style.display = on ? "inline" : "none";
+}
+
 function setGameType(type, btn) {
   document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
@@ -238,8 +247,10 @@ async function startGame() {
   const nh        = parseInt(document.getElementById(isDigital ? "num-hands-dig" : "num-hands-ref").value) || 2;
   const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
 
+  const bustVoteEnabled = !!(document.getElementById("bust-vote-setup-toggle")?.checked);
+
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {

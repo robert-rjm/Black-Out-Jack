@@ -26,9 +26,13 @@ def classify_rule(reason: str) -> str | None:
     Mirrors classify_rule() in simulation.py.
     """
     r = reason
-    if "A♣" in r and "credit" in r:           return None
+    if "A♣" in r and "credit" in r:           return None   # A♣ credit
+    if "A♣ protected" in r:                   return None   # display-only waived entry
+    if "A♣ protection credit" in r:           return None   # display-only waived credit
+    if "bust vote correct" in r:               return None   # bust vote credit
     if "protects" in r:                         return None
     if "exempt" in r:                           return None
+    if "Bust vote" in r and "wrong" in r:      return "Bust vote wrong call"
     if "Hard Dealer Switch" in r:              return "Hard Dealer Switch"
     if "net loss" in r:                        return "Net hand losses"
     if "lost a doubled hand" in r:             return "Lost doubled hand"
@@ -50,6 +54,69 @@ def classify_rule(reason: str) -> str | None:
     if "A♥" in r:                             return "Ace dealt: Ace of Hearts (player hand)"
     if "A♦" in r:                             return "Ace dealt: Ace of Diamonds (player hand)"
     return "Other"
+
+
+# ---------------------------------------------------------------------------
+# Bust vote penalties
+# ---------------------------------------------------------------------------
+
+def apply_bust_vote_penalties(session: GameRoom) -> None:
+    """Resolve dealer-bust confidence votes.
+
+    Only players who voted 'bust' are affected:
+      - dealer busted  → correct: -1 sip credit
+      - dealer stood   → wrong:   +1 sip penalty
+    Players who abstained are unaffected.
+    Builds session._bust_vote_result for the toast.
+    """
+    if not session.bust_vote_enabled:
+        session._bust_vote_result = None
+        return
+
+    voters = {name: v for name, v in session._bust_votes.items() if v == "bust"}
+    if not voters:
+        session._bust_vote_result = None
+        return
+
+    dealer = session._get_dealer()
+    if not dealer or not dealer.dealer_hand:
+        session._bust_vote_result = None
+        return
+
+    dealer_busted = dealer.dealer_hand.is_bust()
+    winners, losers = [], []
+
+    for p in session.all_players:
+        if p.name not in voters:
+            continue
+        if dealer_busted:
+            if p.drinks_owed() > 0:
+                p.add_drink(-1, f"{p.name} bust vote correct: -1 sip", "player")
+                print(f"  [bust vote] {p.name} called it — -1 sip credit")
+            else:
+                print(f"  [bust vote] {p.name} called it — no sips to credit")
+            winners.append(p.name)
+        else:
+            p.add_drink(1, "Bust vote — dealer didn't bust, wrong call: +1 sip", "player")
+            losers.append(p.name)
+            print(f"  [bust vote] {p.name} wrong — +1 sip")
+
+    session._bust_vote_result = {
+        "dealer_busted": dealer_busted,
+        "winners":       winners,
+        "losers":        losers,
+    } if (winners or losers) else None
+
+
+# ---------------------------------------------------------------------------
+# Display-reason helper — strip verbose detail from panel labels
+# ---------------------------------------------------------------------------
+
+def _display_reason(rule: str, raw: str) -> str:
+    """Return a short human-readable label for the drinks detail panel."""
+    if rule == "Hard Dealer Switch":
+        return "Hard Dealer Switch"
+    return raw
 
 
 # ---------------------------------------------------------------------------
@@ -86,13 +153,12 @@ def harvest_drink_log(session: GameRoom) -> None:
             })
     session._drink_csv_rows = rows
 
-    # Live sip ticker — cumulative raw totals across all rounds
+    # Live sip ticker — cumulative net totals across all rounds (credits reduce total)
     ticker = session._sip_ticker
     for p in session.all_players:
-        for entry in p.drink_log:
-            sips = entry[0] if entry else 0
-            if sips > 0:
-                ticker[p.name] = ticker.get(p.name, 0) + sips
+        net = max(0, sum((e[0] or 0) for e in p.drink_log if e))
+        if net > 0:
+            ticker[p.name] = ticker.get(p.name, 0) + net
     session._sip_ticker          = ticker
     session._drink_log_harvested = True
 
@@ -113,22 +179,41 @@ def harvest_drink_log(session: GameRoom) -> None:
     # Per-player sip totals for the "Last Round" panel
     last = {}
     for p in session.all_players:
-        total = sum(e[0] for e in p.drink_log if e and e[0] > 0)
+        total = max(0, sum((e[0] or 0) for e in p.drink_log if e))
         if total > 0:
             last[p.name] = total
     session._last_round_sips = last
 
     # Detailed drink entries for the Drinks pane
     drinks_detail = []
+    notices       = []
     for p in session.all_players:
         for entry in p.drink_log:
-            if entry and len(entry) >= 2 and entry[0] > 0:
-                sips   = entry[0]
-                reason = entry[1]
-                if classify_rule(reason) is None:
+            if not entry or len(entry) < 2:
+                continue
+            sips   = entry[0]
+            reason = entry[1]
+            if sips and sips > 0:
+                rule = classify_rule(reason)
+                if rule is None:
+                    # Display-only waived entry (A♣ protected hard switch) — show but skip CSV
+                    if reason and "A♣ protected" in reason:
+                        drinks_detail.append({"name": p.name, "sips": sips,
+                                              "reason": f"Hard Dealer Switch — A♣ protected ({sips} sip(s) waived)"})
                     continue
-                drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
-    session._last_round_drinks = drinks_detail
+                drinks_detail.append({"name": p.name, "sips": sips,
+                                      "reason": _display_reason(rule, reason)})
+            elif sips and sips < 0 and reason:
+                # Credit entries — show green in drinks detail, skip CSV
+                if "bust vote correct" in reason:
+                    drinks_detail.append({"name": p.name, "sips": sips,
+                                          "reason": "-1 sip credit from dealer bust"})
+                elif "A♣ protection credit" in reason or ("A♣" in reason and "credit" in reason):
+                    drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+            elif reason and "Hard Switch triggered" in reason:
+                notices.append(reason)
+    session._last_round_drinks  = drinks_detail
+    session._round_notices      = notices
 
     # Hand outcome stats per player (win/loss/push, splits, doubles)
     hand_stats = session._hand_stats

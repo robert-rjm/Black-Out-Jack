@@ -36,12 +36,14 @@ class GameRoom:
     _drink_log_harvested: bool = False
     _last_round_sips: dict = field(default_factory=dict)
     _last_round_drinks: list = field(default_factory=list)
+    _round_notices: list = field(default_factory=list)
     _prev_round_sips: dict = field(default_factory=dict)
     _prev_round_drinks: list = field(default_factory=list)
     _dealer_role_ticker: dict = field(default_factory=dict)
 
     # Client registry
     _room_clients: dict = field(default_factory=dict)
+    _pending_registrations: list = field(default_factory=list)  # [{client_id, name}]
     _kick_votes: dict = field(default_factory=dict)
     _rejoin_requests: list = field(default_factory=list)
     _anim_default: bool = True
@@ -58,6 +60,12 @@ class GameRoom:
     _milestones_claimed: dict = field(default_factory=dict)
     _pending_milestone: dict | None = None
     _last_milestone_result: dict | None = None
+
+    # Bust vote side bet
+    bust_vote_enabled: bool = False
+    _bust_votes: dict = field(default_factory=dict)        # player_name → "bust" | "pass"
+    _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
+    _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
 
     # Misc UI state
     _last_peeked: dict | None = None

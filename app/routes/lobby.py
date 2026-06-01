@@ -128,6 +128,7 @@ def setup():
         rounds_this_dealer  = 1,
         switch_this_round   = None,
         _dealer_rotate_every = len(players),
+        bust_vote_enabled   = bool(data.get("bust_vote_enabled", False)),
     )
     if client_id:
         room._room_clients[client_id] = {

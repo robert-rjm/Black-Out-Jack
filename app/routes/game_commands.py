@@ -13,6 +13,7 @@ Referee commands: deal, action, result, dealer, fouraces, endround,
 
 import contextlib
 import io
+import time
 
 from flask import Blueprint, jsonify, request
 
@@ -30,7 +31,7 @@ from app.services.game_engine    import (
     deal_card, deal_pending_split_cards,
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
 )
-from app.services.drink_tracker  import harvest_drink_log, check_and_set_milestone
+from app.services.drink_tracker  import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
 from app.services.room_manager   import apply_queued_settings, rotate_dealer, patch_tracker
 
 bp = Blueprint("game_commands", __name__)
@@ -160,6 +161,11 @@ def command():
                 game_session._last_peeked   = None   # peeked card is now stale
                 game_session._preselections = {}
                 game_session._suggestions   = {}
+                game_session._bust_votes    = {}     # fresh votes each deal
+                # Open bust-vote window for 10 seconds (if feature enabled)
+                game_session._bust_vote_expires_at = (
+                    time.monotonic() + 10 if game_session.bust_vote_enabled else None
+                )
                 initial_deal(game_session)
                 auto_play_npc_turns(game_session)
 
@@ -342,11 +348,13 @@ def command():
                 # Auto-run dealer turn + evaluate all hands + assign drinks
                 dealer_turn(game_session)
                 game_session.cmd_endround()
+                apply_bust_vote_penalties(game_session)
                 harvest_drink_log(game_session)
                 check_and_set_milestone(game_session)
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                apply_bust_vote_penalties(game_session)
                 harvest_drink_log(game_session)
                 check_and_set_milestone(game_session)
 
@@ -369,6 +377,9 @@ def command():
                 game_session._last_peeked   = None
                 game_session._preselections = {}
                 game_session._suggestions   = {}
+                game_session._bust_votes          = {}    # clear bust votes each round
+                game_session._bust_vote_expires_at = None
+                game_session._bust_vote_result     = None
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session._pending_milestone = None  # clear between rounds
@@ -402,6 +413,7 @@ def command():
                     print("\n  (All players done — dealer plays automatically)")
                     dealer_turn(game_session)
                     game_session.cmd_endround()
+                    apply_bust_vote_penalties(game_session)
                     harvest_drink_log(game_session)
                     check_and_set_milestone(game_session)
 
@@ -425,6 +437,7 @@ def command():
 
             elif cmd == "endround":
                 game_session.cmd_endround()
+                apply_bust_vote_penalties(game_session)
                 harvest_drink_log(game_session)
                 check_and_set_milestone(game_session)
 
@@ -443,12 +456,15 @@ def command():
                 # Clear the shared log and peeked card for the new round
                 game_session._log_entries = []
                 game_session._log_version = game_session._log_version + 1
-                game_session._last_peeked   = None
-                game_session._preselections = {}
-                game_session._suggestions   = {}
-                game_session._drink_log_harvested = False
-                game_session._kick_votes    = {}  # reset vote-kick tally each round
-                game_session._pending_milestone = None  # clear between rounds
+                game_session._last_peeked            = None
+                game_session._preselections          = {}
+                game_session._suggestions            = {}
+                game_session._bust_votes             = {}
+                game_session._bust_vote_expires_at   = None
+                game_session._bust_vote_result       = None
+                game_session._drink_log_harvested    = False
+                game_session._kick_votes             = {}
+                game_session._pending_milestone      = None
                 game_session.start_round()
                 patch_tracker(game_session)
 

@@ -157,36 +157,268 @@ function updateRoleUI(state) {
 }
 
 // ============================================================
+// BUST VOTE SIDE BET
+// ============================================================
+
+let _bustVoteModalOpen   = false;
+let _bustVoteTimerHandle = null;
+
+async function submitBustVote(choice) {
+  _closeBustVoteModal();
+  try {
+    const res  = await fetch("/cast_bust_vote", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, vote: choice }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+async function setBustVoteEnabled(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, bust_vote_enabled: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+function _openBustVoteModal(secondsLeft) {
+  const overlay = document.getElementById("bust-vote-modal-overlay");
+  if (!overlay || _bustVoteModalOpen) return;
+  _bustVoteModalOpen    = true;
+  overlay.style.display = "flex";
+
+  const bar      = document.getElementById("bust-vote-timer-bar");
+  const label    = document.getElementById("bust-vote-timer-label");
+  const duration = secondsLeft || 10;   // guard against 0
+
+  let secs = duration;
+  function tick() {
+    if (!_bustVoteModalOpen) return;
+    if (bar)   bar.style.width   = `${(secs / duration) * 100}%`;
+    if (label) label.textContent = `${secs}s`;
+    if (secs <= 0) { submitBustVote("pass"); return; }
+    secs--;
+    _bustVoteTimerHandle = setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+function _closeBustVoteModal() {
+  if (!_bustVoteModalOpen) return;
+  _bustVoteModalOpen = false;
+  if (_bustVoteTimerHandle) { clearTimeout(_bustVoteTimerHandle); _bustVoteTimerHandle = null; }
+  const overlay = document.getElementById("bust-vote-modal-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+function updateBustVoteUI(state) {
+  // Sync modal pill toggle in settings
+  const bustCb = document.getElementById("bust-vote-toggle-modal");
+  if (bustCb) bustCb.checked = !!state.bust_vote_enabled;
+
+  const statusEl = document.getElementById("bust-vote-status");
+
+  // Modal: open when window is open and this player hasn't voted yet
+  if (state.bust_vote_window_open && !state.my_bust_vote
+      && myRole !== null && myRole !== "spectator") {
+    _openBustVoteModal(state.bust_vote_seconds_left || 10);
+  } else if (!state.bust_vote_window_open) {
+    _closeBustVoteModal();
+  }
+
+  // Update tally inside the open modal
+  if (_bustVoteModalOpen) {
+    const votes   = state.bust_votes || {};
+    const decided = Object.keys(votes).length;
+    const bustCnt = Object.values(votes).filter(v => v === "bust").length;
+    const tally   = document.getElementById("bust-vote-modal-tally");
+    if (tally) tally.textContent = decided
+      ? `${bustCnt} betting bust · ${decided - bustCnt} passed`
+      : "";
+  }
+
+  // Status indicator: show after window closes
+  if (!statusEl) return;
+  const phase  = state.phase;
+  const myVote = state.my_bust_vote;
+  const show   = state.bust_vote_enabled
+    && myRole !== null && myRole !== "spectator"
+    && phase !== "pre-deal"
+    && !state.bust_vote_window_open;
+
+  statusEl.style.display = show ? "block" : "none";
+  if (!show) return;
+
+  const votes   = state.bust_votes || {};
+  const bustCnt = Object.values(votes).filter(v => v === "bust").length;
+
+  if (phase === "round-over") {
+    const result = state.bust_vote_result;
+    if (!myVote || myVote === "pass") {
+      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
+    } else if (result) {
+      const won = result.winners.includes(myName);
+      const cls = won ? "bust-vote-result-correct" : "bust-vote-result-wrong";
+      const msg = won ? "✓ Called it — -1 sip!" : "✗ Wrong call — +1 sip";
+      statusEl.innerHTML = `<span class="${cls}">${msg}</span>`;
+    }
+  } else {
+    if (myVote === "bust") {
+      statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">💥 You bet dealer busts</span>`;
+    } else if (myVote === "pass") {
+      statusEl.textContent = "You passed the bust bet.";
+    } else {
+      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust` : "";
+    }
+  }
+}
+
+function showBustVoteToast(result) {
+  if (!result) return;
+  const toast = document.getElementById("player-toast");
+  if (!toast) return;
+  const parts = [];
+  if (result.dealer_busted) {
+    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip each)`);
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip each)`);
+  } else {
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip each)`);
+  }
+  if (!parts.length) return;
+  toast.textContent = parts.join(" · ");
+  toast.classList.remove("show");
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 6000);
+}
+
+// ============================================================
 // REGISTRATION
 // ============================================================
 function updateRegisterOverlay(state) {
   const overlay = document.getElementById("register-overlay");
   if (!overlay) return;
-  // Show only when the server says we're not yet registered
-  if (!state.my_role) {
+
+  if (state.my_registration_denied) {
+    // Permanently blocked — show hard stop, no seat buttons
+    _showRegisterBlocked();
+    return;
+  }
+  if (state.my_registration_rejected) {
+    // Rejected once — show message + seat buttons so they can try again
+    _showRegisterDenied(state);
+    return;
+  }
+  if (state.my_registration_pending) {
+    _showRegisterPending();
+    return;
+  }
+  if (!state.my_role || state.my_role === "pending") {
     showRegisterOverlay(state);
   } else {
     overlay.style.display = "none";
   }
+
+  // Admin: render pending registration approvals banner
+  renderPendingRegBanner(state);
+}
+
+function _showRegisterPending() {
+  const overlay  = document.getElementById("register-overlay");
+  const seatsEl  = document.getElementById("register-seats");
+  const pendEl   = document.getElementById("register-pending");
+  const deniedEl = document.getElementById("register-denied");
+  if (seatsEl)  seatsEl.innerHTML = "";
+  if (pendEl)   pendEl.style.display  = "block";
+  if (deniedEl) deniedEl.style.display = "none";
+  if (overlay)  overlay.style.display = "flex";
+}
+
+function _showRegisterDenied(state) {
+  // Rejected but can retry — show message above seat buttons
+  const pendEl   = document.getElementById("register-pending");
+  const deniedEl = document.getElementById("register-denied");
+  if (pendEl)   pendEl.style.display   = "none";
+  if (deniedEl) {
+    deniedEl.textContent  = "✗ Request denied — choose a seat and try again.";
+    deniedEl.style.display = "block";
+  }
+  showRegisterOverlay(state);
+}
+
+function _showRegisterBlocked() {
+  // Permanently blocked — no seat buttons, hard stop
+  const overlay  = document.getElementById("register-overlay");
+  const seatsEl  = document.getElementById("register-seats");
+  const pendEl   = document.getElementById("register-pending");
+  const deniedEl = document.getElementById("register-denied");
+  if (seatsEl)  seatsEl.innerHTML      = "";
+  if (pendEl)   pendEl.style.display   = "none";
+  if (deniedEl) {
+    deniedEl.textContent   = "✗ You have been denied too many times and cannot join this session.";
+    deniedEl.style.display = "block";
+  }
+  // Hide spectate button too
+  const spectateBtn = overlay && overlay.querySelector(".muted-btn");
+  if (spectateBtn) spectateBtn.style.display = "none";
+  if (overlay) overlay.style.display = "flex";
+}
+
+function renderPendingRegBanner(state) {
+  const banner = document.getElementById("pending-reg-banner");
+  if (!banner) return;
+  const pending = state.pending_registrations || [];
+  if (!pending.length || myRole !== "admin") {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
+  banner.style.display = "block";
+  banner.innerHTML = pending.map(r =>
+    `<div class="pending-reg-row">
+      <span class="pending-reg-name">🙋 ${escapeHtml(r.name)} wants to join</span>
+      <span class="pending-reg-btns">
+        <button class="btn green btn-sm" onclick="handleRegistration('${escapeHtml(r.client_id)}', true)">✓ Accept</button>
+        <button class="btn red btn-sm"   onclick="handleRegistration('${escapeHtml(r.client_id)}', false)">✗ Deny</button>
+      </span>
+    </div>`
+  ).join("");
 }
 
 function showRegisterOverlay(state) {
   const overlay  = document.getElementById("register-overlay");
   const seatsEl  = document.getElementById("register-seats");
+  const pendEl   = document.getElementById("register-pending");
+  const deniedEl = document.getElementById("register-denied");
   if (!overlay || !seatsEl) return;
 
-  const clients       = state.connected_clients || [];
-  const claimedLower  = new Set(clients.map(c => c.name).filter(Boolean).map(n => n.toLowerCase()));
-  const allSeats      = state.players || [];
-  const available     = allSeats.filter(n => !claimedLower.has(n.toLowerCase()));
+  if (pendEl)   pendEl.style.display  = "none";
+
+  // Also account for seats currently pending (don't let two clients claim same seat)
+  const pendingNames = new Set(
+    (state.pending_registrations || []).map(r => r.name.toLowerCase())
+  );
+  const clients      = state.connected_clients || [];
+  const claimedLower = new Set(clients.map(c => c.name).filter(Boolean).map(n => n.toLowerCase()));
+  const allSeats     = state.players || [];
+  const available    = allSeats.filter(n =>
+    !claimedLower.has(n.toLowerCase()) && !pendingNames.has(n.toLowerCase())
+  );
 
   seatsEl.innerHTML = "";
   if (available.length === 0) {
     seatsEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:4px 0">All seats are taken — you can watch as spectator.</p>`;
   } else {
     available.forEach(name => {
-      const btn   = document.createElement("button");
-      btn.className   = "btn-big accent";
+      const btn        = document.createElement("button");
+      btn.className    = "btn-big accent";
       btn.style.height = "52px";
       btn.textContent  = `I am ${name}`;
       btn.onclick      = () => doRegister(name);
@@ -197,7 +429,10 @@ function showRegisterOverlay(state) {
 }
 
 async function doRegister(name) {
-  const errEl = document.getElementById("register-error");
+  const errEl    = document.getElementById("register-error");
+  const pendEl   = document.getElementById("register-pending");
+  const deniedEl = document.getElementById("register-denied");
+  if (deniedEl) deniedEl.style.display = "none";
   try {
     const res  = await fetch("/register", {
       method:  "POST",
@@ -206,14 +441,42 @@ async function doRegister(name) {
     });
     const data = await res.json();
     if (data.ok) {
-      document.getElementById("register-overlay").style.display = "none";
-      applyState(data);
+      if (data.pending) {
+        // Awaiting admin approval — show pending state
+        if (pendEl) pendEl.style.display = "block";
+        const seatsEl = document.getElementById("register-seats");
+        if (seatsEl) seatsEl.innerHTML = "";
+        applyState(data);
+      } else {
+        document.getElementById("register-overlay").style.display = "none";
+        applyState(data);
+      }
     } else {
       if (errEl) { errEl.textContent = data.error || "Could not claim seat."; errEl.style.display = "block"; }
     }
   } catch (_) {
     if (errEl) { errEl.textContent = "Network error."; errEl.style.display = "block"; }
   }
+}
+
+async function handleRegistration(targetClientId, approve) {
+  try {
+    const res  = await fetch("/handle_registration", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        target_client_id: targetClientId, approve,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      applyState(data);
+      // Refresh modal if it's open so sections update immediately
+      const kickOverlay = document.getElementById("kick-overlay");
+      if (kickOverlay && kickOverlay.style.display === "flex") openKickModal();
+    }
+  } catch (_) {}
 }
 
 async function doSpectate() {
@@ -363,6 +626,40 @@ function openKickModal() {
     }
   }
 
+  // Pending registrations (admin only) — approve / deny
+  let pendingRegSection = document.getElementById("pending-reg-modal-section");
+  if (!pendingRegSection) {
+    pendingRegSection = document.createElement("div");
+    pendingRegSection.id = "pending-reg-modal-section";
+    const kickCard = document.getElementById("kick-card");
+    if (kickCard) kickCard.insertBefore(pendingRegSection, document.getElementById("game-settings-section").nextSibling || null);
+  }
+  const pendingRegs = (isAdmin && lastState.pending_registrations) || [];
+  if (isAdmin && pendingRegs.length > 0) {
+    pendingRegSection.style.display = "block";
+    pendingRegSection.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.05em;margin:14px 0 6px">🙋 WAITING TO JOIN</div>`;
+    pendingRegs.forEach(r => {
+      const row = document.createElement("div");
+      row.className = "kick-row";
+      row.innerHTML = `<span><span class="kick-name">${escapeHtml(r.name)}</span><span class="kick-role"> (waiting)</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+      const acceptBtn = document.createElement("button");
+      acceptBtn.className   = "btn";
+      acceptBtn.textContent = "✓ Accept";
+      acceptBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
+      acceptBtn.onclick = () => { handleRegistration(r.client_id, true); closeKickModal(); };
+      const denyBtn = document.createElement("button");
+      denyBtn.className   = "btn kick-btn";
+      denyBtn.textContent = "✗ Deny";
+      denyBtn.onclick = () => handleRegistration(r.client_id, false);
+      btns.appendChild(acceptBtn);
+      btns.appendChild(denyBtn);
+      pendingRegSection.appendChild(row);
+    });
+  } else if (pendingRegSection) {
+    pendingRegSection.style.display = "none";
+  }
+
   // Kicked players (admin only) — show with undo option
   let kickedSection = document.getElementById("kicked-players-section");
   if (!kickedSection) {
@@ -390,6 +687,35 @@ function openKickModal() {
     });
   } else if (kickedSection) {
     kickedSection.style.display = "none";
+  }
+
+  // Denied registrations (admin only) — show with "Allow back" option
+  let deniedSection = document.getElementById("denied-reg-section");
+  if (!deniedSection) {
+    deniedSection = document.createElement("div");
+    deniedSection.id = "denied-reg-section";
+    const kickCard = document.getElementById("kick-card");
+    if (kickCard) kickCard.insertBefore(deniedSection, document.getElementById("game-settings-section").nextSibling || null);
+  }
+  const deniedClients = (isAdmin && lastState.denied_clients) || [];
+  if (isAdmin && deniedClients.length > 0) {
+    deniedSection.style.display = "block";
+    deniedSection.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.05em;margin:14px 0 6px">🚷 BLOCKED FROM JOINING</div>`;
+    deniedClients.forEach(dc => {
+      const row = document.createElement("div");
+      row.className = "kick-row";
+      row.innerHTML = `<span><span class="kick-name" style="color:var(--muted)">Unknown client</span><span class="kick-role"> (denied)</span></span><span style="display:flex;gap:4px"></span>`;
+      const btns = row.querySelector("span:last-child");
+      const allowBtn = document.createElement("button");
+      allowBtn.className   = "btn";
+      allowBtn.textContent = "↩ Allow back";
+      allowBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
+      allowBtn.onclick = () => doResetRegistration(dc.client_id);
+      btns.appendChild(allowBtn);
+      deniedSection.appendChild(row);
+    });
+  } else if (deniedSection) {
+    deniedSection.style.display = "none";
   }
 
   // Rejoin requests (admin only)
@@ -490,6 +816,19 @@ async function doKick(targetName) {
     const data = await res.json();
     if (data.ok) { closeKickModal(); }
     else         { alert(data.error || "Could not kick player."); }
+  } catch (_) { alert("Network error."); }
+}
+
+async function doResetRegistration(targetClientId) {
+  try {
+    const res  = await fetch("/reset_registration", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_client_id: targetClientId }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); openKickModal(); }
+    else         { alert(data.error || "Could not reset."); }
   } catch (_) { alert("Network error."); }
 }
 
@@ -616,6 +955,10 @@ function _populateSettingsUI(state) {
   const decksEl    = document.getElementById("setting-num-decks");
   const decksRow   = document.getElementById("setting-decks-row");
   const removeEl   = document.getElementById("setting-remove-name");
+
+  // Sync bust vote pill toggle
+  const bustCb = document.getElementById("bust-vote-toggle-modal");
+  if (bustCb) bustCb.checked = !!state.bust_vote_enabled;
 
   if (wagerEl)   wagerEl.value    = state.wager            || 1;
   if (handsEl)   handsEl.value    = state.num_hands         || 2;
