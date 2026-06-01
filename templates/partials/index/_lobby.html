@@ -1,0 +1,37 @@
+<div id="lobby">
+  <h2>🃏 Black-Out-Jack</h2>
+  <p class="lobby-subtitle" data-copy="tagline">Drinking Blackjack with friends</p>
+
+  <button class="lobby-btn-create pressable" data-action="createRoom">+ Create Room</button>
+
+  <div class="lobby-or"><hr><span>or join existing</span><hr></div>
+
+  <div class="field">
+    <label>Room Code</label>
+    <input
+      type="text"
+      id="join-code"
+      placeholder="e.g. Jack-21"
+      class="input-room-code"
+      data-enter-action="joinRoom"
+    >
+  </div>
+
+  <button class="lobby-btn-join pressable" data-action="joinRoom">Join Room →</button>
+
+  <div id="lobby-msg"></div>
+
+  <div class="drink-notice">
+    🍺 <strong>Drink Responsibly.</strong> Know your limits, stay hydrated, and never drink and drive. This game is intended for adults of legal drinking age only.
+  </div>
+
+  <button class="lobby-rules-link" data-action="openRulesModal">📖 Game Rules &amp; Cheat Sheet</button>
+
+  <div class="lobby-credits">
+    Black-Out-Jack &bull; Made by Robert, David &amp; Marko<br>
+    <a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener" class="lobby-github-link">
+      🔗 github.com/robert-rjm/Black-Out-Jack
+    </a><br>
+    <span class="lobby-safe-text">Play smart &bull; Drink smart &bull; Stay safe</span>
+  </div>
+</div>

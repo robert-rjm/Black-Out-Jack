@@ -118,7 +118,8 @@ Black-Out-Jack/
 ├── static/
 │   └── logo.png             # Home screen icon (iOS & Android)
 ├── templates/
-│   └── index.html           # Web UI served by app.py
+│   ├── index.html                     # Thin shell template
+│   └── partials/index/*.html          # Composable UI sections
 │
 ├── app.py                   # Flask web server (Referee & Digital modes)
 ├── blackjack.py             # Core game logic + terminal game (START HERE)
@@ -228,7 +229,7 @@ The three main files are intentionally decoupled:
 | `drinking_rules.py` | `blackjack.py` | Drinking layer only, no game logic |
 | `referee.py` | `blackjack.py`, `drinking_rules.py` | Terminal referee command parser for real-life play |
 | `app.py` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Flask server, Referee mode and Digital mode web UI |
-| `templates/index.html` | served by `app.py` | Mobile-first browser UI for both modes |
+| `templates/index.html` + `templates/partials/index/*` | served by `app.py` | Mobile-first browser UI split into composable sections |
 | `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |
 
 **Separation of concerns:**
