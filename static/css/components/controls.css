@@ -186,11 +186,8 @@
   min-height: 16px;
 }
 
-/* bust vote side bet */
-.bust-vote-panel {
-  margin-top: 10px;
-  padding: 10px 0 4px;
-  border-top: 1px solid var(--border);
+.bust-vote-status {
+  margin-top: 8px;
 }
 .bust-vote-status {
   font-size: 11px;

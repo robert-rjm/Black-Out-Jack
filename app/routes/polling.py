@@ -20,7 +20,7 @@ import time as _time
 _last_cleanup: float = 0.0
 _CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
 from app.services.validators    import sanitize_name, is_dealer_client
-from app.services.serializer    import serialize_state, _bust_vote_window
+from app.services.serializer    import serialize_state
 
 bp = Blueprint("polling", __name__)
 
@@ -258,8 +258,9 @@ def cast_bust_vote():
     if not session.bust_vote_enabled:
         return jsonify({"ok": False, "error": "Bust vote not enabled."})
 
-    # Reject if window is closed (expired or early-closed)
-    if not _bust_vote_window(session).get("bust_vote_window_open"):
+    # Reject if window is expired (simple timestamp check — avoids double-calling serializer helper)
+    expires = session._bust_vote_expires_at
+    if not expires or _time.monotonic() >= expires:
         return jsonify({"ok": False, "error": "Vote window is closed."})
 
     voter_name = session._room_clients.get(client_id, {}).get("name")

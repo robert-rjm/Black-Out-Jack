@@ -223,7 +223,6 @@ function updateBustVoteUI(state) {
   const bustCb = document.getElementById("bust-vote-toggle-modal");
   if (bustCb) bustCb.checked = !!state.bust_vote_enabled;
 
-  const panel    = document.getElementById("bust-vote-panel");
   const statusEl = document.getElementById("bust-vote-status");
 
   // Modal: open when window is open and this player hasn't voted yet
@@ -245,17 +244,17 @@ function updateBustVoteUI(state) {
       : "";
   }
 
-  // Inline panel: show voted indicator after window closes
-  if (!panel) return;
+  // Status indicator: show after window closes
+  if (!statusEl) return;
   const phase  = state.phase;
   const myVote = state.my_bust_vote;
-  const showPanel = state.bust_vote_enabled
+  const show   = state.bust_vote_enabled
     && myRole !== null && myRole !== "spectator"
     && phase !== "pre-deal"
-    && !state.bust_vote_window_open;   // only show indicator after modal gone
+    && !state.bust_vote_window_open;
 
-  panel.style.display = showPanel ? "block" : "none";
-  if (!showPanel || !statusEl) return;
+  statusEl.style.display = show ? "block" : "none";
+  if (!show) return;
 
   const votes   = state.bust_votes || {};
   const bustCnt = Object.values(votes).filter(v => v === "bust").length;
