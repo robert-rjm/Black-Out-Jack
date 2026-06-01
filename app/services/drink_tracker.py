@@ -109,6 +109,17 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Display-reason helper — strip verbose detail from panel labels
+# ---------------------------------------------------------------------------
+
+def _display_reason(rule: str, raw: str) -> str:
+    """Return a short human-readable label for the drinks detail panel."""
+    if rule == "Hard Dealer Switch":
+        return "Hard Dealer Switch"
+    return raw
+
+
+# ---------------------------------------------------------------------------
 # Log harvesting
 # ---------------------------------------------------------------------------
 
@@ -187,9 +198,11 @@ def harvest_drink_log(session: GameRoom) -> None:
                 if rule is None:
                     # Display-only waived entry (A♣ protected hard switch) — show but skip CSV
                     if reason and "A♣ protected" in reason:
-                        drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+                        drinks_detail.append({"name": p.name, "sips": sips,
+                                              "reason": f"Hard Dealer Switch — A♣ protected ({sips} sip(s) waived)"})
                     continue
-                drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+                drinks_detail.append({"name": p.name, "sips": sips,
+                                      "reason": _display_reason(rule, reason)})
             elif sips and sips < 0 and reason:
                 # Credit entries — show green in drinks detail, skip CSV
                 if "bust vote correct" in reason:

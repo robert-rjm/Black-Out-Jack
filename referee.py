@@ -404,10 +404,30 @@ class RefereeSession:
         self._pending_resolved = []
 
         if hard_switch:
+            protected = self._ace_clubs_flag["protected"]
             self.tracker.apply(
                 DrinkingRules.on_hard_dealer_switch(
-                    self.dealer_name, winning,
-                    self._ace_clubs_flag["protected"]))
+                    self.dealer_name, winning, protected))
+            # If A♣ protected, add display-only +/- entries so the
+            # drinks summary panel shows what was waived.
+            if protected and winning:
+                waived = 0
+                for pname, hand in winning:
+                    if hand.is_blackjack():
+                        waived += 1 if pname == self.dealer_name else 2
+                    elif hand.doubled:
+                        waived += 2
+                    else:
+                        waived += 1
+                if waived > 0:
+                    d = self._get_player(self.dealer_name)
+                    if d:
+                        d.add_drink(waived,
+                            f"Hard Dealer Switch — A♣ protected: {waived} sip(s) waived",
+                            "dealer")
+                        d.add_drink(-waived,
+                            f"A♣ protection credit: -{waived} sips",
+                            "dealer")
 
         # Round-end rules (net losses, sweeps)
         w         = self.wager
