@@ -355,10 +355,12 @@ function applyState(state) {
     if (state.my_role !== null) {
       myRole           = state.my_role;
       myName           = state.my_name   || null;
+      myNames          = state.my_names  || (myName ? [myName] : []);
       isMyDealerClient = state.is_dealer_client || false;
     } else if (!myRole) {
       myRole           = null;
       myName           = null;
+      myNames          = [];
       isMyDealerClient = false;
     }
   }

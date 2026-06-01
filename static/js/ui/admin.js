@@ -163,13 +163,16 @@ function updateRoleUI(state) {
 let _bustVoteModalOpen   = false;
 let _bustVoteTimerHandle = null;
 
-async function submitBustVote(choice) {
-  _closeBustVoteModal();
+async function submitBustVote(choice, playerName) {
+  // For single-player: pass no playerName (server uses primary name).
+  // For local multiplayer: pass the specific player's name.
+  const body = { room_code: roomCode, client_id: clientId, vote: choice };
+  if (playerName) body.player_name = playerName;
   try {
     const res  = await fetch("/cast_bust_vote", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, vote: choice }),
+      body:    JSON.stringify(body),
     });
     const data = await res.json();
     if (data.ok) applyState(data);
@@ -203,11 +206,82 @@ function _openBustVoteModal(secondsLeft) {
     if (!_bustVoteModalOpen) return;
     if (bar)   bar.style.width   = `${(secs / duration) * 100}%`;
     if (label) label.textContent = `${secs}s`;
-    if (secs <= 0) { submitBustVote("pass"); return; }
+    if (secs <= 0) {
+      // Auto-pass for all un-voted local players
+      const bustVotes = (lastState && lastState.my_bust_votes) || {};
+      const unvoted   = myNames.filter(n => !bustVotes[n]);
+      if (unvoted.length) {
+        // Submit pass for each unvoted player sequentially; close after last
+        (async () => {
+          for (const name of unvoted) await submitBustVote("pass", name);
+          _closeBustVoteModal();
+        })();
+      } else {
+        _closeBustVoteModal();
+      }
+      return;
+    }
     secs--;
     _bustVoteTimerHandle = setTimeout(tick, 1000);
   }
   tick();
+}
+
+// Render per-player vote cards inside the modal.
+// Called whenever state updates while the modal is open.
+function _renderBustVoteCards(state) {
+  const wrap = document.getElementById("bust-vote-players-wrap");
+  if (!wrap) return;
+
+  const bustVotes = state.my_bust_votes || {};
+  // Only show human local players active in the game (skip NPCs)
+  const npcSet   = new Set([...(npcPlayers || [])]);
+  const locals   = myNames.filter(n => !npcSet.has(n));
+  const multiLocal = locals.length > 1;
+
+  wrap.innerHTML = "";
+  locals.forEach(name => {
+    const voted = bustVotes[name];
+    const card  = document.createElement("div");
+    card.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)";
+
+    if (multiLocal) {
+      const nameLbl = document.createElement("span");
+      nameLbl.style.cssText = "font-size:14px;font-weight:700;min-width:60px;color:var(--text)";
+      nameLbl.textContent = name;
+      card.appendChild(nameLbl);
+    }
+
+    if (voted) {
+      // Already voted — show status
+      const statusEl = document.createElement("span");
+      statusEl.style.cssText = `font-size:13px;color:${voted === "bust" ? "var(--red)" : "var(--muted)"};font-weight:600`;
+      statusEl.textContent   = voted === "bust" ? "💥 Bet Bust" : "Passed";
+      card.appendChild(statusEl);
+    } else {
+      // Buttons
+      const btns = document.createElement("div");
+      btns.style.cssText = "display:flex;gap:8px;flex:1";
+
+      const bustBtn = document.createElement("button");
+      bustBtn.className   = "btn green";
+      bustBtn.style.cssText = "flex:1";
+      bustBtn.textContent = "💥 Bet Bust";
+      bustBtn.onclick     = () => submitBustVote("bust", multiLocal ? name : undefined);
+
+      const passBtn = document.createElement("button");
+      passBtn.className   = "btn muted-btn";
+      passBtn.style.cssText = "flex:1";
+      passBtn.textContent = "Pass";
+      passBtn.onclick     = () => submitBustVote("pass", multiLocal ? name : undefined);
+
+      btns.appendChild(bustBtn);
+      btns.appendChild(passBtn);
+      card.appendChild(btns);
+    }
+
+    wrap.appendChild(card);
+  });
 }
 
 function _closeBustVoteModal() {
@@ -225,16 +299,20 @@ function updateBustVoteUI(state) {
 
   const statusEl = document.getElementById("bust-vote-status");
 
-  // Modal: open when window is open and this player hasn't voted yet
-  if (state.bust_vote_window_open && !state.my_bust_vote
+  // Modal: open when window is open and any local player hasn't voted yet
+  const bustVotes  = state.my_bust_votes || {};
+  const anyUnvoted = Object.values(bustVotes).some(v => v === null || v === undefined);
+  if (state.bust_vote_window_open && anyUnvoted
       && myRole !== null && myRole !== "spectator") {
     _openBustVoteModal(state.bust_vote_seconds_left || 10);
   } else if (!state.bust_vote_window_open) {
     _closeBustVoteModal();
   }
 
-  // Update tally inside the open modal
+  // Re-render player cards while modal is open (handles partial local votes)
   if (_bustVoteModalOpen) {
+    _renderBustVoteCards(state);
+    // Update tally
     const votes   = state.bust_votes || {};
     const decided = Object.keys(votes).length;
     const bustCnt = Object.values(votes).filter(v => v === "bust").length;
@@ -242,12 +320,15 @@ function updateBustVoteUI(state) {
     if (tally) tally.textContent = decided
       ? `${bustCnt} betting bust · ${decided - bustCnt} passed`
       : "";
+    // Auto-close if all local players have now voted
+    if (!anyUnvoted) _closeBustVoteModal();
   }
 
-  // Status indicator: show after window closes
+  // Status indicator: show after window closes.
+  // For local multiplayer, represent as a summary across all local names.
   if (!statusEl) return;
   const phase  = state.phase;
-  const myVote = state.my_bust_vote;
+  const myVote = state.my_bust_vote;   // primary player's vote (backward compat)
   const show   = state.bust_vote_enabled
     && myRole !== null && myRole !== "spectator"
     && phase !== "pre-deal"
@@ -256,22 +337,29 @@ function updateBustVoteUI(state) {
   statusEl.style.display = show ? "block" : "none";
   if (!show) return;
 
-  const votes   = state.bust_votes || {};
-  const bustCnt = Object.values(votes).filter(v => v === "bust").length;
+  const allVotes = state.bust_votes || {};
+  const bustCnt  = Object.values(allVotes).filter(v => v === "bust").length;
+  const myBusters = myNames.filter(n => bustVotes[n] === "bust");
 
   if (phase === "round-over") {
     const result = state.bust_vote_result;
-    if (!myVote || myVote === "pass") {
+    if (!myBusters.length) {
       statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
     } else if (result) {
-      const won = result.winners.includes(myName);
-      const cls = won ? "bust-vote-result-correct" : "bust-vote-result-wrong";
-      const msg = won ? "✓ Called it — -1 sip!" : "✗ Wrong call — +1 sip";
-      statusEl.innerHTML = `<span class="${cls}">${msg}</span>`;
+      const winners    = result.winners || [];
+      const myWinners  = myBusters.filter(n => winners.includes(n));
+      const myLosers   = myBusters.filter(n => !winners.includes(n));
+      const parts = [];
+      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.join(", ")} called it — -1 sip each!</span>`);
+      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.join(", ")} wrong — +1 sip each</span>`);
+      statusEl.innerHTML = parts.join("<br>");
     }
   } else {
-    if (myVote === "bust") {
-      statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">💥 You bet dealer busts</span>`;
+    if (myBusters.length) {
+      const label = myBusters.length === 1
+        ? `💥 ${myBusters[0]} bet dealer busts`
+        : `💥 ${myBusters.join(" & ")} bet dealer busts`;
+      statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">${label}</span>`;
     } else if (myVote === "pass") {
       statusEl.textContent = "You passed the bust bet.";
     } else {
@@ -572,6 +660,18 @@ function openKickModal() {
       const isAdminRow = adminNames.has(r.name.toLowerCase());
       const isSelf = myNameLc && r.name.toLowerCase() === myNameLc;
       if (isAdmin) {
+        // Local toggle — seated non-bot players only (admin controls this seat locally)
+        if (r.seated && !r.isBot) {
+          const currentLocals = (lastState && lastState.my_names) || [];
+          const isLocal       = currentLocals.some(n => n.toLowerCase() === r.name.toLowerCase());
+          const localBtn      = document.createElement("button");
+          localBtn.className  = "btn" + (isLocal ? " sel" : "");
+          localBtn.textContent = "LOCAL";
+          localBtn.title      = isLocal ? "This seat is on your device — click to make remote" : "Click to control this seat locally";
+          localBtn.style.cssText = "font-size:10px;font-weight:800;letter-spacing:.5px;padding:0 10px";
+          localBtn.onclick    = () => toggleLocalPlayer(r.name);
+          btns.appendChild(localBtn);
+        }
         // Admin controls: bot + kick (never shown for self)
         if (r.seated && !r.isBot && !isSelf) {
           const botBtn       = document.createElement("button");
@@ -1034,25 +1134,56 @@ async function queueSettings() {
   } catch (_) { alert("Network error."); }
 }
 
+async function toggleLocalPlayer(playerName) {
+  const currentLocals = (lastState && lastState.my_names) || [];
+  const isLocal       = currentLocals.some(n => n.toLowerCase() === playerName.toLowerCase());
+  const newLocals     = isLocal
+    ? currentLocals.filter(n => n.toLowerCase() !== playerName.toLowerCase())
+    : [...currentLocals, playerName];
+  try {
+    const res  = await fetch("/update_settings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, local_names: newLocals }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); openKickModal(); }
+    else alert(data.error || "Could not update local players.");
+  } catch (_) { alert("Network error."); }
+}
+
 async function queueAddPlayer() {
-  const nameEl = document.getElementById("setting-add-name");
-  const npcEl  = document.getElementById("setting-add-npc");
-  const name   = (nameEl?.value || "").trim();
+  const nameEl  = document.getElementById("setting-add-name");
+  const npcEl   = document.getElementById("setting-add-npc");
+  const localEl = document.getElementById("setting-add-local");
+  const name    = (nameEl?.value || "").trim();
   if (!name) { nameEl?.focus(); return; }
+
+  const isNpc   = npcEl?.checked  || false;
+  const isLocal = !isNpc && (localEl?.checked || false);
+
+  // Build new local_names list if this player should be local
+  const currentLocals = (lastState && lastState.my_names) || [];
+  const body = {
+    room_code: roomCode, client_id: clientId,
+    add_player: name, add_player_npc: isNpc,
+  };
+  if (isLocal) {
+    // Capitalise to match server-side sanitization
+    const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    body.local_names = [...currentLocals, capName];
+  }
 
   try {
     const res  = await fetch("/update_settings", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        room_code: roomCode, client_id: clientId,
-        add_player: name, add_player_npc: npcEl?.checked || false,
-      }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (data.ok) {
       lastState = data;
-      if (nameEl) nameEl.value = "";
-      if (npcEl)  npcEl.checked = false;
+      if (nameEl)  nameEl.value  = "";
+      if (npcEl)   npcEl.checked  = false;
+      if (localEl) localEl.checked = false;
       _renderQueuedBanner(data.queued_settings || {});
     } else {
       alert(data.error || "Could not queue add player.");

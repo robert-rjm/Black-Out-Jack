@@ -375,9 +375,18 @@ def cast_bust_vote():
     if not expires or _time.monotonic() >= expires:
         return jsonify({"ok": False, "error": "Vote window is closed."})
 
-    voter_name = session._room_clients.get(client_id, {}).get("name")
+    client_info = session._room_clients.get(client_id, {})
+    voter_name  = client_info.get("name")
     if not voter_name:
         return jsonify({"ok": False, "error": "Not registered."})
+
+    # Optional: vote on behalf of a specific local player (local multiplayer)
+    player_name = (data.get("player_name") or "").strip()
+    if player_name:
+        local_names = client_info.get("local_names") or [voter_name]
+        if player_name not in local_names:
+            return jsonify({"ok": False, "error": "Not one of your local players."})
+        voter_name = player_name
 
     session._bust_votes[voter_name] = vote
     return jsonify({**serialize_state(session, client_id), "ok": True})

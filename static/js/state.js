@@ -44,6 +44,7 @@ let npcPlayers = new Set();   // names of NPC/bot players this session
 let clientId         = "";    // UUID — persisted in localStorage
 let myRole           = null;  // "admin" | "player" | "spectator" | "kicked" | null
 let myName           = null;  // registered player name or null
+let myNames          = [];    // all local player names (local multiplayer)
 let isMyDealerClient = false; // true when this client can execute game commands
 
 // Shared log sync — tracks which server-side log entries have been displayed

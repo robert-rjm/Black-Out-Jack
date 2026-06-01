@@ -361,6 +361,11 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ] if _ci.get("role") == "admin" else [],
         "my_role":                _ci.get("role"),
         "my_name":                _ci.get("name"),
+        "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
+        "my_bust_votes":          {
+            n: session._bust_votes.get(n)
+            for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
+        },
         "is_dealer_client":       _ci.get("is_dealer", False) or _ci.get("role") == "admin",
         "queued_settings":        session._queued_settings,
         "last_milestone_result":  (lambda r: {

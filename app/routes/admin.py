@@ -432,6 +432,16 @@ def update_settings():
         session.bust_vote_enabled = bool(data["bust_vote_enabled"])
         session._bust_votes = {}   # clear any stale votes when toggling
 
+    # local_names — update which seats this admin client controls directly (live)
+    if "local_names" in data:
+        raw_names = data["local_names"]
+        if isinstance(raw_names, list):
+            from app.services.validators import sanitize_name
+            valid_names = {p.name for p in session.all_players}
+            cleaned = [sanitize_name(n) for n in raw_names if isinstance(n, str)]
+            cleaned = [n for n in cleaned if n in valid_names]
+            clients[client_id]["local_names"] = cleaned
+
     session._queued_settings = queued
     state = serialize_state(session, client_id)
     state["output"] = ""

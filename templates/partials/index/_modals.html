@@ -93,6 +93,7 @@
       <div class="settings-add-row">
         <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
         <label class="npc-label"><input type="checkbox" id="setting-add-npc"> Bot</label>
+        <label class="npc-label"><input type="checkbox" id="setting-add-local"> Local</label>
         {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
       </div>
 
@@ -131,10 +132,7 @@
       <div id="bust-vote-timer-bar" class="bust-vote-timer-bar"></div>
     </div>
     <div id="bust-vote-timer-label" class="bust-vote-timer-label">10s</div>
-    <div class="bust-vote-modal-buttons">
-      <button class="btn green wide" data-action="submitBustVote" data-args='["bust"]'>💥 Bet Bust</button>
-      <button class="btn wide muted-btn" data-action="submitBustVote" data-args='["pass"]'>Pass</button>
-    </div>
+    <div id="bust-vote-players-wrap"></div>
     <div id="bust-vote-modal-tally" class="bust-vote-modal-tally"></div>
   </div>
 </div>
