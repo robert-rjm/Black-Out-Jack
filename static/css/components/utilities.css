@@ -12,6 +12,7 @@
 #btn-admin-players,
 #btn-admin-nav,
 #kick-vote-banner,
+#pending-reg-banner,
 #spectator-rejoin-banner,
 #dig-panel,
 #ms-waiting-slot,
@@ -128,6 +129,37 @@
 }
 
 .dealer-placeholder { font-size: 11px; color: var(--muted); }
+
+.banner-pending-reg {
+  padding: 0 14px 6px;
+  font-size: 12px;
+  background: rgba(79,142,247,.06);
+  border-bottom: 1px solid rgba(79,142,247,.2);
+  color: var(--accent);
+}
+.banner-pending-reg .pending-reg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(79,142,247,.1);
+}
+.banner-pending-reg .pending-reg-row:last-child { border-bottom: none; }
+.banner-pending-reg .pending-reg-name { font-weight: 700; }
+.banner-pending-reg .pending-reg-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.register-pending {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--accent);
+  text-align: center;
+}
+.register-denied {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--red);
+  text-align: center;
+}
 
 .banner-kick {
   padding: 6px 14px;

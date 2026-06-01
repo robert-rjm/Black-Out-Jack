@@ -328,6 +328,16 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                    if _ci.get("role") == "admin"],
         "my_rejoin_pending":      any(r["client_id"] == client_id
                                       for r in session._rejoin_requests),
+        "pending_registrations":  [{"client_id": r["client_id"], "name": r["name"]}
+                                   for r in session._pending_registrations
+                                   if _ci.get("role") == "admin"],
+        "my_registration_pending": any(r["client_id"] == client_id
+                                       for r in session._pending_registrations),
+        "my_registration_rejected": _ci.get("role") == "denied",         # any denial
+        "my_registration_denied":   (                                     # permanent block
+            _ci.get("role") == "denied" and
+            _ci.get("reg_denials", 0) >= 2
+        ),
         "anim_default":           session._anim_default,
         "bust_vote_enabled":      session.bust_vote_enabled,
         "bust_votes":             dict(session._bust_votes),
@@ -343,6 +353,11 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             {"client_id": cid, "name": info.get("name") or ""}
             for cid, info in session._room_clients.items()
             if info.get("kicked") and info.get("name")
+        ] if _ci.get("role") == "admin" else [],
+        "denied_clients":         [
+            {"client_id": cid}
+            for cid, info in session._room_clients.items()
+            if info.get("role") == "denied" and info.get("reg_denials", 0) >= 2
         ] if _ci.get("role") == "admin" else [],
         "my_role":                _ci.get("role"),
         "my_name":                _ci.get("name"),
