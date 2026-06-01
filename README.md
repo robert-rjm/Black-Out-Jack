@@ -98,6 +98,7 @@ Computer-controlled seats using standard basic strategy. NPCs:
 - Mobile-first layout optimised for phone screens
 - Add to home screen on iOS and Android for a native app feel
 - Tap-friendly controls throughout
+- Bottom navigation bar on mobile (≤640 px)
 
 ## Drink Responsibly
 > [!IMPORTANT]
@@ -116,10 +117,12 @@ Black-Out-Jack/
 │   ├── Cheat-Sheet.md            # One-page quick reference for gameplay
 │   └── Comprehensive-Example.md  # Example for Drinking Rules
 ├── static/
+│   ├── css/                 # Stylesheets (base + component styles)
+│   ├── js/                  # Frontend modules and UI bootstrap
 │   └── logo.png             # Home screen icon (iOS & Android)
 ├── templates/
-│   ├── index.html                     # Thin shell template
-│   └── partials/index/*.html          # Composable UI sections
+│   ├── index.html           # Thin shell template
+│   └── partials/index/*.html # Composable UI sections
 │
 ├── app.py                   # Flask web server (Referee & Digital modes)
 ├── blackjack.py             # Core game logic + terminal game (START HERE)
