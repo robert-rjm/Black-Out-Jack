@@ -1,0 +1,200 @@
+{% from "partials/index/_macros.html" import action_btn, section_label %}
+<div id="app">
+  <header>
+    <div>
+      <h1 id="header-title">Black-Out-Jack</h1>
+      <div id="header-sub">Setting up...</div>
+      <div id="header-room"></div>
+    </div>
+    <div id="header-actions">
+      <button class="btn icon-btn" data-action="openRulesModal" title="Rules">📖</button>
+      <button class="btn icon-btn" data-action="showSessionSummary" title="Summary">📊</button>
+      <button class="btn icon-btn" id="btn-last-round-header" data-action="openLastRoundModal" title="Last round drinks">🍺</button>
+      <button class="btn icon-btn" id="btn-admin-players" data-action="openKickModal" title="Settings">⚙️</button>
+      <button class="btn red home-btn" data-action="resetToSetup">🏠 Lobby</button>
+    </div>
+  </header>
+
+  <div id="sip-ticker"></div>
+
+  <div id="kick-vote-banner" class="banner-kick"></div>
+  <div id="spectator-rejoin-banner" class="banner-rejoin">
+    <span>You were removed from this session.</span>
+    <button id="rejoin-req-btn" class="btn rejoin-btn" data-action="doRequestRejoin">Request to rejoin</button>
+  </div>
+
+  <div id="main-content">
+    <div id="left-col"></div>
+    <div id="right-col">
+      <div id="dealer-panel"><span class="dealer-placeholder">Dealer hand will appear here</span></div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div id="panel">
+    <div id="ref-panel">
+      <div class="tabs-bar" id="ref-tabs">
+        <button class="tab active" data-action="switchRefTab" data-args='["deal"]'>Deal</button>
+        <button class="tab" data-action="switchRefTab" data-args='["result"]'>Result</button>
+        <button class="tab" data-action="switchRefTab" data-args='["action"]'>Action</button>
+        <button class="tab" data-action="switchRefTab" data-args='["round"]'>Round</button>
+      </div>
+
+      <div id="pane-deal" class="pane active">
+        {{ section_label('Player') }}
+        <div id="deal-players" class="btn-row"></div>
+        {{ section_label('Hand') }}
+        <div id="deal-hands" class="btn-row"></div>
+        {{ section_label('Rank') }}
+        <div id="rank-grid" class="card-grid"></div>
+        {{ section_label('Suit') }}
+        <div id="suit-grid" class="card-grid"></div>
+      </div>
+
+      <div id="pane-result" class="pane">
+        {{ section_label('Player') }}
+        <div id="result-players" class="btn-row"></div>
+        {{ section_label('Hand') }}
+        <div id="result-hands" class="btn-row"></div>
+        {{ section_label('Outcome') }}
+        <div class="btn-row">
+          {{ action_btn('WIN', 'sendResult', '["win"]', 'btn green wide') }}
+          {{ action_btn('LOSS', 'sendResult', '["loss"]', 'btn red wide') }}
+        </div>
+        <div class="btn-row">
+          {{ action_btn('PUSH', 'sendResult', '["push"]', 'btn yellow wide') }}
+          {{ action_btn('BUST', 'sendResult', '["bust"]', 'btn red wide') }}
+        </div>
+        <div class="btn-row">
+          {{ action_btn('DEALER BUST', 'sendCmd', '["result dealer bust"]', 'btn red wide') }}
+        </div>
+      </div>
+
+      <div id="pane-action" class="pane">
+        {{ section_label('Player') }}
+        <div id="action-players" class="btn-row"></div>
+        {{ section_label('Hand') }}
+        <div id="action-hands" class="btn-row"></div>
+        {{ section_label('Action') }}
+        <div class="btn-row">
+          {{ action_btn('DOUBLE', 'sendAction', '["double"]', 'btn wide') }}
+          {{ action_btn('SPLIT', 'sendAction', '["split"]', 'btn wide') }}
+        </div>
+        <div class="btn-row">
+          {{ action_btn('INSURANCE', 'sendAction', '["insurance"]', 'btn wide') }}
+          {{ action_btn('BLACKJACK', 'sendAction', '["blackjack"]', 'btn yellow wide') }}
+        </div>
+        {{ section_label('Dealer') }}
+        <div class="btn-row">
+          {{ action_btn('DEALER FINAL', 'sendCmd', '["dealer final"]', 'btn wide') }}
+          {{ action_btn('DEALER BJ', 'sendCmd', '["dealer blackjack"]', 'btn yellow wide') }}
+        </div>
+      </div>
+
+      <div id="pane-round" class="pane">
+        <div class="btn-row">
+          {{ action_btn('END ROUND', 'sendCmd', '["endround"]', 'btn green wide') }}
+          {{ action_btn('NEW ROUND', 'doNewRound', '[]', 'btn wide') }}
+        </div>
+        <div class="btn-row">
+          {{ action_btn('STATUS', 'sendCmd', '["status"]', 'btn wide') }}
+          {{ action_btn('📊 Final Summary', 'showSessionSummary', '[]', 'btn wide') }}
+        </div>
+        <div class="btn-row">
+          {{ action_btn('4 ACES (DEAL)', 'sendCmd', '["fouraces firstdeal"]', 'btn wide') }}
+          {{ action_btn('4 ACES (END)', 'sendCmd', '["fouraces endround"]', 'btn wide') }}
+        </div>
+        <div class="btn-row">
+          {{ action_btn('📊 Export Drinks CSV', 'exportDrinkCSV', '[]', 'btn wide') }}
+        </div>
+      </div>
+    </div>
+
+    <div id="dig-panel">
+      <div id="ms-waiting-slot" class="waiting-slot"></div>
+      <div class="tabs-bar" id="dig-tabs">
+        <button class="tab active" data-action="switchDigTab" data-args='["dig-play"]'>Play</button>
+        <button class="tab" id="dig-drinks-tab" data-action="switchDigTab" data-args='["dig-round"]'>🍺 Drinks</button>
+      </div>
+
+      <div id="pane-dig-play" class="pane">
+        <div id="dig-play-role-hint"></div>
+        <div id="player-vote-display"></div>
+
+        <div id="suggest-banner" class="suggest-banner">
+          <div id="suggest-text" class="suggest-text"></div>
+          <div class="btn-row no-margin">
+            {{ action_btn('✓ Accept', 'respondSuggest', '[true]', 'btn green wide') }}
+            {{ action_btn('✗ Decline', 'respondSuggest', '[false]', 'btn wide muted-btn') }}
+          </div>
+        </div>
+
+        {{ section_label('Action') }}
+        <div id="dig-action-row1" class="btn-row">
+          {{ action_btn('HIT', 'sendDigitalPlay', '["hit"]', 'btn green wide') }}
+          {{ action_btn('STAND', 'sendDigitalPlay', '["stand"]', 'btn wide') }}
+        </div>
+        <div id="dig-action-row2" class="btn-row">
+          {{ action_btn('DOUBLE', 'sendDigitalPlay', '["double"]', 'btn wide') }}
+          {{ action_btn('SPLIT', 'sendDigitalPlay', '["split"]', 'btn wide') }}
+        </div>
+
+        <div id="suggest-picker" class="suggest-picker">
+          <div class="suggest-picker-title">Suggest instead →</div>
+          <div class="btn-row">
+            {{ action_btn('HIT', 'sendSuggest', '["h"]', 'btn green wide') }}
+            {{ action_btn('STAND', 'sendSuggest', '["s"]', 'btn wide') }}
+            {{ action_btn('DOUBLE', 'sendSuggest', '["d"]', 'btn wide') }}
+            {{ action_btn('SPLIT', 'sendSuggest', '["sp"]', 'btn wide') }}
+          </div>
+        </div>
+
+        <div id="suggest-toggle-row" class="suggest-toggle-row">
+          <button class="btn wide suggest-toggle-btn" id="suggest-toggle-btn" data-action="toggleSuggestPicker">💬 Suggest different action</button>
+        </div>
+
+        <div id="dig-insurance-row" class="btn-row">
+          {{ action_btn('INSURANCE (dealer shows Ace)', 'sendDigitalPlay', '["insurance"]', 'btn yellow wide') }}
+        </div>
+
+        <div id="insurance-vote-panel" class="insurance-vote-panel">
+          <div id="insurance-vote-content"></div>
+        </div>
+      </div>
+
+      <div id="pane-dig-round" class="pane">
+        <div id="dig-drinks-progress" class="round-progress">✋ You're done — waiting for results…</div>
+
+        <div id="dig-drinks-panel" class="drinks-panel">
+          <div id="dig-drinks-agg" class="drinks-agg"></div>
+          <div class="drinks-divider"></div>
+          <div id="dig-drinks-detail" class="drinks-detail"></div>
+        </div>
+
+        <div id="dig-drinks-none" class="drinks-none">No drinks this round 🎉</div>
+
+        <div id="peeked-card-wrap" class="peeked-wrap">
+          <div class="label peeked-label">Next card in shoe:</div>
+          <div id="peeked-card-display" class="peeked-display"></div>
+        </div>
+
+        <div id="dig-drinks-dealer-actions">
+          <div class="btn-row">
+            {{ action_btn('🃏 Next card?', 'sendCmd', '["peek"]', 'btn wide', 'id="btn-peek"') }}
+          </div>
+          {{ action_btn('NEW ROUND', 'doNewRound', '[]', 'btn-big green') }}
+        </div>
+
+        <div id="dig-drinks-waiting" class="drinks-waiting">Waiting for dealer to start the next round…</div>
+      </div>
+    </div>
+  </div>
+
+  <nav id="bottom-nav">
+    <button class="bnav-btn" data-action="openRulesModal"><span class="bnav-icon">📖</span><span class="bnav-label">Rules</span></button>
+    <button class="bnav-btn" data-action="showSessionSummary"><span class="bnav-icon">📊</span><span class="bnav-label">Summary</span></button>
+    <button class="bnav-btn" id="btn-last-round-nav" data-action="openLastRoundModal"><span class="bnav-icon">🍺</span><span class="bnav-label">Last Round</span></button>
+    <button class="bnav-btn" id="btn-admin-nav" data-action="openKickModal"><span class="bnav-icon">⚙️</span><span class="bnav-label">Settings</span></button>
+    <button class="bnav-btn bnav-home" data-action="resetToSetup"><span class="bnav-icon">🏠</span><span class="bnav-label">Lobby</span></button>
+  </nav>
+</div>

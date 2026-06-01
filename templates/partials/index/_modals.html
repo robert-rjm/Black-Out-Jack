@@ -1,0 +1,139 @@
+{% from "partials/index/_macros.html" import action_btn %}
+<div id="register-overlay">
+  <div id="register-card">
+    <h3>Join the game</h3>
+    <p>Claim your seat to play, or watch as spectator.</p>
+    <div id="register-seats"></div>
+    {{ action_btn('👁 Watch as spectator', 'doSpectate', '[]', 'btn wide muted-btn') }}
+    <div id="register-error" class="register-error"></div>
+  </div>
+</div>
+
+<div id="rules-overlay" data-backdrop-action="handleRulesBackdropClick">
+  <div id="rules-card" data-stop-propagation="true">
+    <button id="rules-close-btn" data-action="closeRulesModal" title="Close">✕</button>
+    <div id="rules-body"><span class="rules-loading">Loading rules…</span></div>
+  </div>
+</div>
+
+<div id="kick-overlay">
+  <div id="kick-card">
+    <h3>⚙️ Settings</h3>
+
+    <div class="kick-toggle-row">
+      <label class="kick-toggle-label">Deal animation</label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="anim-toggle-modal" data-change-action="setAnimToggle">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="anim-lbl-modal">OFF</span>
+        <span class="pill-label-on" id="anim-lbl-modal-on">ON</span>
+      </div>
+    </div>
+
+    <div class="modal-section-title">PLAYERS IN SESSION</div>
+    <div id="kick-list"></div>
+
+    <div id="transfer-admin-section">
+      <div class="modal-section-title modal-gap-top">TRANSFER ADMIN</div>
+      <div id="transfer-admin-list"></div>
+    </div>
+
+    <div id="game-settings-section">
+      <div class="modal-section-title modal-gap-lg">GAME SETTINGS</div>
+      <div class="modal-note">Changes queue for next round — never applied mid-round.</div>
+
+      <div class="settings-row">
+        <label>Sips / hand</label>
+        <input type="number" id="setting-wager" min="1" max="20" value="1" class="w-72">
+      </div>
+      <div class="settings-row">
+        <label>Hands / player</label>
+        <input type="number" id="setting-num-hands" min="1" max="10" value="2" class="w-72">
+      </div>
+      <div id="setting-decks-row" class="settings-row">
+        <label>Decks in shoe</label>
+        <input type="number" id="setting-num-decks" min="1" max="8" value="1" class="w-72">
+      </div>
+
+      <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
+      <div class="settings-row">
+        <label>Rotate every</label>
+        <div class="settings-inline-row">
+          <input type="number" id="setting-rotate-every" min="1" max="20" value="1" class="w-52">
+          <span class="settings-inline-note">rounds</span>
+          {{ action_btn('Save', 'saveRotateEvery', '[]', 'btn btn-sm') }}
+        </div>
+      </div>
+      <div class="settings-row settings-row-last">
+        <label>Force rotate now</label>
+        <button class="btn btn-rotate" data-action="rotateDealer">🔄 Rotate Now</button>
+      </div>
+
+      <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>
+      <div class="settings-add-row">
+        <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
+        <label class="npc-label"><input type="checkbox" id="setting-add-npc"> Bot</label>
+        {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
+      </div>
+
+      <div class="modal-section-title modal-gap-top">REMOVE PLAYER SEAT</div>
+      <div class="settings-add-row">
+        <select id="setting-remove-name" class="settings-select"></select>
+        {{ action_btn('Remove', 'queueRemovePlayer', '[]', 'btn red btn-sm') }}
+      </div>
+
+      {{ action_btn('Queue for next round', 'queueSettings', '[]', 'btn wide queue-btn') }}
+
+      <div id="queued-settings-banner">
+        <strong class="queued-title">⏳ Queued for next round:</strong>
+        <ul id="queued-settings-list"></ul>
+        {{ action_btn('Clear queue', 'clearQueuedSettings', '[]', 'btn btn-clear-queue') }}
+      </div>
+    </div>
+
+    {{ action_btn('Close', 'closeKickModal', '[]', 'btn wide modal-close-btn') }}
+  </div>
+</div>
+
+<div id="last-round-overlay" class="overlay-last-round" data-backdrop-action="closeLastRoundModal">
+  <div class="last-round-card" data-stop-propagation="true">
+    <h3 class="last-round-title">🍺 Last Round</h3>
+    <div id="last-round-modal-body"></div>
+    {{ action_btn('Close', 'closeLastRoundModal', '[]', 'btn wide muted-btn modal-close-btn') }}
+  </div>
+</div>
+
+<div id="dealer-toast">🃏 You are the dealer now!</div>
+<div id="player-toast"></div>
+<div id="switch-toast"></div>
+<div id="milestone-toast"></div>
+<div id="ms-waiting-banner"></div>
+<div id="ms-drink-toast"></div>
+
+<div id="milestone-modal-overlay">
+  <div id="milestone-modal">
+    <div id="milestone-modal-header" class="milestone-header">
+      <div class="milestone-emoji">🎉</div>
+      <div id="milestone-modal-title" class="milestone-title"></div>
+      <div id="milestone-modal-sub" class="milestone-sub"></div>
+    </div>
+    <div id="milestone-steppers"></div>
+    <div id="milestone-remaining" class="milestone-remaining"></div>
+    <div id="milestone-timer" class="milestone-timer"></div>
+    <button id="milestone-submit-btn" class="milestone-submit" data-action="submitMilestoneHandout">Hand out sips</button>
+  </div>
+</div>
+
+<div id="summary-overlay">
+  <div id="summary-card">
+    <h3>🃏 Session Summary</h3>
+    <div id="summary-meta" class="summary-meta"></div>
+    <div id="summary-body"></div>
+    <div class="btn-row summary-actions">
+      {{ action_btn('Close', 'closeSummaryModal', '[]', 'btn wide') }}
+      {{ action_btn('⬇️ Export Drinks CSV', 'exportDrinksAndClose', '[]', 'btn wide') }}
+    </div>
+  </div>
+</div>

@@ -11,7 +11,7 @@ from datetime import datetime
 
 _buf = io.StringIO()
 with contextlib.redirect_stdout(_buf):
-    from blackjack import NPC_Player, Shoe, RoundManager, Hand
+    from blackjack import NPC_Player, Shoe, RoundManager
     from drinking_rules import DrinkTracker
 
 NUM_ROUNDS   = 10000

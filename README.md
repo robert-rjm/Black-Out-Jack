@@ -99,6 +99,7 @@ Computer-controlled seats using standard basic strategy. NPCs:
 - Bottom navigation bar on mobile (≤640 px) for one-thumb reach
 - Add to home screen on iOS and Android for a native app feel
 - Tap-friendly controls throughout
+- Bottom navigation bar on mobile (≤640 px)
 
 ## Drink Responsibly
 > [!IMPORTANT]
@@ -132,7 +133,8 @@ Black-Out-Jack/
 │   │   └── ui/                  # lobby.js, table.js, log.js, admin.js, …
 │   └── logo.png                 # Home screen icon (iOS & Android)
 ├── templates/
-│   └── index.html               # Mobile-first browser UI
+    ├── index.html               # Mobile-first browser UI
+│   └── partials/index/*.html    # Composable UI sections
 │
 ├── server.py                    # Flask entry point
 ├── blackjack.py                 # Core game logic + terminal game (START HERE)
@@ -243,7 +245,7 @@ The three main files are intentionally decoupled:
 | `referee.py` | `blackjack.py`, `drinking_rules.py` | Terminal referee command parser for real-life play |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
 | `app/` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Routes, models, and services for the web UI |
-| `templates/index.html` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
+|  `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
 | `static/css/` | — | `main.css` (layout, variables) + `components/` (cards, controls, log…) |
 | `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, table, log, admin…) |
 | `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |

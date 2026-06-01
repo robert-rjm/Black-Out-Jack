@@ -1,0 +1,7 @@
+{% macro action_btn(label, action, args='[]', classes='btn', extra_attrs='') -%}
+<button class="{{ classes }}" data-action="{{ action }}" data-args='{{ args|safe }}' {{ extra_attrs|safe }}>{{ label }}</button>
+{%- endmacro %}
+
+{% macro section_label(text) -%}
+<div class="label">{{ text }}</div>
+{%- endmacro %}

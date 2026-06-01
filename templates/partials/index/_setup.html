@@ -1,0 +1,69 @@
+{% from "partials/index/_macros.html" import action_btn %}
+<div id="setup">
+  <h2>🃏 Black-Out-Jack</h2>
+  <p class="sub" id="setup-sub" data-copy="setupSub">Virtual Drinking Blackjack — digital shoe &amp; drink tracker</p>
+
+  <div id="setup-room-code-wrap">
+    <p class="setup-room-hint">Room Code — share with friends to let them join</p>
+    <div id="setup-room-code" class="room-code-badge"></div>
+  </div>
+
+  <div class="field">
+    <label>Game Mode</label>
+    <div id="gametype-row">
+      <button class="btn sel" data-action="setGameType" data-args='["drinking-digital"]'>🍺 Drinking</button>
+      <button class="btn" data-action="setGameType" data-args='["normal"]'>🃏 Normal</button>
+      <button class="btn" data-action="setGameType" data-args='["referee"]'>📋 Referee</button>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Number of players</label>
+    <div id="num-players-row">
+      <button class="btn" data-action="setNumPlayers" data-args='[2]'>2</button>
+      <button class="btn" data-action="setNumPlayers" data-args='[3]'>3</button>
+      <button class="btn" data-action="setNumPlayers" data-args='[4]'>4</button>
+    </div>
+  </div>
+
+  <div id="name-fields" class="field"></div>
+
+  <div id="settings-ref" class="two-col">
+    <div class="field field-unbounded">
+      <label>Sips / hand</label>
+      <input type="number" id="wager-ref" value="1" min="1" max="10">
+    </div>
+    <div class="field field-unbounded">
+      <label>Hands / player</label>
+      <input type="number" id="num-hands-ref" value="2" min="1" max="4">
+    </div>
+  </div>
+
+  <div id="settings-dig" class="three-col">
+    <div class="field field-unbounded" id="wager-dig-cell">
+      <label>Sips / hand</label>
+      <input type="number" id="wager-dig" value="1" min="1" max="10">
+    </div>
+    <div class="field field-unbounded">
+      <label>Hands / player</label>
+      <input type="number" id="num-hands-dig" value="2" min="1" max="4">
+    </div>
+    <div class="field field-unbounded">
+      <label>Decks in shoe</label>
+      <input type="number" id="num-decks" value="1" min="1" max="8">
+    </div>
+    <div class="field field-unbounded field-top-pad">
+      <label class="compact-label">Deal animation</label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="anim-toggle" checked data-change-action="setAnimToggle">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="anim-lbl-setup">OFF</span>
+        <span class="pill-label-on" id="anim-lbl-setup-on">ON</span>
+      </div>
+    </div>
+  </div>
+
+  {{ action_btn('Start Game', 'startGame', '[]', 'btn-primary-start', 'id="start-btn"') }}
+</div>

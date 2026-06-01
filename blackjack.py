@@ -312,9 +312,9 @@ class NPC_Player(Player):
                     return "sp"
                 if rv == 5 and "d" in valid_actions:
                     return "d"
-            if score in (9, 10, 11) and "d" in valid_actions:                    
+            if score in (9, 10, 11) and "d" in valid_actions:
                 return "d"
-                
+
         # --- Pair split ---
         if "sp" in valid_actions and hand.can_split():
             rv  = hand.cards[0].rank.blackjack_value
@@ -553,7 +553,10 @@ class RoundManager:
             if player.is_npc:
                 print(f"  {player.name} (NPC) declines insurance.")
             else:
-                raw = input(f"  Dealer shows A and you have Blackjack. {player.name}: take insurance? [y/n]: ").strip().lower()
+                raw = input(
+                    f"  Dealer shows A and you have Blackjack. "
+                    f"{player.name}: take insurance? [y/n]: "
+                    ).strip().lower()
                 if raw == "y":
                     hand.insured = True
                     print(f"  {player.name} insures — Blackjack plays as regular 21.")
@@ -586,7 +589,9 @@ class RoundManager:
                         and "sp" in valid
                         and hand.cards[0].rank.blackjack_value == 10
                         and not hand.is_suited()):
-                    print(f"  WARNING: rules require splitting {hand.cards[0]}, {hand.cards[1]} (mandatory unless suited)")
+                    print(f"  WARNING: rules require splitting "
+                          f"{hand.cards[0]}, {hand.cards[1]} (mandatory unless suited)"
+                          )
                     confirm = input("  Split? [y/n]: ").strip().lower()
                     if confirm == "y":
                         action = "sp"

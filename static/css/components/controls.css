@@ -1,0 +1,127 @@
+/* ============================================================
+   controls.css — buttons, inputs, pill toggle, action panel
+   ============================================================ */
+
+/* ---- CONTROL PANEL ---- */
+#panel {
+  flex-shrink: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* panes */
+.pane { display: none; padding: 10px 12px 6px; }
+.pane.active { display: block; }
+
+/* ---- SHARED BUTTON ROWS ---- */
+.btn-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 7px;
+  margin-bottom: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;        /* Firefox */
+  padding-bottom: 2px;          /* room for scroll inertia */
+}
+.btn-row::-webkit-scrollbar { display: none; }  /* Chrome/Safari */
+
+.btn {
+  height: var(--tap);
+  padding: 0 14px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .08s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn:active { transform: scale(.95); }
+.btn.sel     { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.green   { background: var(--green);  border-color: var(--green);  color: #000; }
+.btn.red     { background: var(--red);    border-color: var(--red);    color: #fff; }
+.btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: #000; }
+.btn.wide    { flex: 1; }
+/* basic-strategy best-play highlight */
+.btn.best    { border-color: var(--accent); color: var(--accent);
+               box-shadow: 0 0 0 2px rgba(91,156,246,.25); }
+/* disabled (out-of-turn) player buttons */
+.btn.disabled {
+  opacity: .35;
+  pointer-events: none;
+}
+/* Player's own voted button — blue */
+.btn.voted {
+  background: rgba(79,142,247,.22);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* Dealer view: player's voted button — yellow hint */
+.btn.voted-dealer {
+  background: rgba(245,200,66,.18);
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+/* big action button for digital deal/dealer panes */
+.btn-big {
+  width: 100%; height: 72px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 20px; font-weight: 800;
+  cursor: pointer;
+  transition: opacity .12s, transform .08s;
+  margin-bottom: 10px;
+}
+.btn-big:active { transform: scale(.97); }
+.btn-big.green  { background: var(--green);  color: #000; }
+.btn-big.accent { background: var(--accent); color: #fff; }
+
+/* ---- ANIMATION PILL TOGGLE ---- */
+.pill-toggle-wrap { display:flex; align-items:center; gap:10px; }
+.pill-toggle { position:relative; display:inline-block; width:62px; height:30px; flex-shrink:0; }
+.pill-toggle input { opacity:0; width:0; height:0; position:absolute; }
+.pill-slider {
+  position:absolute; inset:0; cursor:pointer;
+  background:#555; border-radius:30px; transition:background .2s;
+}
+.pill-slider:before {
+  content:""; position:absolute;
+  height:24px; width:24px; left:3px; bottom:3px;
+  background:#fff; border-radius:50%; transition:transform .2s;
+}
+.pill-toggle input:checked + .pill-slider { background: var(--green, #4caf50); }
+.pill-toggle input:checked + .pill-slider:before { transform: translateX(32px); }
+.pill-label-off,.pill-label-on {
+  font-size:13px; font-weight:700; letter-spacing:.04em; pointer-events:none;
+}
+.pill-label-off { color: var(--muted); }
+.pill-label-on  { color: var(--green, #4caf50); display:none; }
+.pill-toggle input:checked ~ .pill-label-off { display:none; }
+.pill-toggle input:checked ~ .pill-label-on  { display:inline; }
+
+/* ---- ROLE HINT / VOTE DISPLAY ---- */
+#player-vote-display {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(79,142,247,.1);
+  border: 1px solid rgba(79,142,247,.25);
+  font-size: 13px;
+  color: var(--accent);
+  display: none;
+}
+#dig-play-role-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  min-height: 18px;
+}
+
+/* digital hint text */
+.hint { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
