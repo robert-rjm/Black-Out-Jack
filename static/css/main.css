@@ -1,0 +1,188 @@
+/* ============================================================
+   main.css — variables, reset, base layout, PWA chrome
+   ============================================================ */
+
+:root {
+  --bg:      #0f1117;
+  --surface: #1a1d27;
+  --border:  #2e3247;
+  --accent:  #4f8ef7;
+  --green:   #3ecf6e;
+  --red:     #e05c5c;
+  --yellow:  #f5c842;
+  --text:    #e8eaf0;
+  --muted:   #7a7f96;
+  --radius:  12px;
+  --tap:     48px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+/* Safari: reset native form-control chrome so CSS styling actually applies */
+button, input, select, textarea {
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+  overscroll-behavior: none;           /* Chromium/Firefox */
+  -webkit-overflow-scrolling: touch;   /* iOS smooth scroll */
+}
+
+/* ---- LAYOUT ---- */
+/* 100vh first as fallback for Safari < 15.4 which doesn't support dvh */
+#app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+header {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  padding-top: max(6px, env(safe-area-inset-top));
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
+#header-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+@media (min-width: 640px) {
+  header { padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); }
+  header h1 { font-size: 17px; }
+  #header-sub { font-size: 12px; margin-top: 2px; }
+}
+.mode-badge {
+  display: inline-block;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  padding: 2px 6px; border-radius: 4px;
+  margin-left: 6px; vertical-align: middle;
+}
+.mode-badge.referee { background: #2e3247; color: var(--muted); }
+.mode-badge.digital { background: #1a3a2a; color: var(--green); }
+.mode-badge.normal  { background: #1a2a3a; color: var(--accent); }
+
+/* ---- TWO-COLUMN MAIN AREA ---- */
+#main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+/* Left: player seats */
+#left-col {
+  flex: 55%;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: #14161f;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+/* Right: dealer (sticky top) + chat log */
+#right-col {
+  flex: 45%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Dealer card — always visible, never scrolls away */
+#dealer-panel {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  background: #1a1527;
+  border-bottom: 1px solid var(--border);
+}
+#dealer-panel .dp-header {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 12px; font-weight: 700; margin-bottom: 6px;
+}
+#dealer-panel .dp-name  { color: var(--text); }
+#dealer-panel .dp-role  { font-size: 10px; color: var(--muted); margin-left: 4px; }
+#dealer-panel .dp-cards { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+
+/* ---- SIP TICKER ---- */
+#sip-ticker {
+  flex-shrink: 0;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#sip-ticker .st-total {
+  font-weight: 800; font-size: 12px;
+  color: var(--yellow); white-space: nowrap; flex-shrink: 0;
+}
+#sip-ticker .st-div { width: 1px; height: 13px; background: var(--border); flex-shrink: 0; }
+#sip-ticker .st-player { display: flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
+#sip-ticker .st-name  { font-size: 11px; color: var(--muted); }
+#sip-ticker .st-count { font-size: 11px; font-weight: 700; color: var(--text); }
+
+/* ---- SECTION LABELS ---- */
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+  margin-bottom: 5px;
+  margin-top: 2px;
+}
+
+/* ---- HEADER ROOM CODE ---- */
+#header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
+
+/* ---- DESKTOP HEADER ACTIONS (hidden on mobile) ---- */
+#header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ---- BOTTOM NAV BAR (mobile only) ---- */
+#bottom-nav {
+  flex-shrink: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.bnav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color .15s, background .15s;
+  min-height: 52px;
+}
+.bnav-btn:active { background: rgba(255,255,255,.06); }
+.bnav-icon { font-size: 20px; line-height: 1; }
+.bnav-label { font-size: 10px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; }
+.bnav-home { color: var(--red); }
+
+/* ---- RESPONSIVE: swap nav location at 640px ---- */
+@media (min-width: 640px) {
+  #bottom-nav   { display: none; }
+  #header-actions { display: flex; }
+}
+@media (max-width: 639px) {
+  #header-actions { display: none; }
+}

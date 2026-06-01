@@ -1,0 +1,170 @@
+/* ============================================================
+   modals.css — overlays: registration, kick, rules, milestone, summary
+   ============================================================ */
+
+/* ---- REGISTRATION OVERLAY ---- */
+#register-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.85);
+  z-index: 500;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#register-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px 20px;
+  width: 100%; max-width: 380px;
+  border: 1px solid var(--border);
+}
+#register-card h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+#register-card p  { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+#register-seats   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+
+/* ---- KICK / SUMMARY OVERLAY ---- */
+#kick-overlay, #summary-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.75);
+  z-index: 500;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+#kick-card, #summary-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 20px;
+  width: 100%; max-width: 380px;
+  border: 1px solid var(--border);
+  max-height: 80vh; overflow-y: auto;
+}
+#kick-card h3, #summary-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+
+/* Summary table */
+#summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+#summary-table th { text-align: right; padding: 4px 6px; color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing:.04em; }
+#summary-table th:first-child { text-align: left; }
+#summary-table td { padding: 6px 6px; border-top: 1px solid var(--border); }
+#summary-table td:not(:first-child) { text-align: right; }
+#summary-table .sum-total { font-weight: 800; color: var(--yellow); }
+
+#kick-list     { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.kick-row      { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.kick-row:last-child { border-bottom: none; }
+.kick-name     { font-size: 14px; font-weight: 600; }
+.kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
+.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: rgba(224,92,92,.15); color: var(--red); border-color: rgba(224,92,92,.3); }
+
+/* ---- SETTINGS IN KICK CARD ---- */
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.settings-row label { font-size: 13px; color: var(--text); }
+.settings-row input[type=number], .settings-row select {
+  width: 72px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 13px;
+  padding: 4px 8px; text-align: center;
+}
+.settings-add-row {
+  display: flex; gap: 6px; margin-top: 6px; align-items: center;
+}
+.settings-add-row input[type=text] {
+  flex: 1; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 13px; padding: 6px 10px;
+}
+
+/* ---- QUEUED SETTINGS BANNER ---- */
+#queued-settings-banner {
+  display: none; margin-top: 12px; padding: 10px 12px;
+  border-radius: 8px; font-size: 12px;
+  background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3);
+  color: var(--accent);
+}
+#queued-settings-banner ul { padding-left: 16px; margin: 4px 0 0; }
+#queued-settings-banner li { margin-bottom: 2px; }
+
+/* ---- RULES OVERLAY ---- */
+#rules-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.82); z-index: 600;
+  flex-direction: column; align-items: center; justify-content: flex-start;
+  padding: 20px 16px; overflow-y: auto;
+}
+#rules-overlay.open { display: flex; }
+#rules-card {
+  background: var(--surface); border-radius: 16px;
+  border: 1px solid var(--border);
+  width: 100%; max-width: 560px;
+  padding: 20px 22px; position: relative;
+  margin: auto;
+}
+#rules-close-btn {
+  position: sticky; top: 0; float: right;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 18px; line-height: 1;
+  padding: 4px 10px; cursor: pointer; z-index: 1;
+}
+#rules-close-btn:hover { background: rgba(255,255,255,.18); }
+#rules-body {
+  clear: both; font-size: 14px; line-height: 1.65; color: var(--text);
+  padding-top: 8px;
+}
+#rules-body h1 { font-size: 20px; font-weight: 800; margin: 0 0 14px; }
+#rules-body h2 { font-size: 16px; font-weight: 700; margin: 18px 0 8px; color: var(--accent); }
+#rules-body h3 { font-size: 14px; font-weight: 700; margin: 14px 0 6px; color: var(--yellow); }
+#rules-body p  { margin: 0 0 10px; }
+#rules-body ul, #rules-body ol { padding-left: 20px; margin: 0 0 10px; }
+#rules-body li { margin-bottom: 4px; }
+#rules-body strong { color: var(--yellow); }
+#rules-body em { color: var(--muted); }
+#rules-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+#rules-body code { background: rgba(255,255,255,.08); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+#rules-body table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
+#rules-body th, #rules-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+#rules-body th { background: rgba(255,255,255,.06); font-weight: 700; }
+
+/* ---- MILESTONE MODAL ---- */
+#milestone-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 910;
+  align-items: center; justify-content: center;
+}
+#milestone-modal-overlay.open { display: flex; }
+#milestone-modal {
+  background: var(--surface);
+  border: 1.5px solid var(--yellow);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  width: min(340px, 92vw);
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+.ms-stepper {
+  display: flex; align-items: center; gap: 10px;
+  margin: 7px 0;
+}
+.ms-stepper .ms-name {
+  flex: 1; font-size: 14px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ms-stepper button {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg); color: var(--text);
+  font-size: 18px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none;
+}
+.ms-stepper button:active { opacity: .7; }
+.ms-stepper .ms-count {
+  width: 28px; text-align: center;
+  font-size: 16px; font-weight: 700;
+}

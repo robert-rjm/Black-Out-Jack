@@ -1,0 +1,380 @@
+/* Shared utility/component classes used by index partials */
+
+.is-hidden { display: none; }
+
+.pressable:active { transform: scale(.97); }
+
+/* Hidden by default; shown by JS when needed */
+#waiting,
+#setup,
+#app,
+#settings-ref,
+#btn-admin-players,
+#btn-admin-nav,
+#kick-vote-banner,
+#spectator-rejoin-banner,
+#dig-panel,
+#ms-waiting-slot,
+#suggest-banner,
+#suggest-picker,
+#suggest-toggle-row,
+#dig-insurance-row,
+#insurance-vote-panel,
+#dig-drinks-progress,
+#dig-drinks-panel,
+#dig-drinks-none,
+#peeked-card-wrap,
+#dig-drinks-dealer-actions,
+#dig-drinks-waiting,
+#register-error,
+#game-settings-section,
+#setting-decks-row,
+#last-round-overlay {
+  display: none;
+}
+
+
+.lobby-subtitle,
+.waiting-sub {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+.waiting-sub { max-width: 300px; }
+
+.lobby-btn-create,
+.lobby-btn-join,
+.btn-primary-start {
+  width: 100%;
+  max-width: 420px;
+  height: 64px;
+  border-radius: var(--radius);
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: opacity .12s, transform .08s;
+}
+.lobby-btn-create {
+  border: none;
+  background: var(--green);
+  color: #000;
+}
+.lobby-btn-join {
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.btn-primary-start {
+  max-width: 420px;
+  height: 56px;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+}
+
+.input-room-code {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.lobby-rules-link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lobby-rules-link:hover,
+.lobby-github-link:hover,
+.gate-btn-decline:hover { color: var(--text); }
+
+.lobby-github-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 11px;
+}
+.lobby-safe-text { font-size: 10px; opacity: .7; }
+
+.waiting-code { margin: 6px 0; }
+.waiting-back-btn { margin-top: 12px; }
+
+.setup-room-hint {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 6px;
+}
+.field-unbounded { max-width: none; }
+.field-top-pad { padding-top: 4px; }
+.compact-label { margin-bottom: 4px !important; }
+
+.icon-btn {
+  height: 36px;
+  padding: 0 10px;
+  font-size: 16px;
+}
+.home-btn {
+  height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.dealer-placeholder { font-size: 11px; color: var(--muted); }
+
+.banner-kick {
+  padding: 6px 14px;
+  font-size: 12px;
+  background: rgba(224,92,92,.1);
+  border-bottom: 1px solid rgba(224,92,92,.25);
+  color: var(--red);
+  line-height: 1.6;
+}
+.banner-rejoin {
+  padding: 7px 14px;
+  font-size: 12px;
+  background: rgba(245,200,66,.08);
+  border-bottom: 1px solid rgba(245,200,66,.2);
+  color: var(--yellow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rejoin-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.waiting-slot {
+  margin: 6px 8px 0;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(245,200,66,.12);
+  border: 1.5px solid rgba(245,200,66,.4);
+  color: var(--yellow);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.suggest-banner {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(245,200,66,.13);
+  border: 1px solid rgba(245,200,66,.4);
+  color: var(--yellow);
+  font-size: 13px;
+}
+.suggest-text { margin-bottom: 8px; font-weight: 600; }
+.no-margin { margin: 0; }
+.muted-btn { color: var(--muted); }
+
+.suggest-picker { margin-top: 6px; }
+.suggest-picker-title {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  text-align: center;
+}
+.suggest-toggle-row { margin-top: 4px; text-align: center; }
+.suggest-toggle-btn { font-size: 12px; color: var(--muted); padding: 4px 8px; }
+
+.insurance-vote-panel {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(245,200,66,.1);
+  border: 1px solid rgba(245,200,66,.3);
+}
+
+.round-progress,
+.drinks-none,
+.drinks-waiting {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+.round-progress { padding: 12px 0; }
+.drinks-none { margin-bottom: 8px; padding: 10px 0; }
+.drinks-waiting { padding: 6px 0; }
+
+.drinks-panel {
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  margin-bottom: 8px;
+}
+.drinks-agg {
+  display: grid;
+  grid-template-columns: 96px 96px;
+  gap: 4px;
+  flex-shrink: 0;
+  align-content: start;
+  padding-right: 8px;
+}
+.drinks-divider {
+  width: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+  align-self: stretch;
+  margin-right: 8px;
+}
+.drinks-detail {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 160px;
+}
+
+.peeked-wrap { margin-bottom: 8px; }
+.peeked-label { margin-bottom: 6px; }
+.peeked-display { display: flex; gap: 6px; align-items: center; }
+
+.register-error {
+  color: var(--red);
+  font-size: 12px;
+  margin-top: 8px;
+}
+.rules-loading { color: var(--muted); font-size: 13px; }
+
+.kick-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  margin-bottom: 12px;
+}
+.kick-toggle-label { font-size: 14px; font-weight: 600; margin: 0; }
+.modal-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .05em;
+  margin-bottom: 6px;
+}
+.modal-gap-top { margin-top: 14px; }
+.modal-gap-lg { margin-top: 18px; margin-bottom: 8px; }
+.modal-note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.w-72 { width: 72px; }
+.w-52 { width: 52px; }
+.settings-inline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-inline-note { font-size: 12px; color: var(--muted); }
+.btn-sm { height: 28px; padding: 0 10px; font-size: 11px; }
+.settings-row-last { border-bottom: none; padding-bottom: 4px; }
+.btn-rotate {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  background: rgba(79,142,247,.15);
+  color: var(--accent);
+  border-color: rgba(79,142,247,.3);
+}
+.npc-label {
+  font-size: 12px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.settings-select {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+}
+.queue-btn {
+  margin-top: 12px;
+  background: var(--accent);
+}
+.queued-title { font-size: 12px; }
+.btn-clear-queue {
+  margin-top: 8px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  color: var(--red);
+}
+.modal-close-btn { margin-top: 10px; }
+
+.overlay-last-round {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.7);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+.last-round-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
+  width: min(300px, 88vw);
+}
+.last-round-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.milestone-header { text-align: center; margin-bottom: 14px; }
+.milestone-emoji { font-size: 28px; line-height: 1; }
+.milestone-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--yellow);
+  margin-top: 6px;
+}
+.milestone-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.milestone-remaining {
+  text-align: center;
+  font-size: 13px;
+  margin: 10px 0 4px;
+  font-weight: 700;
+}
+.milestone-timer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.milestone-submit {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  background: var(--yellow);
+  color: #000;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.summary-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.summary-actions { margin-top: 4px; }

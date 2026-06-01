@@ -1,0 +1,130 @@
+/* ============================================================
+   lobby.css — setup screen, lobby/waiting screens, age gate
+   ============================================================ */
+
+/* ---- SETUP SCREEN ---- */
+#setup {
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  height: 100vh; height: 100dvh;
+  padding: 24px 20px;
+  gap: 14px;
+  overflow-y: auto;
+}
+#setup h2 { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
+#setup .sub { color: var(--muted); font-size: 14px; text-align: center; }
+
+.field { width: 100%; max-width: 420px; }
+.field label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 5px; }
+.field input, .field select {
+  width: 100%; height: var(--tap);
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  font-size: 16px; padding: 0 14px;
+}
+.field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+.field select option { background: var(--surface); }
+
+#num-players-row, #gametype-row { display: flex; gap: 8px; margin-bottom: 2px; }
+#name-fields { display: flex; flex-direction: column; gap: 8px; }
+
+.two-col   { display: grid; grid-template-columns: 1fr 1fr;     gap: 10px; width: 100%; max-width: 420px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
+
+#start-btn {
+  width: 100%; max-width: 420px;
+  height: 56px; border-radius: var(--radius);
+  background: var(--accent); border: none;
+  color: #fff; font-size: 18px; font-weight: 700;
+  cursor: pointer; transition: opacity .15s;
+}
+#start-btn:disabled { opacity: .45; }
+
+/* ---- LOBBY / WAITING ---- */
+#lobby, #waiting {
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  height: 100vh; height: 100dvh;
+  padding: 24px 20px; gap: 14px;
+  overflow-y: auto;
+}
+#lobby h2  { font-size: 28px; font-weight: 800; letter-spacing: .5px; }
+#waiting h2 { font-size: 22px; font-weight: 800; }
+.lobby-or {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; max-width: 420px;
+}
+.lobby-or hr { flex: 1; border: none; border-top: 1px solid var(--border); margin: 0; }
+.lobby-or span { font-size: 12px; color: var(--muted); }
+#lobby-msg {
+  padding: 8px 14px; border-radius: 8px; font-size: 13px;
+  width: 100%; max-width: 420px; text-align: center; display: none;
+}
+#lobby-msg.error { background: rgba(224,92,92,.12); color: var(--red);    border: 1px solid rgba(224,92,92,.3); }
+#lobby-msg.info  { background: rgba(79,142,247,.12); color: var(--accent); border: 1px solid rgba(79,142,247,.3); }
+.room-code-badge {
+  font-family: monospace; font-size: 20px; font-weight: 800;
+  letter-spacing: 3px; color: var(--accent);
+  background: rgba(79,142,247,.1); border: 1.5px solid rgba(79,142,247,.3);
+  padding: 6px 18px; border-radius: 10px; display: inline-block;
+}
+#setup-room-code-wrap {
+  width: 100%; max-width: 420px; text-align: center;
+  background: rgba(79,142,247,.06); border: 1px solid rgba(79,142,247,.2);
+  border-radius: var(--radius); padding: 10px 16px;
+}
+
+/* ---- DRINK NOTICE ---- */
+.drink-notice {
+  width: 100%; max-width: 420px;
+  background: rgba(245,200,66,.06); border: 1px solid rgba(245,200,66,.16);
+  border-radius: 10px; padding: 10px 14px;
+  font-size: 12px; color: var(--muted); line-height: 1.55; text-align: center;
+}
+.drink-notice strong { color: var(--yellow); }
+
+/* ---- LOBBY CREDITS ---- */
+.lobby-credits {
+  font-size: 11px; color: var(--muted);
+  text-align: center; line-height: 1.7; margin-top: 4px;
+  width: 100%; max-width: 420px;
+}
+
+/* ---- AGE GATE ---- */
+#age-gate {
+  position: fixed; inset: 0; z-index: 1000;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 32px 24px; gap: 20px;
+  text-align: center;
+}
+#age-gate-card {
+  width: 100%; max-width: 400px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.gate-logo { font-size: 52px; line-height: 1; }
+#age-gate h1 { font-size: 26px; font-weight: 800; letter-spacing: .3px; }
+.gate-sub { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 320px; }
+.gate-legal {
+  font-size: 13px; color: var(--muted); line-height: 1.55;
+  background: rgba(245,200,66,.07); border: 1px solid rgba(245,200,66,.18);
+  border-radius: 10px; padding: 12px 16px;
+  width: 100%; max-width: 400px; text-align: left;
+}
+.gate-legal strong { color: var(--yellow); }
+#age-gate-msg { font-size: 13px; color: var(--red); min-height: 18px; }
+.gate-btn-confirm {
+  width: 100%; max-width: 400px;
+  height: 56px; border-radius: var(--radius);
+  background: var(--green); border: none;
+  color: #000; font-size: 17px; font-weight: 800;
+  cursor: pointer; transition: opacity .12s, transform .08s;
+}
+.gate-btn-confirm:active { transform: scale(.97); }
+.gate-btn-decline {
+  background: none; border: none;
+  color: var(--muted); font-size: 13px;
+  cursor: pointer; text-decoration: underline; padding: 4px 8px;
+}
+.gate-btn-decline:hover { color: var(--text); }
