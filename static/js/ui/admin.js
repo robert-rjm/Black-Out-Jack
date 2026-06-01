@@ -160,9 +160,8 @@ function updateRoleUI(state) {
 // BUST VOTE SIDE BET
 // ============================================================
 
-let _bustVoteModalOpen    = false;
-let _bustVoteTimerHandle  = null;
-let _bustVoteModalShownAt = null;   // server seconds_left when modal appeared
+let _bustVoteModalOpen   = false;
+let _bustVoteTimerHandle = null;
 
 async function submitBustVote(choice) {
   _closeBustVoteModal();
@@ -193,16 +192,16 @@ function _openBustVoteModal(secondsLeft) {
   const overlay = document.getElementById("bust-vote-modal-overlay");
   if (!overlay || _bustVoteModalOpen) return;
   _bustVoteModalOpen    = true;
-  _bustVoteModalShownAt = secondsLeft;
   overlay.style.display = "flex";
 
-  const bar   = document.getElementById("bust-vote-timer-bar");
-  const label = document.getElementById("bust-vote-timer-label");
+  const bar      = document.getElementById("bust-vote-timer-bar");
+  const label    = document.getElementById("bust-vote-timer-label");
+  const duration = secondsLeft || 10;   // guard against 0
 
-  let secs = secondsLeft;
+  let secs = duration;
   function tick() {
     if (!_bustVoteModalOpen) return;
-    if (bar)   bar.style.width   = `${(secs / _bustVoteModalShownAt) * 100}%`;
+    if (bar)   bar.style.width   = `${(secs / duration) * 100}%`;
     if (label) label.textContent = `${secs}s`;
     if (secs <= 0) { submitBustVote("pass"); return; }
     secs--;
@@ -292,7 +291,6 @@ function showBustVoteToast(result) {
     if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip each)`);
   } else {
     if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip each)`);
-    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called no bust (-1 sip each)`);
   }
   if (!parts.length) return;
   toast.textContent = parts.join(" · ");
