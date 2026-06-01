@@ -6,6 +6,12 @@
     <div id="register-seats"></div>
     {{ action_btn('👁 Watch as spectator', 'doSpectate', '[]', 'btn wide muted-btn') }}
     <div id="register-error" class="register-error"></div>
+    <div id="register-pending" class="register-pending" style="display:none">
+      ⏳ Waiting for host to approve…
+    </div>
+    <div id="register-denied" class="register-denied" style="display:none">
+      ✗ Request denied — choose another seat or watch as spectator.
+    </div>
   </div>
 </div>
 

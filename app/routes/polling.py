@@ -74,6 +74,7 @@ def register():
         return jsonify({"ok": False, "error": "You have been removed from this session."})
 
     if not name:
+        # Spectating — no approval needed
         session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -82,13 +83,124 @@ def register():
         return jsonify({"ok": False,
                         "error": f"'{name}' is not a seat. Available: {', '.join(valid_names)}"})
 
+    # Check seat is not already claimed
     for cid, info in session._room_clients.items():
         if (cid != client_id and not info.get("kicked")
                 and (info.get("name") or "").lower() == name.lower()):
             return jsonify({"ok": False, "error": f"'{name}' is already taken."})
 
-    role = "admin" if existing.get("role") == "admin" else "player"
-    session._room_clients[client_id] = {"name": name, "role": role, "kicked": False}
+    # Admin registering their own seat — immediate, no approval needed
+    if existing.get("role") == "admin":
+        session._room_clients[client_id] = {"name": name, "role": "admin", "kicked": False}
+        return jsonify({**serialize_state(session, client_id), "ok": True})
+
+    # Block clients who have been denied too many times
+    MAX_REG_DENIALS = 2
+    if existing.get("reg_denials", 0) >= MAX_REG_DENIALS:
+        return jsonify({"ok": False,
+                        "error": "You have been denied too many times and cannot request to join."})
+
+    # Cancel any previous pending request from this client (counts as one slot)
+    prev_pending = [r for r in session._pending_registrations if r["client_id"] != client_id]
+
+    # Cap: no more pending requests than there are unclaimed seats
+    total_seats   = len(session.all_players)
+    claimed_seats = sum(
+        1 for info in session._room_clients.values()
+        if info.get("name") and not info.get("kicked")
+    )
+    available_seats = total_seats - claimed_seats
+    if len(prev_pending) >= available_seats:
+        return jsonify({"ok": False,
+                        "error": "Too many pending requests — wait for the host to review."})
+
+    session._pending_registrations = prev_pending
+    session._pending_registrations.append({"client_id": client_id, "name": name})
+    session._room_clients[client_id] = {**existing, "name": None, "role": "pending", "kicked": False}
+    return jsonify({**serialize_state(session, client_id), "ok": True, "pending": True})
+
+
+# ---------------------------------------------------------------------------
+# Registration approval
+# ---------------------------------------------------------------------------
+
+@bp.route("/handle_registration", methods=["POST"])
+def handle_registration():
+    """Admin approves or denies a pending player registration.
+    Body: { room_code, client_id (admin), target_client_id, approve: bool }"""
+    data             = request.json or {}
+    room_code        = (data.get("room_code") or "").strip()
+    client_id        = (data.get("client_id") or "").strip()
+    target_client_id = (data.get("target_client_id") or "").strip()
+    approve          = bool(data.get("approve", False))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    if session._room_clients.get(client_id, {}).get("role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."})
+
+    pending = next(
+        (r for r in session._pending_registrations if r["client_id"] == target_client_id),
+        None,
+    )
+    if not pending:
+        return jsonify({"ok": False, "error": "No pending request found."})
+
+    session._pending_registrations = [
+        r for r in session._pending_registrations if r["client_id"] != target_client_id
+    ]
+
+    target_existing = session._room_clients.get(target_client_id, {})
+
+    if approve:
+        name = pending["name"]
+        # Ensure seat is still unclaimed before approving
+        for cid, info in session._room_clients.items():
+            if (cid != target_client_id and not info.get("kicked")
+                    and (info.get("name") or "").lower() == name.lower()):
+                # Seat taken while pending — count as a denial
+                denials = target_existing.get("reg_denials", 0) + 1
+                session._room_clients[target_client_id] = {
+                    **target_existing, "name": None, "role": "denied",
+                    "kicked": False, "reg_denials": denials,
+                }
+                return jsonify({**serialize_state(session, client_id), "ok": True})
+        session._room_clients[target_client_id] = {
+            **target_existing, "name": name, "role": "player", "kicked": False
+        }
+    else:
+        denials = target_existing.get("reg_denials", 0) + 1
+        session._room_clients[target_client_id] = {
+            **target_existing, "name": None, "role": "denied",
+            "kicked": False, "reg_denials": denials,
+        }
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/reset_registration", methods=["POST"])
+def reset_registration():
+    """Admin clears a client's denial count, allowing them to request again.
+    Body: { room_code, client_id (admin), target_client_id }"""
+    data             = request.json or {}
+    room_code        = (data.get("room_code") or "").strip()
+    client_id        = (data.get("client_id") or "").strip()
+    target_client_id = (data.get("target_client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    if session._room_clients.get(client_id, {}).get("role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."})
+
+    target = session._room_clients.get(target_client_id)
+    if not target:
+        return jsonify({"ok": False, "error": "Client not found."})
+
+    session._room_clients[target_client_id] = {
+        **target, "role": "spectator", "reg_denials": 0
+    }
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 

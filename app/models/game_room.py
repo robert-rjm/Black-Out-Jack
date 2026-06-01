@@ -43,6 +43,7 @@ class GameRoom:
 
     # Client registry
     _room_clients: dict = field(default_factory=dict)
+    _pending_registrations: list = field(default_factory=list)  # [{client_id, name}]
     _kick_votes: dict = field(default_factory=dict)
     _rejoin_requests: list = field(default_factory=list)
     _anim_default: bool = True

@@ -402,10 +402,12 @@ function applyState(state) {
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
 
-  // Keep queued-settings banner in sync while settings modal is open
+  // Keep settings modal in sync while it's open
   const kickOv = document.getElementById("kick-overlay");
-  if (kickOv && kickOv.style.display === "flex" && state.queued_settings) {
-    _renderQueuedBanner(state.queued_settings);
+  if (kickOv && kickOv.style.display === "flex") {
+    if (state.queued_settings) _renderQueuedBanner(state.queued_settings);
+    // Refresh pending / denied registration sections on every poll
+    if (myRole === "admin") openKickModal();
   }
 
   // Settings button — visible to all registered players (both header and bottom-nav copies)
