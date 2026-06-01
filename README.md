@@ -14,7 +14,7 @@ Requires Python 3.10+
 git clone https://github.com/robert-rjm/Black-Out-Jack.git
 cd Black-Out-Jack
 pip install flask                # only needed for the web UI
-python app.py                    # Web UI → http://localhost:5000
+python server.py                 # Web UI → http://localhost:5000
 python blackjack.py              # Terminal game (no extra dependencies)
 python referee.py                # Terminal referee for real-life play
 ```
@@ -96,6 +96,7 @@ Computer-controlled seats using standard basic strategy. NPCs:
 
 ### **Mobile & PWA**
 - Mobile-first layout optimised for phone screens
+- Bottom navigation bar on mobile (≤640 px) for one-thumb reach
 - Add to home screen on iOS and Android for a native app feel
 - Tap-friendly controls throughout
 
@@ -111,21 +112,34 @@ Computer-controlled seats using standard basic strategy. NPCs:
 ### **Project Structure**
 ```
 Black-Out-Jack/
+├── app/
+│   ├── models/
+│   │   └── game_room.py         # Typed room-state container
+│   ├── routes/                  # Flask blueprints (commands, events, rooms…)
+│   └── services/                # Game engine, drink logic, NPC, etc.
 ├── docs/
 │   ├── Rules.md                 # Drinking Rules
-│   ├── Cheat-Sheet.md            # One-page quick reference for gameplay
-│   └── Comprehensive-Example.md  # Example for Drinking Rules
+│   ├── Cheat-Sheet.md           # One-page quick reference for gameplay
+│   └── Comprehensive-Example.md # Example for Drinking Rules
 ├── static/
-│   └── logo.png             # Home screen icon (iOS & Android)
+│   ├── css/
+│   │   ├── main.css             # Variables, reset, layout, bottom nav
+│   │   └── components/          # cards.css, controls.css, log.css, …
+│   ├── js/
+│   │   ├── utils.js             # Shared helpers
+│   │   ├── state.js             # Global state variables
+│   │   ├── app.js               # Init entry point
+│   │   └── ui/                  # lobby.js, table.js, log.js, admin.js, …
+│   └── logo.png                 # Home screen icon (iOS & Android)
 ├── templates/
-│   └── index.html           # Web UI served by app.py
+│   └── index.html               # Mobile-first browser UI
 │
-├── app.py                   # Flask web server (Referee & Digital modes)
-├── blackjack.py             # Core game logic + terminal game (START HERE)
-├── drinking_rules.py        # Drinking Rules
-├── referee.py               # Terminal referee for real-life play
-├── simulation.py            # Round simulation with stats output
-├── requirements.txt         # Python dependencies for deployment
+├── server.py                    # Flask entry point
+├── blackjack.py                 # Core game logic + terminal game (START HERE)
+├── drinking_rules.py            # Drinking Rules
+├── referee.py                   # Terminal referee for real-life play
+├── simulation.py                # Round simulation with stats output
+├── requirements.txt             # Python dependencies for deployment
 ├── .gitignore
 ├── README.md
 └── LICENSE
@@ -152,7 +166,7 @@ On startup the script fetches `Rules.md` from GitHub and compares hashes. If the
 |------|---------|-------------|
 | Digital Game | `python blackjack.py` | Fully playable in terminal (normal or drinking) |
 | Terminal Referee | `python referee.py` | Physical deck, digital scorecard |
-| Web UI | `python app.py` or [play online](https://black-out-jack.onrender.com)| Browser-based (referee or digital mode) |
+| Web UI | `python server.py` or [play online](https://black-out-jack.onrender.com)| Browser-based (referee or digital mode) |
 
 ### 1. Digital Game (Normal or Drinking)
 Play Blackjack fully on your computer, deals cards, manages turns, and tracks drinks automatically.
@@ -181,7 +195,7 @@ Run it locally or play online.
 
 **Or run locally**
 ```bash
-python app.py
+python server.py
 ```
 
 Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the exact URL on startup.
@@ -227,15 +241,20 @@ The three main files are intentionally decoupled:
 | `blackjack.py` | nothing | Core game logic, card/hand/deck classes, terminal game |
 | `drinking_rules.py` | `blackjack.py` | Drinking layer only, no game logic |
 | `referee.py` | `blackjack.py`, `drinking_rules.py` | Terminal referee command parser for real-life play |
-| `app.py` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Flask server, Referee mode and Digital mode web UI |
-| `templates/index.html` | served by `app.py` | Mobile-first browser UI for both modes |
+| `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
+| `app/` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Routes, models, and services for the web UI |
+| `templates/index.html` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
+| `static/css/` | — | `main.css` (layout, variables) + `components/` (cards, controls, log…) |
+| `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, table, log, admin…) |
 | `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |
 
 **Separation of concerns:**
 - **Changing a drinking rule** → edit only `drinking_rules.py`
 - **Changing core game logic** → edit only `blackjack.py`
 - **Adding a referee command** → edit only `referee.py`
-- **Changing web UI behaviour or adding a digital command** → edit `app.py` and/or `templates/index.html`
+- **Changing web routes or server logic** → edit `app/routes/` or `app/services/`
+- **Changing web UI behaviour** → edit `static/js/ui/` and/or `templates/index.html`
+- **Changing styles** → edit `static/css/main.css` or the relevant `static/css/components/` file
 
 ## Contributing
 
