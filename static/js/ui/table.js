@@ -4,8 +4,8 @@
 function buildGameUI() {
   const isDigital = gameMode === "digital";
 
-  document.getElementById("ref-panel").style.display = isDigital ? "none" : "";
-  document.getElementById("dig-panel").style.display = isDigital ? ""     : "none";
+  document.getElementById("ref-panel").style.display = isDigital ? "none"  : "block";
+  document.getElementById("dig-panel").style.display = isDigital ? "block" : "none";
 
   if (isDigital) {
     buildDigitalUI();
@@ -610,7 +610,7 @@ function updateRoundPane(state) {
     _drinksPaneSelected = null;
     if (panel)    panel.style.display    = "none";
     if (none)     none.style.display     = "none";
-    if (progress) progress.style.display = "";
+    if (progress) progress.style.display = "block";
     if (agg)      agg.innerHTML          = "";
     if (detail)   detail.innerHTML       = "";
   }
@@ -650,8 +650,8 @@ function autoSwitchDigTab(state) {
 
 function activateDigTab(name) {
   document.querySelectorAll("#dig-tabs .tab").forEach(t => {
-    const on = t.getAttribute("onclick") || "";
-    t.classList.toggle("active", on.includes(`'${name}'`));
+    const args = t.getAttribute("data-args") || t.getAttribute("onclick") || "";
+    t.classList.toggle("active", args.includes(`"${name}"`) || args.includes(`'${name}'`));
   });
   document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"));
   const pane = document.getElementById(`pane-${name}`);
@@ -681,7 +681,7 @@ function updateInsuranceVisibility(state) {
     !v.resolved && v.bj_player.toLowerCase() === (myName || "").toLowerCase()
   );
 
-  row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "" : "none";
+  row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "block" : "none";
   renderInsuranceVotePanel(state);
 }
 
@@ -692,7 +692,7 @@ function renderInsuranceVotePanel(state) {
 
   const openVotes = (state.insurance_votes || []).filter(v => !v.resolved);
   if (!openVotes.length) { panel.style.display = "none"; return; }
-  panel.style.display = "";
+  panel.style.display = "block";
   content.innerHTML   = "";
 
   openVotes.forEach(v => {
@@ -889,7 +889,7 @@ function _showWaitingBanner(ms) {
   const html = `🎉 <strong>${escapeHtml(ms.winner)}</strong> is handing out ${ms.handout} milestone sips…${timerStr}`;
   if (slot) {
     slot.innerHTML     = html;
-    slot.style.display = "";
+    slot.style.display = "block";
   }
   // Fallback fixed banner (referee mode / any other context)
   const fixed = document.getElementById("ms-waiting-banner");

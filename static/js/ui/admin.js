@@ -8,7 +8,7 @@ function toggleSuggestPicker() {
   _suggestPickerOpen = !_suggestPickerOpen;
   const picker = document.getElementById("suggest-picker");
   const btn    = document.getElementById("suggest-toggle-btn");
-  if (picker) picker.style.display = _suggestPickerOpen ? "" : "none";
+  if (picker) picker.style.display = _suggestPickerOpen ? "block" : "none";
   if (btn)    btn.textContent = _suggestPickerOpen ? "✕ Cancel suggestion" : "💬 Suggest different action";
 }
 
@@ -47,8 +47,8 @@ function updateRoleUI(state) {
   // Drinks tab is visible to all; dealer-only actions inside the pane are toggled separately
   const dealerActions = document.getElementById("dig-drinks-dealer-actions");
   const waitingHint   = document.getElementById("dig-drinks-waiting");
-  if (dealerActions) dealerActions.style.display = isMyDealerClient ? "" : "none";
-  if (waitingHint)   waitingHint.style.display   = (isMyDealerClient || myRole === "spectator") ? "none" : "";
+  if (dealerActions) dealerActions.style.display = isMyDealerClient ? "block" : "none";
+  if (waitingHint)   waitingHint.style.display   = (isMyDealerClient || myRole === "spectator") ? "none" : "block";
 
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
@@ -111,8 +111,8 @@ function updateRoleUI(state) {
         }
       });
       // Show suggest-different toggle
-      if (suggestToggle) suggestToggle.style.display = "";
-      if (suggestPicker) suggestPicker.style.display = _suggestPickerOpen ? "" : "none";
+      if (suggestToggle) suggestToggle.style.display = "block";
+      if (suggestPicker) suggestPicker.style.display = _suggestPickerOpen ? "block" : "none";
     }
     // No vote → all buttons available; split/double still gated by updateActionButtons
 
@@ -135,7 +135,7 @@ function updateRoleUI(state) {
     if (suggestion) {
       if (suggestBanner && suggestText) {
         suggestText.textContent = `Dealer suggests: ${VOTE_LABEL[suggestion] || suggestion} — do you agree?`;
-        suggestBanner.style.display = "";
+        suggestBanner.style.display = "block";
       }
       document.querySelectorAll(actionSel).forEach(b => {
         if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
@@ -209,10 +209,10 @@ async function doRegister(name) {
       document.getElementById("register-overlay").style.display = "none";
       applyState(data);
     } else {
-      if (errEl) { errEl.textContent = data.error || "Could not claim seat."; errEl.style.display = ""; }
+      if (errEl) { errEl.textContent = data.error || "Could not claim seat."; errEl.style.display = "block"; }
     }
   } catch (_) {
-    if (errEl) { errEl.textContent = "Network error."; errEl.style.display = ""; }
+    if (errEl) { errEl.textContent = "Network error."; errEl.style.display = "block"; }
   }
 }
 
@@ -547,7 +547,7 @@ function renderKickVoteBanner(state) {
   const votes  = state.kick_votes_detail || {};
   const entries = Object.entries(votes).filter(([, voters]) => voters.length > 0);
   if (entries.length === 0) { banner.style.display = "none"; return; }
-  banner.style.display = "";
+  banner.style.display = "block";
   banner.innerHTML = entries.map(([target, voters]) => {
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
     const who = voters.map(v => escapeHtml(cap(v))).join(", ");

@@ -57,7 +57,7 @@ function showPeekedCard(card) {
   lbl.style.cssText = "font-size:13px;font-weight:700;color:var(--text);align-self:center";
   lbl.textContent = `${card.rank}${card.symbol || ""}`;
   display.appendChild(lbl);
-  wrap.style.display = "";
+  wrap.style.display = "block";
 }
 
 // ============================================================

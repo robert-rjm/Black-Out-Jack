@@ -117,7 +117,7 @@ function setGameType(type, btn) {
   } else {   // referee
     setupMode     = "referee";
     setupDrinking = true;
-    refSettings.style.display  = "";
+    refSettings.style.display  = "block";
     digSettings.style.display  = "none";
     sub.textContent = "Physical deck scorekeeper — real-time drink tracker";
     _showMaintenanceOverlay(type, btn);
