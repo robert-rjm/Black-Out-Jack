@@ -126,6 +126,66 @@
 /* digital hint text */
 .hint { font-size: 13px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
 
+/* bust vote modal */
+.bust-vote-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.bust-vote-modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px 20px 20px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+.bust-vote-modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.bust-vote-modal-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.bust-vote-timer-bar-wrap {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.bust-vote-timer-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  width: 100%;
+  transition: width 1s linear;
+}
+.bust-vote-timer-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.bust-vote-modal-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.bust-vote-modal-tally {
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 16px;
+}
+
 /* bust vote side bet */
 .bust-vote-panel {
   margin-top: 10px;

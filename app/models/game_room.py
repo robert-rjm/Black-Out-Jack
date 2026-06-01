@@ -62,7 +62,8 @@ class GameRoom:
 
     # Bust vote side bet
     bust_vote_enabled: bool = False
-    _bust_votes: dict = field(default_factory=dict)        # player_name → "bust"
+    _bust_votes: dict = field(default_factory=dict)        # player_name → "bust" | "pass"
+    _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
     _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
 
     # Misc UI state

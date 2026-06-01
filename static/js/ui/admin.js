@@ -160,15 +160,17 @@ function updateRoleUI(state) {
 // BUST VOTE SIDE BET
 // ============================================================
 
-async function castBustVote() {
-  // Toggle: if already voted bust, cancel (send "none"); otherwise vote "bust"
-  const current = lastState && lastState.my_bust_vote;
-  const vote    = current === "bust" ? "none" : "bust";
+let _bustVoteModalOpen    = false;
+let _bustVoteTimerHandle  = null;
+let _bustVoteModalShownAt = null;   // server seconds_left when modal appeared
+
+async function submitBustVote(choice) {
+  _closeBustVoteModal();
   try {
     const res  = await fetch("/cast_bust_vote", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, vote }),
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, vote: choice }),
     });
     const data = await res.json();
     if (data.ok) applyState(data);
@@ -187,36 +189,82 @@ async function setBustVoteEnabled(on) {
   } catch (_) {}
 }
 
+function _openBustVoteModal(secondsLeft) {
+  const overlay = document.getElementById("bust-vote-modal-overlay");
+  if (!overlay || _bustVoteModalOpen) return;
+  _bustVoteModalOpen    = true;
+  _bustVoteModalShownAt = secondsLeft;
+  overlay.style.display = "flex";
+
+  const bar   = document.getElementById("bust-vote-timer-bar");
+  const label = document.getElementById("bust-vote-timer-label");
+
+  let secs = secondsLeft;
+  function tick() {
+    if (!_bustVoteModalOpen) return;
+    if (bar)   bar.style.width   = `${(secs / _bustVoteModalShownAt) * 100}%`;
+    if (label) label.textContent = `${secs}s`;
+    if (secs <= 0) { submitBustVote("pass"); return; }
+    secs--;
+    _bustVoteTimerHandle = setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+function _closeBustVoteModal() {
+  if (!_bustVoteModalOpen) return;
+  _bustVoteModalOpen = false;
+  if (_bustVoteTimerHandle) { clearTimeout(_bustVoteTimerHandle); _bustVoteTimerHandle = null; }
+  const overlay = document.getElementById("bust-vote-modal-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
 function updateBustVoteUI(state) {
+  // Sync modal pill toggle in settings
+  const bustCb = document.getElementById("bust-vote-toggle-modal");
+  if (bustCb) bustCb.checked = !!state.bust_vote_enabled;
+
   const panel    = document.getElementById("bust-vote-panel");
   const statusEl = document.getElementById("bust-vote-status");
 
-  if (!panel) return;
-  const enabled = state.bust_vote_enabled;
-  const phase   = state.phase;
+  // Modal: open when window is open and this player hasn't voted yet
+  if (state.bust_vote_window_open && !state.my_bust_vote
+      && myRole !== null && myRole !== "spectator") {
+    _openBustVoteModal(state.bust_vote_seconds_left || 10);
+  } else if (!state.bust_vote_window_open) {
+    _closeBustVoteModal();
+  }
 
-  // Show to any registered non-spectator once a round is active
-  const showPanel = enabled
-    && myRole !== null
-    && myRole !== "spectator"
-    && phase !== "pre-deal";
+  // Update tally inside the open modal
+  if (_bustVoteModalOpen) {
+    const votes   = state.bust_votes || {};
+    const decided = Object.keys(votes).length;
+    const bustCnt = Object.values(votes).filter(v => v === "bust").length;
+    const tally   = document.getElementById("bust-vote-modal-tally");
+    if (tally) tally.textContent = decided
+      ? `${bustCnt} betting bust · ${decided - bustCnt} passed`
+      : "";
+  }
+
+  // Inline panel: show voted indicator after window closes
+  if (!panel) return;
+  const phase  = state.phase;
+  const myVote = state.my_bust_vote;
+  const showPanel = state.bust_vote_enabled
+    && myRole !== null && myRole !== "spectator"
+    && phase !== "pre-deal"
+    && !state.bust_vote_window_open;   // only show indicator after modal gone
 
   panel.style.display = showPanel ? "block" : "none";
-  if (!showPanel) return;
+  if (!showPanel || !statusEl) return;
 
-  // Highlight button when voted
-  const myVote = state.my_bust_vote;
-  const btn    = document.querySelector(".bust-btn-bust");
-  if (btn) btn.classList.toggle("voted", myVote === "bust");
-
-  if (!statusEl) return;
   const votes   = state.bust_votes || {};
   const bustCnt = Object.values(votes).filter(v => v === "bust").length;
 
   if (phase === "round-over") {
     const result = state.bust_vote_result;
-    if (!myVote) {
-      statusEl.textContent = bustCnt ? `${bustCnt} voted bust this round.` : "";
+    if (!myVote || myVote === "pass") {
+      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
     } else if (result) {
       const won = result.winners.includes(myName);
       const cls = won ? "bust-vote-result-correct" : "bust-vote-result-wrong";
@@ -224,9 +272,13 @@ function updateBustVoteUI(state) {
       statusEl.innerHTML = `<span class="${cls}">${msg}</span>`;
     }
   } else {
-    statusEl.textContent = bustCnt
-      ? `${bustCnt} player${bustCnt !== 1 ? "s" : ""} betting bust`
-      : (myVote === "bust" ? "You're betting dealer busts" : "");
+    if (myVote === "bust") {
+      statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">💥 You bet dealer busts</span>`;
+    } else if (myVote === "pass") {
+      statusEl.textContent = "You passed the bust bet.";
+    } else {
+      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust` : "";
+    }
   }
 }
 
@@ -236,10 +288,10 @@ function showBustVoteToast(result) {
   if (!toast) return;
   const parts = [];
   if (result.dealer_busted) {
-    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called dealer bust (-1 sip each)`);
+    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip each)`);
     if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip each)`);
   } else {
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet on bust — wrong (+1 sip each)`);
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip each)`);
     if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called no bust (-1 sip each)`);
   }
   if (!parts.length) return;

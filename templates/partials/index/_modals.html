@@ -117,6 +117,22 @@
   </div>
 </div>
 
+<div id="bust-vote-modal-overlay" class="bust-vote-modal-overlay">
+  <div class="bust-vote-modal-card">
+    <div class="bust-vote-modal-title">💥 Dealer bust bet</div>
+    <div class="bust-vote-modal-sub">Will the dealer bust this round?</div>
+    <div class="bust-vote-timer-bar-wrap">
+      <div id="bust-vote-timer-bar" class="bust-vote-timer-bar"></div>
+    </div>
+    <div id="bust-vote-timer-label" class="bust-vote-timer-label">10s</div>
+    <div class="bust-vote-modal-buttons">
+      <button class="btn green wide" data-action="submitBustVote" data-args='["bust"]'>💥 Bet Bust</button>
+      <button class="btn wide muted-btn" data-action="submitBustVote" data-args='["pass"]'>Pass</button>
+    </div>
+    <div id="bust-vote-modal-tally" class="bust-vote-modal-tally"></div>
+  </div>
+</div>
+
 <div id="dealer-toast">🃏 You are the dealer now!</div>
 <div id="player-toast"></div>
 <div id="switch-toast"></div>
