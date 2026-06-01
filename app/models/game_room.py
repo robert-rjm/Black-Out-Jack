@@ -36,6 +36,7 @@ class GameRoom:
     _drink_log_harvested: bool = False
     _last_round_sips: dict = field(default_factory=dict)
     _last_round_drinks: list = field(default_factory=list)
+    _round_notices: list = field(default_factory=list)
     _prev_round_sips: dict = field(default_factory=dict)
     _prev_round_drinks: list = field(default_factory=list)
     _dealer_role_ticker: dict = field(default_factory=dict)
