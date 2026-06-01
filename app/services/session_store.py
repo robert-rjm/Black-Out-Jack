@@ -27,6 +27,9 @@ from app.config import (
 game_sessions: dict = {}          # room_code → GameRoom | None
 
 _room_created_at: dict[str, float] = {}   # room_code → time.monotonic() at creation
+_room_last_access: dict[str, float] = {}  # room_code → time.monotonic() of last activity
+
+ACTIVE_SESSION_TTL = 24 * 3600   # expire active sessions idle for more than 24 hours
 
 # ---------------------------------------------------------------------------
 # Join rate-limiter — per source IP, applied to /join_room only
@@ -77,19 +80,24 @@ def reserve_room() -> str:
     """
     cleanup_stale_sessions()
     code = generate_room_code()
-    game_sessions[code]    = None
-    _room_created_at[code] = time.monotonic()
+    game_sessions[code]     = None
+    _room_created_at[code]  = time.monotonic()
+    _room_last_access[code] = time.monotonic()
     return code
 
 
 def get_session(room_code: str):
     """Return the session for room_code, or None if not found / not set up."""
-    return game_sessions.get(room_code)
+    session = game_sessions.get(room_code)
+    if session is not None:
+        _room_last_access[room_code] = time.monotonic()
+    return session
 
 
 def set_session(room_code: str, session) -> None:
     """Store an initialised session against room_code."""
-    game_sessions[room_code] = session
+    game_sessions[room_code]     = session
+    _room_last_access[room_code] = time.monotonic()
 
 
 def room_exists(room_code: str) -> bool:
@@ -103,12 +111,21 @@ def find_room_code(raw: str) -> str | None:
 
 
 def cleanup_stale_sessions() -> None:
-    """Drop rooms that were never set up (value is None) and are past TTL."""
-    cutoff = time.monotonic() - SESSION_TTL
-    stale  = [
-        code for code, s in game_sessions.items()
-        if s is None and _room_created_at.get(code, 0) < cutoff
-    ]
+    """Drop rooms that are past TTL.
+
+    - Un-initialised rooms (value is None): expired after SESSION_TTL.
+    - Active sessions: expired after ACTIVE_SESSION_TTL of no access.
+    """
+    now    = time.monotonic()
+    stale  = []
+    for code, s in game_sessions.items():
+        if s is None:
+            if _room_created_at.get(code, 0) < now - SESSION_TTL:
+                stale.append(code)
+        else:
+            if _room_last_access.get(code, 0) < now - ACTIVE_SESSION_TTL:
+                stale.append(code)
     for code in stale:
         del game_sessions[code]
         _room_created_at.pop(code, None)
+        _room_last_access.pop(code, None)

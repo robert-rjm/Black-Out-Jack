@@ -14,7 +14,11 @@ POST /vote_insurance  — Player casts their insurance vote
 
 from flask import Blueprint, jsonify, request
 
-from app.services.session_store import game_sessions
+from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
+import time as _time
+
+_last_cleanup: float = 0.0
+_CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
 from app.services.validators    import sanitize_name, is_dealer_client
 from app.services.serializer    import serialize_state
 
@@ -27,9 +31,17 @@ bp = Blueprint("polling", __name__)
 
 @bp.route("/state")
 def state():
+    global _last_cleanup
     room_code = request.args.get("room_code", "")
     client_id = request.args.get("client_id", "")
     session   = game_sessions.get(room_code)
+    if session is not None:
+        _room_last_access[room_code] = _time.monotonic()
+    # Periodically evict sessions idle for more than 24 hours
+    now = _time.monotonic()
+    if now - _last_cleanup > _CLEANUP_INTERVAL:
+        _last_cleanup = now
+        cleanup_stale_sessions()
     return jsonify(serialize_state(session, client_id))
 
 
