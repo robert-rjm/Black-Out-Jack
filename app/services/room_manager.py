@@ -101,6 +101,14 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
             p.is_dealer = False
             session.all_players.append(p)
             changes.append(f"Added {'bot' if is_npc else 'player'} {name}")
+            # Non-bot new players are local by default
+            if not is_npc:
+                for info in session._room_clients.values():
+                    if info.get("role") == "admin":
+                        local_names = info.get("local_names") or []
+                        if name not in local_names:
+                            info["local_names"] = local_names + [name]
+                        break
 
     for name in queued.get("remove_players", []):
         before = len(session.all_players)

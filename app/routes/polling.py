@@ -169,6 +169,12 @@ def handle_registration():
         session._room_clients[target_client_id] = {
             **target_existing, "name": name, "role": "player", "kicked": False
         }
+        # Seat is now remote — remove from admin's local_names
+        for info in session._room_clients.values():
+            if info.get("role") == "admin":
+                local_names = info.get("local_names") or []
+                info["local_names"] = [n for n in local_names if n.lower() != name.lower()]
+                break
     else:
         denials = target_existing.get("reg_denials", 0) + 1
         session._room_clients[target_client_id] = {

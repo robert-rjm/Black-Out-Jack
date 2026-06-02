@@ -194,7 +194,7 @@ function buildNameFields(n) {
   c.innerHTML = "";
   for (let i = 0; i < n; i++) {
     const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:8px;width:100%;max-width:420px;align-items:center";
+    row.style.cssText = "display:flex;gap:8px;width:100%;max-width:420px";
 
     const inp = document.createElement("input");
     inp.type = "text";
@@ -214,31 +214,10 @@ function buildNameFields(n) {
       this.dataset.npc = on ? "1" : "0";
       this.classList.toggle("sel", on);
       inp.placeholder = on ? `Bot ${i+1}` : `Player ${i+1} name`;
-      // BOTs are never local — deactivate and hide the local button
-      const lb = document.getElementById(`local-${i}`);
-      if (lb) {
-        if (on) { lb.dataset.local = "0"; lb.classList.remove("sel"); lb.style.display = "none"; }
-        else    { lb.style.display = ""; }
-      }
-    };
-
-    // "Local" toggle button — active (sel) by default for all human seats
-    const localBtn = document.createElement("button");
-    localBtn.className = "btn sel";
-    localBtn.id = `local-${i}`;
-    localBtn.textContent = "LOCAL";
-    localBtn.dataset.local = "1";
-    localBtn.style.cssText = "flex-shrink:0;height:var(--tap);padding:0 12px;font-size:10px;font-weight:800;letter-spacing:.6px";
-    localBtn.onclick = function(e) {
-      e.preventDefault();
-      const on = this.dataset.local === "0";
-      this.dataset.local = on ? "1" : "0";
-      this.classList.toggle("sel", on);
     };
 
     row.appendChild(inp);
     row.appendChild(npcBtn);
-    row.appendChild(localBtn);
     c.appendChild(row);
   }
 }
@@ -250,17 +229,14 @@ async function startGame() {
   const btn = document.getElementById("start-btn");
   btn.disabled = true;
 
-  const names        = [];
-  const npcs         = [];
-  const localPlayers = [];
+  const names = [];
+  const npcs  = [];
   for (let i = 0; i < numPlayersSel; i++) {
-    const isNpc   = (document.getElementById(`npc-${i}`)?.dataset.npc === "1");
-    const isLocal = !isNpc && (document.getElementById(`local-${i}`)?.dataset.local === "1");
-    const val     = (document.getElementById(`pname-${i}`)?.value || "").trim();
-    const name    = val || (isNpc ? `Bot${i+1}` : `Player${i+1}`);
+    const isNpc = (document.getElementById(`npc-${i}`)?.dataset.npc === "1");
+    const val   = (document.getElementById(`pname-${i}`)?.value || "").trim();
+    const name  = val || (isNpc ? `Bot${i+1}` : `Player${i+1}`);
     names.push(name);
-    if (isNpc)   npcs.push(name);
-    if (isLocal) localPlayers.push(name);
+    if (isNpc) npcs.push(name);
   }
   npcPlayers = new Set(npcs);
 
@@ -274,7 +250,7 @@ async function startGame() {
   const bustVoteEnabled = !!(document.getElementById("bust-vote-setup-toggle")?.checked);
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled, local_players: localPlayers };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {

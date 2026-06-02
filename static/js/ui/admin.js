@@ -660,17 +660,19 @@ function openKickModal() {
       const isAdminRow = adminNames.has(r.name.toLowerCase());
       const isSelf = myNameLc && r.name.toLowerCase() === myNameLc;
       if (isAdmin) {
-        // Local toggle — seated non-bot players only (admin controls this seat locally)
+        // Take Back — only for remote (non-local) seated non-bot players
         if (r.seated && !r.isBot) {
           const currentLocals = (lastState && lastState.my_names) || [];
           const isLocal       = currentLocals.some(n => n.toLowerCase() === r.name.toLowerCase());
-          const localBtn      = document.createElement("button");
-          localBtn.className  = "btn" + (isLocal ? " sel" : "");
-          localBtn.textContent = "LOCAL";
-          localBtn.title      = isLocal ? "This seat is on your device — click to make remote" : "Click to control this seat locally";
-          localBtn.style.cssText = "font-size:10px;font-weight:800;letter-spacing:.5px;padding:0 10px";
-          localBtn.onclick    = () => toggleLocalPlayer(r.name);
-          btns.appendChild(localBtn);
+          if (!isLocal) {
+            const tbBtn        = document.createElement("button");
+            tbBtn.className    = "btn";
+            tbBtn.textContent  = "Take Back";
+            tbBtn.title        = "Reclaim this seat — move the remote player to spectator";
+            tbBtn.style.cssText = "font-size:11px;padding:0 10px";
+            tbBtn.onclick      = () => takeBackSeat(r.name);
+            btns.appendChild(tbBtn);
+          }
         }
         // Admin controls: bot + kick (never shown for self)
         if (r.seated && !r.isBot && !isSelf) {
@@ -1134,44 +1136,34 @@ async function queueSettings() {
   } catch (_) { alert("Network error."); }
 }
 
-async function toggleLocalPlayer(playerName) {
-  const currentLocals = (lastState && lastState.my_names) || [];
-  const isLocal       = currentLocals.some(n => n.toLowerCase() === playerName.toLowerCase());
-  const newLocals     = isLocal
-    ? currentLocals.filter(n => n.toLowerCase() !== playerName.toLowerCase())
-    : [...currentLocals, playerName];
+async function takeBackSeat(playerName) {
+  if (!confirm(`Take back ${playerName}'s seat?\nThey will become a spectator and you will control this seat locally.`)) return;
   try {
-    const res  = await fetch("/update_settings", {
+    const res  = await fetch("/take_back_seat", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_code: roomCode, client_id: clientId, local_names: newLocals }),
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: playerName }),
     });
     const data = await res.json();
     if (data.ok) { applyState(data); openKickModal(); }
-    else alert(data.error || "Could not update local players.");
+    else alert(data.error || "Could not take back seat.");
   } catch (_) { alert("Network error."); }
 }
 
 async function queueAddPlayer() {
-  const nameEl  = document.getElementById("setting-add-name");
-  const npcEl   = document.getElementById("setting-add-npc");
-  const localEl = document.getElementById("setting-add-local");
-  const name    = (nameEl?.value || "").trim();
+  const nameEl = document.getElementById("setting-add-name");
+  const npcEl  = document.getElementById("setting-add-npc");
+  const name   = (nameEl?.value || "").trim();
   if (!name) { nameEl?.focus(); return; }
 
-  const isNpc   = npcEl?.checked  || false;
-  const isLocal = !isNpc && (localEl?.checked || false);
+  const isNpc = npcEl?.checked || false;
 
-  // Build new local_names list if this player should be local
-  const currentLocals = (lastState && lastState.my_names) || [];
+  // Non-bot players are always local by default — local_names is updated
+  // automatically when apply_queued_settings runs (lobby.py style: all non-NPCs).
+  // No special handling needed here.
   const body = {
     room_code: roomCode, client_id: clientId,
     add_player: name, add_player_npc: isNpc,
   };
-  if (isLocal) {
-    // Capitalise to match server-side sanitization
-    const capName = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
-    body.local_names = [...currentLocals, capName];
-  }
 
   try {
     const res  = await fetch("/update_settings", {
@@ -1181,9 +1173,8 @@ async function queueAddPlayer() {
     const data = await res.json();
     if (data.ok) {
       lastState = data;
-      if (nameEl)  nameEl.value  = "";
-      if (npcEl)   npcEl.checked  = false;
-      if (localEl) localEl.checked = false;
+      if (nameEl) nameEl.value  = "";
+      if (npcEl)  npcEl.checked = false;
       _renderQueuedBanner(data.queued_settings || {});
     } else {
       alert(data.error || "Could not queue add player.");
