@@ -294,9 +294,16 @@ function _closeBustVoteModal() {
 }
 
 function updateBustVoteUI(state) {
-  // Sync modal pill toggle in settings
+  // Sync modal pill toggle in settings (checkbox + ON/OFF labels)
   const bustCb = document.getElementById("bust-vote-toggle-modal");
-  if (bustCb) bustCb.checked = !!state.bust_vote_enabled;
+  if (bustCb) {
+    const on = !!state.bust_vote_enabled;
+    bustCb.checked = on;
+    const lblOff = document.getElementById("bust-vote-lbl-modal");
+    const lblOn  = document.getElementById("bust-vote-lbl-modal-on");
+    if (lblOff) lblOff.style.display = on ? "none"   : "inline";
+    if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
+  }
 
   const statusEl = document.getElementById("bust-vote-status");
 
@@ -1114,8 +1121,9 @@ function _populateSettingsUI(state) {
   const removeEl   = document.getElementById("setting-remove-name");
 
   // Sync bust vote pill toggle
-  const bustCb = document.getElementById("bust-vote-toggle-modal");
-  if (bustCb) bustCb.checked = !!state.bust_vote_enabled;
+  // Bust vote pill toggle sync is handled by updateBustVoteUI — just sync checkbox here
+  const bustCb2 = document.getElementById("bust-vote-toggle-modal");
+  if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
 
   if (wagerEl)   wagerEl.value    = state.wager            || 1;
   if (handsEl)   handsEl.value    = state.num_hands         || 2;
@@ -1183,7 +1191,7 @@ async function queueSettings() {
     });
     const data = await res.json();
     if (data.ok) {
-      lastState = data;
+      applyState(data);
       _renderQueuedBanner(data.queued_settings || {});
     } else {
       alert(data.error || "Could not queue settings.");
@@ -1227,7 +1235,7 @@ async function queueAddPlayer() {
     });
     const data = await res.json();
     if (data.ok) {
-      lastState = data;
+      applyState(data);
       if (nameEl) nameEl.value  = "";
       if (npcEl)  npcEl.checked = false;
       _renderQueuedBanner(data.queued_settings || {});
@@ -1249,7 +1257,7 @@ async function queueRemovePlayer() {
     });
     const data = await res.json();
     if (data.ok) {
-      lastState = data;
+      applyState(data);
       _renderQueuedBanner(data.queued_settings || {});
     } else {
       alert(data.error || "Could not queue remove player.");
@@ -1265,7 +1273,7 @@ async function clearQueuedSettings() {
     });
     const data = await res.json();
     if (data.ok) {
-      lastState = data;
+      applyState(data);
       _renderQueuedBanner({});
     }
   } catch (_) {}
@@ -1280,7 +1288,7 @@ async function saveRotateEvery() {
       body: JSON.stringify({ room_code: roomCode, client_id: clientId, dealer_rotate_every: v }),
     });
     const data = await res.json();
-    if (data.ok) lastState = data;
+    if (data.ok) applyState(data);
     else alert(data.error || "Could not save.");
   } catch (_) { alert("Network error."); }
 }

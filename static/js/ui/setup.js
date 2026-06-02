@@ -268,6 +268,7 @@ async function startGame() {
   gameMode         = data.mode || "referee";
   myRole           = data.my_role          || "admin";
   myName           = data.my_name          || null;
+  myNames          = data.my_names         || (myName ? [myName] : []);
   isMyDealerClient = data.is_dealer_client !== false;  // admin always starts as dealer
 
   try {
