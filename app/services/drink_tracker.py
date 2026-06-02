@@ -64,7 +64,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
     """Resolve dealer-bust confidence votes.
 
     Only players who voted 'bust' are affected:
-      - dealer busted  → correct: -1 sip credit
+      - dealer busted  → correct: -1 sip credit + 1 sip to hand out (via /give_bust_sip)
       - dealer stood   → wrong:   +1 sip penalty
     Players who abstained are unaffected.
     Builds session._bust_vote_result for the toast.
@@ -85,19 +85,17 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
 
     dealer_busted = dealer.dealer_hand.is_bust()
     winners, losers = [], []
+    session._bust_handouts_given = set()   # reset handout tracking for this round
 
     for p in session.all_players:
         if p.name not in voters:
             continue
         if dealer_busted:
-            if p.drinks_owed() > 0:
-                p.add_drink(-1, f"{p.name} bust vote correct: -1 sip", "player")
-                print(f"  [bust vote] {p.name} called it — -1 sip credit")
-            else:
-                print(f"  [bust vote] {p.name} called it — no sips to credit")
+            p.add_drink(-1, "bust vote correct: -1 sip credit", "player")
             winners.append(p.name)
+            print(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
         else:
-            p.add_drink(1, "Bust vote — dealer didn't bust, wrong call: +1 sip", "player")
+            p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
             losers.append(p.name)
             print(f"  [bust vote] {p.name} wrong — +1 sip")
 

@@ -204,8 +204,9 @@ function _openBustVoteModal(secondsLeft) {
   let secs = duration;
   function tick() {
     if (!_bustVoteModalOpen) return;
-    if (bar)   bar.style.width   = `${(secs / duration) * 100}%`;
-    if (label) label.textContent = `${secs}s`;
+    const display = Math.min(secs, 10);
+    if (bar)   bar.style.width   = `${(display / 10) * 100}%`;
+    if (label) label.textContent = `${display}s`;
     if (secs <= 0) {
       // Auto-pass for all un-voted local players
       const bustVotes = (lastState && lastState.my_bust_votes) || {};
@@ -326,6 +327,9 @@ function updateBustVoteUI(state) {
     if (!anyUnvoted) _closeBustVoteModal();
   }
 
+  // Give-panel: show at round-over if this client has pending handouts
+  _renderBustGivePanel(state);
+
   // Status indicator: show after window closes.
   // For local multiplayer, represent as a summary across all local names.
   if (!statusEl) return;
@@ -352,7 +356,7 @@ function updateBustVoteUI(state) {
       const myWinners  = myBusters.filter(n => winners.includes(n));
       const myLosers   = myBusters.filter(n => !winners.includes(n));
       const parts = [];
-      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.join(", ")} called it — -1 sip each!</span>`);
+      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.join(", ")} called it — -1 sip + give 1!</span>`);
       if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.join(", ")} wrong — +1 sip each</span>`);
       statusEl.innerHTML = parts.join("<br>");
     }
@@ -370,13 +374,62 @@ function updateBustVoteUI(state) {
   }
 }
 
+async function giveBustSip(winnerName, recipientName) {
+  try {
+    const res  = await fetch("/give_bust_sip", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        winner_name: winnerName, recipient_name: recipientName,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else appendLog(`  Bust handout failed: ${data.error || "unknown"}\n`);
+  } catch (_) {}
+}
+
+function _renderBustGivePanel(state) {
+  const overlay = document.getElementById("bust-give-overlay");
+  const body    = document.getElementById("bust-give-body");
+  if (!overlay || !body) return;
+
+  const pending = state.my_bust_handout_pending || [];
+  if (!pending.length) {
+    overlay.style.display = "none";
+    body.innerHTML = "";
+    return;
+  }
+
+  const allPlayers = (state.players || []);
+  overlay.style.display = "flex";
+
+  body.innerHTML = pending.map(winnerName => {
+    const label  = pending.length > 1
+      ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
+      : "🎉 You called it! Give 1 sip to:";
+    const btns   = allPlayers
+      .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
+      .map(n => `<button class="btn wide" style="margin-bottom:8px"
+          data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
+          onclick="giveBustSip(this.dataset.winner, this.dataset.recipient)"
+          >${escapeHtml(n)}</button>`)
+      .join("");
+    return `<div style="margin-bottom:${pending.length > 1 ? 16 : 0}px">
+      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:14px;text-align:center">${label}</div>
+      <div style="display:flex;flex-direction:column">${btns}</div>
+    </div>`;
+  }).join(`<hr style="border-color:var(--border);margin:8px 0">`);
+}
+
 function showBustVoteToast(result) {
   if (!result) return;
   const toast = document.getElementById("player-toast");
   if (!toast) return;
   const parts = [];
   if (result.dealer_busted) {
-    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip each)`);
+    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip + give 1)`);
     if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip each)`);
   } else {
     if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip each)`);

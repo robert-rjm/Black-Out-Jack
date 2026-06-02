@@ -66,6 +66,7 @@ class GameRoom:
     _bust_votes: dict = field(default_factory=dict)        # player_name → "bust" | "pass"
     _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
     _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
+    _bust_handouts_given: set = field(default_factory=set) # winner names who have given their handout sip
 
     # Misc UI state
     _last_peeked: dict | None = None
