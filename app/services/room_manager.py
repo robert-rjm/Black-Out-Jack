@@ -117,6 +117,14 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
         ]
         if len(session.all_players) < before:
             changes.append(f"Removed player {name}")
+            # Prune the removed name from admin's local_names so the give-bust
+            # panel (my_bust_handout_pending) never references a ghost player.
+            for info in session._room_clients.values():
+                if info.get("role") == "admin":
+                    local_names = info.get("local_names") or []
+                    info["local_names"] = [n for n in local_names
+                                           if n.lower() != name.lower()]
+                    break
 
     session._queued_settings = {}
     return changes
