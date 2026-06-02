@@ -92,7 +92,14 @@ def register():
 
     # Admin registering their own seat — immediate, no approval needed
     if existing.get("role") == "admin":
-        session._room_clients[client_id] = {"name": name, "role": "admin", "kicked": False}
+        # Preserve existing local_names; ensure the newly claimed name is in it
+        local_names = existing.get("local_names") or []
+        if name not in local_names:
+            local_names = [name] + [n for n in local_names if n != name]
+        session._room_clients[client_id] = {
+            **existing, "name": name, "role": "admin", "kicked": False,
+            "local_names": local_names,
+        }
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
     # Block clients who have been denied too many times
@@ -388,11 +395,15 @@ def cast_bust_vote():
         return jsonify({"ok": False, "error": "Not registered."})
 
     # Optional: vote on behalf of a specific local player (local multiplayer)
-    player_name = (data.get("player_name") or "").strip()
+    player_name = sanitize_name((data.get("player_name") or "").strip())
     if player_name:
         local_names = client_info.get("local_names") or [voter_name]
         if player_name not in local_names:
             return jsonify({"ok": False, "error": "Not one of your local players."})
+        # Validate that the named player actually exists in the game
+        valid_names = {p.name for p in session.all_players}
+        if player_name not in valid_names:
+            return jsonify({"ok": False, "error": "Player not found."})
         voter_name = player_name
 
     session._bust_votes[voter_name] = vote

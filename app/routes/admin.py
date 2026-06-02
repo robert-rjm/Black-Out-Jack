@@ -180,9 +180,25 @@ def transfer_admin():
     if not target_cid:
         return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
 
-    # Transfer: demote old admin, promote new one
-    admin_info["role"]           = "player"
-    clients[target_cid]["role"]  = "admin"
+    # Transfer: demote old admin, promote new one.
+    # Move local_names to the new admin so they retain control of any local
+    # multiplayer seats.  The old admin only keeps their own single seat name.
+    old_local_names = admin_info.get("local_names") or []
+    admin_info["role"]          = "player"
+    admin_info["local_names"]   = []   # old admin loses multi-seat control
+    new_admin_info              = clients[target_cid]
+    new_admin_info["role"]      = "admin"
+    # Give the new admin the old admin's local_names minus the new admin's own
+    # name (which they already own).  If the old local_names list is empty,
+    # the new admin's single-seat fallback in get_client_info handles it.
+    new_name = (new_admin_info.get("name") or "").lower()
+    transferred = [n for n in old_local_names if n.lower() != new_name]
+    if transferred:
+        existing_new = new_admin_info.get("local_names") or (
+            [new_admin_info["name"]] if new_admin_info.get("name") else []
+        )
+        merged = existing_new + [n for n in transferred if n not in existing_new]
+        new_admin_info["local_names"] = merged
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -626,9 +642,12 @@ def take_back_seat():
         try:
             target_idx = player_order.index(player_name)
             for i, n in enumerate(current_locals):
-                if player_order.index(n) > target_idx:
-                    insert_at = i
-                    break
+                try:
+                    if player_order.index(n) > target_idx:
+                        insert_at = i
+                        break
+                except ValueError:
+                    continue  # n no longer in all_players — skip it
         except ValueError:
             pass
         current_locals = current_locals[:insert_at] + [player_name] + current_locals[insert_at:]
