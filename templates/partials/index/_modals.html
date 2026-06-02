@@ -22,8 +22,8 @@
   </div>
 </div>
 
-<div id="kick-overlay">
-  <div id="kick-card">
+<div id="kick-overlay" data-backdrop-action="closeKickModal">
+  <div id="kick-card" data-stop-propagation="true">
     <h3>⚙️ Settings</h3>
 
     <div class="kick-toggle-row">
@@ -131,11 +131,14 @@
       <div id="bust-vote-timer-bar" class="bust-vote-timer-bar"></div>
     </div>
     <div id="bust-vote-timer-label" class="bust-vote-timer-label">10s</div>
-    <div class="bust-vote-modal-buttons">
-      <button class="btn green wide" data-action="submitBustVote" data-args='["bust"]'>💥 Bet Bust</button>
-      <button class="btn wide muted-btn" data-action="submitBustVote" data-args='["pass"]'>Pass</button>
-    </div>
+    <div id="bust-vote-players-wrap"></div>
     <div id="bust-vote-modal-tally" class="bust-vote-modal-tally"></div>
+  </div>
+</div>
+
+<div id="bust-give-overlay" style="display:none">
+  <div id="bust-give-card" data-stop-propagation="true">
+    <div id="bust-give-body"></div>
   </div>
 </div>
 

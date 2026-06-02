@@ -131,8 +131,12 @@ def setup():
         bust_vote_enabled   = bool(data.get("bust_vote_enabled", False)),
     )
     if client_id:
+        # All non-NPC seats start as local — a seat moves to remote only when
+        # another device registers and claims it (handle_registration removes it).
+        local_names = [p.name for p in players if p.name not in npc_names]
         room._room_clients[client_id] = {
-            "name": dealer_name, "role": "admin", "kicked": False,
+            "name": dealer_name, "local_names": local_names,
+            "role": "admin", "kicked": False,
         }
     set_session(room_code, room)
 

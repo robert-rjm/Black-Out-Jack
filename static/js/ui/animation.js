@@ -46,6 +46,8 @@ async function animateDeal(newState) {
     });
   } finally {
     _dealAnimating = false;
+    // Now that cards are visible, open bust-vote modal if window is still open
+    if (lastState && gameMode === "digital") updateBustVoteUI(lastState);
   }
 }
 

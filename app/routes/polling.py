@@ -10,6 +10,7 @@ POST /preselect       — Player pre-votes their intended action
 POST /suggest_action  — Dealer suggests a different action to a player
 POST /respond_suggest — Player accepts or declines a dealer suggestion
 POST /vote_insurance  — Player casts their insurance vote
+POST /give_bust_sip   — Bust vote winner hands out their 1-sip reward
 """
 
 from flask import Blueprint, jsonify, request
@@ -169,6 +170,12 @@ def handle_registration():
         session._room_clients[target_client_id] = {
             **target_existing, "name": name, "role": "player", "kicked": False
         }
+        # Seat is now remote — remove from admin's local_names
+        for info in session._room_clients.values():
+            if info.get("role") == "admin":
+                local_names = info.get("local_names") or []
+                info["local_names"] = [n for n in local_names if n.lower() != name.lower()]
+                break
     else:
         denials = target_existing.get("reg_denials", 0) + 1
         session._room_clients[target_client_id] = {
@@ -375,9 +382,102 @@ def cast_bust_vote():
     if not expires or _time.monotonic() >= expires:
         return jsonify({"ok": False, "error": "Vote window is closed."})
 
-    voter_name = session._room_clients.get(client_id, {}).get("name")
+    client_info = session._room_clients.get(client_id, {})
+    voter_name  = client_info.get("name")
     if not voter_name:
         return jsonify({"ok": False, "error": "Not registered."})
 
+    # Optional: vote on behalf of a specific local player (local multiplayer)
+    player_name = (data.get("player_name") or "").strip()
+    if player_name:
+        local_names = client_info.get("local_names") or [voter_name]
+        if player_name not in local_names:
+            return jsonify({"ok": False, "error": "Not one of your local players."})
+        voter_name = player_name
+
     session._bust_votes[voter_name] = vote
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Bust vote sip handout
+# ---------------------------------------------------------------------------
+
+@bp.route("/give_bust_sip", methods=["POST"])
+def give_bust_sip():
+    """Bust-vote winner gives their 1-sip reward to a chosen player.
+    Body: { room_code, client_id, winner_name, recipient_name }
+    winner_name must be one of the client's local_names and a confirmed winner.
+    """
+    data           = request.json or {}
+    room_code      = (data.get("room_code")      or "").strip()
+    client_id      = (data.get("client_id")      or "").strip()
+    winner_name    = sanitize_name(data.get("winner_name")    or "")
+    recipient_name = sanitize_name(data.get("recipient_name") or "")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    client_info = session._room_clients.get(client_id, {})
+    if not client_info.get("name"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    # winner_name must be one of this client's local players
+    local_names = client_info.get("local_names") or [client_info["name"]]
+    if winner_name not in local_names:
+        return jsonify({"ok": False, "error": "Not one of your local players."})
+
+    result = session._bust_vote_result or {}
+    if not result.get("dealer_busted") or winner_name not in result.get("winners", []):
+        return jsonify({"ok": False, "error": "No pending handout for this player."})
+
+    if winner_name in getattr(session, "_bust_handouts_given", set()):
+        return jsonify({"ok": False, "error": "Already given."})
+
+    # Recipient must be a player in the game, not the winner themselves
+    valid_names = {p.name for p in session.all_players}
+    if recipient_name not in valid_names:
+        return jsonify({"ok": False, "error": "Recipient not found."})
+    if recipient_name.lower() == winner_name.lower():
+        return jsonify({"ok": False, "error": "Cannot give to yourself."})
+
+    recipient = session._get_player(recipient_name)
+    if recipient:
+        recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
+        print(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
+
+    if not hasattr(session, "_bust_handouts_given"):
+        session._bust_handouts_given = set()
+    session._bust_handouts_given.add(winner_name)
+
+    # harvest_drink_log already ran — patch the round snapshots directly so
+    # the sip shows up in the drinks panel and cumulative ticker without waiting
+    # for the next round.
+    reason_label = f"Bust bet handout (from {winner_name}): +1 sip"
+    session._last_round_drinks.append({
+        "name":   recipient_name,
+        "sips":   1,
+        "reason": reason_label,
+    })
+    session._last_round_sips[recipient_name] = (
+        session._last_round_sips.get(recipient_name, 0) + 1
+    )
+    session._sip_ticker[recipient_name] = (
+        session._sip_ticker.get(recipient_name, 0) + 1
+    )
+    session._drink_csv_rows.append({
+        "round":  session.round_count,
+        "dealer": session.dealer_name,
+        "player": recipient_name,
+        "role":   "player",
+        "rule":   "Bust vote handout",
+        "sips":   1,
+    })
+
+    # Log entry visible to all players
+    log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
+    session._log_entries.append(log_line)
+    session._log_version = session._log_version + 1
+
     return jsonify({**serialize_state(session, client_id), "ok": True})
