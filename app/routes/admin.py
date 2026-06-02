@@ -14,6 +14,7 @@ POST /handle_rejoin    — Admin approves or denies a rejoin request
 POST /update_settings  — Admin queues game settings for next round
 POST /claim_milestone  — Winner distributes their milestone-handout sips
 POST /rotate_dealer    — Admin immediately rotates the dealer seat
+POST /take_back_seat   — Admin reclaims a remote seat, moving them to spectator
 """
 
 import time
@@ -573,4 +574,64 @@ def rotate_dealer():
 
     _rotate_dealer(session)
     session.rounds_this_dealer = 1
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Take back seat (local multiplayer)
+# ---------------------------------------------------------------------------
+
+@bp.route("/take_back_seat", methods=["POST"])
+def take_back_seat():
+    """Admin reclaims a seat from a remote player, moving them to spectator.
+    The seat is added back to the admin's local_names.
+    Body: { room_code, client_id, player_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    player_name = (data.get("player_name") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = session._room_clients
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."})
+
+    if not player_name:
+        return jsonify({"ok": False, "error": "No player name provided."})
+
+    # Capitalise to match stored names
+    from app.services.validators import sanitize_name
+    player_name = sanitize_name(player_name)
+    valid = {p.name for p in session.all_players}
+    if player_name not in valid:
+        return jsonify({"ok": False, "error": "Player not found."})
+
+    # Demote whichever remote client currently holds this seat → spectator
+    for cid, info in clients.items():
+        if cid != client_id and not info.get("kicked") and \
+                (info.get("name") or "").lower() == player_name.lower():
+            info["name"] = None
+            info["role"] = "spectator"
+            break
+
+    # Add back to admin's local_names (preserving player order)
+    current_locals = admin_info.get("local_names") or []
+    if not any(n.lower() == player_name.lower() for n in current_locals):
+        player_order = [p.name for p in session.all_players]
+        insert_at    = len(current_locals)
+        try:
+            target_idx = player_order.index(player_name)
+            for i, n in enumerate(current_locals):
+                if player_order.index(n) > target_idx:
+                    insert_at = i
+                    break
+        except ValueError:
+            pass
+        current_locals = current_locals[:insert_at] + [player_name] + current_locals[insert_at:]
+    admin_info["local_names"] = current_locals
+
     return jsonify({**serialize_state(session, client_id), "ok": True})
