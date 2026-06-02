@@ -59,6 +59,7 @@ async function joinRoom() {
     gameMode = data.mode || "referee";
     myRole           = data.my_role   || null;
     myName           = data.my_name   || null;
+    myNames          = data.my_names  || (myName ? [myName] : []);
     isMyDealerClient = data.is_dealer_client || false;
     updateHeader(data);
     buildGameUI();
