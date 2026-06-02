@@ -162,10 +162,11 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._bust_votes    = {}     # fresh votes each deal
-                # Open bust-vote window for 10 seconds (if feature enabled)
+                # Open bust-vote window for 12 seconds (countdown displays from 10)
                 game_session._bust_vote_expires_at = (
-                    time.monotonic() + 10 if game_session.bust_vote_enabled else None
+                    time.monotonic() + 12 if game_session.bust_vote_enabled else None
                 )
+                game_session._bust_handouts_given  = set()   # clear any stale handouts
                 initial_deal(game_session)
                 auto_play_npc_turns(game_session)
 
@@ -380,6 +381,7 @@ def command():
                 game_session._bust_votes          = {}    # clear bust votes each round
                 game_session._bust_vote_expires_at = None
                 game_session._bust_vote_result     = None
+                game_session._bust_handouts_given  = set()
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session._pending_milestone = None  # clear between rounds
@@ -462,6 +464,7 @@ def command():
                 game_session._bust_votes             = {}
                 game_session._bust_vote_expires_at   = None
                 game_session._bust_vote_result       = None
+                game_session._bust_handouts_given    = set()
                 game_session._drink_log_harvested    = False
                 game_session._kick_votes             = {}
                 game_session._pending_milestone      = None
