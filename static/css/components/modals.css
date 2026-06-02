@@ -129,6 +129,22 @@
 #rules-body th, #rules-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 #rules-body th { background: rgba(255,255,255,.06); font-weight: 700; }
 
+/* ---- BUST GIVE OVERLAY ---- */
+#bust-give-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 910;
+  align-items: center; justify-content: center;
+}
+#bust-give-card {
+  background: var(--surface);
+  border: 1.5px solid var(--green);
+  border-radius: 18px;
+  padding: 24px 20px 20px;
+  width: 100%; max-width: 340px;
+  margin: 16px;
+}
+
 /* ---- MILESTONE MODAL ---- */
 #milestone-modal-overlay {
   display: none;
