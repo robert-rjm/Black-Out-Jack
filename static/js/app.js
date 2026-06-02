@@ -1,5 +1,11 @@
-// INIT — generate clientId, then reconnect to existing server session on page reload
+// INIT — toggle label setup + clientId + reconnect
 // ============================================================
+
+// Run synchronously on script load (DOM is ready — scripts are at bottom of <body>).
+// Must be outside the async IIFE so these run before any await.
+setAnimToggle(lsGet("bjDealAnim") !== "0");  // restore animation pref (default ON)
+setBustVoteSetupToggle(true);                 // bust-vote toggle starts ON in setup
+
 (async () => {
   // Hide age gate if already confirmed this session
   try {
@@ -10,9 +16,6 @@
     // sessionStorage blocked (e.g. private browsing) — skip gate
     document.getElementById("age-gate").style.display = "none";
   }
-
-  // Restore deal-animation toggle from localStorage (default: on)
-  setAnimToggle(lsGet("bjDealAnim") !== "0");
 
   // Generate or load persistent client UUID
   let savedId = lsGet("bjClientId");

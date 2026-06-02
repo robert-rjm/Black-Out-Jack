@@ -299,11 +299,13 @@ function updateBustVoteUI(state) {
 
   const statusEl = document.getElementById("bust-vote-status");
 
-  // Modal: open when window is open and any local player hasn't voted yet
+  // Modal: open when window is open and any local player hasn't voted yet.
+  // Delay until deal animation finishes so the modal doesn't cover the cards.
   const bustVotes  = state.my_bust_votes || {};
   const anyUnvoted = Object.values(bustVotes).some(v => v === null || v === undefined);
   if (state.bust_vote_window_open && anyUnvoted
-      && myRole !== null && myRole !== "spectator") {
+      && myRole !== null && myRole !== "spectator"
+      && !_dealAnimating) {
     _openBustVoteModal(state.bust_vote_seconds_left || 10);
   } else if (!state.bust_vote_window_open) {
     _closeBustVoteModal();
