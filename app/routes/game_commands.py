@@ -162,9 +162,9 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._bust_votes    = {}     # fresh votes each deal
-                # Open bust-vote window for 12 seconds (countdown displays from 10)
+                # Open bust-vote window for 17 seconds (countdown displays from 15)
                 game_session._bust_vote_expires_at = (
-                    time.monotonic() + 12 if game_session.bust_vote_enabled else None
+                    time.monotonic() + 17 if game_session.bust_vote_enabled else None
                 )
                 game_session._bust_handouts_given  = set()   # clear any stale handouts
                 initial_deal(game_session)

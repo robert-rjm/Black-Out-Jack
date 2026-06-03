@@ -199,13 +199,13 @@ function _openBustVoteModal(secondsLeft) {
 
   const bar      = document.getElementById("bust-vote-timer-bar");
   const label    = document.getElementById("bust-vote-timer-label");
-  const duration = secondsLeft || 10;   // guard against 0
+  const duration = secondsLeft || 15;   // guard against 0
 
   let secs = duration;
   function tick() {
     if (!_bustVoteModalOpen) return;
-    const display = Math.min(secs, 10);
-    if (bar)   bar.style.width   = `${(display / 10) * 100}%`;
+    const display = Math.min(secs, 15);
+    if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
     if (label) label.textContent = `${display}s`;
     if (secs <= 0) {
       // Auto-pass for all un-voted local players
@@ -314,7 +314,7 @@ function updateBustVoteUI(state) {
   if (state.bust_vote_window_open && anyUnvoted
       && myRole !== null && myRole !== "spectator"
       && !_dealAnimating) {
-    _openBustVoteModal(state.bust_vote_seconds_left || 10);
+    _openBustVoteModal(state.bust_vote_seconds_left || 15);
   } else if (!state.bust_vote_window_open) {
     _closeBustVoteModal();
   }
