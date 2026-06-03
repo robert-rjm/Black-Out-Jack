@@ -111,9 +111,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
 # ---------------------------------------------------------------------------
 
 def _display_reason(rule: str, raw: str) -> str:
-    """Return a short human-readable label for the drinks detail panel."""
-    if rule == "Hard Dealer Switch":
-        return "Hard Dealer Switch"
+    """Return a human-readable label for the drinks detail panel."""
     return raw
 
 
