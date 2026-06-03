@@ -99,7 +99,7 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
-        self._ace_clubs_flag  = {"protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False}
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False # True once all first-deal cards are entered
@@ -154,7 +154,7 @@ class RefereeSession:
                 p.hands     = [Hand() for _ in range(self.num_hands)]
                 p.drink_log = []
 
-        self._ace_clubs_flag  = {"protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False}
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
@@ -404,10 +404,17 @@ class RefereeSession:
         self._pending_resolved = []
 
         if hard_switch:
-            protected = self._ace_clubs_flag["protected"]
+            protected         = self._ace_clubs_flag.get("protected", False)
+            partial_protected = self._ace_clubs_flag.get("partial_protected", False)
+            # Partial protection (player-hand A♣): exclude dealer's own hands
+            hs_for_penalty = (
+                [h for h in winning if h[0].lower() != self.dealer_name.lower()]
+                if partial_protected and not protected
+                else winning
+            )
             self.tracker.apply(
                 DrinkingRules.on_hard_dealer_switch(
-                    self.dealer_name, winning, protected))
+                    self.dealer_name, hs_for_penalty, protected))
             # If A♣ protected, add display-only +/- entries so the
             # drinks summary panel shows what was waived.
             if protected and winning:
