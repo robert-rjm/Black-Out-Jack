@@ -199,13 +199,13 @@ function _openBustVoteModal(secondsLeft) {
 
   const bar      = document.getElementById("bust-vote-timer-bar");
   const label    = document.getElementById("bust-vote-timer-label");
-  const duration = secondsLeft || 10;   // guard against 0
+  const duration = secondsLeft || 15;   // guard against 0
 
   let secs = duration;
   function tick() {
     if (!_bustVoteModalOpen) return;
-    const display = Math.min(secs, 10);
-    if (bar)   bar.style.width   = `${(display / 10) * 100}%`;
+    const display = Math.min(secs, 15);
+    if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
     if (label) label.textContent = `${display}s`;
     if (secs <= 0) {
       // Auto-pass for all un-voted local players
@@ -314,7 +314,7 @@ function updateBustVoteUI(state) {
   if (state.bust_vote_window_open && anyUnvoted
       && myRole !== null && myRole !== "spectator"
       && !_dealAnimating) {
-    _openBustVoteModal(state.bust_vote_seconds_left || 10);
+    _openBustVoteModal(state.bust_vote_seconds_left || 15);
   } else if (!state.bust_vote_window_open) {
     _closeBustVoteModal();
   }
@@ -368,15 +368,18 @@ function updateBustVoteUI(state) {
       statusEl.innerHTML = parts.join("<br>");
     }
   } else {
-    if (myBusters.length) {
-      const label = myBusters.length === 1
-        ? `💥 ${myBusters[0]} bet dealer busts`
-        : `💥 ${myBusters.join(" & ")} bet dealer busts`;
+    const allBusters = Object.entries(allVotes)
+      .filter(([, v]) => v === "bust")
+      .map(([n]) => n);
+    if (allBusters.length) {
+      const label = allBusters.length === 1
+        ? `💥 ${allBusters[0]} bet dealer busts`
+        : `💥 ${allBusters.join(" & ")} bet dealer busts`;
       statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">${label}</span>`;
     } else if (myVote === "pass") {
       statusEl.textContent = "You passed the bust bet.";
     } else {
-      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust` : "";
+      statusEl.textContent = "";
     }
   }
 }
@@ -447,6 +450,35 @@ function showBustVoteToast(result) {
   void toast.offsetWidth;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 6000);
+}
+
+function showInsuranceToast(results) {
+  if (!results || !results.length) return;
+  const toast = document.getElementById("player-toast");
+  if (!toast) return;
+  const parts = results.map(r => {
+    const bj    = r.player;
+    const voted = r.insured ? "Insure" : "Decline";
+    const dBJ   = r.dealer_bj;
+    let outcome, icon;
+    if (r.group_won) {
+      icon = "✅";
+      if (r.insured && dBJ)       outcome = `dealer had BJ — BJ holder drinks own bonus, group safe`;
+      else if (!r.insured && !dBJ) outcome = `no dealer BJ — normal BJ bonus`;
+      else                         outcome = `correct call`;
+    } else {
+      icon = "❌";
+      if (r.insured && !dBJ)      outcome = `no dealer BJ — group drinks double bonus`;
+      else if (!r.insured && dBJ) outcome = `dealer had BJ — auto-insurance applies`;
+      else                         outcome = `wrong call`;
+    }
+    return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
+  });
+  toast.textContent = parts.join(" · ");
+  toast.classList.remove("show");
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 8000);
 }
 
 // ============================================================

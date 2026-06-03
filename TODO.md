@@ -4,22 +4,25 @@
 
 ### Check
 
-- [X] BJ insurance
-  - not completing "waiting for others"
-  - not launching on splits
-  - group vote working as intended
+- [ ] check Mobile UI
+  - still big section of screen covert with play panel
+  - useless big space in action bar
+- [ ] check bust message, showing "each" even if singular player voted incorrectly
 
 ## Future
 ### Features
 
 - [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
 - [ ] beer counter (with approval by admin)
-- [ ] improved UI for mobile
-  - shift icons to action bar at bottom
-  - scrolling not forcing back
-- [ ] if single player, able to change "which active player"
+- [ ] consider removing / hiding log
+  - potentially instead KPIs? (D winning%, fun facts, BS facts)
+  - or local chat function
+- [ ] simplified rule set for beginners
+- [ ] csv addition
+  - nicer output design
+  - add % sips per hand or per round, not just per total sips
+  - show in Dealer who drank most for each ace
 
 ### New Rule Idea
 
-- [ ] side bets for Dealer to bust
 - [ ] Endgame option of "busfahrer"

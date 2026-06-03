@@ -533,6 +533,22 @@ def claim_milestone():
         ticker[name] = ticker.get(name, 0) + s
     session._sip_ticker = ticker
 
+    # Mirror into last_round_sips and last_round_drinks so the Drinks pane
+    # shows the milestone handout alongside other round drinks.
+    last_sips   = dict(session._last_round_sips)
+    last_drinks = list(session._last_round_drinks)
+    winner_name = milestone["winner"]
+    boundary_val = milestone["boundary"]
+    for name, s in alloc.items():
+        last_sips[name] = last_sips.get(name, 0) + s
+        last_drinks.append({
+            "name":   name,
+            "sips":   s,
+            "reason": f"Milestone handout from {winner_name} ({boundary_val} sip milestone)",
+        })
+    session._last_round_sips   = last_sips
+    session._last_round_drinks = last_drinks
+
     # Write milestone handout into the CSV accumulator so it appears in exports
     winner   = milestone["winner"]
     boundary = milestone["boundary"]

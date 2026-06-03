@@ -104,14 +104,16 @@ class DrinkingRules:
             if s == Suit.CLUBS:
                 msgs.append((recipient, -1,
                     f"A{s.symbol} dealt to {recipient} => -1 sip credit at round end"))
-                # Dealer-player's betting-hand A♣ gives double protection:
-                # the Hard Switch flag is set (no drinking if switch occurs)
-                # AND the -1 credit still applies when no switch occurs.
+                # Dealer-player's betting-hand A♣ gives reduced protection:
+                # -1 sip credit applies, and own hand losses are already exempt
+                # on any hard switch (via exempt_dealer). The dealer penalty
+                # still fires — only the dealer's own DEALER hand A♣ gives full
+                # protection from the hard switch penalty.
                 if recipient.lower() == dealer_name.lower():
-                    ace_clubs_flag["protected"] = True
+                    ace_clubs_flag["partial_protected"] = True
                     msgs.append((None, 0,
                         f"A{s.symbol} dealt to {recipient} (also dealer) "
-                        f"=> also exempt from Hard Dealer Switch drinking"))
+                        f"=> own hand losses exempt on Hard Switch; dealer penalty still applies (own hands excluded)"))
             elif s == Suit.SPADES:
                 idx    = all_player_names.index(recipient)
                 target = all_player_names[(idx + card_pos) % len(all_player_names)]
@@ -489,9 +491,12 @@ class DrinkingRules:
                                protected: bool) -> list:
         """
         Called when the dealer loses ALL hands (push != loss).
-        winning_hands: list of (player_name, Hand) tuples.
+        winning_hands: list of (player_name, Hand) tuples — caller is responsible
+          for filtering out the dealer's own player hands when partial A♣ protection
+          applies (player-hand A♣: dealer exempt from own hands, drinks for all others).
         Dealer drinks per each winning hand type.
-        Ace of Clubs protection skips the drinking (switch still happens).
+        protected=True (dealer-hand A♣): full protection — skips all drinking.
+        protected=False: drinks for every hand in winning_hands.
         """
         if protected:
             return [(None, 0,

@@ -398,11 +398,16 @@ function applyState(state) {
   if (prevPhase !== "round-over" && state.phase === "round-over" && state.bust_vote_result) {
     showBustVoteToast(state.bust_vote_result);
   }
+  // Insurance result toast — fires on round-over when any group insurance vote resolved
+  if (prevPhase !== "round-over" && state.phase === "round-over" && state.insurance_result && state.insurance_result.length) {
+    showInsuranceToast(state.insurance_result);
+  }
 
   lastState   = state;
   currentTurn = state.current_turn || null;
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
+  processAceDrinkEvents(state);  // mid-round ace drink toasts
 
   // Keep settings modal in sync while it's open
   const kickOv = document.getElementById("kick-overlay");
@@ -653,9 +658,15 @@ function updateRoundPane(state) {
 }
 
 function autoSwitchDigTab(state) {
-  const phase = state.phase;
+  const phase     = state.phase;
+  const prevPhase = lastState ? lastState.phase : null;
   if (phase === "pre-deal") {
-    activateDigTab("dig-play");
+    // Only snap to Play tab on the transition into pre-deal, not on every poll —
+    // otherwise players get jerked back whenever they browse tabs while waiting
+    // for the new dealer to deal.
+    if (prevPhase !== "pre-deal") {
+      activateDigTab("dig-play");
+    }
   } else if (phase === "playing") {
     // Non-dealer: if all my hands are done, move me to Drinks so I'm not staring at buttons
     if (!isMyDealerClient && myName) {
@@ -932,14 +943,22 @@ function _hideWaitingBanner() {
 }
 
 function _showDrinkToast(sips, winner) {
-  const toast = document.getElementById("ms-drink-toast");
-  if (!toast) return;
+  // Open the acknowledgement modal instead of a dismissable toast
+  const overlay = document.getElementById("ms-ack-overlay");
+  if (!overlay) return;
   const sipWord = sips === 1 ? "sip" : "sips";
-  toast.innerHTML = `🍺 Drink ${sips} ${sipWord}!<br><span style="font-size:11px;font-weight:500;opacity:.8">${escapeHtml(winner)}'s milestone handout</span>`;
-  toast.classList.remove("show");
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 8000);
+  const title   = document.getElementById("ms-ack-title");
+  const sub     = document.getElementById("ms-ack-sub");
+  if (title) title.textContent = `Drink ${sips} ${sipWord}!`;
+  if (sub)   sub.textContent   = `${escapeHtml(winner)} reached a milestone and handed you ${sips} ${sipWord}.`;
+  overlay.classList.add("open");
+  const btn = document.getElementById("ms-ack-btn");
+  if (btn) {
+    // Replace to remove any previous listener
+    const fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
+    fresh.addEventListener("click", () => overlay.classList.remove("open"), { once: true });
+  }
 }
 
 function _openMilestoneModal(ms, state) {

@@ -111,15 +111,15 @@ function showPlayerDrinkToast(sips) {
 // SWITCH TOAST (hard / soft dealer switch — shown to all players)
 // ============================================================
 const _HARD_MSGS = [
-  "💀 {d} lost every hand — Hard Switch!",
-  "😬 {d} got swept. Hard Switch!",
-  "🫠 Everyone wins, {d} drinks. Hard Switch!",
-  "🃏 {d} goes down! Hard Switch!",
+  "💀 Dealer lost every hand — Hard Switch!",
+  "😬 Dealer got swept. Hard Switch!",
+  "🫠 Everyone wins, Dealer drinks. Hard Switch!",
+  "🃏 Dealer goes down! Hard Switch!",
 ];
 const _SOFT_MSGS = [
-  "😏 {d} dominated! Soft Switch.",
-  "🎰 {d} won all hands — Soft Switch!",
-  "🤑 Table wrecked by {d}. Soft Switch!",
+  "😏 Dealer dominated! Soft Switch.",
+  "🎰 Dealer won all hands — Soft Switch!",
+  "🤑 Table wrecked by the Dealer. Soft Switch!",
 ];
 
 let _switchToastTimer = null;
@@ -129,7 +129,7 @@ function showSwitchToast(switchType, dealerName) {
   if (_switchToastTimer) { clearTimeout(_switchToastTimer); _switchToastTimer = null; }
   const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
   const tmpl = pool[Math.floor(Math.random() * pool.length)];
-  el.textContent = tmpl.replace("{d}", dealerName);
+  el.textContent = tmpl;
   if (switchType === "hard") {
     el.style.background = "var(--red)";
     el.style.color      = "#fff";
@@ -209,3 +209,49 @@ async function doNewRound() {
 }
 
 // ============================================================
+
+// ============================================================
+// ACE DRINK TOAST  (fires mid-round when an ace causes drinks)
+// ============================================================
+let _lastAceSeq = 0;
+
+function processAceDrinkEvents(state) {
+  const events  = state.ace_drink_events || [];
+  const seq     = state.ace_drink_seq    || 0;
+  if (seq <= _lastAceSeq || !events.length) return;
+
+  // Only process events newer than what we've seen
+  const newEvents = events.filter(e => e.seq > _lastAceSeq);
+  _lastAceSeq = seq;
+  if (!newEvents.length) return;
+
+  // myName / myRole are module-level vars set in table.js (same bundle scope)
+  const _myName = (typeof myName !== "undefined") ? myName : null;
+  const _myRole = (typeof myRole !== "undefined") ? myRole : null;
+  const _isDealer = _myRole === "dealer" || _myRole === "admin";
+
+  // Collect events that affect this client
+  const relevant = newEvents.filter(e => {
+    if (e.recipient === "all")          return true;
+    if (e.recipient === "players_only") return !_isDealer;
+    return _myName && e.recipient.toLowerCase() === _myName.toLowerCase();
+  });
+  if (!relevant.length) return;
+
+  const totalSips = relevant.reduce((s, e) => s + e.sips, 0);
+  const firstReason = relevant[0].reason || "";
+
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+  const dt = document.getElementById("dealer-toast");
+  if (dt) dt.classList.remove("show");
+
+  // Short descriptive label: strip the verbose "=> X drinks N sip" suffix
+  const label = firstReason.replace(/\s*=>\s*.+$/, "").trim();
+  el.textContent = `🃏 ${label} — drink ${totalSips} sip${totalSips !== 1 ? "s" : ""}!`;
+  el.className   = "drink show";
+  if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
+    clearTimeout(_playerToastTimer);
+  }
+  setTimeout(() => el.classList.remove("show"), 5000);
+}
