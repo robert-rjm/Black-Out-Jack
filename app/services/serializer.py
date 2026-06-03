@@ -388,7 +388,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "boundary":    r["boundary"],
             "allocations": r["allocations"],
             "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
-        } if r and time.monotonic() - r["set_at"] < 15 else None)(
+        } if r and time.monotonic() - r["set_at"] < 90 else None)(
             session._last_milestone_result
         ),
         "pending_milestone":      (lambda m: {
