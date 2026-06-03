@@ -312,10 +312,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "peeked_card":            session._last_peeked,
         "sip_totals":             sip_totals,
         "sip_grand_total":        sum(sip_totals.values()),
-        "last_round_sips":        session._last_round_sips,
+        "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
         "last_round_drinks":      session._last_round_drinks,
         "round_notices":          session._round_notices,
-        "prev_round_sips":        session._prev_round_sips,
+        "prev_round_sips":        {k: max(0, v) for k, v in session._prev_round_sips.items()},
         "prev_round_drinks":      session._prev_round_drinks,
         "dealer_role_sips":       compute_dealer_role_sips(session),
         "preselections":          session._preselections,
@@ -343,6 +343,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
+        "insurance_result":       getattr(session, "_insurance_result", None),
+        "ace_drink_events":       getattr(session, "_ace_drink_events", []),
+        "ace_drink_seq":          getattr(session, "_ace_drink_seq", 0),
         "my_bust_handout_pending": [
             n for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
             if (session._bust_vote_result or {}).get("dealer_busted")
@@ -372,14 +375,20 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             n: session._bust_votes.get(n)
             for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
-        "is_dealer_client":       _ci.get("is_dealer", False) or _ci.get("role") == "admin",
+        "is_dealer_client":       (
+            _ci.get("role") == "admin" or
+            session.dealer_name.lower() in {
+                (n or "").lower()
+                for n in ([_ci.get("name")] + list(_ci.get("local_names") or []))
+            }
+        ),
         "queued_settings":        session._queued_settings,
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
             "boundary":    r["boundary"],
             "allocations": r["allocations"],
             "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
-        } if r and time.monotonic() - r["set_at"] < 15 else None)(
+        } if r and time.monotonic() - r["set_at"] < 90 else None)(
             session._last_milestone_result
         ),
         "pending_milestone":      (lambda m: {

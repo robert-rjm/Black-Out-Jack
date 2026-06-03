@@ -291,6 +291,25 @@ def dealer_turn(session: GameRoom) -> None:
                                                    dealer_bj=dealer_bj,
                                                    dealer_name=exempt_dealer))
 
+        # Hard dealer switch — dealer drinks per each winning hand
+        if hard_switch:
+            winning_hds = [
+                (p.name, hand)
+                for p in session.all_players
+                for hand in p.hands
+                if hand.result == "win"
+            ]
+            protected         = session._ace_clubs_flag.get("protected", False)
+            partial_protected = session._ace_clubs_flag.get("partial_protected", False)
+            hs_for_penalty = (
+                [h for h in winning_hds if h[0].lower() != session.dealer_name.lower()]
+                if partial_protected and not protected
+                else winning_hds
+            )
+            session.tracker.apply(
+                DrinkingRules.on_hard_dealer_switch(
+                    session.dealer_name, hs_for_penalty, protected))
+
         # All-hands sweep
         for p in session.all_players:
             if p.is_dealer:
