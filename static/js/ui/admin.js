@@ -449,6 +449,35 @@ function showBustVoteToast(result) {
   setTimeout(() => toast.classList.remove("show"), 6000);
 }
 
+function showInsuranceToast(results) {
+  if (!results || !results.length) return;
+  const toast = document.getElementById("player-toast");
+  if (!toast) return;
+  const parts = results.map(r => {
+    const bj    = r.player;
+    const voted = r.insured ? "Insure" : "Decline";
+    const dBJ   = r.dealer_bj;
+    let outcome, icon;
+    if (r.group_won) {
+      icon = "✅";
+      if (r.insured && dBJ)       outcome = `dealer had BJ — BJ holder drinks own bonus, group safe`;
+      else if (!r.insured && !dBJ) outcome = `no dealer BJ — normal BJ bonus`;
+      else                         outcome = `correct call`;
+    } else {
+      icon = "❌";
+      if (r.insured && !dBJ)      outcome = `no dealer BJ — group drinks double bonus`;
+      else if (!r.insured && dBJ) outcome = `dealer had BJ — auto-insurance applies`;
+      else                         outcome = `wrong call`;
+    }
+    return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
+  });
+  toast.textContent = parts.join(" · ");
+  toast.classList.remove("show");
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 8000);
+}
+
 // ============================================================
 // REGISTRATION
 // ============================================================

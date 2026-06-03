@@ -381,6 +381,9 @@ def command():
                 game_session._bust_votes          = {}    # clear bust votes each round
                 game_session._bust_vote_expires_at = None
                 game_session._bust_vote_result     = None
+                game_session._insurance_result     = None
+                game_session._ace_drink_events     = []
+                game_session._ace_drink_seq        = 0
                 game_session._bust_handouts_given  = set()
                 game_session._drink_log_harvested = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
@@ -464,6 +467,9 @@ def command():
                 game_session._bust_votes             = {}
                 game_session._bust_vote_expires_at   = None
                 game_session._bust_vote_result       = None
+                game_session._insurance_result       = None
+                game_session._ace_drink_events       = []
+                game_session._ace_drink_seq          = 0
                 game_session._bust_handouts_given    = set()
                 game_session._drink_log_harvested    = False
                 game_session._kick_votes             = {}
