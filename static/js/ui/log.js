@@ -111,15 +111,15 @@ function showPlayerDrinkToast(sips) {
 // SWITCH TOAST (hard / soft dealer switch — shown to all players)
 // ============================================================
 const _HARD_MSGS = [
-  "💀 {d} lost every hand — Hard Switch!",
-  "😬 {d} got swept. Hard Switch!",
-  "🫠 Everyone wins, {d} drinks. Hard Switch!",
-  "🃏 {d} goes down! Hard Switch!",
+  "💀 Dealer lost every hand — Hard Switch!",
+  "😬 Dealer got swept. Hard Switch!",
+  "🫠 Everyone wins, Dealer drinks. Hard Switch!",
+  "🃏 Dealer goes down! Hard Switch!",
 ];
 const _SOFT_MSGS = [
-  "😏 {d} dominated! Soft Switch.",
-  "🎰 {d} won all hands — Soft Switch!",
-  "🤑 Table wrecked by {d}. Soft Switch!",
+  "😏 Dealer dominated! Soft Switch.",
+  "🎰 Dealer won all hands — Soft Switch!",
+  "🤑 Table wrecked by the Dealer. Soft Switch!",
 ];
 
 let _switchToastTimer = null;
@@ -129,7 +129,7 @@ function showSwitchToast(switchType, dealerName) {
   if (_switchToastTimer) { clearTimeout(_switchToastTimer); _switchToastTimer = null; }
   const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
   const tmpl = pool[Math.floor(Math.random() * pool.length)];
-  el.textContent = tmpl.replace("{d}", dealerName);
+  el.textContent = tmpl;
   if (switchType === "hard") {
     el.style.background = "var(--red)";
     el.style.color      = "#fff";
