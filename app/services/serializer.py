@@ -343,6 +343,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
+        "insurance_result":       getattr(session, "_insurance_result", None),
+        "ace_drink_events":       getattr(session, "_ace_drink_events", []),
+        "ace_drink_seq":          getattr(session, "_ace_drink_seq", 0),
         "my_bust_handout_pending": [
             n for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
             if (session._bust_vote_result or {}).get("dealer_busted")
@@ -372,7 +375,13 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             n: session._bust_votes.get(n)
             for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
-        "is_dealer_client":       _ci.get("is_dealer", False) or _ci.get("role") == "admin",
+        "is_dealer_client":       (
+            _ci.get("role") == "admin" or
+            session.dealer_name.lower() in {
+                (n or "").lower()
+                for n in ([_ci.get("name")] + list(_ci.get("local_names") or []))
+            }
+        ),
         "queued_settings":        session._queued_settings,
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
