@@ -133,7 +133,7 @@ Black-Out-Jack/
 │   │   └── ui/                  # lobby.js, table.js, log.js, admin.js, …
 │   └── logo.png                 # Home screen icon (iOS & Android)
 ├── templates/
-    ├── index.html               # Mobile-first browser UI
+│   ├── index.html               # Mobile-first browser UI
 │   └── partials/index/*.html    # Composable UI sections
 │
 ├── server.py                    # Flask entry point
