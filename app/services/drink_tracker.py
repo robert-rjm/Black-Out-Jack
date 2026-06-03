@@ -177,9 +177,13 @@ def harvest_drink_log(session: GameRoom) -> None:
     # Per-player sip totals for the "Last Round" panel
     last = {}
     for p in session.all_players:
-        total = max(0, sum((e[0] or 0) for e in p.drink_log if e))
-        if total > 0:
-            last[p.name] = total
+        # Store raw (unclamped) net so that bust-sip handouts added later via
+        # /give_bust_sip are offset correctly against any existing -1 credits.
+        # e.g. -1 credit + 1 assigned = 0 net, not 1.
+        # Callers that display or accumulate sips clamp to 0 themselves.
+        raw = sum((e[0] or 0) for e in p.drink_log if e)
+        if raw != 0:
+            last[p.name] = raw
     session._last_round_sips = last
 
     # Detailed drink entries for the Drinks pane
@@ -286,12 +290,13 @@ def check_and_set_milestone(session: GameRoom) -> None:
         highest      = (total // MILESTONE_STEP) * MILESTONE_STEP
         if highest <= 0:
             continue
-        prev_total    = total - last.get(name, 0)
+        this_round    = max(0, last.get(name, 0))  # clamp: credits don't inflate prev total
+        prev_total    = total - this_round
         prev_boundary = (prev_total // MILESTONE_STEP) * MILESTONE_STEP
         for boundary in range(prev_boundary + MILESTONE_STEP, highest + 1, MILESTONE_STEP):
             if claimed.get(boundary):
                 continue
-            newly_hit.setdefault(boundary, []).append((last.get(name, 0), name))
+            newly_hit.setdefault(boundary, []).append((this_round, name))
 
     if not newly_hit:
         return
