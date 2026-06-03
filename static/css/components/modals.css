@@ -184,3 +184,52 @@
   width: 28px; text-align: center;
   font-size: 16px; font-weight: 700;
 }
+
+/* ── Milestone drink acknowledgement modal ── */
+#ms-ack-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 920;
+  align-items: center; justify-content: center;
+}
+#ms-ack-overlay.open { display: flex; }
+#ms-ack-modal {
+  background: var(--surface);
+  border: 2px solid var(--yellow);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  width: min(300px, 88vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+.ms-ack-emoji {
+  font-size: 40px;
+  margin-bottom: 10px;
+}
+.ms-ack-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--yellow);
+  margin-bottom: 6px;
+}
+.ms-ack-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.ms-ack-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 10px;
+  border: none;
+  background: var(--yellow);
+  color: #000;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: .3px;
+}
+.ms-ack-btn:active { opacity: .8; }
