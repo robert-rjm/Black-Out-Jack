@@ -658,9 +658,15 @@ function updateRoundPane(state) {
 }
 
 function autoSwitchDigTab(state) {
-  const phase = state.phase;
+  const phase     = state.phase;
+  const prevPhase = lastState ? lastState.phase : null;
   if (phase === "pre-deal") {
-    activateDigTab("dig-play");
+    // Only snap to Play tab on the transition into pre-deal, not on every poll —
+    // otherwise players get jerked back whenever they browse tabs while waiting
+    // for the new dealer to deal.
+    if (prevPhase !== "pre-deal") {
+      activateDigTab("dig-play");
+    }
   } else if (phase === "playing") {
     // Non-dealer: if all my hands are done, move me to Drinks so I'm not staring at buttons
     if (!isMyDealerClient && myName) {
