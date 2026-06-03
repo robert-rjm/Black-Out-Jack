@@ -209,3 +209,49 @@ async function doNewRound() {
 }
 
 // ============================================================
+
+// ============================================================
+// ACE DRINK TOAST  (fires mid-round when an ace causes drinks)
+// ============================================================
+let _lastAceSeq = 0;
+
+function processAceDrinkEvents(state) {
+  const events  = state.ace_drink_events || [];
+  const seq     = state.ace_drink_seq    || 0;
+  if (seq <= _lastAceSeq || !events.length) return;
+
+  // Only process events newer than what we've seen
+  const newEvents = events.filter(e => e.seq > _lastAceSeq);
+  _lastAceSeq = seq;
+  if (!newEvents.length) return;
+
+  // myName / myRole are module-level vars set in table.js (same bundle scope)
+  const _myName = (typeof myName !== "undefined") ? myName : null;
+  const _myRole = (typeof myRole !== "undefined") ? myRole : null;
+  const _isDealer = _myRole === "dealer" || _myRole === "admin";
+
+  // Collect events that affect this client
+  const relevant = newEvents.filter(e => {
+    if (e.recipient === "all")          return true;
+    if (e.recipient === "players_only") return !_isDealer;
+    return _myName && e.recipient.toLowerCase() === _myName.toLowerCase();
+  });
+  if (!relevant.length) return;
+
+  const totalSips = relevant.reduce((s, e) => s + e.sips, 0);
+  const firstReason = relevant[0].reason || "";
+
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+  const dt = document.getElementById("dealer-toast");
+  if (dt) dt.classList.remove("show");
+
+  // Short descriptive label: strip the verbose "=> X drinks N sip" suffix
+  const label = firstReason.replace(/\s*=>\s*.+$/, "").trim();
+  el.textContent = `🃏 ${label} — drink ${totalSips} sip${totalSips !== 1 ? "s" : ""}!`;
+  el.className   = "drink show";
+  if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
+    clearTimeout(_playerToastTimer);
+  }
+  setTimeout(() => el.classList.remove("show"), 5000);
+}
