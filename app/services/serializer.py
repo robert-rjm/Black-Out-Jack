@@ -315,7 +315,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
         "last_round_drinks":      session._last_round_drinks,
         "round_notices":          session._round_notices,
-        "prev_round_sips":        session._prev_round_sips,
+        "prev_round_sips":        {k: max(0, v) for k, v in session._prev_round_sips.items()},
         "prev_round_drinks":      session._prev_round_drinks,
         "dealer_role_sips":       compute_dealer_role_sips(session),
         "preselections":          session._preselections,
