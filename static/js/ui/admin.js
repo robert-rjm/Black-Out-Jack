@@ -368,15 +368,18 @@ function updateBustVoteUI(state) {
       statusEl.innerHTML = parts.join("<br>");
     }
   } else {
-    if (myBusters.length) {
-      const label = myBusters.length === 1
-        ? `💥 ${myBusters[0]} bet dealer busts`
-        : `💥 ${myBusters.join(" & ")} bet dealer busts`;
+    const allBusters = Object.entries(allVotes)
+      .filter(([, v]) => v === "bust")
+      .map(([n]) => n);
+    if (allBusters.length) {
+      const label = allBusters.length === 1
+        ? `💥 ${allBusters[0]} bet dealer busts`
+        : `💥 ${allBusters.join(" & ")} bet dealer busts`;
       statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">${label}</span>`;
     } else if (myVote === "pass") {
       statusEl.textContent = "You passed the bust bet.";
     } else {
-      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust` : "";
+      statusEl.textContent = "";
     }
   }
 }
