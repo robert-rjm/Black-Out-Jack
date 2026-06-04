@@ -35,6 +35,8 @@ def classify_rule(reason):
     if "won suited hand" in r:                 return "Suited winning hand"
     if "split hand" in r:                      return "Split win (immunity break)"
     if "swept all hands" in r:                 return "Other-player sweep"
+    if "all-hands sweep" in r:                 return "All-hands sweep"
+    if "auto-insurance" in r:                  return "Dealer BJ (auto-insurance)"
     if "Blackjack by" in r:                    return "Blackjack bonus"
     if "4 Aces" in r and "first deal" in r:   return "Four Aces (first deal)"
     if "4 Aces" in r and "end of round" in r:  return "Four Aces (end of round)"
