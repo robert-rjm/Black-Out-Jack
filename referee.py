@@ -441,6 +441,26 @@ class RefereeSession:
         dealer    = self._get_dealer()
         dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
 
+        # Insurance resolution — for hands marked insured via the INSURANCE button
+        if not hasattr(self, "_insurance_result") or self._insurance_result is None:
+            self._insurance_result = []
+        for p in players:
+            if p.is_dealer:
+                continue
+            for hand in p.hands:
+                if hand.is_blackjack() and getattr(hand, "insured", False):
+                    self.tracker.apply(
+                        DrinkingRules.resolve_insurance_vote(
+                            p.name, hand, self._all_names,
+                            insured=True, dealer_bj=dealer_bj,
+                            hard_switch_dealer=exempt_dealer))
+                    self._insurance_result.append({
+                        "player":    p.name,
+                        "insured":   True,
+                        "dealer_bj": dealer_bj,
+                        "group_won": dealer_bj,  # insure+BJ = group protected (won)
+                    })
+
         # All-hands sweep (same suit or all-21 across split hands)
         for p in players:
             if p.is_dealer:
