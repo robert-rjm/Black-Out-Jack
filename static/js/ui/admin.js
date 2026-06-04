@@ -56,7 +56,13 @@ function updateRoleUI(state) {
   const suggestText  = document.getElementById("suggest-text");
   const suggestPicker= document.getElementById("suggest-picker");
   const suggestToggle= document.getElementById("suggest-toggle-row");
+  const predealPanel = document.getElementById("dig-predeal-panel");
   const phase        = state.phase;
+
+  // Show waiting-room deal panel only in pre-deal for the dealer client
+  if (predealPanel) {
+    predealPanel.style.display = (phase === "pre-deal" && isMyDealerClient) ? "block" : "none";
+  }
   const turn         = state.current_turn;
   const presel       = state.preselections || {};
   const suggestions  = state.suggestions   || {};
