@@ -17,6 +17,25 @@ from app.services.serializer import hand_done, round_phase, current_turn
 
 
 # ---------------------------------------------------------------------------
+# Ace drink event helper
+
+def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
+    """Push a single ace drink message to the mid-round toast queue."""
+    if not hasattr(session, "_ace_drink_events"):
+        session._ace_drink_events = []
+    if not hasattr(session, "_ace_drink_seq"):
+        session._ace_drink_seq = 0
+    recipient, sips, reason = msg[0], msg[1], msg[2]
+    session._ace_drink_seq += 1
+    session._ace_drink_events.append({
+        "seq":       session._ace_drink_seq,
+        "recipient": recipient or "all",
+        "sips":      sips,
+        "reason":    reason,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Hand / player helpers
 # ---------------------------------------------------------------------------
 
@@ -79,6 +98,8 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                 session._deferred_hole_card_msgs.append(msg)
             else:
                 session.tracker.apply([msg])
+                if s and s > 0:
+                    _push_ace_drink_event(session, msg)
 
     return card
 
@@ -203,6 +224,9 @@ def dealer_turn(session: GameRoom) -> None:
     deferred = session._deferred_hole_card_msgs
     if deferred:
         session.tracker.apply(deferred)
+        for msg in deferred:
+            if len(msg) >= 2 and msg[1] and msg[1] > 0:
+                _push_ace_drink_event(session, msg)
         session._deferred_hole_card_msgs = []
 
     print(f"\n--- Dealer ({dealer.name}) reveals ---")
