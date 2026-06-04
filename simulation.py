@@ -37,6 +37,8 @@ def classify_rule(reason):
     if "swept all hands" in r:                 return "Other-player sweep"
     if "all-hands sweep" in r:                 return "All-hands sweep"
     if "auto-insurance" in r:                  return "Dealer BJ (auto-insurance)"
+    if "Insurance" in r and "dealer BJ" in r and "own bonus" in r: return "Insurance: BJ holder drinks own bonus"
+    if "Insurance" in r and "no dealer BJ" in r:                   return "Insurance: group drinks double BJ bonus"
     if "Blackjack by" in r:                    return "Blackjack bonus"
     if "4 Aces" in r and "first deal" in r:   return "Four Aces (first deal)"
     if "4 Aces" in r and "end of round" in r:  return "Four Aces (end of round)"

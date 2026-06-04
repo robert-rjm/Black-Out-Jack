@@ -754,13 +754,19 @@ function renderInsuranceVotePanel(state) {
       const norm2       = mult2 * wager2;
       const dbl2        = mult2 * 2 * wager2;
       const sip2        = n => `${n} sip${n !== 1 ? "s" : ""}`;
+      const allIn       = v.votes_cast != null && v.votes_needed != null
+                          && v.votes_cast >= v.votes_needed;
+      const statusLine  = allIn
+        ? `<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:4px">✓ All votes in — waiting for dealer to reveal</div>`
+        : `<div style="font-size:11px;color:var(--muted);margin-top:4px">⏳ Waiting for group to vote… (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})</div>`;
       div.innerHTML = `<div style="font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:4px">
-        ⏳ Insurance vote for your Blackjack (Hand ${v.hand_idx + 1}) in progress…
+        🃏 Insurance vote for your Blackjack (Hand ${v.hand_idx + 1})
       </div>
       <div style="font-size:11px;color:var(--muted);line-height:1.6">
-        If the group insures and dealer has BJ → you drink ${sip2(norm2)}, they're safe<br>
-        If the group insures and dealer has no BJ → they each drink ${sip2(dbl2)}
-      </div>`;
+        If group insures + dealer BJ → you drink ${sip2(norm2)}, they're safe<br>
+        If group insures + no dealer BJ → they each drink ${sip2(dbl2)}
+      </div>
+      ${statusLine}`;
     } else if (hasVoted) {
       const voteLabel  = myVote ? "INSURE" : "DECLINE";
       const voteColor  = myVote ? "var(--green)" : "var(--red)";

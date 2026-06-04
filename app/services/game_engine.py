@@ -291,6 +291,8 @@ def dealer_turn(session: GameRoom) -> None:
         insurance_votes = session._insurance_votes
         voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
 
+        if not hasattr(session, "_insurance_result") or session._insurance_result is None:
+            session._insurance_result = []
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack() and (p.name, i) in voted_keys:
@@ -306,6 +308,14 @@ def dealer_turn(session: GameRoom) -> None:
                             p.name, hand, all_names,
                             insured=insured, dealer_bj=dealer_bj,
                             hard_switch_dealer=exempt_dealer))
+                    # group_won: insure+BJ or decline+no BJ
+                    group_won = (insured and dealer_bj) or (not insured and not dealer_bj)
+                    session._insurance_result.append({
+                        "player":    p.name,
+                        "insured":   insured,
+                        "dealer_bj": dealer_bj,
+                        "group_won": group_won,
+                    })
                 elif hand.is_blackjack() and hand.result == "win":
                     session.tracker.apply(
                         DrinkingRules.on_blackjack(p.name, hand, all_names,
