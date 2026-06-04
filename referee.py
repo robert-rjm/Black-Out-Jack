@@ -403,7 +403,7 @@ class RefereeSession:
                                                dealer_name=exempt_dealer))
         self._pending_resolved = []
 
-        if hard_switch:
+        if hard_switch and not getattr(self, "_hard_switch_drinking_applied", False):
             protected         = self._ace_clubs_flag.get("protected", False)
             partial_protected = self._ace_clubs_flag.get("partial_protected", False)
             # Partial protection (player-hand A♣): exclude dealer's own hands
