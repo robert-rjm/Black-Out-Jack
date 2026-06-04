@@ -74,7 +74,7 @@ function showDealerToast() {
   _dealerToastTimer = setTimeout(() => {
     el.classList.remove("show");
     _dealerToastTimer = null;
-  }, 3500);
+  }, 10000);
 }
 
 // ============================================================
