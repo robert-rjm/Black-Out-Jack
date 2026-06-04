@@ -31,19 +31,19 @@
   position: fixed;
   top: max(64px, calc(env(safe-area-inset-top) + 64px));
   left: 50%;
-  transform: translateX(-50%) translateY(-16px);
+  transform: translateX(-50%) translateY(-20px);
   background: var(--yellow);
   color: #000;
-  font-size: 15px; font-weight: 800;
-  padding: 12px 22px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  font-size: 19px; font-weight: 900;
+  padding: 16px 32px;
+  border-radius: 16px;
+  box-shadow: 0 6px 32px rgba(0,0,0,.6);
   z-index: 900;
   opacity: 0;
   pointer-events: none;
   transition: opacity .25s ease, transform .25s ease;
   white-space: nowrap;
-  letter-spacing: .2px;
+  letter-spacing: .3px;
 }
 #dealer-toast.show {
   opacity: 1;
