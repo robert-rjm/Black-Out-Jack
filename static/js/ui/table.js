@@ -351,6 +351,7 @@ function applyState(state) {
   // Only downgrade to null if we have no role yet — prevents a stale poll from
   // clearing a valid role that was just set by a fresh /register response.
   const _prevDealer = isMyDealerClient;
+  const _prevDealerName = lastState ? (lastState.dealer || "") : "";
   if (state.my_role !== undefined) {
     if (state.my_role !== null) {
       myRole           = state.my_role;
@@ -364,8 +365,13 @@ function applyState(state) {
       isMyDealerClient = false;
     }
   }
-  // Show toast when dealer role is newly rotated to this client (skip initial load)
-  if (lastState !== null && !_prevDealer && isMyDealerClient) showDealerToast();
+  // Show toast when dealer role is newly rotated to this client.
+  // Use dealer name change rather than isMyDealerClient, since admin always
+  // has isMyDealerClient=true regardless of who the actual dealer is.
+  const newDealerName = state.dealer || "";
+  const iAmDealer = myNames.some(n => n.toLowerCase() === newDealerName.toLowerCase());
+  const wasDealer = myNames.some(n => n.toLowerCase() === _prevDealerName.toLowerCase());
+  if (lastState !== null && iAmDealer && !wasDealer) showDealerToast();
 
   // Detect a fresh deal: previous state had no cards, new state has cards.
   const prevPhase = lastState ? lastState.phase : null;
