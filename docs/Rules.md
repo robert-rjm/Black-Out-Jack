@@ -109,7 +109,7 @@ The Dealer does **not** peek at the hole card. The outcome is revealed at the en
 **Dealt to Dealer**
 | Card | Effect |
 |---|---|
-| ♣ Ace of Clubs | Dealer is exempt from drinking for a Hard Dealer Switch |
+| ♣ Ace of Clubs | Dealer drinks only half the Hard Dealer Switch penalty (rounded up). |
 | ♠ Ace of Spades | Odd card (1st, 3rd, ...) → Dealer drinks 1 sip. Even card (2nd, 4th, ...) → all Players drink 1 sip |
 | ♥ Ace of Hearts | All Players treat themselves to a sip (everyone drinks 1 sip) |
 | ♦ Ace of Diamonds | All Players except Dealer drink 1 sip |

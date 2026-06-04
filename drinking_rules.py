@@ -128,9 +128,9 @@ class DrinkingRules:
                     "dealer"))
         else:
             if s == Suit.CLUBS:
-                ace_clubs_flag["protected"] = True
+                ace_clubs_flag["half_protected"] = True
                 msgs.append((None, 0,
-                    f"A{s.symbol} dealt to dealer ({dealer_name}) => exempt from Hard Switch drinking"))
+                    f"A{s.symbol} dealt to dealer ({dealer_name}) => half Hard Switch protection (drinks ceil of total/2)"))
             elif s == Suit.SPADES:
                 if card_pos % 2 == 1:
                     msgs.append((dealer_name, 1,
@@ -498,7 +498,7 @@ class DrinkingRules:
 
     @staticmethod
     def on_hard_dealer_switch(dealer_name: str, winning_hands: list,
-                               protected: bool) -> list:
+                               protected: bool, half_protected: bool = False) -> list:
         """
         Called when the dealer loses ALL hands (push != loss).
         winning_hands: list of (player_name, Hand) tuples — caller is responsible
@@ -506,8 +506,10 @@ class DrinkingRules:
           applies (player-hand A♣: dealer exempt from own hands, drinks for all others).
         Dealer drinks per each winning hand type.
         protected=True (dealer-hand A♣): full protection — skips all drinking.
-        protected=False: drinks for every hand in winning_hands.
+        half_protected=True (dealer-hand A♠): drinks ceil(total/2) instead of full.
+        Full protection takes precedence over half protection.
         """
+        import math
         if protected:
             return [(None, 0,
                 f"Hard Switch triggered — A♣ protects {dealer_name} from drinking")]
@@ -531,6 +533,12 @@ class DrinkingRules:
             total += s
 
         detail = "; ".join(lines)
+        if half_protected and total > 0:
+            reduced = math.ceil(total / 2)
+            return [(dealer_name, reduced,
+                f"Hard Dealer Switch (A♣ half protection): {dealer_name} drinks {reduced} sip(s) "
+                f"(halved from {total}: {detail})",
+                "dealer")]
         return [(dealer_name, total,
             f"Hard Dealer Switch: {dealer_name} drinks {total} sip(s) ({detail})",
             "dealer")]

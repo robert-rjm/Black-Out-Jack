@@ -27,6 +27,7 @@ def classify_rule(reason):
     if "A♣" in r and "credit" in r:           return None
     if "protects" in r:                         return None
     if "exempt" in r:                           return None
+    if "Hard Dealer Switch (A♣ half protection)" in r: return "Hard Dealer Switch (half, A♣)"
     if "Hard Dealer Switch" in r:              return "Hard Dealer Switch"
     if "net loss" in r:                        return "Net hand losses"
     if "lost a doubled hand" in r:             return "Lost doubled hand"
