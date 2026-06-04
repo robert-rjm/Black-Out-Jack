@@ -309,6 +309,7 @@ def dealer_turn(session: GameRoom) -> None:
             session.tracker.apply(
                 DrinkingRules.on_hard_dealer_switch(
                     session.dealer_name, hs_for_penalty, protected))
+            session._hard_switch_drinking_applied = True
 
         # All-hands sweep
         for p in session.all_players:

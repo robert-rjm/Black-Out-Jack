@@ -371,6 +371,7 @@ def command():
                 else:
                     game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
                 game_session.switch_this_round = None
+                game_session._hard_switch_drinking_applied = False
                 # Clear shared log and peeked card for the new round
                 game_session._log_entries = []
                 game_session._log_version = game_session._log_version + 1
@@ -458,6 +459,7 @@ def command():
                 else:
                     game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
                 game_session.switch_this_round = None
+                game_session._hard_switch_drinking_applied = False
                 # Clear the shared log and peeked card for the new round
                 game_session._log_entries = []
                 game_session._log_version = game_session._log_version + 1
