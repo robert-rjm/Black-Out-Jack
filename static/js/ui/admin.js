@@ -366,6 +366,9 @@ function updateBustVoteUI(state) {
       if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.join(", ")} called it — -1 sip + give 1!</span>`);
       if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.join(", ")} wrong — +1 sip each</span>`);
       statusEl.innerHTML = parts.join("<br>");
+    } else {
+      // Result not yet available — re-render from current state to avoid stale text
+      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
     }
   } else {
     const allBusters = Object.entries(allVotes)
