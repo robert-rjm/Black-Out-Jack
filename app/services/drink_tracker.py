@@ -210,6 +210,9 @@ def harvest_drink_log(session: GameRoom) -> None:
                                           "reason": "-1 sip credit from dealer bust"})
                 elif "A♣ protection credit" in reason or ("A♣" in reason and "credit" in reason):
                     drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+                elif "Sweep cancels doubled-hand drink" in reason:
+                    drinks_detail.append({"name": p.name, "sips": sips,
+                                          "reason": "-1 sip: doubled-hand drink waived (covered by sweep)"})
             elif reason and "Hard Switch triggered" in reason:
                 notices.append(reason)
     session._last_round_drinks  = drinks_detail
