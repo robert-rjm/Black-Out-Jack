@@ -200,7 +200,7 @@ If every final hand a Player holds is **entirely one suit** or totals **exactly 
 
 > - Does not apply to Blackjack bonus or Aces.
 > - Triggers regardless of win or push or loss.
-> - Stacks with other rules
+> - Stacks with other rules, **except**: if the sweeping Player also won a doubled hand, the doubled-hand immunity drink (1 sip) is waived — the sweep already covers it.
 
 #### 3. Dealer suited hand:
 

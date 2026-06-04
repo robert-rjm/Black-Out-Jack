@@ -346,9 +346,19 @@ class DrinkingRules:
 
         others = [p for p in all_player_names
                   if p != player_name and p != dealer_name]
-        return [(p, sips,
+        msgs = [(p, sips,
                  f"{player_name} all-hands sweep ({reason}) => {p} drinks {sips} sip(s)")
                 for p in others]
+
+        # Cancel doubled-hand immunity drinks already applied in on_hand_resolved
+        # for each winning doubled hand — the sweep covers them.
+        for hand in player_hands:
+            if hand.result == "win" and hand.doubled and not hand.is_suited():
+                for p in others:
+                    msgs.append((p, -1,
+                        f"Sweep cancels doubled-hand drink for {p} (already covered by sweep)"))
+
+        return msgs
 
     # ---------------------------------------------------------------- dealer 21 with 5+ cards
 
