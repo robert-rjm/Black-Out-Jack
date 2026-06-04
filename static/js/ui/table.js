@@ -382,14 +382,12 @@ function applyState(state) {
     _animToggleOn()
   );
 
-  // Update last-round and prev-round sips/drinks whenever the server provides them.
-  if (state.last_round_sips && Object.keys(state.last_round_sips).length) {
-    _lastRoundSips = state.last_round_sips;
-  }
-  if (state.last_round_drinks && state.last_round_drinks.length) {
-    _lastRoundDrinks = state.last_round_drinks;
-  }
-  if (state.prev_round_sips !== undefined) _prevRoundSips  = state.prev_round_sips  || {};
+  // Always sync last/prev round data from server so both variables stay in lockstep.
+  // Do NOT gate _lastRoundSips on being non-empty — that desynchronises it from
+  // _prevRoundSips and makes the diff compare different rounds.
+  if (state.last_round_sips !== undefined)  _lastRoundSips  = state.last_round_sips  || {};
+  if (state.last_round_drinks !== undefined) _lastRoundDrinks = state.last_round_drinks || [];
+  if (state.prev_round_sips !== undefined)  _prevRoundSips  = state.prev_round_sips  || {};
   if (state.prev_round_drinks !== undefined) _prevRoundDrinks = state.prev_round_drinks || [];
 
   // Player drink toast — fires once on round-over transition for registered players
