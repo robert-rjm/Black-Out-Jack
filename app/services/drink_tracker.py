@@ -35,6 +35,7 @@ def classify_rule(reason: str) -> str | None:
     if "Bust vote" in r and "wrong" in r:      return "Bust vote wrong call"
     if "Insurance" in r and "dealer BJ" in r and "own bonus" in r: return "Insurance: BJ holder drinks own bonus"
     if "Insurance" in r and "no dealer BJ" in r:                   return "Insurance: group drinks double BJ bonus"
+    if "Hard Dealer Switch (A♣ half protection)" in r: return "Hard Dealer Switch (half, A♣)"
     if "Hard Dealer Switch" in r:              return "Hard Dealer Switch"
     if "net loss" in r:                        return "Net hand losses"
     if "lost a doubled hand" in r:             return "Lost doubled hand"
