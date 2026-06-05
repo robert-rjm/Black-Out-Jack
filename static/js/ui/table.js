@@ -698,136 +698,145 @@ function activateDigTab(name) {
   if (pane) pane.classList.add("active");
 }
 
+// ── Insurance Vote Modal ──────────────────────────────────────────────────
+
+let _insuranceTimerID   = null;
+let _insuranceModalKey  = null;
+
 function updateInsuranceVisibility(state) {
   const row = document.getElementById("dig-insurance-row");
-  if (!row) return;
-  const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
-  const dealerShowsAce = upCard && upCard.rank === "A";
-
-  // Only show if the current player's active hand is a blackjack
-  let activeHandIsBlackjack = false;
-  if (state.phase === "playing" && state.current_turn && myName &&
-      state.current_turn.toLowerCase() === myName.toLowerCase()) {
-    const me = (state.table || []).find(p => p.name.toLowerCase() === myName.toLowerCase());
-    if (me) {
-      const activeHand = (me.hands || []).find(h => !h.done);
-      if (activeHand) activeHandIsBlackjack = activeHand.blackjack;
+  if (row) {
+    const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
+    const dealerShowsAce = upCard && upCard.rank === "A";
+    let activeHandIsBlackjack = false;
+    if (state.phase === "playing" && state.current_turn && myName &&
+        state.current_turn.toLowerCase() === myName.toLowerCase()) {
+      const me = (state.table || []).find(p => p.name.toLowerCase() === myName.toLowerCase());
+      if (me) {
+        const activeHand = (me.hands || []).find(h => !h.done);
+        if (activeHand) activeHandIsBlackjack = activeHand.blackjack;
+      }
     }
+    const hasVoteForMyHand = activeHandIsBlackjack && (state.insurance_votes || []).some(v =>
+      !v.resolved && v.bj_player.toLowerCase() === (myName || "").toLowerCase()
+    );
+    row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "block" : "none";
   }
-
-  // Hide the individual button when the vote system already has an entry for this hand
-  // (the vote panel handles it instead)
-  const hasVoteForMyHand = activeHandIsBlackjack && (state.insurance_votes || []).some(v =>
-    !v.resolved && v.bj_player.toLowerCase() === (myName || "").toLowerCase()
-  );
-
-  row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "block" : "none";
-  renderInsuranceVotePanel(state);
+  renderInsuranceModal(state);
 }
 
-function renderInsuranceVotePanel(state) {
-  const panel   = document.getElementById("insurance-vote-panel");
-  const content = document.getElementById("insurance-vote-content");
-  if (!panel || !content) return;
+function renderInsuranceModal(state) {
+  const overlay = document.getElementById("insurance-modal-overlay");
+  if (!overlay) return;
 
   const openVotes = (state.insurance_votes || []).filter(v => !v.resolved);
-  if (!openVotes.length) { panel.style.display = "none"; return; }
-  panel.style.display = "block";
-  content.innerHTML   = "";
 
-  openVotes.forEach(v => {
-    const iAmBJHolder = myName && v.bj_player.toLowerCase() === myName.toLowerCase();
-    const myVote      = v.my_vote;   // null = not voted yet, true/false = voted
-    const hasVoted    = myVote !== null && myVote !== undefined;
+  if (!openVotes.length) {
+    _closeInsuranceModal();
+    _renderInsuranceBanner(null);
+    return;
+  }
 
-    const div = document.createElement("div");
-    div.style.marginBottom = "4px";
+  const v   = openVotes[0];
+  const key = `${v.bj_player}:${v.hand_idx}`;
 
-    if (iAmBJHolder) {
-      const wager2      = (state && state.wager) || 1;
-      const myEntry     = (state && state.table || []).find(
-        p => p.name.toLowerCase() === v.bj_player.toLowerCase());
-      const myBjHand    = myEntry && myEntry.hands[v.hand_idx];
-      const mult2       = myBjHand ? bjMultiplier(myBjHand.cards) : 1;
-      const norm2       = mult2 * wager2;
-      const dbl2        = mult2 * 2 * wager2;
-      const sip2        = n => `${n} sip${n !== 1 ? "s" : ""}`;
-      const allIn       = v.votes_cast != null && v.votes_needed != null
-                          && v.votes_cast >= v.votes_needed;
-      const statusLine  = allIn
-        ? `<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:4px">✓ All votes in — waiting for dealer to reveal</div>`
-        : `<div style="font-size:11px;color:var(--muted);margin-top:4px">⏳ Waiting for group to vote… (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})</div>`;
-      div.innerHTML = `<div style="font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:4px">
-        🃏 Insurance vote for your Blackjack (Hand ${v.hand_idx + 1})
-      </div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.6">
-        If group insures + dealer BJ → you drink ${sip2(norm2)}, they're safe<br>
-        If group insures + no dealer BJ → they each drink ${sip2(dbl2)}
-      </div>
-      ${statusLine}`;
-    } else if (hasVoted) {
-      const voteLabel  = myVote ? "INSURE" : "DECLINE";
-      const voteColor  = myVote ? "var(--green)" : "var(--red)";
-      const allIn      = (v.votes_cast != null && v.votes_needed != null
-                          && v.votes_cast >= v.votes_needed);
-      const waitingMsg = allIn
-        ? "All votes in — waiting for dealer to reveal"
-        : "Waiting for others…";
-      div.innerHTML = `<div style="font-size:12px;color:var(--muted)">
-        Your vote on ${escapeHtml(v.bj_player)} H${v.hand_idx + 1}:
-        <strong style="color:${voteColor}">${voteLabel}</strong> — ${waitingMsg}
-      </div>`;
-    } else {
-      // Use data attributes so player name never appears in an onclick string
-      const insureBtn  = document.createElement("button");
-      insureBtn.className = "btn green wide";
-      insureBtn.textContent = "INSURE";
-      insureBtn.dataset.bjPlayer = v.bj_player;
-      insureBtn.dataset.handIdx  = v.hand_idx;
-      insureBtn.addEventListener("click", function() {
-        castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), true);
-      });
-      const declineBtn = document.createElement("button");
-      declineBtn.className = "btn red wide";
-      declineBtn.textContent = "DECLINE";
-      declineBtn.dataset.bjPlayer = v.bj_player;
-      declineBtn.dataset.handIdx  = v.hand_idx;
-      declineBtn.addEventListener("click", function() {
-        castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), false);
-      });
-      const btnRow = document.createElement("div");
-      btnRow.className = "btn-row";
-      btnRow.style.marginBottom = "0";
-      btnRow.appendChild(insureBtn);
-      btnRow.appendChild(declineBtn);
+  if (_insuranceModalKey !== key) {
+    _insuranceModalKey = key;
+    overlay.classList.add("open");
+  }
 
-      // Compute actual sip counts from card data already in state.table
-      const wager       = (state && state.wager) || 1;
-      const playerEntry = (state && state.table || []).find(
-        p => p.name.toLowerCase() === v.bj_player.toLowerCase());
-      const bjHand      = playerEntry && playerEntry.hands[v.hand_idx];
-      const mult        = bjHand ? bjMultiplier(bjHand.cards) : 1;
-      const normalSips  = mult * wager;
-      const doubleSips  = mult * 2 * wager;
-      const sip         = n => `${n} sip${n !== 1 ? "s" : ""}`;
+  const allIn = (v.votes_cast != null && v.votes_needed != null && v.votes_cast >= v.votes_needed);
+  if (allIn) {
+    _closeInsuranceModal();
+    _renderInsuranceBanner(v);
+    return;
+  }
 
-      const label = document.createElement("div");
-      label.style.cssText = "font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:6px";
-      label.textContent = `Insure ${escapeHtml(v.bj_player)}'s Blackjack? (Hand ${v.hand_idx + 1})`;
+  const iAmBJHolder = myName && v.bj_player.toLowerCase() === myName.toLowerCase();
+  const myVote      = v.my_vote;
+  const hasVoted    = myVote !== null && myVote !== undefined;
 
-      const stakes = document.createElement("div");
-      stakes.style.cssText = "font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.6";
-      stakes.innerHTML =
-        `<span style="color:var(--green)">INSURE + dealer BJ:</span> group safe · ${escapeHtml(v.bj_player)} drinks ${sip(normalSips)}<br>` +
-        `<span style="color:var(--red)">INSURE + no dealer BJ:</span> group drinks <strong>${sip(doubleSips)} each</strong><br>` +
-        `<span style="color:var(--muted)">DECLINE:</span> normal BJ bonus of ${sip(normalSips)} each &nbsp;·&nbsp; tie or no vote = decline`;
+  const titleEl = document.getElementById("insurance-modal-title");
+  const subEl   = document.getElementById("insurance-modal-sub");
+  if (titleEl) titleEl.textContent = `Insurance Vote — ${escapeHtml(v.bj_player)} H${v.hand_idx + 1}`;
+  if (subEl)   subEl.textContent   = iAmBJHolder
+    ? "The group is voting whether to insure your Blackjack."
+    : `${escapeHtml(v.bj_player)} has Blackjack. Vote to insure?`;
 
-      div.appendChild(label);
-      div.appendChild(stakes);
-      div.appendChild(btnRow);
-    }
-    content.appendChild(div);
-  });
+  const stakesEl = document.getElementById("insurance-modal-stakes");
+  if (stakesEl) {
+    const wager    = (state && state.wager) || 1;
+    const entry    = (state.table || []).find(p => p.name.toLowerCase() === v.bj_player.toLowerCase());
+    const bjHand   = entry && entry.hands[v.hand_idx];
+    const mult     = bjHand ? bjMultiplier(bjHand.cards) : 1;
+    const normSips = mult * wager;
+    const dblSips  = mult * 2 * wager;
+    const sip      = n => `${n} sip${n !== 1 ? "s" : ""}`;
+    stakesEl.innerHTML =
+      `<span style="color:var(--green)">✓ INSURE + dealer BJ:</span> group safe · <strong>${escapeHtml(v.bj_player)}</strong> drinks ${sip(normSips)}<br>` +
+      `<span style="color:var(--red)">✗ INSURE + no dealer BJ:</span> group drinks <strong>${sip(dblSips)} each</strong><br>` +
+      `<span style="color:var(--muted)">DECLINE:</span> normal BJ bonus of ${sip(normSips)} each · tie = decline`;
+  }
+
+  const btnsEl   = document.getElementById("insurance-modal-btns");
+  const statusEl = document.getElementById("insurance-modal-status");
+  if (btnsEl) btnsEl.innerHTML = "";
+  if (!iAmBJHolder && !hasVoted) {
+    const ins = document.createElement("button");
+    ins.className = "btn green wide";
+    ins.textContent = "INSURE";
+    ins.dataset.bjPlayer = v.bj_player;
+    ins.dataset.handIdx  = v.hand_idx;
+    ins.addEventListener("click", function() {
+      castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), true);
+    });
+    const dec = document.createElement("button");
+    dec.className = "btn red wide";
+    dec.textContent = "DECLINE";
+    dec.dataset.bjPlayer = v.bj_player;
+    dec.dataset.handIdx  = v.hand_idx;
+    dec.addEventListener("click", function() {
+      castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), false);
+    });
+    if (btnsEl) { btnsEl.appendChild(ins); btnsEl.appendChild(dec); }
+    if (statusEl) statusEl.textContent = `(${v.votes_cast ?? 0}/${v.votes_needed ?? "?"} voted)`;
+  } else if (!iAmBJHolder && hasVoted) {
+    const label = myVote ? "INSURE" : "DECLINE";
+    const color = myVote ? "var(--green)" : "var(--red)";
+    if (statusEl) statusEl.innerHTML =
+      `Your vote: <strong style="color:${color}">${label}</strong> · waiting for dealer to reveal (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})`;
+  } else {
+    if (statusEl) statusEl.innerHTML =
+      `<span style="color:var(--muted)">⏳ Waiting for group to vote… (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})</span>`;
+  }
+
+  const timerEl = document.getElementById("insurance-modal-timer");
+  if (timerEl) {
+    const s = v.seconds_left ?? 0;
+    timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up — auto-declining…";
+    timerEl.style.color = s <= 10 ? "var(--red)" : "var(--muted)";
+  }
+}
+
+function _closeInsuranceModal() {
+  const overlay = document.getElementById("insurance-modal-overlay");
+  if (overlay) overlay.classList.remove("open");
+  _insuranceModalKey = null;
+}
+
+function _renderInsuranceBanner(v) {
+  const banner  = document.getElementById("insurance-vote-banner");
+  const content = document.getElementById("insurance-vote-banner-content");
+  if (!banner || !content) return;
+  if (!v) { banner.style.display = "none"; content.innerHTML = ""; return; }
+  const insureCount  = v.insure_count ?? 0;
+  const declineCount = (v.votes_cast ?? 0) - insureCount;
+  const voteLabel    = insureCount > declineCount ? "INSURE" : "DECLINE";
+  const color        = voteLabel === "INSURE" ? "var(--green)" : "var(--red)";
+  content.innerHTML  =
+    `🃏 Insurance vote closed — <strong style="color:${color}">${voteLabel}</strong> ` +
+    `(${insureCount} insure / ${declineCount} decline) · waiting for dealer to reveal`;
+  banner.style.display = "block";
 }
 
 async function castInsuranceVote(bjPlayer, handIdx, vote) {
@@ -847,6 +856,7 @@ async function castInsuranceVote(bjPlayer, handIdx, vote) {
     appendLog("  Insurance vote failed: network error\n");
   }
 }
+
 
 // ── Milestone: 50-sip handout feature ───────────────────────────────────────
 

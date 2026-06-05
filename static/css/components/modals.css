@@ -233,3 +233,51 @@
   letter-spacing: .3px;
 }
 .ms-ack-btn:active { opacity: .8; }
+
+/* ── Insurance vote modal ── */
+#insurance-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 910;
+  align-items: center; justify-content: center;
+}
+#insurance-modal-overlay.open { display: flex; }
+#insurance-modal {
+  background: var(--surface);
+  border: 1.5px solid var(--yellow);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  width: min(340px, 92vw);
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+.insurance-modal-header { text-align: center; margin-bottom: 14px; }
+.insurance-modal-emoji  { font-size: 32px; margin-bottom: 4px; }
+.insurance-modal-title  { font-size: 17px; font-weight: 800; color: var(--yellow); }
+.insurance-modal-sub    { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.insurance-modal-stakes {
+  font-size: 12px; color: var(--muted); line-height: 1.7;
+  background: rgba(255,255,255,.04);
+  border-radius: 8px; padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.insurance-modal-stakes strong { color: var(--text); }
+.insurance-modal-status {
+  font-size: 12px; color: var(--muted);
+  text-align: center; margin-top: 10px;
+  min-height: 18px;
+}
+.insurance-modal-timer {
+  font-size: 11px; color: var(--muted);
+  text-align: center; margin-top: 6px;
+  opacity: .7;
+}
+.insurance-vote-banner {
+  margin: 6px 0 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(245,200,66,.1);
+  border: 1px solid rgba(245,200,66,.3);
+  font-size: 12px; color: var(--muted);
+}
