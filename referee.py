@@ -138,6 +138,9 @@ class RefereeSession:
 
     def start_round(self):
         self.round_count += 1
+        # Rebuild index to pick up any players added after __init__
+        self._player_map = {p.name.lower(): p for p in self.all_players}
+        self._all_names  = [p.name for p in self.all_players]
         print(f"\n{'='*52}")
         print(f"  ROUND {self.round_count}  |  Dealer: {self.dealer_name}")
         print("="*52)
