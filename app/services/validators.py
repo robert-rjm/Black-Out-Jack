@@ -52,7 +52,8 @@ def get_client_info(session, client_id: str) -> dict:
     name        = info.get("name")
     local_names = info.get("local_names") or ([name] if name else [])
     god_mode    = session._god_mode
-    is_dealer   = bool(name and name.lower() == session.dealer_name.lower()) or (role == "admin" and god_mode)
+    dealer_low  = session.dealer_name.lower()
+    is_dealer   = (dealer_low in {(n or "").lower() for n in local_names}) or (role == "admin" and god_mode)
     return {"role": role, "name": name, "local_names": local_names, "is_dealer": is_dealer}
 
 
