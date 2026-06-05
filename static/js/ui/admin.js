@@ -56,12 +56,18 @@ function updateRoleUI(state) {
   const suggestText  = document.getElementById("suggest-text");
   const suggestPicker= document.getElementById("suggest-picker");
   const suggestToggle= document.getElementById("suggest-toggle-row");
-  const predealPanel = document.getElementById("dig-predeal-panel");
-  const phase        = state.phase;
+  const predealPanel   = document.getElementById("dig-predeal-panel");
+  const playContent    = document.getElementById("dig-play-content");
+  const phase          = state.phase;
+  const isPreDeal      = phase === "pre-deal";
 
-  // Show waiting-room deal panel only in pre-deal for the dealer client
+  // Waiting-room deal panel: above tabs, dealer only
   if (predealPanel) {
-    predealPanel.style.display = (phase === "pre-deal" && isMyDealerClient) ? "block" : "none";
+    predealPanel.style.display = (isPreDeal && isMyDealerClient) ? "block" : "none";
+  }
+  // Hide all play actions until cards are on the table
+  if (playContent) {
+    playContent.style.display = isPreDeal ? "none" : "block";
   }
   const turn         = state.current_turn;
   const presel       = state.preselections || {};
