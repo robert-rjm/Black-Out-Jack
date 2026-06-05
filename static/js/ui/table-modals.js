@@ -1,10 +1,3 @@
-// Milestone state
-let _lastMilestoneResultKey = null;
-let _lastMilestoneKey       = null;
-let _milestoneAllocations   = {};
-let _milestoneModalOpened   = null;
-let _milestoneTimerID       = null;
-
 let _insuranceTimerID   = null;
 let _insuranceModalKey  = null;
 
