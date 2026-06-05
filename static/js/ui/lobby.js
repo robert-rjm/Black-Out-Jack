@@ -96,6 +96,10 @@ async function cancelSetup() {
 
 function backToLobby() {
   stopPolling();
+  if (roomCode) {
+    const blob = new Blob([JSON.stringify({ room_code: roomCode, client_id: clientId })], { type: "application/json" });
+    navigator.sendBeacon("/leave_room", blob);
+  }
   roomCode = "";
   lsRemove("bjRoomCode");
   document.getElementById("waiting").style.display = "none";

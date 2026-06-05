@@ -369,8 +369,13 @@ function applyState(state) {
       myName           = state.my_name   || null;
       myNames          = state.my_names  || (myName ? [myName] : []);
       isMyDealerClient = state.is_dealer_client || false;
-      // Initialise myActiveName on first registration
-      if (!myActiveName && myName) myActiveName = myName;
+      // Initialise myActiveName on first registration, or reset if the
+      // active name is no longer in myNames (e.g. after admin transfer)
+      if (!myActiveName && myName) {
+        myActiveName = myName;
+      } else if (myActiveName && myNames.length > 0 && !myNames.some(n => n.toLowerCase() === myActiveName.toLowerCase())) {
+        myActiveName = myName;
+      }
     } else if (!myRole) {
       myRole           = null;
       myName           = null;

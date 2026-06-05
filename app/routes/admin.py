@@ -7,6 +7,7 @@ POST /kick             — Admin removes a client
 POST /undo_kick        — Admin reinstates a kicked client as spectator
 POST /make_bot         — Admin converts a player to an NPC bot
 POST /transfer_admin   — Admin hands admin role to another connected player
+POST /leave_room       — Client leaves; admin role auto-transferred if needed
 POST /set_anim_pref    — Admin pushes animation preference to joiners
 POST /vote_kick        — Player casts/retracts a vote-kick
 POST /request_rejoin   — Spectator asks admin to re-seat them
@@ -201,6 +202,66 @@ def transfer_admin():
         new_admin_info["local_names"] = merged
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Leave room (with auto admin transfer)
+# ---------------------------------------------------------------------------
+
+def _auto_transfer_admin(session, leaving_client_id: str) -> None:
+    """Promote the first eligible player to admin when the current admin leaves."""
+    clients = session._room_clients
+    # Prefer players with a seat, then spectators; skip kicked/pending/denied
+    ELIGIBLE = ("player", "spectator")
+    candidate = next(
+        (cid for cid, info in clients.items()
+         if cid != leaving_client_id
+         and info.get("role") in ELIGIBLE
+         and not info.get("kicked")),
+        None,
+    )
+    if not candidate:
+        return
+    leaving_info   = clients[leaving_client_id]
+    old_local      = leaving_info.get("local_names") or []
+    new_info       = clients[candidate]
+    new_info["role"] = "admin"
+    # Transfer local_names (seats the admin was controlling) to the new admin
+    new_name = (new_info.get("name") or "").lower()
+    to_transfer = [n for n in old_local if n.lower() != new_name]
+    if to_transfer:
+        existing = new_info.get("local_names") or (
+            [new_info["name"]] if new_info.get("name") else []
+        )
+        new_info["local_names"] = existing + [n for n in to_transfer if n not in existing]
+
+
+@bp.route("/leave_room", methods=["POST"])
+def leave_room():
+    """Client cleanly leaves the room.
+    If they were admin, the role is auto-transferred to another player.
+    Body: { room_code, client_id }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": True})   # room already gone, nothing to do
+
+    clients = session._room_clients
+    info    = clients.get(client_id, {})
+
+    if info.get("role") == "admin":
+        _auto_transfer_admin(session, client_id)
+
+    # Remove the leaving client entirely
+    clients.pop(client_id, None)
+    # Clean up any pending registration requests from this client
+    session._pending_registrations = [
+        r for r in session._pending_registrations if r["client_id"] != client_id
+    ]
+    return jsonify({"ok": True})
 
 
 # ---------------------------------------------------------------------------
