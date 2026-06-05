@@ -115,6 +115,7 @@ def export_csv():
     w.writerow(["Drinking Blackjack — Session Summary"])
     w.writerow(["Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
     w.writerow(["Rounds completed", num_rounds])
+    w.writerow(["Players"] + players_seen)
     w.writerow([])
 
     # Milestone winners — who crossed each 50-sip threshold first
@@ -130,41 +131,31 @@ def export_csv():
         pt = sum(player_sips[name].values())
         dt = sum(dealer_sips[name].values())
         gt = pt + dt
-        w.writerow([
-            f"{name}",
-            f"total sips: {gt}",
-            f"as player: {pt}",
-            f"as dealer: {dt}",
-            f"sips/round: {gt/num_rounds:.2f}",
-        ])
         # Hand outcome stats
+        w.writerow([name])
         hs = hand_stats.get(name)
-        if hs and hs["hands"]:
-            h = hs["hands"]
-            row_data = [
-                f"Hands: {h}",
-                f"Won: {hs['wins']} ({_pct(hs['wins'], h)})",
-                f"Lost: {hs['losses']} ({_pct(hs['losses'], h)})",
-                f"Push: {hs['pushes']} ({_pct(hs['pushes'], h)})",
-            ]
-            if hs["split_hands"]:
-                row_data.append(
-                    f"Splits won: {hs['split_wins']} of {hs['split_hands']}"
-                    f" ({_pct(hs['split_wins'], hs['split_hands'])})")
-            if hs["double_hands"]:
-                row_data.append(
-                    f"Doubles won: {hs['double_wins']} of {hs['double_hands']}"
-                    f" ({_pct(hs['double_wins'], hs['double_hands'])})")
-            w.writerow(row_data)
+        h  = hs["hands"] if hs else 0
+        w.writerow([f"Total sips: {gt}",    f"Won: {hs['wins']} ({_pct(hs['wins'], h)})" if h else ""])
+        w.writerow([f"As player: {pt}",     f"Lost: {hs['losses']} ({_pct(hs['losses'], h)})" if h else ""])
+        w.writerow([f"As dealer: {dt}",     f"Push: {hs['pushes']} ({_pct(hs['pushes'], h)})" if h else ""])
+        w.writerow([
+            f"Sips/round: {gt/num_rounds:.2f}",
+            f"Splits won: {hs['split_wins']} of {hs['split_hands']} ({_pct(hs['split_wins'], hs['split_hands'])})" if h and hs["split_hands"] else ""
+        ])
+        w.writerow([
+            f"Hands: {h}" if h else "Hands: 0",
+            f"Doubles won: {hs['double_wins']} of {hs['double_hands']} ({_pct(hs['double_wins'], hs['double_hands'])})" if h and hs["double_hands"] else ""
+        ])
         w.writerow(["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
-        for rule in all_rules:
-            ps    = player_sips[name].get(rule, 0)
-            ds    = dealer_sips[name].get(rule, 0)
-            total = ps + ds
+        player_rules = [(rule, player_sips[name].get(rule, 0) + dealer_sips[name].get(rule, 0)) for rule in all_rules]
+        for rule, total in sorted(player_rules, key=lambda x: -x[1]):
             if total == 0:
                 continue
+            ps  = player_sips[name].get(rule, 0)
+            ds  = dealer_sips[name].get(rule, 0)
             pct = f"{total/gt*100:.1f}%" if gt else "—"
             w.writerow([rule, ps, ds, total, f"{total/num_rounds:.2f}", pct])
+        w.writerow(["TOTAL", pt, dt, gt, f"{gt/num_rounds:.2f}", "100%"])
         w.writerow([])
 
     # Grand totals table
