@@ -839,7 +839,6 @@ function _renderInsuranceBanner(v) {
   banner.style.display = "block";
 }
 
-
 async function castInsuranceVote(bjPlayer, handIdx, vote) {
   try {
     const res  = await fetch("/vote_insurance", {
@@ -857,6 +856,7 @@ async function castInsuranceVote(bjPlayer, handIdx, vote) {
     appendLog("  Insurance vote failed: network error\n");
   }
 }
+
 
 // ── Milestone: 50-sip handout feature ───────────────────────────────────────
 
@@ -1283,4 +1283,3 @@ function applyTurnGate(state) {
 }
 
 // ============================================================
-                                                                                                                                                                                                                                                        
