@@ -12,7 +12,7 @@ from datetime import datetime
 _buf = io.StringIO()
 with contextlib.redirect_stdout(_buf):
     from blackjack import NPC_Player, Shoe, RoundManager
-    from drinking_rules import DrinkTracker
+    from drinking_rules import DrinkTracker, classify_rule
 
 NUM_ROUNDS   = 10000
 PLAYER_NAMES = ["Alice", "Bob", "Charlie"]
@@ -22,39 +22,7 @@ NUM_DECKS    = 2
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
-def classify_rule(reason):
-    r = reason
-    if "A♣" in r and "credit" in r:           return None
-    if "protects" in r:                         return None
-    if "exempt" in r:                           return None
-    if "Hard Dealer Switch (A♣ half protection)" in r: return "Hard Dealer Switch (half, A♣)"
-    if "Hard Dealer Switch" in r:              return "Hard Dealer Switch"
-    if "net loss" in r:                        return "Net hand losses"
-    if "lost a doubled hand" in r:             return "Lost doubled hand"
-    if "lost a suited hand" in r:              return "Lost suited hand"
-    if "immunity exception" in r:              return "Doubled win (immunity break)"
-    if "won suited hand" in r:                 return "Suited winning hand"
-    if "split hand" in r:                      return "Split win (immunity break)"
-    if "swept all hands" in r:                 return "Other-player sweep"
-    if "all-hands sweep" in r:                 return "All-hands sweep"
-    if "auto-insurance" in r:                  return "Dealer BJ (auto-insurance)"
-    if "Insurance" in r and "dealer BJ" in r and "own bonus" in r: return "Insurance: BJ holder drinks own bonus"
-    if "Insurance" in r and "no dealer BJ" in r:                   return "Insurance: group drinks double BJ bonus"
-    if "Blackjack by" in r:                    return "Blackjack bonus"
-    if "4 Aces" in r and "first deal" in r:   return "Four Aces (first deal)"
-    if "4 Aces" in r and "end of round" in r:  return "Four Aces (end of round)"
-    if "Dealer hand is all" in r:              return "Dealer suited hand"
-    if "handed" in r and "5-card 21" in r:    return "5-card 21 handout received"
-    if "won with" in r and "cards" in r:       return "5+ card win"
-    if "A♠" in r and "to dealer" in r:   return "Ace dealt: A♠ (dealer hand)"
-    if "A♥" in r and "dealer" in r:       return "Ace dealt: A♥ (dealer hand)"
-    if "A♦" in r and "dealer" in r:       return "Ace dealt: A♦ (dealer hand)"
-    if "A♠" in r:                         return "Ace dealt: A♠ (player hand)"
-    if "A♥" in r:                         return "Ace dealt: A♥ (player hand)"
-    if "A♦" in r:                         return "Ace dealt: A♦ (player hand)"
-    return "Other"
-
-
+# classify_rule imported from drinking_rules
 def run_simulation():
     shoe = Shoe(NUM_DECKS)
     with contextlib.redirect_stdout(io.StringIO()):
@@ -185,14 +153,4 @@ if __name__ == "__main__":
     player_sips, dealer_sips, event_log = run_simulation()
 
     print("\nDone. Writing output files...")
-    write_summary(player_sips, dealer_sips, os.path.join(HERE, "simulation_results.txt"))
-    write_csv(event_log,                    os.path.join(HERE, "simulation_log.csv"))
-
-    print("\n  GRAND TOTALS")
-    print("  " + "-" * 40)
-    for name in PLAYER_NAMES:
-        pt = sum(player_sips[name].values())
-        dt = sum(dealer_sips[name].values())
-        print(f"  {name:<12} {(pt+dt)/NUM_ROUNDS:>5.2f} sips/round"
-              f"  (player: {pt/NUM_ROUNDS:.2f}, dealer: {dt/NUM_ROUNDS:.2f})")
-    print()
+    write_summary(player_sips, deale

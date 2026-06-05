@@ -11,6 +11,7 @@ per-client fields (my_role, is_dealer_client, etc.) can be included.
 import time
 
 from blackjack import Hand, NPC_Player
+from drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
@@ -121,6 +122,7 @@ def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
         "insured":    hand.insured,
         "result":     None if is_hidden_double else hand.result,
         "blackjack":  bool(hand.cards) and hand.is_blackjack(),
+        "bj_mult":    _bj_multiplier(hand),
         "done":       hand_done(hand),
         "can_split":  hand.can_split(),
     }
@@ -342,6 +344,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "bust_vote_enabled":      session.bust_vote_enabled,
         "god_mode_enabled":       getattr(session, "_god_mode", False),
         "god_mode_enabled":       getattr(session, "_god_mode", False),
+        "god_mode_enabled":       getattr(session, "_god_mode", False),
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
@@ -385,6 +388,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             }
         ),
         "queued_settings":        session._queued_settings,
+        "num_decks":              getattr(getattr(session, "shoe", None), "num_decks", 1),
         "num_decks":              getattr(getattr(session, "shoe", None), "num_decks", 1),
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
