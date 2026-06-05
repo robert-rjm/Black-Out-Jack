@@ -272,7 +272,9 @@ Rule ideas are especially welcome — if it made the game more fun, it probably 
 
 ## License
 
-This project is licensed under the CC BY-NC-SA 4.0 License, please see the [LICENSE](LICENSE) file for details.
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+This project is licensed under CC BY-NC-SA 4.0. See [LICENSE](LICENSE) for details.
 
 ## Credits
 
