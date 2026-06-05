@@ -29,6 +29,7 @@ let myRole           = null;  // "admin" | "player" | "spectator" | "kicked" | n
 let myName           = null;  // registered player name or null
 let myNames          = [];    // all local player names (local multiplayer)
 let isMyDealerClient = false; // true when this client can execute game commands
+let myActiveName     = null;  // the local seat currently acting (auto-switches by turn)
 
 // Shared log sync — tracks which server-side log entries have been displayed
 let logCount   = 0;

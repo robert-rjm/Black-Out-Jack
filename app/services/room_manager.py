@@ -100,7 +100,11 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
         if not any(p.name == name for p in session.all_players):
             p           = NPC_Player(name) if is_npc else Player(name)
             p.is_dealer = False
-            session.all_players.append(p)
+            # Insert just before the dealer so the new seat appears in the
+            # correct visual position (dealer's right) rather than at the end.
+            players    = session.all_players
+            dealer_idx = next((i for i, pl in enumerate(players) if pl.is_dealer), len(players))
+            players.insert(dealer_idx, p)
             changes.append(f"Added {'bot' if is_npc else 'player'} {name}")
             # Non-bot new players are local by default
             if not is_npc:

@@ -56,12 +56,18 @@ function updateRoleUI(state) {
   const suggestText  = document.getElementById("suggest-text");
   const suggestPicker= document.getElementById("suggest-picker");
   const suggestToggle= document.getElementById("suggest-toggle-row");
-  const predealPanel = document.getElementById("dig-predeal-panel");
-  const phase        = state.phase;
+  const predealPanel   = document.getElementById("dig-predeal-panel");
+  const playContent    = document.getElementById("dig-play-content");
+  const phase          = state.phase;
+  const isPreDeal      = phase === "pre-deal";
 
-  // Show waiting-room deal panel only in pre-deal for the dealer client
+  // Waiting-room deal panel: above tabs, dealer only
   if (predealPanel) {
-    predealPanel.style.display = (phase === "pre-deal" && isMyDealerClient) ? "block" : "none";
+    predealPanel.style.display = (isPreDeal && isMyDealerClient) ? "block" : "none";
+  }
+  // Hide all play actions until cards are on the table
+  if (playContent) {
+    playContent.style.display = isPreDeal ? "none" : "block";
   }
   const turn         = state.current_turn;
   const presel       = state.preselections || {};
@@ -78,6 +84,11 @@ function updateRoleUI(state) {
   if (suggestPicker) suggestPicker.style.display  = "none";
   if (suggestToggle) suggestToggle.style.display  = "none";
   if (voteDisp)      voteDisp.style.display       = "none";
+
+  // Local seat switcher
+  _updateLocalSeatSwitcher();
+  const addLocalRow = document.getElementById("add-local-seat-row");
+  if (addLocalRow) addLocalRow.style.display = (state.can_add_local_seat && myRole !== "spectator") ? "block" : "none";
 
   // Role hint
   if (hint) {
@@ -124,7 +135,8 @@ function updateRoleUI(state) {
 
   // ── PLAYER VIEW ──────────────────────────────────────────────
   } else if (myRole === "player") {
-    const isMyTurn = myName && turn.toLowerCase() === myName.toLowerCase();
+    const activeName = myActiveName || myName;
+    const isMyTurn   = activeName && turn.toLowerCase() === activeName.toLowerCase();
 
     // Not your turn → grey everything out, done
     if (!isMyTurn) {
@@ -133,7 +145,7 @@ function updateRoleUI(state) {
     }
 
     const hand       = (sel.digital.hand || "hand1").toLowerCase();
-    const key        = `${myName.toLowerCase()}:${hand}`;
+    const key        = `${activeName.toLowerCase()}:${hand}`;
     const vote       = presel[key];
     const suggestion = suggestions[key];
 
@@ -208,6 +220,74 @@ async function setGodMode(on) {
     if (data.ok) applyState(data);
   } catch (e) { console.error("setGodMode failed", e); }
 }
+
+// ── Local seat management ────────────────────────────────────────────────────
+
+function cycleLocalSeat() {
+  if (!myNames || myNames.length <= 1) return;
+  const idx  = myNames.findIndex(n => n.toLowerCase() === (myActiveName || "").toLowerCase());
+  myActiveName = myNames[(idx + 1) % myNames.length];
+  _updateLocalSeatSwitcher();
+}
+
+function _updateLocalSeatSwitcher() {
+  const switcher = document.getElementById("local-seat-switcher");
+  const activeEl = document.getElementById("local-seat-active");
+  if (!switcher) return;
+  if (myNames && myNames.length > 1) {
+    switcher.style.display = "flex";
+    if (activeEl) activeEl.textContent = myActiveName || myNames[0];
+  } else {
+    switcher.style.display = "none";
+  }
+}
+
+function showLocalSeatPicker() {
+  const picker = document.getElementById("local-seat-picker");
+  const row    = document.getElementById("add-local-seat-row");
+  if (!picker || !lastState) return;
+  if (picker.style.display !== "none") { picker.style.display = "none"; return; }
+
+  const clients      = lastState.connected_clients || [];
+  const claimedLower = new Set(clients.map(c => (c.name || "").toLowerCase()).filter(Boolean));
+  const myNamesLower = new Set((myNames || []).map(n => n.toLowerCase()));
+  const available    = (lastState.players || []).filter(
+    n => !claimedLower.has(n.toLowerCase()) && !myNamesLower.has(n.toLowerCase())
+  );
+
+  if (!available.length) {
+    picker.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">No unclaimed seats available.</div>';
+    picker.style.display = "block";
+    return;
+  }
+
+  picker.innerHTML = "";
+  available.forEach(name => {
+    const btn = document.createElement("button");
+    btn.className   = "btn wide";
+    btn.style.cssText = "font-size:12px;margin-bottom:4px";
+    btn.textContent = name;
+    btn.addEventListener("click", () => requestLocalSeat(name));
+    picker.appendChild(btn);
+  });
+  picker.style.display = "block";
+}
+
+async function requestLocalSeat(name) {
+  const picker = document.getElementById("local-seat-picker");
+  if (picker) picker.style.display = "none";
+  try {
+    const res  = await fetch("/request_local_seat", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else alert(data.error || "Could not request seat.");
+  } catch (_) { alert("Network error."); }
+}
+
 
 function _openBustVoteModal(secondsLeft) {
   const overlay = document.getElementById("bust-vote-modal-overlay");
@@ -459,11 +539,12 @@ function showBustVoteToast(result) {
   const toast = document.getElementById("player-toast");
   if (!toast) return;
   const parts = [];
+  const each = result.losers.length > 1 ? " each" : "";
   if (result.dealer_busted) {
     if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip + give 1)`);
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip each)`);
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip${each})`);
   } else {
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip each)`);
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip${each})`);
   }
   if (!parts.length) return;
   toast.textContent = parts.join(" · ");

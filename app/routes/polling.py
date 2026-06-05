@@ -46,7 +46,7 @@ def state():
         # Auto-resolve expired insurance votes (treat as decline)
     if session is not None:
         _now = _time.monotonic()
-        for _v in getattr(session, "_insurance_votes", []):
+        for _v in session._insurance_votes:
             if not _v.get("resolved") and _now - _v.get("started_at", _now) >= 60:
                 _v["resolved"] = True
     return jsonify(serialize_state(session, client_id))
@@ -138,6 +138,59 @@ def register():
 # Registration approval
 # ---------------------------------------------------------------------------
 
+
+@bp.route("/request_local_seat", methods=["POST"])
+def request_local_seat():
+    """Registered player requests to add another seat as a local player.
+    Body: { room_code, client_id, name }
+    Goes through the same admin-approval flow as /register, but on approval
+    the name is appended to the requester's local_names rather than replacing
+    their primary registration.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    name      = sanitize_name((data.get("name") or "").strip())
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    existing = session._room_clients.get(client_id, {})
+    role = existing.get("role")
+    if role not in ("player", "admin"):
+        return jsonify({"ok": False, "error": "Must be registered to add a local seat."})
+
+    if not name:
+        return jsonify({"ok": False, "error": "Name required."})
+
+    valid_names = [p.name for p in session.all_players]
+    if name not in valid_names:
+        return jsonify({"ok": False, "error": f"'{name}' is not a seat in this game."})
+
+    # Seat must be unclaimed
+    for cid, info in session._room_clients.items():
+        if (cid != client_id and not info.get("kicked")
+                and (info.get("name") or "").lower() == name.lower()):
+            return jsonify({"ok": False, "error": f"'{name}' is already taken."})
+
+    # Already a local name for this client
+    local_names = existing.get("local_names") or []
+    if name.lower() in {(n or "").lower() for n in local_names}:
+        return jsonify({"ok": False, "error": f"'{name}' is already a local seat."})
+
+    # Queue as pending with add_to_local flag
+    session._pending_registrations = [
+        r for r in session._pending_registrations if r["client_id"] != client_id
+    ]
+    session._pending_registrations.append({
+        "client_id":    client_id,
+        "name":         name,
+        "add_to_local": True,
+    })
+    return jsonify({**serialize_state(session, client_id), "ok": True, "pending": True})
+
+
 @bp.route("/handle_registration", methods=["POST"])
 def handle_registration():
     """Admin approves or denies a pending player registration.
@@ -180,10 +233,19 @@ def handle_registration():
                     "kicked": False, "reg_denials": denials,
                 }
                 return jsonify({**serialize_state(session, client_id), "ok": True})
-        session._room_clients[target_client_id] = {
-            **target_existing, "name": name, "role": "player", "kicked": False
-        }
-        # Seat is now remote — remove from admin's local_names
+        if pending.get("add_to_local"):
+            # Append to requester local_names without changing primary name/role
+            existing_local = list(target_existing.get("local_names") or [])
+            if name not in existing_local:
+                existing_local.append(name)
+            session._room_clients[target_client_id] = {
+                **target_existing, "local_names": existing_local, "kicked": False
+            }
+        else:
+            session._room_clients[target_client_id] = {
+                **target_existing, "name": name, "role": "player", "kicked": False
+            }
+        # Seat is now claimed — remove from admin's local_names
         for info in session._room_clients.values():
             if info.get("role") == "admin":
                 local_names = info.get("local_names") or []
@@ -449,7 +511,7 @@ def give_bust_sip():
     if not result.get("dealer_busted") or winner_name not in result.get("winners", []):
         return jsonify({"ok": False, "error": "No pending handout for this player."})
 
-    if winner_name in getattr(session, "_bust_handouts_given", set()):
+    if winner_name in session._bust_handouts_given:
         return jsonify({"ok": False, "error": "Already given."})
 
     # Recipient must be a player in the game, not the winner themselves
@@ -464,8 +526,6 @@ def give_bust_sip():
         recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
         print(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
-    if not hasattr(session, "_bust_handouts_given"):
-        session._bust_handouts_given = set()
     session._bust_handouts_given.add(winner_name)
 
     # harvest_drink_log already ran — patch the round snapshots directly so

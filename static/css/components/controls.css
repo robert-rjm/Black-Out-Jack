@@ -50,6 +50,12 @@
 /* basic-strategy best-play highlight */
 .btn.best    { border-color: var(--accent); color: var(--accent);
                box-shadow: 0 0 0 2px rgba(91,156,246,.25); }
+/* command in-flight: block all interaction until response arrives */
+.cmd-pending {
+  opacity: .55;
+  pointer-events: none;
+}
+
 /* disabled (out-of-turn) player buttons */
 .btn.disabled {
   opacity: .35;
