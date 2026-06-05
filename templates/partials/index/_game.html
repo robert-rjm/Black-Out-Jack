@@ -121,6 +121,15 @@
       <div id="pane-dig-play" class="pane">
         <div id="dig-play-role-hint"></div>
         <div id="player-vote-display"></div>
+        <div id="local-seat-switcher" style="display:none" class="local-seat-switcher">
+          <span class="seat-switcher-label">Playing as:</span>
+          <span id="local-seat-active" class="seat-switcher-name"></span>
+          <button class="btn btn-sm" data-action="cycleLocalSeat">Switch</button>
+        </div>
+        <div id="add-local-seat-row" style="display:none;margin:4px 0">
+          <button class="btn wide" style="font-size:12px" data-action="showLocalSeatPicker">👤 Add local player</button>
+          <div id="local-seat-picker" style="display:none;margin-top:6px"></div>
+        </div>
 
         <div id="suggest-banner" class="suggest-banner">
           <div id="suggest-text" class="suggest-text"></div>

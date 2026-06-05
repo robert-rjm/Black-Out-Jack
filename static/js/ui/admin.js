@@ -79,6 +79,11 @@ function updateRoleUI(state) {
   if (suggestToggle) suggestToggle.style.display  = "none";
   if (voteDisp)      voteDisp.style.display       = "none";
 
+  // Local seat switcher
+  _updateLocalSeatSwitcher();
+  const addLocalRow = document.getElementById("add-local-seat-row");
+  if (addLocalRow) addLocalRow.style.display = (state.can_add_local_seat && myRole !== "spectator") ? "block" : "none";
+
   // Role hint
   if (hint) {
     if (isMyDealerClient)       hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
@@ -124,7 +129,8 @@ function updateRoleUI(state) {
 
   // ── PLAYER VIEW ──────────────────────────────────────────────
   } else if (myRole === "player") {
-    const isMyTurn = myName && turn.toLowerCase() === myName.toLowerCase();
+    const activeName = myActiveName || myName;
+    const isMyTurn   = activeName && turn.toLowerCase() === activeName.toLowerCase();
 
     // Not your turn → grey everything out, done
     if (!isMyTurn) {
@@ -133,7 +139,7 @@ function updateRoleUI(state) {
     }
 
     const hand       = (sel.digital.hand || "hand1").toLowerCase();
-    const key        = `${myName.toLowerCase()}:${hand}`;
+    const key        = `${activeName.toLowerCase()}:${hand}`;
     const vote       = presel[key];
     const suggestion = suggestions[key];
 
@@ -208,6 +214,74 @@ async function setGodMode(on) {
     if (data.ok) applyState(data);
   } catch (e) { console.error("setGodMode failed", e); }
 }
+
+// ── Local seat management ────────────────────────────────────────────────────
+
+function cycleLocalSeat() {
+  if (!myNames || myNames.length <= 1) return;
+  const idx  = myNames.findIndex(n => n.toLowerCase() === (myActiveName || "").toLowerCase());
+  myActiveName = myNames[(idx + 1) % myNames.length];
+  _updateLocalSeatSwitcher();
+}
+
+function _updateLocalSeatSwitcher() {
+  const switcher = document.getElementById("local-seat-switcher");
+  const activeEl = document.getElementById("local-seat-active");
+  if (!switcher) return;
+  if (myNames && myNames.length > 1) {
+    switcher.style.display = "flex";
+    if (activeEl) activeEl.textContent = myActiveName || myNames[0];
+  } else {
+    switcher.style.display = "none";
+  }
+}
+
+function showLocalSeatPicker() {
+  const picker = document.getElementById("local-seat-picker");
+  const row    = document.getElementById("add-local-seat-row");
+  if (!picker || !lastState) return;
+  if (picker.style.display !== "none") { picker.style.display = "none"; return; }
+
+  const clients      = lastState.connected_clients || [];
+  const claimedLower = new Set(clients.map(c => (c.name || "").toLowerCase()).filter(Boolean));
+  const myNamesLower = new Set((myNames || []).map(n => n.toLowerCase()));
+  const available    = (lastState.players || []).filter(
+    n => !claimedLower.has(n.toLowerCase()) && !myNamesLower.has(n.toLowerCase())
+  );
+
+  if (!available.length) {
+    picker.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">No unclaimed seats available.</div>';
+    picker.style.display = "block";
+    return;
+  }
+
+  picker.innerHTML = "";
+  available.forEach(name => {
+    const btn = document.createElement("button");
+    btn.className   = "btn wide";
+    btn.style.cssText = "font-size:12px;margin-bottom:4px";
+    btn.textContent = name;
+    btn.addEventListener("click", () => requestLocalSeat(name));
+    picker.appendChild(btn);
+  });
+  picker.style.display = "block";
+}
+
+async function requestLocalSeat(name) {
+  const picker = document.getElementById("local-seat-picker");
+  if (picker) picker.style.display = "none";
+  try {
+    const res  = await fetch("/request_local_seat", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else alert(data.error || "Could not request seat.");
+  } catch (_) { alert("Network error."); }
+}
+
 
 function _openBustVoteModal(secondsLeft) {
   const overlay = document.getElementById("bust-vote-modal-overlay");
