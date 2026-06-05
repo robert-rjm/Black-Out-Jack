@@ -708,6 +708,11 @@ function exportDrinkCSV() {
 function resetToSetup() {
   if (!confirm("End current session and return to lobby?")) return;
   stopPolling();
+  // Notify server so admin role is transferred and client is removed
+  if (roomCode) {
+    const blob = new Blob([JSON.stringify({ room_code: roomCode, client_id: clientId })], { type: "application/json" });
+    navigator.sendBeacon("/leave_room", blob);
+  }
   roomCode         = "";
   myRole           = null;
   myName           = null;
