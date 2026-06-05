@@ -539,11 +539,12 @@ function showBustVoteToast(result) {
   const toast = document.getElementById("player-toast");
   if (!toast) return;
   const parts = [];
+  const each = result.losers.length > 1 ? " each" : "";
   if (result.dealer_busted) {
     if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip + give 1)`);
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip each)`);
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip${each})`);
   } else {
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip each)`);
+    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip${each})`);
   }
   if (!parts.length) return;
   toast.textContent = parts.join(" · ");
