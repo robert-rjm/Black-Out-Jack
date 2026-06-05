@@ -276,17 +276,28 @@ async function sendPreselect(action, hand) {
 // ============================================================
 // SEND COMMAND
 // ============================================================
+let _cmdInFlight = false;
+
 async function sendCmd(cmd) {
-  const res  = await fetch("/command", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cmd, room_code: roomCode, client_id: clientId }),
-  });
-  const data = await res.json();
-  // Log and peeked card are handled inside applyState so all players
-  // see them via polling — no direct appendLog/showPeekedCard here.
-  if (data.dealer || data.players) updateHeader(data);
-  applyState(data);
+  if (_cmdInFlight) return;
+  _cmdInFlight = true;
+  // Visually lock all action buttons while the request is in flight
+  document.querySelectorAll("#panel .btn, #bottom-nav .bnav-btn").forEach(b => b.classList.add("cmd-pending"));
+  try {
+    const res  = await fetch("/command", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cmd, room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    // Log and peeked card are handled inside applyState so all players
+    // see them via polling — no direct appendLog/showPeekedCard here.
+    if (data.dealer || data.players) updateHeader(data);
+    applyState(data);
+  } finally {
+    _cmdInFlight = false;
+    document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
+  }
 }
 
 // ============================================================
