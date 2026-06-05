@@ -62,16 +62,32 @@ class GameRoom:
     # Bust vote side bet
     bust_vote_enabled: bool = False
     _god_mode: bool = False
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+    _bust_votes: dict = field(default_factory=dict)        # player_name → "bust" | "pass"
+    _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
+    _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
+    _bust_handouts_given: set = field(default_factory=set) # winner names who have given their handout sip
+=======
+>>>>>>> Stashed changes
     _bust_votes: dict = field(default_factory=dict)
     _bust_vote_expires_at: float | None = None
     _bust_vote_result: dict | None = None
     _bust_handouts_given: set = field(default_factory=set)
 
+<<<<<<< Updated upstream
     # Mid-round state (reset each newround in game_commands.py)
     _hard_switch_drinking_applied: bool = False
     _insurance_result: list | None = None
     _ace_drink_events: list = field(default_factory=list)
     _ace_drink_seq: int = 0
+=======
+    # Mid-round state (digital only — reset each newround in game_commands.py)
+    _ace_drink_events: list = field(default_factory=list)
+    _ace_drink_seq: int = 0
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 
     # Misc UI state
     _last_peeked: dict | None = None
@@ -80,6 +96,20 @@ class GameRoom:
     # Explicit properties delegating to RefereeSession
     # ------------------------------------------------------------------
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+    def __setattr__(self, name, value):
+        if name in type(self).__dataclass_fields__:
+            object.__setattr__(self, name, value)
+        else:
+            try:
+                session = object.__getattribute__(self, "session")
+                setattr(session, name, value)
+            except AttributeError:
+                object.__setattr__(self, name, value)
+=======
+>>>>>>> Stashed changes
     @property
     def all_players(self):
         return self.session.all_players
@@ -168,6 +198,25 @@ class GameRoom:
     def _all_names(self) -> list:
         return self.session._all_names
 
+<<<<<<< Updated upstream
+=======
+    @property
+    def _hard_switch_drinking_applied(self) -> bool:
+        return getattr(self.session, "_hard_switch_drinking_applied", False)
+
+    @_hard_switch_drinking_applied.setter
+    def _hard_switch_drinking_applied(self, value: bool):
+        self.session._hard_switch_drinking_applied = value
+
+    @property
+    def _insurance_result(self):
+        return getattr(self.session, "_insurance_result", None)
+
+    @_insurance_result.setter
+    def _insurance_result(self, value):
+        self.session._insurance_result = value
+
+>>>>>>> Stashed changes
     # ------------------------------------------------------------------
     # Method wrappers for RefereeSession methods
     # ------------------------------------------------------------------
@@ -201,3 +250,7 @@ class GameRoom:
 
     def cmd_status(self):
         return self.session.cmd_status()
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
