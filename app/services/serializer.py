@@ -383,6 +383,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             }
         ),
         "queued_settings":        session._queued_settings,
+        "num_decks":              getattr(getattr(session, "shoe", None), "num_decks", 1),
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
             "boundary":    r["boundary"],
