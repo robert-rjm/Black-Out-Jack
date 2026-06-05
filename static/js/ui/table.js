@@ -768,7 +768,7 @@ function renderInsuranceModal(state) {
     const wager    = (state && state.wager) || 1;
     const entry    = (state.table || []).find(p => p.name.toLowerCase() === v.bj_player.toLowerCase());
     const bjHand   = entry && entry.hands[v.hand_idx];
-    const mult     = bjHand ? bjMultiplier(bjHand.cards) : 1;
+    const mult     = (bjHand && bjHand.bj_mult) || 1;
     const normSips = mult * wager;
     const dblSips  = mult * 2 * wager;
     const sip      = n => `${n} sip${n !== 1 ? "s" : ""}`;
