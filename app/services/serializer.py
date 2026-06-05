@@ -341,6 +341,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "anim_default":           session._anim_default,
         "bust_vote_enabled":      session.bust_vote_enabled,
         "god_mode_enabled":       getattr(session, "_god_mode", False),
+        "god_mode_enabled":       getattr(session, "_god_mode", False),
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
@@ -377,7 +378,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
         "is_dealer_client":       (
-            _ci.get("role") == "admin" or
+            (_ci.get("role") == "admin" and getattr(session, "_god_mode", False)) or
             session.dealer_name.lower() in {
                 (n or "").lower()
                 for n in ([_ci.get("name")] + list(_ci.get("local_names") or []))
