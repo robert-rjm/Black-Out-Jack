@@ -197,6 +197,18 @@ async function setBustVoteEnabled(on) {
   } catch (_) {}
 }
 
+async function setGodMode(on) {
+  try {
+    const res = await fetch("/toggle_god_mode", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (e) { console.error("setGodMode failed", e); }
+}
+
 function _openBustVoteModal(secondsLeft) {
   const overlay = document.getElementById("bust-vote-modal-overlay");
   if (!overlay || _bustVoteModalOpen) return;
@@ -1165,6 +1177,12 @@ function _populateSettingsUI(state) {
   // Bust vote pill toggle sync is handled by updateBustVoteUI — just sync checkbox here
   const bustCb2 = document.getElementById("bust-vote-toggle-modal");
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
+  const godCb = document.getElementById("god-mode-toggle-modal");
+  if (godCb) godCb.checked = !!state.god_mode_enabled;
+  const godLblOff = document.getElementById("god-mode-lbl-off");
+  const godLblOn  = document.getElementById("god-mode-lbl-on");
+  if (godLblOff) godLblOff.style.display = state.god_mode_enabled ? "none" : "";
+  if (godLblOn)  godLblOn.style.display  = state.god_mode_enabled ? "" : "none";
 
   if (wagerEl)   wagerEl.value    = state.wager            || 1;
   if (handsEl)   handsEl.value    = state.num_hands         || 2;
