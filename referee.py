@@ -99,7 +99,7 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False}
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False # True once all first-deal cards are entered
@@ -154,7 +154,7 @@ class RefereeSession:
                 p.hands     = [Hand() for _ in range(self.num_hands)]
                 p.drink_log = []
 
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False}
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
@@ -406,6 +406,7 @@ class RefereeSession:
         if hard_switch and not getattr(self, "_hard_switch_drinking_applied", False):
             protected         = self._ace_clubs_flag.get("protected", False)
             partial_protected = self._ace_clubs_flag.get("partial_protected", False)
+            half_protected    = self._ace_clubs_flag.get("half_protected", False)
             # Partial protection (player-hand A♣): exclude dealer's own hands
             hs_for_penalty = (
                 [h for h in winning if h[0].lower() != self.dealer_name.lower()]
@@ -414,7 +415,8 @@ class RefereeSession:
             )
             self.tracker.apply(
                 DrinkingRules.on_hard_dealer_switch(
-                    self.dealer_name, hs_for_penalty, protected))
+                    self.dealer_name, hs_for_penalty, protected,
+                    half_protected=half_protected))
             # If A♣ protected, add display-only +/- entries so the
             # drinks summary panel shows what was waived.
             if protected and winning:
@@ -440,6 +442,26 @@ class RefereeSession:
         w         = self.wager
         dealer    = self._get_dealer()
         dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+
+        # Insurance resolution — for hands marked insured via the INSURANCE button
+        if not hasattr(self, "_insurance_result") or self._insurance_result is None:
+            self._insurance_result = []
+        for p in players:
+            if p.is_dealer:
+                continue
+            for hand in p.hands:
+                if hand.is_blackjack() and getattr(hand, "insured", False):
+                    self.tracker.apply(
+                        DrinkingRules.resolve_insurance_vote(
+                            p.name, hand, self._all_names,
+                            insured=True, dealer_bj=dealer_bj,
+                            hard_switch_dealer=exempt_dealer))
+                    self._insurance_result.append({
+                        "player":    p.name,
+                        "insured":   True,
+                        "dealer_bj": dealer_bj,
+                        "group_won": dealer_bj,  # insure+BJ = group protected (won)
+                    })
 
         # All-hands sweep (same suit or all-21 across split hands)
         for p in players:

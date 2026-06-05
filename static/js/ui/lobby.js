@@ -77,6 +77,23 @@ async function joinRoom() {
   }
 }
 
+async function cancelSetup() {
+  // Delete the created room and return to the lobby
+  if (roomCode) {
+    try {
+      await fetch("/delete_room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room_code: roomCode, client_id: clientId }),
+      });
+    } catch (_) {}
+  }
+  roomCode = "";
+  lsRemove("bjRoomCode");
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("lobby").style.display = "flex";
+}
+
 function backToLobby() {
   stopPolling();
   roomCode = "";

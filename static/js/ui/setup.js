@@ -279,9 +279,6 @@ async function startGame() {
     document.getElementById("setup").style.display = "none";
     document.getElementById("app").style.display   = "flex";
     startPolling();
-    if (gameMode === "digital") {
-      await sendCmd("deal");
-    }
   } catch (err) {
     console.error("[startGame] Error launching game:", err);
     alert("Could not launch game: " + err.message + "\n\nCheck the browser console for details.");

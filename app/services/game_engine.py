@@ -9,11 +9,31 @@ lookup and passes the session down. This keeps the dependency graph clean
 and makes these functions unit-testable without a Flask context.
 """
 
+import time as _time
 from blackjack import Hand, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
 
 from app.models.game_room import GameRoom
 from app.services.serializer import hand_done, round_phase, current_turn
+
+
+# ---------------------------------------------------------------------------
+# Ace drink event helper
+
+def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
+    """Push a single ace drink message to the mid-round toast queue."""
+    if not hasattr(session, "_ace_drink_events"):
+        session._ace_drink_events = []
+    if not hasattr(session, "_ace_drink_seq"):
+        session._ace_drink_seq = 0
+    recipient, sips, reason = msg[0], msg[1], msg[2]
+    session._ace_drink_seq += 1
+    session._ace_drink_events.append({
+        "seq":       session._ace_drink_seq,
+        "recipient": recipient or "all",
+        "sips":      sips,
+        "reason":    reason,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +99,8 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                 session._deferred_hole_card_msgs.append(msg)
             else:
                 session.tracker.apply([msg])
+                if s and s > 0:
+                    _push_ace_drink_event(session, msg)
 
     return card
 
@@ -126,10 +148,11 @@ def deal_pending_split_cards(session: GameRoom) -> None:
                         )
                         if not existing:
                             session._insurance_votes.append({
-                                "player":   p.name,
-                                "hand_idx": i,
-                                "votes":    {},
-                                "resolved": False,
+                                "player":    p.name,
+                                "hand_idx":  i,
+                                "votes":     {},
+                                "resolved":  False,
+                                "started_at": _time.monotonic(),
                             })
                 elif hand.score() == 21:
                     hand.stood = True
@@ -184,10 +207,11 @@ def initial_deal(session: GameRoom) -> None:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack():
                     session._insurance_votes.append({
-                        "player":   p.name,
-                        "hand_idx": i,
-                        "votes":    {},
-                        "resolved": False,
+                        "player":    p.name,
+                        "hand_idx":  i,
+                        "votes":     {},
+                        "resolved":  False,
+                        "started_at": _time.monotonic(),
                     })
 
 
@@ -203,6 +227,9 @@ def dealer_turn(session: GameRoom) -> None:
     deferred = session._deferred_hole_card_msgs
     if deferred:
         session.tracker.apply(deferred)
+        for msg in deferred:
+            if len(msg) >= 2 and msg[1] and msg[1] > 0:
+                _push_ace_drink_event(session, msg)
         session._deferred_hole_card_msgs = []
 
     print(f"\n--- Dealer ({dealer.name}) reveals ---")
@@ -267,6 +294,13 @@ def dealer_turn(session: GameRoom) -> None:
         insurance_votes = session._insurance_votes
         voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
 
+        if not hasattr(session, "_insurance_result") or session._insurance_result is None:
+            session._insurance_result = []
+
+        # Collect all end-of-round drink messages; apply together so 4-player
+        # halving operates on each player's total for the round, not per event.
+        eor_msgs = []
+
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack() and (p.name, i) in voted_keys:
@@ -275,23 +309,31 @@ def dealer_turn(session: GameRoom) -> None:
                     voters        = [x for x in session.all_players if x.name != p.name]
                     insure_count  = sum(1 for v in vote["votes"].values() if v)
                     decline_count = len(voters) - insure_count
-                    insured       = insure_count > decline_count   # tie → decline
+                    insured       = insure_count > decline_count   # tie -> decline
                     vote["resolved"] = True
-                    session.tracker.apply(
+                    eor_msgs.extend(
                         DrinkingRules.resolve_insurance_vote(
                             p.name, hand, all_names,
                             insured=insured, dealer_bj=dealer_bj,
                             hard_switch_dealer=exempt_dealer))
+                    # group_won: insure+BJ or decline+no BJ
+                    group_won = (insured and dealer_bj) or (not insured and not dealer_bj)
+                    session._insurance_result.append({
+                        "player":    p.name,
+                        "insured":   insured,
+                        "dealer_bj": dealer_bj,
+                        "group_won": group_won,
+                    })
                 elif hand.is_blackjack() and hand.result == "win":
-                    session.tracker.apply(
+                    eor_msgs.extend(
                         DrinkingRules.on_blackjack(p.name, hand, all_names,
                                                    hard_switch_dealer=exempt_dealer))
-                session.tracker.apply(
+                eor_msgs.extend(
                     DrinkingRules.on_hand_resolved(p.name, hand, all_names,
                                                    dealer_bj=dealer_bj,
                                                    dealer_name=exempt_dealer))
 
-        # Hard dealer switch — dealer drinks per each winning hand
+        # Hard dealer switch -- dealer drinks per each winning hand
         if hard_switch:
             winning_hds = [
                 (p.name, hand)
@@ -301,21 +343,23 @@ def dealer_turn(session: GameRoom) -> None:
             ]
             protected         = session._ace_clubs_flag.get("protected", False)
             partial_protected = session._ace_clubs_flag.get("partial_protected", False)
+            half_protected    = session._ace_clubs_flag.get("half_protected", False)
             hs_for_penalty = (
                 [h for h in winning_hds if h[0].lower() != session.dealer_name.lower()]
                 if partial_protected and not protected
                 else winning_hds
             )
-            session.tracker.apply(
+            eor_msgs.extend(
                 DrinkingRules.on_hard_dealer_switch(
-                    session.dealer_name, hs_for_penalty, protected))
+                    session.dealer_name, hs_for_penalty, protected,
+                    half_protected=half_protected))
             session._hard_switch_drinking_applied = True
 
         # All-hands sweep
         for p in session.all_players:
             if p.is_dealer:
                 continue
-            session.tracker.apply(
+            eor_msgs.extend(
                 DrinkingRules.check_all_hands_sweep(
                     p.name, p.hands, all_names, session.wager,
                     dealer_name=exempt_dealer, dealer_bj=dealer_bj))
@@ -323,9 +367,12 @@ def dealer_turn(session: GameRoom) -> None:
         # Four-aces end-of-round check
         all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += d_hand.cards
-        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
+        four_aces_msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
             all_cards, "end_of_round", session._four_aces_fd)
-        session.tracker.apply(msgs)
+        eor_msgs.extend(four_aces_msgs)
+
+        # Apply all end-of-round drinks together (halving on totals, not per event)
+        session.tracker.apply_end_of_round(eor_msgs)
 
 
 # ---------------------------------------------------------------------------

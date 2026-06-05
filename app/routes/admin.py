@@ -613,6 +613,29 @@ def rotate_dealer():
 # Take back seat (local multiplayer)
 # ---------------------------------------------------------------------------
 
+@bp.route("/toggle_god_mode", methods=["POST"])
+def toggle_god_mode():
+    """Admin toggles God Mode on/off.
+    God Mode grants admin full dealer bypass (execute any turn, deal, endround).
+    Without it, admin is subject to the same turn-gate as regular players.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    info = session._room_clients.get(client_id, {})
+    if info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Admin only."})
+
+    enabled = bool(data.get("enabled", False))
+    session._god_mode = enabled
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
 @bp.route("/take_back_seat", methods=["POST"])
 def take_back_seat():
     """Admin reclaims a seat from a remote player, moving them to spectator.

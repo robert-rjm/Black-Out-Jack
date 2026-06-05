@@ -22,7 +22,7 @@
 #dig-insurance-row,
 #bust-vote-status,
 #bust-vote-modal-overlay,
-#insurance-vote-panel,
+#insurance-vote-banner,
 #dig-drinks-progress,
 #dig-drinks-panel,
 #dig-drinks-none,
@@ -221,13 +221,6 @@
 .suggest-toggle-row { margin-top: 4px; text-align: center; }
 .suggest-toggle-btn { font-size: 12px; color: var(--muted); padding: 4px 8px; }
 
-.insurance-vote-panel {
-  margin-top: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(245,200,66,.1);
-  border: 1px solid rgba(245,200,66,.3);
-}
 
 .round-progress,
 .drinks-none,

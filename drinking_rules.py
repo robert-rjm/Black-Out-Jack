@@ -7,6 +7,7 @@ Has no game logic of its own — purely reacts to events fired by the game.
 """
 
 import hashlib
+import math
 import urllib.request
 from blackjack import Rank, Suit, Hand, Player
 
@@ -56,6 +57,52 @@ def _bj_multiplier(hand: Hand) -> int:
     if {Rank.ACE, Rank.JACK}.issubset(ranks):     mult *= 2
     if suits.issubset(black):                     mult *= 2
     return mult
+
+
+# =============================================================================
+# Rule classifier — canonical name for a raw drink-reason string.
+# Used by drink_tracker.py (CSV export) and simulation.py.
+# =============================================================================
+
+def classify_rule(reason: str) -> str | None:
+    """
+    Normalise a raw drink-reason string to a short canonical rule name.
+    Returns None for bookkeeping entries that should not appear in the CSV.
+    """
+    r = reason
+    if "A\u2663" in r and "credit" in r:           return None   # A♣ credit
+    if "A\u2663 protected" in r:                   return None   # display-only waived entry
+    if "A\u2663 protection credit" in r:           return None   # display-only waived credit
+    if "bust vote correct" in r:                    return None   # bust vote credit
+    if "protects" in r:                              return None
+    if "exempt" in r:                                return None
+    if "Bust vote" in r and "wrong" in r:           return "Bust vote wrong call"
+    if "Insurance" in r and "dealer BJ" in r and "own bonus" in r: return "Insurance: BJ holder drinks own bonus"
+    if "Insurance" in r and "no dealer BJ" in r:                   return "Insurance: group drinks double BJ bonus"
+    if "Hard Dealer Switch (A\u2663 half protection)" in r: return "Hard Dealer Switch (half, A\u2663)"
+    if "Hard Dealer Switch" in r:                   return "Hard Dealer Switch"
+    if "net loss" in r:                             return "Net hand losses"
+    if "lost a doubled hand" in r:                  return "Lost doubled hand"
+    if "lost a suited hand" in r:                   return "Lost suited hand"
+    if "immunity exception" in r:                   return "Doubled win (immunity break)"
+    if "won suited hand" in r:                      return "Suited winning hand"
+    if "split hand" in r:                           return "Split win (immunity break)"
+    if "swept all hands" in r:                      return "Other-player sweep"
+    if "all-hands sweep" in r:                      return "All-hands sweep"
+    if "auto-insurance" in r:                       return "Dealer BJ (auto-insurance)"
+    if "Blackjack by" in r:                         return "Blackjack bonus"
+    if "4 Aces" in r and "first deal" in r:         return "Four Aces (first deal)"
+    if "4 Aces" in r and "end of round" in r:       return "Four Aces (end of round)"
+    if "Dealer hand is all" in r:                   return "Dealer suited hand"
+    if "handed" in r and "5-card 21" in r:          return "5-card 21 handout received"
+    if "won with" in r and "cards" in r:            return "5+ card win"
+    if "A\u2660" in r and "to dealer" in r:        return "Ace dealt: Ace of Spades (dealer hand)"
+    if "A\u2665" in r and "dealer" in r:           return "Ace dealt: Ace of Hearts (dealer hand)"
+    if "A\u2666" in r and "dealer" in r:           return "Ace dealt: Ace of Diamonds (dealer hand)"
+    if "A\u2660" in r:                             return "Ace dealt: Ace of Spades (player hand)"
+    if "A\u2665" in r:                             return "Ace dealt: Ace of Hearts (player hand)"
+    if "A\u2666" in r:                             return "Ace dealt: Ace of Diamonds (player hand)"
+    return "Other"
 
 
 # =============================================================================
@@ -128,9 +175,9 @@ class DrinkingRules:
                     "dealer"))
         else:
             if s == Suit.CLUBS:
-                ace_clubs_flag["protected"] = True
+                ace_clubs_flag["half_protected"] = True
                 msgs.append((None, 0,
-                    f"A{s.symbol} dealt to dealer ({dealer_name}) => exempt from Hard Switch drinking"))
+                    f"A{s.symbol} dealt to dealer ({dealer_name}) => half Hard Switch protection (drinks ceil of total/2)"))
             elif s == Suit.SPADES:
                 if card_pos % 2 == 1:
                     msgs.append((dealer_name, 1,
@@ -346,9 +393,19 @@ class DrinkingRules:
 
         others = [p for p in all_player_names
                   if p != player_name and p != dealer_name]
-        return [(p, sips,
+        msgs = [(p, sips,
                  f"{player_name} all-hands sweep ({reason}) => {p} drinks {sips} sip(s)")
                 for p in others]
+
+        # Cancel doubled-hand immunity drinks already applied in on_hand_resolved
+        # for each winning doubled hand — the sweep covers them.
+        for hand in player_hands:
+            if hand.result == "win" and hand.doubled and not hand.is_suited():
+                for p in others:
+                    msgs.append((p, -1,
+                        f"Sweep cancels doubled-hand drink for {p} (already covered by sweep)"))
+
+        return msgs
 
     # ---------------------------------------------------------------- dealer 21 with 5+ cards
 
@@ -488,7 +545,7 @@ class DrinkingRules:
 
     @staticmethod
     def on_hard_dealer_switch(dealer_name: str, winning_hands: list,
-                               protected: bool) -> list:
+                               protected: bool, half_protected: bool = False) -> list:
         """
         Called when the dealer loses ALL hands (push != loss).
         winning_hands: list of (player_name, Hand) tuples — caller is responsible
@@ -496,7 +553,8 @@ class DrinkingRules:
           applies (player-hand A♣: dealer exempt from own hands, drinks for all others).
         Dealer drinks per each winning hand type.
         protected=True (dealer-hand A♣): full protection — skips all drinking.
-        protected=False: drinks for every hand in winning_hands.
+        half_protected=True (dealer-hand A♠): drinks ceil(total/2) instead of full.
+        Full protection takes precedence over half protection.
         """
         if protected:
             return [(None, 0,
@@ -521,6 +579,12 @@ class DrinkingRules:
             total += s
 
         detail = "; ".join(lines)
+        if half_protected and total > 0:
+            reduced = math.ceil(total / 2)
+            return [(dealer_name, reduced,
+                f"Hard Dealer Switch (A♣ half protection): {dealer_name} drinks {reduced} sip(s) "
+                f"(halved from {total}: {detail})",
+                "dealer")]
         return [(dealer_name, total,
             f"Hard Dealer Switch: {dealer_name} drinks {total} sip(s) ({detail})",
             "dealer")]
@@ -557,7 +621,8 @@ class DrinkTracker:
 
     def apply(self, msgs: list):
         """Apply a list of (recipient, sips, reason[, role]) tuples.
-        role defaults to 'player'; use 'dealer' for dealer-seat drinks."""
+        role defaults to 'player'; use 'dealer' for dealer-seat drinks.
+        No halving here -- use apply_end_of_round for end-of-round events."""
         for msg in msgs:
             recipient, sips, reason = msg[0], msg[1], msg[2]
             role = msg[3] if len(msg) > 3 else "player"
@@ -570,6 +635,36 @@ class DrinkTracker:
             for t in self._resolve(recipient):
                 t.add_drink(sips, reason, role)
             print(f"    [drink] {reason}")
+
+    def apply_end_of_round(self, *msg_lists):
+        """Apply all end-of-round drink messages.
+        4-player rule (4+ players): sum positive sips per player across the
+        entire round, then apply a halving credit so net = ceil(total/2).
+        Mid-round events (aces, first-deal four-aces) use apply() -- NOT halved."""
+        all_msgs = [msg for msgs in msg_lists for msg in msgs]
+        four_player_mode = len(self.players) >= 4
+
+        if not four_player_mode:
+            self.apply(all_msgs)
+            return
+
+        # Snapshot pre-batch sips so we measure exactly what this batch adds
+        pre_sips = {p.name: p.drinks_owed() for p in self.players}
+
+        # Apply all messages at full value (individual reasons preserved in log)
+        self.apply(all_msgs)
+
+        # Add a halving credit for each player who gained sips this batch
+        for p in self.players:
+            gained = p.drinks_owed() - pre_sips.get(p.name, 0)
+            if gained > 0:
+                credit = gained - math.ceil(gained / 2)
+                if credit > 0:
+                    halved = math.ceil(gained / 2)
+                    p.add_drink(-credit,
+                                f"4-player halving: -{credit} sip(s) ({gained} -> {halved})",
+                                "player")
+                    print(f"    (i) 4-player halving for {p.name}: {gained} -> {halved}")
 
     # ---------------------------------------------------------------- ace of clubs credit
 
