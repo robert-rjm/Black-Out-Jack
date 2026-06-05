@@ -86,7 +86,7 @@ function _dismissPlayerToast() {
   if (el) el.classList.remove("show");
   if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
 }
-function showPlayerDrinkToast(sips) {
+function showPlayerDrinkToast(sips, playerName) {
   const el = document.getElementById("player-toast");
   if (!el) return;
   // Cross-dismiss: hide dealer toast if it's still up
@@ -94,11 +94,12 @@ function showPlayerDrinkToast(sips) {
   if (dt) dt.classList.remove("show");
   if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
   if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+  const prefix = playerName ? escapeHtml(playerName) + " — " : "";
   if (sips > 0) {
-    el.textContent = `🍺 You drink ${sips} sip${sips !== 1 ? "s" : ""}!`;
+    el.textContent = `🍺 ${prefix}drink ${sips} sip${sips !== 1 ? "s" : ""}!`;
     el.className   = "drink show";
   } else {
-    el.textContent = "🎉 Clean round!";
+    el.textContent = playerName ? `🎉 ${prefix}clean round!` : "🎉 Clean round!";
     el.className   = "clean show";
   }
   _playerToastTimer = setTimeout(() => {
