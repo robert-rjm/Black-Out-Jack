@@ -174,7 +174,8 @@ def setup():
     set_session(room_code, room)
 
     if mode == "digital":
-        num_decks        = int(data.get("num_decks", 1))
+        default_decks    = 2 if len(players) >= 4 else 1
+        num_decks        = int(data.get("num_decks", default_decks))
         raw_session.shoe = Shoe(num_decks)
         raw_session.shoe.shuffle()
 

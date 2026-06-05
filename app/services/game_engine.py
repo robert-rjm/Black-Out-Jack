@@ -293,6 +293,11 @@ def dealer_turn(session: GameRoom) -> None:
 
         if not hasattr(session, "_insurance_result") or session._insurance_result is None:
             session._insurance_result = []
+
+        # Collect all end-of-round drink messages; apply together so 4-player
+        # halving operates on each player's total for the round, not per event.
+        eor_msgs = []
+
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack() and (p.name, i) in voted_keys:
@@ -301,9 +306,9 @@ def dealer_turn(session: GameRoom) -> None:
                     voters        = [x for x in session.all_players if x.name != p.name]
                     insure_count  = sum(1 for v in vote["votes"].values() if v)
                     decline_count = len(voters) - insure_count
-                    insured       = insure_count > decline_count   # tie → decline
+                    insured       = insure_count > decline_count   # tie -> decline
                     vote["resolved"] = True
-                    session.tracker.apply(
+                    eor_msgs.extend(
                         DrinkingRules.resolve_insurance_vote(
                             p.name, hand, all_names,
                             insured=insured, dealer_bj=dealer_bj,
@@ -317,15 +322,15 @@ def dealer_turn(session: GameRoom) -> None:
                         "group_won": group_won,
                     })
                 elif hand.is_blackjack() and hand.result == "win":
-                    session.tracker.apply(
+                    eor_msgs.extend(
                         DrinkingRules.on_blackjack(p.name, hand, all_names,
                                                    hard_switch_dealer=exempt_dealer))
-                session.tracker.apply(
+                eor_msgs.extend(
                     DrinkingRules.on_hand_resolved(p.name, hand, all_names,
                                                    dealer_bj=dealer_bj,
                                                    dealer_name=exempt_dealer))
 
-        # Hard dealer switch — dealer drinks per each winning hand
+        # Hard dealer switch -- dealer drinks per each winning hand
         if hard_switch:
             winning_hds = [
                 (p.name, hand)
@@ -341,7 +346,7 @@ def dealer_turn(session: GameRoom) -> None:
                 if partial_protected and not protected
                 else winning_hds
             )
-            session.tracker.apply(
+            eor_msgs.extend(
                 DrinkingRules.on_hard_dealer_switch(
                     session.dealer_name, hs_for_penalty, protected,
                     half_protected=half_protected))
@@ -351,7 +356,7 @@ def dealer_turn(session: GameRoom) -> None:
         for p in session.all_players:
             if p.is_dealer:
                 continue
-            session.tracker.apply(
+            eor_msgs.extend(
                 DrinkingRules.check_all_hands_sweep(
                     p.name, p.hands, all_names, session.wager,
                     dealer_name=exempt_dealer, dealer_bj=dealer_bj))
@@ -359,9 +364,12 @@ def dealer_turn(session: GameRoom) -> None:
         # Four-aces end-of-round check
         all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += d_hand.cards
-        msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
+        four_aces_msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
             all_cards, "end_of_round", session._four_aces_fd)
-        session.tracker.apply(msgs)
+        eor_msgs.extend(four_aces_msgs)
+
+        # Apply all end-of-round drinks together (halving on totals, not per event)
+        session.tracker.apply_end_of_round(eor_msgs)
 
 
 # ---------------------------------------------------------------------------

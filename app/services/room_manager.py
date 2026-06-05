@@ -28,6 +28,7 @@ class NullTracker:
     unconditionally regardless of mode.
     """
     def apply(self, msgs):                    pass
+    def apply_end_of_round(self, *msg_lists): pass
     def apply_ace_clubs_credit(self, player): pass
     def print_round_summary(self):            pass
     def _handle_handout(self, *a, **kw):      pass

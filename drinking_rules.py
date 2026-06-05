@@ -576,8 +576,7 @@ class DrinkTracker:
     def apply(self, msgs: list):
         """Apply a list of (recipient, sips, reason[, role]) tuples.
         role defaults to 'player'; use 'dealer' for dealer-seat drinks.
-        4-player rule: all positive drink amounts are halved (ceil) each round."""
-        four_player_mode = len(self.players) >= 4
+        No halving here -- use apply_end_of_round for end-of-round events."""
         for msg in msgs:
             recipient, sips, reason = msg[0], msg[1], msg[2]
             role = msg[3] if len(msg) > 3 else "player"
@@ -587,12 +586,39 @@ class DrinkTracker:
             if sips < 0:
                 self._handle_handout(recipient, abs(sips), reason)
                 continue
-            if four_player_mode and sips > 0:
-                sips = math.ceil(sips / 2)
-                reason = f"{reason} [4-player: halved → {sips}]"
             for t in self._resolve(recipient):
                 t.add_drink(sips, reason, role)
             print(f"    [drink] {reason}")
+
+    def apply_end_of_round(self, *msg_lists):
+        """Apply all end-of-round drink messages.
+        4-player rule (4+ players): sum positive sips per player across the
+        entire round, then apply a halving credit so net = ceil(total/2).
+        Mid-round events (aces, first-deal four-aces) use apply() -- NOT halved."""
+        all_msgs = [msg for msgs in msg_lists for msg in msgs]
+        four_player_mode = len(self.players) >= 4
+
+        if not four_player_mode:
+            self.apply(all_msgs)
+            return
+
+        # Snapshot pre-batch sips so we measure exactly what this batch adds
+        pre_sips = {p.name: p.drinks_owed() for p in self.players}
+
+        # Apply all messages at full value (individual reasons preserved in log)
+        self.apply(all_msgs)
+
+        # Add a halving credit for each player who gained sips this batch
+        for p in self.players:
+            gained = p.drinks_owed() - pre_sips.get(p.name, 0)
+            if gained > 0:
+                credit = gained - math.ceil(gained / 2)
+                if credit > 0:
+                    halved = math.ceil(gained / 2)
+                    p.add_drink(-credit,
+                                f"4-player halving: -{credit} sip(s) ({gained} -> {halved})",
+                                "player")
+                    print(f"    (i) 4-player halving for {p.name}: {gained} -> {halved}")
 
     # ---------------------------------------------------------------- ace of clubs credit
 
