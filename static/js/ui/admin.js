@@ -1168,7 +1168,7 @@ function _populateSettingsUI(state) {
 
   if (wagerEl)   wagerEl.value    = state.wager            || 1;
   if (handsEl)   handsEl.value    = state.num_hands         || 2;
-  if (decksEl)   decksEl.value    = 1;
+  if (decksEl)   decksEl.value    = state.num_decks || 1;
   if (decksRow)  decksRow.style.display = (state.mode === "digital") ? "flex" : "none";
   const rotateEl = document.getElementById("setting-rotate-every");
   if (rotateEl)  rotateEl.value  = state.dealer_rotate_every || 1;
