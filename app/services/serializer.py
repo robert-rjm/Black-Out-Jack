@@ -413,6 +413,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                     if p.name.lower() != v["player"].lower()),
                 "insure_count":  sum(1 for x in v["votes"].values() if x)     if v["resolved"] else None,
                 "decline_count": sum(1 for x in v["votes"].values() if not x) if v["resolved"] else None,
+                "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
             }
             for v in session._insurance_votes
         ],

@@ -43,6 +43,12 @@ def state():
     if now - _last_cleanup > _CLEANUP_INTERVAL:
         _last_cleanup = now
         cleanup_stale_sessions()
+        # Auto-resolve expired insurance votes (treat as decline)
+    if session is not None:
+        _now = _time.monotonic()
+        for _v in getattr(session, "_insurance_votes", []):
+            if not _v.get("resolved") and _now - _v.get("started_at", _now) >= 60:
+                _v["resolved"] = True
     return jsonify(serialize_state(session, client_id))
 
 

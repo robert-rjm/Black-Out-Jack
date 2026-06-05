@@ -9,6 +9,7 @@ lookup and passes the session down. This keeps the dependency graph clean
 and makes these functions unit-testable without a Flask context.
 """
 
+import time as _time
 from blackjack import Hand, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
 
@@ -147,10 +148,11 @@ def deal_pending_split_cards(session: GameRoom) -> None:
                         )
                         if not existing:
                             session._insurance_votes.append({
-                                "player":   p.name,
-                                "hand_idx": i,
-                                "votes":    {},
-                                "resolved": False,
+                                "player":    p.name,
+                                "hand_idx":  i,
+                                "votes":     {},
+                                "resolved":  False,
+                                "started_at": _time.monotonic(),
                             })
                 elif hand.score() == 21:
                     hand.stood = True
@@ -205,10 +207,11 @@ def initial_deal(session: GameRoom) -> None:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack():
                     session._insurance_votes.append({
-                        "player":   p.name,
-                        "hand_idx": i,
-                        "votes":    {},
-                        "resolved": False,
+                        "player":    p.name,
+                        "hand_idx":  i,
+                        "votes":     {},
+                        "resolved":  False,
+                        "started_at": _time.monotonic(),
                     })
 
 
