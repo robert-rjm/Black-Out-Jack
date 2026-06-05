@@ -37,6 +37,39 @@ def create_room():
 
 
 # ---------------------------------------------------------------------------
+# Delete room (cancel before game starts)
+# ---------------------------------------------------------------------------
+
+@bp.route("/delete_room", methods=["POST"])
+def delete_room():
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    if room_code not in game_sessions:
+        return jsonify({"ok": True})  # already gone, that's fine
+
+    session = game_sessions[room_code]
+
+    # Slot is None before /setup is called — safe to delete immediately
+    if session is None:
+        del game_sessions[room_code]
+        return jsonify({"ok": True})
+
+    # Only allow deletion if the game hasn't started yet
+    if getattr(session, "round_count", 0) > 0:
+        return jsonify({"ok": False, "error": "Game already in progress."})
+
+    # Verify requester is the admin
+    info = session._room_clients.get(client_id, {})
+    if info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Only the room creator can delete it."})
+
+    del game_sessions[room_code]
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
 # Join room
 # ---------------------------------------------------------------------------
 
