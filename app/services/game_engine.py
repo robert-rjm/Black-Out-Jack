@@ -22,10 +22,6 @@ from app.services.serializer import hand_done, round_phase, current_turn
 
 def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
     """Push a single ace drink message to the mid-round toast queue."""
-    if not hasattr(session, "_ace_drink_events"):
-        session._ace_drink_events = []
-    if not hasattr(session, "_ace_drink_seq"):
-        session._ace_drink_seq = 0
     recipient, sips, reason = msg[0], msg[1], msg[2]
     session._ace_drink_seq += 1
     session._ace_drink_events.append({
@@ -94,8 +90,6 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                     print(f"    (i) {reason}")
             elif is_hole_card or is_double_card:
                 # Defer until the card is face-up
-                if not hasattr(session, "_deferred_hole_card_msgs"):
-                    session._deferred_hole_card_msgs = []
                 session._deferred_hole_card_msgs.append(msg)
             else:
                 session.tracker.apply([msg])
@@ -140,7 +134,7 @@ def deal_pending_split_cards(session: GameRoom) -> None:
                     dealer = session._get_dealer()
                     if (dealer and dealer.dealer_hand and dealer.dealer_hand.cards
                             and dealer.dealer_hand.cards[0].rank.label == "A"
-                            and getattr(session, "drinking_mode", True)):
+                            and session.drinking_mode):
                         existing = next(
                             (v for v in session._insurance_votes
                              if v["player"] == p.name and v["hand_idx"] == i),
@@ -202,7 +196,7 @@ def initial_deal(session: GameRoom) -> None:
 
     # Set up insurance vote slots if dealer shows Ace
     session._insurance_votes = []
-    if dealer.dealer_hand.cards[0].rank.label == "A" and getattr(session, "drinking_mode", True):
+    if dealer.dealer_hand.cards[0].rank.label == "A" and session.drinking_mode:
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack():
@@ -294,7 +288,7 @@ def dealer_turn(session: GameRoom) -> None:
         insurance_votes = session._insurance_votes
         voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
 
-        if not hasattr(session, "_insurance_result") or session._insurance_result is None:
+        if session._insurance_result is None:
             session._insurance_result = []
 
         # Collect all end-of-round drink messages; apply together so 4-player

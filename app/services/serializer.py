@@ -12,6 +12,7 @@ import time
 
 from blackjack import Hand, NPC_Player
 from drinking_rules import _bj_multiplier
+from drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
@@ -342,20 +343,18 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ),
         "anim_default":           session._anim_default,
         "bust_vote_enabled":      session.bust_vote_enabled,
-        "god_mode_enabled":       getattr(session, "_god_mode", False),
-        "god_mode_enabled":       getattr(session, "_god_mode", False),
-        "god_mode_enabled":       getattr(session, "_god_mode", False),
+        "god_mode_enabled":       session._god_mode,
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
-        "insurance_result":       getattr(session, "_insurance_result", None),
-        "ace_drink_events":       getattr(session, "_ace_drink_events", []),
-        "ace_drink_seq":          getattr(session, "_ace_drink_seq", 0),
+        "insurance_result":       session._insurance_result,
+        "ace_drink_events":       session._ace_drink_events,
+        "ace_drink_seq":          session._ace_drink_seq,
         "my_bust_handout_pending": [
             n for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
             if (session._bust_vote_result or {}).get("dealer_busted")
             and n in (session._bust_vote_result or {}).get("winners", [])
-            and n not in getattr(session, "_bust_handouts_given", set())
+            and n not in session._bust_handouts_given
         ],
         **_bust_vote_window(session),
         "connected_clients":      [
@@ -381,15 +380,14 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
         "is_dealer_client":       (
-            (_ci.get("role") == "admin" and getattr(session, "_god_mode", False)) or
+            (_ci.get("role") == "admin" and session._god_mode) or
             session.dealer_name.lower() in {
                 (n or "").lower()
                 for n in ([_ci.get("name")] + list(_ci.get("local_names") or []))
             }
         ),
         "queued_settings":        session._queued_settings,
-        "num_decks":              getattr(getattr(session, "shoe", None), "num_decks", 1),
-        "num_decks":              getattr(getattr(session, "shoe", None), "num_decks", 1),
+        "num_decks":              session.shoe.num_decks if session.shoe else 1,
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
             "boundary":    r["boundary"],

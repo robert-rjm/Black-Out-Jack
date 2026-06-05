@@ -46,7 +46,7 @@ def state():
         # Auto-resolve expired insurance votes (treat as decline)
     if session is not None:
         _now = _time.monotonic()
-        for _v in getattr(session, "_insurance_votes", []):
+        for _v in session._insurance_votes:
             if not _v.get("resolved") and _now - _v.get("started_at", _now) >= 60:
                 _v["resolved"] = True
     return jsonify(serialize_state(session, client_id))
@@ -449,7 +449,7 @@ def give_bust_sip():
     if not result.get("dealer_busted") or winner_name not in result.get("winners", []):
         return jsonify({"ok": False, "error": "No pending handout for this player."})
 
-    if winner_name in getattr(session, "_bust_handouts_given", set()):
+    if winner_name in session._bust_handouts_given:
         return jsonify({"ok": False, "error": "Already given."})
 
     # Recipient must be a player in the game, not the winner themselves
@@ -464,8 +464,6 @@ def give_bust_sip():
         recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
         print(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
-    if not hasattr(session, "_bust_handouts_given"):
-        session._bust_handouts_given = set()
     session._bust_handouts_given.add(winner_name)
 
     # harvest_drink_log already ran — patch the round snapshots directly so

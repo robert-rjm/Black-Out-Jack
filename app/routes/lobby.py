@@ -57,7 +57,7 @@ def delete_room():
         return jsonify({"ok": True})
 
     # Only allow deletion if the game hasn't started yet
-    if getattr(session, "round_count", 0) > 0:
+    if session.round_count > 0:
         return jsonify({"ok": False, "error": "Game already in progress."})
 
     # Verify requester is the admin
