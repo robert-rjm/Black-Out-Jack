@@ -209,8 +209,8 @@ function sendAction(action) {
 }
 
 function sendDigitalPlay(action) {
-  // Non-dealer player: pre-select their intended action instead of executing
-  if (!isMyDealerClient && myRole === "player" && myName) {
+  // Non-dealer player (or admin with god mode off): pre-select instead of executing
+  if (!isMyDealerClient && (myRole === "player" || myRole === "admin") && myName) {
     // Only allow voting when it is actually the player's own turn
     if (!lastState || lastState.phase !== "playing" ||
         !lastState.current_turn ||
@@ -839,6 +839,7 @@ function _renderInsuranceBanner(v) {
   banner.style.display = "block";
 }
 
+
 async function castInsuranceVote(bjPlayer, handIdx, vote) {
   try {
     const res  = await fetch("/vote_insurance", {
@@ -856,7 +857,6 @@ async function castInsuranceVote(bjPlayer, handIdx, vote) {
     appendLog("  Insurance vote failed: network error\n");
   }
 }
-
 
 // ── Milestone: 50-sip handout feature ───────────────────────────────────────
 
@@ -1283,3 +1283,4 @@ function applyTurnGate(state) {
 }
 
 // ============================================================
+                                                                                                                                                                                                                                                        
