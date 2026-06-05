@@ -210,11 +210,11 @@ function sendAction(action) {
 
 function sendDigitalPlay(action) {
   // Non-dealer player (or admin with god mode off): pre-select instead of executing
-  if (!isMyDealerClient && (myRole === "player" || myRole === "admin") && myName) {
+  if (!isMyDealerClient && (myRole === "player" || myRole === "admin") && (myActiveName || myName)) {
     // Only allow voting when it is actually the player's own turn
     if (!lastState || lastState.phase !== "playing" ||
         !lastState.current_turn ||
-        lastState.current_turn.toLowerCase() !== myName.toLowerCase()) {
+        lastState.current_turn.toLowerCase() !== (myActiveName || myName || "").toLowerCase()) {
       return;  // not your turn — ignore the tap
     }
     const hand = sel.digital.hand || "hand1";
@@ -358,6 +358,8 @@ function applyState(state) {
       myName           = state.my_name   || null;
       myNames          = state.my_names  || (myName ? [myName] : []);
       isMyDealerClient = state.is_dealer_client || false;
+      // Initialise myActiveName on first registration
+      if (!myActiveName && myName) myActiveName = myName;
     } else if (!myRole) {
       myRole           = null;
       myName           = null;
@@ -391,8 +393,8 @@ function applyState(state) {
   if (state.prev_round_drinks !== undefined) _prevRoundDrinks = state.prev_round_drinks || [];
 
   // Player drink toast — fires once on round-over transition for registered players
-  if (prevPhase !== "round-over" && state.phase === "round-over" && myName && myRole !== "spectator") {
-    showPlayerDrinkToast(_lastRoundSips[myName] || 0);
+  if (prevPhase !== "round-over" && state.phase === "round-over" && myNames.length > 0 && myRole !== "spectator") {
+    myNames.forEach(n => showPlayerDrinkToast(_lastRoundSips[n] || 0, n));
   }
   // Switch toast — fires on round-over with hard/soft switch (visible to all)
   if (prevPhase !== "round-over" && state.phase === "round-over" && state.switch_this_round) {
@@ -409,6 +411,12 @@ function applyState(state) {
 
   lastState   = state;
   currentTurn = state.current_turn || null;
+  // Auto-switch active seat when turn moves to another local player
+  if (currentTurn && myNames.length > 1) {
+    const turnLow = currentTurn.toLowerCase();
+    const match   = myNames.find(n => n.toLowerCase() === turnLow);
+    if (match) myActiveName = match;
+  }
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
   processAceDrinkEvents(state);  // mid-round ace drink toasts
@@ -673,9 +681,12 @@ function autoSwitchDigTab(state) {
     }
   } else if (phase === "playing") {
     // Non-dealer: if all my hands are done, move me to Drinks so I'm not staring at buttons
-    if (!isMyDealerClient && myName) {
-      const me = (state.table || []).find(p => p.name.toLowerCase() === myName.toLowerCase());
-      if (me && me.done) {
+    if (!isMyDealerClient && myNames.length > 0) {
+      const allDone = myNames.every(n => {
+        const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
+        return seat && seat.done;
+      });
+      if (allDone) {
         activateDigTab("dig-round");
       } else {
         activateDigTab("dig-play");
@@ -697,6 +708,4 @@ function activateDigTab(name) {
   const pane = document.getElementById(`pane-${name}`);
   if (pane) pane.classList.add("active");
 }
-
-// ── Insurance Vote Modal ──────────────────────────────────────────────────
 

@@ -24,6 +24,9 @@
     if (action === "setGodMode") {
       return window.setGodMode(!!el.checked);
     }
+    if (action === "cycleLocalSeat") {
+      return window.cycleLocalSeat();
+    }
     if (action === "setBustVoteSetupToggle") {
       return window.setBustVoteSetupToggle(!!el.checked);
     }

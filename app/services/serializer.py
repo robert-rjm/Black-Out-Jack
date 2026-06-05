@@ -13,6 +13,7 @@ import time
 from blackjack import Hand, NPC_Player
 from drinking_rules import _bj_multiplier
 from drinking_rules import _bj_multiplier
+from drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
@@ -344,6 +345,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "anim_default":           session._anim_default,
         "bust_vote_enabled":      session.bust_vote_enabled,
         "god_mode_enabled":       session._god_mode,
+        "god_mode_enabled":       session._god_mode,
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
@@ -375,6 +377,16 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "my_role":                _ci.get("role"),
         "my_name":                _ci.get("name"),
         "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
+        "can_add_local_seat":     (
+            _ci.get("role") in ("player", "admin") and
+            any(
+                p.name not in {(info.get("name") or "").capitalize()
+                               for info in session._room_clients.values()
+                               if not info.get("kicked")}
+                and p.name not in (_ci.get("local_names") or [])
+                for p in session.all_players
+            )
+        ),
         "my_bust_votes":          {
             n: session._bust_votes.get(n)
             for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
@@ -387,6 +399,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             }
         ),
         "queued_settings":        session._queued_settings,
+        "num_decks":              session.shoe.num_decks if session.shoe else 1,
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],

@@ -7,16 +7,17 @@ function updateInsuranceVisibility(state) {
     const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
     const dealerShowsAce = upCard && upCard.rank === "A";
     let activeHandIsBlackjack = false;
-    if (state.phase === "playing" && state.current_turn && myName &&
-        state.current_turn.toLowerCase() === myName.toLowerCase()) {
-      const me = (state.table || []).find(p => p.name.toLowerCase() === myName.toLowerCase());
+    const activeName = myActiveName || myName;
+    if (state.phase === "playing" && state.current_turn && activeName &&
+        state.current_turn.toLowerCase() === activeName.toLowerCase()) {
+      const me = (state.table || []).find(p => p.name.toLowerCase() === activeName.toLowerCase());
       if (me) {
         const activeHand = (me.hands || []).find(h => !h.done);
         if (activeHand) activeHandIsBlackjack = activeHand.blackjack;
       }
     }
     const hasVoteForMyHand = activeHandIsBlackjack && (state.insurance_votes || []).some(v =>
-      !v.resolved && v.bj_player.toLowerCase() === (myName || "").toLowerCase()
+      !v.resolved && v.bj_player.toLowerCase() === (activeName || "").toLowerCase()
     );
     row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "block" : "none";
   }
