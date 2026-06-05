@@ -7,6 +7,7 @@ Has no game logic of its own — purely reacts to events fired by the game.
 """
 
 import hashlib
+import math
 import urllib.request
 from blackjack import Rank, Suit, Hand, Player
 
@@ -509,7 +510,6 @@ class DrinkingRules:
         half_protected=True (dealer-hand A♠): drinks ceil(total/2) instead of full.
         Full protection takes precedence over half protection.
         """
-        import math
         if protected:
             return [(None, 0,
                 f"Hard Switch triggered — A♣ protects {dealer_name} from drinking")]
@@ -575,7 +575,9 @@ class DrinkTracker:
 
     def apply(self, msgs: list):
         """Apply a list of (recipient, sips, reason[, role]) tuples.
-        role defaults to 'player'; use 'dealer' for dealer-seat drinks."""
+        role defaults to 'player'; use 'dealer' for dealer-seat drinks.
+        4-player rule: all positive drink amounts are halved (ceil) each round."""
+        four_player_mode = len(self.players) >= 4
         for msg in msgs:
             recipient, sips, reason = msg[0], msg[1], msg[2]
             role = msg[3] if len(msg) > 3 else "player"
@@ -585,6 +587,9 @@ class DrinkTracker:
             if sips < 0:
                 self._handle_handout(recipient, abs(sips), reason)
                 continue
+            if four_player_mode and sips > 0:
+                sips = math.ceil(sips / 2)
+                reason = f"{reason} [4-player: halved → {sips}]"
             for t in self._resolve(recipient):
                 t.add_drink(sips, reason, role)
             print(f"    [drink] {reason}")

@@ -55,6 +55,12 @@ Being Dealer carries higher drinking risk.
 
 ---
 
+## Large Group Rule (4+ Players)
+
+When 4 or more players are in the game, all drink amounts are halved (rounded up) each round. This applies to every drink rule — net losses, BJ bonuses, sweeps, aces, and the Hard Switch.
+
+---
+
 ## General Rule Modifications
 
 _Unless stated otherwise within these rules, traditional rules of BlackJack apply._
