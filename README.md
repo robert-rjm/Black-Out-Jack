@@ -272,7 +272,7 @@ Rule ideas are especially welcome — if it made the game more fun, it probably 
 
 ## License
 
-This project is licensed under the MIT License, please see the [LICENSE](LICENSE) file for details.
+This project is licensed under the CC BY-NC-SA 4.0 License, please see the [LICENSE](LICENSE) file for details.
 
 ## Credits
 
