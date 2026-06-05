@@ -113,12 +113,17 @@
 
     <div id="dig-panel">
       <div id="ms-waiting-slot" class="waiting-slot"></div>
+      <div id="dig-predeal-panel" style="display:none;text-align:center;padding:16px 16px 8px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Waiting room — admit players, then deal when ready.</div>
+        {{ action_btn('🃏 DEAL', 'sendCmd', '["deal"]', 'btn-big green') }}
+      </div>
       <div class="tabs-bar" id="dig-tabs">
         <button class="tab active" data-action="switchDigTab" data-args='["dig-play"]'>Play</button>
         <button class="tab" id="dig-drinks-tab" data-action="switchDigTab" data-args='["dig-round"]'>🍺 Drinks</button>
       </div>
 
       <div id="pane-dig-play" class="pane">
+        <div id="dig-play-content">
         <div id="dig-play-role-hint"></div>
         <div id="player-vote-display"></div>
         <div id="local-seat-switcher" style="display:none" class="local-seat-switcher">
@@ -172,11 +177,7 @@
         </div>
 
         <div id="bust-vote-status" class="bust-vote-status"></div>
-
-        <div id="dig-predeal-panel" style="display:none;text-align:center;padding:24px 16px 8px">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Waiting room — admit players, then deal when ready.</div>
-          {{ action_btn('🃏 DEAL', 'sendCmd', '["deal"]', 'btn-big green') }}
-        </div>
+        </div>{# end dig-play-content #}
 
       </div>
 
