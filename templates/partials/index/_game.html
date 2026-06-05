@@ -158,11 +158,16 @@
           {{ action_btn('INSURANCE (dealer shows Ace)', 'sendDigitalPlay', '["insurance"]', 'btn yellow wide') }}
         </div>
 
-        <div id="insurance-vote-panel" class="insurance-vote-panel">
-          <div id="insurance-vote-content"></div>
+        <div id="insurance-vote-banner" class="insurance-vote-banner" style="display:none">
+          <div id="insurance-vote-banner-content"></div>
         </div>
 
         <div id="bust-vote-status" class="bust-vote-status"></div>
+
+        <div id="dig-predeal-panel" style="display:none;text-align:center;padding:24px 16px 8px">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Waiting room — admit players, then deal when ready.</div>
+          {{ action_btn('🃏 DEAL', 'sendCmd', '["deal"]', 'btn-big green') }}
+        </div>
 
       </div>
 

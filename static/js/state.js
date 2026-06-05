@@ -3,23 +3,6 @@
 let players    = [];
 let numHands   = 2;
 let gameMode   = "referee";   // "referee" | "digital"
-// ---------------------------------------------------------------------------
-// BJ multiplier — mirrors _bj_multiplier() in drinking_rules.py.
-// cards: array of {rank, suit} objects from state.table.
-// ---------------------------------------------------------------------------
-function bjMultiplier(cards) {
-  if (!cards || cards.length < 2) return 1;
-  const suits  = cards.map(c => c.suit);
-  const ranks  = cards.map(c => c.rank);
-  const isSuited   = new Set(suits).size === 1;
-  const hasAceJack = ranks.includes("A") && ranks.includes("J");
-  const isAllBlack = suits.every(s => s === "spades" || s === "clubs");
-  let mult = 1;
-  if (isSuited)   mult *= 2;
-  if (hasAceJack) mult *= 2;
-  if (isAllBlack) mult *= 2;
-  return mult;
-}
 
 // ---------------------------------------------------------------------------
 // Security helper — escape user-controlled strings before inserting into HTML

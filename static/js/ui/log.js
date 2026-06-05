@@ -218,6 +218,8 @@ let _lastAceSeq = 0;
 function processAceDrinkEvents(state) {
   const events  = state.ace_drink_events || [];
   const seq     = state.ace_drink_seq    || 0;
+  // Reset if server started a new round (seq went back to 0 or below our last seen)
+  if (seq < _lastAceSeq) _lastAceSeq = 0;
   if (seq <= _lastAceSeq || !events.length) return;
 
   // Only process events newer than what we've seen

@@ -51,11 +51,13 @@ def get_client_info(session, client_id: str) -> dict:
     role        = info.get("role") or "spectator"
     name        = info.get("name")
     local_names = info.get("local_names") or ([name] if name else [])
-    is_dealer   = bool(name and name.lower() == session.dealer_name.lower()) or role == "admin"
+    god_mode    = getattr(session, "_god_mode", False)
+    is_dealer   = bool(name and name.lower() == session.dealer_name.lower()) or (role == "admin" and god_mode)
     return {"role": role, "name": name, "local_names": local_names, "is_dealer": is_dealer}
 
 
 def is_dealer_client(session, client_id: str) -> bool:
     """True if this client is the admin or is registered as the current dealer."""
     info = get_client_info(session, client_id)
-    return info["is_dealer"] or info.get("role") == "admin"
+    god_mode = getattr(session, "_god_mode", False)
+    return info["is_dealer"] or (info.get("role") == "admin" and god_mode)

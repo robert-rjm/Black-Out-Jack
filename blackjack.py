@@ -382,7 +382,7 @@ class RoundManager:
         self.drinking_mode  = drinking_mode
         self._all_names     = [p.name for p in players]
         self._ace_credits   = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False}
+        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
         self._four_aces_fd  = False
         # List of (player, hand, insured:bool) — populated after deal, resolved in _evaluate
         self._insurance_votes: list = []
@@ -423,7 +423,7 @@ class RoundManager:
             self.dealer_player.reset_round(0)
             self.dealer_player.dealer_hand = Hand()
         self._ace_credits    = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False}
+        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
         self._four_aces_fd   = False
         self._insurance_votes = []
 
@@ -733,6 +733,7 @@ class RoundManager:
             if hard_switch:
                 protected         = self._ace_clubs_flag.get("protected", False)
                 partial_protected = self._ace_clubs_flag.get("partial_protected", False)
+                half_protected    = self._ace_clubs_flag.get("half_protected", False)
                 # Partial protection (player-hand A♣): exclude dealer's own player
                 # hands from the penalty — they still drink for everyone else's hands.
                 hs_for_penalty = (
@@ -741,7 +742,8 @@ class RoundManager:
                     else winning_hds
                 )
                 self._drink(DrinkingRules.on_hard_dealer_switch(
-                    self.dealer_player.name, hs_for_penalty, protected))
+                    self.dealer_player.name, hs_for_penalty, protected,
+                    half_protected=half_protected))
                 # When A♣ protects the dealer, add display-only +/- entries so
                 # the drinks summary panel can show what was waived.
                 if protected and winning_hds:

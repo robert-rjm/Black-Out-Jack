@@ -21,6 +21,9 @@
     if (action === "setBustVoteEnabled") {
       return window.setBustVoteEnabled(!!el.checked);
     }
+    if (action === "setGodMode") {
+      return window.setGodMode(!!el.checked);
+    }
     if (action === "setBustVoteSetupToggle") {
       return window.setBustVoteSetupToggle(!!el.checked);
     }

@@ -11,6 +11,7 @@ per-client fields (my_role, is_dealer_client, etc.) can be included.
 import time
 
 from blackjack import Hand, NPC_Player
+from drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
@@ -121,6 +122,7 @@ def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
         "insured":    hand.insured,
         "result":     None if is_hidden_double else hand.result,
         "blackjack":  bool(hand.cards) and hand.is_blackjack(),
+        "bj_mult":    _bj_multiplier(hand),
         "done":       hand_done(hand),
         "can_split":  hand.can_split(),
     }
@@ -340,6 +342,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ),
         "anim_default":           session._anim_default,
         "bust_vote_enabled":      session.bust_vote_enabled,
+        "god_mode_enabled":       getattr(session, "_god_mode", False),
+        "god_mode_enabled":       getattr(session, "_god_mode", False),
+        "god_mode_enabled":       getattr(session, "_god_mode", False),
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
@@ -376,13 +381,15 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
         "is_dealer_client":       (
-            _ci.get("role") == "admin" or
+            (_ci.get("role") == "admin" and getattr(session, "_god_mode", False)) or
             session.dealer_name.lower() in {
                 (n or "").lower()
                 for n in ([_ci.get("name")] + list(_ci.get("local_names") or []))
             }
         ),
         "queued_settings":        session._queued_settings,
+        "num_decks":              getattr(getattr(session, "shoe", None), "num_decks", 1),
+        "num_decks":              getattr(getattr(session, "shoe", None), "num_decks", 1),
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
             "boundary":    r["boundary"],
@@ -412,6 +419,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                     if p.name.lower() != v["player"].lower()),
                 "insure_count":  sum(1 for x in v["votes"].values() if x)     if v["resolved"] else None,
                 "decline_count": sum(1 for x in v["votes"].values() if not x) if v["resolved"] else None,
+                "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
             }
             for v in session._insurance_votes
         ],

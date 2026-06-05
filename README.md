@@ -125,12 +125,14 @@ Black-Out-Jack/
 ├── static/
 │   ├── css/
 │   │   ├── main.css             # Variables, reset, layout, bottom nav
-│   │   └── components/          # cards.css, controls.css, log.css, …
+│   │   └── components/          # controls.css, lobby.css, log.css, modals.css, table.css, tabs.css, utilities.css
 │   ├── js/
 │   │   ├── utils.js             # Shared helpers
 │   │   ├── state.js             # Global state variables
 │   │   ├── app.js               # Init entry point
-│   │   └── ui/                  # lobby.js, table.js, log.js, admin.js, …
+│   │   └── ui/                  # lobby.js, setup.js, animation.js, config.js, bootstrap.js
+│   │                            # table.js, table-modals.js, table-render.js
+│   │                            # log.js, admin.js, admin-settings.js
 │   └── logo.png                 # Home screen icon (iOS & Android)
 ├── templates/
 │   ├── index.html               # Mobile-first browser UI
@@ -159,8 +161,8 @@ _RULES_DATE  = "2026-05-15"
 On startup the script fetches `Rules.md` from GitHub and compares hashes. If they differ, a warning is printed. When the rules change, update `_RULES_HASH` and `_RULES_DATE` in `drinking_rules.py` after re-verifying the implementation.
 
 ### Common Issues
-1. **Inadequate Drinking Rules**: With too many players, excessive drinking may occur per round
-2. **Insufficient Cards**: With multiple Players splitting aggressively, it is recommended to use multiple decks.
+1. **Insufficient Cards**: With multiple players splitting aggressively, it is recommended to use multiple decks (the game defaults to 2 decks for 4+ players automatically).
+2. **Large groups**: Games with 4 or more players automatically halve all end-of-round drink totals per player to keep the game at a reasonable pace.
 
 ## Running the Game
 
@@ -247,7 +249,7 @@ The three main files are intentionally decoupled:
 | `app/` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Routes, models, and services for the web UI |
 |  `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
 | `static/css/` | — | `main.css` (layout, variables) + `components/` (cards, controls, log…) |
-| `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, table, log, admin…) |
+| `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, log, setup, table, table-modals, table-render, admin, admin-settings) |
 | `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |
 
 **Separation of concerns:**
