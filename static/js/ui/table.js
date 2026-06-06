@@ -7,6 +7,8 @@ function buildGameUI() {
   document.getElementById("ref-panel").style.display = isDigital ? "none"  : "block";
   document.getElementById("dig-panel").style.display = isDigital ? "block" : "none";
 
+  initLogCollapse();
+
   if (isDigital) {
     buildDigitalUI();
   } else {

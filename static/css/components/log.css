@@ -2,6 +2,56 @@
    log.css — chat log, drink toasts, switch toast, milestones
    ============================================================ */
 
+/* ---- LOG SECTION (collapsible wrapper) ---- */
+#log-section {
+  flex: 1;               /* fill all remaining space in #right-col */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+#log-section.collapsed {
+  flex: 0 0 auto;        /* shrink to just the toggle bar height when collapsed */
+}
+
+.log-toggle-bar {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  cursor: pointer;
+  background: #11131c;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  user-select: none;
+  flex-shrink: 0;
+}
+.log-toggle-bar:hover { background: #1a1d2b; color: var(--text); }
+
+.log-toggle-chevron {
+  font-size: 11px;
+  transition: transform .2s ease;
+}
+#log-section.collapsed .log-toggle-chevron { transform: rotate(-90deg); }
+
+#log-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;     /* large anchor value for the collapse transition */
+  transition: max-height .25s ease;
+}
+#log-section.collapsed #log-body {
+  max-height: 0;
+}
+
 /* ---- CHAT LOG ---- */
 #log {
   flex: 1;
