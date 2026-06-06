@@ -149,18 +149,19 @@ class DrinkingRules:
 
         if not is_dealer:
             if s == Suit.CLUBS:
-                msgs.append((recipient, -1,
-                    f"A{s.symbol} dealt to {recipient} => -1 sip credit at round end"))
-                # Dealer-player's betting-hand A♣ gives reduced protection:
-                # -1 sip credit applies, and own hand losses are already exempt
-                # on any hard switch (via exempt_dealer). The dealer penalty
-                # still fires — only the dealer's own DEALER hand A♣ gives full
-                # protection from the hard switch penalty.
                 if recipient.lower() == dealer_name.lower():
+                    # Dealer-player A♣ on a player hand:
+                    # Always grants partial Hard Switch protection (own hand losses exempt).
+                    # -1 sip credit is deferred — applied at endround ONLY if no hard switch fires.
+                    # On a hard switch the protection IS the benefit; no double-dipping.
                     ace_clubs_flag["partial_protected"] = True
+                    ace_clubs_flag["dealer_player_pending_credit"] = recipient
                     msgs.append((None, 0,
                         f"A{s.symbol} dealt to {recipient} (also dealer) "
-                        f"=> own hand losses exempt on Hard Switch; dealer penalty still applies (own hands excluded)"))
+                        f"=> partial Hard Switch protection; -1 sip credit applies only if no hard switch"))
+                else:
+                    msgs.append((recipient, -1,
+                        f"A{s.symbol} dealt to {recipient} => -1 sip credit at round end"))
             elif s == Suit.SPADES:
                 idx    = all_player_names.index(recipient)
                 target = all_player_names[(idx + card_pos) % len(all_player_names)]

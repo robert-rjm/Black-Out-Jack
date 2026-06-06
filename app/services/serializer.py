@@ -316,6 +316,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "peeked_card":            session._last_peeked,
         "sip_totals":             sip_totals,
         "sip_grand_total":        sum(sip_totals.values()),
+        "round_over_seq":         session._round_over_seq,
         "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
         "last_round_drinks":      session._last_round_drinks,
         "round_notices":          session._round_notices,
@@ -349,6 +350,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
+        "bust_handout_seconds_left": (
+            max(0, round(session._bust_handout_expires_at - time.monotonic()))
+            if session._bust_handout_expires_at else 0
+        ),
         "insurance_result":       session._insurance_result,
         "ace_drink_events":       session._ace_drink_events,
         "ace_drink_seq":          session._ace_drink_seq,

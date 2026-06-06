@@ -408,10 +408,13 @@ function applyState(state) {
   if (state.prev_round_sips !== undefined)  _prevRoundSips  = state.prev_round_sips  || {};
   if (state.prev_round_drinks !== undefined) _prevRoundDrinks = state.prev_round_drinks || [];
 
-  // Player drink toast — fires once on round-over transition for registered players
-  if (prevPhase !== "round-over" && state.phase === "round-over" && myNames.length > 0 && myRole !== "spectator") {
+  // Player drink toast — seq-based so it fires even if the poll misses the round-over phase.
+  // Fires for all registered non-spectator players whenever a new round ends.
+  const newRoundOverSeq = state.round_over_seq || 0;
+  if (newRoundOverSeq > _lastRoundOverSeq && myNames.length > 0 && myRole !== "spectator") {
     myNames.forEach(n => showPlayerDrinkToast(_lastRoundSips[n] || 0, n));
   }
+  _lastRoundOverSeq = Math.max(_lastRoundOverSeq, newRoundOverSeq);
   // Switch toast — fires on round-over with hard/soft switch (visible to all)
   if (prevPhase !== "round-over" && state.phase === "round-over" && state.switch_this_round) {
     showSwitchToast(state.switch_this_round, state.dealer || "Dealer");

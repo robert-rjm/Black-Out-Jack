@@ -167,6 +167,7 @@ def command():
                     time.monotonic() + 17 if game_session.bust_vote_enabled else None
                 )
                 game_session._bust_handouts_given  = set()   # clear any stale handouts
+                game_session._bust_handout_expires_at = None
                 initial_deal(game_session)
                 auto_play_npc_turns(game_session)
 
@@ -379,14 +380,15 @@ def command():
                 game_session._last_peeked   = None
                 game_session._preselections = {}
                 game_session._suggestions   = {}
-                game_session._bust_votes          = {}    # clear bust votes each round
-                game_session._bust_vote_expires_at = None
-                game_session._bust_vote_result     = None
-                game_session._insurance_result     = None
-                game_session._ace_drink_events     = []
-                game_session._ace_drink_seq        = 0
-                game_session._bust_handouts_given  = set()
-                game_session._drink_log_harvested = False
+                game_session._bust_votes             = {}    # clear bust votes each round
+                game_session._bust_vote_expires_at   = None
+                game_session._bust_vote_result        = None
+                game_session._bust_handout_expires_at = None
+                game_session._insurance_result        = None
+                game_session._ace_drink_events        = []
+                game_session._ace_drink_seq           = 0
+                game_session._bust_handouts_given     = set()
+                game_session._drink_log_harvested     = False
                 game_session._kick_votes    = {}  # reset vote-kick tally each round
                 game_session._pending_milestone = None  # clear between rounds
                 if game_session.drinking_mode or game_session.shoe.needs_reshuffle():
@@ -466,15 +468,16 @@ def command():
                 game_session._last_peeked            = None
                 game_session._preselections          = {}
                 game_session._suggestions            = {}
-                game_session._bust_votes             = {}
-                game_session._bust_vote_expires_at   = None
-                game_session._bust_vote_result       = None
-                game_session._insurance_result       = None
-                game_session._ace_drink_events       = []
-                game_session._ace_drink_seq          = 0
-                game_session._bust_handouts_given    = set()
-                game_session._drink_log_harvested    = False
-                game_session._kick_votes             = {}
+                game_session._bust_votes              = {}
+                game_session._bust_vote_expires_at    = None
+                game_session._bust_vote_result        = None
+                game_session._bust_handout_expires_at = None
+                game_session._insurance_result        = None
+                game_session._ace_drink_events        = []
+                game_session._ace_drink_seq           = 0
+                game_session._bust_handouts_given     = set()
+                game_session._drink_log_harvested     = False
+                game_session._kick_votes              = {}
                 game_session._pending_milestone      = None
                 game_session.start_round()
                 patch_tracker(game_session)
