@@ -185,11 +185,10 @@ def harvest_drink_log(session: GameRoom) -> None:
     session._last_round_drinks  = drinks_detail
     session._round_notices      = notices
 
-    # Hand outcome stats per player (win/loss/push, splits, doubles)
+    # Hand outcome stats per player (win/loss/push, splits, doubles).
+    # Includes the dealer-player's p.hands — they play as a regular player too.
     hand_stats = session._hand_stats
     for p in session.all_players:
-        if p.is_dealer:
-            continue
         if p.name not in hand_stats:
             hand_stats[p.name] = {
                 "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
