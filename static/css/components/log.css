@@ -4,15 +4,10 @@
 
 /* ---- LOG SECTION (collapsible wrapper) ---- */
 #log-section {
-  flex: 1;               /* fill all remaining space in #right-col */
-  min-height: 0;
+  flex: 0 0 auto;        /* never grows — kpi-panel owns the flex space */
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--border);
   overflow: hidden;
-}
-#log-section.collapsed {
-  flex: 0 0 auto;        /* shrink to just the toggle bar height when collapsed */
 }
 
 .log-toggle-bar {
@@ -40,12 +35,10 @@
 #log-section.collapsed .log-toggle-chevron { transform: rotate(-90deg); }
 
 #log-body {
-  flex: 1;
-  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 100vh;     /* large anchor value for the collapse transition */
+  max-height: 130px;     /* fixed expanded height; kpi-panel gets the rest */
   transition: max-height .25s ease;
 }
 #log-section.collapsed #log-body {
