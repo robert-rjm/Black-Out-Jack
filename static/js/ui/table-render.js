@@ -135,7 +135,17 @@ function renderPlayers(state) {
     const sips     = (state.sip_totals || {})[s.name] || 0;
     const sipBadge = (state.drinking_mode !== false && sips > 0)
       ? `<span class="seat-sip-badge">🍺 ${sips}</span>` : "";
-    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${tag}</div>`;
+
+    // Crown: player had 0 net sips last round (after bust vote).
+    // Show during the following round only (not during round-over when data is freshly set).
+    const lastSips      = state.last_round_sips || {};
+    const roundOver     = state.phase === "round-over";
+    const hadPrevRound  = state.round > 1;
+    const wasClean      = hadPrevRound && !roundOver && (lastSips[s.name] || 0) === 0;
+    const crownBadge    = (wasClean && state.drinking_mode !== false)
+      ? `<span class="seat-crown" title="Clean last round">👑</span>` : "";
+
+    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
