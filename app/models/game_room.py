@@ -67,6 +67,7 @@ class GameRoom:
     _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
     _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
     _bust_handouts_given: set = field(default_factory=set) # winner names who have given their handout sip
+    _bust_handout_expires_at: float | None = None          # monotonic; winners have until this to give their sip
 
     # Mid-round state (digital only - reset each newround in game_commands.py)
     _ace_drink_events: list = field(default_factory=list)
