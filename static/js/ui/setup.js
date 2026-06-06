@@ -5,6 +5,7 @@ let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
 let _prevRoundSips      = {};   // round before last — shown in 🍺 header modal
 let _prevRoundDrinks    = [];   // detailed drink entries for the previous round
 let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
+let _lastRoundOverSeq   = 0;    // seq-based: fire drink toast whenever this advances
 let _lastMilestoneKey       = null;  // "boundary:winner" — prevents re-showing toast on every poll
 let _lastMilestoneResultKey = null;  // same format — prevents re-showing drink toast on every poll
 let _milestoneModalOpened   = null;  // key for which we already opened the modal (prevents re-open on re-poll)

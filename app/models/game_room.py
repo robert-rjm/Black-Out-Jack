@@ -38,6 +38,7 @@ class GameRoom:
     _prev_round_sips: dict = field(default_factory=dict)
     _prev_round_drinks: list = field(default_factory=list)
     _dealer_role_ticker: dict = field(default_factory=dict)
+    _round_over_seq: int = 0   # increments each harvest so clients never miss the toast
 
     # Client registry
     _room_clients: dict = field(default_factory=dict)
