@@ -185,7 +185,7 @@ def harvest_drink_log(session: GameRoom) -> None:
     session._last_round_drinks  = drinks_detail
     session._round_notices      = notices
 
-    # Hand outcome stats per player (win/loss/push, splits, doubles).
+    # Hand outcome stats per player (win/loss/push, splits, doubles, BJs, busts).
     # Includes the dealer-player's p.hands — they play as a regular player too.
     hand_stats = session._hand_stats
     for p in session.all_players:
@@ -194,8 +194,12 @@ def harvest_drink_log(session: GameRoom) -> None:
                 "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
                 "split_hands": 0, "split_wins": 0,
                 "double_hands": 0, "double_wins": 0,
+                "blackjacks": 0,  "busts": 0,
             }
         hs = hand_stats[p.name]
+        # Back-fill missing keys for sessions started before this field was added
+        hs.setdefault("blackjacks", 0)
+        hs.setdefault("busts", 0)
         for hand in p.hands:
             result = getattr(hand, "result", None)
             if result not in ("win", "loss", "push"):
@@ -210,7 +214,25 @@ def harvest_drink_log(session: GameRoom) -> None:
             if getattr(hand, "doubled", False):
                 hs["double_hands"] += 1
                 if result == "win": hs["double_wins"] += 1
+            if hand.is_blackjack() and result == "win":
+                hs["blackjacks"] += 1
+            if getattr(hand, "bust", False) or hand.is_bust():
+                hs["busts"] += 1
     session._hand_stats = hand_stats
+
+    # Max single-round sip hit per player
+    mx = session._max_round_sips
+    for name, raw in session._last_round_sips.items():
+        net = max(0, raw)
+        if net > mx.get(name, 0):
+            mx[name] = net
+    session._max_round_sips = mx
+
+    # Dealer bust counter
+    dealer_player = next((p for p in session.all_players if p.is_dealer), None)
+    if dealer_player and getattr(dealer_player, "dealer_hand", None):
+        if dealer_player.dealer_hand.is_bust():
+            session._dealer_bust_rounds += 1
 
     # Dealer hand stats — wins/losses/pushes from the dealer's POV
     # (player "win" = dealer lost that hand, and vice versa)

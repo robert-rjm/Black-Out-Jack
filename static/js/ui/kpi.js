@@ -97,7 +97,122 @@ function renderLeaderboard(state) {
     </table>`;
 }
 
+// ---- Stats tab renderer ----
+function renderStats(state) {
+  const el = document.getElementById("stats-content");
+  if (!el) return;
+
+  const handStats       = state.hand_stats         || {};
+  const sipTotals       = state.sip_totals         || {};
+  const maxRoundSips    = state.max_round_sips     || {};
+  const dealerBustRnds  = state.dealer_bust_rounds || 0;
+  const round           = state.round              || 0;
+  const playOrder       = state.play_order         || state.players || [];
+  const dealer          = (state.dealer            || "").toLowerCase();
+
+  const rows = playOrder.map(name => {
+    const hs          = handStats[name] || {};
+    const hands       = hs.hands        || 0;
+    const wins        = hs.wins         || 0;
+    const dh          = hs.double_hands || 0;
+    const dw          = hs.double_wins  || 0;
+    const sh          = hs.split_hands  || 0;
+    const sw          = hs.split_wins   || 0;
+    const bj          = hs.blackjacks   || 0;
+    const busts       = hs.busts        || 0;
+    const totalSips   = sipTotals[name] || 0;
+    const maxSips     = maxRoundSips[name] || 0;
+    const avgSips     = round > 0 ? (totalSips / round).toFixed(1) : "—";
+    const dblPct      = dh > 0 ? Math.round((dw / dh) * 100) + "%" : "—";
+    const spPct       = sh > 0 ? Math.round((sw / sh) * 100) + "%" : "—";
+    return { name, hands, wins, bj, busts, dh, dw, dblPct, sh, sw, spPct, avgSips, maxSips, totalSips };
+  }).filter(r => r.hands > 0 || r.totalSips > 0);
+
+  if (rows.length === 0) {
+    el.innerHTML = '<div class="lb-empty">No data yet — play a round first</div>';
+    return;
+  }
+
+  // Per-player table
+  const isDealer = name => name.toLowerCase() === dealer;
+
+  const tbody = rows.map(r => {
+    const rc = isDealer(r.name) ? " lb-row-dealer" : "";
+    const nameCell = `${escapeHtml(r.name)}${isDealer(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
+    const bjCell   = r.bj    > 0 ? `<span style="color:var(--yellow);font-weight:700">🃏${r.bj}</span>`  : `<span style="opacity:.35">—</span>`;
+    const bustCell = r.busts > 0 ? `<span style="color:var(--red)">${r.busts}</span>` : `<span style="opacity:.35">0</span>`;
+    const maxCell  = r.maxSips > 0 ? `<span style="color:var(--red)">🍺${r.maxSips}</span>` : `<span style="opacity:.35">—</span>`;
+    return `<tr class="${rc}">
+      <td class="lb-name">${nameCell}</td>
+      <td>${bjCell}</td>
+      <td>${r.dblPct}</td>
+      <td>${r.spPct}</td>
+      <td>${bustCell}</td>
+      <td>${r.avgSips}</td>
+      <td>${maxCell}</td>
+    </tr>`;
+  }).join("");
+
+  const table = `
+    <table class="lb-table stats-table">
+      <thead><tr>
+        <th>Player</th>
+        <th title="Natural blackjacks won">BJ</th>
+        <th title="Double down win rate">Dbl%</th>
+        <th title="Split win rate">Sp%</th>
+        <th title="Times busted">Busts</th>
+        <th title="Average sips per round">Avg🍺</th>
+        <th title="Biggest single-round sip hit">Peak🍺</th>
+      </tr></thead>
+      <tbody>${tbody}</tbody>
+    </table>`;
+
+  // Session callout cards
+  const totalBJ    = rows.reduce((s, r) => s + r.bj, 0);
+  const bjRate     = round > 0 ? ((totalBJ / (rows.length * round)) * 100).toFixed(1) : null;
+  const bjExpected = 4.8;
+
+  const peakRow    = [...rows].sort((a, b) => b.maxSips - a.maxSips)[0];
+  const bustRate   = round > 0 ? Math.round((dealerBustRnds / round) * 100) : null;
+
+  const callouts = [];
+
+  if (totalBJ > 0) {
+    callouts.push(`<div class="stat-card">
+      <div class="stat-card-icon">🃏</div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">${totalBJ} blackjack${totalBJ !== 1 ? "s" : ""}</div>
+        <div class="stat-card-label">this session${bjRate !== null ? ` · ${bjRate}% rate (expected ~${bjExpected}%)` : ""}</div>
+      </div>
+    </div>`);
+  }
+
+  if (peakRow && peakRow.maxSips > 0) {
+    callouts.push(`<div class="stat-card">
+      <div class="stat-card-icon">💀</div>
+      <div class="stat-card-body">
+        <div class="stat-card-value">${peakRow.maxSips} sips</div>
+        <div class="stat-card-label">worst round — ${escapeHtml(peakRow.name)}</div>
+      </div>
+    </div>`);
+  }
+
+  if (bustRate !== null) {
+    const bustColour = dealerBustRnds === 0 ? "" : bustRate >= 40 ? "color:var(--green)" : bustRate >= 25 ? "color:var(--yellow)" : "color:var(--muted)";
+    callouts.push(`<div class="stat-card">
+      <div class="stat-card-icon">🎰</div>
+      <div class="stat-card-body">
+        <div class="stat-card-value" style="${bustColour}">${bustRate}% dealer busts</div>
+        <div class="stat-card-label">${dealerBustRnds} of ${round} round${round !== 1 ? "s" : ""} · casino avg ~28%</div>
+      </div>
+    </div>`);
+  }
+
+  el.innerHTML = table + (callouts.length ? `<div class="stat-cards">${callouts.join("")}</div>` : "");
+}
+
 // ---- Hook into state updates ----
 function updateKpiPanel(state) {
   renderLeaderboard(state);
+  renderStats(state);
 }
