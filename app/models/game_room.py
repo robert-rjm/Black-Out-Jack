@@ -211,7 +211,7 @@ class GameRoom:
         return self.session.cmd_fouraces(parts)
 
     def cmd_endround(self):
-        return self.session.cmd_endround()
+        return self.session.cmd_endround(skip_sweep=(self.mode == "digital"))
 
     def cmd_status(self):
         return self.session.cmd_status()
