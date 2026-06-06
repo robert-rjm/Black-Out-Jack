@@ -136,7 +136,7 @@ class RefereeSession:
 
     # ---------------------------------------------------------------- setup round
 
-    def start_round(self):
+    def start_round(self, digital=False):
         self.round_count += 1
         # Rebuild index to pick up any players added after __init__
         self._player_map = {p.name.lower(): p for p in self.all_players}
@@ -144,7 +144,8 @@ class RefereeSession:
         print(f"\n{'='*52}")
         print(f"  ROUND {self.round_count}  |  Dealer: {self.dealer_name}")
         print("="*52)
-        print("  Enter cards as they are dealt. Type 'help' for commands.\n")
+        if not digital:
+            print("  Enter cards as they are dealt. Type 'help' for commands.\n")
 
         # Reset all player hands and drink logs
         for p in self.all_players:
