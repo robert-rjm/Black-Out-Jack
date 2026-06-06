@@ -72,6 +72,12 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         "losers":        losers,
     } if (winners or losers) else None
 
+    # Give winners 20 seconds to hand out their sip; auto-assign expires after that
+    if winners:
+        session._bust_handout_expires_at = time.monotonic() + 20
+    else:
+        session._bust_handout_expires_at = None
+
 
 # ---------------------------------------------------------------------------
 # Display-reason helper — strip verbose detail from panel labels
