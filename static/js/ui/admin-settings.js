@@ -456,8 +456,8 @@ function _populateSettingsUI(state) {
   if (godCb) godCb.checked = !!state.god_mode_enabled;
   const godLblOff = document.getElementById("god-mode-lbl-off");
   const godLblOn  = document.getElementById("god-mode-lbl-on");
-  if (godLblOff) godLblOff.style.display = state.god_mode_enabled ? "none" : "";
-  if (godLblOn)  godLblOn.style.display  = state.god_mode_enabled ? "" : "none";
+  if (godLblOff) godLblOff.style.display = state.god_mode_enabled ? "none"   : "inline";
+  if (godLblOn)  godLblOn.style.display  = state.god_mode_enabled ? "inline" : "none";
 
   if (wagerEl)   wagerEl.value    = state.wager            || 1;
   if (handsEl)   handsEl.value    = state.num_hands         || 2;
