@@ -61,7 +61,7 @@ class GameRoom:
 
     # Bust vote side bet
     bust_vote_enabled: bool = False
-    _god_mode: bool = False
+    _god_mode: bool = True
     _bust_votes: dict = field(default_factory=dict)        # player_name -> "bust" | "pass"
     _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
     _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
@@ -193,7 +193,7 @@ class GameRoom:
         return self.session._get_player(name)
 
     def start_round(self):
-        return self.session.start_round()
+        return self.session.start_round(digital=(self.mode == "digital"))
 
     def cmd_deal(self, parts):
         return self.session.cmd_deal(parts)
