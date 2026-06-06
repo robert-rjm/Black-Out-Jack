@@ -290,13 +290,15 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
 
     sip_totals = compute_sip_totals(session)
 
-    # Leaderboard data — cumulative per-player hand outcomes
+    # KPI panel data — cumulative per-player hand outcomes + session stats
     hand_stats = dict(session._hand_stats)
 
     return {
         "ok":              True,
         "round":           session.round_count,
         "hand_stats":      hand_stats,
+        "max_round_sips":  dict(session._max_round_sips),
+        "dealer_bust_rounds": session._dealer_bust_rounds,
         "dealer":          session.dealer_name,
         "players":         [p.name for p in session.all_players],
         "num_hands":       session.num_hands,
