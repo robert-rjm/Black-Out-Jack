@@ -1,3 +1,23 @@
+// LOG SECTION — collapsible
+// ============================================================
+const _LOG_COLLAPSED_KEY = "boj_log_collapsed";
+
+function toggleLog() {
+  const section = document.getElementById("log-section");
+  if (!section) return;
+  const collapsed = section.classList.toggle("collapsed");
+  try { localStorage.setItem(_LOG_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch (_) {}
+}
+
+function initLogCollapse() {
+  const section = document.getElementById("log-section");
+  if (!section) return;
+  // Default: collapsed (leave space for future KPI panel)
+  const stored = localStorage.getItem(_LOG_COLLAPSED_KEY);
+  const shouldCollapse = stored === null ? true : stored === "1";
+  if (shouldCollapse) section.classList.add("collapsed");
+}
+
 // CHAT LOG
 // ============================================================
 function appendLog(text, clear = false) {
