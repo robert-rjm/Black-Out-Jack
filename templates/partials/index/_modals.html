@@ -26,7 +26,7 @@
   <div id="kick-card" data-stop-propagation="true">
     <h3>⚙️ Settings</h3>
 
-    <div class="kick-toggle-row">
+    <div class="kick-toggle-row" style="border-bottom:none;margin-bottom:0">
       <label class="kick-toggle-label">Deal animation</label>
       <div class="pill-toggle-wrap">
         <label class="pill-toggle">
@@ -38,29 +38,31 @@
       </div>
     </div>
 
-      <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-        <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
-        <div class="pill-toggle-wrap">
-          <label class="pill-toggle">
-            <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
-            <span class="pill-slider"></span>
-          </label>
-          <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
-          <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
-        </div>
+    <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+      <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
+        <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
       </div>
+    </div>
 
-      <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-        <label class="kick-toggle-label" style="font-size:13px">God Mode <span style="font-size:10px;color:var(--muted)">(admin bypasses turn gate)</span></label>
-        <div class="pill-toggle-wrap">
-          <label class="pill-toggle">
-            <input type="checkbox" id="god-mode-toggle-modal" data-change-action="setGodMode">
-            <span class="pill-slider"></span>
-          </label>
-          <span class="pill-label-off" id="god-mode-lbl-off">OFF</span>
-          <span class="pill-label-on" id="god-mode-lbl-on">ON</span>
-        </div>
+    <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+      <label class="kick-toggle-label" style="font-size:13px">God Mode <span style="font-size:10px;color:var(--muted)">(admin bypasses turn gate)</span></label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="god-mode-toggle-modal" data-change-action="setGodMode">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="god-mode-lbl-off">OFF</span>
+        <span class="pill-label-on" id="god-mode-lbl-on">ON</span>
       </div>
+    </div>
+
+    <div style="border-bottom:1px solid rgba(255,255,255,.1);margin:10px 0 12px"></div>
 
     <div class="modal-section-title">PLAYERS IN SESSION</div>
     <div id="kick-list"></div>
