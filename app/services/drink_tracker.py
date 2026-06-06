@@ -124,6 +124,7 @@ def harvest_drink_log(session: GameRoom) -> None:
             ticker[p.name] = ticker.get(p.name, 0) + net
     session._sip_ticker          = ticker
     session._drink_log_harvested = True
+    session._round_over_seq     += 1   # seq-based trigger so clients never miss the toast
 
     # Cumulative dealer-role sips (shown in dealer panel)
     d_ticker = session._dealer_role_ticker
