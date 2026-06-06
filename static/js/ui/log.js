@@ -265,5 +265,6 @@ function processAceDrinkEvents(state) {
   if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
     clearTimeout(_playerToastTimer);
   }
-  setTimeout(() => el.classList.remove("show"), 5000);
+  const duration = mine.length > 0 ? 5000 : 8000;
+  setTimeout(() => el.classList.remove("show"), duration);
 }
