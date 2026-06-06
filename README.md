@@ -77,12 +77,24 @@ To see how all these rules play out together in practice, check out [Comprehensi
 | **Hard Dealer Switch** | dealer drinks per each winning hand when they lose all |
 | **Mandatory 10 splits** | warning issued when a player tries to keep 10-value pairs (unless suited) |
 
+#### Ace of Clubs — Dealer-Player Special Case
+
+When the **dealer-player** (the player currently holding the dealer role) receives A♣ on one of their own **player hands** (not their dealer hand), the effect depends on whether a Hard Switch fires that round:
+
+- **Hard Switch fires** → partial protection only: the dealer-player's own hand losses are exempt from the Hard Switch dealer penalty. No -1 sip credit is awarded (protection IS the benefit — no double-dipping).
+- **No Hard Switch** → standard A♣ treatment: the dealer-player receives the normal -1 sip credit at end of round, same as any other player.
+
+This replaces the previous behaviour where both benefits applied simultaneously.
+
 ### **Multiplayer Rooms**
 - **Room codes** — host creates a room and shares the code (e.g. `Jack-21`) with friends
 - **Player registration** — each person joins on their own phone and claims their seat
 - **Role system** — one player is the dealer (controls the game); others vote their intended action and the dealer executes it
 - **Action voting** — non-dealer players tap HIT/STAND/DOUBLE/SPLIT to signal their intention; the dealer sees the vote and carries it out
 - **Live sip ticker** — header strip shows the session total; each player seat shows their running sip count
+- **KPI panel** — right-column panel with three tabs: Leaderboard (win rate, W/L/P, sips), Stats (blackjacks, doubles/splits win rate, busts, peak round), and Trivia (coming soon)
+- **Clean-round crown** — players who took 0 sips in the previous round display a 👑 next to their name for the following round
+- **Collapsible round log** — log panel can be minimised to free screen space for the KPI panel
 - **Spectator mode** — join a session without a seat to watch
 - **Player management** — admin can kick players from the session
 
@@ -125,14 +137,14 @@ Black-Out-Jack/
 ├── static/
 │   ├── css/
 │   │   ├── main.css             # Variables, reset, layout, bottom nav
-│   │   └── components/          # controls.css, lobby.css, log.css, modals.css, table.css, tabs.css, utilities.css
+│   │   └── components/          # controls.css, kpi.css, lobby.css, log.css, modals.css, table.css, tabs.css, utilities.css
 │   ├── js/
 │   │   ├── utils.js             # Shared helpers
 │   │   ├── state.js             # Global state variables
 │   │   ├── app.js               # Init entry point
 │   │   └── ui/                  # lobby.js, setup.js, animation.js, config.js, bootstrap.js
 │   │                            # table.js, table-modals.js, table-render.js
-│   │                            # log.js, admin.js, admin-settings.js
+│   │                            # log.js, kpi.js, admin.js, admin-settings.js
 │   └── logo.png                 # Home screen icon (iOS & Android)
 ├── templates/
     ├── index.html               # Mobile-first browser UI

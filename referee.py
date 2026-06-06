@@ -99,7 +99,7 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False # True once all first-deal cards are entered
@@ -158,7 +158,7 @@ class RefereeSession:
                 p.hands     = [Hand() for _ in range(self.num_hands)]
                 p.drink_log = []
 
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
@@ -495,10 +495,19 @@ class RefereeSession:
             hard_switch_dealer=self.dealer_name if hard_switch else "",
             num_hands=self.num_hands))
 
-        # Ace-of-clubs credits
+        # Ace-of-clubs credits (regular players)
         for name in self._ace_credits:
             p = self._get_player(name)
             if p: self.tracker.apply_ace_clubs_credit(p)
+
+        # Dealer-player A♣ deferred credit: apply only if no hard switch fired.
+        # On a hard switch the partial protection IS the benefit — no double-dipping.
+        pending_credit = self._ace_clubs_flag.get("dealer_player_pending_credit")
+        if pending_credit and not hard_switch:
+            p = self._get_player(pending_credit)
+            if p:
+                self.tracker.apply_ace_clubs_credit(p)
+                print(f"    (i) A♣ credit applied to {pending_credit} (no hard switch this round)")
 
         # Update cumulative stats
         for p in players:
