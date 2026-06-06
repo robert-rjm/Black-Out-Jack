@@ -47,7 +47,9 @@ function updateRoleUI(state) {
   // Drinks tab is visible to all; dealer-only actions inside the pane are toggled separately
   const dealerActions = document.getElementById("dig-drinks-dealer-actions");
   const waitingHint   = document.getElementById("dig-drinks-waiting");
-  if (dealerActions) dealerActions.style.display = isMyDealerClient ? "block" : "none";
+  const isRoundOver   = state.phase === "round-over";
+  // NEW ROUND is only relevant at round-over; during pre-deal the DEAL button takes over
+  if (dealerActions) dealerActions.style.display = (isMyDealerClient && isRoundOver) ? "block" : "none";
   if (waitingHint)   waitingHint.style.display   = (isMyDealerClient || myRole === "spectator") ? "none" : "block";
 
   const hint         = document.getElementById("dig-play-role-hint");
