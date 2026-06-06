@@ -380,8 +380,9 @@ class RefereeSession:
 
     # ---------------------------------------------------------------- command: endround
 
-    def cmd_endround(self):
-        """Finalise the round — fire end-of-round rules and print summary."""
+    def cmd_endround(self, skip_sweep: bool = False):
+        """Finalise the round — fire end-of-round rules and print summary.
+        skip_sweep: pass True in digital mode (dealer_turn already fired it)."""
         print("\n--- End of Round ---")
 
         # Hard dealer switch check
@@ -467,18 +468,20 @@ class RefereeSession:
                         "group_won": dealer_bj,  # insure+BJ = group protected (won)
                     })
 
-        # All-hands sweep (same suit or all-21 across split hands)
-        for p in players:
-            if p.is_dealer:
-                continue
-            try:
-                self.tracker.apply(
-                    DrinkingRules.check_all_hands_sweep(
-                        p.name, p.hands, self._all_names, self.wager,
-                        dealer_name=self.dealer_name if hard_switch else "",
-                        dealer_bj=dealer_bj))
-            except Exception as e:
-                print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
+        # All-hands sweep (same suit or all-21 across split hands).
+        # Skipped in digital mode — dealer_turn() already fired it before cmd_endround().
+        if not skip_sweep:
+            for p in players:
+                if p.is_dealer:
+                    continue
+                try:
+                    self.tracker.apply(
+                        DrinkingRules.check_all_hands_sweep(
+                            p.name, p.hands, self._all_names, self.wager,
+                            dealer_name=self.dealer_name if hard_switch else "",
+                            dealer_bj=dealer_bj))
+                except Exception as e:
+                    print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
         if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
             w *= 2
             print(
