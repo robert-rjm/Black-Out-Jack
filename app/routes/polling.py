@@ -46,9 +46,21 @@ def state():
         # Auto-resolve expired insurance votes (treat as decline)
     if session is not None:
         _now = _time.monotonic()
+        any_insurance_pending = False
         for _v in session._insurance_votes:
-            if not _v.get("resolved") and _now - _v.get("started_at", _now) >= 60:
-                _v["resolved"] = True
+            if not _v.get("resolved"):
+                if _now - _v.get("started_at", _now) >= 60:
+                    _v["resolved"] = True   # auto-resolve expired vote as decline
+                else:
+                    any_insurance_pending = True
+
+        # Pause the bust-vote countdown while insurance voting is open.
+        # Extend the expiry so it doesn't tick down while players are occupied.
+        if any_insurance_pending and session._bust_vote_expires_at is not None:
+            session._bust_vote_expires_at = max(
+                session._bust_vote_expires_at,
+                _now + 5,   # keep at least 5 s on the clock while insurance is unresolved
+            )
     return jsonify(serialize_state(session, client_id))
 
 
