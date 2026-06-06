@@ -193,7 +193,7 @@ class GameRoom:
         return self.session._get_player(name)
 
     def start_round(self):
-        return self.session.start_round()
+        return self.session.start_round(digital=(self.mode == "digital"))
 
     def cmd_deal(self, parts):
         return self.session.cmd_deal(parts)
