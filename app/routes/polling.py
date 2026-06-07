@@ -46,9 +46,55 @@ def state():
         # Auto-resolve expired insurance votes (treat as decline)
     if session is not None:
         _now = _time.monotonic()
+        any_insurance_pending = False
         for _v in session._insurance_votes:
-            if not _v.get("resolved") and _now - _v.get("started_at", _now) >= 60:
-                _v["resolved"] = True
+            if not _v.get("resolved"):
+                if _now - _v.get("started_at", _now) >= 60:
+                    _v["resolved"] = True   # auto-resolve expired vote as decline
+                else:
+                    any_insurance_pending = True
+
+        # Pause the bust-vote countdown while insurance voting is open.
+        # Extend the expiry so it doesn't tick down while players are occupied.
+        if any_insurance_pending and session._bust_vote_expires_at is not None:
+            session._bust_vote_expires_at = max(
+                session._bust_vote_expires_at,
+                _now + 5,   # keep at least 5 s on the clock while insurance is unresolved
+            )
+
+        # Milestone forfeit: if the handout window expired without the winner submitting,
+        # the full handout sip total comes back on them.
+        ms = session._pending_milestone
+        if ms and _now >= ms["expires_at"]:
+            winner_name = ms["winner"]
+            handout     = ms["handout"]
+            winner_p    = session._get_player(winner_name)
+            if winner_p:
+                winner_p.add_drink(
+                    handout,
+                    f"Milestone handout forfeited — {winner_name} didn't assign in time: +{handout} sips",
+                    "player",
+                )
+                session._sip_ticker[winner_name] = (
+                    session._sip_ticker.get(winner_name, 0) + handout
+                )
+                session._last_round_sips[winner_name] = (
+                    session._last_round_sips.get(winner_name, 0) + handout
+                )
+                session._last_round_drinks.append({
+                    "name":   winner_name,
+                    "sips":   handout,
+                    "reason": f"Milestone forfeited ({ms['boundary']} sip milestone) — you drink {handout} sips",
+                })
+                log_line = (
+                    f"  ⏱ {winner_name} didn't assign the {ms['boundary']}-sip milestone handout "
+                    f"in time — drinks {handout} sips\n"
+                )
+                session._log_entries.append(log_line)
+                session._log_version = session._log_version + 1
+                print(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
+            session._pending_milestone = None
+
     return jsonify(serialize_state(session, client_id))
 
 
@@ -485,7 +531,8 @@ def cast_bust_vote():
 @bp.route("/give_bust_sip", methods=["POST"])
 def give_bust_sip():
     """Bust-vote winner gives their 1-sip reward to a chosen player.
-    Body: { room_code, client_id, winner_name, recipient_name }
+    Body: { room_code, client_id, winner_name, recipient_name, forfeit?: bool }
+    If forfeit=true the winner takes the sip themselves (timer expired penalty).
     winner_name must be one of the client's local_names and a confirmed winner.
     """
     data           = request.json or {}
@@ -493,6 +540,7 @@ def give_bust_sip():
     client_id      = (data.get("client_id")      or "").strip()
     winner_name    = sanitize_name(data.get("winner_name")    or "")
     recipient_name = sanitize_name(data.get("recipient_name") or "")
+    forfeit        = bool(data.get("forfeit", False))
 
     session = game_sessions.get(room_code)
     if not session:
@@ -514,17 +562,22 @@ def give_bust_sip():
     if winner_name in session._bust_handouts_given:
         return jsonify({"ok": False, "error": "Already given."})
 
-    # Recipient must be a player in the game, not the winner themselves
+    # Recipient must be a player in the game.
+    # Self-assignment is allowed only on forfeit (timer expired).
     valid_names = {p.name for p in session.all_players}
     if recipient_name not in valid_names:
         return jsonify({"ok": False, "error": "Recipient not found."})
-    if recipient_name.lower() == winner_name.lower():
+    if recipient_name.lower() == winner_name.lower() and not forfeit:
         return jsonify({"ok": False, "error": "Cannot give to yourself."})
 
     recipient = session._get_player(recipient_name)
     if recipient:
-        recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
-        print(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
+        if forfeit:
+            recipient.add_drink(1, f"Bust vote forfeited — {winner_name} didn't assign in time: +1 sip", "player")
+            print(f"  [bust vote] {winner_name} forfeited — drinks 1 sip themselves")
+        else:
+            recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
+            print(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
     session._bust_handouts_given.add(winner_name)
 
@@ -553,7 +606,11 @@ def give_bust_sip():
     })
 
     # Log entry visible to all players
-    log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
+    log_line = (
+        f"  💥 Bust bet: {winner_name} didn't assign in time — drinks 1 sip (forfeited)\n"
+        if forfeit else
+        f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
+    )
     session._log_entries.append(log_line)
     session._log_version = session._log_version + 1
 
