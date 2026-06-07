@@ -751,6 +751,5 @@ def main():
 
         else:
             print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
-
 if __name__ == "__main__":
     main()

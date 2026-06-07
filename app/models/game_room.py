@@ -56,6 +56,12 @@ class GameRoom:
     # Stats and milestones
     _hand_stats: dict = field(default_factory=dict)
     _dealer_hand_stats: dict = field(default_factory=dict)
+    _strategy_decisions: dict = field(default_factory=dict)  # player -> {correct: N, total: N}
+    _max_round_sips: dict = field(default_factory=dict)   # player -> highest single-round sip total
+    _dealer_bust_rounds: int = 0                          # rounds where dealer hand busted
+    _streaks: dict = field(default_factory=dict)          # player -> {current, longest_win, longest_loss}
+    _round_sip_history: list = field(default_factory=list) # total sips (all players) per completed round
+    _session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
     _milestones_claimed: dict = field(default_factory=dict)
     _pending_milestone: dict | None = None
     _last_milestone_result: dict | None = None
