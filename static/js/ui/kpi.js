@@ -9,6 +9,7 @@ function switchKpiTab(name, el) {
   if (el) el.classList.add("active");
   const pane = document.getElementById("pane-kpi-" + name);
   if (pane) pane.classList.add("active");
+  if (name === "trivia" && typeof updateTriviaPanel === "function") updateTriviaPanel();
 }
 
 // ---- Helpers ----

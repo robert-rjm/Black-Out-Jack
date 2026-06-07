@@ -219,3 +219,21 @@
 
 .stat-card-value {
   font-size: 13px;
+
+/* ---- TRIVIA ---- */
+.trivia-card {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 14px; padding: 18px 12px; text-align: center;
+}
+.trivia-icon { font-size: 32px; }
+.trivia-text {
+  font-size: 13px; line-height: 1.6; color: var(--text);
+  max-width: 320px;
+}
+.trivia-next-btn {
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+  color: var(--muted); border-radius: 8px; padding: 6px 16px;
+  font-size: 12px; cursor: pointer; transition: background .15s;
+}
+.trivia-next-btn:hover { background: rgba(255,255,255,.13); color: var(--text); }
+.trivia-counter { font-size: 10px; color: var(--muted); opacity: .5; }
