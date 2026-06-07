@@ -280,10 +280,58 @@ async function startGame() {
     document.getElementById("setup").style.display = "none";
     document.getElementById("app").style.display   = "flex";
     startPolling();
+    startIdleWatcher();
   } catch (err) {
     console.error("[startGame] Error launching game:", err);
     alert("Could not launch game: " + err.message + "\n\nCheck the browser console for details.");
     btn.disabled = false;
   }
+}
+
+// ============================================================
+// IDLE WATCHER — warns before Render dyno sleep (15-min idle)
+// ============================================================
+const IDLE_SOFT_MS   = 10 * 60 * 1000;   // 10 min → "Still there?"
+const IDLE_URGENT_MS = 14 * 60 * 1000;   // 14 min → "Room about to be lost"
+
+let _lastActivityAt  = Date.now();
+let _idleWatcherID   = null;
+
+function resetIdleTimer() {
+  _lastActivityAt = Date.now();
+  const banner = document.getElementById("idle-warning-banner");
+  if (banner) {
+    banner.style.display = "none";
+    banner.className = "idle-warning-banner";
+  }
+  // Ping the server to keep the dyno alive
+  fetch("/state?room_code=" + encodeURIComponent(roomCode) + "&client_id=" + encodeURIComponent(clientId))
+    .catch(() => {});
+}
+
+function _tickIdleWatcher() {
+  const elapsed = Date.now() - _lastActivityAt;
+  const banner  = document.getElementById("idle-warning-banner");
+  const text    = document.getElementById("idle-warning-text");
+  if (!banner || !text) return;
+
+  if (elapsed >= IDLE_URGENT_MS) {
+    banner.style.display = "flex";
+    banner.className = "idle-warning-banner idle-urgent";
+    text.textContent = "⚠️ Room will be lost soon — tap to stay connected";
+  } else if (elapsed >= IDLE_SOFT_MS) {
+    banner.style.display = "flex";
+    banner.className = "idle-warning-banner idle-soft";
+    text.textContent = "Still there? Tap to keep the room alive.";
+  } else {
+    banner.style.display = "none";
+    banner.className = "idle-warning-banner";
+  }
+}
+
+function startIdleWatcher() {
+  _lastActivityAt = Date.now();
+  if (_idleWatcherID) clearInterval(_idleWatcherID);
+  _idleWatcherID = setInterval(_tickIdleWatcher, 30_000);  // check every 30s
 }
 

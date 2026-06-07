@@ -17,6 +17,11 @@
 
   <div id="sip-ticker"></div>
 
+  <div id="idle-warning-banner" class="idle-warning-banner" style="display:none">
+    <span id="idle-warning-text">Still there?</span>
+    <button class="btn btn-sm" onclick="resetIdleTimer()">I'm here ✓</button>
+  </div>
+
   <div id="kick-vote-banner" class="banner-kick"></div>
   <div id="pending-reg-banner" class="banner-pending-reg"></div>
   <div id="spectator-rejoin-banner" class="banner-rejoin">
@@ -123,9 +128,6 @@
       </div>
 
       <div id="pane-dig-play" class="pane">
-        <div id="dig-play-content">
-        <div id="dig-play-role-hint"></div>
-        <div id="player-vote-display"></div>
         <div id="local-seat-switcher" style="display:none" class="local-seat-switcher">
           <span class="seat-switcher-label">Playing as:</span>
           <span id="local-seat-active" class="seat-switcher-name"></span>
@@ -135,6 +137,9 @@
           <button class="btn wide" style="font-size:12px" data-action="showLocalSeatPicker">👤 Add local player</button>
           <div id="local-seat-picker" style="display:none;margin-top:6px"></div>
         </div>
+        <div id="dig-play-content">
+        <div id="dig-play-role-hint"></div>
+        <div id="player-vote-display"></div>
 
         <div id="suggest-banner" class="suggest-banner">
           <div id="suggest-text" class="suggest-text"></div>
