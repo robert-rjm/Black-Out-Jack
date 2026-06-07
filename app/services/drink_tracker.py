@@ -254,6 +254,30 @@ def harvest_drink_log(session: GameRoom) -> None:
             elif result == "push": ds["pushes"] += 1
     session._dealer_hand_stats = dealer_stats
 
+    # Win/loss streaks per player.
+    # Win round  = net wins  > 0 (won more hands than lost)
+    # Loss round = net losses > 0 (lost more hands than won)
+    # Neutral    = equal → resets current streak to 0
+    streaks = session._streaks
+    for p in session.all_players:
+        round_wins   = sum(1 for h in p.hands if getattr(h, "result", None) == "win")
+        round_losses = sum(1 for h in p.hands if getattr(h, "result", None) == "loss")
+        net = round_wins - round_losses
+        if not any(getattr(h, "result", None) in ("win", "loss", "push") for h in p.hands):
+            continue  # no resolved hands this round — skip
+        if p.name not in streaks:
+            streaks[p.name] = {"current": 0, "longest_win": 0, "longest_loss": 0}
+        s = streaks[p.name]
+        if net > 0:
+            s["current"] = s["current"] + 1 if s["current"] > 0 else 1
+            s["longest_win"] = max(s["longest_win"], s["current"])
+        elif net < 0:
+            s["current"] = s["current"] - 1 if s["current"] < 0 else -1
+            s["longest_loss"] = max(s["longest_loss"], abs(s["current"]))
+        else:
+            s["current"] = 0   # neutral round breaks streak
+    session._streaks = streaks
+
 
 # ---------------------------------------------------------------------------
 # Milestone checking
