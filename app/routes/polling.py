@@ -22,6 +22,7 @@ _last_cleanup: float = 0.0
 _CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
 from app.services.validators    import sanitize_name, is_dealer_client
 from app.services.serializer    import serialize_state
+from app.services.drink_tracker import check_and_set_milestone
 
 bp = Blueprint("polling", __name__)
 
@@ -608,6 +609,7 @@ def give_bust_sip():
     session._sip_ticker[recipient_name] = (
         session._sip_ticker.get(recipient_name, 0) + 1
     )
+    check_and_set_milestone(session)
     session._drink_csv_rows.append({
         "round":  session.round_count,
         "dealer": session.dealer_name,
