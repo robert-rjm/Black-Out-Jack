@@ -194,6 +194,10 @@ function renderStats(state) {
     const hs          = handStats[name] || {};
     const sk          = streaks[name]   || {};
     const hands       = hs.hands        || 0;
+    const wins        = hs.wins         || 0;
+    const losses      = hs.losses       || 0;
+    const pushes      = hs.pushes       || 0;
+    const wr          = hands > 0 ? Math.round((wins / hands) * 100) : null;
     const dh          = hs.double_hands || 0;
     const dw          = hs.double_wins  || 0;
     const sh          = hs.split_hands  || 0;
@@ -214,11 +218,12 @@ function renderStats(state) {
     const avgHV       = scoredH > 0 ? (totalScore / scoredH).toFixed(1) : "—";
     const lw          = sk.longest_win  || 0;
     const ll          = sk.longest_loss || 0;
+    const current     = sk.current      || 0;
     const sd          = strategyDecisions[name] || {};
     const sdTotal     = sd.total   || 0;
     const sdCorrect   = sd.correct || 0;
     const sdPct       = sdTotal >= 3 ? Math.round((sdCorrect / sdTotal) * 100) : null;
-    return { name, hands, bj, busts, suited, hitRate, sub17, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal };
+    return { name, hands, wins, losses, pushes, wr, current, bj, busts, suited, hitRate, sub17, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal };
   }).filter(r => r.hands > 0 || r.totalSipsP > 0);
 
   if (rows.length === 0) {
@@ -227,6 +232,13 @@ function renderStats(state) {
   }
 
   const isDlr = name => name.toLowerCase() === dealer;
+
+  function wrClass(wr) {
+    if (wr === null) return "";
+    if (wr >= 55) return "lb-wr-good";
+    if (wr >= 40) return "lb-wr-ok";
+    return "lb-wr-bad";
+  }
 
   const tbody = rows.map(r => {
     const rc       = isDlr(r.name) ? " lb-row-dealer" : "";
@@ -243,7 +255,7 @@ function renderStats(state) {
       sdCell = `<span style="opacity:.35">—</span>`;
     } else {
       const col = r.sdPct >= 80 ? "var(--green)" : r.sdPct >= 60 ? "var(--yellow)" : "var(--red)";
-      sdCell = `<span style="color:${col};font-weight:700">${r.sdPct}%</span><span style="opacity:.5;font-size:10px"> ${r.sdCorrect}/${r.sdTotal}</span>`;
+      sdCell = `<span style="color:${col};font-weight:700">${r.sdPct}%</span>`;
     }
     return `<tr class="${rc}">
       <td class="lb-name">${nameCell}</td>
@@ -286,6 +298,51 @@ function renderStats(state) {
 
   // ── Callout cards ────────────────────────────────────────────
   const callouts = [];
+
+  // Leaderboard tile — ranked W/L/P per player
+  const rankEmoji = ["🥇", "🥈", "🥉"];
+  const lbSorted = [...rows]
+    .filter(r => r.hands > 0)
+    .sort((a, b) => {
+      if (a.wr === null && b.wr === null) return a.totalSipsP - b.totalSipsP;
+      if (a.wr === null) return 1;
+      if (b.wr === null) return -1;
+      if (b.wr !== a.wr) return b.wr - a.wr;
+      return a.totalSipsP - b.totalSipsP;
+    });
+  const COL = "20px 1fr 36px 64px 30px 36px"; // medal · name · win% · W/L/P · streak · sips
+  if (lbSorted.length > 0) {
+    const headerRow = `<div style="display:grid;grid-template-columns:${COL};gap:0 6px;
+        font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;
+        letter-spacing:.3px;padding-bottom:3px;border-bottom:1px solid var(--border);margin-bottom:3px">
+      <span></span>
+      <span>Player</span>
+      <span style="text-align:right">Win%</span>
+      <span style="text-align:center">W / L / P</span>
+      <span style="text-align:center">Str</span>
+      <span style="text-align:right">Sips</span>
+    </div>`;
+    const lbLines = lbSorted.map((r, i) => {
+      const medal  = i < 3 ? rankEmoji[i] : `<span style="font-size:10px;color:var(--muted)">${i + 1}</span>`;
+      const wrStr  = r.wr !== null ? `<span class="${wrClass(r.wr)}">${r.wr}%</span>` : `<span style="opacity:.4">—</span>`;
+      const wlp    = `<span style="color:var(--green)">${r.wins}</span><span style="color:var(--muted)">/</span><span style="color:var(--red)">${r.losses}</span><span style="color:var(--muted)">/</span><span style="color:var(--muted)">${r.pushes}</span>`;
+      const sipStr = r.totalSipsP > 0 ? `<span style="color:var(--red)">🍺${r.totalSipsP}</span>` : `<span style="opacity:.35">—</span>`;
+      return `<div style="display:grid;grid-template-columns:${COL};gap:0 6px;
+          align-items:center;padding:2px 0;font-size:11px">
+        <span style="text-align:center">${medal}</span>
+        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.name)}</span>
+        <span style="text-align:right">${wrStr}</span>
+        <span style="text-align:center">${wlp}</span>
+        <span style="text-align:center">${_streakLabel(r.current)}</span>
+        <span style="text-align:right">${sipStr}</span>
+      </div>`;
+    }).join("");
+    callouts.push(`<div class="stat-card" style="flex-direction:column;align-items:stretch;gap:0">
+      <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
+      ${headerRow}${lbLines}
+    </div>`);
+  }
+
   const peakRow = [...rows].sort((a, b) => b.maxSips - a.maxSips)[0];
   const bestWin = [...rows].sort((a, b) => b.lw - a.lw)[0];
   const bestLoss = [...rows].sort((a, b) => b.ll - a.ll)[0];
