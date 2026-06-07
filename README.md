@@ -60,7 +60,7 @@ To see how all these rules play out together in practice, check out [Comprehensi
 
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
-> 
+>
 > Players are encouraged to come up with new rule ideas as they play. If they make the game more fun, they are probably worth keeping!
 
 #### Highlights
@@ -89,10 +89,14 @@ This replaces the previous behaviour where both benefits applied simultaneously.
 ### **Multiplayer Rooms**
 - **Room codes** — host creates a room and shares the code (e.g. `Jack-21`) with friends
 - **Player registration** — each person joins on their own phone and claims their seat
-- **Role system** — one player is the dealer (controls the game); others vote their intended action and the dealer executes it
+- **Role system** — rotating dealer (controls the game); others vote their intended action and the dealer executes it
 - **Action voting** — non-dealer players tap HIT/STAND/DOUBLE/SPLIT to signal their intention; the dealer sees the vote and carries it out
 - **Live sip ticker** — header strip shows the session total; each player seat shows their running sip count
-- **KPI panel** — right-column panel with three tabs: Leaderboard (win rate, W/L/P, sips), Stats (blackjacks, doubles/splits win rate, busts, peak round), and Trivia (coming soon)
+- **KPI panel** — right-column panel with three tabs:
+  - **Leaderboard** — win rate, W/L/P, current streak, sips per player
+  - **Stats** — session banner (avg sips/round with L3/L5/L10 rolling trend, total sips, sips/min, duration), per-player table (blackjacks, double/split win rate, hit rate, busts, suited hands, strategy accuracy, avg and peak sips, streak records)
+  - **Trivia** — rotating blackjack & drinking facts with a "Next fact" button; planned phase 2 will surface reactive facts based on game events (ace dealt, dealer busts, player blackjack, etc.) *(coming soon: reactive mode)*
+- **Strategy accuracy tracking** — every hit/stand/double/split by a human player is compared against basic strategy; accuracy % shown in the Stats tab after 3+ decisions (green ≥80%, yellow ≥60%, red below)
 - **Clean-round crown** — players who took 0 sips in the previous round display a 👑 next to their name for the following round
 - **Collapsible round log** — log panel can be minimised to free screen space for the KPI panel
 - **Spectator mode** — join a session without a seat to watch
@@ -111,7 +115,6 @@ Computer-controlled seats using standard basic strategy. NPCs:
 - Bottom navigation bar on mobile (≤640 px) for one-thumb reach
 - Add to home screen on iOS and Android for a native app feel
 - Tap-friendly controls throughout
-- Bottom navigation bar on mobile (≤640 px)
 
 ## Drink Responsibly
 > [!IMPORTANT]
@@ -263,7 +266,7 @@ The three main files are intentionally decoupled:
 | `app/` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Routes, models, and services for the web UI |
 |  `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
 | `static/css/` | — | `main.css` (layout, variables) + `components/` (cards, controls, log…) |
-| `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, log, setup, table, table-modals, table-render, admin, admin-settings) |
+| `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, log, setup, table, table-modals, table-render, kpi, trivia, admin, admin-settings) |
 | `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |
 
 **Separation of concerns:**
@@ -293,7 +296,7 @@ This project is licensed under CC BY-NC-SA 4.0. See [LICENSE](LICENSE) for detai
 
 ## Credits
 
-Game concept & rules: R. Michels, D. Irrgang, M. Cvijic  
+Game concept & rules: R. Michels, D. Irrgang, M. Cvijic
 Development: R. Michels
 
 ---
