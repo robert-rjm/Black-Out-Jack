@@ -328,6 +328,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "streaks":                dict(session._streaks),
         "max_round_sips":         dict(session._max_round_sips),
         "dealer_bust_rounds":     session._dealer_bust_rounds,
+        "round_sip_history":      list(session._round_sip_history),
+        "session_seconds":        max(0, round(time.monotonic() - session._session_started_at)),
         "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
         "last_round_drinks":      session._last_round_drinks,
         "round_notices":          session._round_notices,
