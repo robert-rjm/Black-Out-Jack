@@ -19,11 +19,13 @@
 ### Features
 
 - [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
-- [ ] consider removing / hiding log
+- [X] consider removing / hiding log
   - potentially instead KPIs? (D winning%, fun facts, BS facts)
   - or local chat function
+- [ ] implement Trivia section
 - [ ] simplified rule set for beginners
 - [ ] csv addition
+  - potentially .pdf file output with graphs
   - nicer output design
   - add % sips per hand or per round, not just per total sips
   - show in Dealer who drank most for each ace
