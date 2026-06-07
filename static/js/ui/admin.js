@@ -94,9 +94,9 @@ function updateRoleUI(state) {
 
   // Role hint
   if (hint) {
-    if (isMyDealerClient)       hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
-    else if (myRole === "player") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
-    else                          hint.textContent = "Spectating — watching only.";
+    if (isMyDealerClient)                           hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
+    else if (myRole === "player" || myRole === "admin") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
+    else                                            hint.textContent = "Spectating — watching only.";
   }
 
   // Spectators: disable everything and stop
