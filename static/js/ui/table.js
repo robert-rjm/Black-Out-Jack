@@ -281,6 +281,7 @@ let _cmdInFlight = false;
 async function sendCmd(cmd) {
   if (_cmdInFlight) return;
   _cmdInFlight = true;
+  if (typeof resetIdleTimer === "function") resetIdleTimer();
   // Visually lock all action buttons while the request is in flight
   document.querySelectorAll("#panel .btn, #bottom-nav .bnav-btn").forEach(b => b.classList.add("cmd-pending"));
   try {
