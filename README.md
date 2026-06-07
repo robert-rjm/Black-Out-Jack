@@ -140,6 +140,7 @@ Black-Out-Jack/
 │
 ├── server.py                    # Flask entry point
 ├── blackjack.py                 # Core game logic + terminal game (START HERE)
+├── strategy.py                  # Basic strategy tables + best_play() resolver
 ├── drinking_rules.py            # Drinking Rules
 ├── referee.py                   # Terminal referee for real-life play
 ├── simulation.py                # Round simulation with stats output
@@ -242,7 +243,8 @@ The three main files are intentionally decoupled:
 
 | File | Depends on | Purpose |
 |---|---|---|
-| `blackjack.py` | nothing | Core game logic, card/hand/deck classes, terminal game |
+| `strategy.py` | nothing | Basic strategy lookup tables + `best_play()` resolver |
+| `blackjack.py` | `strategy.py` | Core game logic, card/hand/deck classes, terminal game |
 | `drinking_rules.py` | `blackjack.py` | Drinking layer only, no game logic |
 | `referee.py` | `blackjack.py`, `drinking_rules.py` | Terminal referee command parser for real-life play |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
@@ -255,6 +257,7 @@ The three main files are intentionally decoupled:
 **Separation of concerns:**
 - **Changing a drinking rule** → edit only `drinking_rules.py`
 - **Changing core game logic** → edit only `blackjack.py`
+- **Changing basic strategy** → edit only `strategy.py`
 - **Adding a referee command** → edit only `referee.py`
 - **Changing web routes or server logic** → edit `app/routes/` or `app/services/`
 - **Changing web UI behaviour** → edit `static/js/ui/` and/or `templates/index.html`
