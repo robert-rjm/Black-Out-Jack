@@ -647,8 +647,10 @@ function updateRoundPane(state) {
         const border     = hot ? "rgba(224,92,92,.4)"   : "rgba(62,207,110,.4)";
         const color      = hot ? "var(--red)"           : "var(--green)";
         const outline    = isSelected ? "outline:2px solid var(--accent);outline-offset:1px;" : "";
-        const prev    = _prevRoundSips[name] ?? null;
-        const hasPrev = prev !== null;
+        // Treat missing prev as 0 when at least one round has completed —
+        // absent from _prevRoundSips means the player had 0 sips that round.
+        const hasPrev = (state.round || 0) > 1;
+        const prev    = hasPrev ? (_prevRoundSips[name] || 0) : null;
         const diff    = hasPrev ? sips - prev : 0;
         const diffColor = diff > 0 ? "var(--red)" : "var(--green)";
         const diffStr = hasPrev
