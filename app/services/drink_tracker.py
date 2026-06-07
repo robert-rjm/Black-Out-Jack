@@ -72,6 +72,12 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         "losers":        losers,
     } if (winners or losers) else None
 
+    # Give winners 20 seconds to hand out their sip; auto-assign expires after that
+    if winners:
+        session._bust_handout_expires_at = time.monotonic() + 20
+    else:
+        session._bust_handout_expires_at = None
+
 
 # ---------------------------------------------------------------------------
 # Display-reason helper — strip verbose detail from panel labels
@@ -124,6 +130,7 @@ def harvest_drink_log(session: GameRoom) -> None:
             ticker[p.name] = ticker.get(p.name, 0) + net
     session._sip_ticker          = ticker
     session._drink_log_harvested = True
+    session._round_over_seq     += 1   # seq-based trigger so clients never miss the toast
 
     # Cumulative dealer-role sips (shown in dealer panel)
     d_ticker = session._dealer_role_ticker

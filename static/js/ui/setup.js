@@ -5,6 +5,7 @@ let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
 let _prevRoundSips      = {};   // round before last — shown in 🍺 header modal
 let _prevRoundDrinks    = [];   // detailed drink entries for the previous round
 let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
+let _lastRoundOverSeq   = 0;    // seq-based: fire drink toast whenever this advances
 let _lastMilestoneKey       = null;  // "boundary:winner" — prevents re-showing toast on every poll
 let _lastMilestoneResultKey = null;  // same format — prevents re-showing drink toast on every poll
 let _milestoneModalOpened   = null;  // key for which we already opened the modal (prevents re-open on re-poll)
@@ -16,8 +17,9 @@ function openLastRoundModal() {
   const body    = document.getElementById("last-round-modal-body");
   if (!overlay || !body) return;
 
-  const sips  = _prevRoundSips;
-  const names = Object.keys(sips);
+  const sips     = _lastRoundSips;   // last completed round — the main value
+  const prevSips = _prevRoundSips;   // round before that — delta reference only
+  const names    = Object.keys(sips);
   if (!names.length) {
     body.innerHTML = `<div style="color:var(--muted);text-align:center;font-size:13px">No previous round yet.</div>`;
   } else {
@@ -25,16 +27,15 @@ function openLastRoundModal() {
     const allNames = (lastState && lastState.players) || names;
     const sorted   = allNames.slice().sort((a, b) => (sips[b] || 0) - (sips[a] || 0));
     body.innerHTML = sorted.map(n => {
-      const prev = sips[n] || 0;
-      const cur  = _lastRoundSips[n] || 0;
-      const diff = cur - prev;
+      const last = sips[n]     || 0;
+      const prev = prevSips[n] || 0;
+      const diff = last - prev;
       const diffStr = diff === 0 ? "" :
         `<span style="font-size:11px;color:${diff > 0 ? "var(--red)" : "var(--green)"};margin-left:4px">${diff > 0 ? "▲" : "▼"}${Math.abs(diff)}</span>`;
       return `<div class="lrp-row">
         <span>${escapeHtml(n)}</span>
         <span style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:11px;color:var(--muted)">prev</span>
-          <span class="lrp-sips">${prev} sip${prev !== 1 ? "s" : ""}</span>
+          <span class="lrp-sips">${last} sip${last !== 1 ? "s" : ""}</span>
           ${diffStr}
         </span>
       </div>`;
@@ -279,10 +280,58 @@ async function startGame() {
     document.getElementById("setup").style.display = "none";
     document.getElementById("app").style.display   = "flex";
     startPolling();
+    startIdleWatcher();
   } catch (err) {
     console.error("[startGame] Error launching game:", err);
     alert("Could not launch game: " + err.message + "\n\nCheck the browser console for details.");
     btn.disabled = false;
   }
+}
+
+// ============================================================
+// IDLE WATCHER — warns before Render dyno sleep (15-min idle)
+// ============================================================
+const IDLE_SOFT_MS   = 10 * 60 * 1000;   // 10 min → "Still there?"
+const IDLE_URGENT_MS = 14 * 60 * 1000;   // 14 min → "Room about to be lost"
+
+let _lastActivityAt  = Date.now();
+let _idleWatcherID   = null;
+
+function resetIdleTimer() {
+  _lastActivityAt = Date.now();
+  const banner = document.getElementById("idle-warning-banner");
+  if (banner) {
+    banner.style.display = "none";
+    banner.className = "idle-warning-banner";
+  }
+  // Ping the server to keep the dyno alive
+  fetch("/state?room_code=" + encodeURIComponent(roomCode) + "&client_id=" + encodeURIComponent(clientId))
+    .catch(() => {});
+}
+
+function _tickIdleWatcher() {
+  const elapsed = Date.now() - _lastActivityAt;
+  const banner  = document.getElementById("idle-warning-banner");
+  const text    = document.getElementById("idle-warning-text");
+  if (!banner || !text) return;
+
+  if (elapsed >= IDLE_URGENT_MS) {
+    banner.style.display = "flex";
+    banner.className = "idle-warning-banner idle-urgent";
+    text.textContent = "⚠️ Room will be lost soon — tap to stay connected";
+  } else if (elapsed >= IDLE_SOFT_MS) {
+    banner.style.display = "flex";
+    banner.className = "idle-warning-banner idle-soft";
+    text.textContent = "Still there? Tap to keep the room alive.";
+  } else {
+    banner.style.display = "none";
+    banner.className = "idle-warning-banner";
+  }
+}
+
+function startIdleWatcher() {
+  _lastActivityAt = Date.now();
+  if (_idleWatcherID) clearInterval(_idleWatcherID);
+  _idleWatcherID = setInterval(_tickIdleWatcher, 30_000);  // check every 30s
 }
 

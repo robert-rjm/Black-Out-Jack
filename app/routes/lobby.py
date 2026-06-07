@@ -167,8 +167,13 @@ def setup():
         # All non-NPC seats start as local — a seat moves to remote only when
         # another device registers and claims it (handle_registration removes it).
         local_names = [p.name for p in players if p.name not in npc_names]
+        # Admin is always seated at Player1 (first non-NPC seat) regardless of
+        # who the dealer is. god_mode keeps them in game control either way.
+        # This ensures that when they transfer admin, they retain a player seat
+        # automatically without any extra steps.
+        admin_seat = local_names[0] if local_names else dealer_name
         room._room_clients[client_id] = {
-            "name": dealer_name, "local_names": local_names,
+            "name": admin_seat, "local_names": local_names,
             "role": "admin", "kicked": False,
         }
     set_session(room_code, room)

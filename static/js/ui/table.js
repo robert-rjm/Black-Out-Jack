@@ -283,6 +283,7 @@ let _cmdInFlight = false;
 async function sendCmd(cmd) {
   if (_cmdInFlight) return;
   _cmdInFlight = true;
+  if (typeof resetIdleTimer === "function") resetIdleTimer();
   // Visually lock all action buttons while the request is in flight
   document.querySelectorAll("#panel .btn, #bottom-nav .bnav-btn").forEach(b => b.classList.add("cmd-pending"));
   try {
@@ -402,6 +403,15 @@ function applyState(state) {
     _animToggleOn()
   );
 
+  // Reset idle timer on any game state change — if the round or phase advanced,
+  // someone is actively playing and the dyno is clearly not idle.
+  if (typeof resetIdleTimer === "function") {
+    const prevRound = lastState ? (lastState.round || 0) : 0;
+    if (state.phase !== prevPhase || (state.round || 0) > prevRound) {
+      resetIdleTimer();
+    }
+  }
+
   // Always sync last/prev round data from server so both variables stay in lockstep.
   // Do NOT gate _lastRoundSips on being non-empty — that desynchronises it from
   // _prevRoundSips and makes the diff compare different rounds.
@@ -410,10 +420,13 @@ function applyState(state) {
   if (state.prev_round_sips !== undefined)  _prevRoundSips  = state.prev_round_sips  || {};
   if (state.prev_round_drinks !== undefined) _prevRoundDrinks = state.prev_round_drinks || [];
 
-  // Player drink toast — fires once on round-over transition for registered players
-  if (prevPhase !== "round-over" && state.phase === "round-over" && myNames.length > 0 && myRole !== "spectator") {
+  // Player drink toast — seq-based so it fires even if the poll misses the round-over phase.
+  // Fires for all registered non-spectator players whenever a new round ends.
+  const newRoundOverSeq = state.round_over_seq || 0;
+  if (newRoundOverSeq > _lastRoundOverSeq && myNames.length > 0 && myRole !== "spectator") {
     myNames.forEach(n => showPlayerDrinkToast(_lastRoundSips[n] || 0, n));
   }
+  _lastRoundOverSeq = Math.max(_lastRoundOverSeq, newRoundOverSeq);
   // Switch toast — fires on round-over with hard/soft switch (visible to all)
   if (prevPhase !== "round-over" && state.phase === "round-over" && state.switch_this_round) {
     showSwitchToast(state.switch_this_round, state.dealer || "Dealer");
@@ -637,8 +650,10 @@ function updateRoundPane(state) {
         const border     = hot ? "rgba(224,92,92,.4)"   : "rgba(62,207,110,.4)";
         const color      = hot ? "var(--red)"           : "var(--green)";
         const outline    = isSelected ? "outline:2px solid var(--accent);outline-offset:1px;" : "";
-        const prev    = _prevRoundSips[name] ?? null;
-        const hasPrev = prev !== null;
+        // Treat missing prev as 0 when at least one round has completed —
+        // absent from _prevRoundSips means the player had 0 sips that round.
+        const hasPrev = (state.round || 0) > 1;
+        const prev    = hasPrev ? (_prevRoundSips[name] || 0) : null;
         const diff    = hasPrev ? sips - prev : 0;
         const diffColor = diff > 0 ? "var(--red)" : "var(--green)";
         const diffStr = hasPrev
@@ -691,6 +706,12 @@ function updateRoundPane(state) {
 function autoSwitchDigTab(state) {
   const phase     = state.phase;
   const prevPhase = lastState ? lastState.phase : null;
+  // Always unlock the Play tab outside of playing phase
+  if (phase !== "playing") {
+    const playTabBtn = document.querySelector("#dig-tabs .tab[data-args*='dig-play']");
+    if (playTabBtn) { playTabBtn.disabled = false; playTabBtn.style.opacity = ""; playTabBtn.style.pointerEvents = ""; }
+  }
+
   if (phase === "pre-deal") {
     // Only snap to Play tab on the transition into pre-deal, not on every poll —
     // otherwise players get jerked back whenever they browse tabs while waiting
@@ -699,19 +720,36 @@ function autoSwitchDigTab(state) {
       activateDigTab("dig-play");
     }
   } else if (phase === "playing") {
-    // Non-dealer: if all my hands are done, move me to Drinks so I'm not staring at buttons
     if (!isMyDealerClient && myNames.length > 0) {
       const allDone = myNames.every(n => {
         const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
         return seat && seat.done;
       });
+      const currentTurn  = (state.current_turn || "").toLowerCase();
+      const isMyTurn     = myNames.some(n => n.toLowerCase() === currentTurn);
+      const isMultiSeat  = myNames.length > 1;
+
+      // Lock the Play tab button for single-seat players when it's not their turn
+      const playTabBtn = document.querySelector("#dig-tabs .tab[data-args*='dig-play']");
+      if (playTabBtn) {
+        const lock = !isMyTurn && !isMultiSeat;
+        playTabBtn.disabled = lock;
+        playTabBtn.style.opacity = lock ? "0.35" : "";
+        playTabBtn.style.pointerEvents = lock ? "none" : "";
+      }
+
       if (allDone) {
-        activateDigTab("dig-round");
+        activateDigTab("dig-round");   // hands done → always go to Drinks
+      } else if (!isMyTurn && !isMultiSeat) {
+        activateDigTab("dig-round");   // single-seat, not your turn → Drinks
       } else {
-        activateDigTab("dig-play");
+        activateDigTab("dig-play");    // your turn, or multi-seat managing seats
       }
     } else {
-      activateDigTab("dig-play");   // dealer stays on Play to execute turns
+      // Dealer / unregistered — unlock Play tab and stay on it
+      const playTabBtn = document.querySelector("#dig-tabs .tab[data-args*='dig-play']");
+      if (playTabBtn) { playTabBtn.disabled = false; playTabBtn.style.opacity = ""; playTabBtn.style.pointerEvents = ""; }
+      activateDigTab("dig-play");
     }
   } else if (phase === "round-over") {
     activateDigTab("dig-round");

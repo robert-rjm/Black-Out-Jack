@@ -125,7 +125,7 @@ function showPlayerDrinkToast(sips, playerName) {
   _playerToastTimer = setTimeout(() => {
     el.classList.remove("show");
     _playerToastTimer = null;
-  }, 3500);
+  }, 6000);
 }
 
 // ============================================================
@@ -249,32 +249,42 @@ function processAceDrinkEvents(state) {
   if (!newEvents.length) return;
 
   // myName / myRole are module-level vars set in table.js (same bundle scope)
-  const _myName = (typeof myName !== "undefined") ? myName : null;
-  const _myRole = (typeof myRole !== "undefined") ? myRole : null;
+  const _myName   = (typeof myName  !== "undefined") ? myName  : null;
+  const _myRole   = (typeof myRole  !== "undefined") ? myRole  : null;
   const _isDealer = _myRole === "dealer" || _myRole === "admin";
 
-  // Collect events that affect this client
-  const relevant = newEvents.filter(e => {
+  // Shown to ALL players — ace drink events are social info everyone should see.
+  // Separate into events that affect the current client vs others.
+  const mine = newEvents.filter(e => {
     if (e.recipient === "all")          return true;
     if (e.recipient === "players_only") return !_isDealer;
     return _myName && e.recipient.toLowerCase() === _myName.toLowerCase();
   });
-  if (!relevant.length) return;
-
-  const totalSips = relevant.reduce((s, e) => s + e.sips, 0);
-  const firstReason = relevant[0].reason || "";
 
   const el = document.getElementById("player-toast");
   if (!el) return;
   const dt = document.getElementById("dealer-toast");
   if (dt) dt.classList.remove("show");
 
-  // Short descriptive label: strip the verbose "=> X drinks N sip" suffix
-  const label = firstReason.replace(/\s*=>\s*.+$/, "").trim();
-  el.textContent = `🃏 ${label} — drink ${totalSips} sip${totalSips !== 1 ? "s" : ""}!`;
+  let text;
+  if (mine.length > 0) {
+    // Events that include the current player — keep "drink N sips" framing
+    const totalSips  = mine.reduce((s, e) => s + e.sips, 0);
+    const label      = mine[0].reason.replace(/\s*=>\s*.+$/, "").trim();
+    text = `🃏 ${label} — drink ${totalSips} sip${totalSips !== 1 ? "s" : ""}!`;
+  } else {
+    // Events for other players — show the full reason so everyone knows who drinks
+    // Reason format: "A♥ dealt to X => Y drinks N sip(s)"
+    // Reformat as:   "🃏 A♥ dealt to X — Y drinks N sip(s)"
+    const reason = newEvents[0].reason || "";
+    text = `🃏 ${reason.replace(/\s*=>\s*/, " — ")}`;
+  }
+
+  el.textContent = text;
   el.className   = "drink show";
   if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
     clearTimeout(_playerToastTimer);
   }
-  setTimeout(() => el.classList.remove("show"), 5000);
+  const duration = mine.length > 0 ? 5000 : 8000;
+  setTimeout(() => el.classList.remove("show"), duration);
 }
