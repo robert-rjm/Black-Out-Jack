@@ -17,7 +17,6 @@
   flex-shrink: 0;
   background: #11131c;
   border-bottom: 1px solid var(--border);
-  gap: 0;
 }
 
 .kpi-tab {
@@ -35,9 +34,9 @@
   transition: color .15s, border-color .15s;
   white-space: nowrap;
 }
-.kpi-tab:hover:not(.kpi-tab-disabled)     { color: var(--text); }
-.kpi-tab.active                           { color: var(--accent); border-bottom-color: var(--accent); }
-.kpi-tab.kpi-tab-disabled                 { opacity: .35; cursor: default; }
+.kpi-tab:hover:not(.kpi-tab-disabled)   { color: var(--text); }
+.kpi-tab.active                          { color: var(--accent); border-bottom-color: var(--accent); }
+.kpi-tab.kpi-tab-disabled               { opacity: .35; cursor: default; }
 
 /* ---- PANES ---- */
 .kpi-pane {
@@ -59,10 +58,52 @@
   opacity: .5;
 }
 
+/* ---- SESSION BANNER ---- */
+.stat-session-banner {
+  flex-shrink: 0;
+  padding: 8px 8px 4px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+
+.ssb-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ssb-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 48px;
+  background: rgba(255,255,255,.04);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.ssb-val { font-size: 14px; font-weight: 800; color: var(--text); line-height: 1.2; }
+.ssb-lbl { font-size: 8px;  font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+
+.ssb-row-sm {
+  margin-top: 5px;
+  gap: 4px;
+}
+.ssb-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  background: rgba(255,255,255,.05);
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
 /* ---- LEADERBOARD TABLE ---- */
-#leaderboard-content {
+#leaderboard-content,
+#stats-content {
   width: 100%;
-  padding: 0;
 }
 
 .lb-empty {
@@ -107,7 +148,6 @@
   white-space: nowrap;
 }
 .lb-table td:first-child { text-align: left; }
-
 .lb-table tbody tr:last-child td { border-bottom: none; }
 
 /* Dealer row */
@@ -115,9 +155,9 @@
 .lb-row-dealer .lb-name { color: var(--accent); }
 
 /* Win-rate cell colouring */
-.lb-wr-good  { color: var(--green) !important; font-weight: 700; }
+.lb-wr-good  { color: var(--green)  !important; font-weight: 700; }
 .lb-wr-ok    { color: var(--yellow) !important; }
-.lb-wr-bad   { color: var(--red) !important; }
+.lb-wr-bad   { color: var(--red)    !important; }
 
 /* Rank badge */
 .lb-rank {
@@ -133,11 +173,11 @@
 .lb-rank-2 { color: silver; }
 .lb-rank-3 { color: #cd7f32; }
 
-/* Sip cell */
-.lb-sips { color: var(--red); }
+/* Sip cells */
+.lb-sips      { color: var(--red); }
 .lb-sips-zero { color: var(--muted); opacity: .45; }
 
-/* Sub-label (rounds played) */
+/* Sub-label */
 .lb-meta {
   font-size: 9px;
   color: var(--muted);
@@ -174,9 +214,7 @@
   text-align: center;
 }
 
-.stat-card-body {
-  min-width: 0;
-}
+.stat-card-body { min-width: 0; }
 
 .stat-card-value {
   font-size: 13px;

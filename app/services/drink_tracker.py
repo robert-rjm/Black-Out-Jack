@@ -151,6 +151,10 @@ def harvest_drink_log(session: GameRoom) -> None:
             last[p.name] = raw
     session._last_round_sips = last
 
+    # Rolling per-round sip history (total across all players)
+    round_total = max(0, sum(last.values()))
+    session._round_sip_history = session._round_sip_history + [round_total]
+
     # Detailed drink entries for the Drinks pane
     drinks_detail = []
     notices       = []
@@ -185,8 +189,7 @@ def harvest_drink_log(session: GameRoom) -> None:
     session._last_round_drinks  = drinks_detail
     session._round_notices      = notices
 
-    # Hand outcome stats per player (win/loss/push, splits, doubles, BJs, busts).
-    # Includes the dealer-player's p.hands — they play as a regular player too.
+    # Hand outcome stats per player
     hand_stats = session._hand_stats
     for p in session.all_players:
         if p.name not in hand_stats:
@@ -194,12 +197,21 @@ def harvest_drink_log(session: GameRoom) -> None:
                 "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
                 "split_hands": 0, "split_wins": 0,
                 "double_hands": 0, "double_wins": 0,
-                "blackjacks": 0,  "busts": 0,
+                "blackjacks": 0, "busts": 0,
+                "suited_hands": 0,
+                "hit_hands": 0,
+                "stand_sub17": 0,
+                "total_score": 0, "scored_hands": 0,
             }
         hs = hand_stats[p.name]
-        # Back-fill missing keys for sessions started before this field was added
-        hs.setdefault("blackjacks", 0)
-        hs.setdefault("busts", 0)
+        # Back-fill missing keys for sessions started before these fields were added
+        for key, default in (
+            ("blackjacks", 0), ("busts", 0),
+            ("suited_hands", 0), ("hit_hands", 0),
+            ("stand_sub17", 0), ("total_score", 0), ("scored_hands", 0),
+        ):
+            hs.setdefault(key, default)
+
         for hand in p.hands:
             result = getattr(hand, "result", None)
             if result not in ("win", "loss", "push"):
@@ -218,6 +230,19 @@ def harvest_drink_log(session: GameRoom) -> None:
                 hs["blackjacks"] += 1
             if getattr(hand, "bust", False) or hand.is_bust():
                 hs["busts"] += 1
+            if hand.is_suited():
+                hs["suited_hands"] += 1
+            # Hit rate: hand has more cards than the initial 2 (player took ≥1 hit)
+            if len(hand.cards) > 2:
+                hs["hit_hands"] += 1
+            # Stand on sub-17: player stood (not busted, not BJ) with score < 17
+            if (getattr(hand, "stood", False) and not getattr(hand, "bust", False)
+                    and not hand.is_blackjack() and hand.score() < 17):
+                hs["stand_sub17"] += 1
+            # Average hand value: final score of non-bust hands
+            if not getattr(hand, "bust", False) and not hand.is_bust():
+                hs["total_score"]  += hand.score()
+                hs["scored_hands"] += 1
     session._hand_stats = hand_stats
 
     # Max single-round sip hit per player
