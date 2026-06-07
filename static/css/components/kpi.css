@@ -17,25 +17,27 @@
   flex-shrink: 0;
   background: #11131c;
   border-bottom: 1px solid var(--border);
+  padding: 4px 6px;
+  gap: 4px;
 }
 
 .kpi-tab {
   flex: 1;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .4px;
   text-transform: uppercase;
-  padding: 6px 4px;
+  padding: 5px 4px;
   cursor: pointer;
-  transition: color .15s, border-color .15s;
+  transition: color .15s, background .15s;
   white-space: nowrap;
 }
-.kpi-tab:hover:not(.kpi-tab-disabled)   { color: var(--text); }
-.kpi-tab.active                          { color: var(--accent); border-bottom-color: var(--accent); }
+.kpi-tab:hover:not(.kpi-tab-disabled)   { color: var(--text); background: rgba(255,255,255,.06); }
+.kpi-tab.active                          { color: var(--accent); background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.35); }
 .kpi-tab.kpi-tab-disabled               { opacity: .35; cursor: default; }
 
 /* ---- PANES ---- */
