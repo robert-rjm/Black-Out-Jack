@@ -279,6 +279,7 @@ def harvest_drink_log(session: GameRoom) -> None:
             elif result == "push": ds["pushes"] += 1
     session._dealer_hand_stats = dealer_stats
 
+
     # Win/loss streaks per player.
     # Win round  = net wins  > 0 (won more hands than lost)
     # Loss round = net losses > 0 (lost more hands than won)

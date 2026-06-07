@@ -512,15 +512,16 @@ def command():
                 game_session._last_peeked            = None
                 game_session._preselections          = {}
                 game_session._suggestions            = {}
-                game_session._bust_votes             = {}
-                game_session._bust_vote_expires_at   = None
-                game_session._bust_vote_result       = None
-                game_session._insurance_result       = None
-                game_session._ace_drink_events       = []
-                game_session._ace_drink_seq          = 0
-                game_session._bust_handouts_given    = set()
-                game_session._drink_log_harvested    = False
-                game_session._kick_votes             = {}
+                game_session._bust_votes              = {}
+                game_session._bust_vote_expires_at    = None
+                game_session._bust_vote_result        = None
+                game_session._bust_handout_expires_at = None
+                game_session._insurance_result        = None
+                game_session._ace_drink_events        = []
+                game_session._ace_drink_seq           = 0
+                game_session._bust_handouts_given     = set()
+                game_session._drink_log_harvested     = False
+                game_session._kick_votes              = {}
                 game_session._pending_milestone      = None
                 game_session.start_round()
                 patch_tracker(game_session)
