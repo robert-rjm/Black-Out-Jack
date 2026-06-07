@@ -9,6 +9,7 @@ function switchKpiTab(name, el) {
   if (el) el.classList.add("active");
   const pane = document.getElementById("pane-kpi-" + name);
   if (pane) pane.classList.add("active");
+  if (name === "trivia" && typeof updateTriviaPanel === "function") updateTriviaPanel(typeof lastState !== "undefined" ? lastState : null);
 }
 
 // ---- Helpers ----
@@ -28,7 +29,7 @@ function _fmtDuration(secs) {
 }
 
 function _rollingAvg(history, n) {
-  if (!history || !history.length) return null;
+  if (!history || history.length < n) return null;
   const slice = history.slice(-n);
   return (slice.reduce((a, b) => a + b, 0) / slice.length).toFixed(1);
 }
@@ -151,25 +152,41 @@ function renderStats(state) {
   const pushRatePct  = totalHands > 0 ? Math.round((totalPushes / totalHands) * 100) : null;
   const dealerBustPct = round > 0 ? Math.round((dealerBustRnds / round) * 100) : null;
 
+  // Avg/round trend colour: compare overall avg to last-3
+  // Green = last 3 rounds lighter than session avg; red = heavier; neutral = no data yet
+  let avgRoundCol = "var(--text)";
+  if (avgPerRound !== null && avg3 !== null) {
+    avgRoundCol = parseFloat(avg3) < parseFloat(avgPerRound) ? "var(--green)" : "var(--red)";
+  }
+
+  // Rolling sub-labels shown only when enough rounds exist
+  const rollingTags = [
+    avg3  ? `L3: <b>${avg3}</b>`   : "",
+    avg5  ? `L5: <b>${avg5}</b>`   : "",
+    avg10 ? `L10: <b>${avg10}</b>` : "",
+  ].filter(Boolean).join(" · ");
+
   const sessionBanner = `
     <div class="stat-session-banner">
       <div class="ssb-row">
-        <div class="ssb-item"><div class="ssb-val">${_fmtDuration(sessionSecs)}</div><div class="ssb-lbl">Duration</div></div>
+        ${avgPerRound !== null ? `
+        <div class="ssb-item">
+          <div class="ssb-val" style="color:${avgRoundCol}">${avgPerRound}</div>
+          <div class="ssb-lbl">Avg/round</div>
+          ${rollingTags ? `<div class="ssb-rolling">${rollingTags}</div>` : ""}
+        </div>` : ""}
         <div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${totalSips}</div><div class="ssb-lbl">Total sips</div></div>
         ${sipm !== null ? `<div class="ssb-item"><div class="ssb-val">${sipm}</div><div class="ssb-lbl">Sips/min</div></div>` : ""}
-        ${avgPerRound !== null ? `<div class="ssb-item"><div class="ssb-val">${avgPerRound}</div><div class="ssb-lbl">Avg/round</div></div>` : ""}
+        <div class="ssb-item"><div class="ssb-val">${_fmtDuration(sessionSecs)}</div><div class="ssb-lbl">Duration</div></div>
       </div>
-      ${(avg3 || avg5 || avg10) ? `<div class="ssb-row ssb-row-sm">
-        ${avg3  ? `<span class="ssb-tag">Last 3: <b>${avg3}</b></span>`  : ""}
-        ${avg5  ? `<span class="ssb-tag">Last 5: <b>${avg5}</b></span>`  : ""}
-        ${avg10 ? `<span class="ssb-tag">Last 10: <b>${avg10}</b></span>` : ""}
+      <div class="ssb-row ssb-row-sm">
         <span class="ssb-tag">${totalHands} hands</span>
         ${winRatePct !== null ? `<span class="ssb-tag">Win ${winRatePct}%</span>` : ""}
         ${bustRatePct !== null ? `<span class="ssb-tag">Bust ${bustRatePct}%</span>` : ""}
         ${pushRatePct !== null ? `<span class="ssb-tag">Push ${pushRatePct}%</span>` : ""}
         ${totalBJ ? `<span class="ssb-tag">🃏 ${totalBJ} BJ${totalBJ !== 1 ? "s" : ""}</span>` : ""}
         ${dealerBustPct !== null ? `<span class="ssb-tag">Dealer bust ${dealerBustPct}%</span>` : ""}
-      </div>` : ""}
+      </div>
     </div>`;
 
   // ── Per-player table ─────────────────────────────────────────
@@ -293,6 +310,7 @@ function renderStats(state) {
       <div class="stat-card-label">${dealerBustRnds} of ${round} rounds · casino avg ~28%</div>
     </div></div>`);
   }
+
   if (bestWin && bestWin.lw >= 2) {
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">🔥</div><div class="stat-card-body">
       <div class="stat-card-value" style="color:var(--green)">${bestWin.lw}-round win streak</div>
@@ -313,4 +331,5 @@ function renderStats(state) {
 function updateKpiPanel(state) {
   renderLeaderboard(state);
   renderStats(state);
+  if (typeof updateTriviaPanel === "function") updateTriviaPanel(state);
 }

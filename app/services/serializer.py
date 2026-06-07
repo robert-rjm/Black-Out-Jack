@@ -212,6 +212,7 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
         "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
         "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
         "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
+        "votes_cast_by": list(v["votes"].keys()),
     }
 
 

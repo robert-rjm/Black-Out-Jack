@@ -63,7 +63,7 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
     Defers hole-card and face-down doubled-card drink messages so they are
     not revealed in the log before the dealer turn.
     """
-    card     = session.shoe.deal_card()
+    card     = session.shoe.deal_card(quiet=True)
     card_pos = len(hand.cards) + 1
     hand.cards.append(card)
 
