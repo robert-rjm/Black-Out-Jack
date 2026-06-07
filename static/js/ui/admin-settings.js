@@ -7,6 +7,10 @@ function openKickModal() {
   const cb = document.getElementById("anim-toggle-modal");
   if (cb) cb.checked = lsGet("bjDealAnim") !== "0";
 
+  // GodMode toggle is admin-only — hide it for regular players
+  const godRow = document.querySelector("#kick-overlay .kick-toggle-row:has(#god-mode-toggle-modal)");
+  if (godRow) godRow.style.display = (myRole === "admin") ? "flex" : "none";
+
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
   const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
