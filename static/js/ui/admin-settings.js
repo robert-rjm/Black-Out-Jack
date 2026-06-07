@@ -68,7 +68,7 @@ function openKickModal() {
             btns.appendChild(tbBtn);
           }
         }
-        // Admin controls: bot + kick (never shown for self)
+        // Admin controls: bot / make-human + kick (never shown for self)
         if (r.seated && !r.isBot && !isSelf) {
           const botBtn       = document.createElement("button");
           botBtn.className   = "btn";
@@ -76,6 +76,14 @@ function openKickModal() {
           botBtn.title       = "Auto-play for this player";
           botBtn.onclick     = () => doMakeBot(r.name);
           btns.appendChild(botBtn);
+        }
+        if (r.isBot) {
+          const humanBtn       = document.createElement("button");
+          humanBtn.className   = "btn";
+          humanBtn.textContent = "👤 Human";
+          humanBtn.title       = "Convert bot back to human-controlled";
+          humanBtn.onclick     = () => doMakeHuman(r.name);
+          btns.appendChild(humanBtn);
         }
         if (r.connected && !r.isBot && !isSelf) {
           const kickBtn       = document.createElement("button");
@@ -284,6 +292,20 @@ async function doVoteKick(targetName) {
     } else {
       alert(data.error || "Could not cast vote.");
     }
+  } catch (_) { alert("Network error."); }
+}
+
+async function doMakeHuman(targetName) {
+  if (!confirm(`Convert ${targetName} back to a human player?\nThey will need to act manually on their turns.`)) return;
+  try {
+    const res  = await fetch("/make_human", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) { closeKickModal(); applyState(data); }
+    else         { alert(data.error || "Could not convert bot to player."); }
   } catch (_) { alert("Network error."); }
 }
 
