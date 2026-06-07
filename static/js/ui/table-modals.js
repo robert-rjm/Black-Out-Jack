@@ -368,7 +368,7 @@ function _openMilestoneModal(ms, state) {
   const title = document.getElementById("milestone-modal-title");
   const sub   = document.getElementById("milestone-modal-sub");
   if (title) title.textContent = `You hit ${ms.boundary} sips first! 🏆`;
-  if (sub)   sub.textContent   = `Hand out ${ms.handout} sips — split however you like (not yourself).`;
+  if (sub)   sub.textContent   = `Hand out up to ${ms.handout} sips — unassigned ones come back to you.`;
 
   // Build stepper list from current players except self
   const players = (lastState && lastState.players || []).filter(
@@ -427,10 +427,15 @@ function _updateMilestoneRemaining(total) {
   const rem  = document.getElementById("milestone-remaining");
   const btn  = document.getElementById("milestone-submit-btn");
   if (rem) {
-    rem.textContent = left === 0 ? "✓ All sips assigned" : `${left} sip${left !== 1 ? "s" : ""} left to assign`;
-    rem.style.color = left === 0 ? "var(--green)" : "var(--yellow)";
+    if (left === 0) {
+      rem.textContent = "✓ All sips assigned";
+      rem.style.color = "var(--green)";
+    } else {
+      rem.textContent = `${left} sip${left !== 1 ? "s" : ""} back to you`;
+      rem.style.color = "var(--yellow)";
+    }
   }
-  if (btn) btn.disabled = (left !== 0);
+  if (btn) btn.disabled = false;  // always submittable — unassigned sips go to winner
 }
 
 function _updateMilestoneTimer(secondsLeft) {
