@@ -47,7 +47,9 @@ function updateRoleUI(state) {
   // Drinks tab is visible to all; dealer-only actions inside the pane are toggled separately
   const dealerActions = document.getElementById("dig-drinks-dealer-actions");
   const waitingHint   = document.getElementById("dig-drinks-waiting");
-  if (dealerActions) dealerActions.style.display = isMyDealerClient ? "block" : "none";
+  const isRoundOver   = state.phase === "round-over";
+  // NEW ROUND is only relevant at round-over; during pre-deal the DEAL button takes over
+  if (dealerActions) dealerActions.style.display = (isMyDealerClient && isRoundOver) ? "block" : "none";
   if (waitingHint)   waitingHint.style.display   = (isMyDealerClient || myRole === "spectator") ? "none" : "block";
 
   const hint         = document.getElementById("dig-play-role-hint");
@@ -92,9 +94,9 @@ function updateRoleUI(state) {
 
   // Role hint
   if (hint) {
-    if (isMyDealerClient)       hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
-    else if (myRole === "player") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
-    else                          hint.textContent = "Spectating — watching only.";
+    if (isMyDealerClient)                           hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
+    else if (myRole === "player" || myRole === "admin") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
+    else                                            hint.textContent = "Spectating — watching only.";
   }
 
   // Spectators: disable everything and stop
@@ -485,7 +487,7 @@ function updateBustVoteUI(state) {
   }
 }
 
-async function giveBustSip(winnerName, recipientName) {
+async function giveBustSip(winnerName, recipientName, forfeit = false) {
   try {
     const res  = await fetch("/give_bust_sip", {
       method:  "POST",
@@ -493,6 +495,7 @@ async function giveBustSip(winnerName, recipientName) {
       body:    JSON.stringify({
         room_code: roomCode, client_id: clientId,
         winner_name: winnerName, recipient_name: recipientName,
+        forfeit,
       }),
     });
     const data = await res.json();
@@ -513,14 +516,26 @@ function _renderBustGivePanel(state) {
     return;
   }
 
-  const allPlayers = (state.players || []);
+  const allPlayers  = (state.players || []);
+  const secsLeft    = state.bust_handout_seconds_left || 0;
   overlay.style.display = "flex";
 
+  // Timer expired — winner forfeits and drinks the sip themselves
+  if (secsLeft === 0 && pending.length) {
+    pending.forEach(winnerName => giveBustSip(winnerName, winnerName, true));
+    return;
+  }
+
+  const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+  const timerStr    = secsLeft > 0
+    ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
+    : "";
+
   body.innerHTML = pending.map(winnerName => {
-    const label  = pending.length > 1
+    const label = pending.length > 1
       ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
       : "🎉 You called it! Give 1 sip to:";
-    const btns   = allPlayers
+    const btns = allPlayers
       .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
       .map(n => `<button class="btn wide" style="margin-bottom:8px"
           data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
@@ -528,7 +543,8 @@ function _renderBustGivePanel(state) {
           >${escapeHtml(n)}</button>`)
       .join("");
     return `<div style="margin-bottom:${pending.length > 1 ? 16 : 0}px">
-      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:14px;text-align:center">${label}</div>
+      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:10px;text-align:center">${label}</div>
+      ${timerStr}
       <div style="display:flex;flex-direction:column">${btns}</div>
     </div>`;
   }).join(`<hr style="border-color:var(--border);margin:8px 0">`);

@@ -99,7 +99,7 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False # True once all first-deal cards are entered
@@ -158,7 +158,7 @@ class RefereeSession:
                 p.hands     = [Hand() for _ in range(self.num_hands)]
                 p.drink_log = []
 
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
@@ -381,7 +381,8 @@ class RefereeSession:
     # ---------------------------------------------------------------- command: endround
 
     def cmd_endround(self, skip_sweep: bool = False):
-        """Finalise the round — fire end-of-round rules and print summary."""
+        """Finalise the round — fire end-of-round rules and print summary.
+        skip_sweep: pass True in digital mode (dealer_turn already fired it)."""
         print("\n--- End of Round ---")
 
         # Hard dealer switch check
@@ -467,18 +468,20 @@ class RefereeSession:
                         "group_won": dealer_bj,  # insure+BJ = group protected (won)
                     })
 
-        # All-hands sweep (same suit or all-21 across split hands)
-        for p in players:
-            if p.is_dealer:
-                continue
-            try:
-                self.tracker.apply(
-                    DrinkingRules.check_all_hands_sweep(
-                        p.name, p.hands, self._all_names, self.wager,
-                        dealer_name=self.dealer_name if hard_switch else "",
-                        dealer_bj=dealer_bj))
-            except Exception as e:
-                print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
+        # All-hands sweep (same suit or all-21 across split hands).
+        # Skipped in digital mode — dealer_turn() already fired it before cmd_endround().
+        if not skip_sweep:
+            for p in players:
+                if p.is_dealer:
+                    continue
+                try:
+                    self.tracker.apply(
+                        DrinkingRules.check_all_hands_sweep(
+                            p.name, p.hands, self._all_names, self.wager,
+                            dealer_name=self.dealer_name if hard_switch else "",
+                            dealer_bj=dealer_bj))
+                except Exception as e:
+                    print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
         if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
             w *= 2
             print(
@@ -492,10 +495,19 @@ class RefereeSession:
             hard_switch_dealer=self.dealer_name if hard_switch else "",
             num_hands=self.num_hands))
 
-        # Ace-of-clubs credits
+        # Ace-of-clubs credits (regular players)
         for name in self._ace_credits:
             p = self._get_player(name)
             if p: self.tracker.apply_ace_clubs_credit(p)
+
+        # Dealer-player A♣ deferred credit: apply only if no hard switch fired.
+        # On a hard switch the partial protection IS the benefit — no double-dipping.
+        pending_credit = self._ace_clubs_flag.get("dealer_player_pending_credit")
+        if pending_credit and not hard_switch:
+            p = self._get_player(pending_credit)
+            if p:
+                self.tracker.apply_ace_clubs_credit(p)
+                print(f"    (i) A♣ credit applied to {pending_credit} (no hard switch this round)")
 
         # Update cumulative stats
         for p in players:

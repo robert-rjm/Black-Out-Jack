@@ -242,6 +242,36 @@ def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | 
 
 
 # ---------------------------------------------------------------------------
+# Insurance vote serializer helper
+# ---------------------------------------------------------------------------
+
+def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> dict:
+    """Serialize one insurance vote entry.
+
+    insure_count / decline_count are exposed as soon as every eligible player
+    has cast a vote — not gated on `resolved` (which only flips after the 60s
+    timeout). This means the banner can show the correct result immediately
+    when the last vote comes in rather than always defaulting to "DECLINE".
+    """
+    bj_player    = v["player"]
+    votes_needed = sum(1 for p in session.all_players
+                       if p.name.lower() != bj_player.lower())
+    votes_cast   = len(v["votes"])
+    counts_ready = v["resolved"] or votes_cast >= votes_needed
+    return {
+        "bj_player":    bj_player,
+        "hand_idx":     v["hand_idx"],
+        "resolved":     v["resolved"],
+        "my_vote":      v["votes"].get(client_info.get("name") or "", None),
+        "votes_cast":   votes_cast,
+        "votes_needed": votes_needed,
+        "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
+        "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
+        "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Full state snapshot
 # ---------------------------------------------------------------------------
 
@@ -388,6 +418,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
         "bust_vote_result":       session._bust_vote_result,
+        "bust_handout_seconds_left": (
+            max(0, round(session._bust_handout_expires_at - time.monotonic()))
+            if session._bust_handout_expires_at else 0
+        ),
         "insurance_result":       session._insurance_result,
         "ace_drink_events":       session._ace_drink_events,
         "ace_drink_seq":          session._ace_drink_seq,
@@ -417,7 +451,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "my_name":                _ci.get("name"),
         "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
         "can_add_local_seat":     (
-            _ci.get("role") in ("player", "admin") and
+            _ci.get("role") == "admin" and
             any(
                 p.name not in {(info.get("name") or "").capitalize()
                                for info in session._room_clients.values()
