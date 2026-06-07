@@ -310,6 +310,8 @@ class NPC_Player(Player):
                 # always split 10s (unless suited)
                 if rv == 10 and not hand.is_suited():
                     return "sp"
+                if rv == 9 and not d_val == 10:
+                    return "sp"
                 if rv == 5 and "d" in valid_actions:
                     return "d"
             if score in (9, 10, 11) and "d" in valid_actions:
