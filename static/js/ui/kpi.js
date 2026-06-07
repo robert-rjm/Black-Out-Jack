@@ -9,7 +9,7 @@ function switchKpiTab(name, el) {
   if (el) el.classList.add("active");
   const pane = document.getElementById("pane-kpi-" + name);
   if (pane) pane.classList.add("active");
-  if (name === "trivia" && typeof updateTriviaPanel === "function") updateTriviaPanel();
+  if (name === "trivia" && typeof updateTriviaPanel === "function") updateTriviaPanel(typeof lastState !== "undefined" ? lastState : null);
 }
 
 // ---- Helpers ----
@@ -331,4 +331,5 @@ function renderStats(state) {
 function updateKpiPanel(state) {
   renderLeaderboard(state);
   renderStats(state);
+  if (typeof updateTriviaPanel === "function") updateTriviaPanel(state);
 }
