@@ -1,0 +1,233 @@
+/* ============================================================
+   kpi.css — KPI / Fun Panel (leaderboard, stats, trivia)
+   ============================================================ */
+
+#kpi-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ---- TAB BAR ---- */
+.kpi-tabs-bar {
+  display: flex;
+  flex-shrink: 0;
+  background: #11131c;
+  border-bottom: 1px solid var(--border);
+}
+
+.kpi-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  padding: 6px 4px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.kpi-tab:hover:not(.kpi-tab-disabled)   { color: var(--text); }
+.kpi-tab.active                          { color: var(--accent); border-bottom-color: var(--accent); }
+.kpi-tab.kpi-tab-disabled               { opacity: .35; cursor: default; }
+
+/* ---- PANES ---- */
+.kpi-pane {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  flex-direction: column;
+}
+.kpi-pane.active { display: flex; }
+
+.kpi-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: .5;
+}
+
+/* ---- SESSION BANNER ---- */
+.stat-session-banner {
+  flex-shrink: 0;
+  padding: 8px 8px 4px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+
+.ssb-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ssb-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 48px;
+  background: rgba(255,255,255,.04);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.ssb-val { font-size: 14px; font-weight: 800; color: var(--text); line-height: 1.2; }
+.ssb-lbl { font-size: 8px;  font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+
+.ssb-row-sm {
+  margin-top: 5px;
+  gap: 4px;
+}
+.ssb-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  background: rgba(255,255,255,.05);
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+/* ---- LEADERBOARD TABLE ---- */
+#leaderboard-content,
+#stats-content {
+  width: 100%;
+}
+
+.lb-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: .6;
+}
+
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.lb-table thead tr {
+  background: #11131c;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.lb-table th {
+  padding: 5px 6px;
+  text-align: right;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.lb-table th:first-child { text-align: left; }
+
+.lb-table td {
+  padding: 5px 6px;
+  text-align: right;
+  color: var(--text);
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  white-space: nowrap;
+}
+.lb-table td:first-child { text-align: left; }
+.lb-table tbody tr:last-child td { border-bottom: none; }
+
+/* Dealer row */
+.lb-row-dealer td { background: rgba(155,100,255,.07); }
+.lb-row-dealer .lb-name { color: var(--accent); }
+
+/* Win-rate cell colouring */
+.lb-wr-good  { color: var(--green)  !important; font-weight: 700; }
+.lb-wr-ok    { color: var(--yellow) !important; }
+.lb-wr-bad   { color: var(--red)    !important; }
+
+/* Rank badge */
+.lb-rank {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--muted);
+  width: 14px;
+  text-align: right;
+  margin-right: 4px;
+}
+.lb-rank-1 { color: gold; }
+.lb-rank-2 { color: silver; }
+.lb-rank-3 { color: #cd7f32; }
+
+/* Sip cells */
+.lb-sips      { color: var(--red); }
+.lb-sips-zero { color: var(--muted); opacity: .45; }
+
+/* Sub-label */
+.lb-meta {
+  font-size: 9px;
+  color: var(--muted);
+  padding: 4px 8px 6px;
+  opacity: .7;
+}
+
+/* ---- STATS TABLE ---- */
+.stats-table th { font-size: 8px; padding: 5px 4px; }
+.stats-table td { font-size: 10px; padding: 4px 4px; }
+
+/* ---- STAT CALLOUT CARDS ---- */
+.stat-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 10px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.stat-card-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.stat-card-body { min-width: 0; }
+
+.stat-card-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.stat-card-label {
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

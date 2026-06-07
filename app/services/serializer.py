@@ -12,8 +12,6 @@ import time
 
 from blackjack import Hand, NPC_Player
 from drinking_rules import _bj_multiplier
-from drinking_rules import _bj_multiplier
-from drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
@@ -191,6 +189,32 @@ def compute_dealer_role_sips(session: GameRoom) -> dict:
     return ticker
 
 
+def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> dict:
+    """Serialize one insurance vote entry.
+
+    insure_count / decline_count are exposed as soon as every eligible player
+    has cast a vote — not gated on `resolved` (which only flips after the 60s
+    timeout). This means the banner can show the correct result immediately
+    when the last vote comes in rather than always defaulting to "DECLINE".
+    """
+    bj_player    = v["player"]
+    votes_needed = sum(1 for p in session.all_players
+                       if p.name.lower() != bj_player.lower())
+    votes_cast   = len(v["votes"])
+    counts_ready = v["resolved"] or votes_cast >= votes_needed
+    return {
+        "bj_player":    bj_player,
+        "hand_idx":     v["hand_idx"],
+        "resolved":     v["resolved"],
+        "my_vote":      v["votes"].get(client_info.get("name") or "", None),
+        "votes_cast":   votes_cast,
+        "votes_needed": votes_needed,
+        "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
+        "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
+        "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
+    }
+
+
 def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | None:
     """
     Return the basic-strategy best action ('h'|'s'|'d'|'sp') for the
@@ -320,9 +344,15 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
 
     sip_totals = compute_sip_totals(session)
 
+    # KPI panel data — cumulative per-player hand outcomes + session stats
+    hand_stats = dict(session._hand_stats)
+
     return {
         "ok":              True,
         "round":           session.round_count,
+        "hand_stats":      hand_stats,
+        "max_round_sips":  dict(session._max_round_sips),
+        "dealer_bust_rounds": session._dealer_bust_rounds,
         "dealer":          session.dealer_name,
         "players":         [p.name for p in session.all_players],
         "num_hands":       session.num_hands,
@@ -347,6 +377,14 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "sip_totals":             sip_totals,
         "sip_grand_total":        sum(sip_totals.values()),
         "round_over_seq":         session._round_over_seq,
+        # KPI panel data
+        "hand_stats":             dict(session._hand_stats),
+        "strategy_decisions":     dict(session._strategy_decisions),
+        "streaks":                dict(session._streaks),
+        "max_round_sips":         dict(session._max_round_sips),
+        "dealer_bust_rounds":     session._dealer_bust_rounds,
+        "round_sip_history":      list(session._round_sip_history),
+        "session_seconds":        max(0, round(time.monotonic() - session._session_started_at)),
         "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
         "last_round_drinks":      session._last_round_drinks,
         "round_notices":          session._round_notices,

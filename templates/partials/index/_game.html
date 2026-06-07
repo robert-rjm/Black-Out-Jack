@@ -33,7 +33,33 @@
     <div id="left-col"></div>
     <div id="right-col">
       <div id="dealer-panel"><span class="dealer-placeholder">Dealer hand will appear here</span></div>
-      <div id="log"></div>
+
+      <div id="kpi-panel">
+        <div class="kpi-tabs-bar">
+          <button class="kpi-tab active" data-action="switchKpiTab" data-args='["leaderboard"]'>🏆 Leaderboard</button>
+          <button class="kpi-tab" data-action="switchKpiTab" data-args='["stats"]'>📊 Stats</button>
+          <button class="kpi-tab kpi-tab-disabled" title="Coming soon">🃏 Trivia</button>
+        </div>
+        <div id="pane-kpi-leaderboard" class="kpi-pane active">
+          <div id="leaderboard-content"></div>
+        </div>
+        <div id="pane-kpi-stats" class="kpi-pane">
+          <div id="stats-content"></div>
+        </div>
+        <div id="pane-kpi-trivia" class="kpi-pane">
+          <div class="kpi-placeholder">🃏 Trivia coming soon</div>
+        </div>
+      </div>
+
+      <div id="log-section">
+        <button id="log-toggle" class="log-toggle-bar" data-action="toggleLog">
+          <span class="log-toggle-label">Round Log</span>
+          <span class="log-toggle-chevron">▾</span>
+        </button>
+        <div id="log-body">
+          <div id="log"></div>
+        </div>
+      </div>
     </div>
   </div>
 

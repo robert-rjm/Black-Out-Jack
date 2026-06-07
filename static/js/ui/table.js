@@ -7,6 +7,8 @@ function buildGameUI() {
   document.getElementById("ref-panel").style.display = isDigital ? "none"  : "block";
   document.getElementById("dig-panel").style.display = isDigital ? "block" : "none";
 
+  initLogCollapse();
+
   if (isDigital) {
     buildDigitalUI();
   } else {
@@ -449,6 +451,7 @@ function applyState(state) {
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
   processAceDrinkEvents(state);  // mid-round ace drink toasts
+  updateKpiPanel(state);     // leaderboard + future KPI panes
 
   // Keep settings modal in sync while it's open
   const kickOv = document.getElementById("kick-overlay");
