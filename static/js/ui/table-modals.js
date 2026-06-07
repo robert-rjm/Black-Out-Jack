@@ -51,16 +51,29 @@ function renderInsuranceModal(state) {
     return;
   }
 
-  const iAmBJHolder = myName && v.bj_player.toLowerCase() === myName.toLowerCase();
-  const myVote      = v.my_vote;
-  const hasVoted    = myVote !== null && myVote !== undefined;
+  // Local multiplayer: find which local seats still need to vote
+  const voterNames   = myNames.filter(n => n.toLowerCase() !== v.bj_player.toLowerCase());
+  const votedNames   = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
+  const pendingLocal = voterNames.filter(n => !votedNames.includes(n.toLowerCase()));
+
+  // Active voter: prefer first pending local seat, else fall back to myActiveName/myName
+  const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
+                     : (myActiveName || myName);
+  const iAmBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
+  const myVote       = v.my_vote;
+  const hasVoted     = myVote !== null && myVote !== undefined;
 
   const titleEl = document.getElementById("insurance-modal-title");
   const subEl   = document.getElementById("insurance-modal-sub");
   if (titleEl) titleEl.textContent = `Insurance Vote — ${escapeHtml(v.bj_player)} H${v.hand_idx + 1}`;
-  if (subEl)   subEl.textContent   = iAmBJHolder
+
+  // Local multiplayer: show which player is currently voting
+  const voterLabel = voterNames.length > 1
+    ? ` <span style="color:var(--accent);font-size:11px">(${escapeHtml(activeVoter)})</span>`
+    : "";
+  if (subEl) subEl.innerHTML = iAmBJHolder
     ? "The group is voting whether to insure your Blackjack."
-    : `${escapeHtml(v.bj_player)} has Blackjack. Vote to insure?`;
+    : `${escapeHtml(v.bj_player)} has Blackjack. Vote to insure?${voterLabel}`;
 
   const stakesEl = document.getElementById("insurance-modal-stakes");
   if (stakesEl) {
@@ -80,25 +93,30 @@ function renderInsuranceModal(state) {
   const btnsEl   = document.getElementById("insurance-modal-btns");
   const statusEl = document.getElementById("insurance-modal-status");
   if (btnsEl) btnsEl.innerHTML = "";
-  if (!iAmBJHolder && !hasVoted) {
+
+  if (!iAmBJHolder && pendingLocal.length > 0) {
+    // Show vote buttons for the current pending local player
     const ins = document.createElement("button");
     ins.className = "btn green wide";
     ins.textContent = "INSURE";
-    ins.dataset.bjPlayer = v.bj_player;
-    ins.dataset.handIdx  = v.hand_idx;
-    ins.addEventListener("click", function() {
-      castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), true);
-    });
+    ins.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, true, activeVoter));
     const dec = document.createElement("button");
     dec.className = "btn red wide";
     dec.textContent = "DECLINE";
-    dec.dataset.bjPlayer = v.bj_player;
-    dec.dataset.handIdx  = v.hand_idx;
-    dec.addEventListener("click", function() {
-      castInsuranceVote(this.dataset.bjPlayer, parseInt(this.dataset.handIdx), false);
-    });
+    dec.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, false, activeVoter));
     if (btnsEl) { btnsEl.appendChild(ins); btnsEl.appendChild(dec); }
-    if (statusEl) statusEl.textContent = `(${v.votes_cast ?? 0}/${v.votes_needed ?? "?"} voted)`;
+
+    // Show remaining voters as chips
+    const remaining = pendingLocal.slice(1);
+    const votedChips = voterNames.filter(n => !pendingLocal.includes(n))
+      .map(n => `<span style="opacity:.5;text-decoration:line-through">${escapeHtml(n)}</span>`).join(" ");
+    const pendingChips = pendingLocal
+      .map((n, i) => i === 0
+        ? `<strong style="color:var(--accent)">${escapeHtml(n)}</strong>`
+        : `<span style="opacity:.6">${escapeHtml(n)}</span>`).join(" → ");
+    if (statusEl) statusEl.innerHTML =
+      `Voting: ${pendingChips}${votedChips ? ` · done: ${votedChips}` : ""} &nbsp;(${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})`;
+
   } else if (!iAmBJHolder && hasVoted) {
     const label = myVote ? "INSURE" : "DECLINE";
     const color = myVote ? "var(--green)" : "var(--red)";
@@ -138,7 +156,7 @@ function _renderInsuranceBanner(v) {
   banner.style.display = "block";
 }
 
-async function castInsuranceVote(bjPlayer, handIdx, vote) {
+async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
   try {
     const res  = await fetch("/vote_insurance", {
       method:  "POST",
@@ -146,6 +164,7 @@ async function castInsuranceVote(bjPlayer, handIdx, vote) {
       body:    JSON.stringify({
         room_code: roomCode, client_id: clientId,
         bj_player: bjPlayer, hand_idx: handIdx, vote,
+        ...(voterName ? { voter_name: voterName } : {}),
       }),
     });
     const data = await res.json();
