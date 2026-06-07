@@ -176,8 +176,8 @@ This base sip is **doubled cumulatively**:
 | Both cards are black (Spades or Clubs) | ×2 |
 
 > **Examples:**
-> A♥ + K♦ → **1 sip**  
-> A♥ + J♥ → suited + A&J: 1×2×2 = **4 sips**  
+> A♥ + K♦ → **1 sip**
+> A♥ + J♥ → suited + A&J: 1×2×2 = **4 sips**
 > A♠ + J♠ → suited + A&J + black: 1×2×2×2 = **8 sips**
 
 ### Special hand rules
@@ -202,11 +202,9 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 
 #### 2. Player all hand bonus
 
-If every final hand a Player holds is **entirely one suit** or totals **exactly 21**, all drinks owed by other Players that round are doubled.
+If every card across all of a Player's final hands share **entirely the same suit**, or every hand totals **exactly 21**, other Players each drink double their wager. If both conditions are met simultaneously, other Players drink quadruple their wager.
 
-> - Does not apply to Blackjack bonus or Aces.
 > - Triggers regardless of win or push or loss.
-> - Stacks with other rules, **except**: if the sweeping Player also won a doubled hand, the doubled-hand immunity drink (1 sip) is waived — the sweep already covers it.
 
 #### 3. Dealer suited hand:
 

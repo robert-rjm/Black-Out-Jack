@@ -454,7 +454,13 @@ def vote_insurance():
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered."})
 
-    voter_name = (info.get("name") or "").strip()
+    # Local multiplayer: client may specify which local seat is voting
+    requested_voter = (data.get("voter_name") or "").strip().capitalize()
+    local_names     = [n for n in (info.get("local_names") or []) if n]
+    if requested_voter and requested_voter in local_names:
+        voter_name = requested_voter
+    else:
+        voter_name = (info.get("name") or "").strip()
     if not voter_name:
         return jsonify({"ok": False, "error": "Spectators cannot vote."})
     if voter_name.lower() == bj_player.lower():
