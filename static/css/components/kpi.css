@@ -221,19 +221,110 @@
   font-size: 13px;
 
 /* ---- TRIVIA ---- */
-.trivia-card {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 14px; padding: 18px 12px; text-align: center;
+
+/* Make the trivia pane a proper full-height flex container */
+#pane-kpi-trivia { padding: 0; }
+#trivia-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+.tv-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 10px 8px;
+  gap: 8px;
+  min-height: 0;
 }
-.trivia-icon { font-size: 32px; }
-.trivia-text {
-  font-size: 13px; line-height: 1.6; color: var(--text);
-  max-width: 320px;
+
+/* Full-height card — grows to fill available pane space */
+.tv-card {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  border-left: 3px solid var(--accent);
+  background: rgba(255,255,255,.04);
+  border-radius: 0 12px 12px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 16px 16px;
+  gap: 14px;
+  text-align: center;
 }
-.trivia-next-btn {
-  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
-  color: var(--muted); border-radius: 8px; padding: 6px 16px;
-  font-size: 12px; cursor: pointer; transition: background .15s;
+
+/* Large faded watermark in card background */
+.tv-card::before {
+  content: attr(data-icon);
+  position: absolute;
+  font-size: 120px;
+  opacity: .04;
+  pointer-events: none;
+  user-select: none;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  line-height: 1;
 }
-.trivia-next-btn:hover { background: rgba(255,255,255,.13); color: var(--text); }
-.trivia-counter { font-size: 10px; color: var(--muted); opacity: .5; }
+
+.tv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  position: relative; z-index: 1;
+}
+.tv-title  {
+  font-size: 9px; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .6px;
+}
+.tv-badge  {
+  font-size: 9px; font-weight: 700;
+  border: 1px solid; border-radius: 20px;
+  padding: 1px 8px; opacity: .85; white-space: nowrap;
+}
+.tv-text {
+  font-size: 14px; line-height: 1.65; color: var(--text);
+  max-width: 280px;
+  position: relative; z-index: 1;
+}
+
+/* Footer row */
+.tv-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Dots (category mode) */
+.tv-nav    { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.tv-dots   { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.tv-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,.2); border: none; cursor: pointer; padding: 0;
+  transition: background .15s;
+}
+.tv-dot.active { background: var(--text); }
+.tv-dot:hover  { background: rgba(255,255,255,.5); }
+
+/* Counter arrows (all mode) */
+.tv-arr {
+  background: none; border: none; color: var(--muted);
+  font-size: 16px; cursor: pointer; padding: 2px 5px; line-height: 1;
+  transition: color .15s;
+}
+.tv-arr:hover:not(:disabled) { color: var(--text); }
+.tv-arr:disabled { opacity: .2; cursor: default; }
+.tv-counter { font-size: 11px; color: var(--muted); min-width: 36px; text-align: center; }
+
+/* Category icon pills */
+.tv-pills { display: flex; gap: 4px; }
+.tv-pill {
+  width: 28px; height: 28px; border-radius: 6px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.tv-pill:hover     { background: rgba(255,255,255,.12); }
+.tv-pill-active    { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.35); }
