@@ -20,6 +20,7 @@ from flask import Blueprint, jsonify, request
 from blackjack  import Hand
 from drinking_rules import DrinkingRules
 from referee    import RefereeSession
+from strategy   import best_play as _best_play
 
 from app.services.session_store  import game_sessions
 from app.services.validators     import is_dealer_client
@@ -82,6 +83,46 @@ def _print_digital_help():
   status
       Show current state of all hands.
 """)
+
+
+# ---------------------------------------------------------------------------
+# Strategy deviation helper
+# ---------------------------------------------------------------------------
+
+def _record_strategy_decision(session, player, hand, chosen_action: str) -> None:
+    """
+    Compare the player's chosen action against basic strategy and record the
+    result in session._strategy_decisions.
+
+    Skipped for:
+      - NPC players (always optimal by definition)
+      - Hands with fewer than 2 cards (split hand waiting for second card)
+      - No dealer upcard available yet
+    """
+    if getattr(player, "is_npc", False):
+        return
+
+    dealer = session._get_dealer()
+    if not dealer or not dealer.dealer_hand or not dealer.dealer_hand.cards:
+        return
+    if len(hand.cards) < 2:
+        return
+
+    dealer_up   = dealer.dealer_hand.cards[0]
+    valid       = ["h", "s"]
+    if len(hand.cards) == 2 and not hand.doubled:
+        valid.append("d")
+    if hand.can_split():
+        valid.append("sp")
+
+    optimal = _best_play(hand, dealer_up, valid,
+                         drinking_mode=session.drinking_mode)
+
+    sd = session._strategy_decisions
+    if player.name not in sd:
+        sd[player.name] = {"correct": 0, "total": 0}
+    sd[player.name]["total"]   += 1
+    sd[player.name]["correct"] += 1 if chosen_action == optimal else 0
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +225,7 @@ def command():
                         if hand.stood or hand.bust:
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
+                            _record_strategy_decision(game_session, player, hand, "h")
                             card = deal_card(game_session, hand, player.name)
                             print(f"  {player.name} {hand_label} hits {card}: {hand}")
                             if hand.is_bust():
@@ -208,6 +250,7 @@ def command():
                         if hand.stood or hand.bust:
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
+                            _record_strategy_decision(game_session, player, hand, "s")
                             hand.stood = True
                             print(f"  {player.name} {hand_label}: stands at {hand.score()}.")
 
@@ -227,6 +270,7 @@ def command():
                         elif hand.stood or hand.bust:
                             print(f"  {player.name} {hand_label} is already done.")
                         else:
+                            _record_strategy_decision(game_session, player, hand, "d")
                             hand.doubled = True
                             deal_card(game_session, hand, player.name)
                             hand.stood   = True
@@ -248,6 +292,7 @@ def command():
                         hand       = get_player_hand(player, hand_label)
                         if not hand.can_split():
                             # Give a specific message when the split limit is the reason
+                            # (record nothing — invalid action, not a strategy decision)
                             if (len(hand.cards) == 2
                                     and hand.cards[0].rank.blackjack_value == hand.cards[1].rank.blackjack_value
                                     and hand.split_count >= Hand.MAX_SPLITS):
@@ -255,6 +300,7 @@ def command():
                             else:
                                 print("  Cannot split this hand.")
                         else:
+                            _record_strategy_decision(game_session, player, hand, "sp")
                             # Move second card to new hand (no second cards dealt yet)
                             new_hand = Hand(from_split=True)
                             new_hand.cards.append(hand.cards.pop())
