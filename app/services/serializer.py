@@ -413,7 +413,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "my_name":                _ci.get("name"),
         "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
         "can_add_local_seat":     (
-            _ci.get("role") in ("player", "admin") and
+            _ci.get("role") == "admin" and
             any(
                 p.name not in {(info.get("name") or "").capitalize()
                                for info in session._room_clients.values()

@@ -701,6 +701,12 @@ function updateRoundPane(state) {
 function autoSwitchDigTab(state) {
   const phase     = state.phase;
   const prevPhase = lastState ? lastState.phase : null;
+  // Always unlock the Play tab outside of playing phase
+  if (phase !== "playing") {
+    const playTabBtn = document.querySelector("#dig-tabs .tab[data-args*='dig-play']");
+    if (playTabBtn) { playTabBtn.disabled = false; playTabBtn.style.opacity = ""; playTabBtn.style.pointerEvents = ""; }
+  }
+
   if (phase === "pre-deal") {
     // Only snap to Play tab on the transition into pre-deal, not on every poll —
     // otherwise players get jerked back whenever they browse tabs while waiting
@@ -709,19 +715,36 @@ function autoSwitchDigTab(state) {
       activateDigTab("dig-play");
     }
   } else if (phase === "playing") {
-    // Non-dealer: if all my hands are done, move me to Drinks so I'm not staring at buttons
     if (!isMyDealerClient && myNames.length > 0) {
       const allDone = myNames.every(n => {
         const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
         return seat && seat.done;
       });
+      const currentTurn  = (state.current_turn || "").toLowerCase();
+      const isMyTurn     = myNames.some(n => n.toLowerCase() === currentTurn);
+      const isMultiSeat  = myNames.length > 1;
+
+      // Lock the Play tab button for single-seat players when it's not their turn
+      const playTabBtn = document.querySelector("#dig-tabs .tab[data-args*='dig-play']");
+      if (playTabBtn) {
+        const lock = !isMyTurn && !isMultiSeat;
+        playTabBtn.disabled = lock;
+        playTabBtn.style.opacity = lock ? "0.35" : "";
+        playTabBtn.style.pointerEvents = lock ? "none" : "";
+      }
+
       if (allDone) {
-        activateDigTab("dig-round");
+        activateDigTab("dig-round");   // hands done → always go to Drinks
+      } else if (!isMyTurn && !isMultiSeat) {
+        activateDigTab("dig-round");   // single-seat, not your turn → Drinks
       } else {
-        activateDigTab("dig-play");
+        activateDigTab("dig-play");    // your turn, or multi-seat managing seats
       }
     } else {
-      activateDigTab("dig-play");   // dealer stays on Play to execute turns
+      // Dealer / unregistered — unlock Play tab and stay on it
+      const playTabBtn = document.querySelector("#dig-tabs .tab[data-args*='dig-play']");
+      if (playTabBtn) { playTabBtn.disabled = false; playTabBtn.style.opacity = ""; playTabBtn.style.pointerEvents = ""; }
+      activateDigTab("dig-play");
     }
   } else if (phase === "round-over") {
     activateDigTab("dig-round");
