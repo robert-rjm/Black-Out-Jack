@@ -85,6 +85,7 @@
 }
 .ssb-val { font-size: 14px; font-weight: 800; color: var(--text); line-height: 1.2; }
 .ssb-lbl { font-size: 8px;  font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.ssb-rolling { font-size: 8px; color: var(--muted); margin-top: 2px; white-space: nowrap; }
 
 .ssb-row-sm {
   margin-top: 5px;
@@ -218,16 +219,3 @@
 
 .stat-card-value {
   font-size: 13px;
-  font-weight: 800;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.stat-card-label {
-  font-size: 9px;
-  color: var(--muted);
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
