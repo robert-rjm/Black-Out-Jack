@@ -50,7 +50,7 @@ function updateRoleUI(state) {
   const isRoundOver   = state.phase === "round-over";
   // NEW ROUND is only relevant at round-over; during pre-deal the DEAL button takes over
   if (dealerActions) dealerActions.style.display = (isMyDealerClient && isRoundOver) ? "block" : "none";
-  if (waitingHint)   waitingHint.style.display   = (isMyDealerClient || myRole === "spectator") ? "none" : "block";
+  if (waitingHint)   waitingHint.style.display   = (!isMyDealerClient && myRole !== "spectator" && isRoundOver) ? "block" : "none";
 
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
