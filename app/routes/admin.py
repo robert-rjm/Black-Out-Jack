@@ -148,6 +148,39 @@ def make_bot():
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
+@bp.route("/make_human", methods=["POST"])
+def make_human():
+    """Admin converts an NPC bot back to a human-controlled player.
+    Body: { room_code, client_id, player_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("player_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = session._room_clients
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    player = next(
+        (p for p in session.all_players
+         if p.name.lower() == target_name.lower()),
+        None,
+    )
+    if not player:
+        return jsonify({"ok": False, "error": f"Player '{target_name}' not found."})
+    if not getattr(player, "is_npc", False):
+        return jsonify({"ok": False, "error": f"'{target_name}' is not a bot."})
+
+    player.is_npc = False
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
 # ---------------------------------------------------------------------------
 # Admin transfer
 # ---------------------------------------------------------------------------

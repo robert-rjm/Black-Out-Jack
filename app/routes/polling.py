@@ -291,6 +291,12 @@ def handle_registration():
             session._room_clients[target_client_id] = {
                 **target_existing, "name": name, "role": "player", "kicked": False
             }
+        # If the claimed seat was an NPC, convert them to human so auto-play stops
+        claimed_player = next(
+            (p for p in session.all_players if p.name.lower() == name.lower()), None
+        )
+        if claimed_player and getattr(claimed_player, "is_npc", False):
+            claimed_player.is_npc = False
         # Seat is now claimed — remove from admin's local_names
         for info in session._room_clients.values():
             if info.get("role") == "admin":
