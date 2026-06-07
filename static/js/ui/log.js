@@ -105,7 +105,7 @@ function showPlayerDrinkToast(sips, playerName) {
   _playerToastTimer = setTimeout(() => {
     el.classList.remove("show");
     _playerToastTimer = null;
-  }, 3500);
+  }, 6000);
 }
 
 // ============================================================
