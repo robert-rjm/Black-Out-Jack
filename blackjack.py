@@ -110,21 +110,23 @@ class Shoe:
                                 f"cards_remaining={len(self.cards)}, "
                                 f"penetration={self.penetration:.2%})")
 
-    def shuffle(self):
+    def shuffle(self, quiet: bool = False):
         random.shuffle(self.cards)
-        print(f"Shoe shuffled - {len(self.cards)} cards ready.")
+        if not quiet:
+            print(f"Shoe shuffled - {len(self.cards)} cards ready.")
 
-    def reset(self, num_decks: int = None):
+    def reset(self, num_decks: int = None, quiet: bool = False):
         self.__init__(num_decks or self.num_decks)
-        self.shuffle()
+        self.shuffle(quiet=quiet)
 
     def needs_reshuffle(self) -> bool:
         return len(self.cards) < (1 - self.penetration) * self.total_cards
 
-    def deal_card(self) -> Card:
+    def deal_card(self, quiet: bool = False) -> Card:
         if self.needs_reshuffle():
-            print("Reshuffling shoe...")
-            self.reset()
+            if not quiet:
+                print("Reshuffling shoe...")
+            self.reset(quiet=quiet)
         return self.cards.pop()
 
 
