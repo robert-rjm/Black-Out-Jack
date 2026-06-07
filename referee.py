@@ -380,7 +380,7 @@ class RefereeSession:
 
     # ---------------------------------------------------------------- command: endround
 
-    def cmd_endround(self):
+    def cmd_endround(self, skip_sweep: bool = False):
         """Finalise the round — fire end-of-round rules and print summary."""
         print("\n--- End of Round ---")
 
@@ -739,6 +739,5 @@ def main():
 
         else:
             print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
-
 if __name__ == "__main__":
     main()
