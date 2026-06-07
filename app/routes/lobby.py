@@ -182,7 +182,7 @@ def setup():
         default_decks    = 2 if len(players) >= 4 else 1
         num_decks        = int(data.get("num_decks", default_decks))
         raw_session.shoe = Shoe(num_decks)
-        raw_session.shoe.shuffle()
+        raw_session.shoe.shuffle(quiet=True)
 
     if drinking:
         patch_tracker(raw_session)
