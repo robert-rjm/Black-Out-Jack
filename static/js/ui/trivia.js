@@ -13,7 +13,7 @@ const TRIVIA_FACTS = [
   { cat: "strategy",    text: "Standing on a soft 17 (Ace + 6) is a mistake - you cannot bust, so hitting is always better." },
   { cat: "strategy",    text: "Soft 18 (A+7) vs. dealer 9, 10, or A: you should hit. Most players stand and lose more often." },
   { cat: "strategy",    text: "Hard 16 vs. dealer 10 with 3+ cards: stand. With only 2 cards: hit. Card composition changes the math." },
-  { cat: "strategy",    text: "Hitting 12 vs. dealer 2 or 3 is correct, but standing on 12 vs. dealer 4 is also correct. The switch happens at exactly 4." },
+  { cat: "strategy",    text: "Hitting 12 vs. dealer 2 or 3 is correct, but standing vs. dealer 4 is also correct. The switch happens at exactly 4." },
   { cat: "strategy",    text: "Doubling A+5 vs. dealer 6 is correct but feels insane - you are banking on the dealer busting." },
   { cat: "strategy",    text: "Taking even money on blackjack vs. dealer Ace is mathematically identical to insurance. Same bad bet, better marketing." },
   { cat: "strategy",    text: "Removing all 5s from a deck helps the player more than removing any other single rank (~0.67% swing)." },
@@ -29,7 +29,7 @@ const TRIVIA_FACTS = [
   { cat: "history",     text: "Blackjack originated in French casinos around 1700 under the name Vingt-et-Un (21)." },
   { cat: "history",     text: "Edward Thorp's 1962 book Beat the Dealer introduced card counting to the public and changed blackjack forever." },
   { cat: "history",     text: "The name Blackjack comes from an early bonus payout for a hand with the Ace of Spades and a black Jack." },
-  { cat: "history",     text: "Blackjack goes by many names: 21, Vingt-et-Un, Pontoon, 17+4 - and Black(Out)Jack if you're here." },
+  { cat: "history",     text: "Blackjack goes by many names: 21, Vingt-et-Un, Pontoon, 17+4 - and Black(Out)Jack if you are here." },
   { cat: "history",     text: "The MIT Blackjack Team won millions card counting in the 1980s and 90s - they inspired the film 21." },
   { cat: "history",     text: "Las Vegas casinos introduced the 6:5 blackjack payout in the 2000s - it nearly doubles the house edge." },
   { cat: "history",     text: "The first basic strategy was computed in 1956 by four US Army engineers on desk calculators. It took 3 years." },
@@ -51,45 +51,105 @@ const TRIVIA_FACTS = [
   { cat: "game",        text: "The 4 Aces rule: 2 sips after first deal, 1 sip at round end. They cannot stack." },
 ];
 
-const TRIVIA_CATS = [
-  { key: "all",         icon: "🃏" },
-  { key: "strategy",    icon: "🧠" },
-  { key: "probability", icon: "🎲" },
-  { key: "history",     icon: "📜" },
-  { key: "drinking",    icon: "🍺" },
-  { key: "game",        icon: "🎰" },
+var TRIVIA_CATS = [
+  { key: "all",         icon: "🃏", label: "All"   },
+  { key: "strategy",    icon: "🧠", label: "Strat" },
+  { key: "probability", icon: "🎲", label: "Odds"  },
+  { key: "history",     icon: "📜", label: "Hist"  },
+  { key: "drinking",    icon: "🍺", label: "Drink" },
+  { key: "game",        icon: "🎰", label: "Game"  },
 ];
 
-const CAT_LABELS = {
-  strategy: "Strategy", probability: "Odds",
-  history: "History",   drinking: "Drinking", game: "This game",
-};
+var CAT_LABELS = { strategy:"Strategy", probability:"Odds", history:"History", drinking:"Drinking", game:"This game" };
+var CAT_COLORS = { strategy:"var(--accent)", probability:"var(--yellow)", history:"#a78bfa", drinking:"var(--red)", game:"var(--green)" };
 
-const CAT_COLORS = {
-  strategy: "var(--accent)", probability: "var(--yellow)",
-  history: "#a78bfa",        drinking: "var(--red)", game: "var(--green)",
-};
+var _triviaFilter    = "all";
+var _triviaIndex     = 0;
+var _triviaList      = [];
+var _triviaRendered  = false;
+var _triviaLastRound = -1;
 
-var _triviaFilter   = "all";
-var _triviaIndex    = 0;
-var _triviaList     = [];
-var _triviaLastRound = -1;  // tracks last seen round for auto-advance
-
-// Build filtered list; in "all" mode, use round-based offset so all clients sync.
 function _buildTriviaList(round) {
   var base = _triviaFilter === "all"
     ? TRIVIA_FACTS
     : TRIVIA_FACTS.filter(function(f) { return f.cat === _triviaFilter; });
   _triviaList = base.slice();
-  // Offset start by round so all players see the same fact at the same round
-  _triviaIndex = typeof round === "number" && round > 0
-    ? round % _triviaList.length
-    : 0;
+  _triviaIndex = (typeof round === "number" && round > 0)
+    ? round % _triviaList.length : 0;
 }
 
 function _isTriviaActive() {
-  var pane = document.getElementById("pane-kpi-trivia");
-  return pane && pane.classList.contains("active");
+  var p = document.getElementById("pane-kpi-trivia");
+  return p && p.classList.contains("active");
+}
+
+// ---- Full initial render ----
+function _buildTriviaHTML() {
+  var catBtns = TRIVIA_CATS.map(function(c) {
+    return '<button class="trivia-cat-btn" data-cat="' + c.key + '" onclick="setTriviaFilter(\'' + c.key + '\')">' +
+      '<span class="t-icon">' + c.icon + '</span>' +
+      '<span class="t-label">' + c.label + '</span>' +
+      '</button>';
+  }).join("");
+
+  return '<div class="trivia-card">' +
+    '<div class="trivia-header">' +
+      '<span class="trivia-title">🃏 Did You Know?</span>' +
+      '<span class="trivia-cat-label" id="trivia-cat-label"></span>' +
+    '</div>' +
+    '<div class="trivia-text" id="trivia-text"></div>' +
+    '<div class="trivia-nav-row" id="trivia-nav-row"></div>' +
+    '</div>' +
+    '<div class="trivia-categories" id="trivia-categories">' + catBtns + '</div>';
+}
+
+// ---- Partial updates (fast path) ----
+function _updateTriviaContent() {
+  if (!_triviaList.length) return;
+  var fact     = _triviaList[_triviaIndex];
+  var total    = _triviaList.length;
+  var catColor = CAT_COLORS[fact.cat] || "var(--muted)";
+  var catLabel = CAT_LABELS[fact.cat] || fact.cat;
+  var catIcon  = (TRIVIA_CATS.filter(function(c){ return c.key === fact.cat; })[0] || {}).icon || "";
+
+  // Badge — simple border + text color, neutral bg for all categories
+  var badge = document.getElementById("trivia-cat-label");
+  if (badge) {
+    badge.textContent = catIcon + " " + catLabel;
+    badge.style.color = catColor;
+    badge.style.borderColor = catColor;
+    badge.style.background = "rgba(255,255,255,0.08)";
+  }
+
+  // Text — use textContent (safe, no escapeHtml needed)
+  var textEl = document.getElementById("trivia-text");
+  if (textEl) textEl.textContent = fact.text;
+
+  // Nav: dots (category mode) or ← counter → (all mode)
+  var navRow = document.getElementById("trivia-nav-row");
+  if (navRow) {
+    if (_triviaFilter !== "all" && total <= 12) {
+      var dots = '<div class="trivia-dots">';
+      for (var i = 0; i < total; i++) {
+        // Use CSS class for active dot — avoids inline CSS variable in style string
+        var cls = "trivia-dot" + (i === _triviaIndex ? " active" : "");
+        dots += '<button class="' + cls + '" onclick="jumpTrivia(' + i + ')"></button>';
+      }
+      dots += '</div>';
+      navRow.innerHTML = dots;
+    } else {
+      navRow.innerHTML =
+        '<button class="trivia-arr" onclick="prevTrivia()" ' + (_triviaIndex === 0 ? "disabled" : "") + '>&#8592;</button>' +
+        '<span class="trivia-counter">' + (_triviaIndex + 1) + ' / ' + total + '</span>' +
+        '<button class="trivia-arr" onclick="nextTrivia()">&#8594;</button>';
+    }
+  }
+
+  // Category buttons active state
+  var btns = document.querySelectorAll(".trivia-cat-btn");
+  for (var j = 0; j < btns.length; j++) {
+    btns[j].classList.toggle("active", btns[j].dataset.cat === _triviaFilter);
+  }
 }
 
 function renderTrivia() {
@@ -97,81 +157,47 @@ function renderTrivia() {
   if (!el) return;
   if (!_triviaList.length) _buildTriviaList(null);
 
-  var fact     = _triviaList[_triviaIndex];
-  var total    = _triviaList.length;
-  var catColor = CAT_COLORS[fact.cat] || "var(--muted)";
-  var catLabel = CAT_LABELS[fact.cat] || fact.cat;
-  var catIcon  = (TRIVIA_CATS.filter(function(c){ return c.key === fact.cat; })[0] || {}).icon || "";
-
-  // Category icon pills
-  var pills = TRIVIA_CATS.map(function(c) {
-    var active = c.key === _triviaFilter ? " tv-pill-active" : "";
-    return '<button class="tv-pill' + active + '" title="' + (CAT_LABELS[c.key] || "All") + '" onclick="setTriviaFilter(\'' + c.key + '\')">' + c.icon + '</button>';
-  }).join("");
-
-  // Dot nav for filtered categories; counter for "all"
-  var navHtml;
-  if (_triviaFilter !== "all" && total <= 12) {
-    var dots = "";
-    for (var i = 0; i < total; i++) {
-      dots += '<button class="tv-dot' + (i === _triviaIndex ? " active" : "") + '" onclick="jumpTrivia(' + i + ')"></button>';
-    }
-    navHtml = '<div class="tv-dots">' + dots + '</div>';
-  } else {
-    navHtml =
-      '<button class="tv-arr" onclick="prevTrivia()" ' + (_triviaIndex === 0 ? "disabled" : "") + '>&#8592;</button>' +
-      '<span class="tv-counter">' + (_triviaIndex + 1) + ' / ' + total + '</span>' +
-      '<button class="tv-arr" onclick="nextTrivia()">&#8594;</button>';
+  // Rebuild if not yet rendered or if DOM was cleared externally
+  if (!_triviaRendered || !document.getElementById("trivia-text")) {
+    el.innerHTML = _buildTriviaHTML();
+    _triviaRendered = true;
   }
-
-  el.innerHTML =
-    '<div class="tv-wrap">' +
-      '<div class="tv-card" style="border-left-color:' + catColor + '" data-icon="' + catIcon + '">' +
-        '<div class="tv-header">' +
-          '<span class="tv-title">Did You Know?</span>' +
-          '<span class="tv-badge" style="color:' + catColor + ';border-color:' + catColor + '">' + catIcon + ' ' + catLabel + '</span>' +
-        '</div>' +
-        '<div class="tv-text">' + escapeHtml(fact.text) + '</div>' +
-      '</div>' +
-      '<div class="tv-footer">' +
-        '<div class="tv-nav">' + navHtml + '</div>' +
-        '<div class="tv-pills">' + pills + '</div>' +
-      '</div>' +
-    '</div>';
+  _updateTriviaContent();
 }
 
 function nextTrivia() {
   _triviaIndex = (_triviaIndex + 1) % _triviaList.length;
-  renderTrivia();
+  _updateTriviaContent();
 }
 
 function prevTrivia() {
-  if (_triviaIndex > 0) { _triviaIndex--; renderTrivia(); }
+  if (_triviaIndex > 0) { _triviaIndex--; _updateTriviaContent(); }
 }
 
 function jumpTrivia(i) {
   _triviaIndex = i;
-  renderTrivia();
+  _updateTriviaContent();
 }
 
 function setTriviaFilter(cat) {
   _triviaFilter = cat;
   _buildTriviaList(_triviaLastRound > 0 ? _triviaLastRound : null);
-  renderTrivia();
+  _updateTriviaContent();
+}
+
+function _resetTriviaRender() {
+  // Call if trivia-content is cleared externally so HTML gets rebuilt
+  _triviaRendered = false;
 }
 
 function updateTriviaPanel(state) {
   var round = state && state.round ? state.round : null;
-
-  // Auto-advance when a new round starts and trivia tab is visible
   if (round !== null && round !== _triviaLastRound && _triviaLastRound >= 0 && _isTriviaActive()) {
     _triviaLastRound = round;
     _buildTriviaList(round);
-    renderTrivia();
-    return;
+  } else {
+    if (round !== null) _triviaLastRound = round;
+    if (!_triviaList.length) _buildTriviaList(round);
   }
-  if (round !== null) _triviaLastRound = round;
-
-  if (!_triviaList.length) _buildTriviaList(round);
   renderTrivia();
 }
