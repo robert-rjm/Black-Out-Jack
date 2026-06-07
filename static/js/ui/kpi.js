@@ -4,7 +4,7 @@
 
 // ---- Tab switching ----
 function switchKpiTab(name, el) {
-  document.querySelectorAll(".kpi-tabs-bar .kpi-tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(".kpi-tabs-bar .kpi-tab").forEach(t => t.classList.toggle("active", t === el));
   document.querySelectorAll(".kpi-pane").forEach(p => p.classList.remove("active"));
   if (el) el.classList.add("active");
   const pane = document.getElementById("pane-kpi-" + name);
