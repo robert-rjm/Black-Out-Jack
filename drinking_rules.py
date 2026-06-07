@@ -320,7 +320,8 @@ class DrinkingRules:
         # 21 with 5+ cards: suppress hand-out when dealer has blackjack
         if not dealer_bj and hand.score() == 21 and len(hand.cards) >= 5:
             msgs.append((player_name, -len(hand.cards),
-                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips"))
+                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips",
+                "handout"))
 
         if hand.result != "win":
             return msgs
@@ -623,6 +624,8 @@ class DrinkTracker:
     def apply(self, msgs: list):
         """Apply a list of (recipient, sips, reason[, role]) tuples.
         role defaults to 'player'; use 'dealer' for dealer-seat drinks.
+        role == 'handout' means the recipient hands out abs(sips) to others.
+        Any other negative sips value is a direct credit applied to the recipient.
         No halving here -- use apply_end_of_round for end-of-round events."""
         for msg in msgs:
             recipient, sips, reason = msg[0], msg[1], msg[2]
@@ -631,7 +634,13 @@ class DrinkTracker:
                 if reason: print(f"    (i) {reason}")
                 continue
             if sips < 0:
-                self._handle_handout(recipient, abs(sips), reason)
+                if role == "handout":
+                    self._handle_handout(recipient, abs(sips), reason)
+                else:
+                    # Direct credit — e.g. sweep cancellation undoing a prior drink
+                    for t in self._resolve(recipient):
+                        t.add_drink(sips, reason, "player")
+                    if reason: print(f"    (i) {reason}")
                 continue
             for t in self._resolve(recipient):
                 t.add_drink(sips, reason, role)
