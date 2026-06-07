@@ -401,6 +401,15 @@ function applyState(state) {
     _animToggleOn()
   );
 
+  // Reset idle timer on any game state change — if the round or phase advanced,
+  // someone is actively playing and the dyno is clearly not idle.
+  if (typeof resetIdleTimer === "function") {
+    const prevRound = lastState ? (lastState.round || 0) : 0;
+    if (state.phase !== prevPhase || (state.round || 0) > prevRound) {
+      resetIdleTimer();
+    }
+  }
+
   // Always sync last/prev round data from server so both variables stay in lockstep.
   // Do NOT gate _lastRoundSips on being non-empty — that desynchronises it from
   // _prevRoundSips and makes the diff compare different rounds.
