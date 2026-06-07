@@ -386,7 +386,6 @@ function renderStats(state) {
 
 // ---- Hook into state updates ----
 function updateKpiPanel(state) {
-  renderLeaderboard(state);
   renderStats(state);
   if (typeof updateTriviaPanel === "function") updateTriviaPanel(state);
 }
