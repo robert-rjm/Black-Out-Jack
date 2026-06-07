@@ -254,8 +254,7 @@ function renderStats(state) {
     if (r.sdPct === null) {
       sdCell = `<span style="opacity:.35">—</span>`;
     } else {
-      const col = r.sdPct >= 80 ? "var(--green)" : r.sdPct >= 60 ? "var(--yellow)" : "var(--red)";
-      sdCell = `<span style="color:${col};font-weight:700">${r.sdPct}%</span>`;
+      sdCell = `<span style="font-weight:700">${r.sdPct}%</span>`;
     }
     return `<tr class="${rc}">
       <td class="lb-name">${nameCell}</td>
