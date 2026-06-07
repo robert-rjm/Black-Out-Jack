@@ -158,6 +158,10 @@ def harvest_drink_log(session: GameRoom) -> None:
             last[p.name] = raw
     session._last_round_sips = last
 
+    # Rolling per-round sip history (total across all players)
+    round_total = max(0, sum(last.values()))
+    session._round_sip_history = session._round_sip_history + [round_total]
+
     # Detailed drink entries for the Drinks pane
     drinks_detail = []
     notices       = []
@@ -192,18 +196,29 @@ def harvest_drink_log(session: GameRoom) -> None:
     session._last_round_drinks  = drinks_detail
     session._round_notices      = notices
 
-    # Hand outcome stats per player (win/loss/push, splits, doubles)
+    # Hand outcome stats per player
     hand_stats = session._hand_stats
     for p in session.all_players:
-        if p.is_dealer:
-            continue
         if p.name not in hand_stats:
             hand_stats[p.name] = {
                 "hands": 0, "wins": 0, "losses": 0, "pushes": 0,
                 "split_hands": 0, "split_wins": 0,
                 "double_hands": 0, "double_wins": 0,
+                "blackjacks": 0, "busts": 0,
+                "suited_hands": 0,
+                "hit_hands": 0,
+                "stand_sub17": 0,
+                "total_score": 0, "scored_hands": 0,
             }
         hs = hand_stats[p.name]
+        # Back-fill missing keys for sessions started before these fields were added
+        for key, default in (
+            ("blackjacks", 0), ("busts", 0),
+            ("suited_hands", 0), ("hit_hands", 0),
+            ("stand_sub17", 0), ("total_score", 0), ("scored_hands", 0),
+        ):
+            hs.setdefault(key, default)
+
         for hand in p.hands:
             result = getattr(hand, "result", None)
             if result not in ("win", "loss", "push"):
@@ -218,7 +233,38 @@ def harvest_drink_log(session: GameRoom) -> None:
             if getattr(hand, "doubled", False):
                 hs["double_hands"] += 1
                 if result == "win": hs["double_wins"] += 1
+            if hand.is_blackjack() and result == "win":
+                hs["blackjacks"] += 1
+            if getattr(hand, "bust", False) or hand.is_bust():
+                hs["busts"] += 1
+            if hand.is_suited():
+                hs["suited_hands"] += 1
+            # Hit rate: hand has more cards than the initial 2 (player took ≥1 hit)
+            if len(hand.cards) > 2:
+                hs["hit_hands"] += 1
+            # Stand on sub-17: player stood (not busted, not BJ) with score < 17
+            if (getattr(hand, "stood", False) and not getattr(hand, "bust", False)
+                    and not hand.is_blackjack() and hand.score() < 17):
+                hs["stand_sub17"] += 1
+            # Average hand value: final score of non-bust hands
+            if not getattr(hand, "bust", False) and not hand.is_bust():
+                hs["total_score"]  += hand.score()
+                hs["scored_hands"] += 1
     session._hand_stats = hand_stats
+
+    # Max single-round sip hit per player
+    mx = session._max_round_sips
+    for name, raw in session._last_round_sips.items():
+        net = max(0, raw)
+        if net > mx.get(name, 0):
+            mx[name] = net
+    session._max_round_sips = mx
+
+    # Dealer bust counter
+    dealer_player = next((p for p in session.all_players if p.is_dealer), None)
+    if dealer_player and getattr(dealer_player, "dealer_hand", None):
+        if dealer_player.dealer_hand.is_bust():
+            session._dealer_bust_rounds += 1
 
     # Dealer hand stats — wins/losses/pushes from the dealer's POV
     # (player "win" = dealer lost that hand, and vice versa)
@@ -239,6 +285,31 @@ def harvest_drink_log(session: GameRoom) -> None:
             elif result == "loss": ds["wins"]   += 1   # player loses = dealer won
             elif result == "push": ds["pushes"] += 1
     session._dealer_hand_stats = dealer_stats
+
+
+    # Win/loss streaks per player.
+    # Win round  = net wins  > 0 (won more hands than lost)
+    # Loss round = net losses > 0 (lost more hands than won)
+    # Neutral    = equal → resets current streak to 0
+    streaks = session._streaks
+    for p in session.all_players:
+        round_wins   = sum(1 for h in p.hands if getattr(h, "result", None) == "win")
+        round_losses = sum(1 for h in p.hands if getattr(h, "result", None) == "loss")
+        net = round_wins - round_losses
+        if not any(getattr(h, "result", None) in ("win", "loss", "push") for h in p.hands):
+            continue  # no resolved hands this round — skip
+        if p.name not in streaks:
+            streaks[p.name] = {"current": 0, "longest_win": 0, "longest_loss": 0}
+        s = streaks[p.name]
+        if net > 0:
+            s["current"] = s["current"] + 1 if s["current"] > 0 else 1
+            s["longest_win"] = max(s["longest_win"], s["current"])
+        elif net < 0:
+            s["current"] = s["current"] - 1 if s["current"] < 0 else -1
+            s["longest_loss"] = max(s["longest_loss"], abs(s["current"]))
+        else:
+            s["current"] = 0   # neutral round breaks streak
+    session._streaks = streaks
 
 
 # ---------------------------------------------------------------------------
