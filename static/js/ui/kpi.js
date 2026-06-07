@@ -336,7 +336,7 @@ function renderStats(state) {
         <span style="text-align:right">${sipStr}</span>
       </div>`;
     }).join("");
-    callouts.push(`<div class="stat-card" style="flex-direction:column;align-items:stretch;gap:0">
+    callouts.push(`<div class="stat-card stat-card-primary" style="flex-direction:column;align-items:stretch;gap:0">
       <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
       ${headerRow}${lbLines}
     </div>`);

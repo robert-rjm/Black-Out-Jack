@@ -219,6 +219,9 @@
   border-radius: 8px;
   padding: 8px 10px;
 }
+.stat-card-primary {
+  border-color: rgba(255,215,0,.45);
+}
 
 .stat-card-icon {
   font-size: 18px;
