@@ -281,3 +281,42 @@
   border: 1px solid rgba(245,200,66,.3);
   font-size: 12px; color: var(--muted);
 }
+
+.insurance-modal-minimize {
+  position: absolute; top: 10px; right: 12px;
+  background: none; border: none;
+  font-size: 18px; font-weight: 700;
+  color: var(--muted); cursor: pointer;
+  line-height: 1; padding: 2px 6px;
+  border-radius: 4px;
+  transition: color .15s;
+}
+.insurance-modal-minimize:hover { color: var(--text); }
+#insurance-modal { position: relative; }
+
+/* Minimised banner — active vote state */
+.insurance-vote-banner.minimised {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  cursor: default;
+}
+.insurance-vote-banner.minimised .ins-banner-label {
+  flex: 1; min-width: 0;
+  font-size: 12px; color: var(--yellow); font-weight: 700;
+}
+.insurance-vote-banner.minimised .ins-banner-timer {
+  font-size: 11px; color: var(--muted);
+}
+.insurance-vote-banner.minimised .ins-banner-btns {
+  display: flex; gap: 6px; flex-shrink: 0;
+}
+.insurance-vote-banner.minimised .ins-banner-btns button {
+  font-size: 11px; padding: 3px 10px; border-radius: 6px;
+  border: none; cursor: pointer; font-weight: 700;
+}
+.insurance-vote-banner.minimised .ins-banner-expand {
+  font-size: 11px; color: var(--muted); cursor: pointer;
+  text-decoration: underline; white-space: nowrap;
+}

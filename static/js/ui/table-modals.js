@@ -1,5 +1,6 @@
-let _insuranceTimerID   = null;
-let _insuranceModalKey  = null;
+let _insuranceTimerID    = null;
+let _insuranceModalKey   = null;
+let _insuranceMinimised  = false;
 
 function updateInsuranceVisibility(state) {
   const row = document.getElementById("dig-insurance-row");
@@ -40,12 +41,30 @@ function renderInsuranceModal(state) {
   const key = `${v.bj_player}:${v.hand_idx}`;
 
   if (_insuranceModalKey !== key) {
-    _insuranceModalKey = key;
+    _insuranceModalKey  = key;
+    _insuranceMinimised = false;  // always expand on new vote
     overlay.classList.add("open");
+    // Wire up minimize button once
+    const minBtn = document.getElementById("insurance-modal-minimize");
+    if (minBtn && !minBtn._wired) {
+      minBtn._wired = true;
+      minBtn.addEventListener("click", () => {
+        _insuranceMinimised = true;
+        overlay.classList.remove("open");
+      });
+    }
+  }
+
+  // If minimised, keep overlay closed — render compact banner instead
+  if (_insuranceMinimised) {
+    overlay.classList.remove("open");
+    _renderInsuranceBanner(v, true, activeVoter);
+    return;
   }
 
   const allIn = (v.votes_cast != null && v.votes_needed != null && v.votes_cast >= v.votes_needed);
   if (allIn) {
+    _insuranceMinimised = false;
     _closeInsuranceModal();
     _renderInsuranceBanner(v);
     return;
@@ -141,11 +160,46 @@ function _closeInsuranceModal() {
   _insuranceModalKey = null;
 }
 
-function _renderInsuranceBanner(v) {
+function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = null) {
   const banner  = document.getElementById("insurance-vote-banner");
   const content = document.getElementById("insurance-vote-banner-content");
   if (!banner || !content) return;
-  if (!v) { banner.style.display = "none"; content.innerHTML = ""; return; }
+
+  if (!v) {
+    banner.style.display = "none";
+    banner.classList.remove("minimised");
+    content.innerHTML = "";
+    return;
+  }
+
+  // ── Minimised active-vote state ──────────────────────────────
+  if (minimisedActiveVote) {
+    banner.classList.add("minimised");
+    const s          = v.seconds_left ?? 0;
+    const timerColor = s <= 10 ? "var(--red)" : "var(--muted)";
+    const voterStr   = activeVoter ? ` <span style="color:var(--accent)">${escapeHtml(activeVoter)}</span>` : "";
+
+    // Build quick vote buttons if voter hasn't voted yet
+    const isBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
+    const votedNames  = (v.votes_cast_by || []).map(n => n.toLowerCase());
+    const canVote     = !isBJHolder && activeVoter && !votedNames.includes(activeVoter.toLowerCase());
+
+    content.innerHTML = `
+      <span class="ins-banner-label">🃏 Insurance${voterStr}</span>
+      <span class="ins-banner-timer" style="color:${timerColor}">⏱ ${s}s</span>
+      ${canVote ? `<span class="ins-banner-btns">
+        <button style="background:var(--green);color:#000"
+          onclick="castInsuranceVote('${escapeHtml(v.bj_player)}',${v.hand_idx},true,'${escapeHtml(activeVoter)}')">INSURE</button>
+        <button style="background:var(--red);color:#fff"
+          onclick="castInsuranceVote('${escapeHtml(v.bj_player)}',${v.hand_idx},false,'${escapeHtml(activeVoter)}')">DECLINE</button>
+      </span>` : `<span style="font-size:11px;color:var(--muted)">${v.votes_cast ?? 0}/${v.votes_needed ?? "?"} voted</span>`}
+      <span class="ins-banner-expand" onclick="_expandInsuranceModal()">expand</span>`;
+    banner.style.display = "";
+    return;
+  }
+
+  // ── Resolved vote result state ───────────────────────────────
+  banner.classList.remove("minimised");
   const insureCount  = v.insure_count ?? 0;
   const declineCount = (v.votes_cast ?? 0) - insureCount;
   const voteLabel    = insureCount > declineCount ? "INSURE" : "DECLINE";
@@ -154,6 +208,14 @@ function _renderInsuranceBanner(v) {
     `🃏 Insurance vote closed — <strong style="color:${color}">${voteLabel}</strong> ` +
     `(${insureCount} insure / ${declineCount} decline) · waiting for dealer to reveal`;
   banner.style.display = "block";
+}
+
+function _expandInsuranceModal() {
+  _insuranceMinimised = false;
+  const overlay = document.getElementById("insurance-modal-overlay");
+  if (overlay) overlay.classList.add("open");
+  const banner = document.getElementById("insurance-vote-banner");
+  if (banner) { banner.classList.remove("minimised"); banner.style.display = "none"; }
 }
 
 async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
