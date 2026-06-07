@@ -325,6 +325,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "round_over_seq":         session._round_over_seq,
         # KPI panel data
         "hand_stats":             dict(session._hand_stats),
+        "strategy_decisions":     dict(session._strategy_decisions),
         "streaks":                dict(session._streaks),
         "max_round_sips":         dict(session._max_round_sips),
         "dealer_bust_rounds":     session._dealer_bust_rounds,

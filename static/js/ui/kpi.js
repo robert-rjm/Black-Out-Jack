@@ -122,16 +122,17 @@ function renderStats(state) {
   const el = document.getElementById("stats-content");
   if (!el) return;
 
-  const handStats       = state.hand_stats         || {};
-  const sipTotals       = state.sip_totals         || {};
-  const maxRoundSips    = state.max_round_sips     || {};
-  const streaks         = state.streaks            || {};
-  const dealerBustRnds  = state.dealer_bust_rounds || 0;
-  const round           = state.round              || 0;
-  const history         = state.round_sip_history  || [];
-  const sessionSecs     = state.session_seconds    || 0;
-  const playOrder       = state.play_order         || state.players || [];
-  const dealer          = (state.dealer            || "").toLowerCase();
+  const handStats         = state.hand_stats           || {};
+  const sipTotals         = state.sip_totals           || {};
+  const maxRoundSips      = state.max_round_sips       || {};
+  const streaks           = state.streaks              || {};
+  const strategyDecisions = state.strategy_decisions   || {};
+  const dealerBustRnds    = state.dealer_bust_rounds   || 0;
+  const round             = state.round                || 0;
+  const history           = state.round_sip_history    || [];
+  const sessionSecs       = state.session_seconds      || 0;
+  const playOrder         = state.play_order           || state.players || [];
+  const dealer            = (state.dealer              || "").toLowerCase();
 
   // ── Session-wide callout banner ──────────────────────────────
   const totalSips    = Object.values(sipTotals).reduce((a, b) => a + b, 0);
@@ -196,7 +197,11 @@ function renderStats(state) {
     const avgHV       = scoredH > 0 ? (totalScore / scoredH).toFixed(1) : "—";
     const lw          = sk.longest_win  || 0;
     const ll          = sk.longest_loss || 0;
-    return { name, hands, bj, busts, suited, hitRate, sub17, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll };
+    const sd          = strategyDecisions[name] || {};
+    const sdTotal     = sd.total   || 0;
+    const sdCorrect   = sd.correct || 0;
+    const sdPct       = sdTotal >= 3 ? Math.round((sdCorrect / sdTotal) * 100) : null;
+    return { name, hands, bj, busts, suited, hitRate, sub17, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal };
   }).filter(r => r.hands > 0 || r.totalSipsP > 0);
 
   if (rows.length === 0) {
@@ -216,6 +221,13 @@ function renderStats(state) {
     const llCell   = r.ll > 0 ? `<span style="color:var(--red)">💀${r.ll}</span>`   : `<span style="opacity:.35">—</span>`;
     const stCell   = r.suited > 0 ? `<span style="color:var(--accent)">${r.suited}</span>` : `<span style="opacity:.35">—</span>`;
     const s17Cell  = r.sub17  > 0 ? `<span style="color:var(--yellow)">${r.sub17}</span>`  : `<span style="opacity:.35">0</span>`;
+    let sdCell;
+    if (r.sdPct === null) {
+      sdCell = `<span style="opacity:.35">—</span>`;
+    } else {
+      const col = r.sdPct >= 80 ? "var(--green)" : r.sdPct >= 60 ? "var(--yellow)" : "var(--red)";
+      sdCell = `<span style="color:${col};font-weight:700">${r.sdPct}%</span><span style="opacity:.5;font-size:10px"> ${r.sdCorrect}/${r.sdTotal}</span>`;
+    }
     return `<tr class="${rc}">
       <td class="lb-name">${nameCell}</td>
       <td>${bjCell}</td>
@@ -226,6 +238,7 @@ function renderStats(state) {
       <td>${r.avgHV}</td>
       <td>${bstCell}</td>
       <td>${stCell}</td>
+      <td>${sdCell}</td>
       <td>${r.avgSips}</td>
       <td>${maxCell}</td>
       <td>${lwCell}</td>
@@ -245,6 +258,7 @@ function renderStats(state) {
         <th title="Average non-bust hand value">AvgHV</th>
         <th title="Times busted">Bust</th>
         <th title="Suited hands">Suit</th>
+        <th title="Basic strategy accuracy (shown after 3+ decisions)">Strat%</th>
         <th title="Average sips per round">Avg🍺</th>
         <th title="Biggest single-round sip hit">Peak🍺</th>
         <th title="Longest win streak">🔥</th>
