@@ -11,6 +11,13 @@ function switchKpiTab(name, el) {
   if (pane) pane.classList.add("active");
 }
 
+// ---- Streak helpers ----
+function _streakLabel(current) {
+  if (!current) return `<span style="opacity:.35">—</span>`;
+  if (current > 0) return `<span style="color:var(--green);font-weight:700">🔥${current}</span>`;
+  return `<span style="color:var(--red);font-weight:700">💀${Math.abs(current)}</span>`;
+}
+
 // ---- Leaderboard renderer ----
 function renderLeaderboard(state) {
   const el = document.getElementById("leaderboard-content");
@@ -18,20 +25,22 @@ function renderLeaderboard(state) {
 
   const handStats  = state.hand_stats  || {};
   const sipTotals  = state.sip_totals  || {};
+  const streaks    = state.streaks     || {};
   const dealer     = (state.dealer     || "").toLowerCase();
   const playOrder  = state.play_order  || state.players || [];
   const round      = state.round       || 0;
 
-  // Build rows — one per player that has played at least one hand
   const rows = playOrder.map(name => {
-    const hs    = handStats[name] || {};
-    const hands = hs.hands  || 0;
-    const wins  = hs.wins   || 0;
-    const losses= hs.losses || 0;
-    const pushes= hs.pushes || 0;
-    const sips  = sipTotals[name] || 0;
-    const wr    = hands > 0 ? Math.round((wins / hands) * 100) : null;
-    return { name, hands, wins, losses, pushes, sips, wr };
+    const hs      = handStats[name] || {};
+    const sk      = streaks[name]   || {};
+    const hands   = hs.hands  || 0;
+    const wins    = hs.wins   || 0;
+    const losses  = hs.losses || 0;
+    const pushes  = hs.pushes || 0;
+    const sips    = sipTotals[name] || 0;
+    const wr      = hands > 0 ? Math.round((wins / hands) * 100) : null;
+    const current = sk.current || 0;
+    return { name, hands, wins, losses, pushes, sips, wr, current };
   }).filter(r => r.hands > 0 || r.sips > 0);
 
   if (rows.length === 0) {
@@ -39,7 +48,6 @@ function renderLeaderboard(state) {
     return;
   }
 
-  // Sort by win rate desc (null → last), then sips asc as tiebreak
   rows.sort((a, b) => {
     if (a.wr === null && b.wr === null) return a.sips - b.sips;
     if (a.wr === null) return 1;
@@ -48,11 +56,10 @@ function renderLeaderboard(state) {
     return a.sips - b.sips;
   });
 
-  // Win-rate colour helper
   function wrClass(wr) {
     if (wr === null) return "";
-    if (wr >= 55)   return "lb-wr-good";
-    if (wr >= 40)   return "lb-wr-ok";
+    if (wr >= 55) return "lb-wr-good";
+    if (wr >= 40) return "lb-wr-ok";
     return "lb-wr-bad";
   }
 
@@ -76,6 +83,7 @@ function renderLeaderboard(state) {
       <td class="lb-name">${rankLabel}${escapeHtml(r.name)}${isDealer ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}</td>
       <td>${wrStr}</td>
       <td>${wlp}</td>
+      <td>${_streakLabel(r.current)}</td>
       <td>${sipStr}</td>
     </tr>`;
   }).join("");
@@ -90,6 +98,7 @@ function renderLeaderboard(state) {
           <th>Player</th>
           <th>Win %</th>
           <th>W/L/P</th>
+          <th>Streak</th>
           <th>Sips</th>
         </tr>
       </thead>
@@ -102,30 +111,33 @@ function renderStats(state) {
   const el = document.getElementById("stats-content");
   if (!el) return;
 
-  const handStats       = state.hand_stats         || {};
-  const sipTotals       = state.sip_totals         || {};
-  const maxRoundSips    = state.max_round_sips     || {};
-  const dealerBustRnds  = state.dealer_bust_rounds || 0;
-  const round           = state.round              || 0;
-  const playOrder       = state.play_order         || state.players || [];
-  const dealer          = (state.dealer            || "").toLowerCase();
+  const handStats      = state.hand_stats         || {};
+  const sipTotals      = state.sip_totals         || {};
+  const maxRoundSips   = state.max_round_sips     || {};
+  const streaks        = state.streaks            || {};
+  const dealerBustRnds = state.dealer_bust_rounds || 0;
+  const round          = state.round              || 0;
+  const playOrder      = state.play_order         || state.players || [];
+  const dealer         = (state.dealer            || "").toLowerCase();
 
   const rows = playOrder.map(name => {
-    const hs          = handStats[name] || {};
-    const hands       = hs.hands        || 0;
-    const wins        = hs.wins         || 0;
-    const dh          = hs.double_hands || 0;
-    const dw          = hs.double_wins  || 0;
-    const sh          = hs.split_hands  || 0;
-    const sw          = hs.split_wins   || 0;
-    const bj          = hs.blackjacks   || 0;
-    const busts       = hs.busts        || 0;
-    const totalSips   = sipTotals[name] || 0;
-    const maxSips     = maxRoundSips[name] || 0;
-    const avgSips     = round > 0 ? (totalSips / round).toFixed(1) : "—";
-    const dblPct      = dh > 0 ? Math.round((dw / dh) * 100) + "%" : "—";
-    const spPct       = sh > 0 ? Math.round((sw / sh) * 100) + "%" : "—";
-    return { name, hands, wins, bj, busts, dh, dw, dblPct, sh, sw, spPct, avgSips, maxSips, totalSips };
+    const hs        = handStats[name] || {};
+    const sk        = streaks[name]   || {};
+    const hands     = hs.hands        || 0;
+    const dh        = hs.double_hands || 0;
+    const dw        = hs.double_wins  || 0;
+    const sh        = hs.split_hands  || 0;
+    const sw        = hs.split_wins   || 0;
+    const bj        = hs.blackjacks   || 0;
+    const busts     = hs.busts        || 0;
+    const totalSips = sipTotals[name] || 0;
+    const maxSips   = maxRoundSips[name] || 0;
+    const avgSips   = round > 0 ? (totalSips / round).toFixed(1) : "—";
+    const dblPct    = dh > 0 ? Math.round((dw / dh) * 100) + "%" : "—";
+    const spPct     = sh > 0 ? Math.round((sw / sh) * 100) + "%" : "—";
+    const lw        = sk.longest_win  || 0;
+    const ll        = sk.longest_loss || 0;
+    return { name, hands, bj, busts, dh, dw, dblPct, sh, sw, spPct, avgSips, maxSips, totalSips, lw, ll };
   }).filter(r => r.hands > 0 || r.totalSips > 0);
 
   if (rows.length === 0) {
@@ -138,10 +150,12 @@ function renderStats(state) {
 
   const tbody = rows.map(r => {
     const rc = isDealer(r.name) ? " lb-row-dealer" : "";
-    const nameCell = `${escapeHtml(r.name)}${isDealer(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
-    const bjCell   = r.bj    > 0 ? `<span style="color:var(--yellow);font-weight:700">🃏${r.bj}</span>`  : `<span style="opacity:.35">—</span>`;
-    const bustCell = r.busts > 0 ? `<span style="color:var(--red)">${r.busts}</span>` : `<span style="opacity:.35">0</span>`;
-    const maxCell  = r.maxSips > 0 ? `<span style="color:var(--red)">🍺${r.maxSips}</span>` : `<span style="opacity:.35">—</span>`;
+    const nameCell  = `${escapeHtml(r.name)}${isDealer(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
+    const bjCell    = r.bj    > 0 ? `<span style="color:var(--yellow);font-weight:700">🃏${r.bj}</span>`  : `<span style="opacity:.35">—</span>`;
+    const bustCell  = r.busts > 0 ? `<span style="color:var(--red)">${r.busts}</span>` : `<span style="opacity:.35">0</span>`;
+    const maxCell   = r.maxSips > 0 ? `<span style="color:var(--red)">🍺${r.maxSips}</span>` : `<span style="opacity:.35">—</span>`;
+    const lwCell    = r.lw > 0 ? `<span style="color:var(--green)">🔥${r.lw}</span>` : `<span style="opacity:.35">—</span>`;
+    const llCell    = r.ll > 0 ? `<span style="color:var(--red)">💀${r.ll}</span>` : `<span style="opacity:.35">—</span>`;
     return `<tr class="${rc}">
       <td class="lb-name">${nameCell}</td>
       <td>${bjCell}</td>
@@ -150,6 +164,8 @@ function renderStats(state) {
       <td>${bustCell}</td>
       <td>${r.avgSips}</td>
       <td>${maxCell}</td>
+      <td>${lwCell}</td>
+      <td>${llCell}</td>
     </tr>`;
   }).join("");
 
@@ -163,17 +179,22 @@ function renderStats(state) {
         <th title="Times busted">Busts</th>
         <th title="Average sips per round">Avg🍺</th>
         <th title="Biggest single-round sip hit">Peak🍺</th>
+        <th title="Longest win streak">🔥</th>
+        <th title="Longest loss streak">💀</th>
       </tr></thead>
       <tbody>${tbody}</tbody>
     </table>`;
 
   // Session callout cards
-  const totalBJ    = rows.reduce((s, r) => s + r.bj, 0);
-  const bjRate     = round > 0 ? ((totalBJ / (rows.length * round)) * 100).toFixed(1) : null;
+  const totalBJ   = rows.reduce((s, r) => s + r.bj, 0);
+  const bjRate    = round > 0 ? ((totalBJ / (rows.length * round)) * 100).toFixed(1) : null;
   const bjExpected = 4.8;
+  const peakRow   = [...rows].sort((a, b) => b.maxSips - a.maxSips)[0];
+  const bustRate  = round > 0 ? Math.round((dealerBustRnds / round) * 100) : null;
 
-  const peakRow    = [...rows].sort((a, b) => b.maxSips - a.maxSips)[0];
-  const bustRate   = round > 0 ? Math.round((dealerBustRnds / round) * 100) : null;
+  // Streak callouts
+  const bestWinRow  = [...rows].sort((a, b) => b.lw - a.lw)[0];
+  const bestLossRow = [...rows].sort((a, b) => b.ll - a.ll)[0];
 
   const callouts = [];
 
@@ -204,6 +225,26 @@ function renderStats(state) {
       <div class="stat-card-body">
         <div class="stat-card-value" style="${bustColour}">${bustRate}% dealer busts</div>
         <div class="stat-card-label">${dealerBustRnds} of ${round} round${round !== 1 ? "s" : ""} · casino avg ~28%</div>
+      </div>
+    </div>`);
+  }
+
+  if (bestWinRow && bestWinRow.lw >= 2) {
+    callouts.push(`<div class="stat-card">
+      <div class="stat-card-icon">🔥</div>
+      <div class="stat-card-body">
+        <div class="stat-card-value" style="color:var(--green)">${bestWinRow.lw}-round win streak</div>
+        <div class="stat-card-label">${escapeHtml(bestWinRow.name)} — longest this session</div>
+      </div>
+    </div>`);
+  }
+
+  if (bestLossRow && bestLossRow.ll >= 2) {
+    callouts.push(`<div class="stat-card">
+      <div class="stat-card-icon">📉</div>
+      <div class="stat-card-body">
+        <div class="stat-card-value" style="color:var(--red)">${bestLossRow.ll}-round losing streak</div>
+        <div class="stat-card-label">${escapeHtml(bestLossRow.name)} — longest this session</div>
       </div>
     </div>`);
   }

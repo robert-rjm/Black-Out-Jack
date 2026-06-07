@@ -322,6 +322,12 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "peeked_card":            session._last_peeked,
         "sip_totals":             sip_totals,
         "sip_grand_total":        sum(sip_totals.values()),
+        "round_over_seq":         session._round_over_seq,
+        # KPI panel data
+        "hand_stats":             dict(session._hand_stats),
+        "streaks":                dict(session._streaks),
+        "max_round_sips":         dict(session._max_round_sips),
+        "dealer_bust_rounds":     session._dealer_bust_rounds,
         "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
         "last_round_drinks":      session._last_round_drinks,
         "round_notices":          session._round_notices,
