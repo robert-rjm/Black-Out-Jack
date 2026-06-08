@@ -13,22 +13,23 @@ POST /vote_insurance  — Player casts their insurance vote
 POST /give_bust_sip   — Bust vote winner hands out their 1-sip reward
 """
 
-import logging
 import contextlib
 import io
-log = logging.getLogger(__name__)
+import logging
+import time as _time
 
 from flask import Blueprint, jsonify, request
 
 from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
-import time as _time
+from app.services.validators import sanitize_name, is_dealer_client
+from app.services.serializer import serialize_state, round_phase
+from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties
+from app.services.game_engine import dealer_turn
+
+log = logging.getLogger(__name__)
 
 _last_cleanup: float = 0.0
 _CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
-from app.services.validators    import sanitize_name, is_dealer_client
-from app.services.serializer    import serialize_state, round_phase
-from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties
-from app.services.game_engine   import dealer_turn
 
 bp = Blueprint("polling", __name__)
 

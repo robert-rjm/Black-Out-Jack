@@ -11,32 +11,32 @@ Referee commands: deal, action, result, dealer, fouraces, endround,
                   newround, status, help
 """
 
-import logging
-log = logging.getLogger(__name__)
-
 import contextlib
 import io
+import logging
 import time
 
 from flask import Blueprint, jsonify, request
 
-from engine.blackjack  import Hand
+from engine.blackjack import Hand
 from engine.drinking_rules import DrinkingRules
-from engine.referee    import RefereeSession
-from engine.strategy   import best_play as _best_play
+from engine.referee import RefereeSession
+from engine.strategy import best_play as _best_play
 
-from app.services.session_store  import game_sessions
-from app.services.validators     import is_dealer_client
-from app.services.serializer     import (
+from app.services.session_store import game_sessions
+from app.services.validators import is_dealer_client
+from app.services.serializer import (
     serialize_state, serialize_card,
     round_phase, current_turn,
 )
-from app.services.game_engine    import (
+from app.services.game_engine import (
     deal_card, deal_pending_split_cards,
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
 )
-from app.services.drink_tracker  import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
-from app.services.room_manager   import apply_queued_settings, rotate_dealer, patch_tracker
+from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
+from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker
+
+log = logging.getLogger(__name__)
 
 bp = Blueprint("game_commands", __name__)
 

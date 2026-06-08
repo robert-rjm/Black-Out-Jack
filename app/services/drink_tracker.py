@@ -10,13 +10,13 @@ session down.
 """
 
 import logging
-log = logging.getLogger(__name__)
-
 import time
 
 from app.models.game_room import GameRoom
-from engine.drinking_rules import DrinkingRules, classify_rule
+from engine.drinking_rules import classify_rule
 from app.config import MILESTONE_STEP, MILESTONE_TTL
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +291,6 @@ def harvest_drink_log(session: GameRoom) -> None:
             elif result == "loss": ds["wins"]   += 1   # player loses = dealer won
             elif result == "push": ds["pushes"] += 1
     session._dealer_hand_stats = dealer_stats
-
 
     # Win/loss streaks per player.
     # Win round  = net wins  > 0 (won more hands than lost)

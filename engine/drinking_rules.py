@@ -178,7 +178,8 @@ class DrinkingRules:
             if s == Suit.CLUBS:
                 ace_clubs_flag["half_protected"] = True
                 msgs.append((None, 0,
-                    f"A{s.symbol} dealt to dealer ({dealer_name}) => half Hard Switch protection (drinks ceil of total/2)"))
+                    f"A{s.symbol} dealt to dealer ({dealer_name})"
+                    " => half Hard Switch protection (drinks ceil of total/2)"))
             elif s == Suit.SPADES:
                 if card_pos % 2 == 1:
                     msgs.append((dealer_name, 1,
@@ -739,7 +740,6 @@ class DrinkTracker:
             print("  DRINK SUMMARY")
         if self.verbose:
             print("="*52)
-        any_drinks = False
         for p in self.players:
             if p.name == "House": continue
             if not p.drink_log:   continue
@@ -751,13 +751,12 @@ class DrinkTracker:
             if not dealer_log and not player_log:
                 continue
 
-            any_drinks = True
-
             # Dealer-role section (only relevant when this player holds the dealer seat)
             if p.is_dealer and dealer_log:
                 dealer_net = sum(s for s, _ in dealer_log)
                 if self.verbose:
                     print(f"\n  Dealer ({p.name})  =>  {dealer_net} sip(s) this round")
                 for sips, reason in dealer_log:
-                    sign = f"+{sips}" if sips > 0 else str(sips)
-               
+                    if self.verbose:
+                        sign = f"+{sips}" if sips > 0 else str(sips)
+                        print(f"      {sign}  {reason}")

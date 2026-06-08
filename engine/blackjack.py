@@ -239,7 +239,7 @@ class Player:
 
 
 # Strategy tables and resolver live in strategy.py
-from engine.strategy import best_play as _strategy_best_play
+from engine.strategy import best_play as _strategy_best_play  # noqa: E402
 
 
 class NPC_Player(Player):

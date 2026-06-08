@@ -8,9 +8,9 @@ import sys as _sys, os as _os
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
 
-import io, os, csv, contextlib
-from collections import defaultdict
-from datetime import datetime
+import io, os, csv, contextlib  # noqa: E402
+from collections import defaultdict  # noqa: E402
+from datetime import datetime  # noqa: E402
 
 _buf = io.StringIO()
 with contextlib.redirect_stdout(_buf):
