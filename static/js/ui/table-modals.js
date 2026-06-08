@@ -291,8 +291,14 @@ function renderMilestoneState(state) {
       // Short delay so the toast is visible before modal covers it
       setTimeout(() => _openMilestoneModal(ms, state), 600);
     } else {
-      // Modal already open — just keep the timer in sync
+      // Modal already open — keep timer in sync; auto-submit when time's up
       _updateMilestoneTimer(ms.seconds_left);
+      if (ms.seconds_left <= 0) {
+        const overlay = document.getElementById("milestone-modal-overlay");
+        if (overlay && overlay.classList.contains("open")) {
+          submitMilestoneHandout();
+        }
+      }
     }
   } else {
     // Non-winners: persistent waiting banner with live countdown
@@ -457,7 +463,6 @@ async function submitMilestoneHandout() {
   const ms = lastState && lastState.pending_milestone;
   if (!ms) return;
   const used = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
-  if (used !== ms.handout) return;  // shouldn't happen (button is disabled), but guard anyway
 
   const btn = document.getElementById("milestone-submit-btn");
   if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }

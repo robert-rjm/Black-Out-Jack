@@ -22,7 +22,6 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from app.config import MILESTONE_HANDOUT_SIPS
 from app.services.session_store import game_sessions
 from app.services.serializer    import serialize_state, round_phase
 from app.services.drink_tracker import check_and_set_milestone
@@ -573,7 +572,7 @@ def claim_milestone():
     Rules enforced server-side:
       - Only the milestone winner may submit.
       - Cannot allocate to self.
-      - Total must equal MILESTONE_HANDOUT_SIPS (5).
+      - Total must not exceed the milestone's handout value (boundary-scaled).
       - Each allocation must be a non-negative integer.
       - Must be submitted before the TTL expires.
     """
@@ -617,12 +616,13 @@ def claim_milestone():
         if s > 0:
             alloc[name] = s
 
+    handout_cap  = milestone["handout"]
     total = sum(alloc.values())
-    if total > MILESTONE_HANDOUT_SIPS:
+    if total > handout_cap:
         return jsonify({"ok": False,
-                        "error": f"Cannot assign more than {MILESTONE_HANDOUT_SIPS} sips (got {total})."})
+                        "error": f"Cannot assign more than {handout_cap} sips (got {total})."})
 
-    residual     = MILESTONE_HANDOUT_SIPS - total
+    residual     = handout_cap - total
     winner_name  = milestone["winner"]
     boundary_val = milestone["boundary"]
 
