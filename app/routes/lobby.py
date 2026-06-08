@@ -10,8 +10,8 @@ POST /setup       — Admin configures and starts the game session
 
 from flask import Blueprint, jsonify, request
 
-from blackjack import Player, Hand, Shoe, NPC_Player
-from referee import RefereeSession
+from engine.blackjack import Player, Hand, Shoe, NPC_Player
+from engine.referee import RefereeSession
 
 from app.models.game_room import GameRoom
 from app.services.session_store import (

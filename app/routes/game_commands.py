@@ -21,7 +21,7 @@ import time
 from flask import Blueprint, jsonify, request
 
 from blackjack  import Hand
-from drinking_rules import DrinkingRules
+from engine.drinking_rules import DrinkingRules
 from referee    import RefereeSession
 from strategy   import best_play as _best_play
 
