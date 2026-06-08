@@ -84,8 +84,8 @@ This project is licensed under CC BY-NC-SA 4.0. See [LICENSE](LICENSE) for detai
 
 ## Credits
 
-Game concept & rules: R. Michels, D. Irrgang, M. Cvijic
-Development: R. Michels
+- **Game concept & rules:** R. Michels, D. Irrgang, M. Cvijic
+- **Development:** R. Michels
 
 ---
 
