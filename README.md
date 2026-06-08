@@ -3,7 +3,7 @@ _an AdHoc creation_
 
 Welcome to _**Black(Out)Jack**_, a multiplayer browser-based blackjack card game with a drinking party game twist. It includes custom drinking game rules designed to add extra motivation and excitement to the traditional game of BlackJack.
 
-Play it digitally in your browser, use it as a real-life referee, or run it via a local web UI. No account needed. Built with Python and Flask, it supports human and NPC players across **Referee** mode (physical deck, digital scorecard) and **Digital** mode (fully playable in-browser blackjack).
+Play it digitally in your browser, use it as a real-life referee, or run it via a local web UI. No account needed. It supports human and NPC players across **Referee** mode (physical deck, digital scorecard) and **Digital** mode (fully playable in-browser blackjack).
 
 ## Quick Start
 **Play online instantly, no install or account needed:** [Black-Out-Jack.onrender.com](https://black-out-jack.onrender.com)
@@ -92,6 +92,7 @@ This replaces the previous behaviour where both benefits applied simultaneously.
 - **Role system** — rotating dealer (controls the game); others vote their intended action and the dealer executes it
 - **Action voting** — non-dealer players tap HIT/STAND/DOUBLE/SPLIT to signal their intention; the dealer sees the vote and carries it out
 - **Live sip ticker** — header strip shows the session total; each player seat shows their running sip count
+- **Milestone handouts** — when a player's cumulative sip total crosses a multiple of 50, they hand out bonus sips to others (5 sips at the 50-sip boundary, 6 at 100, 7 at 150, and so on — +1 per additional milestone).
 - **KPI panel** — right-column panel with three tabs:
   - **Leaderboard** — win rate, W/L/P, current streak, sips per player
   - **Stats** — session banner (avg sips/round with L3/L5/L10 rolling trend, total sips, sips/min, duration), per-player table (blackjacks, double/split win rate, hit rate, busts, suited hands, strategy accuracy, avg and peak sips, streak records)
@@ -136,7 +137,8 @@ Black-Out-Jack/
 ├── docs/
 │   ├── Rules.md                 # Drinking Rules
 │   ├── Cheat-Sheet.md           # One-page quick reference for gameplay
-│   └── Comprehensive-Example.md # Example for Drinking Rules
+│   ├── Comprehensive-Example.md # Example for Drinking Rules
+│   └── Multiplayer.md           # Full multiplayer documentation
 ├── static/
 │   ├── css/
 │   │   ├── main.css             # Variables, reset, layout, bottom nav
@@ -232,7 +234,7 @@ Then open `http://<your-PC-IP>:5000` on your phone. The terminal will print the 
 Both modes share the same drink-rule engine, live drink log (colour-coded by event type), and session persistence, reloading the page reconnects to the active session.
 
 #### Multiplayer setup
-1. Host opens the app and creates a room — a short code (e.g. `Jack-21`) is shown
+1. Host opens the app and creates a room, a short code (e.g. `Jack-21`) is shown
 2. Each player opens the same URL on their phone and enters the code to join
 3. Everyone claims their seat by tapping their name
 4. The host (dealer) starts the game and controls the flow; other players vote their actions and the dealer executes them
