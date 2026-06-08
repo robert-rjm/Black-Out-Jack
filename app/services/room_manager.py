@@ -43,7 +43,7 @@ def patch_tracker(session: RefereeSession) -> None:
     web server never blocks waiting for terminal input.
     """
     tracker = session.tracker
-    tracker.verbose = False  # suppress terminal prints in web context
+    tracker.verbose = False  # suppress prints in web context
 
     def web_handout(giver: str, total: int, reason: str):
         log.debug(f"    [drink] {reason}")
