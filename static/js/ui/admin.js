@@ -405,7 +405,8 @@ function updateBustVoteUI(state) {
     if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
   }
 
-  const statusEl = document.getElementById("bust-vote-status");
+  const statusEl      = document.getElementById("bust-vote-status");
+  const statusElRound = document.getElementById("bust-vote-status-round");
 
   // Modal: open when window is open and any local player hasn't voted yet.
   // Delay until deal animation finishes so the modal doesn't cover the cards.
@@ -448,6 +449,7 @@ function updateBustVoteUI(state) {
     && !state.bust_vote_window_open;
 
   statusEl.style.display = show ? "block" : "none";
+  if (statusElRound) statusElRound.style.display = show ? "block" : "none";
   if (!show) return;
 
   const allVotes = state.bust_votes || {};
@@ -485,6 +487,8 @@ function updateBustVoteUI(state) {
       statusEl.textContent = "";
     }
   }
+  // Mirror to the drinks-pane copy
+  if (statusElRound) statusElRound.innerHTML = statusEl.innerHTML;
 }
 
 async function giveBustSip(winnerName, recipientName, forfeit = false) {
