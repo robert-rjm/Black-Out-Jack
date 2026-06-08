@@ -6,8 +6,13 @@
   - still big section of screen covert with play panel
   - useless big space in action bar
   - trivia screen not optimized for mobile
+  - maybe trivia always only 1 fact, no switching
+  - not able to press on trivia
+  - consider making trivia web only?
+  - check if reduced statistic view optimized for mobile
 - [ ] check UI on web
   - difficult to see when not having monitor connected
+  - eliminate dead space
 - [X] issue with 4th player joining mid round
   - ensure no issue with "late joiners"
   - game logic should not break
@@ -30,5 +35,5 @@
   - nicer output design
   - add % sips per hand or per round, not just per total sips
   - show in Dealer who drank most for each ace
-- [ ] implement test suite
-- [ ] 
+- [ ] implement test suite (`tests/` directory)
+- [ ] `game_room.py` boat risk: split into `GameRoom` vs `RoundState` vs `MilestoneTracker`
