@@ -141,7 +141,8 @@ function renderPlayers(state) {
     const lastSips      = state.last_round_sips || {};
     const roundOver     = state.phase === "round-over";
     const hadPrevRound  = state.round > 1;
-    const wasClean      = hadPrevRound && !roundOver && (lastSips[s.name] || 0) === 0;
+    const playedLastRound = s.name in lastSips;
+    const wasClean        = hadPrevRound && !roundOver && playedLastRound && lastSips[s.name] === 0;
     const crownBadge    = (wasClean && state.drinking_mode !== false)
       ? `<span class="seat-crown" title="Clean last round">👑</span>` : "";
 
