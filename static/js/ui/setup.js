@@ -49,11 +49,13 @@ function closeLastRoundModal() {
   if (overlay) overlay.style.display = "none";
 }
 
-// While waiting for the host to start, poll until the game exists
+// While waiting for the host to start, poll until the game exists.
+// Uses self-rescheduling setTimeout (not setInterval) so a slow fetch
+// never causes overlapping requests.
 function startWaiting() {
   stopPolling();
-  pollTimer = setInterval(async () => {
-    if (!roomCode) return;
+  const tick = async () => {
+    if (!roomCode) { pollTimer = setTimeout(tick, 2000); return; }
     try {
       const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
       const res  = await fetch(url);
@@ -70,9 +72,12 @@ function startWaiting() {
         document.getElementById("waiting").style.display = "none";
         document.getElementById("app").style.display     = "flex";
         startPolling();
+        return;  // don't reschedule — startPolling() takes over
       }
     } catch (_) {}
-  }, 2000);
+    pollTimer = setTimeout(tick, 2000);
+  };
+  pollTimer = setTimeout(tick, 2000);
 }
 
 // Selections per pane
