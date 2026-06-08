@@ -1,17 +1,21 @@
-# TODO
+# TODO Checklist
 
 ## Bugs
 
-- [ ] check Mobile UI
-  - still big section of screen covert with play panel
-  - useless big space in action bar
-  - trivia screen not optimized for mobile
-  - maybe trivia always only 1 fact, no switching
-  - not able to press on trivia
-  - consider making trivia web only?
-  - check if reduced statistic view optimized for mobile
-- [ ] check UI on web
-  - difficult to see when not having monitor connected
+- [ ] Brainstorm fix for Mobile UI
+  - big wasted space with play panel
+  - big wasted space in action bar
+  - remove other dead space
+  - trivia / stats section
+    - too big, not readable
+    - not optimized for mobile
+    - trivia show maybe max 1 fact
+    - trivia not visible (currently with leaderboard)
+    - consider trivia as web only feature
+    - reduce stats for mobile optimized UX
+- [ ] Brainstorm fix for Web UI
+  - difficult to see on standard computer (without monitor)
+  - potentially collapsible stats/trivia section
   - eliminate dead space
 - [X] issue with 4th player joining mid round
   - ensure no issue with "late joiners"
@@ -25,15 +29,9 @@
 ## Features
 
 - [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
-- [X] consider removing / hiding log
-  - potentially instead KPIs? (D winning%, fun facts, BS facts)
-  - or local chat function
-- [X] implement Trivia section
 - [ ] simplified rule set for beginners
 - [ ] csv addition
   - potentially .pdf file output with graphs
-  - nicer output design
-  - add % sips per hand or per round, not just per total sips
   - show in Dealer who drank most for each ace
 - [ ] implement test suite (`tests/` directory)
-- [ ] `game_room.py` boat risk: split into `GameRoom` vs `RoundState` vs `MilestoneTracker`
+- [ ] `game_room.py` bloat risk: split into `GameRoom` vs `RoundState` vs `MilestoneTracker` (not issue yet, for future with next feature)
