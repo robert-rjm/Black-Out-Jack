@@ -98,7 +98,6 @@ def set_session(room_code: str, session) -> None:
     """Store an initialised session against room_code."""
     game_sessions[room_code]     = session
     _room_last_access[room_code] = time.monotonic()
-    # Silence DrinkTracker terminal output for web sessions
     if hasattr(session, 'tracker') and session.tracker is not None:
         session.tracker.verbose = False
 
