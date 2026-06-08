@@ -440,8 +440,13 @@ function applyState(state) {
     showInsuranceToast(state.insurance_result);
   }
 
+  // Detect bust vote window closing — flush any toasts that were queued during it.
+  const _prevBustOpen = lastState && lastState.bust_vote_window_open;
   lastState   = state;
   currentTurn = state.current_turn || null;
+  if (_prevBustOpen && !state.bust_vote_window_open && typeof flushToastQueue === "function") {
+    flushToastQueue();
+  }
   // Auto-switch active seat when turn moves to another local player
   if (currentTurn && myNames.length > 1) {
     const turnLow = currentTurn.toLowerCase();
