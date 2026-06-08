@@ -6,7 +6,7 @@ properties or method wrappers below — no __getattr__ magic.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
-from referee import RefereeSession
+from engine.referee import RefereeSession
 
 
 @dataclass

@@ -15,8 +15,8 @@ log = logging.getLogger(__name__)
 import contextlib
 import io
 
-from blackjack import Hand, NPC_Player, Player, Shoe
-from referee import RefereeSession
+from engine.blackjack import Hand, NPC_Player, Player, Shoe
+from engine.referee import RefereeSession
 
 from app.models.game_room import GameRoom
 
