@@ -291,8 +291,14 @@ function renderMilestoneState(state) {
       // Short delay so the toast is visible before modal covers it
       setTimeout(() => _openMilestoneModal(ms, state), 600);
     } else {
-      // Modal already open — just keep the timer in sync
+      // Modal already open — keep timer in sync; auto-submit when time's up
       _updateMilestoneTimer(ms.seconds_left);
+      if (ms.seconds_left <= 0) {
+        const overlay = document.getElementById("milestone-modal-overlay");
+        if (overlay && overlay.classList.contains("open")) {
+          submitMilestoneHandout();
+        }
+      }
     }
   } else {
     // Non-winners: persistent waiting banner with live countdown
@@ -301,15 +307,21 @@ function renderMilestoneState(state) {
 }
 
 function _showMilestoneToast(ms) {
-  const toast = document.getElementById("milestone-toast");
-  if (!toast) return;
-  toast.innerHTML = `🎉 ${escapeHtml(ms.winner)} hit ${ms.boundary} sips!`;
-  toast.classList.remove("show");
-  // Force reflow so animation restarts cleanly
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  // Auto-hide after 5 seconds
-  setTimeout(() => _hideMilestoneToast(), 5000);
+  const html = `🎉 ${escapeHtml(ms.winner)} hit ${ms.boundary} sips!`;
+  const _show = () => {
+    const toast = document.getElementById("milestone-toast");
+    if (!toast) return;
+    toast.innerHTML = html;
+    toast.classList.remove("show");
+    void toast.offsetWidth;
+    toast.classList.add("show");
+    setTimeout(() => _hideMilestoneToast(), 5000);
+  };
+  if (typeof _bustVoteOpen === "function" && _bustVoteOpen()) {
+    _toastQueue.push(_show);
+  } else {
+    _show();
+  }
 }
 
 function _hideMilestoneToast() {
@@ -368,7 +380,7 @@ function _openMilestoneModal(ms, state) {
   const title = document.getElementById("milestone-modal-title");
   const sub   = document.getElementById("milestone-modal-sub");
   if (title) title.textContent = `You hit ${ms.boundary} sips first! 🏆`;
-  if (sub)   sub.textContent   = `Hand out ${ms.handout} sips — split however you like (not yourself).`;
+  if (sub)   sub.textContent   = `Hand out up to ${ms.handout} sips — unassigned ones come back to you.`;
 
   // Build stepper list from current players except self
   const players = (lastState && lastState.players || []).filter(
@@ -427,10 +439,15 @@ function _updateMilestoneRemaining(total) {
   const rem  = document.getElementById("milestone-remaining");
   const btn  = document.getElementById("milestone-submit-btn");
   if (rem) {
-    rem.textContent = left === 0 ? "✓ All sips assigned" : `${left} sip${left !== 1 ? "s" : ""} left to assign`;
-    rem.style.color = left === 0 ? "var(--green)" : "var(--yellow)";
+    if (left === 0) {
+      rem.textContent = "✓ All sips assigned";
+      rem.style.color = "var(--green)";
+    } else {
+      rem.textContent = `${left} sip${left !== 1 ? "s" : ""} back to you`;
+      rem.style.color = "var(--yellow)";
+    }
   }
-  if (btn) btn.disabled = (left !== 0);
+  if (btn) btn.disabled = false;  // always submittable — unassigned sips go to winner
 }
 
 function _updateMilestoneTimer(secondsLeft) {
@@ -446,7 +463,6 @@ async function submitMilestoneHandout() {
   const ms = lastState && lastState.pending_milestone;
   if (!ms) return;
   const used = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
-  if (used !== ms.handout) return;  // shouldn't happen (button is disabled), but guard anyway
 
   const btn = document.getElementById("milestone-submit-btn");
   if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }

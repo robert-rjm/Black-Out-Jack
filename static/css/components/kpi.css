@@ -17,26 +17,33 @@
   flex-shrink: 0;
   background: #11131c;
   border-bottom: 1px solid var(--border);
+  padding: 4px 6px;
+  gap: 4px;
 }
 
 .kpi-tab {
   flex: 1;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .4px;
   text-transform: uppercase;
-  padding: 6px 4px;
+  padding: 5px 4px;
   cursor: pointer;
-  transition: color .15s, border-color .15s;
+  transition: color .15s, background .15s, box-shadow .15s;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
-.kpi-tab:hover:not(.kpi-tab-disabled)   { color: var(--text); }
-.kpi-tab.active                          { color: var(--accent); border-bottom-color: var(--accent); }
-.kpi-tab.kpi-tab-disabled               { opacity: .35; cursor: default; }
+.kpi-tab:hover:not(.kpi-tab-disabled)        { color: var(--text); background: rgba(255,255,255,.06); }
+.kpi-tab:not(.active):active                  { background: rgba(255,255,255,.08); }
+.kpi-tab.active,
+.kpi-tab.active:active,
+.kpi-tab.active:focus                 { color: var(--accent); background: rgba(79,142,247,.14); box-shadow: inset 0 0 0 1.5px rgba(79,142,247,.35); }
+.kpi-tab.kpi-tab-disabled             { opacity: .35; cursor: default; }
 
 /* ---- PANES ---- */
 .kpi-pane {
@@ -169,14 +176,19 @@
   width: 14px;
   text-align: right;
   margin-right: 4px;
+  vertical-align: middle;
+}
+.lb-rank-1, .lb-rank-2, .lb-rank-3 {
+  font-size: 15px;
+  width: 20px;
 }
 .lb-rank-1 { color: gold; }
 .lb-rank-2 { color: silver; }
 .lb-rank-3 { color: #cd7f32; }
 
 /* Sip cells */
-.lb-sips      { color: var(--red); }
-.lb-sips-zero { color: var(--muted); opacity: .45; }
+.lb-sips      { color: var(--red); vertical-align: middle; }
+.lb-sips-zero { color: var(--muted); opacity: .45; vertical-align: middle; }
 
 /* Sub-label */
 .lb-meta {
@@ -206,6 +218,9 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
+}
+.stat-card-primary {
+  border-color: rgba(255,215,0,.45);
 }
 
 .stat-card-icon {

@@ -22,9 +22,9 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from app.config import MILESTONE_HANDOUT_SIPS
 from app.services.session_store import game_sessions
 from app.services.serializer    import serialize_state, round_phase
+from app.services.drink_tracker import check_and_set_milestone
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
 
@@ -144,6 +144,39 @@ def make_bot():
     # If it's the new bot's turn, auto-play immediately
     if round_phase(session) == "playing":
         auto_play_npc_turns(session)
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/make_human", methods=["POST"])
+def make_human():
+    """Admin converts an NPC bot back to a human-controlled player.
+    Body: { room_code, client_id, player_name }"""
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = (data.get("player_name") or "").strip().capitalize()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    clients    = session._room_clients
+    admin_info = clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    player = next(
+        (p for p in session.all_players
+         if p.name.lower() == target_name.lower()),
+        None,
+    )
+    if not player:
+        return jsonify({"ok": False, "error": f"Player '{target_name}' not found."})
+    if not getattr(player, "is_npc", False):
+        return jsonify({"ok": False, "error": f"'{target_name}' is not a bot."})
+
+    player.is_npc = False
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -539,7 +572,7 @@ def claim_milestone():
     Rules enforced server-side:
       - Only the milestone winner may submit.
       - Cannot allocate to self.
-      - Total must equal MILESTONE_HANDOUT_SIPS (5).
+      - Total must not exceed the milestone's handout value (boundary-scaled).
       - Each allocation must be a non-negative integer.
       - Must be submitted before the TTL expires.
     """
@@ -583,29 +616,41 @@ def claim_milestone():
         if s > 0:
             alloc[name] = s
 
+    handout_cap  = milestone["handout"]
     total = sum(alloc.values())
-    if total != MILESTONE_HANDOUT_SIPS:
+    if total > handout_cap:
         return jsonify({"ok": False,
-                        "error": f"Must distribute exactly {MILESTONE_HANDOUT_SIPS} sips (got {total})."})
+                        "error": f"Cannot assign more than {handout_cap} sips (got {total})."})
 
-    # Apply to sip ticker — these sips go to the recipients, not to the winner
+    residual     = handout_cap - total
+    winner_name  = milestone["winner"]
+    boundary_val = milestone["boundary"]
+
+    # Apply to sip ticker — distributed sips go to recipients; residual goes to winner
     ticker = session._sip_ticker
     for name, s in alloc.items():
         ticker[name] = ticker.get(name, 0) + s
+    if residual > 0:
+        ticker[winner_name] = ticker.get(winner_name, 0) + residual
     session._sip_ticker = ticker
 
     # Mirror into last_round_sips and last_round_drinks so the Drinks pane
     # shows the milestone handout alongside other round drinks.
     last_sips   = dict(session._last_round_sips)
     last_drinks = list(session._last_round_drinks)
-    winner_name = milestone["winner"]
-    boundary_val = milestone["boundary"]
     for name, s in alloc.items():
         last_sips[name] = last_sips.get(name, 0) + s
         last_drinks.append({
             "name":   name,
             "sips":   s,
             "reason": f"Milestone handout from {winner_name} ({boundary_val} sip milestone)",
+        })
+    if residual > 0:
+        last_sips[winner_name] = last_sips.get(winner_name, 0) + residual
+        last_drinks.append({
+            "name":   winner_name,
+            "sips":   residual,
+            "reason": f"Milestone residual — {winner_name} kept {residual} sip(s) ({boundary_val} sip milestone)",
         })
     session._last_round_sips   = last_sips
     session._last_round_drinks = last_drinks
@@ -623,13 +668,28 @@ def claim_milestone():
             "rule":   "Milestone handout",
             "sips":   s,
         })
+    if residual > 0:
+        csv_rows.append({
+            "round":  session.round_count,
+            "dealer": session.dealer_name,
+            "player": winner,
+            "role":   "player",
+            "rule":   "Milestone residual",
+            "sips":   residual,
+        })
     session._drink_csv_rows = csv_rows
+
+    # Check if recipients (or winner via residual) crossed a new milestone
+    check_and_set_milestone(session)
 
     # Log the handout
     log_lines = [f"🎉 {winner} reached {boundary} sips — milestone handout!"]
     for name, s in alloc.items():
         sip_word = "sip" if s == 1 else "sips"
         log_lines.append(f"  → {name} drinks {s} {sip_word}")
+    if residual > 0:
+        sip_word = "sip" if residual == 1 else "sips"
+        log_lines.append(f"  → {winner} keeps {residual} {sip_word} (drinks them)")
     session._log_entries = session._log_entries + ["\n".join(log_lines)]
     session._log_version = session._log_version + 1
 

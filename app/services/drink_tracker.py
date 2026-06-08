@@ -9,11 +9,14 @@ session_store. The route layer owns the store lookup and passes the
 session down.
 """
 
+import logging
+log = logging.getLogger(__name__)
+
 import time
 
 from app.models.game_room import GameRoom
 from drinking_rules import DrinkingRules, classify_rule
-from app.config import MILESTONE_STEP, MILESTONE_HANDOUT_SIPS, MILESTONE_TTL
+from app.config import MILESTONE_STEP, MILESTONE_TTL
 
 
 # ---------------------------------------------------------------------------
@@ -60,11 +63,11 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         if dealer_busted:
             p.add_drink(-1, "bust vote correct: -1 sip credit", "player")
             winners.append(p.name)
-            print(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
+            log.debug(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
         else:
             p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
             losers.append(p.name)
-            print(f"  [bust vote] {p.name} wrong — +1 sip")
+            log.debug(f"  [bust vote] {p.name} wrong — +1 sip")
 
     session._bust_vote_result = {
         "dealer_busted": dealer_busted,
@@ -121,6 +124,9 @@ def harvest_drink_log(session: GameRoom) -> None:
                 "sips":   sips,
             })
     session._drink_csv_rows = rows
+
+    if session._drink_log_harvested:
+        return  # already harvested this round — do not double-count
 
     # Live sip ticker — cumulative net totals across all rounds (credits reduce total)
     ticker = session._sip_ticker
@@ -327,6 +333,11 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     Each boundary fires only once (tracked in session._milestones_claimed).
     """
+    # Never overwrite an active unresolved milestone — the winner gets to hand
+    # out their sips before we fire the next one.
+    if session._pending_milestone:
+        return
+
     ticker  = session._sip_ticker
     last    = session._last_round_sips
     claimed = session._milestones_claimed
@@ -352,11 +363,14 @@ def check_and_set_milestone(session: GameRoom) -> None:
     candidates.sort(key=lambda t: (t[0], t[1].lower()))
     _round_sips, winner = candidates[0]
 
+    # Handout scales: 5 sips at the 50 boundary, +1 per additional step
+    handout_sips = 4 + boundary // MILESTONE_STEP
+
     claimed[boundary] = winner
     session._milestones_claimed = claimed
     session._pending_milestone  = {
         "boundary":   boundary,
         "winner":     winner,
-        "handout":    MILESTONE_HANDOUT_SIPS,
+        "handout":    handout_sips,
         "expires_at": time.monotonic() + MILESTONE_TTL,
     }
