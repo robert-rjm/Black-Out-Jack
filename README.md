@@ -15,8 +15,8 @@ git clone https://github.com/robert-rjm/Black-Out-Jack.git
 cd Black-Out-Jack
 pip install flask                # only needed for the web UI
 python server.py                 # Web UI → http://localhost:5000
-python blackjack.py              # Terminal game (no extra dependencies)
-python referee.py                # Terminal referee for real-life play
+python engine/blackjack.py       # Terminal game (no extra dependencies)
+python engine/referee.py         # Terminal referee for real-life play
 ```
 
 ## Table of Contents
@@ -186,15 +186,15 @@ On startup the script fetches `Rules.md` from GitHub and compares hashes. If the
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| Digital Game | `python blackjack.py` | Fully playable in terminal (normal or drinking) |
-| Terminal Referee | `python referee.py` | Physical deck, digital scorecard |
+| Digital Game | `python engine/blackjack.py` | Fully playable in terminal (normal or drinking) |
+| Terminal Referee | `python engine/referee.py` | Physical deck, digital scorecard |
 | Web UI | `python server.py` or [play online](https://black-out-jack.onrender.com)| Browser-based (referee or digital mode) |
 
 ### 1. Digital Game (Normal or Drinking)
 Play Blackjack fully on your computer, deals cards, manages turns, and tracks drinks automatically.
 
 ```bash
-python blackjack.py
+python engine/blackjack.py
 ```
 
 Choose between **Normal Blackjack** (standard game, no drinking rules) or **Drinking Blackjack** (full game with all drinking rules active). Supports 1-4 human or NPC players with rotating dealer.
@@ -203,7 +203,7 @@ Choose between **Normal Blackjack** (standard game, no drinking rules) or **Drin
 Playing with a physical deck? The referee script tracks drinks while you play in real life. You deal real cards, make real decisions, just tell the script what happened.
 
 ```bash
-python referee.py
+python engine/referee.py
 ```
 
 **Commands:** `deal`, `action`, `result`, `endround`, `newround`, `status`, `help`
@@ -251,7 +251,7 @@ Curious whether the rules are balanced or which rule is responsible for most of 
 Track every drink event from start to finish in a simulation (3 players, 2 hands each, rotating dealer). Frequency and rule breakdown are output in `simulation_results.txt` and `simulation_log.csv` respectively.
 
 ```bash
-python simulation.py
+python scripts/simulation.py
 ```
 
 ## File Architecture
@@ -304,3 +304,4 @@ Development: R. Michels
 ---
 
 *Happy Gaming! 🎰 May the cards be in your favor!*
+                                                                                                                                                                                                                                      

@@ -20,10 +20,10 @@ import time
 
 from flask import Blueprint, jsonify, request
 
-from blackjack  import Hand
-from drinking_rules import DrinkingRules
-from referee    import RefereeSession
-from strategy   import best_play as _best_play
+from engine.blackjack  import Hand
+from engine.drinking_rules import DrinkingRules
+from engine.referee    import RefereeSession
+from engine.strategy   import best_play as _best_play
 
 from app.services.session_store  import game_sessions
 from app.services.validators     import is_dealer_client
