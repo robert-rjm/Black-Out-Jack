@@ -301,15 +301,21 @@ function renderMilestoneState(state) {
 }
 
 function _showMilestoneToast(ms) {
-  const toast = document.getElementById("milestone-toast");
-  if (!toast) return;
-  toast.innerHTML = `🎉 ${escapeHtml(ms.winner)} hit ${ms.boundary} sips!`;
-  toast.classList.remove("show");
-  // Force reflow so animation restarts cleanly
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  // Auto-hide after 5 seconds
-  setTimeout(() => _hideMilestoneToast(), 5000);
+  const html = `🎉 ${escapeHtml(ms.winner)} hit ${ms.boundary} sips!`;
+  const _show = () => {
+    const toast = document.getElementById("milestone-toast");
+    if (!toast) return;
+    toast.innerHTML = html;
+    toast.classList.remove("show");
+    void toast.offsetWidth;
+    toast.classList.add("show");
+    setTimeout(() => _hideMilestoneToast(), 5000);
+  };
+  if (typeof _bustVoteOpen === "function" && _bustVoteOpen()) {
+    _toastQueue.push(_show);
+  } else {
+    _show();
+  }
 }
 
 function _hideMilestoneToast() {

@@ -1,3 +1,24 @@
+// ============================================================
+// TOAST QUEUE — suppress mid-round toasts during bust vote window
+// ============================================================
+let _toastQueue = [];
+
+/** True while the bust vote window is open (reads lastState set in table.js). */
+function _bustVoteOpen() {
+  return !!(typeof lastState !== "undefined" && lastState && lastState.bust_vote_window_open);
+}
+
+/**
+ * Flush all queued toasts, staggered 3.5 s apart so they don't overlap.
+ * Called by table.js when bust_vote_window_open transitions true → false.
+ */
+function flushToastQueue() {
+  if (!_toastQueue.length) return;
+  const q = _toastQueue.splice(0);
+  q.forEach((fn, i) => setTimeout(fn, i * 3500));
+}
+
+// ============================================================
 // LOG SECTION — collapsible
 // ============================================================
 const _LOG_COLLAPSED_KEY = "boj_log_collapsed";
@@ -280,11 +301,24 @@ function processAceDrinkEvents(state) {
     text = `🃏 ${reason.replace(/\s*=>\s*/, " — ")}`;
   }
 
-  el.textContent = text;
-  el.className   = "drink show";
-  if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
-    clearTimeout(_playerToastTimer);
-  }
   const duration = mine.length > 0 ? 5000 : 8000;
-  setTimeout(() => el.classList.remove("show"), duration);
+
+  const _showAceToast = () => {
+    const toastEl = document.getElementById("player-toast");
+    if (!toastEl) return;
+    const dtEl = document.getElementById("dealer-toast");
+    if (dtEl) dtEl.classList.remove("show");
+    toastEl.textContent = text;
+    toastEl.className   = "drink show";
+    if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
+      clearTimeout(_playerToastTimer);
+    }
+    setTimeout(() => toastEl.classList.remove("show"), duration);
+  };
+
+  if (_bustVoteOpen()) {
+    _toastQueue.push(_showAceToast);
+  } else {
+    _showAceToast();
+  }
 }
