@@ -592,6 +592,82 @@ class DrinkingRules:
             f"Hard Dealer Switch: {dealer_name} drinks {total} sip(s) ({detail})",
             "dealer")]
 
+    # ---------------------------------------------------------------- event dispatch
+
+    @staticmethod
+    def handle(event) -> list:
+        """Dispatch a typed GameEvent to the correct rule handler.
+
+        This is the single official entry point for the game engine to fire
+        drinking rule events.  The match is exhaustive: an unhandled event type
+        raises NotImplementedError immediately, so adding a new GameEvent
+        subclass without wiring it up here fails loudly rather than silently
+        returning an empty drink list.
+
+        Two DrinkingRules helpers are intentionally NOT routed here because they
+        have non-list return types:
+          - check_four_aces()      → (list, bool)  call directly
+          - dealer_21_five_cards() → bool           call directly
+        """
+        from engine.events import (
+            CardDealtEvent,
+            BlackjackEvent,
+            InsuranceResolvedEvent,
+            HandResolvedEvent,
+            AllHandsSweepEvent,
+            DealerHandRevealedEvent,
+            RoundEndEvent,
+            HardDealerSwitchEvent,
+        )
+        match event:
+            case CardDealtEvent():
+                return DrinkingRules.on_card_dealt(
+                    event.card, event.recipient, event.card_pos,
+                    event.all_names, event.dealer_name, event.ace_clubs_flag,
+                    is_dealer_hand=event.is_dealer_hand,
+                )
+            case BlackjackEvent():
+                return DrinkingRules.on_blackjack(
+                    event.player_name, event.hand, event.all_names,
+                    hard_switch_dealer=event.hard_switch_dealer,
+                )
+            case InsuranceResolvedEvent():
+                return DrinkingRules.resolve_insurance_vote(
+                    event.player_name, event.hand, event.all_names,
+                    insured=event.insured, dealer_bj=event.dealer_bj,
+                    hard_switch_dealer=event.hard_switch_dealer,
+                )
+            case HandResolvedEvent():
+                return DrinkingRules.on_hand_resolved(
+                    event.player_name, event.hand, event.all_names,
+                    dealer_bj=event.dealer_bj, dealer_name=event.dealer_name,
+                )
+            case AllHandsSweepEvent():
+                return DrinkingRules.check_all_hands_sweep(
+                    event.player_name, event.player_hands, event.all_names,
+                    event.wager, dealer_name=event.dealer_name,
+                    dealer_bj=event.dealer_bj,
+                )
+            case DealerHandRevealedEvent():
+                return DrinkingRules.on_dealer_hand_revealed(event.dealer_hand)
+            case RoundEndEvent():
+                return DrinkingRules.on_round_end(
+                    event.players, event.wager,
+                    dealer_bj=event.dealer_bj,
+                    hard_switch_dealer=event.hard_switch_dealer,
+                    num_hands=event.num_hands,
+                )
+            case HardDealerSwitchEvent():
+                return DrinkingRules.on_hard_dealer_switch(
+                    event.dealer_name, event.winning_hands,
+                    event.protected, half_protected=event.half_protected,
+                )
+            case _:
+                raise NotImplementedError(
+                    f"DrinkingRules.handle() has no case for {type(event).__name__}. "
+                    "Add a dataclass to engine/events.py and a matching case here."
+                )
+
 
 # =============================================================================
 # DrinkTracker

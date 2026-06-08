@@ -14,6 +14,15 @@ import time as _time
 
 from engine.blackjack import Hand, HandEvaluator, NPC_Player
 from engine.drinking_rules import DrinkingRules
+from engine.events import (
+    CardDealtEvent,
+    BlackjackEvent,
+    InsuranceResolvedEvent,
+    HandResolvedEvent,
+    AllHandsSweepEvent,
+    DealerHandRevealedEvent,
+    HardDealerSwitchEvent,
+)
 
 from app.models.game_room import GameRoom
 from app.services.serializer import hand_done, round_phase, current_turn
@@ -78,12 +87,12 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
         is_hole_card   = is_dealer_hand and card_pos == 2
         is_double_card = (not is_dealer_hand) and hand.doubled   # face-down doubled card
 
-        msgs = DrinkingRules.on_card_dealt(
-            card, recipient_name, card_pos,
-            all_names, session.dealer_name,
-            session._ace_clubs_flag,
+        msgs = DrinkingRules.handle(CardDealtEvent(
+            card=card, recipient=recipient_name, card_pos=card_pos,
+            all_names=all_names, dealer_name=session.dealer_name,
+            ace_clubs_flag=session._ace_clubs_flag,
             is_dealer_hand=is_dealer_hand,
-        )
+        ))
         for msg in msgs:
             _, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
@@ -246,7 +255,7 @@ def dealer_turn(session: GameRoom) -> None:
 
     drinking = session.drinking_mode
     if drinking:
-        session.tracker.apply(DrinkingRules.on_dealer_hand_revealed(d_hand))
+        session.tracker.apply(DrinkingRules.handle(DealerHandRevealedEvent(dealer_hand=d_hand)))
         if DrinkingRules.dealer_21_five_cards(d_hand):
             log.debug(f"\n  ★ Dealer 21 with {len(d_hand.cards)} cards — wager DOUBLED this round!")
 
@@ -309,11 +318,11 @@ def dealer_turn(session: GameRoom) -> None:
                     decline_count = len(voters) - insure_count
                     insured       = insure_count > decline_count   # tie -> decline
                     vote["resolved"] = True
-                    eor_msgs.extend(
-                        DrinkingRules.resolve_insurance_vote(
-                            p.name, hand, all_names,
-                            insured=insured, dealer_bj=dealer_bj,
-                            hard_switch_dealer=exempt_dealer))
+                    eor_msgs.extend(DrinkingRules.handle(InsuranceResolvedEvent(
+                        player_name=p.name, hand=hand, all_names=all_names,
+                        insured=insured, dealer_bj=dealer_bj,
+                        hard_switch_dealer=exempt_dealer,
+                    )))
                     # group_won: insure+BJ or decline+no BJ
                     group_won = (insured and dealer_bj) or (not insured and not dealer_bj)
                     session._insurance_result.append({
@@ -323,13 +332,14 @@ def dealer_turn(session: GameRoom) -> None:
                         "group_won": group_won,
                     })
                 elif hand.is_blackjack() and hand.result == "win":
-                    eor_msgs.extend(
-                        DrinkingRules.on_blackjack(p.name, hand, all_names,
-                                                   hard_switch_dealer=exempt_dealer))
-                eor_msgs.extend(
-                    DrinkingRules.on_hand_resolved(p.name, hand, all_names,
-                                                   dealer_bj=dealer_bj,
-                                                   dealer_name=exempt_dealer))
+                    eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
+                        player_name=p.name, hand=hand, all_names=all_names,
+                        hard_switch_dealer=exempt_dealer,
+                    )))
+                eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
+                    player_name=p.name, hand=hand, all_names=all_names,
+                    dealer_bj=dealer_bj, dealer_name=exempt_dealer,
+                )))
 
         # Hard dealer switch -- dealer drinks per each winning hand
         if hard_switch:
@@ -347,20 +357,20 @@ def dealer_turn(session: GameRoom) -> None:
                 if partial_protected and not protected
                 else winning_hds
             )
-            eor_msgs.extend(
-                DrinkingRules.on_hard_dealer_switch(
-                    session.dealer_name, hs_for_penalty, protected,
-                    half_protected=half_protected))
+            eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
+                dealer_name=session.dealer_name, winning_hands=hs_for_penalty,
+                protected=protected, half_protected=half_protected,
+            )))
             session._hard_switch_drinking_applied = True
 
         # All-hands sweep
         for p in session.all_players:
             if p.is_dealer:
                 continue
-            eor_msgs.extend(
-                DrinkingRules.check_all_hands_sweep(
-                    p.name, p.hands, all_names, session.wager,
-                    dealer_name=exempt_dealer, dealer_bj=dealer_bj))
+            eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
+                player_name=p.name, player_hands=p.hands, all_names=all_names,
+                wager=session.wager, dealer_name=exempt_dealer, dealer_bj=dealer_bj,
+            )))
 
         # Four-aces end-of-round check
         all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
