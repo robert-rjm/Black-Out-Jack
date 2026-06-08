@@ -82,16 +82,23 @@
 }
 
 .lobby-rules-link {
-  background: none;
-  border: none;
+  width: 100%;
+  max-width: 420px;
+  padding: 14px 20px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 2px 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
+  transition: background 0.15s;
 }
+
 .lobby-rules-link:hover,
+.lobby-rules-link:active {
+  background: var(--border);
+}
 .lobby-github-link:hover,
 .gate-btn-decline:hover { color: var(--text); }
 
