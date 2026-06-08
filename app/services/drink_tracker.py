@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 import time
 
 from app.models.game_room import GameRoom
-from drinking_rules import DrinkingRules, classify_rule
+from engine.drinking_rules import DrinkingRules, classify_rule
 from app.config import MILESTONE_STEP, MILESTONE_TTL
 
 
