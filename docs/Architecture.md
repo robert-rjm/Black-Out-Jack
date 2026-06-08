@@ -20,16 +20,29 @@ Technical documentation for **Black(Out)Jack**: project structure, file dependen
 ```
 Black-Out-Jack/
 ├── app/
+│   ├── config.py                # App-wide constants and feature flags
 │   ├── models/
 │   │   └── game_room.py         # Typed room-state container
-│   ├── routes/                  # Flask blueprints (commands, events, rooms…)
-│   └── services/                # Game engine, drink logic, NPC, etc.
+│   ├── routes/
+│   │   ├── lobby.py             # Room creation, joining, setup
+│   │   ├── polling.py           # Long-poll state sync + milestone forfeit
+│   │   ├── game_commands.py     # Referee & digital game commands
+│   │   └── admin.py             # Dealer rotation, milestone claim, kick
+│   └── services/
+│       ├── game_engine.py       # Digital mode card/turn logic
+│       ├── drink_tracker.py     # Sip harvesting, milestones, bust votes
+│       ├── room_manager.py      # Tracker patching, dealer rotation helpers
+│       └── session_store.py     # In-memory room store
 ├── docs/
 │   ├── Rules.md                 # Drinking Rules
 │   ├── Cheat-Sheet.md           # One-page quick reference for gameplay
 │   ├── Comprehensive-Example.md # Example for Drinking Rules
 │   ├── Architecture.md          # This file
-│   └── Multiplayer.md           # Full multiplayer documentation
+│   ├── Multiplayer.md           # Full multiplayer documentation
+│   ├── DOM-Hooks.md             # Frontend element IDs and JS hook reference
+│   ├── TODO.md                  # Known issues and planned features
+│   ├── backend_refactor_map.svg # Backend dependency diagram
+│   └── frontend_refactor_map.svg# Frontend dependency diagram
 ├── static/
 │   ├── css/
 │   │   ├── main.css             # Variables, reset, layout, bottom nav
@@ -54,6 +67,7 @@ Black-Out-Jack/
 ├── simulation.py                # Round simulation with stats output
 ├── requirements.txt             # Python dependencies for deployment
 ├── .gitignore
+├── .flake8                      # Flake8 linting config (max-line-length 120)
 ├── README.md
 └── LICENSE
 ```
@@ -75,7 +89,7 @@ The main files are intentionally decoupled:
 | `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, log, setup, table, table-modals, table-render, kpi, trivia, admin, admin-settings) |
 | `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |
 
-## Separation of concerns:
+## Separation of Concerns
 - **Changing a drinking rule** → edit only `drinking_rules.py`
 - **Changing core game logic** → edit only `blackjack.py`
 - **Changing basic strategy** → edit only `strategy.py`
@@ -118,7 +132,7 @@ python simulation.py
 | **Problem** | **Cause** | **Solution** |
 |---|---|---|
 | **Insufficient Cards** | Multiple players splitting aggressively |  Use multiple decks (auto enabled for 4+ players) |
-| **Large groups** | More players trigger more rules, sips add up | Games with 4 players automatically halve sips totals |
+| **Large groups** | More players trigger more rules, sips add up | Games with 4 or more players automatically halve all end-of-round sip totals |
 
 
 ## Development Guide
