@@ -9,8 +9,10 @@
 - [Room Codes & Joining](#room-codes--joining)
 - [Role System & Dealer Rotation](#role-system--dealer-rotation)
 - [Action Voting](#action-voting)
+- [Dealer Suggestions](#dealer-suggestions)
 - [Live Sip Tracking](#live-sip-tracking)
 - [Milestone Handouts](#milestone-handouts)
+- [Dealer Bust Vote](#dealer-bust-vote)
 - [KPI Panel](#kpi-panel)
 - [Strategy Accuracy](#strategy-accuracy)
 - [Clean-Round Crown](#clean-round-crown)
@@ -60,6 +62,17 @@ Non-dealer players don't directly control the game — instead they **signal the
 
 ---
 
+
+## Dealer Suggestions
+
+The dealer can **suggest a different action** to any player before executing their voted move.
+
+- The player sees the suggestion and can **Accept** or **Decline**
+- Useful when the dealer spots a better play (e.g. suggesting STAND when a player voted HIT on a 18)
+- If declined, the player's original vote stands and the dealer executes it
+- Suggestions are per-hand — a split hand can receive a different suggestion for each sub-hand
+
+---
 ## Live Sip Tracking
 
 - A **header strip** displays the session's total sip count
@@ -85,6 +98,23 @@ When a player's cumulative sip total crosses a **multiple of 50**, they earn bon
 - **Unassigned sips** come back to the winner
 - If the **timer expires** without a submission, the full handout becomes the winner's own drink
 - Only **one milestone** can be active at a time — a new boundary won't fire until the current handout is resolved
+
+---
+
+## Dealer Bust Vote
+
+Before the dealer reveals their hand, players can predict whether the dealer will **bust**.
+
+### How it works
+- Each player taps **Bust** or abstains — abstaining has no consequence
+- Once the dealer plays out their hand, votes are resolved:
+  - **Correct** (dealer busted): −1 sip credit + 1 sip to hand out to another player (20-second window)
+  - **Wrong** (dealer didn't bust): +1 sip penalty
+
+### Rules
+- Only players who voted are affected — abstainers skip the round entirely
+- The −1 credit offsets one of your own sips from that round (net result of a correct call is 0 or positive)
+- Bust voting can be toggled on or off by the admin in settings
 
 ---
 
