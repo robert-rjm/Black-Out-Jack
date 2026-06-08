@@ -466,4 +466,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             _serialize_insurance_vote(v, session, _ci)
             for v in session._insurance_votes
         ],
+        # Monotonically increasing token (µs since process start).
+        # The frontend drops any applyState() call whose state_seq is older
+        # than the last one it applied — prevents stale poll responses from
+        # overwriting fresher command/preselect responses.
+        "state_seq":              int(time.monotonic() * 1_000_000),
     }
