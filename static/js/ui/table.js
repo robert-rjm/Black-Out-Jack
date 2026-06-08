@@ -255,6 +255,7 @@ async function sendPreselect(action, hand) {
   const ACTION_CODE = { hit: "h", stand: "s", double: "d", split: "sp" };
   const code = ACTION_CODE[action] || action;
   const vd = document.getElementById("player-vote-display");
+  _requestsInFlight++;
   try {
     const res  = await fetch("/preselect", {
       method: "POST",
@@ -272,17 +273,17 @@ async function sendPreselect(action, hand) {
   } catch (_) {
     document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
     if (vd) { vd.textContent = "Vote failed: network error"; vd.style.display = "block"; }
+  } finally {
+    _requestsInFlight--;
   }
 }
 
 // ============================================================
 // SEND COMMAND
 // ============================================================
-let _cmdInFlight = false;
-
 async function sendCmd(cmd) {
-  if (_cmdInFlight) return;
-  _cmdInFlight = true;
+  if (_requestsInFlight > 0) return;
+  _requestsInFlight++;
   if (typeof resetIdleTimer === "function") resetIdleTimer();
   // Visually lock all action buttons while the request is in flight
   document.querySelectorAll("#panel .btn, #bottom-nav .bnav-btn").forEach(b => b.classList.add("cmd-pending"));
@@ -298,7 +299,7 @@ async function sendCmd(cmd) {
     if (data.dealer || data.players) updateHeader(data);
     applyState(data);
   } finally {
-    _cmdInFlight = false;
+    _requestsInFlight--;
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
   }
 }

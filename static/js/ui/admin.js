@@ -188,6 +188,7 @@ async function submitBustVote(choice, playerName) {
   // For local multiplayer: pass the specific player's name.
   const body = { room_code: roomCode, client_id: clientId, vote: choice };
   if (playerName) body.player_name = playerName;
+  _requestsInFlight++;
   try {
     const res  = await fetch("/cast_bust_vote", {
       method:  "POST",
@@ -196,7 +197,9 @@ async function submitBustVote(choice, playerName) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-  } catch (_) {}
+  } catch (_) {} finally {
+    _requestsInFlight--;
+  }
 }
 
 async function setBustVoteEnabled(on) {
@@ -492,6 +495,7 @@ function updateBustVoteUI(state) {
 }
 
 async function giveBustSip(winnerName, recipientName, forfeit = false) {
+  _requestsInFlight++;
   try {
     const res  = await fetch("/give_bust_sip", {
       method:  "POST",
@@ -505,7 +509,9 @@ async function giveBustSip(winnerName, recipientName, forfeit = false) {
     const data = await res.json();
     if (data.ok) applyState(data);
     else appendLog(`  Bust handout failed: ${data.error || "unknown"}\n`);
-  } catch (_) {}
+  } catch (_) {} finally {
+    _requestsInFlight--;
+  }
 }
 
 function _renderBustGivePanel(state) {

@@ -126,7 +126,9 @@ function _pollInterval() {
 function startPolling() {
   stopPolling();
   const tick = async () => {
-    if (roomCode) {
+    // Skip the fetch while a game-action request is in flight — the command
+    // response will call applyState with fresher (higher state_seq) data.
+    if (roomCode && _requestsInFlight === 0) {
       try {
         const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
         const res  = await fetch(url);
@@ -146,8 +148,9 @@ function stopPolling() {
 
 // Safari throttles timers aggressively when the tab is backgrounded or the
 // screen locks. Force an immediate re-poll the moment the user comes back.
+// Skip if a request is already in flight — we'll get fresh state from it.
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && roomCode) {
+  if (!document.hidden && roomCode && _requestsInFlight === 0) {
     fetch(`/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`)
       .then(r => r.json())
       .then(data => { if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); } })
