@@ -110,21 +110,38 @@ function backToLobby() {
 // ============================================================
 // POLLING — keep all players in sync
 // ============================================================
+
+// Fast interval during active play so end-of-round appears promptly for all clients.
+// Slow interval during pre-deal and round-over where nothing is time-sensitive.
+const POLL_INTERVAL_FAST =  800;   // ms — used while phase is "playing" or "dealer-ready"
+const POLL_INTERVAL_SLOW = 2000;   // ms — used during "pre-deal", "round-over", or unknown
+
+function _pollInterval() {
+  const phase = lastState && lastState.phase;
+  return (phase === "playing" || phase === "dealer-ready")
+    ? POLL_INTERVAL_FAST
+    : POLL_INTERVAL_SLOW;
+}
+
 function startPolling() {
   stopPolling();
-  pollTimer = setInterval(async () => {
-    if (!roomCode) return;
-    try {
-      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
-    } catch (_) {}
-  }, 2000);
+  const tick = async () => {
+    if (roomCode) {
+      try {
+        const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
+        const res  = await fetch(url);
+        const data = await res.json();
+        if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
+      } catch (_) {}
+    }
+    // Reschedule — interval adapts automatically to the latest phase.
+    pollTimer = setTimeout(tick, _pollInterval());
+  };
+  pollTimer = setTimeout(tick, _pollInterval());
 }
 
 function stopPolling() {
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
 }
 
 // Safari throttles timers aggressively when the tab is backgrounded or the

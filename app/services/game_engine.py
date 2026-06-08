@@ -377,12 +377,38 @@ def dealer_turn(session: GameRoom) -> None:
 # NPC auto-play
 # ---------------------------------------------------------------------------
 
+def bust_vote_pending(session: GameRoom) -> bool:
+    """Return True while the bust-vote window is open and at least one human
+    non-dealer player hasn't cast a vote yet.
+
+    Used to block play actions (hit/stand/double/split and NPC auto-play) until
+    all human players have had a chance to vote on the dealer-bust side bet.
+    Returns False once the window expires so the timeout always unblocks play.
+    """
+    if not session.bust_vote_enabled:
+        return False
+    if session._bust_vote_expires_at is None:
+        return False
+    if _time.monotonic() >= session._bust_vote_expires_at:
+        return False
+    return any(
+        session._bust_votes.get(p.name) is None
+        for p in session.all_players
+        if not getattr(p, "is_npc", False)
+    )
+
+
 def auto_play_npc_turns(session: GameRoom) -> None:
     """
     Auto-play all consecutive NPC turns using basic strategy.
     Stops when it reaches a human player's turn, no one is up,
     or the phase leaves 'playing'. Safety-capped at 100 steps.
     """
+    # Don't play NPC hands until all human players have voted on the bust side
+    # bet — NPCs auto-vote "pass" at deal time, so only human votes can block.
+    if bust_vote_pending(session):
+        return
+
     for _ in range(100):
         deal_pending_split_cards(session)
         if round_phase(session) != "playing":

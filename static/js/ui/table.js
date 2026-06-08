@@ -403,6 +403,12 @@ function applyState(state) {
     _animToggleOn()
   );
 
+  // Keep npcPlayers in sync so bust-vote modal shows correct vote cards after
+  // a player is converted from bot to human (or vice versa) mid-session.
+  if (state.table) {
+    npcPlayers = new Set(state.table.filter(p => p.is_npc).map(p => p.name));
+  }
+
   // Reset idle timer on any game state change — if the round or phase advanced,
   // someone is actively playing and the dyno is clearly not idle.
   if (typeof resetIdleTimer === "function") {
