@@ -51,10 +51,14 @@
 .btn-primary-start {
   width: 100%;
   max-width: 420px;
-  height: 64px;
+  min-height: 44px;
+  height: 56px;
   border-radius: var(--radius);
   font-size: 18px;
   font-weight: 800;
+  background: var(--accent);
+  border: none;
+  color: #fff;
   cursor: pointer;
   transition: opacity .12s, transform .08s;
 }
@@ -67,13 +71,6 @@
   border: 1.5px solid var(--border);
   background: var(--bg);
   color: var(--text);
-}
-.btn-primary-start {
-  max-width: 420px;
-  height: 56px;
-  background: var(--accent);
-  border: none;
-  color: #fff;
 }
 
 .input-room-code {
@@ -243,7 +240,7 @@
 }
 .suggest-text { margin-bottom: 8px; font-weight: 600; }
 .no-margin { margin: 0; }
-.muted-btn { color: var(--muted); }
+.muted-btn { color: var(--muted); max-height: 44px;}
 
 .suggest-picker { margin-top: 6px; }
 .suggest-picker-title {
