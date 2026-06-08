@@ -45,8 +45,19 @@ class Suit(Enum):
 
 
 class Rank(Enum):
-    TWO=2; THREE=3; FOUR=4; FIVE=5; SIX=6; SEVEN=7; EIGHT=8; NINE=9
-    TEN=10; JACK=11; QUEEN=12; KING=13; ACE=14
+    TWO = 2
+    THREE = 3
+    FOUR = 4
+    FIVE = 5
+    SIX = 6
+    SEVEN = 7
+    EIGHT = 8
+    NINE = 9
+    TEN = 10
+    JACK = 11
+    QUEEN = 12
+    KING = 13
+    ACE = 14
 
     @classmethod
     def from_input(cls, value):
@@ -102,7 +113,9 @@ class Shoe:
         for _ in range(num_decks):
             self.cards.extend(Deck().cards)
 
+
     def __len__(self):  return len(self.cards)
+
     def __str__(self):  return (f"Shoe({self.num_decks} deck(s), "
                                 f"{len(self.cards)} remaining, "
                                 f"pen {self.penetration:.0%})")
@@ -156,7 +169,8 @@ class Hand:
         total = sum(c.rank.blackjack_value for c in self.cards)
         aces  = sum(1 for c in self.cards if c.rank == Rank.ACE)
         while total > 21 and aces:
-            total -= 10; aces -= 1
+            total -= 10
+            aces -= 1
         return total
 
     def is_blackjack(self) -> bool: return len(self.cards) == 2 and self.score() == 21
@@ -222,11 +236,13 @@ class Player:
     def round_wins(self)   -> int: return sum(1 for h in self.hands if h.result == "win")
     def round_losses(self) -> int: return sum(1 for h in self.hands if h.result == "loss")
     def round_pushes(self) -> int: return sum(1 for h in self.hands if h.result == "push")
+
     def net_losses(self)   -> int:
         # Blackjack counts as 2 wins — it offsets two net-loss hands
         effective_wins = sum(2 if h.is_blackjack() else 1
                              for h in self.hands if h.result == "win")
         return max(0, self.round_losses() - effective_wins)
+
     def drinks_owed(self)  -> int: return sum(e[0] for e in self.drink_log if e[0] > 0)
 
     def add_drink(self, sips: int, reason: str, role: str = "player"):
@@ -239,7 +255,7 @@ class Player:
 
 
 # Strategy tables and resolver live in strategy.py
-from engine.strategy import best_play as _strategy_best_play
+from engine.strategy import best_play as _strategy_best_play  # noqa: E402
 
 
 class NPC_Player(Player):
@@ -366,13 +382,14 @@ class RoundManager:
 
         if self.drinking_mode:
             from drinking_rules import DrinkingRules
+            from engine.events import CardDealtEvent
             is_dealer_hand = (hand is self.dealer_player.dealer_hand)
-            msgs = DrinkingRules.on_card_dealt(
-                card, recipient_name, card_pos,
-                self._all_names, self.dealer_player.name,
-                self._ace_clubs_flag,
+            msgs = DrinkingRules.handle(CardDealtEvent(
+                card=card, recipient=recipient_name, card_pos=card_pos,
+                all_names=self._all_names, dealer_name=self.dealer_player.name,
+                ace_clubs_flag=self._ace_clubs_flag,
                 is_dealer_hand=is_dealer_hand,
-            )
+            ))
             for msg in msgs:
                 _, s, reason = msg[0], msg[1], msg[2]
                 if s == -1:
@@ -497,7 +514,10 @@ class RoundManager:
             print(f"  BLACKJACK! {hand}")
             if self.drinking_mode:
                 from drinking_rules import DrinkingRules
-                self._drink(DrinkingRules.on_blackjack(player.name, hand, self._all_names))
+                from engine.events import BlackjackEvent
+                self._drink(DrinkingRules.handle(BlackjackEvent(
+                    player_name=player.name, hand=hand, all_names=self._all_names,
+                )))
             return
 
         # Normal loop
@@ -568,7 +588,10 @@ class RoundManager:
                     print(f"  BLACKJACK! {hand}")
                     if self.drinking_mode:
                         from drinking_rules import DrinkingRules
-                        self._drink(DrinkingRules.on_blackjack(player.name, hand, self._all_names))
+                        from engine.events import BlackjackEvent
+                        self._drink(DrinkingRules.handle(BlackjackEvent(
+                            player_name=player.name, hand=hand, all_names=self._all_names,
+                        )))
                 # No return: while loop exits if hand.stood, or continues for hit/stand/double
                 # new_hand is played when _player_turns increments to the next idx
 
@@ -602,7 +625,8 @@ class RoundManager:
 
         if self.drinking_mode:
             from drinking_rules import DrinkingRules
-            self._drink(DrinkingRules.on_dealer_hand_revealed(d_hand))
+            from engine.events import DealerHandRevealedEvent
+            self._drink(DrinkingRules.handle(DealerHandRevealedEvent(dealer_hand=d_hand)))
 
     # ---------------------------------------------------------------- evaluation
 
@@ -637,6 +661,10 @@ class RoundManager:
         # Pass 2 — fire drinking events with conditional dealer exemption
         if self.drinking_mode:
             from drinking_rules import DrinkingRules
+            from engine.events import (
+                BlackjackEvent, HandResolvedEvent,
+                InsuranceResolvedEvent, HardDealerSwitchEvent,
+            )
 
             # Hands that went through a group insurance vote — resolved separately
             voted_hands = {id(entry[1]) for entry in self._insurance_votes}
@@ -646,19 +674,22 @@ class RoundManager:
                     if hand.is_blackjack() and hand.result == "win":
                         if id(hand) not in voted_hands:
                             # No vote was held (dealer didn't show Ace) — normal BJ bonus
-                            self._drink(DrinkingRules.on_blackjack(
-                                p.name, hand, self._all_names,
-                                hard_switch_dealer=exempt_dealer))
-                    self._drink(DrinkingRules.on_hand_resolved(
-                        p.name, hand, self._all_names,
-                        dealer_bj=dealer_bj, dealer_name=exempt_dealer))
+                            self._drink(DrinkingRules.handle(BlackjackEvent(
+                                player_name=p.name, hand=hand, all_names=self._all_names,
+                                hard_switch_dealer=exempt_dealer,
+                            )))
+                    self._drink(DrinkingRules.handle(HandResolvedEvent(
+                        player_name=p.name, hand=hand, all_names=self._all_names,
+                        dealer_bj=dealer_bj, dealer_name=exempt_dealer,
+                    )))
 
             # Resolve insurance votes now that dealer BJ is known
             for (p, hand, insured) in self._insurance_votes:
-                self._drink(DrinkingRules.resolve_insurance_vote(
-                    p.name, hand, self._all_names,
+                self._drink(DrinkingRules.handle(InsuranceResolvedEvent(
+                    player_name=p.name, hand=hand, all_names=self._all_names,
                     insured=insured, dealer_bj=dealer_bj,
-                    hard_switch_dealer=exempt_dealer))
+                    hard_switch_dealer=exempt_dealer,
+                )))
 
             if hard_switch:
                 protected         = self._ace_clubs_flag.get("protected", False)
@@ -671,9 +702,10 @@ class RoundManager:
                     if partial_protected and not protected
                     else winning_hds
                 )
-                self._drink(DrinkingRules.on_hard_dealer_switch(
-                    self.dealer_player.name, hs_for_penalty, protected,
-                    half_protected=half_protected))
+                self._drink(DrinkingRules.handle(HardDealerSwitchEvent(
+                    dealer_name=self.dealer_player.name, winning_hands=hs_for_penalty,
+                    protected=protected, half_protected=half_protected,
+                )))
                 # When A♣ protects the dealer, add display-only +/- entries so
                 # the drinks summary panel can show what was waived.
                 if protected and winning_hds:
@@ -696,6 +728,7 @@ class RoundManager:
 
     def _round_end_drinks(self):
         from drinking_rules import DrinkingRules
+        from engine.events import RoundEndEvent
         d_hand    = self.dealer_player.dealer_hand
         dealer_bj = d_hand.is_blackjack()
         w         = self.wager
@@ -705,10 +738,11 @@ class RoundManager:
         if dealer_bj:
             print("  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         hard_switch = getattr(self, "_hard_switch", False)
-        self.tracker.apply(DrinkingRules.on_round_end(
-            self.players, w, dealer_bj=dealer_bj,
+        self.tracker.apply(DrinkingRules.handle(RoundEndEvent(
+            players=self.players, wager=w, dealer_bj=dealer_bj,
             hard_switch_dealer=self.dealer_player.name if hard_switch else "",
-            num_hands=self.num_hands))
+            num_hands=self.num_hands,
+        )))
         for name in self._ace_credits:
             p = next((x for x in self.players if x.name.lower() == name.lower()), None)
             if p: self.tracker.apply_ace_clubs_credit(p)

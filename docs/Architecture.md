@@ -71,7 +71,7 @@ Black-Out-Jack/
 ├── server.py                    # Flask entry point
 ├── requirements.txt             # Python dependencies for deployment
 ├── .gitignore
-├── .flake8                      # Flake8 linting config (max-line-length 120)
+├── pyproject.toml               # Ruff linting config (max-line-length 120)
 ├── README.md
 └── LICENSE
 ```

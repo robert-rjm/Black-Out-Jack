@@ -178,6 +178,17 @@ def make_human():
 
     player.is_npc = False
 
+    # Add the newly-human player to the admin's local_names so they can
+    # control that seat (vote, act on their hand, etc.).
+    current_locals = admin_info.get("local_names") or []
+    if player.name not in current_locals:
+        admin_info["local_names"] = current_locals + [player.name]
+
+    # Clear any lingering auto-voted "pass" so they can cast a real vote
+    # if a bust-vote window happens to be open right now.
+    if session._bust_votes.get(player.name) == "pass":
+        session._bust_votes.pop(player.name, None)
+
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 

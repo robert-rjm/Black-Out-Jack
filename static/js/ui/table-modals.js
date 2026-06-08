@@ -181,7 +181,7 @@ function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = nu
 
     // Build quick vote buttons if voter hasn't voted yet
     const isBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
-    const votedNames  = (v.votes_cast_by || []).map(n => n.toLowerCase());
+    const votedNames  = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
     const canVote     = !isBJHolder && activeVoter && !votedNames.includes(activeVoter.toLowerCase());
 
     content.innerHTML = `
@@ -219,6 +219,7 @@ function _expandInsuranceModal() {
 }
 
 async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
+  _requestsInFlight++;
   try {
     const res  = await fetch("/vote_insurance", {
       method:  "POST",
@@ -234,6 +235,8 @@ async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
     else appendLog(`  Insurance vote failed: ${data.error || "unknown error"}\n`);
   } catch (_) {
     appendLog("  Insurance vote failed: network error\n");
+  } finally {
+    _requestsInFlight--;
   }
 }
 
