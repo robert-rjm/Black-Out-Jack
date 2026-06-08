@@ -233,12 +233,13 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
     votes_cast   = len(v["votes"])
     counts_ready = v["resolved"] or votes_cast >= votes_needed
     return {
-        "bj_player":    bj_player,
-        "hand_idx":     v["hand_idx"],
-        "resolved":     v["resolved"],
-        "my_vote":      v["votes"].get(client_info.get("name") or "", None),
-        "votes_cast":   votes_cast,
-        "votes_needed": votes_needed,
+        "bj_player":      bj_player,
+        "hand_idx":       v["hand_idx"],
+        "resolved":       v["resolved"],
+        "my_vote":        v["votes"].get(client_info.get("name") or "", None),
+        "votes_cast":     votes_cast,
+        "votes_needed":   votes_needed,
+        "votes_cast_by":  dict(v["votes"]),   # {voter_name: bool} — local multiplayer uses this to advance seats
         "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
         "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
         "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
