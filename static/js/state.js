@@ -23,6 +23,12 @@ let roomCode   = "";          // active room code (e.g. "Jack-21")
 let pollTimer  = null;        // setInterval handle for auto-refresh
 let npcPlayers = new Set();   // names of NPC/bot players this session
 
+// In-flight request counter — incremented before every game-action fetch,
+// decremented in its finally block.  The poll tick and visibilitychange
+// handler skip their fetch while this is > 0, ensuring a slow poll can
+// never overwrite a fresher command/preselect/vote response.
+let _requestsInFlight = 0;
+
 // Client identity
 let clientId         = "";    // UUID — persisted in localStorage
 let myRole           = null;  // "admin" | "player" | "spectator" | "kicked" | null

@@ -219,6 +219,7 @@ function _expandInsuranceModal() {
 }
 
 async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
+  _requestsInFlight++;
   try {
     const res  = await fetch("/vote_insurance", {
       method:  "POST",
@@ -234,6 +235,8 @@ async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
     else appendLog(`  Insurance vote failed: ${data.error || "unknown error"}\n`);
   } catch (_) {
     appendLog("  Insurance vote failed: network error\n");
+  } finally {
+    _requestsInFlight--;
   }
 }
 
