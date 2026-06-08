@@ -59,7 +59,7 @@ Black-Out-Jack/
 │   ├── index.html               # Mobile-first browser UI
 │   └── partials/index/*.html    # Composable UI sections
 │
-├── engine/                      # Core game library
+├── engine/                      # Core game library (START HERE)
 │   ├── __init__.py
 │   ├── blackjack.py             # Card/hand/deck classes, game loop, NPC logic
 │   ├── strategy.py              # Basic strategy lookup tables + best_play()
@@ -69,9 +69,6 @@ Black-Out-Jack/
 │   ├── __init__.py
 │   └── simulation.py            # 10,000-round NPC simulation, outputs CSV + txt
 ├── server.py                    # Flask entry point
-├── blackjack.py                 # Entry-point shim → engine/blackjack.py (START HERE)
-├── referee.py                   # Entry-point shim → engine/referee.py
-├── simulation.py                # Entry-point shim → scripts/simulation.py
 ├── requirements.txt             # Python dependencies for deployment
 ├── .gitignore
 ├── .flake8                      # Flake8 linting config (max-line-length 120)
@@ -92,7 +89,6 @@ The main files are intentionally decoupled:
 | `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 10,000-round NPC simulation, outputs CSV + txt |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
 | `app/` | `engine/` | Routes, models, and services for the web UI |
-| `blackjack.py` / `referee.py` / `simulation.py` | `engine/` or `scripts/` | Thin root shims — preserve `python <name>.py` CLI ergonomics |
 | `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
 | `static/css/` | — | `main.css` (layout, variables) + `components/` (cards, controls, log…) |
 | `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, log, setup, table, table-modals, table-render, kpi, trivia, admin, admin-settings) |
@@ -132,7 +128,7 @@ Curious whether the rules are balanced or which rule is responsible for most of 
 Track every drink event from start to finish in a simulation (3 players, 2 hands each, rotating dealer). Frequency and rule breakdown are output in `simulation_results.txt` and `simulation_log.csv` respectively.
 
 ```bash
-python simulation.py
+python scripts/simulation.py
 ```
 
 ## Common Issues
@@ -157,13 +153,13 @@ python simulation.py
 python server.py                 # → http://localhost:5000
 
 # Terminal game
-python blackjack.py              # No extra dependencies (shim calls engine/)
+python engine/blackjack.py       # No extra dependencies
 
 # Referee mode
-python referee.py                # Physical deck, digital tracking
+python engine/referee.py         # Physical deck, digital tracking
 
 # Simulation
-python simulation.py             # Outputs to simulation_results.txt
+python scripts/simulation.py     # Outputs to simulation_results.txt
 ```
 
 ### Contributing
