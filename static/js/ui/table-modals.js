@@ -181,7 +181,7 @@ function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = nu
 
     // Build quick vote buttons if voter hasn't voted yet
     const isBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
-    const votedNames  = (v.votes_cast_by || []).map(n => n.toLowerCase());
+    const votedNames  = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
     const canVote     = !isBJHolder && activeVoter && !votedNames.includes(activeVoter.toLowerCase());
 
     content.innerHTML = `
