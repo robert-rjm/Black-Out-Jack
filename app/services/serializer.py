@@ -10,8 +10,8 @@ per-client fields (my_role, is_dealer_client, etc.) can be included.
 
 import time
 
-from blackjack import Hand, NPC_Player
-from drinking_rules import _bj_multiplier
+from engine.blackjack import Hand, NPC_Player
+from engine.drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info

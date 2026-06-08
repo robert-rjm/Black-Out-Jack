@@ -59,12 +59,16 @@ Black-Out-Jack/
 │   ├── index.html               # Mobile-first browser UI
 │   └── partials/index/*.html    # Composable UI sections
 │
+├── engine/                      # Core game library (START HERE)
+│   ├── __init__.py
+│   ├── blackjack.py             # Card/hand/deck classes, game loop, NPC logic
+│   ├── strategy.py              # Basic strategy lookup tables + best_play()
+│   ├── drinking_rules.py        # Drinking layer — reacts to game events
+│   └── referee.py               # RefereeSession class for real-life play
+├── scripts/                     # Standalone CLI tools
+│   ├── __init__.py
+│   └── simulation.py            # 10,000-round NPC simulation, outputs CSV + txt
 ├── server.py                    # Flask entry point
-├── blackjack.py                 # Core game logic + terminal game (START HERE)
-├── strategy.py                  # Basic strategy tables + best_play() resolver
-├── drinking_rules.py            # Drinking Rules
-├── referee.py                   # Terminal referee for real-life play
-├── simulation.py                # Round simulation with stats output
 ├── requirements.txt             # Python dependencies for deployment
 ├── .gitignore
 ├── .flake8                      # Flake8 linting config (max-line-length 120)
@@ -78,22 +82,22 @@ The main files are intentionally decoupled:
 
 | File | Depends on | Purpose |
 |---|---|---|
-| `strategy.py` | nothing | Basic strategy lookup tables + `best_play()` resolver |
-| `blackjack.py` | `strategy.py` | Core game logic, card/hand/deck classes, terminal game |
-| `drinking_rules.py` | `blackjack.py` | Drinking layer only, no game logic |
-| `referee.py` | `blackjack.py`, `drinking_rules.py` | Terminal referee command parser for real-life play |
+| `engine/strategy.py` | nothing | Basic strategy lookup tables + `best_play()` resolver |
+| `engine/blackjack.py` | `engine/strategy.py` | Core game logic, card/hand/deck classes, game loop |
+| `engine/drinking_rules.py` | `engine/blackjack.py` | Drinking layer only, no game logic |
+| `engine/referee.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | RefereeSession for real-life play |
+| `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 10,000-round NPC simulation, outputs CSV + txt |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
-| `app/` | `referee.py`, `blackjack.py`, `drinking_rules.py` | Routes, models, and services for the web UI |
-|  `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
+| `app/` | `engine/` | Routes, models, and services for the web UI |
+| `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
 | `static/css/` | — | `main.css` (layout, variables) + `components/` (cards, controls, log…) |
 | `static/js/` | — | `utils.js`, `state.js`, `app.js` + `ui/` (lobby, log, setup, table, table-modals, table-render, kpi, trivia, admin, admin-settings) |
-| `simulation.py` | `blackjack.py`, `drinking_rules.py` | 10,000-round NPC simulation, outputs drink statistics |
 
 ## Separation of Concerns
-- **Changing a drinking rule** → edit only `drinking_rules.py`
-- **Changing core game logic** → edit only `blackjack.py`
-- **Changing basic strategy** → edit only `strategy.py`
-- **Adding a referee command** → edit only `referee.py`
+- **Changing a drinking rule** → edit only `engine/drinking_rules.py`
+- **Changing core game logic** → edit only `engine/blackjack.py`
+- **Changing basic strategy** → edit only `engine/strategy.py`
+- **Adding a referee command** → edit only `engine/referee.py`
 - **Changing web routes or server logic** → edit `app/routes/` or `app/services/`
 - **Changing web UI behaviour** → edit `static/js/ui/` and/or `templates/index.html`
 - **Changing styles** → edit `static/css/main.css` or the relevant `static/css/components/` file
@@ -101,7 +105,7 @@ The main files are intentionally decoupled:
 
 ## Rules Verification
 
-`drinking_rules.py` contains a SHA256 hash and date pinned to the version of `Rules.md` the implementation was verified against:
+`engine/drinking_rules.py` contains a SHA256 hash and date pinned to the version of `Rules.md` the implementation was verified against:
 
 ```python
 _RULES_HASH  = "1d0d65ff..."
@@ -112,7 +116,7 @@ _RULES_DATE  = "2026-05-15"
 
 1. On startup the script fetches `Rules.md` from GitHub and compares hashes
 2. If they differ, a warning is printed to the console.
-3. When the rules change, update `_RULES_HASH` and `_RULES_DATE` in `drinking_rules.py`.
+3. When the rules change, update `_RULES_HASH` and `_RULES_DATE` in `engine/drinking_rules.py`.
 
 This ensures the code and documentation never silently drift apart.
 
@@ -124,14 +128,14 @@ Curious whether the rules are balanced or which rule is responsible for most of 
 Track every drink event from start to finish in a simulation (3 players, 2 hands each, rotating dealer). Frequency and rule breakdown are output in `simulation_results.txt` and `simulation_log.csv` respectively.
 
 ```bash
-python simulation.py
+python scripts/simulation.py
 ```
 
 ## Common Issues
 
 | **Problem** | **Cause** | **Solution** |
 |---|---|---|
-| **Insufficient Cards** | Multiple players splitting aggressively |  Use multiple decks (auto enabled for 4+ players) |
+| **Insufficient Cards** | Multiple players splitting aggressively | Use multiple decks (auto enabled for 4+ players) |
 | **Large groups** | More players trigger more rules, sips add up | Games with 4 or more players automatically halve all end-of-round sip totals |
 
 
@@ -139,7 +143,7 @@ python simulation.py
 
 ### Prerequisites
 - Python 3.10+
-- `flask`  (for web UI)
+- `flask` (for web UI)
 - No other dependencies for terminal play
 - Consult [requirements.txt](requirements.txt)
 
@@ -149,13 +153,13 @@ python simulation.py
 python server.py                 # → http://localhost:5000
 
 # Terminal game
-python blackjack.py              # No extra dependencies
+python engine/blackjack.py       # No extra dependencies
 
 # Referee mode
-python referee.py                # Physical deck, digital tracking
+python engine/referee.py         # Physical deck, digital tracking
 
 # Simulation
-python simulation.py             # Outputs to simulation_results.txt
+python scripts/simulation.py     # Outputs to simulation_results.txt
 ```
 
 ### Contributing
