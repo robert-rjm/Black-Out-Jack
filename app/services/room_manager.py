@@ -9,16 +9,16 @@ session_store. The route layer owns the store lookup and passes the
 session down.
 """
 
-import logging
-log = logging.getLogger(__name__)
-
 import contextlib
 import io
+import logging
 
 from engine.blackjack import Hand, NPC_Player, Player, Shoe
 from engine.referee import RefereeSession
 
 from app.models.game_room import GameRoom
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------

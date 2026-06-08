@@ -9,15 +9,16 @@ lookup and passes the session down. This keeps the dependency graph clean
 and makes these functions unit-testable without a Flask context.
 """
 
-import time as _time
 import logging
+import time as _time
 
-log = logging.getLogger(__name__)
 from engine.blackjack import Hand, HandEvaluator, NPC_Player
 from engine.drinking_rules import DrinkingRules
 
 from app.models.game_room import GameRoom
 from app.services.serializer import hand_done, round_phase, current_turn
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------

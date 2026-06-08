@@ -99,7 +99,10 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
+        self._ace_clubs_flag  = {
+            "protected": False, "partial_protected": False,
+            "half_protected": False, "dealer_player_pending_credit": None,
+        }
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False # True once all first-deal cards are entered
@@ -158,7 +161,10 @@ class RefereeSession:
                 p.hands     = [Hand() for _ in range(self.num_hands)]
                 p.drink_log = []
 
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
+        self._ace_clubs_flag  = {
+            "protected": False, "partial_protected": False,
+            "half_protected": False, "dealer_player_pending_credit": None,
+        }
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False

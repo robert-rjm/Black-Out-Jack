@@ -155,13 +155,13 @@ def setup():
 
     raw_session = RefereeSession(players, dealer_name, wager, num_hands)
     room = GameRoom(
-        session             = raw_session,
-        mode                = mode,
-        drinking_mode       = drinking,
-        rounds_this_dealer  = 1,
-        switch_this_round   = None,
-        _dealer_rotate_every = len(players),
-        bust_vote_enabled   = bool(data.get("bust_vote_enabled", False)),
+        session=raw_session,
+        mode=mode,
+        drinking_mode=drinking,
+        rounds_this_dealer=1,
+        switch_this_round=None,
+        _dealer_rotate_every=len(players),
+        bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
     )
     if client_id:
         # All non-NPC seats start as local — a seat moves to remote only when
