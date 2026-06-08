@@ -41,6 +41,7 @@ _join_attempts: dict[str, list[float]] = defaultdict(list)
 # Room code generation
 # ---------------------------------------------------------------------------
 
+
 def generate_room_code() -> str:
     """Return a unique code like 'Jack21' not already in game_sessions."""
     while True:
@@ -53,6 +54,7 @@ def generate_room_code() -> str:
 # ---------------------------------------------------------------------------
 # Rate limiter
 # ---------------------------------------------------------------------------
+
 
 def is_join_rate_limited(ip: str) -> bool:
     """Return True when this IP has exceeded the failed-join rate limit.
@@ -71,6 +73,7 @@ def is_join_rate_limited(ip: str) -> bool:
 # ---------------------------------------------------------------------------
 # Lifecycle helpers
 # ---------------------------------------------------------------------------
+
 
 def reserve_room() -> str:
     """Reserve a new room slot and return its code.

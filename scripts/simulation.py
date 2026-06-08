@@ -4,11 +4,15 @@ scripts/simulation.py -- 10,000-round Drinking Blackjack simulation.
 Outputs: simulation_results.txt, simulation_log.csv
 Run: python simulation.py
 """
-import sys as _sys, os as _os
+import sys as _sys
+import os as _os
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
 
-import io, os, csv, contextlib  # noqa: E402
+import io  # noqa: E402
+import os  # noqa: E402
+import csv  # noqa: E402
+import contextlib  # noqa: E402
 from collections import defaultdict  # noqa: E402
 from datetime import datetime  # noqa: E402
 
@@ -100,6 +104,7 @@ def run_simulation():
 
 SESSION = 10  # rounds per session — unit used throughout the summary
 
+
 def write_summary(player_sips, dealer_sips, path):
     all_rules = sorted(
         {r for d in list(player_sips.values()) + list(dealer_sips.values()) for r in d}
@@ -173,7 +178,7 @@ def write_csv(event_log, path):
     if not event_log:
         return
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["round","dealer","player","role","rule","sips"])
+        w = csv.DictWriter(f, fieldnames=["round", "dealer", "player", "role", "rule", "sips"])
         w.writeheader()
         w.writerows(event_log)
     print(f"  Event log -> {path}")

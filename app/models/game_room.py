@@ -60,7 +60,7 @@ class GameRoom:
     _max_round_sips: dict = field(default_factory=dict)   # player -> highest single-round sip total
     _dealer_bust_rounds: int = 0                          # rounds where dealer hand busted
     _streaks: dict = field(default_factory=dict)          # player -> {current, longest_win, longest_loss}
-    _round_sip_history: list = field(default_factory=list) # total sips (all players) per completed round
+    _round_sip_history: list = field(default_factory=list)  # total sips (all players) per completed round
     _session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
     _milestones_claimed: dict = field(default_factory=dict)
     _pending_milestone: dict | None = None
@@ -72,7 +72,7 @@ class GameRoom:
     _bust_votes: dict = field(default_factory=dict)        # player_name -> "bust" | "pass"
     _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
     _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
-    _bust_handouts_given: set = field(default_factory=set) # winner names who have given their handout sip
+    _bust_handouts_given: set = field(default_factory=set)  # winner names who have given their handout sip
     _bust_handout_expires_at: float | None = None          # monotonic; winners have until this to give their sip
 
     # Mid-round state (digital only - reset each newround in game_commands.py)

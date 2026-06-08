@@ -45,8 +45,19 @@ class Suit(Enum):
 
 
 class Rank(Enum):
-    TWO=2; THREE=3; FOUR=4; FIVE=5; SIX=6; SEVEN=7; EIGHT=8; NINE=9
-    TEN=10; JACK=11; QUEEN=12; KING=13; ACE=14
+    TWO = 2
+    THREE = 3
+    FOUR = 4
+    FIVE = 5
+    SIX = 6
+    SEVEN = 7
+    EIGHT = 8
+    NINE = 9
+    TEN = 10
+    JACK = 11
+    QUEEN = 12
+    KING = 13
+    ACE = 14
 
     @classmethod
     def from_input(cls, value):
@@ -102,7 +113,9 @@ class Shoe:
         for _ in range(num_decks):
             self.cards.extend(Deck().cards)
 
+
     def __len__(self):  return len(self.cards)
+
     def __str__(self):  return (f"Shoe({self.num_decks} deck(s), "
                                 f"{len(self.cards)} remaining, "
                                 f"pen {self.penetration:.0%})")
@@ -156,7 +169,8 @@ class Hand:
         total = sum(c.rank.blackjack_value for c in self.cards)
         aces  = sum(1 for c in self.cards if c.rank == Rank.ACE)
         while total > 21 and aces:
-            total -= 10; aces -= 1
+            total -= 10
+            aces -= 1
         return total
 
     def is_blackjack(self) -> bool: return len(self.cards) == 2 and self.score() == 21
@@ -222,11 +236,13 @@ class Player:
     def round_wins(self)   -> int: return sum(1 for h in self.hands if h.result == "win")
     def round_losses(self) -> int: return sum(1 for h in self.hands if h.result == "loss")
     def round_pushes(self) -> int: return sum(1 for h in self.hands if h.result == "push")
+
     def net_losses(self)   -> int:
         # Blackjack counts as 2 wins — it offsets two net-loss hands
         effective_wins = sum(2 if h.is_blackjack() else 1
                              for h in self.hands if h.result == "win")
         return max(0, self.round_losses() - effective_wins)
+
     def drinks_owed(self)  -> int: return sum(e[0] for e in self.drink_log if e[0] > 0)
 
     def add_drink(self, sips: int, reason: str, role: str = "player"):
