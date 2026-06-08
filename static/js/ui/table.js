@@ -334,6 +334,15 @@ const SUIT_RED    = { hearts: true, diamonds: true };
 function applyState(state) {
   if (!state || !state.ok) return;
 
+  // Drop stale responses — if the server sent a state_seq and it's older than
+  // what we already applied, discard silently. Prevents a slow poll from
+  // overwriting a fresher command/preselect/vote response.
+  if (state.state_seq !== undefined &&
+      lastState && lastState.state_seq !== undefined &&
+      state.state_seq < lastState.state_seq) {
+    return;
+  }
+
   // Handle kicked status first
   if (state.my_role === "kicked") {
     // If the user already acknowledged and chose to spectate, skip the popup
