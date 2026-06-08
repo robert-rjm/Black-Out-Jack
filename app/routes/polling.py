@@ -21,10 +21,30 @@ import time as _time
 _last_cleanup: float = 0.0
 _CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
 from app.services.validators    import sanitize_name, is_dealer_client
-from app.services.serializer    import serialize_state
-from app.services.drink_tracker import check_and_set_milestone
+from app.services.serializer    import serialize_state, round_phase
+from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties
+from app.services.game_engine   import dealer_turn
 
 bp = Blueprint("polling", __name__)
+
+
+def _run_deferred_dealer_play(session):
+    """Run the dealer sequence when bust vote window has just closed.
+
+    Safe to call speculatively — checks round_phase and window state before acting.
+    """
+    if round_phase(session) != "dealer-ready":
+        return
+    # Don't fire if window is still open
+    if (session._bust_vote_expires_at is not None
+            and _time.monotonic() < session._bust_vote_expires_at):
+        return
+    print("\n  (Bust vote closed — dealer plays automatically)")
+    dealer_turn(session)
+    session.cmd_endround()
+    apply_bust_vote_penalties(session)
+    harvest_drink_log(session)
+    check_and_set_milestone(session)
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +115,12 @@ def state():
                 session._log_version = session._log_version + 1
                 print(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
             session._pending_milestone = None
+
+        # Deferred dealer auto-play: fire when bust vote window has expired
+        # and the round is still waiting for the dealer (dealer-ready phase).
+        if (session._bust_vote_expires_at is not None
+                and _now >= session._bust_vote_expires_at):
+            _run_deferred_dealer_play(session)
 
     return jsonify(serialize_state(session, client_id))
 
@@ -534,6 +560,16 @@ def cast_bust_vote():
         voter_name = player_name
 
     session._bust_votes[voter_name] = vote
+
+    # If every human non-dealer player has now voted, no need to wait for the
+    # timer — run the deferred dealer play immediately.
+    _human_players = [
+        p for p in session.all_players
+        if not getattr(p, "is_npc", False) and not getattr(p, "is_dealer", False)
+    ]
+    if _human_players and all(session._bust_votes.get(p.name) is not None for p in _human_players):
+        _run_deferred_dealer_play(session)
+
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
