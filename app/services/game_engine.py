@@ -10,6 +10,9 @@ and makes these functions unit-testable without a Flask context.
 """
 
 import time as _time
+import logging
+
+log = logging.getLogger(__name__)
 from blackjack import Hand, HandEvaluator, NPC_Player
 from drinking_rules import DrinkingRules
 
@@ -87,7 +90,7 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                 # the card is face-down (doubled hand) to avoid revealing it early.
                 session._ace_credits.append(recipient_name)
                 if not is_double_card:
-                    print(f"    (i) {reason}")
+                    log.debug(f"    (i) {reason}")
             elif is_hole_card or is_double_card:
                 # Defer until the card is face-up
                 session._deferred_hole_card_msgs.append(msg)
@@ -125,11 +128,11 @@ def deal_pending_split_cards(session: GameRoom) -> None:
                     continue
 
                 deal_card(session, hand, p.name)
-                print(f"  {p.name} hand{i+1}: second card dealt — {hand}")
+                log.debug(f"  {p.name} hand{i+1}: second card dealt — {hand}")
 
                 if hand.is_blackjack():
                     hand.stood = True
-                    print(f"  {p.name} hand{i+1}: BLACKJACK! auto-stands.")
+                    log.debug(f"  {p.name} hand{i+1}: BLACKJACK! auto-stands.")
                     # Register insurance vote if dealer shows Ace
                     dealer = session._get_dealer()
                     if (dealer and dealer.dealer_hand and dealer.dealer_hand.cards
@@ -150,11 +153,11 @@ def deal_pending_split_cards(session: GameRoom) -> None:
                             })
                 elif hand.score() == 21:
                     hand.stood = True
-                    print(f"  {p.name} hand{i+1}: auto-stands at 21.")
+                    log.debug(f"  {p.name} hand{i+1}: auto-stands at 21.")
                 elif hand.is_bust():
                     hand.bust = hand.stood = True
                     hand.result = "loss"
-                    print(f"  {p.name} hand{i+1}: BUST on second card!")
+                    log.debug(f"  {p.name} hand{i+1}: BUST on second card!")
 
                 changed = True
                 break   # restart scan after each deal
@@ -171,20 +174,20 @@ def initial_deal(session: GameRoom) -> None:
     session._deferred_hole_card_msgs = []
     dealer = session._get_dealer()
 
-    print("\n--- Dealing ---")
+    log.debug("\n--- Dealing ---")
     for _ in range(2):
         for p in session.all_players:
             for hand in p.hands:
                 deal_card(session, hand, p.name)
         deal_card(session, dealer.dealer_hand, dealer.name)
 
-    print(f"\n  Dealer ({dealer.name}) shows: {dealer.dealer_hand.cards[0]}, ?")
+    log.debug(f"\n  Dealer ({dealer.name}) shows: {dealer.dealer_hand.cards[0]}, ?")
     for p in session.all_players:
         for i, hand in enumerate(p.hands):
             tag = " (also dealer)" if p.is_dealer else ""
-            print(f"  {p.name}{tag} Hand {i+1}: {hand}")
+            log.debug(f"  {p.name}{tag} Hand {i+1}: {hand}")
             if hand.is_blackjack():
-                print(f"  *** {p.name} Hand {i+1} — BLACKJACK! ***")
+                log.debug(f"  *** {p.name} Hand {i+1} — BLACKJACK! ***")
 
     # Four-aces check after first deal (drinking mode only)
     if session.drinking_mode:
@@ -226,32 +229,32 @@ def dealer_turn(session: GameRoom) -> None:
                 _push_ace_drink_event(session, msg)
         session._deferred_hole_card_msgs = []
 
-    print(f"\n--- Dealer ({dealer.name}) reveals ---")
-    print(f"  Full hand: {d_hand}")
+    log.debug(f"\n--- Dealer ({dealer.name}) reveals ---")
+    log.debug(f"  Full hand: {d_hand}")
 
     if d_hand.is_blackjack():
-        print("  Dealer BLACKJACK!")
+        log.debug("  Dealer BLACKJACK!")
     else:
         while d_hand.score() < 17:
             card = deal_card(session, d_hand, dealer.name)
-            print(f"  Dealer hits: {card}  -> {d_hand}")
+            log.debug(f"  Dealer hits: {card}  -> {d_hand}")
         if d_hand.is_bust():
-            print("  Dealer BUSTS!")
+            log.debug("  Dealer BUSTS!")
         else:
-            print(f"  Dealer stands at {d_hand.score()}.")
+            log.debug(f"  Dealer stands at {d_hand.score()}.")
 
     drinking = session.drinking_mode
     if drinking:
         session.tracker.apply(DrinkingRules.on_dealer_hand_revealed(d_hand))
         if DrinkingRules.dealer_21_five_cards(d_hand):
-            print(f"\n  ★ Dealer 21 with {len(d_hand.cards)} cards — wager DOUBLED this round!")
+            log.debug(f"\n  ★ Dealer 21 with {len(d_hand.cards)} cards — wager DOUBLED this round!")
 
-    print("\n--- Results ---")
+    log.debug("\n--- Results ---")
     dealer_bj = d_hand.is_blackjack()
     all_names = [p.name for p in session.all_players]
 
     if dealer_bj and drinking:
-        print("  ★ Dealer blackjack — auto-insurance: only net-loss sips will apply.")
+        log.debug("  ★ Dealer blackjack — auto-insurance: only net-loss sips will apply.")
 
     # Pass 1 — resolve all hand results
     for p in session.all_players:
@@ -259,7 +262,7 @@ def dealer_turn(session: GameRoom) -> None:
             if not hand.result:
                 hand.result = HandEvaluator.compare(hand, d_hand)
             icon = {"win": "WIN", "loss": "LOSS", "push": "PUSH"}[hand.result]
-            print(f"  {p.name} Hand {i+1}: {hand}  => {icon}")
+            log.debug(f"  {p.name} Hand {i+1}: {hand}  => {icon}")
 
     # Detect hard / soft dealer switch
     all_results = [h.result for p in session.all_players for h in p.hands]
@@ -272,13 +275,13 @@ def dealer_turn(session: GameRoom) -> None:
         )
         if insured_bj:
             soft_switch = False
-            print("  Soft Switch suppressed — insurance on blackjack.")
+            log.debug("  Soft Switch suppressed — insurance on blackjack.")
     if hard_switch:
         session.switch_this_round = "hard"
-        print("  >>> HARD DEALER SWITCH <<<")
+        log.debug("  >>> HARD DEALER SWITCH <<<")
     elif soft_switch:
         session.switch_this_round = "soft"
-        print("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
+        log.debug("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
     else:
         session.switch_this_round = None
 
@@ -408,28 +411,28 @@ def auto_play_npc_turns(session: GameRoom) -> None:
         action = NPC_Player.best_play(
             hand, dealer_up, valid,
             drinking_mode=session.drinking_mode)
-        print(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
+        log.debug(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
 
         if action == "h":
             card = deal_card(session, hand, player.name)
-            print(f"  {player.name} {hand_label} hits {card}: {hand}")
+            log.debug(f"  {player.name} {hand_label} hits {card}: {hand}")
             if hand.is_bust():
                 hand.bust = hand.stood = True
                 hand.result = "loss"
-                print("  BUST!")
+                log.debug("  BUST!")
             elif hand.score() == 21:
                 hand.stood = True
-                print(f"  {player.name} {hand_label}: auto-stands at 21.")
+                log.debug(f"  {player.name} {hand_label}: auto-stands at 21.")
 
         elif action == "s":
             hand.stood = True
-            print(f"  {player.name} {hand_label}: stands at {hand.score()}.")
+            log.debug(f"  {player.name} {hand_label}: stands at {hand.score()}.")
 
         elif action == "d":
             hand.doubled = True
             deal_card(session, hand, player.name)
             hand.stood = True
-            print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
+            log.debug(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
             if hand.is_bust():
                 hand.bust = True
                 hand.result = "loss"
@@ -442,4 +445,4 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             new_hand.split_count = hand.split_count
             player.hands.insert(hand_idx + 1, new_hand)
             deal_card(session, hand, player.name)
-            print(f"  {player.name} splits {hand_label}")
+            log.debug(f"  {player.name} splits {hand_label}")

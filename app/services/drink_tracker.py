@@ -9,6 +9,9 @@ session_store. The route layer owns the store lookup and passes the
 session down.
 """
 
+import logging
+log = logging.getLogger(__name__)
+
 import time
 
 from app.models.game_room import GameRoom
@@ -60,11 +63,11 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         if dealer_busted:
             p.add_drink(-1, "bust vote correct: -1 sip credit", "player")
             winners.append(p.name)
-            print(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
+            log.debug(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
         else:
             p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
             losers.append(p.name)
-            print(f"  [bust vote] {p.name} wrong — +1 sip")
+            log.debug(f"  [bust vote] {p.name} wrong — +1 sip")
 
     session._bust_vote_result = {
         "dealer_busted": dealer_busted,
