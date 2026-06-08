@@ -1,11 +1,9 @@
-# BlackJack Game 🃏
-_an AdHoc creation_
-
-Welcome to _**Black(Out)Jack**_, a multiplayer browser-based blackjack card game with a drinking party game twist. Play it online with friends instantly, no account or installs required.
-
 <p align="center">
   <img src="static/Logo-BlackOutJack.png" alt="Black(Out)Jack Logo" height="200">
 </p>
+
+<h1 align="center">Black(Out)Jack</h1>
+<p align="center"><i>A multiplayer browser-based blackjack drinking game:<br>where splitting 10s is mandatory and good decisions are optional.</i></p>
 
 <p align="center">
   <a href="https://black-out-jack.onrender.com">
@@ -18,20 +16,24 @@ Welcome to _**Black(Out)Jack**_, a multiplayer browser-based blackjack card game
 
 - **BlackJack with custom drinking rules:** sip wager, suited and double multiplier, milestone handouts, and more
 - **Multiplayer on your phone or web:** play with friends, local or remote, or by yourself against NPC players
-- **Three ways to play:** fully digital, real cards with referee, or terminal based
+- **Three ways to play:** fully digital, real cards with referee, or terminal-based
 - **Strategy tracking:** see how you compare to optimal basic strategy
-- **Always split 10s:** drinking incentives that reward bold strategy
+- **Bold strategy rewarded:** drinking incentives punish playing it safe
 
----
+
 ## Quick Start
 
+**Just want to play?** → [Play online instantly](https://black-out-jack.onrender.com)
+
+**Want to play locally?**
 ```bash
-# Requires Python 3.10+
 git clone https://github.com/robert-rjm/Black-Out-Jack.git
 cd Black-Out-Jack
-pip install flask
-python server.py                 # → http://localhost:5000
+pip install -r requirements.txt
+python server.py
+# → Open http://localhost:5000
 ```
+
 > [!TIP]
 > Add to your home screen for a native app feel — see [Multiplayer.md](docs/Multiplayer.md#pwa-support) for instructions.
 
@@ -41,8 +43,8 @@ python server.py                 # → http://localhost:5000
 | Mode | Command | Description |
 |------|---------|-------------|
 | Web UI | `python server.py`| Browser-based multiplayer (or [play online](https://black-out-jack.onrender.com)) |
-| Terminal Game | `python blackjack.py` | Fully playable locally in terminal |
-| Terminal Referee | `python referee.py` | Physical deck, digital scorecard |
+| Terminal Game | `python engine/blackjack.py` | Solo play locally in terminal |
+| Terminal Referee | `python engine/referee.py` | Physical deck, digital scorecard |
 
 
 ## Drink Responsibly
@@ -82,6 +84,7 @@ Rule ideas are especially welcome — if it made the game more fun, it probably 
 
 This project is licensed under CC BY-NC-SA 4.0. See [LICENSE](LICENSE) for details.
 
+
 ## Credits
 
 - **Game concept & rules:** R. Michels, D. Irrgang, M. Cvijic
@@ -89,4 +92,4 @@ This project is licensed under CC BY-NC-SA 4.0. See [LICENSE](LICENSE) for detai
 
 ---
 
-*Happy Gaming! 🎰 May the cards be in your favor!*
+*Happy Gaming! 🎰 Remember: the house always wins, but at least you’ll have a drink in hand!*
