@@ -10,13 +10,13 @@ session down.
 """
 
 import logging
-log = logging.getLogger(__name__)
-
 import time
 
 from app.models.game_room import GameRoom
-from engine.drinking_rules import DrinkingRules, classify_rule
+from engine.drinking_rules import classify_rule
 from app.config import MILESTONE_STEP, MILESTONE_TTL
+
+log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +292,6 @@ def harvest_drink_log(session: GameRoom) -> None:
             elif result == "push": ds["pushes"] += 1
     session._dealer_hand_stats = dealer_stats
 
-
     # Win/loss streaks per player.
     # Win round  = net wins  > 0 (won more hands than lost)
     # Loss round = net losses > 0 (lost more hands than won)
@@ -374,3 +373,51 @@ def check_and_set_milestone(session: GameRoom) -> None:
         "handout":    handout_sips,
         "expires_at": time.monotonic() + MILESTONE_TTL,
     }
+
+
+# ---------------------------------------------------------------------------
+# Milestone forfeit
+# ---------------------------------------------------------------------------
+
+def apply_milestone_forfeit(session: GameRoom) -> None:
+    """
+    If the milestone handout window has expired without the winner assigning
+    their sips, penalise the winner with the full handout amount and clear
+    the pending milestone.
+
+    Safe to call on every /state tick — exits immediately if no milestone is
+    pending or the window has not yet closed.
+    """
+    ms = session._pending_milestone
+    if not ms or time.monotonic() < ms["expires_at"]:
+        return
+
+    winner_name = ms["winner"]
+    handout     = ms["handout"]
+    winner_p    = session._get_player(winner_name)
+    if winner_p:
+        winner_p.add_drink(
+            handout,
+            f"Milestone handout forfeited — {winner_name} didn't assign in time: +{handout} sips",
+            "player",
+        )
+        session._sip_ticker[winner_name] = (
+            session._sip_ticker.get(winner_name, 0) + handout
+        )
+        session._last_round_sips[winner_name] = (
+            session._last_round_sips.get(winner_name, 0) + handout
+        )
+        session._last_round_drinks.append({
+            "name":   winner_name,
+            "sips":   handout,
+            "reason": f"Milestone forfeited ({ms['boundary']} sip milestone) — you drink {handout} sips",
+        })
+        log_line = (
+            f"  ⏱ {winner_name} didn't assign the {ms['boundary']}-sip milestone handout "
+            f"in time — drinks {handout} sips\n"
+        )
+        session._log_entries.append(log_line)
+        session._log_version += 1
+        log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
+
+    session._pending_milestone = None

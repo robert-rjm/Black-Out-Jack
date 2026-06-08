@@ -11,32 +11,33 @@ Referee commands: deal, action, result, dealer, fouraces, endround,
                   newround, status, help
 """
 
-import logging
-log = logging.getLogger(__name__)
-
 import contextlib
 import io
+import logging
 import time
 
 from flask import Blueprint, jsonify, request
 
-from engine.blackjack  import Hand
+from engine.blackjack import Hand
 from engine.drinking_rules import DrinkingRules
-from engine.referee    import RefereeSession
-from engine.strategy   import best_play as _best_play
+from engine.referee import RefereeSession
+from engine.strategy import best_play as _best_play
 
-from app.services.session_store  import game_sessions
-from app.services.validators     import is_dealer_client
-from app.services.serializer     import (
+from app.services.session_store import game_sessions
+from app.services.validators import is_dealer_client
+from app.services.serializer import (
     serialize_state, serialize_card,
     round_phase, current_turn,
 )
-from app.services.game_engine    import (
+from app.services.game_engine import (
     deal_card, deal_pending_split_cards,
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
+    bust_vote_pending,
 )
-from app.services.drink_tracker  import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
-from app.services.room_manager   import apply_queued_settings, rotate_dealer, patch_tracker
+from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
+from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker
+
+log = logging.getLogger(__name__)
 
 bp = Blueprint("game_commands", __name__)
 
@@ -213,7 +214,16 @@ def command():
                 game_session._bust_handouts_given  = set()   # clear any stale handouts
                 game_session._bust_handout_expires_at = None
                 initial_deal(game_session)
-                auto_play_npc_turns(game_session)
+                # NPCs always decline the bust side bet — cast their votes immediately
+                # so only human players can hold up the start of play.
+                if game_session.bust_vote_enabled and game_session._bust_vote_expires_at is not None:
+                    for _p in game_session.all_players:
+                        if getattr(_p, "is_npc", False):
+                            game_session._bust_votes[_p.name] = "pass"
+                auto_play_npc_turns(game_session)  # no-op if bust vote still pending
+
+            elif cmd in {"hit", "stand", "double", "split"} and bust_vote_pending(game_session):
+                log.debug("  Waiting for all players to vote on dealer bust before play begins.")
 
             elif cmd == "hit":
                 # hit <player> [hand<n>]
@@ -473,7 +483,13 @@ def command():
                         and time.monotonic() < game_session._bust_vote_expires_at
                     )
                     if _bust_open:
-                        log.debug("\n  (All players done — waiting for bust vote to close before dealer plays)")
+                        # All hands are done — no point holding the dealer for the
+                        # remaining bust-vote window. Expire it now so the next
+                        # /state poll triggers the dealer immediately instead of
+                        # waiting up to 17s (common when player2 is a bot and
+                        # the NPC plays out instantly after the human's last action).
+                        game_session._bust_vote_expires_at = time.monotonic()
+                        log.debug("\n  (All players done — bust vote window closed, dealer plays on next poll)")
                     else:
                         log.debug("\n  (All players done — dealer plays automatically)")
                         dealer_turn(game_session)

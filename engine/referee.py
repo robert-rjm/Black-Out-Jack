@@ -38,6 +38,16 @@ from engine.blackjack import (
     Rank, Suit, Card, Hand, Player
 )
 from engine.drinking_rules import DrinkingRules, DrinkTracker
+from engine.events import (
+    CardDealtEvent,
+    BlackjackEvent,
+    InsuranceResolvedEvent,
+    HandResolvedEvent,
+    AllHandsSweepEvent,
+    DealerHandRevealedEvent,
+    RoundEndEvent,
+    HardDealerSwitchEvent,
+)
 from tabulate import tabulate
 
 
@@ -99,10 +109,13 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
+        self._ace_clubs_flag  = {
+            "protected": False, "partial_protected": False,
+            "half_protected": False, "dealer_player_pending_credit": None,
+        }
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
-        self._initial_dealt   = False # True once all first-deal cards are entered
+        self._initial_dealt   = False  # True once all first-deal cards are entered
         self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
 
         # Tracker — resolves recipients and logs drinks
@@ -158,7 +171,10 @@ class RefereeSession:
                 p.hands     = [Hand() for _ in range(self.num_hands)]
                 p.drink_log = []
 
-        self._ace_clubs_flag  = {"protected": False, "partial_protected": False, "half_protected": False, "dealer_player_pending_credit": None}
+        self._ace_clubs_flag  = {
+            "protected": False, "partial_protected": False,
+            "half_protected": False, "dealer_player_pending_credit": None,
+        }
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
@@ -215,12 +231,12 @@ class RefereeSession:
               f"-> {hand}")
 
         # Fire ace rules immediately
-        msgs = DrinkingRules.on_card_dealt(
-            card, recipient_name, card_pos,
-            self._all_names, self.dealer_name,
-            self._ace_clubs_flag,
+        msgs = DrinkingRules.handle(CardDealtEvent(
+            card=card, recipient=recipient_name, card_pos=card_pos,
+            all_names=self._all_names, dealer_name=self.dealer_name,
+            ace_clubs_flag=self._ace_clubs_flag,
             is_dealer_hand=is_dealer_seat,   # True only for the dealer hand, not betting hands
-        )
+        ))
         for msg in msgs:
             _, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
@@ -279,8 +295,9 @@ class RefereeSession:
         elif action in ("blackjack", "bj"):
             hand.stood = True
             print(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
-            self.tracker.apply(
-                DrinkingRules.on_blackjack(player.name, hand, self._all_names))
+            self.tracker.apply(DrinkingRules.handle(BlackjackEvent(
+                player_name=player.name, hand=hand, all_names=self._all_names,
+            )))
 
         else:
             print(f"  Unknown action '{action}'. Use: double, split, insurance, blackjack")
@@ -305,8 +322,8 @@ class RefereeSession:
             dealer.dealer_hand.bust = True
             print("  Dealer busts. Mark each non-busted player hand as 'win'.")
             # Check dealer suited hand
-            self.tracker.apply(
-                DrinkingRules.on_dealer_hand_revealed(dealer.dealer_hand))
+            self.tracker.apply(DrinkingRules.handle(
+                DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
             return
 
         player = self._get_player(player_name)
@@ -322,7 +339,9 @@ class RefereeSession:
             dealer    = self._get_dealer()
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
             if hand.is_blackjack() and outcome == "win" and not hand.insured:
-                self.tracker.apply(DrinkingRules.on_blackjack(player.name, hand, self._all_names))
+                self.tracker.apply(DrinkingRules.handle(BlackjackEvent(
+                    player_name=player.name, hand=hand, all_names=self._all_names,
+                )))
             # Buffer on_hand_resolved — fired at endround once hard_switch is known
             self._pending_resolved.append((player.name, hand, dealer_bj))
         elif outcome == "bust":
@@ -345,14 +364,14 @@ class RefereeSession:
 
         if sub == "final":
             # Trigger dealer-suited-hand check
-            self.tracker.apply(
-                DrinkingRules.on_dealer_hand_revealed(dealer.dealer_hand))
+            self.tracker.apply(DrinkingRules.handle(
+                DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
             print(f"  Dealer final hand checked: {dealer.dealer_hand}")
 
         elif sub == "bust":
             dealer.dealer_hand.bust = True
-            self.tracker.apply(
-                DrinkingRules.on_dealer_hand_revealed(dealer.dealer_hand))
+            self.tracker.apply(DrinkingRules.handle(
+                DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
             print("  Dealer bust registered.")
 
         elif sub == "blackjack":
@@ -402,10 +421,10 @@ class RefereeSession:
 
         # Fire buffered on_hand_resolved calls — now we know if it's a hard switch
         for p_name, hand, dealer_bj_at_time in self._pending_resolved:
-            self.tracker.apply(
-                DrinkingRules.on_hand_resolved(p_name, hand, self._all_names,
-                                               dealer_bj=dealer_bj_at_time,
-                                               dealer_name=exempt_dealer))
+            self.tracker.apply(DrinkingRules.handle(HandResolvedEvent(
+                player_name=p_name, hand=hand, all_names=self._all_names,
+                dealer_bj=dealer_bj_at_time, dealer_name=exempt_dealer,
+            )))
         self._pending_resolved = []
 
         if hard_switch and not getattr(self, "_hard_switch_drinking_applied", False):
@@ -418,10 +437,10 @@ class RefereeSession:
                 if partial_protected and not protected
                 else winning
             )
-            self.tracker.apply(
-                DrinkingRules.on_hard_dealer_switch(
-                    self.dealer_name, hs_for_penalty, protected,
-                    half_protected=half_protected))
+            self.tracker.apply(DrinkingRules.handle(HardDealerSwitchEvent(
+                dealer_name=self.dealer_name, winning_hands=hs_for_penalty,
+                protected=protected, half_protected=half_protected,
+            )))
             # If A♣ protected, add display-only +/- entries so the
             # drinks summary panel shows what was waived.
             if protected and winning:
@@ -456,11 +475,11 @@ class RefereeSession:
                 continue
             for hand in p.hands:
                 if hand.is_blackjack() and getattr(hand, "insured", False):
-                    self.tracker.apply(
-                        DrinkingRules.resolve_insurance_vote(
-                            p.name, hand, self._all_names,
-                            insured=True, dealer_bj=dealer_bj,
-                            hard_switch_dealer=exempt_dealer))
+                    self.tracker.apply(DrinkingRules.handle(InsuranceResolvedEvent(
+                        player_name=p.name, hand=hand, all_names=self._all_names,
+                        insured=True, dealer_bj=dealer_bj,
+                        hard_switch_dealer=exempt_dealer,
+                    )))
                     self._insurance_result.append({
                         "player":    p.name,
                         "insured":   True,
@@ -475,11 +494,11 @@ class RefereeSession:
                 if p.is_dealer:
                     continue
                 try:
-                    self.tracker.apply(
-                        DrinkingRules.check_all_hands_sweep(
-                            p.name, p.hands, self._all_names, self.wager,
-                            dealer_name=self.dealer_name if hard_switch else "",
-                            dealer_bj=dealer_bj))
+                    self.tracker.apply(DrinkingRules.handle(AllHandsSweepEvent(
+                        player_name=p.name, player_hands=p.hands, all_names=self._all_names,
+                        wager=self.wager, dealer_name=self.dealer_name if hard_switch else "",
+                        dealer_bj=dealer_bj,
+                    )))
                 except Exception as e:
                     print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
         if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
@@ -490,10 +509,11 @@ class RefereeSession:
                 )
         if dealer_bj:
             print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
-        self.tracker.apply(DrinkingRules.on_round_end(
-            players, w, dealer_bj=dealer_bj,
+        self.tracker.apply(DrinkingRules.handle(RoundEndEvent(
+            players=players, wager=w, dealer_bj=dealer_bj,
             hard_switch_dealer=self.dealer_name if hard_switch else "",
-            num_hands=self.num_hands))
+            num_hands=self.num_hands,
+        )))
 
         # Ace-of-clubs credits (regular players)
         for name in self._ace_credits:
@@ -751,5 +771,7 @@ def main():
 
         else:
             print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
+
+
 if __name__ == "__main__":
     main()

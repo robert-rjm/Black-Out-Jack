@@ -13,22 +13,23 @@ POST /vote_insurance  — Player casts their insurance vote
 POST /give_bust_sip   — Bust vote winner hands out their 1-sip reward
 """
 
-import logging
 import contextlib
 import io
-log = logging.getLogger(__name__)
+import logging
+import time as _time
 
 from flask import Blueprint, jsonify, request
 
 from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
-import time as _time
+from app.services.validators import sanitize_name, is_dealer_client
+from app.services.serializer import serialize_state, round_phase
+from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties, apply_milestone_forfeit
+from app.services.game_engine import dealer_turn, auto_play_npc_turns
+
+log = logging.getLogger(__name__)
 
 _last_cleanup: float = 0.0
 _CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
-from app.services.validators    import sanitize_name, is_dealer_client
-from app.services.serializer    import serialize_state, round_phase
-from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties
-from app.services.game_engine   import dealer_turn
 
 bp = Blueprint("polling", __name__)
 
@@ -91,41 +92,14 @@ def state():
 
         # Milestone forfeit: if the handout window expired without the winner submitting,
         # the full handout sip total comes back on them.
-        ms = session._pending_milestone
-        if ms and _now >= ms["expires_at"]:
-            winner_name = ms["winner"]
-            handout     = ms["handout"]
-            winner_p    = session._get_player(winner_name)
-            if winner_p:
-                winner_p.add_drink(
-                    handout,
-                    f"Milestone handout forfeited — {winner_name} didn't assign in time: +{handout} sips",
-                    "player",
-                )
-                session._sip_ticker[winner_name] = (
-                    session._sip_ticker.get(winner_name, 0) + handout
-                )
-                session._last_round_sips[winner_name] = (
-                    session._last_round_sips.get(winner_name, 0) + handout
-                )
-                session._last_round_drinks.append({
-                    "name":   winner_name,
-                    "sips":   handout,
-                    "reason": f"Milestone forfeited ({ms['boundary']} sip milestone) — you drink {handout} sips",
-                })
-                log_line = (
-                    f"  ⏱ {winner_name} didn't assign the {ms['boundary']}-sip milestone handout "
-                    f"in time — drinks {handout} sips\n"
-                )
-                session._log_entries.append(log_line)
-                session._log_version = session._log_version + 1
-                log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
-            session._pending_milestone = None
+        apply_milestone_forfeit(session)
 
-        # Deferred dealer auto-play: fire when bust vote window has expired
-        # and the round is still waiting for the dealer (dealer-ready phase).
+        # When the bust-vote window expires (or all players have voted), unblock
+        # any NPC turns that were held and then let the dealer play if ready.
         if (session._bust_vote_expires_at is not None
                 and _now >= session._bust_vote_expires_at):
+            if round_phase(session) == "playing":
+                auto_play_npc_turns(session)   # unblock NPCs held by pending vote
             _run_deferred_dealer_play(session)
 
     return jsonify(serialize_state(session, client_id))
@@ -330,6 +304,10 @@ def handle_registration():
         )
         if claimed_player and getattr(claimed_player, "is_npc", False):
             claimed_player.is_npc = False
+            # Clear the bot's auto-voted "pass" so the new human can vote
+            # if the bust-vote window is still open.
+            if session._bust_votes.get(claimed_player.name) == "pass":
+                session._bust_votes.pop(claimed_player.name, None)
         # Seat is now claimed — remove from admin's local_names
         for info in session._room_clients.values():
             if info.get("role") == "admin":
@@ -567,13 +545,15 @@ def cast_bust_vote():
 
     session._bust_votes[voter_name] = vote
 
-    # If every human non-dealer player has now voted, no need to wait for the
-    # timer — run the deferred dealer play immediately.
+    # If every human non-dealer player has now voted, unblock NPC auto-play
+    # (NPCs were holding off waiting for humans) then let the dealer run if ready.
     _human_players = [
         p for p in session.all_players
-        if not getattr(p, "is_npc", False) and not getattr(p, "is_dealer", False)
+        if not getattr(p, "is_npc", False)
     ]
     if _human_players and all(session._bust_votes.get(p.name) is not None for p in _human_players):
+        if round_phase(session) == "playing":
+            auto_play_npc_turns(session)
         _run_deferred_dealer_play(session)
 
     return jsonify({**serialize_state(session, client_id), "ok": True})

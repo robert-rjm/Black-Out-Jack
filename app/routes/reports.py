@@ -140,11 +140,13 @@ def export_csv():
         w.writerow([f"As dealer: {dt}",     f"Push: {hs['pushes']} ({_pct(hs['pushes'], h)})" if h else ""])
         w.writerow([
             f"Sips/round: {gt/num_rounds:.2f}",
-            f"Splits won: {hs['split_wins']} of {hs['split_hands']} ({_pct(hs['split_wins'], hs['split_hands'])})" if h and hs["split_hands"] else ""
+            (f"Splits won: {hs['split_wins']} of {hs['split_hands']}"
+             f" ({_pct(hs['split_wins'], hs['split_hands'])})" if h and hs["split_hands"] else "")
         ])
         w.writerow([
             f"Hands: {h}" if h else "Hands: 0",
-            f"Doubles won: {hs['double_wins']} of {hs['double_hands']} ({_pct(hs['double_wins'], hs['double_hands'])})" if h and hs["double_hands"] else ""
+            (f"Doubles won: {hs['double_wins']} of {hs['double_hands']}"
+             f" ({_pct(hs['double_wins'], hs['double_hands'])})" if h and hs["double_hands"] else "")
         ])
         w.writerow(["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
         player_rules = [(rule, player_sips[name].get(rule, 0) + dealer_sips[name].get(rule, 0)) for rule in all_rules]

@@ -189,33 +189,6 @@ def compute_dealer_role_sips(session: GameRoom) -> dict:
     return ticker
 
 
-def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> dict:
-    """Serialize one insurance vote entry.
-
-    insure_count / decline_count are exposed as soon as every eligible player
-    has cast a vote — not gated on `resolved` (which only flips after the 60s
-    timeout). This means the banner can show the correct result immediately
-    when the last vote comes in rather than always defaulting to "DECLINE".
-    """
-    bj_player    = v["player"]
-    votes_needed = sum(1 for p in session.all_players
-                       if p.name.lower() != bj_player.lower())
-    votes_cast   = len(v["votes"])
-    counts_ready = v["resolved"] or votes_cast >= votes_needed
-    return {
-        "bj_player":    bj_player,
-        "hand_idx":     v["hand_idx"],
-        "resolved":     v["resolved"],
-        "my_vote":      v["votes"].get(client_info.get("name") or "", None),
-        "votes_cast":   votes_cast,
-        "votes_needed": votes_needed,
-        "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
-        "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
-        "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
-        "votes_cast_by": list(v["votes"].keys()),
-    }
-
-
 def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | None:
     """
     Return the basic-strategy best action ('h'|'s'|'d'|'sp') for the
@@ -260,12 +233,13 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
     votes_cast   = len(v["votes"])
     counts_ready = v["resolved"] or votes_cast >= votes_needed
     return {
-        "bj_player":    bj_player,
-        "hand_idx":     v["hand_idx"],
-        "resolved":     v["resolved"],
-        "my_vote":      v["votes"].get(client_info.get("name") or "", None),
-        "votes_cast":   votes_cast,
-        "votes_needed": votes_needed,
+        "bj_player":      bj_player,
+        "hand_idx":       v["hand_idx"],
+        "resolved":       v["resolved"],
+        "my_vote":        v["votes"].get(client_info.get("name") or "", None),
+        "votes_cast":     votes_cast,
+        "votes_needed":   votes_needed,
+        "votes_cast_by":  dict(v["votes"]),   # {voter_name: bool} — local multiplayer uses this to advance seats
         "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
         "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
         "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
@@ -351,9 +325,6 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     return {
         "ok":              True,
         "round":           session.round_count,
-        "hand_stats":      hand_stats,
-        "max_round_sips":  dict(session._max_round_sips),
-        "dealer_bust_rounds": session._dealer_bust_rounds,
         "dealer":          session.dealer_name,
         "players":         [p.name for p in session.all_players],
         "num_hands":       session.num_hands,
@@ -379,7 +350,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "sip_grand_total":        sum(sip_totals.values()),
         "round_over_seq":         session._round_over_seq,
         # KPI panel data
-        "hand_stats":             dict(session._hand_stats),
+        "hand_stats":             hand_stats,
         "strategy_decisions":     dict(session._strategy_decisions),
         "streaks":                dict(session._streaks),
         "max_round_sips":         dict(session._max_round_sips),
@@ -414,7 +385,6 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ),
         "anim_default":           session._anim_default,
         "bust_vote_enabled":      session.bust_vote_enabled,
-        "god_mode_enabled":       session._god_mode,
         "god_mode_enabled":       session._god_mode,
         "bust_votes":             dict(session._bust_votes),
         "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
@@ -474,7 +444,6 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ),
         "queued_settings":        session._queued_settings,
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
-        "num_decks":              session.shoe.num_decks if session.shoe else 1,
         "last_milestone_result":  (lambda r: {
             "winner":      r["winner"],
             "boundary":    r["boundary"],
@@ -497,4 +466,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             _serialize_insurance_vote(v, session, _ci)
             for v in session._insurance_votes
         ],
+        # Monotonically increasing token (µs since process start).
+        # The frontend drops any applyState() call whose state_seq is older
+        # than the last one it applied — prevents stale poll responses from
+        # overwriting fresher command/preselect responses.
+        "state_seq":              int(time.monotonic() * 1_000_000),
     }

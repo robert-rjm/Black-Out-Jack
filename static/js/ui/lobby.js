@@ -110,27 +110,47 @@ function backToLobby() {
 // ============================================================
 // POLLING — keep all players in sync
 // ============================================================
+
+// Fast interval during active play so end-of-round appears promptly for all clients.
+// Slow interval during pre-deal and round-over where nothing is time-sensitive.
+const POLL_INTERVAL_FAST =  800;   // ms — used while phase is "playing" or "dealer-ready"
+const POLL_INTERVAL_SLOW = 2000;   // ms — used during "pre-deal", "round-over", or unknown
+
+function _pollInterval() {
+  const phase = lastState && lastState.phase;
+  return (phase === "playing" || phase === "dealer-ready")
+    ? POLL_INTERVAL_FAST
+    : POLL_INTERVAL_SLOW;
+}
+
 function startPolling() {
   stopPolling();
-  pollTimer = setInterval(async () => {
-    if (!roomCode) return;
-    try {
-      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
-    } catch (_) {}
-  }, 2000);
+  const tick = async () => {
+    // Skip the fetch while a game-action request is in flight — the command
+    // response will call applyState with fresher (higher state_seq) data.
+    if (roomCode && _requestsInFlight === 0) {
+      try {
+        const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
+        const res  = await fetch(url);
+        const data = await res.json();
+        if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
+      } catch (_) {}
+    }
+    // Reschedule — interval adapts automatically to the latest phase.
+    pollTimer = setTimeout(tick, _pollInterval());
+  };
+  pollTimer = setTimeout(tick, _pollInterval());
 }
 
 function stopPolling() {
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
 }
 
 // Safari throttles timers aggressively when the tab is backgrounded or the
 // screen locks. Force an immediate re-poll the moment the user comes back.
+// Skip if a request is already in flight — we'll get fresh state from it.
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && roomCode) {
+  if (!document.hidden && roomCode && _requestsInFlight === 0) {
     fetch(`/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`)
       .then(r => r.json())
       .then(data => { if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); } })
