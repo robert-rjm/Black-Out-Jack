@@ -436,25 +436,31 @@ function applyState(state) {
   if (state.prev_round_sips !== undefined)  _prevRoundSips  = state.prev_round_sips  || {};
   if (state.prev_round_drinks !== undefined) _prevRoundDrinks = state.prev_round_drinks || [];
 
-  // Player drink toast — seq-based so it fires even if the poll misses the round-over phase.
-  // Fires for all registered non-spectator players whenever a new round ends.
+  // One-shot round-end effects — all gated on round_over_seq so a duplicate
+  // or late poll (backgrounded tab, slow network) can never re-fire them.
+  // prevPhase checks were unreliable: if lastState was stale when applyState
+  // ran, prevPhase could be wrong and toasts would fire twice or not at all.
   const newRoundOverSeq = state.round_over_seq || 0;
-  if (newRoundOverSeq > _lastRoundOverSeq && myNames.length > 0 && myRole !== "spectator") {
-    myNames.forEach(n => showPlayerDrinkToast(_lastRoundSips[n] || 0, n));
+  const isNewRoundOver  = newRoundOverSeq > _lastRoundOverSeq;
+  if (isNewRoundOver) {
+    // Player drink toast (registered non-spectators only)
+    if (myNames.length > 0 && myRole !== "spectator") {
+      myNames.forEach(n => showPlayerDrinkToast(_lastRoundSips[n] || 0, n));
+    }
+    // Switch toast — hard/soft dealer switch (visible to all)
+    if (state.switch_this_round) {
+      showSwitchToast(state.switch_this_round, state.dealer || "Dealer");
+    }
+    // Bust vote result toast (visible to all)
+    if (state.bust_vote_result) {
+      showBustVoteToast(state.bust_vote_result);
+    }
+    // Insurance result toast (visible to all)
+    if (state.insurance_result && state.insurance_result.length) {
+      showInsuranceToast(state.insurance_result);
+    }
   }
   _lastRoundOverSeq = Math.max(_lastRoundOverSeq, newRoundOverSeq);
-  // Switch toast — fires on round-over with hard/soft switch (visible to all)
-  if (prevPhase !== "round-over" && state.phase === "round-over" && state.switch_this_round) {
-    showSwitchToast(state.switch_this_round, state.dealer || "Dealer");
-  }
-  // Bust vote toast — fires on round-over when votes were cast (visible to all)
-  if (prevPhase !== "round-over" && state.phase === "round-over" && state.bust_vote_result) {
-    showBustVoteToast(state.bust_vote_result);
-  }
-  // Insurance result toast — fires on round-over when any group insurance vote resolved
-  if (prevPhase !== "round-over" && state.phase === "round-over" && state.insurance_result && state.insurance_result.length) {
-    showInsuranceToast(state.insurance_result);
-  }
 
   // Detect bust vote window closing — flush any toasts that were queued during it.
   const _prevBustOpen = lastState && lastState.bust_vote_window_open;
