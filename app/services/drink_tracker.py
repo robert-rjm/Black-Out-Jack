@@ -125,6 +125,9 @@ def harvest_drink_log(session: GameRoom) -> None:
             })
     session._drink_csv_rows = rows
 
+    if session._drink_log_harvested:
+        return  # already harvested this round — do not double-count
+
     # Live sip ticker — cumulative net totals across all rounds (credits reduce total)
     ticker = session._sip_ticker
     for p in session.all_players:
