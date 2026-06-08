@@ -13,8 +13,8 @@ import time as _time
 import logging
 
 log = logging.getLogger(__name__)
-from blackjack import Hand, HandEvaluator, NPC_Player
-from drinking_rules import DrinkingRules
+from engine.blackjack import Hand, HandEvaluator, NPC_Player
+from engine.drinking_rules import DrinkingRules
 
 from app.models.game_room import GameRoom
 from app.services.serializer import hand_done, round_phase, current_turn
