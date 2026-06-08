@@ -54,7 +54,7 @@ Black-Out-Jack/
 │   │   └── ui/                  # lobby.js, setup.js, animation.js, config.js, bootstrap.js
 │   │                            # table.js, table-modals.js, table-render.js
 │   │                            # log.js, kpi.js, admin.js, admin-settings.js
-│   └── logo.png                 # Home screen icon (iOS & Android)
+│   └── Logo-BlackOutJack.png    # App logo and home screen icon (iOS & Android)
 ├── templates/
 │   ├── index.html               # Mobile-first browser UI
 │   └── partials/index/*.html    # Composable UI sections
