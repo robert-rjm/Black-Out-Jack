@@ -16,7 +16,7 @@ import time
 
 from app.models.game_room import GameRoom
 from drinking_rules import DrinkingRules, classify_rule
-from app.config import MILESTONE_STEP, MILESTONE_HANDOUT_SIPS, MILESTONE_TTL
+from app.config import MILESTONE_STEP, MILESTONE_TTL
 
 
 # ---------------------------------------------------------------------------
@@ -333,6 +333,11 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     Each boundary fires only once (tracked in session._milestones_claimed).
     """
+    # Never overwrite an active unresolved milestone — the winner gets to hand
+    # out their sips before we fire the next one.
+    if session._pending_milestone:
+        return
+
     ticker  = session._sip_ticker
     last    = session._last_round_sips
     claimed = session._milestones_claimed
@@ -358,11 +363,14 @@ def check_and_set_milestone(session: GameRoom) -> None:
     candidates.sort(key=lambda t: (t[0], t[1].lower()))
     _round_sips, winner = candidates[0]
 
+    # Handout scales: 5 sips at the 50 boundary, +1 per additional step
+    handout_sips = 4 + boundary // MILESTONE_STEP
+
     claimed[boundary] = winner
     session._milestones_claimed = claimed
     session._pending_milestone  = {
         "boundary":   boundary,
         "winner":     winner,
-        "handout":    MILESTONE_HANDOUT_SIPS,
+        "handout":    handout_sips,
         "expires_at": time.monotonic() + MILESTONE_TTL,
     }
