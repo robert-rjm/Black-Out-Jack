@@ -464,12 +464,20 @@ def command():
                 deal_pending_split_cards(game_session)
                 auto_play_npc_turns(game_session)
                 if round_phase(game_session) == "dealer-ready":
-                    print("\n  (All players done — dealer plays automatically)")
-                    dealer_turn(game_session)
-                    game_session.cmd_endround()
-                    apply_bust_vote_penalties(game_session)
-                    harvest_drink_log(game_session)
-                    check_and_set_milestone(game_session)
+                    _bust_open = (
+                        game_session.bust_vote_enabled
+                        and game_session._bust_vote_expires_at is not None
+                        and time.monotonic() < game_session._bust_vote_expires_at
+                    )
+                    if _bust_open:
+                        print("\n  (All players done — waiting for bust vote to close before dealer plays)")
+                    else:
+                        print("\n  (All players done — dealer plays automatically)")
+                        dealer_turn(game_session)
+                        game_session.cmd_endround()
+                        apply_bust_vote_penalties(game_session)
+                        harvest_drink_log(game_session)
+                        check_and_set_milestone(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
