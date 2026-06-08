@@ -24,7 +24,7 @@ from app.services.session_store import game_sessions, _room_last_access, cleanup
 from app.services.validators import sanitize_name, is_dealer_client
 from app.services.serializer import serialize_state, round_phase
 from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties
-from app.services.game_engine import dealer_turn
+from app.services.game_engine import dealer_turn, auto_play_npc_turns, bust_vote_pending
 
 log = logging.getLogger(__name__)
 
@@ -123,10 +123,12 @@ def state():
                 log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
             session._pending_milestone = None
 
-        # Deferred dealer auto-play: fire when bust vote window has expired
-        # and the round is still waiting for the dealer (dealer-ready phase).
+        # When the bust-vote window expires (or all players have voted), unblock
+        # any NPC turns that were held and then let the dealer play if ready.
         if (session._bust_vote_expires_at is not None
                 and _now >= session._bust_vote_expires_at):
+            if round_phase(session) == "playing":
+                auto_play_npc_turns(session)   # unblock NPCs held by pending vote
             _run_deferred_dealer_play(session)
 
     return jsonify(serialize_state(session, client_id))
@@ -568,13 +570,15 @@ def cast_bust_vote():
 
     session._bust_votes[voter_name] = vote
 
-    # If every human non-dealer player has now voted, no need to wait for the
-    # timer — run the deferred dealer play immediately.
+    # If every human non-dealer player has now voted, unblock NPC auto-play
+    # (NPCs were holding off waiting for humans) then let the dealer run if ready.
     _human_players = [
         p for p in session.all_players
-        if not getattr(p, "is_npc", False) and not getattr(p, "is_dealer", False)
+        if not getattr(p, "is_npc", False)
     ]
     if _human_players and all(session._bust_votes.get(p.name) is not None for p in _human_players):
+        if round_phase(session) == "playing":
+            auto_play_npc_turns(session)
         _run_deferred_dealer_play(session)
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
