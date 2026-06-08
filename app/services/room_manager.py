@@ -9,6 +9,9 @@ session_store. The route layer owns the store lookup and passes the
 session down.
 """
 
+import logging
+log = logging.getLogger(__name__)
+
 import contextlib
 import io
 
@@ -40,17 +43,18 @@ def patch_tracker(session: RefereeSession) -> None:
     web server never blocks waiting for terminal input.
     """
     tracker = session.tracker
+    tracker.verbose = False  # suppress terminal prints in web context
 
     def web_handout(giver: str, total: int, reason: str):
-        print(f"    [drink] {reason}")
+        log.debug(f"    [drink] {reason}")
         others = [p for p in tracker.players if p.name.lower() != giver.lower()]
         if not others:
             return
-        print(f"    {giver} auto-distributes {total} sip(s) round-robin")
+        log.debug(f"    {giver} auto-distributes {total} sip(s) round-robin")
         for i in range(total):
             t = others[i % len(others)]
             t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)", "player")
-            print(f"    -> {t.name} +1 sip")
+            log.debug(f"    -> {t.name} +1 sip")
 
     tracker._handle_handout = web_handout
 
@@ -144,4 +148,4 @@ def rotate_dealer(session: GameRoom) -> None:
         p.is_dealer   = (p.name == new_dealer)
         p.dealer_hand = Hand() if p.is_dealer else None
     session.dealer_name = new_dealer
-    print(f"  Dealer rotates => {new_dealer} is now dealer.")
+    log.debug(f"  Dealer rotates => {new_dealer} is now dealer.")

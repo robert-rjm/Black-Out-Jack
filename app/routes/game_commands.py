@@ -11,6 +11,9 @@ Referee commands: deal, action, result, dealer, fouraces, endround,
                   newround, status, help
 """
 
+import logging
+log = logging.getLogger(__name__)
+
 import contextlib
 import io
 import time
@@ -43,7 +46,7 @@ bp = Blueprint("game_commands", __name__)
 # ---------------------------------------------------------------------------
 
 def _print_digital_help():
-    print("""
+    log.debug("""
   DIGITAL MODE COMMANDS
   =====================
   deal
@@ -215,67 +218,67 @@ def command():
             elif cmd == "hit":
                 # hit <player> [hand<n>]
                 if len(parts) < 2:
-                    print("  Usage: hit <player> [hand<n>]")
+                    log.debug("  Usage: hit <player> [hand<n>]")
                 else:
                     player = game_session._get_player(parts[1])
                     if not player:
-                        print(f"  Unknown player '{parts[1]}'.")
+                        log.debug(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = get_player_hand(player, hand_label)
                         if hand.stood or hand.bust:
-                            print(f"  {player.name} {hand_label} is already done.")
+                            log.debug(f"  {player.name} {hand_label} is already done.")
                         else:
                             _record_strategy_decision(game_session, player, hand, "h")
                             card = deal_card(game_session, hand, player.name)
-                            print(f"  {player.name} {hand_label} hits {card}: {hand}")
+                            log.debug(f"  {player.name} {hand_label} hits {card}: {hand}")
                             if hand.is_bust():
                                 hand.bust = hand.stood = True
                                 hand.result = "loss"
-                                print("  BUST!")
+                                log.debug("  BUST!")
                             elif hand.score() == 21:
                                 hand.stood = True
-                                print(f"  {player.name} {hand_label}: auto-stands at 21.")
+                                log.debug(f"  {player.name} {hand_label}: auto-stands at 21.")
 
             elif cmd == "stand":
                 # stand <player> [hand<n>]
                 if len(parts) < 2:
-                    print("  Usage: stand <player> [hand<n>]")
+                    log.debug("  Usage: stand <player> [hand<n>]")
                 else:
                     player = game_session._get_player(parts[1])
                     if not player:
-                        print(f"  Unknown player '{parts[1]}'.")
+                        log.debug(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = get_player_hand(player, hand_label)
                         if hand.stood or hand.bust:
-                            print(f"  {player.name} {hand_label} is already done.")
+                            log.debug(f"  {player.name} {hand_label} is already done.")
                         else:
                             _record_strategy_decision(game_session, player, hand, "s")
                             hand.stood = True
-                            print(f"  {player.name} {hand_label}: stands at {hand.score()}.")
+                            log.debug(f"  {player.name} {hand_label}: stands at {hand.score()}.")
 
             elif cmd == "double":
                 # double <player> [hand<n>]
                 if len(parts) < 2:
-                    print("  Usage: double <player> [hand<n>]")
+                    log.debug("  Usage: double <player> [hand<n>]")
                 else:
                     player = game_session._get_player(parts[1])
                     if not player:
-                        print(f"  Unknown player '{parts[1]}'.")
+                        log.debug(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = get_player_hand(player, hand_label)
                         if len(hand.cards) != 2:
-                            print("  Can only double on first two cards.")
+                            log.debug("  Can only double on first two cards.")
                         elif hand.stood or hand.bust:
-                            print(f"  {player.name} {hand_label} is already done.")
+                            log.debug(f"  {player.name} {hand_label} is already done.")
                         else:
                             _record_strategy_decision(game_session, player, hand, "d")
                             hand.doubled = True
                             deal_card(game_session, hand, player.name)
                             hand.stood   = True
-                            print(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
+                            log.debug(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
                             if hand.is_bust():
                                 hand.bust = True
                                 hand.result = "loss"
@@ -283,11 +286,11 @@ def command():
             elif cmd == "split":
                 # split <player> [hand<n>]
                 if len(parts) < 2:
-                    print("  Usage: split <player> [hand<n>]")
+                    log.debug("  Usage: split <player> [hand<n>]")
                 else:
                     player = game_session._get_player(parts[1])
                     if not player:
-                        print(f"  Unknown player '{parts[1]}'.")
+                        log.debug(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = get_player_hand(player, hand_label)
@@ -297,9 +300,9 @@ def command():
                             if (len(hand.cards) == 2
                                     and hand.cards[0].rank.blackjack_value == hand.cards[1].rank.blackjack_value
                                     and hand.split_count >= Hand.MAX_SPLITS):
-                                print(f"  Max splits reached ({Hand.MAX_SPLITS} splits per hand).")
+                                log.debug(f"  Max splits reached ({Hand.MAX_SPLITS} splits per hand).")
                             else:
-                                print("  Cannot split this hand.")
+                                log.debug("  Cannot split this hand.")
                         else:
                             _record_strategy_decision(game_session, player, hand, "sp")
                             # Move second card to new hand (no second cards dealt yet)
@@ -315,33 +318,33 @@ def command():
                             deal_card(game_session, hand, player.name)
                             if hand.score() == 21:
                                 hand.stood = True
-                                print(f"  {player.name} splits:")
-                                print(f"    {hand_label}: {hand}  (21 — auto-stands)")
-                                print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+                                log.debug(f"  {player.name} splits:")
+                                log.debug(f"    {hand_label}: {hand}  (21 — auto-stands)")
+                                log.debug(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
                             elif hand.is_bust():
                                 hand.bust = hand.stood = True
                                 hand.result = "loss"
-                                print(f"  {player.name} splits:")
-                                print(f"    {hand_label}: {hand}  BUST!")
-                                print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+                                log.debug(f"  {player.name} splits:")
+                                log.debug(f"    {hand_label}: {hand}  BUST!")
+                                log.debug(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
                             else:
-                                print(f"  {player.name} splits:")
-                                print(f"    {hand_label}: {hand}  ← play this hand first")
-                                print(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+                                log.debug(f"  {player.name} splits:")
+                                log.debug(f"    {hand_label}: {hand}  ← play this hand first")
+                                log.debug(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
 
             elif cmd == "insurance":
                 # insurance <player> [hand<n>]
                 if len(parts) < 2:
-                    print("  Usage: insurance <player> [hand<n>]")
+                    log.debug("  Usage: insurance <player> [hand<n>]")
                 else:
                     player = game_session._get_player(parts[1])
                     if not player:
-                        print(f"  Unknown player '{parts[1]}'.")
+                        log.debug(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = get_player_hand(player, hand_label)
                         if not hand.is_blackjack():
-                            print("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
+                            log.debug("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                         else:
                             hand.insured = True
                             # Sync with the vote system: force all voters' votes to True so
@@ -357,16 +360,16 @@ def command():
                                 voters = [x for x in game_session.all_players if x.name != player.name]
                                 for x in voters:
                                     vote_entry["votes"][x.name] = True
-                            print(f"  {player.name} {hand_label}: insured.")
+                            log.debug(f"  {player.name} {hand_label}: insured.")
 
             elif cmd == "blackjack":
                 # blackjack <player> [hand<n>] — confirm natural BJ, fire drink rules
                 if len(parts) < 2:
-                    print("  Usage: blackjack <player> [hand<n>]")
+                    log.debug("  Usage: blackjack <player> [hand<n>]")
                 else:
                     player = game_session._get_player(parts[1])
                     if not player:
-                        print(f"  Unknown player '{parts[1]}'.")
+                        log.debug(f"  Unknown player '{parts[1]}'.")
                     else:
                         hand_label = parts[2] if len(parts) > 2 else "hand1"
                         hand       = get_player_hand(player, hand_label)
@@ -374,7 +377,7 @@ def command():
                         all_names  = [p.name for p in game_session.all_players]
                         game_session.tracker.apply(
                             DrinkingRules.on_blackjack(player.name, hand, all_names))
-                        print(f"  {player.name} BLACKJACK confirmed.")
+                        log.debug(f"  {player.name} BLACKJACK confirmed.")
 
             elif cmd == "peek":
                 # Toggle: hide peeked card if already shown, otherwise reveal it
@@ -382,14 +385,14 @@ def command():
                 if game_session._last_peeked:
                     # Already showing — toggle off
                     game_session._last_peeked = None
-                    print("  Next card hidden.")
+                    log.debug("  Next card hidden.")
                 elif shoe and shoe.cards:
                     card = shoe.cards[-1]   # pop() takes from the end
-                    print(f"  Next card in shoe: {card}")
-                    print(f"  ({len(shoe.cards)} cards remaining)")
+                    log.debug(f"  Next card in shoe: {card}")
+                    log.debug(f"  ({len(shoe.cards)} cards remaining)")
                     game_session._last_peeked = serialize_card(card)
                 else:
-                    print("  Shoe is empty or not available.")
+                    log.debug("  Shoe is empty or not available.")
                     game_session._last_peeked = None
 
             elif cmd == "dealer":
@@ -411,7 +414,7 @@ def command():
                 # Apply queued settings before the round starts
                 setting_changes = apply_queued_settings(game_session)
                 for msg in setting_changes:
-                    print(f"  ⚙️  {msg}")
+                    log.debug(f"  ⚙️  {msg}")
                 if rotate:
                     rotate_dealer(game_session)
                     game_session.rounds_this_dealer = 1
@@ -439,7 +442,7 @@ def command():
                 game_session._pending_milestone = None  # clear between rounds
                 if game_session.drinking_mode or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
-                    print("  Shoe reshuffled.")
+                    log.debug("  Shoe reshuffled.")
                 game_session.start_round()
                 patch_tracker(game_session)
 
@@ -450,7 +453,7 @@ def command():
                 _print_digital_help()
 
             else:
-                print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
+                log.debug(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
             # Clear the pre-selection for the player whose action just executed
             if cmd in {"hit", "stand", "double", "split"} and len(parts) >= 2:
@@ -470,9 +473,9 @@ def command():
                         and time.monotonic() < game_session._bust_vote_expires_at
                     )
                     if _bust_open:
-                        print("\n  (All players done — waiting for bust vote to close before dealer plays)")
+                        log.debug("\n  (All players done — waiting for bust vote to close before dealer plays)")
                     else:
-                        print("\n  (All players done — dealer plays automatically)")
+                        log.debug("\n  (All players done — dealer plays automatically)")
                         dealer_turn(game_session)
                         game_session.cmd_endround()
                         apply_bust_vote_penalties(game_session)
@@ -508,7 +511,7 @@ def command():
                 # Apply queued settings before the round starts
                 setting_changes = apply_queued_settings(game_session)
                 for msg in setting_changes:
-                    print(f"  ⚙️  {msg}")
+                    log.debug(f"  ⚙️  {msg}")
                 if rotate:
                     rotate_dealer(game_session)
                     game_session.rounds_this_dealer = 1
@@ -543,7 +546,7 @@ def command():
                 RefereeSession.print_help()
 
             else:
-                print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
+                log.debug(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
     output = buf.getvalue()
     # Append to the shared log so polling clients see this output too.

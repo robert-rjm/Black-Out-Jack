@@ -13,6 +13,11 @@ POST /vote_insurance  — Player casts their insurance vote
 POST /give_bust_sip   — Bust vote winner hands out their 1-sip reward
 """
 
+import logging
+import contextlib
+import io
+log = logging.getLogger(__name__)
+
 from flask import Blueprint, jsonify, request
 
 from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
@@ -39,9 +44,10 @@ def _run_deferred_dealer_play(session):
     if (session._bust_vote_expires_at is not None
             and _time.monotonic() < session._bust_vote_expires_at):
         return
-    print("\n  (Bust vote closed — dealer plays automatically)")
+    log.debug("\n  (Bust vote closed — dealer plays automatically)")
     dealer_turn(session)
-    session.cmd_endround()
+    with contextlib.redirect_stdout(io.StringIO()):
+        session.cmd_endround()
     apply_bust_vote_penalties(session)
     harvest_drink_log(session)
     check_and_set_milestone(session)
@@ -113,7 +119,7 @@ def state():
                 )
                 session._log_entries.append(log_line)
                 session._log_version = session._log_version + 1
-                print(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
+                log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
             session._pending_milestone = None
 
         # Deferred dealer auto-play: fire when bust vote window has expired
@@ -623,10 +629,10 @@ def give_bust_sip():
     if recipient:
         if forfeit:
             recipient.add_drink(1, f"Bust vote forfeited — {winner_name} didn't assign in time: +1 sip", "player")
-            print(f"  [bust vote] {winner_name} forfeited — drinks 1 sip themselves")
+            log.debug(f"  [bust vote] {winner_name} forfeited — drinks 1 sip themselves")
         else:
             recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
-            print(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
+            log.debug(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
     session._bust_handouts_given.add(winner_name)
 
