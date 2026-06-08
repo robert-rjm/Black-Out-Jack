@@ -23,7 +23,7 @@ from flask import Blueprint, jsonify, request
 from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
 from app.services.validators import sanitize_name, is_dealer_client
 from app.services.serializer import serialize_state, round_phase
-from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties
+from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties, apply_milestone_forfeit
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
 
 log = logging.getLogger(__name__)
@@ -92,36 +92,7 @@ def state():
 
         # Milestone forfeit: if the handout window expired without the winner submitting,
         # the full handout sip total comes back on them.
-        ms = session._pending_milestone
-        if ms and _now >= ms["expires_at"]:
-            winner_name = ms["winner"]
-            handout     = ms["handout"]
-            winner_p    = session._get_player(winner_name)
-            if winner_p:
-                winner_p.add_drink(
-                    handout,
-                    f"Milestone handout forfeited — {winner_name} didn't assign in time: +{handout} sips",
-                    "player",
-                )
-                session._sip_ticker[winner_name] = (
-                    session._sip_ticker.get(winner_name, 0) + handout
-                )
-                session._last_round_sips[winner_name] = (
-                    session._last_round_sips.get(winner_name, 0) + handout
-                )
-                session._last_round_drinks.append({
-                    "name":   winner_name,
-                    "sips":   handout,
-                    "reason": f"Milestone forfeited ({ms['boundary']} sip milestone) — you drink {handout} sips",
-                })
-                log_line = (
-                    f"  ⏱ {winner_name} didn't assign the {ms['boundary']}-sip milestone handout "
-                    f"in time — drinks {handout} sips\n"
-                )
-                session._log_entries.append(log_line)
-                session._log_version = session._log_version + 1
-                log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
-            session._pending_milestone = None
+        apply_milestone_forfeit(session)
 
         # When the bust-vote window expires (or all players have voted), unblock
         # any NPC turns that were held and then let the dealer play if ready.
