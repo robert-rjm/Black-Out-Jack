@@ -24,7 +24,7 @@ from app.services.session_store import game_sessions, _room_last_access, cleanup
 from app.services.validators import sanitize_name, is_dealer_client
 from app.services.serializer import serialize_state, round_phase
 from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties
-from app.services.game_engine import dealer_turn, auto_play_npc_turns, bust_vote_pending
+from app.services.game_engine import dealer_turn, auto_play_npc_turns
 
 log = logging.getLogger(__name__)
 
