@@ -105,7 +105,7 @@ class RefereeSession:
         }
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
-        self._initial_dealt   = False # True once all first-deal cards are entered
+        self._initial_dealt   = False  # True once all first-deal cards are entered
         self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
 
         # Tracker — resolves recipients and logs drinks
@@ -757,5 +757,7 @@ def main():
 
         else:
             print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
+
+
 if __name__ == "__main__":
     main()

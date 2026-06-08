@@ -535,7 +535,7 @@ class DrinkingRules:
                 o_wins   = other.round_wins()
                 o_losses = other.round_losses()
                 o_pushes = other.round_pushes()
-                if   o_losses == 0 and o_pushes == 0: sips = 0       # immune
+                if o_losses == 0 and o_pushes == 0: sips = 0       # immune
                 elif o_losses == 0:                   sips = max(0, w_wins - o_wins)
                 else:                                 sips = w_wins
                 if sips > 0:
