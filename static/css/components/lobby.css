@@ -13,7 +13,13 @@
 }
 #setup h2 { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
 #setup .sub { color: var(--muted); font-size: 14px; text-align: center; }
-
+#setup h2 img.setup-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 4px;
+}
 .field { width: 100%; max-width: 420px; }
 .field label { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 5px; }
 .field input, .field select {
@@ -50,6 +56,13 @@
 }
 #lobby h2  { font-size: 28px; font-weight: 800; letter-spacing: .5px; }
 #waiting h2 { font-size: 22px; font-weight: 800; }
+#lobby h2 img.lobby-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 4px;
+}
 .lobby-or {
   display: flex; align-items: center; gap: 12px;
   width: 100%; max-width: 420px;
@@ -86,7 +99,7 @@
 /* ---- LOBBY CREDITS ---- */
 .lobby-credits {
   font-size: 11px; color: var(--muted);
-  text-align: center; line-height: 1.7; margin-top: 4px;
+  text-align: center; line-height: 1.7; margin-top: 24px;
   width: 100%; max-width: 420px;
 }
 
@@ -103,7 +116,12 @@
   width: 100%; max-width: 400px;
   display: flex; flex-direction: column; align-items: center; gap: 16px;
 }
-.gate-logo { font-size: 52px; line-height: 1; }
+.gate-logo { line-height: 1; }
+.gate-logo img {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+}
 #age-gate h1 { font-size: 26px; font-weight: 800; letter-spacing: .3px; }
 .gate-sub { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 320px; }
 .gate-legal {
