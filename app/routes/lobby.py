@@ -184,12 +184,12 @@ def setup():
         raw_session.shoe = Shoe(num_decks)
         raw_session.shoe.shuffle(quiet=True)
 
-    if drinking:
-        patch_tracker(raw_session)
-    else:
+    if not drinking:
         raw_session.tracker = NullTracker()
 
     output = capture(raw_session.start_round)
+    if drinking:
+        patch_tracker(raw_session)  # must run AFTER start_round creates a fresh tracker
     if output.strip():
         room._log_entries.append(output)
     state  = serialize_state(room, client_id)

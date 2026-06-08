@@ -320,7 +320,8 @@ class DrinkingRules:
         # 21 with 5+ cards: suppress hand-out when dealer has blackjack
         if not dealer_bj and hand.score() == 21 and len(hand.cards) >= 5:
             msgs.append((player_name, -len(hand.cards),
-                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips"))
+                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips",
+                "handout"))
 
         if hand.result != "win":
             return msgs
@@ -603,10 +604,11 @@ class DrinkTracker:
     Used by both blackjack.py (digital game) and referee.py (real-life session).
     """
 
-    def __init__(self, players: list, dealer_player):
+    def __init__(self, players: list, dealer_player, verbose: bool = True):
         self.players       = players
         self.dealer_player = dealer_player
         self._map          = {p.name.lower(): p for p in players}
+        self.verbose       = verbose  # set False by web layer to silence terminal output
 
     # ---------------------------------------------------------------- resolution
 
@@ -623,6 +625,8 @@ class DrinkTracker:
     def apply(self, msgs: list):
         """Apply a list of (recipient, sips, reason[, role]) tuples.
         role defaults to 'player'; use 'dealer' for dealer-seat drinks.
+        role == 'handout' means the recipient hands out abs(sips) to others.
+        Any other negative sips value is a direct credit applied to the recipient.
         No halving here -- use apply_end_of_round for end-of-round events."""
         for msg in msgs:
             recipient, sips, reason = msg[0], msg[1], msg[2]
@@ -631,11 +635,18 @@ class DrinkTracker:
                 if reason: print(f"    (i) {reason}")
                 continue
             if sips < 0:
-                self._handle_handout(recipient, abs(sips), reason)
+                if role == "handout":
+                    self._handle_handout(recipient, abs(sips), reason)
+                else:
+                    # Direct credit — e.g. sweep cancellation undoing a prior drink
+                    for t in self._resolve(recipient):
+                        t.add_drink(sips, reason, "player")
+                    if reason: print(f"    (i) {reason}")
                 continue
             for t in self._resolve(recipient):
                 t.add_drink(sips, reason, role)
-            print(f"    [drink] {reason}")
+            if self.verbose:
+                print(f"    [drink] {reason}")
 
     def apply_end_of_round(self, *msg_lists):
         """Apply all end-of-round drink messages.
@@ -665,7 +676,8 @@ class DrinkTracker:
                     p.add_drink(-credit,
                                 f"4-player halving: -{credit} sip(s) ({gained} -> {halved})",
                                 "player")
-                    print(f"    (i) 4-player halving for {p.name}: {gained} -> {halved}")
+                    if self.verbose:
+                        print(f"    (i) 4-player halving for {p.name}: {gained} -> {halved}")
 
     # ---------------------------------------------------------------- ace of clubs credit
 
@@ -676,7 +688,8 @@ class DrinkTracker:
         """
         if player.drinks_owed() > 0:
             player.add_drink(-1, f"{player.name} A♣ credit: -1 sip", "player")
-            print(f"    (i) {player.name} A♣ credit applied: -1 sip")
+            if self.verbose:
+                print(f"    (i) {player.name} A♣ credit applied: -1 sip")
 
     # ---------------------------------------------------------------- handout
 
@@ -686,7 +699,8 @@ class DrinkTracker:
         NPC givers distribute round-robin automatically.
         Human givers are prompted interactively.
         """
-        print(f"    [drink] {reason}")
+        if self.verbose:
+            print(f"    [drink] {reason}")
         others = [p for p in self.players if p.name.lower() != giver.lower()]
         if not others: return
 
@@ -697,27 +711,34 @@ class DrinkTracker:
             for i in range(remaining):
                 t = others[i % len(others)]
                 t.add_drink(1, f"{giver} (NPC) handed 1 sip to {t.name} (5-card 21)", "player")
-                print(f"    -> {t.name} +1 sip (NPC auto-distributed)")
+                if self.verbose:
+                    print(f"    -> {t.name} +1 sip (NPC auto-distributed)")
             return
 
         other_names = [p.name for p in others]
-        print(f"    {giver}, hand out {remaining} sip(s) among: {', '.join(other_names)}")
+        if self.verbose:
+            print(f"    {giver}, hand out {remaining} sip(s) among: {', '.join(other_names)}")
         while remaining > 0:
             raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
             t   = self._map.get(raw.lower())
             if t and t.name.lower() != giver.lower():
                 t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21)", "player")
                 remaining -= 1
-                print(f"    -> {t.name} +1 sip")
+                if self.verbose:
+                    print(f"    -> {t.name} +1 sip")
             else:
-                print(f"    Invalid. Choose from: {', '.join(other_names)}")
+                if self.verbose:
+                    print(f"    Invalid. Choose from: {', '.join(other_names)}")
 
     # ---------------------------------------------------------------- summary
 
     def print_round_summary(self):
-        print("\n" + "="*52)
-        print("  DRINK SUMMARY")
-        print("="*52)
+        if self.verbose:
+            print("\n" + "="*52)
+        if self.verbose:
+            print("  DRINK SUMMARY")
+        if self.verbose:
+            print("="*52)
         any_drinks = False
         for p in self.players:
             if p.name == "House": continue
@@ -735,21 +756,27 @@ class DrinkTracker:
             # Dealer-role section (only relevant when this player holds the dealer seat)
             if p.is_dealer and dealer_log:
                 dealer_net = sum(s for s, _ in dealer_log)
-                print(f"\n  Dealer ({p.name})  =>  {dealer_net} sip(s) this round")
+                if self.verbose:
+                    print(f"\n  Dealer ({p.name})  =>  {dealer_net} sip(s) this round")
                 for sips, reason in dealer_log:
                     sign = f"+{sips}" if sips > 0 else str(sips)
-                    print(f"    {sign:>4}  {reason}")
+                    if self.verbose:
+                        print(f"    {sign:>4}  {reason}")
 
             # Player-role section
             if player_log:
                 player_net = sum(s for s, _ in player_log)
-                print(f"\n  {p.name}  =>  {player_net} sip(s) this round")
+                if self.verbose:
+                    print(f"\n  {p.name}  =>  {player_net} sip(s) this round")
                 for sips, reason in player_log:
                     sign = f"+{sips}" if sips > 0 else str(sips)
-                    print(f"    {sign:>4}  {reason}")
+                    if self.verbose:
+                        print(f"    {sign:>4}  {reason}")
 
             p.total_drinks += max(0, sum(e[0] for e in p.drink_log))
 
         if not any_drinks:
-            print("  No drinks this round!")
-        print("\n" + "="*52 + "\n")
+            if self.verbose:
+                print("  No drinks this round!")
+        if self.verbose:
+            print("\n" + "="*52 + "\n")

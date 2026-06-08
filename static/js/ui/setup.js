@@ -299,11 +299,10 @@ let _idleWatcherID   = null;
 
 function resetIdleTimer() {
   _lastActivityAt = Date.now();
-  const banner = document.getElementById("idle-warning-banner");
-  if (banner) {
-    banner.style.display = "none";
-    banner.className = "idle-warning-banner";
-  }
+  const banner  = document.getElementById("idle-warning-banner");
+  const overlay = document.getElementById("idle-urgent-overlay");
+  if (banner)  { banner.style.display = "none"; banner.className = "idle-warning-banner"; }
+  if (overlay) { overlay.classList.remove("open"); }
   // Ping the server to keep the dyno alive
   fetch("/state?room_code=" + encodeURIComponent(roomCode) + "&client_id=" + encodeURIComponent(clientId))
     .catch(() => {});
@@ -313,19 +312,23 @@ function _tickIdleWatcher() {
   const elapsed = Date.now() - _lastActivityAt;
   const banner  = document.getElementById("idle-warning-banner");
   const text    = document.getElementById("idle-warning-text");
-  if (!banner || !text) return;
+  const overlay = document.getElementById("idle-urgent-overlay");
 
   if (elapsed >= IDLE_URGENT_MS) {
-    banner.style.display = "flex";
-    banner.className = "idle-warning-banner idle-urgent";
-    text.textContent = "⚠️ Room will be lost soon — tap to stay connected";
+    // Urgent: hide banner, show blocking modal
+    if (banner)  { banner.style.display = "none"; banner.className = "idle-warning-banner"; }
+    if (overlay) { overlay.classList.add("open"); }
   } else if (elapsed >= IDLE_SOFT_MS) {
-    banner.style.display = "flex";
-    banner.className = "idle-warning-banner idle-soft";
-    text.textContent = "Still there? Tap to keep the room alive.";
+    // Soft: yellow banner only
+    if (overlay) { overlay.classList.remove("open"); }
+    if (banner && text) {
+      banner.style.display = "flex";
+      banner.className = "idle-warning-banner idle-soft";
+      text.textContent = "Still there? Tap to keep the room alive.";
+    }
   } else {
-    banner.style.display = "none";
-    banner.className = "idle-warning-banner";
+    if (banner)  { banner.style.display = "none"; banner.className = "idle-warning-banner"; }
+    if (overlay) { overlay.classList.remove("open"); }
   }
 }
 

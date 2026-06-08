@@ -440,8 +440,13 @@ function applyState(state) {
     showInsuranceToast(state.insurance_result);
   }
 
+  // Detect bust vote window closing — flush any toasts that were queued during it.
+  const _prevBustOpen = lastState && lastState.bust_vote_window_open;
   lastState   = state;
   currentTurn = state.current_turn || null;
+  if (_prevBustOpen && !state.bust_vote_window_open && typeof flushToastQueue === "function") {
+    flushToastQueue();
+  }
   // Auto-switch active seat when turn moves to another local player
   if (currentTurn && myNames.length > 1) {
     const turnLow = currentTurn.toLowerCase();
@@ -680,15 +685,33 @@ function updateRoundPane(state) {
     renderDrinksDetail();
 
   } else {
-    // Mid-round: player finished their turn, waiting for others
+    // Mid-round: waiting for turn or finished, not yet round-over
     _drinksPaneSelected = null;
     if (panel)    panel.style.display    = "none";
     if (none)     none.style.display     = "none";
-    if (progress) progress.style.display = "block";
     if (agg)      agg.innerHTML          = "";
     if (detail)   detail.innerHTML       = "";
     const noticesEl2 = document.getElementById("dig-round-notices");
     if (noticesEl2) { noticesEl2.innerHTML = ""; noticesEl2.style.display = "none"; }
+    if (progress) {
+      const mySeats    = (myNames || []);
+      const anyDone    = mySeats.some(n => {
+        const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
+        return seat && seat.done;
+      });
+      const anyPlaying = mySeats.some(n => {
+        const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
+        return seat && seat.hands && seat.hands.length > 0;
+      });
+      if (anyDone) {
+        progress.textContent = "✋ You're done — waiting for results…";
+      } else if (anyPlaying) {
+        progress.textContent = "⏳ Waiting for your turn…";
+      } else {
+        progress.textContent = "⏳ Waiting for round to start…";
+      }
+      progress.style.display = "block";
+    }
   }
 
   // Peeked card — sync across state polls; button label reflects toggle state

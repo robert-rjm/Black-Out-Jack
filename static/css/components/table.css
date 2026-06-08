@@ -88,10 +88,13 @@
 .hand-meta .push    { color: var(--yellow); font-weight: 700; }
 
 /* per-seat sip badge */
+.seat-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .seat-crown {
   font-size: 11px;
-  margin-left: 4px;
-  vertical-align: middle;
   line-height: 1;
 }
 

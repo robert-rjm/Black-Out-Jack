@@ -29,7 +29,7 @@ const TRIVIA_FACTS = [
   { cat: "history",     text: "Blackjack originated in French casinos around 1700 under the name Vingt-et-Un (21)." },
   { cat: "history",     text: "Edward Thorp's 1962 book Beat the Dealer introduced card counting to the public and changed blackjack forever." },
   { cat: "history",     text: "The name Blackjack comes from an early bonus payout for a hand with the Ace of Spades and a black Jack." },
-  { cat: "history",     text: "Blackjack goes by many names: 21, Vingt-et-Un, Pontoon, 17+4 - and Black(Out)Jack if you are here." },
+  { cat: "history",     text: "Blackjack goes by many names: 21, Vingt-et-Un, Pontoon, 17+4, and Black(Out)Jack if you are here." },
   { cat: "history",     text: "The MIT Blackjack Team won millions card counting in the 1980s and 90s - they inspired the film 21." },
   { cat: "history",     text: "Las Vegas casinos introduced the 6:5 blackjack payout in the 2000s - it nearly doubles the house edge." },
   { cat: "history",     text: "The first basic strategy was computed in 1956 by four US Army engineers on desk calculators. It took 3 years." },
