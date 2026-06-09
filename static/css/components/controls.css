@@ -88,6 +88,42 @@
 .btn-big.green  { background: var(--green);  color: #000; }
 .btn-big.accent { background: var(--accent); color: #fff; }
 
+/* ---- NUMBER STEPPER ---- */
+.stepper {
+  display: flex;
+  align-items: center;
+  height: var(--tap);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  overflow: hidden;
+}
+.stepper:focus-within { border-color: var(--accent); }
+.stepper-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .12s;
+}
+.stepper-btn:active { background: rgba(255,255,255,.08); }
+.stepper-btn.at-limit { color: var(--muted); opacity: .35; pointer-events: none; }
+.stepper-display {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  user-select: none;
+}
+
 /* ---- ANIMATION PILL TOGGLE ---- */
 .pill-toggle-wrap { display:flex; align-items:center; gap:10px; }
 .pill-toggle { position:relative; display:inline-block; width:62px; height:30px; flex-shrink:0; }

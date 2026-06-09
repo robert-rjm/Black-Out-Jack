@@ -286,6 +286,36 @@ playerRows = [
 renderPlayerRows();
 
 // ============================================================
+// NUMBER STEPPER
+// ============================================================
+function getStepperValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  if (el.tagName === "INPUT") return parseInt(el.value) || 0;  // fallback for plain inputs
+  return parseInt(el.dataset.value) || 0;
+}
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".stepper-dec, .stepper-inc");
+  if (!btn) return;
+  const stepper = btn.closest(".stepper");
+  if (!stepper) return;
+
+  const min = parseInt(stepper.dataset.min) || 0;
+  const max = parseInt(stepper.dataset.max) || Infinity;
+  let val   = parseInt(stepper.dataset.value) || 0;
+
+  val = btn.classList.contains("stepper-dec")
+    ? Math.max(min, val - 1)
+    : Math.min(max, val + 1);
+
+  stepper.dataset.value = val;
+  stepper.querySelector(".stepper-display").textContent = val;
+  stepper.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
+  stepper.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
+});
+
+// ============================================================
 // START GAME
 // ============================================================
 async function startGame() {
@@ -305,10 +335,10 @@ async function startGame() {
 
   const isDigital = setupMode === "digital";
   const wager     = setupDrinking
-    ? (parseInt(document.getElementById(isDigital ? "wager-dig" : "wager-ref").value) || 1)
+    ? (getStepperValue(isDigital ? "wager-dig" : "wager-ref") || 1)
     : 1;
-  const nh        = parseInt(document.getElementById(isDigital ? "num-hands-dig" : "num-hands-ref").value) || 2;
-  const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
+  const nh        = getStepperValue(isDigital ? "num-hands-dig" : "num-hands-ref") || 2;
+  const numDecks  = getStepperValue("num-decks") || 1;
 
   const bustVoteEnabled = !!(document.getElementById("bust-vote-setup-toggle")?.checked);
 
