@@ -24,6 +24,7 @@
   - check if fixes work as intended
   - check if maximum number of players in game logic
   - check for # decks needed per extra players. {Player:deck = (2,1), (3,1), (4,2),(5,?), etc}
+- [ ] test "easy mode" working as intended
 - [ ] Trivia Panel
   - fact check
   - add / edits facts
