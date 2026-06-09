@@ -93,6 +93,11 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
         session.num_hands = queued["num_hands"]
         changes.append(f"Hands/player set to {queued['num_hands']}")
 
+    if "easy_mode" in queued:
+        session.easy_mode = bool(queued["easy_mode"])
+        session.tracker.easy_mode = session.easy_mode
+        changes.append(f"Easy Mode {'ON' if session.easy_mode else 'OFF'}")
+
     if "num_decks" in queued and session.mode == "digital":
         session.shoe = Shoe(queued["num_decks"])
         session.shoe.shuffle()

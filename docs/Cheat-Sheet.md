@@ -97,6 +97,15 @@ Players drink their sips. Dealer drinks nothing. Role passes.
 
 ---
 
+## Group Size & Easy Mode
+
+| Situation | Effect |
+|-----------|--------|
+| 4+ players | All end-of-round drinks halved automatically (rounded up) |
+| Easy Mode ON | Same halving, any group size — toggle in setup or admin settings |
+
+---
+
 ## Key Reminders
 - Splitting 10s is **mandatory** (unless suited)
 - Dealer stands on all 17s

@@ -384,6 +384,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             _ci.get("reg_denials", 0) >= 2
         ),
         "anim_default":           session._anim_default,
+        "easy_mode":              session.easy_mode,
         "bust_vote_enabled":      session.bust_vote_enabled,
         "god_mode_enabled":       session._god_mode,
         "bust_votes":             dict(session._bust_votes),

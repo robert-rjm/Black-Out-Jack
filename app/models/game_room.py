@@ -66,6 +66,9 @@ class GameRoom:
     _pending_milestone: dict | None = None
     _last_milestone_result: dict | None = None
 
+    # Easy mode (halve drinks every round)
+    easy_mode: bool = False
+
     # Bust vote side bet
     bust_vote_enabled: bool = False
     _god_mode: bool = True
