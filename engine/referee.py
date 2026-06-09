@@ -117,6 +117,7 @@ class RefereeSession:
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False  # True once all first-deal cards are entered
         self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
+        self._pending_eor_msgs = []  # BJ bonuses + four-aces-endround — buffered for halving
 
         # Tracker — resolves recipients and logs drinks
         self.tracker = DrinkTracker(players, self._get_dealer())
@@ -179,6 +180,7 @@ class RefereeSession:
         self._ace_credits     = []
         self._initial_dealt   = False
         self._pending_resolved = []
+        self._pending_eor_msgs = []
         self.tracker = DrinkTracker(self.all_players, self._get_dealer())
 
     # ---------------------------------------------------------------- command: deal
@@ -295,7 +297,7 @@ class RefereeSession:
         elif action in ("blackjack", "bj"):
             hand.stood = True
             print(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
-            self.tracker.apply(DrinkingRules.handle(BlackjackEvent(
+            self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
                 player_name=player.name, hand=hand, all_names=self._all_names,
             )))
 
@@ -339,7 +341,7 @@ class RefereeSession:
             dealer    = self._get_dealer()
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
             if hand.is_blackjack() and outcome == "win" and not hand.insured:
-                self.tracker.apply(DrinkingRules.handle(BlackjackEvent(
+                self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
                     player_name=player.name, hand=hand, all_names=self._all_names,
                 )))
             # Buffer on_hand_resolved — fired at endround once hard_switch is known
@@ -395,7 +397,10 @@ class RefereeSession:
             all_cards += self._get_dealer().dealer_hand.cards
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
             all_cards, phase, self._four_aces_fd)
-        self.tracker.apply(msgs)
+        if phase == "first_deal":
+            self.tracker.apply(msgs)   # mid-round, not halved
+        else:
+            self._pending_eor_msgs.extend(msgs)  # end-of-round, halved
 
     # ---------------------------------------------------------------- command: endround
 
@@ -424,7 +429,8 @@ class RefereeSession:
         # Collect all end-of-round drink messages so 4-player halving
         # operates on each player's total for the round, not per event.
         # Start with any msgs buffered by dealer_turn (digital mode bonuses).
-        eor_msgs = list(extra_eor_msgs or [])
+        eor_msgs = list(extra_eor_msgs or []) + list(self._pending_eor_msgs)
+        self._pending_eor_msgs = []
 
         # Fire buffered on_hand_resolved calls — now we know if it's a hard switch
         for p_name, hand, dealer_bj_at_time in self._pending_resolved:
@@ -433,6 +439,7 @@ class RefereeSession:
                 dealer_bj=dealer_bj_at_time, dealer_name=exempt_dealer,
             )))
         self._pending_resolved = []
+        # _pending_eor_msgs already drained above when building eor_msgs
 
         if hard_switch and not getattr(self, "_hard_switch_drinking_applied", False):
             protected         = self._ace_clubs_flag.get("protected", False)
