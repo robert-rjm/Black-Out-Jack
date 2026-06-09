@@ -692,39 +692,18 @@ class RoundManager:
                 )))
 
             if hard_switch:
-                protected         = self._ace_clubs_flag.get("protected", False)
                 partial_protected = self._ace_clubs_flag.get("partial_protected", False)
                 half_protected    = self._ace_clubs_flag.get("half_protected", False)
                 # Partial protection (player-hand A♣): exclude dealer's own player
                 # hands from the penalty — they still drink for everyone else's hands.
                 hs_for_penalty = (
                     [h for h in winning_hds if h[0].lower() != self.dealer_player.name.lower()]
-                    if partial_protected and not protected
-                    else winning_hds
+                    if partial_protected else winning_hds
                 )
                 self._drink(DrinkingRules.handle(HardDealerSwitchEvent(
                     dealer_name=self.dealer_player.name, winning_hands=hs_for_penalty,
-                    protected=protected, half_protected=half_protected,
+                    half_protected=half_protected,
                 )))
-                # When A♣ protects the dealer, add display-only +/- entries so
-                # the drinks summary panel can show what was waived.
-                if protected and winning_hds:
-                    waived = 0
-                    for pname, hand in winning_hds:
-                        if hand.is_blackjack():
-                            waived += 1 if pname == self.dealer_player.name else 2
-                        elif hand.doubled:
-                            waived += 2
-                        else:
-                            waived += 1
-                    if waived > 0:
-                        d = self.dealer_player
-                        d.add_drink(waived,
-                            f"Hard Dealer Switch — A♣ protected: {waived} sip(s) waived",
-                            "dealer")
-                        d.add_drink(-waived,
-                            f"A♣ protection credit: -{waived} sips",
-                            "dealer")
 
     def _round_end_drinks(self):
         from drinking_rules import DrinkingRules

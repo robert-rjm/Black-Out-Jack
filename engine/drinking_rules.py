@@ -548,21 +548,15 @@ class DrinkingRules:
 
     @staticmethod
     def on_hard_dealer_switch(dealer_name: str, winning_hands: list,
-                               protected: bool, half_protected: bool = False) -> list:
+                               half_protected: bool = False) -> list:
         """
         Called when the dealer loses ALL hands (push != loss).
         winning_hands: list of (player_name, Hand) tuples — caller is responsible
           for filtering out the dealer's own player hands when partial A♣ protection
           applies (player-hand A♣: dealer exempt from own hands, drinks for all others).
         Dealer drinks per each winning hand type.
-        protected=True (dealer-hand A♣): full protection — skips all drinking.
-        half_protected=True (dealer-hand A♠): drinks ceil(total/2) instead of full.
-        Full protection takes precedence over half protection.
+        half_protected=True (dealer-hand A♣): drinks ceil(total/2) instead of full.
         """
-        if protected:
-            return [(None, 0,
-                f"Hard Switch triggered — A♣ protects {dealer_name} from drinking")]
-
         total = 0
         lines = []
         for pname, hand in winning_hands:
@@ -660,7 +654,7 @@ class DrinkingRules:
             case HardDealerSwitchEvent():
                 return DrinkingRules.on_hard_dealer_switch(
                     event.dealer_name, event.winning_hands,
-                    event.protected, half_protected=event.half_protected,
+                    half_protected=event.half_protected,
                 )
             case _:
                 raise NotImplementedError(

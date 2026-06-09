@@ -221,6 +221,17 @@ def command():
                         if getattr(_p, "is_npc", False):
                             game_session._bust_votes[_p.name] = "pass"
                 auto_play_npc_turns(game_session)  # no-op if bust vote still pending
+                # If all hands are already done after the deal (e.g. all players
+                # have a natural BJ), the hit/stand block below never fires so we
+                # must check here too — otherwise the round stalls at "dealer-ready".
+                if (not bust_vote_pending(game_session)
+                        and round_phase(game_session) == "dealer-ready"):
+                    log.debug("\n  (All hands done after deal — dealer plays automatically)")
+                    dealer_turn(game_session)
+                    game_session.cmd_endround()
+                    apply_bust_vote_penalties(game_session)
+                    harvest_drink_log(game_session)
+                    check_and_set_milestone(game_session)
 
             elif cmd in {"hit", "stand", "double", "split"} and bust_vote_pending(game_session):
                 log.debug("  Waiting for all players to vote on dealer bust before play begins.")
