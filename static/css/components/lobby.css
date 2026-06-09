@@ -190,8 +190,11 @@
 .gate-legal {
   font-size: 13px; color: var(--muted); line-height: 1.55;
   background: rgba(245,200,66,.07); border: 1px solid rgba(245,200,66,.18);
-  border-radius: 10px; padding: 12px 16px;
-  width: 100%; max-width: 400px; text-align: left;
+  border-radius: 10px; padding: 16px 20px;
+  width: 100%; max-width: 400px; text-align: center;
+}
+.gate-legal p {
+    margin: 6px 0;
 }
 .gate-legal strong { color: var(--yellow); }
 #age-gate-msg { font-size: 13px; color: var(--red); min-height: 18px; }
