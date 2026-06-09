@@ -23,26 +23,46 @@
   <div id="settings-ref" class="two-col">
     <div class="field field-unbounded">
       <label>Sips / hand</label>
-      <input type="number" id="wager-ref" value="1" min="1" max="10">
+      <div class="stepper" id="wager-ref" data-value="1" data-min="1" data-max="10">
+        <button class="stepper-btn stepper-dec at-limit" type="button">−</button>
+        <span class="stepper-display">1</span>
+        <button class="stepper-btn stepper-inc" type="button">+</button>
+      </div>
     </div>
     <div class="field field-unbounded">
       <label>Hands / player</label>
-      <input type="number" id="num-hands-ref" value="2" min="1" max="4">
+      <div class="stepper" id="num-hands-ref" data-value="2" data-min="1" data-max="4">
+        <button class="stepper-btn stepper-dec" type="button">−</button>
+        <span class="stepper-display">2</span>
+        <button class="stepper-btn stepper-inc" type="button">+</button>
+      </div>
     </div>
   </div>
 
   <div id="settings-dig" class="three-col">
     <div class="field field-unbounded" id="wager-dig-cell">
       <label>Sips / hand</label>
-      <input type="number" id="wager-dig" value="1" min="1" max="10">
+      <div class="stepper" id="wager-dig" data-value="1" data-min="1" data-max="10">
+        <button class="stepper-btn stepper-dec at-limit" type="button">−</button>
+        <span class="stepper-display">1</span>
+        <button class="stepper-btn stepper-inc" type="button">+</button>
+      </div>
     </div>
     <div class="field field-unbounded">
       <label>Hands / player</label>
-      <input type="number" id="num-hands-dig" value="2" min="1" max="4">
+      <div class="stepper" id="num-hands-dig" data-value="2" data-min="1" data-max="4">
+        <button class="stepper-btn stepper-dec" type="button">−</button>
+        <span class="stepper-display">2</span>
+        <button class="stepper-btn stepper-inc" type="button">+</button>
+      </div>
     </div>
     <div class="field field-unbounded">
       <label>Decks in shoe</label>
-      <input type="number" id="num-decks" value="1" min="1" max="8">
+      <div class="stepper" id="num-decks" data-value="1" data-min="1" data-max="8">
+        <button class="stepper-btn stepper-dec at-limit" type="button">−</button>
+        <span class="stepper-display">1</span>
+        <button class="stepper-btn stepper-inc" type="button">+</button>
+      </div>
     </div>
     <div class="field field-unbounded field-top-pad">
       <label class="compact-label">Animation</label>
