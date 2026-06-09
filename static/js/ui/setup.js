@@ -263,6 +263,7 @@ function renderPlayerRows() {
       syncPlayerRowsFromDOM();
       playerRows = playerRows.filter(r => r.id !== row.id);
       renderPlayerRows();
+      syncDecksToPlayerCount();
     });
 
     rowEl.appendChild(inp);
@@ -276,6 +277,7 @@ function addPlayerRow() {
   syncPlayerRowsFromDOM();
   playerRows.push({ id: _rowIdCtr++, name: "", isBot: false });
   renderPlayerRows();
+  syncDecksToPlayerCount();
 }
 
 // Start with 2 players
@@ -293,6 +295,26 @@ function getStepperValue(id) {
   if (!el) return null;
   if (el.tagName === "INPUT") return parseInt(el.value) || 0;  // fallback for plain inputs
   return parseInt(el.dataset.value) || 0;
+}
+
+function setStepperValue(id, val) {
+  const el = document.getElementById(id);
+  if (!el || !el.classList.contains("stepper")) return;
+  const min = parseInt(el.dataset.min) || 0;
+  const max = parseInt(el.dataset.max) || Infinity;
+  val = Math.max(min, Math.min(max, val));
+  el.dataset.value = val;
+  el.querySelector(".stepper-display").textContent = val;
+  el.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
+  el.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
+}
+
+function syncDecksToPlayerCount() {
+  const count = playerRows.length;
+  const decks = getStepperValue("num-decks");
+  if (decks === null) return;  // not in DOM (referee mode)
+  if (count >= 4 && decks < 2) setStepperValue("num-decks", 2);
+  if (count < 4  && decks === 2) setStepperValue("num-decks", 1);
 }
 
 document.addEventListener("click", e => {
