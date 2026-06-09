@@ -379,8 +379,10 @@ def dealer_turn(session: GameRoom) -> None:
             all_cards, "end_of_round", session._four_aces_fd)
         eor_msgs.extend(four_aces_msgs)
 
-        # Apply all end-of-round drinks together (halving on totals, not per event)
-        session.tracker.apply_end_of_round(eor_msgs)
+        # Buffer msgs — cmd_endround will combine with RoundEndEvent (net losses)
+        # and flush through apply_end_of_round once, so halving operates on the
+        # full-round total per player, not on each batch independently.
+        session._eor_msgs_buffer = eor_msgs
 
 
 # ---------------------------------------------------------------------------

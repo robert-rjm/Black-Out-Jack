@@ -1,5 +1,5 @@
 <div id="age-gate">
-  <div id="age-gate-card">
+  <div id="age-gate-card" class="active">
     <div class="gate-logo">
       <img src="/static/Logo-BlackOutJack.png" alt="Black-Out-Jack Logo"/>
     </div>
@@ -7,11 +7,22 @@
     <p class="gate-sub" data-copy="tagline">Drinking Blackjack with friends</p>
 
     <div class="gate-legal">
-      This game involves alcohol. You must be <strong>18 years of age or older</strong> (or the legal drinking age in your country) to play. By continuing you confirm you meet the minimum age requirement.
+      <p>This game involves alcohol. </p>
+      <p>You must be <strong>18+ or of legal drinking age</strong> to play.</p>
+      <p>By continuing, you confirm you are of the legal age.</p>
     </div>
 
     <button class="gate-btn-confirm pressable" data-action="confirmAge">I am 18 or older →</button>
     <div id="age-gate-msg"></div>
     <button class="gate-btn-decline" data-action="declineAge">I am under 18</button>
+  </div>
+
+  <div class="underage-screen">
+    <div class="underage-icon">
+      <img src="/static/Logo-BlackOutJack.png" alt="Black-Out-Jack Logo"/>
+    </div>
+    <h2>Sorry, you must be 18+ to play Black-Out-Jack.</h2>
+    <p>Come back when you're older! 🎉</p>
+    <a href="/" class="underage-btn">← Go Back</a>
   </div>
 </div>

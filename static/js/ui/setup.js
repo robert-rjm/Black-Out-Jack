@@ -105,6 +105,15 @@ function setBustVoteSetupToggle(on) {
   if (onEl) onEl.style.display = on ? "inline" : "none";
 }
 
+function setEasyModeSetup(on) {
+  const cb    = document.getElementById("easy-mode-setup-toggle");
+  const off   = document.getElementById("easy-mode-lbl-setup");
+  const onEl  = document.getElementById("easy-mode-lbl-setup-on");
+  if (cb)   cb.checked          = on;
+  if (off)  off.style.display   = on ? "none"   : "inline";
+  if (onEl) onEl.style.display  = on ? "inline" : "none";
+}
+
 function setGameType(type, btn) {
   document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
@@ -120,7 +129,7 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "";
-    sub.textContent = "Virtual Drinking Blackjack — digital shoe & drink tracker";
+    sub.textContent = "Virtual Drinking Blackjack";
   } else if (type === "normal") {
     setupMode     = "digital";
     setupDrinking = false;
@@ -175,7 +184,7 @@ function _showMaintenanceOverlay(type, btn) {
 }
 
 // ============================================================
-// SETUP — players
+// SETUP — players (dynamic list)
 // ============================================================
 const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 const SUITS = [
@@ -185,48 +194,177 @@ const SUITS = [
   { label: "♠", code: "s", cls: "spades" },
 ];
 
-let numPlayersSel = 2;
-function setNumPlayers(n) {
-  numPlayersSel = n;
-  document.querySelectorAll("#num-players-row .btn").forEach((b,i) => {
-    b.classList.toggle("sel", i+2 === n);
-  });
-  buildNameFields(n);
-}
-setNumPlayers(2);
+let playerRows = [];   // [{ id, name, isBot }]
+let _rowIdCtr  = 0;
 
-function buildNameFields(n) {
+// Read current input/toggle values from DOM back into playerRows state
+function syncPlayerRowsFromDOM() {
+  document.querySelectorAll(".player-row[data-row-id]").forEach(el => {
+    const id  = parseInt(el.dataset.rowId, 10);
+    const row = playerRows.find(r => r.id === id);
+    if (!row) return;
+    const inp = el.querySelector(".player-name-input");
+    const chk = el.querySelector(".bot-chk");
+    if (inp) row.name  = inp.value;
+    if (chk) row.isBot = chk.checked;
+  });
+}
+
+function renderPlayerRows() {
   const c = document.getElementById("name-fields");
   c.innerHTML = "";
-  for (let i = 0; i < n; i++) {
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:8px;width:100%;max-width:420px";
+  const showRemove = playerRows.length > 2;
 
+  playerRows.forEach((row, i) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "player-row";
+    rowEl.dataset.rowId = row.id;
+
+    // Name input
     const inp = document.createElement("input");
-    inp.type = "text";
-    inp.placeholder = `Player ${i+1} name`;
-    inp.id = `pname-${i}`;
-    inp.style.cssText = "flex:1;height:var(--tap);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:16px;padding:0 14px;";
+    inp.type        = "text";
+    inp.className   = "player-name-input";
+    inp.value       = row.name;
+    inp.placeholder = row.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
+    inp.addEventListener("input", () => {
+      const r = playerRows.find(r => r.id === row.id);
+      if (r) r.name = inp.value;
+    });
 
-    const npcBtn = document.createElement("button");
-    npcBtn.className = "btn";
-    npcBtn.id = `npc-${i}`;
-    npcBtn.textContent = "BOT";
-    npcBtn.dataset.npc = "0";
-    npcBtn.style.cssText = "flex-shrink:0;height:var(--tap);padding:0 14px;font-size:11px;font-weight:800;letter-spacing:.6px";
-    npcBtn.onclick = function(e) {
+    // Bot toggle: "BOT" label + small pill
+    const toggleWrap = document.createElement("div");
+    toggleWrap.className = "bot-toggle-wrap";
+
+    const botLbl = document.createElement("span");
+    botLbl.className   = "bot-lbl";
+    botLbl.textContent = "BOT";
+
+    const pillLabel = document.createElement("label");
+    pillLabel.className = "pill-toggle bot-pill";
+
+    const chk = document.createElement("input");
+    chk.type      = "checkbox";
+    chk.className = "bot-chk";
+    chk.checked   = row.isBot;
+    chk.addEventListener("change", () => {
+      const r = playerRows.find(r => r.id === row.id);
+      if (r) {
+        r.isBot         = chk.checked;
+        inp.placeholder = r.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
+      }
+    });
+
+    const slider = document.createElement("span");
+    slider.className = "pill-slider";
+
+    pillLabel.appendChild(chk);
+    pillLabel.appendChild(slider);
+    toggleWrap.appendChild(botLbl);
+    toggleWrap.appendChild(pillLabel);
+
+    // Remove button (invisible but still takes space when at minimum)
+    const removeBtn = document.createElement("button");
+    removeBtn.className        = "player-remove-btn";
+    removeBtn.textContent      = "×";
+    removeBtn.style.visibility = showRemove ? "visible" : "hidden";
+    removeBtn.addEventListener("click", e => {
       e.preventDefault();
-      const on = this.dataset.npc === "0";
-      this.dataset.npc = on ? "1" : "0";
-      this.classList.toggle("sel", on);
-      inp.placeholder = on ? `Bot ${i+1}` : `Player ${i+1} name`;
-    };
+      syncPlayerRowsFromDOM();
+      playerRows = playerRows.filter(r => r.id !== row.id);
+      renderPlayerRows();
+      syncDecksToPlayerCount();
+    });
 
-    row.appendChild(inp);
-    row.appendChild(npcBtn);
-    c.appendChild(row);
+    rowEl.appendChild(inp);
+    rowEl.appendChild(toggleWrap);
+    rowEl.appendChild(removeBtn);
+    c.appendChild(rowEl);
+  });
+}
+
+function addPlayerRow() {
+  syncPlayerRowsFromDOM();
+  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false });
+  renderPlayerRows();
+  syncDecksToPlayerCount();
+}
+
+// Start with 2 players
+playerRows = [
+  { id: _rowIdCtr++, name: "", isBot: false },
+  { id: _rowIdCtr++, name: "", isBot: false },
+];
+renderPlayerRows();
+
+// ============================================================
+// NUMBER STEPPER
+// ============================================================
+function getStepperValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return null;
+  if (el.tagName === "INPUT") return parseInt(el.value) || 0;  // fallback for plain inputs
+  return parseInt(el.dataset.value) || 0;
+}
+
+function setStepperValue(id, val) {
+  const el = document.getElementById(id);
+  if (!el || !el.classList.contains("stepper")) return;
+  const min = parseInt(el.dataset.min) || 0;
+  const max = parseInt(el.dataset.max) || Infinity;
+  val = Math.max(min, Math.min(max, val));
+  el.dataset.value = val;
+  el.querySelector(".stepper-display").textContent = val;
+  el.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
+  el.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
+}
+
+function syncDecksToPlayerCount() {
+  const count = playerRows.length;
+
+  // Deck count auto-bump
+  const decks = getStepperValue("num-decks");
+  if (decks !== null) {
+    if (count >= 4 && decks < 2) setStepperValue("num-decks", 2);
+    if (count < 4  && decks === 2) setStepperValue("num-decks", 1);
+  }
+
+  // Easy Mode: force ON + greyed out when 4+ players (halving already applies)
+  const cb    = document.getElementById("easy-mode-setup-toggle");
+  const pill  = document.getElementById("easy-mode-setup-pill");
+  const label = document.getElementById("easy-mode-setup-label");
+  if (!cb) return;
+  if (count >= 4) {
+    // Force ON and disable — 4-player rule covers it
+    if (!cb.checked) setEasyModeSetup(true);
+    cb.disabled = true;
+    if (pill)  pill.style.opacity = "0.45";
+    if (label) label.title = "Halving is automatic with 4+ players";
+  } else {
+    cb.disabled = false;
+    if (pill)  pill.style.opacity = "";
+    if (label) label.title = "";
   }
 }
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".stepper-dec, .stepper-inc");
+  if (!btn) return;
+  const stepper = btn.closest(".stepper");
+  if (!stepper) return;
+
+  const min = parseInt(stepper.dataset.min) || 0;
+  const max = parseInt(stepper.dataset.max) || Infinity;
+  let val   = parseInt(stepper.dataset.value) || 0;
+
+  val = btn.classList.contains("stepper-dec")
+    ? Math.max(min, val - 1)
+    : Math.min(max, val + 1);
+
+  stepper.dataset.value = val;
+  stepper.querySelector(".stepper-display").textContent = val;
+  stepper.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
+  stepper.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
+});
 
 // ============================================================
 // START GAME
@@ -235,28 +373,29 @@ async function startGame() {
   const btn = document.getElementById("start-btn");
   btn.disabled = true;
 
+  syncPlayerRowsFromDOM();
   const names = [];
   const npcs  = [];
-  for (let i = 0; i < numPlayersSel; i++) {
-    const isNpc = (document.getElementById(`npc-${i}`)?.dataset.npc === "1");
-    const val   = (document.getElementById(`pname-${i}`)?.value || "").trim();
-    const name  = val || (isNpc ? `Bot${i+1}` : `Player${i+1}`);
+  playerRows.forEach((row, i) => {
+    const isBot = row.isBot;
+    const name  = (row.name || "").trim() || (isBot ? `Bot${i + 1}` : `Player${i + 1}`);
     names.push(name);
-    if (isNpc) npcs.push(name);
-  }
+    if (isBot) npcs.push(name);
+  });
   npcPlayers = new Set(npcs);
 
   const isDigital = setupMode === "digital";
   const wager     = setupDrinking
-    ? (parseInt(document.getElementById(isDigital ? "wager-dig" : "wager-ref").value) || 1)
+    ? (getStepperValue(isDigital ? "wager-dig" : "wager-ref") || 1)
     : 1;
-  const nh        = parseInt(document.getElementById(isDigital ? "num-hands-dig" : "num-hands-ref").value) || 2;
-  const numDecks  = parseInt(document.getElementById("num-decks")?.value) || 1;
+  const nh        = getStepperValue(isDigital ? "num-hands-dig" : "num-hands-ref") || 2;
+  const numDecks  = getStepperValue("num-decks") || 1;
 
   const bustVoteEnabled = !!(document.getElementById("bust-vote-setup-toggle")?.checked);
+  const easyMode        = !!(document.getElementById("easy-mode-setup-toggle")?.checked);
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {
