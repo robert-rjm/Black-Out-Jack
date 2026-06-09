@@ -221,7 +221,12 @@ class GameRoom:
         return self.session.cmd_fouraces(parts)
 
     def cmd_endround(self):
-        return self.session.cmd_endround(skip_sweep=(self.mode == "digital"))
+        extra = getattr(self, '_eor_msgs_buffer', [])
+        self._eor_msgs_buffer = []
+        return self.session.cmd_endround(
+            skip_sweep=(self.mode == "digital"),
+            extra_eor_msgs=extra,
+        )
 
     def cmd_status(self):
         return self.session.cmd_status()
