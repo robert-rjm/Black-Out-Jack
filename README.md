@@ -25,6 +25,8 @@
 
 **Just want to play?** → [Play online instantly](https://black-out-jack.onrender.com)
 
+**New to the rules?** → [Read the full rules](docs/Rules.md)
+
 **Want to play locally?**
 ```bash
 git clone https://github.com/robert-rjm/Black-Out-Jack.git
