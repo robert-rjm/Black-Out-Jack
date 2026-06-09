@@ -124,6 +124,16 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
                             info["local_names"] = local_names + [name]
                         break
 
+    # Auto-bump to 2 decks when player count reaches 4+ (digital mode only),
+    # unless the admin explicitly queued a deck count this round.
+    if (session.mode == "digital"
+            and "num_decks" not in queued
+            and len(session.all_players) >= 4
+            and getattr(session.shoe, "num_decks", 1) < 2):
+        session.shoe = Shoe(2)
+        session.shoe.shuffle()
+        changes.append("Deck count auto-bumped to 2 (4+ players)")
+
     for name in queued.get("remove_players", []):
         before = len(session.all_players)
         session.all_players = [
