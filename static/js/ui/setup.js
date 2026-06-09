@@ -120,7 +120,7 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "";
-    sub.textContent = "Virtual Drinking Blackjack — digital shoe & drink tracker";
+    sub.textContent = "Virtual Drinking Blackjack";
   } else if (type === "normal") {
     setupMode     = "digital";
     setupDrinking = false;
