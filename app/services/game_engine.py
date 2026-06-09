@@ -349,17 +349,15 @@ def dealer_turn(session: GameRoom) -> None:
                 for hand in p.hands
                 if hand.result == "win"
             ]
-            protected         = session._ace_clubs_flag.get("protected", False)
             partial_protected = session._ace_clubs_flag.get("partial_protected", False)
             half_protected    = session._ace_clubs_flag.get("half_protected", False)
             hs_for_penalty = (
                 [h for h in winning_hds if h[0].lower() != session.dealer_name.lower()]
-                if partial_protected and not protected
-                else winning_hds
+                if partial_protected else winning_hds
             )
             eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
                 dealer_name=session.dealer_name, winning_hands=hs_for_penalty,
-                protected=protected, half_protected=half_protected,
+                half_protected=half_protected,
             )))
             session._hard_switch_drinking_applied = True
 
