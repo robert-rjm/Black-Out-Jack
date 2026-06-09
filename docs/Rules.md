@@ -1,4 +1,4 @@
-# Drinking Black(Out)Jack Rules <img src="../static/Logo-BlackOutJack.png" alt="Logo-BlackOutJack" height="32">
+# <img src="../static/Logo-BlackOutJack.png" alt="Logo-BlackOutJack" height="48" align="absmiddle"> Drinking Black(Out)Jack Rules 
 
 This document outlines the full set of rules for _**Black(Out)Jack**_: a fun, fast, and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
 
