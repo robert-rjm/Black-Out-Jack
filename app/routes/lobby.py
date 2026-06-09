@@ -162,6 +162,7 @@ def setup():
         switch_this_round=None,
         _dealer_rotate_every=len(players),
         bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
+        easy_mode=bool(data.get("easy_mode", False)),
     )
     if client_id:
         # All non-NPC seats start as local — a seat moves to remote only when
@@ -190,6 +191,7 @@ def setup():
     output = capture(raw_session.start_round)
     if drinking:
         patch_tracker(raw_session)  # must run AFTER start_round creates a fresh tracker
+        raw_session.tracker.easy_mode = room.easy_mode
     if output.strip():
         room._log_entries.append(output)
     state  = serialize_state(room, client_id)

@@ -686,6 +686,7 @@ class DrinkTracker:
         self.dealer_player = dealer_player
         self._map          = {p.name.lower(): p for p in players}
         self.verbose       = verbose  # set False by web layer to silence terminal output
+        self.easy_mode     = False    # halve drinks every round regardless of player count
 
     # ---------------------------------------------------------------- resolution
 
@@ -731,11 +732,13 @@ class DrinkTracker:
         entire round, then apply a halving credit so net = ceil(total/2).
         Mid-round events (aces, first-deal four-aces) use apply() -- NOT halved."""
         all_msgs = [msg for msgs in msg_lists for msg in msgs]
-        four_player_mode = len(self.players) >= 4
+        halving_active = self.easy_mode or len(self.players) >= 4
 
-        if not four_player_mode:
+        if not halving_active:
             self.apply(all_msgs)
             return
+
+        label = "Easy mode" if self.easy_mode and len(self.players) < 4 else "4-player"
 
         # Snapshot pre-batch sips so we measure exactly what this batch adds
         pre_sips = {p.name: p.drinks_owed() for p in self.players}
@@ -751,10 +754,10 @@ class DrinkTracker:
                 if credit > 0:
                     halved = math.ceil(gained / 2)
                     p.add_drink(-credit,
-                                f"4-player halving: -{credit} sip(s) ({gained} -> {halved})",
+                                f"{label} halving: -{credit} sip(s) ({gained} -> {halved})",
                                 "player")
                     if self.verbose:
-                        print(f"    (i) 4-player halving for {p.name}: {gained} -> {halved}")
+                        print(f"    (i) {label} halving for {p.name}: {gained} -> {halved}")
 
     # ---------------------------------------------------------------- ace of clubs credit
 

@@ -549,6 +549,10 @@ def update_settings():
         except (ValueError, TypeError):
             pass   # silently ignore a malformed value; non-critical setting
 
+    # easy_mode — queued, takes effect next round
+    if "easy_mode" in data:
+        queued["easy_mode"] = bool(data["easy_mode"])
+
     # bust_vote_enabled is a live setting — toggled immediately
     if "bust_vote_enabled" in data:
         session.bust_vote_enabled = bool(data["bust_vote_enabled"])

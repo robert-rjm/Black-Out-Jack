@@ -10,6 +10,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
 - [Game Setup](#game-setup)
 - [General Rule Modifications](#general-rule-modifications)
 - [Drinking Rules](#drinking-rules)
+- [Easy Mode](#easy-mode)
 - [Potential future rules](#potential-future-rules)
 
 ---
@@ -52,12 +53,6 @@ Being Dealer carries higher drinking risk.
 - A push counts as neither a win nor a loss for switch purposes.
 - Soft Switch does **not** trigger if any Player took insurance on Blackjack.
 - _**Play with Honor:**_ Intentionally sabotaging your own hand to avoid a Hard Switch is not allowed.
-
----
-
-## Large Group Rule (4+ Players)
-
-When 4 or more players are in the game, all drink amounts are halved (rounded up) each round. This applies to every drink rule — net losses, BJ bonuses, sweeps, aces, and the Hard Switch.
 
 ---
 
@@ -243,6 +238,16 @@ Ace effects still apply normally. Two exceptions specific to the Hard Switch cal
 **Ace of Clubs protection (dealer hand):** If ♣A is dealt to the Dealer's dealer hand, the switch still occurs but the Dealer drinks 0 sips. Players still drink normally.
 
 **Ace of Clubs protection (player hand, dealer-player only):** If ♣A is dealt to the Dealer's own player hand, they receive reduced protection: their own player hands are excluded from the Hard Switch penalty calculation, but they still drink for all other players' winning hands. The -1 sip credit still applies.
+
+---
+
+## Large Group Rule (4+ Players)
+
+When 4 or more players are in the game, all drink amounts are halved (rounded up) each round. This applies to all end-of-round drinks: net losses, Blackjack bonuses, sweeps, insurance, and the Hard Switch. Mid-round effects are not halved: ace suit effects, dealer suited hand, and four aces on first deal fire immediately as they happen.
+
+### Easy Mode
+
+Any group, regardless of size, can opt into the same halving by enabling **Easy Mode** in the setup screen. The host can also toggle it mid-game from admin settings; the change takes effect from the next round. When 4+ players are present, Easy Mode is always on (the toggle is locked and greyed out since the Large Group Rule already applies).
 
 ---
 

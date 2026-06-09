@@ -3,6 +3,7 @@
 ## Bugs
 
 - [ ] Brainstorm fix for Mobile UI
+  - respect safe area (iphone notch)
   - big wasted space with play panel
   - big wasted space in action bar
   - remove other dead space
@@ -17,10 +18,13 @@
   - difficult to see on standard computer (without monitor)
   - potentially collapsible stats/trivia section
   - eliminate dead space
-- [X] issue with 4th player joining mid round
+- [ ] issues with 4th player
   - ensure no issue with "late joiners"
-  - game logic should not break
+  - ensure drink sips are halved automatically (round up)
   - check if fixes work as intended
+  - check if maximum number of players in game logic
+  - check for # decks needed per extra players. {Player:deck = (2,1), (3,1), (4,2),(5,?), etc}
+- [ ] test "easy mode" working as intended
 - [ ] Trivia Panel
   - fact check
   - add / edits facts

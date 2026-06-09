@@ -13,6 +13,7 @@
 - [Live Sip Tracking](#live-sip-tracking)
 - [Milestone Handouts](#milestone-handouts)
 - [Dealer Bust Vote](#dealer-bust-vote)
+- [Easy Mode](#easy-mode)
 - [KPI Panel](#kpi-panel)
 - [Strategy Accuracy](#strategy-accuracy)
 - [Clean-Round Crown](#clean-round-crown)
@@ -73,6 +74,7 @@ The dealer can **suggest a different action** to any player before executing the
 - Suggestions are per-hand — a split hand can receive a different suggestion for each sub-hand
 
 ---
+
 ## Live Sip Tracking
 
 - A **header strip** displays the session's total sip count
@@ -115,6 +117,16 @@ Before the dealer reveals their hand, players can predict whether the dealer wil
 - Only players who voted are affected — abstainers skip the round entirely
 - The −1 credit offsets one of your own sips from that round (net result of a correct call is 0 or positive)
 - Bust voting can be toggled on or off by the admin in settings
+
+---
+
+## Easy Mode
+
+**Easy Mode** halves all end-of-round drinks (rounded up) for every player, every round — the same mechanic as the automatic [Large Group Rule](Rules.md#large-group-rule-4-players) but available to any group size.
+
+- **Setup:** toggle it on in the setup screen before starting the game
+- **Mid-game:** the host can toggle it in admin settings; takes effect from the next round
+- **4+ players:** Easy Mode is locked ON — the Large Group Rule already covers it
 
 ---
 
