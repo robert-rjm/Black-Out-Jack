@@ -19,7 +19,7 @@ NOTE — two DrinkingRules helpers are NOT events and are called directly:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Union
 
