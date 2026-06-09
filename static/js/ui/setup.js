@@ -175,7 +175,7 @@ function _showMaintenanceOverlay(type, btn) {
 }
 
 // ============================================================
-// SETUP — players
+// SETUP — players (dynamic list)
 // ============================================================
 const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
 const SUITS = [
@@ -185,48 +185,105 @@ const SUITS = [
   { label: "♠", code: "s", cls: "spades" },
 ];
 
-let numPlayersSel = 2;
-function setNumPlayers(n) {
-  numPlayersSel = n;
-  document.querySelectorAll("#num-players-row .btn").forEach((b,i) => {
-    b.classList.toggle("sel", i+2 === n);
-  });
-  buildNameFields(n);
-}
-setNumPlayers(2);
+let playerRows = [];   // [{ id, name, isBot }]
+let _rowIdCtr  = 0;
 
-function buildNameFields(n) {
+// Read current input/toggle values from DOM back into playerRows state
+function syncPlayerRowsFromDOM() {
+  document.querySelectorAll(".player-row[data-row-id]").forEach(el => {
+    const id  = parseInt(el.dataset.rowId, 10);
+    const row = playerRows.find(r => r.id === id);
+    if (!row) return;
+    const inp = el.querySelector(".player-name-input");
+    const chk = el.querySelector(".bot-chk");
+    if (inp) row.name  = inp.value;
+    if (chk) row.isBot = chk.checked;
+  });
+}
+
+function renderPlayerRows() {
   const c = document.getElementById("name-fields");
   c.innerHTML = "";
-  for (let i = 0; i < n; i++) {
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;gap:8px;width:100%;max-width:420px";
+  const showRemove = playerRows.length > 2;
 
+  playerRows.forEach((row, i) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "player-row";
+    rowEl.dataset.rowId = row.id;
+
+    // Name input
     const inp = document.createElement("input");
-    inp.type = "text";
-    inp.placeholder = `Player ${i+1} name`;
-    inp.id = `pname-${i}`;
-    inp.style.cssText = "flex:1;height:var(--tap);background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:16px;padding:0 14px;";
+    inp.type        = "text";
+    inp.className   = "player-name-input";
+    inp.value       = row.name;
+    inp.placeholder = row.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
+    inp.addEventListener("input", () => {
+      const r = playerRows.find(r => r.id === row.id);
+      if (r) r.name = inp.value;
+    });
 
-    const npcBtn = document.createElement("button");
-    npcBtn.className = "btn";
-    npcBtn.id = `npc-${i}`;
-    npcBtn.textContent = "BOT";
-    npcBtn.dataset.npc = "0";
-    npcBtn.style.cssText = "flex-shrink:0;height:var(--tap);padding:0 14px;font-size:11px;font-weight:800;letter-spacing:.6px";
-    npcBtn.onclick = function(e) {
+    // Bot toggle: "BOT" label + small pill
+    const toggleWrap = document.createElement("div");
+    toggleWrap.className = "bot-toggle-wrap";
+
+    const botLbl = document.createElement("span");
+    botLbl.className   = "bot-lbl";
+    botLbl.textContent = "BOT";
+
+    const pillLabel = document.createElement("label");
+    pillLabel.className = "pill-toggle bot-pill";
+
+    const chk = document.createElement("input");
+    chk.type      = "checkbox";
+    chk.className = "bot-chk";
+    chk.checked   = row.isBot;
+    chk.addEventListener("change", () => {
+      const r = playerRows.find(r => r.id === row.id);
+      if (r) {
+        r.isBot         = chk.checked;
+        inp.placeholder = r.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
+      }
+    });
+
+    const slider = document.createElement("span");
+    slider.className = "pill-slider";
+
+    pillLabel.appendChild(chk);
+    pillLabel.appendChild(slider);
+    toggleWrap.appendChild(botLbl);
+    toggleWrap.appendChild(pillLabel);
+
+    // Remove button (invisible but still takes space when at minimum)
+    const removeBtn = document.createElement("button");
+    removeBtn.className        = "player-remove-btn";
+    removeBtn.textContent      = "×";
+    removeBtn.style.visibility = showRemove ? "visible" : "hidden";
+    removeBtn.addEventListener("click", e => {
       e.preventDefault();
-      const on = this.dataset.npc === "0";
-      this.dataset.npc = on ? "1" : "0";
-      this.classList.toggle("sel", on);
-      inp.placeholder = on ? `Bot ${i+1}` : `Player ${i+1} name`;
-    };
+      syncPlayerRowsFromDOM();
+      playerRows = playerRows.filter(r => r.id !== row.id);
+      renderPlayerRows();
+    });
 
-    row.appendChild(inp);
-    row.appendChild(npcBtn);
-    c.appendChild(row);
-  }
+    rowEl.appendChild(inp);
+    rowEl.appendChild(toggleWrap);
+    rowEl.appendChild(removeBtn);
+    c.appendChild(rowEl);
+  });
 }
+
+function addPlayerRow() {
+  syncPlayerRowsFromDOM();
+  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false });
+  renderPlayerRows();
+}
+
+// Start with 2 players
+playerRows = [
+  { id: _rowIdCtr++, name: "", isBot: false },
+  { id: _rowIdCtr++, name: "", isBot: false },
+];
+renderPlayerRows();
 
 // ============================================================
 // START GAME
@@ -235,15 +292,15 @@ async function startGame() {
   const btn = document.getElementById("start-btn");
   btn.disabled = true;
 
+  syncPlayerRowsFromDOM();
   const names = [];
   const npcs  = [];
-  for (let i = 0; i < numPlayersSel; i++) {
-    const isNpc = (document.getElementById(`npc-${i}`)?.dataset.npc === "1");
-    const val   = (document.getElementById(`pname-${i}`)?.value || "").trim();
-    const name  = val || (isNpc ? `Bot${i+1}` : `Player${i+1}`);
+  playerRows.forEach((row, i) => {
+    const isBot = row.isBot;
+    const name  = (row.name || "").trim() || (isBot ? `Bot${i + 1}` : `Player${i + 1}`);
     names.push(name);
-    if (isNpc) npcs.push(name);
-  }
+    if (isBot) npcs.push(name);
+  });
   npcPlayers = new Set(npcs);
 
   const isDigital = setupMode === "digital";
