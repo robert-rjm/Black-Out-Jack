@@ -13,9 +13,17 @@ setBustVoteSetupToggle(true);                 // bust-vote toggle starts ON in s
       document.getElementById("age-gate").style.display = "none";
     }
   } catch(_) {
-    // sessionStorage blocked (e.g. private browsing) — skip gate
     document.getElementById("age-gate").style.display = "none";
   }
+  // Attach age gate button handlers
+  document.querySelector('[data-action="confirmAge"]').addEventListener('click', () => {
+    try { sessionStorage.setItem("bjAgeOk", "1"); } catch(_) {}
+    document.getElementById("age-gate").style.display = "none";
+  });
+  document.querySelector('[data-action="declineAge"]').addEventListener('click', () => {
+    document.getElementById('age-gate-card').classList.remove('active');
+    document.querySelector('.underage-screen').classList.add('active');
+  });
 
   // Generate or load persistent client UUID
   let savedId = lsGet("bjClientId");

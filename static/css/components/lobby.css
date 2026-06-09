@@ -177,7 +177,7 @@
 }
 #age-gate-card {
   width: 100%; max-width: 400px;
-  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  display: none; flex-direction: column; align-items: center; gap: 16px;
 }
 .gate-logo { line-height: 1; }
 .gate-logo img {
@@ -212,3 +212,48 @@
   cursor: pointer; text-decoration: underline; padding: 4px 8px;
 }
 .gate-btn-decline:hover { color: var(--text); }
+
+#age-gate-card.active,
+.underage-screen.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.underage-icon {
+    margin-bottom: 8px;
+}
+.underage-icon img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+}
+.underage-screen h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+}
+.underage-screen p {
+    font-size: 14px;
+    color: var(--muted);
+}
+.underage-screen {
+    display: none;
+}
+.underage-btn {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 14px 32px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+.underage-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
