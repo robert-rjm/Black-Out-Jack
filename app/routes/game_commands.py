@@ -455,6 +455,7 @@ def command():
                     log.debug("  Shoe reshuffled.")
                 game_session.start_round()
                 patch_tracker(game_session)
+                game_session.session.tracker.easy_mode = game_session.easy_mode
 
             elif cmd in ("status", "st"):
                 game_session.cmd_status()
@@ -554,6 +555,7 @@ def command():
                 game_session._pending_milestone      = None
                 game_session.start_round()
                 patch_tracker(game_session)
+                game_session.session.tracker.easy_mode = game_session.easy_mode
 
             elif cmd in ("status", "st"):
                 game_session.cmd_status()
