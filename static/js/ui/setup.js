@@ -105,6 +105,15 @@ function setBustVoteSetupToggle(on) {
   if (onEl) onEl.style.display = on ? "inline" : "none";
 }
 
+function setEasyModeSetup(on) {
+  const cb    = document.getElementById("easy-mode-setup-toggle");
+  const off   = document.getElementById("easy-mode-lbl-setup");
+  const onEl  = document.getElementById("easy-mode-lbl-setup-on");
+  if (cb)   cb.checked          = on;
+  if (off)  off.style.display   = on ? "none"   : "inline";
+  if (onEl) onEl.style.display  = on ? "inline" : "none";
+}
+
 function setGameType(type, btn) {
   document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
@@ -311,10 +320,30 @@ function setStepperValue(id, val) {
 
 function syncDecksToPlayerCount() {
   const count = playerRows.length;
+
+  // Deck count auto-bump
   const decks = getStepperValue("num-decks");
-  if (decks === null) return;  // not in DOM (referee mode)
-  if (count >= 4 && decks < 2) setStepperValue("num-decks", 2);
-  if (count < 4  && decks === 2) setStepperValue("num-decks", 1);
+  if (decks !== null) {
+    if (count >= 4 && decks < 2) setStepperValue("num-decks", 2);
+    if (count < 4  && decks === 2) setStepperValue("num-decks", 1);
+  }
+
+  // Easy Mode: force ON + greyed out when 4+ players (halving already applies)
+  const cb    = document.getElementById("easy-mode-setup-toggle");
+  const pill  = document.getElementById("easy-mode-setup-pill");
+  const label = document.getElementById("easy-mode-setup-label");
+  if (!cb) return;
+  if (count >= 4) {
+    // Force ON and disable — 4-player rule covers it
+    if (!cb.checked) setEasyModeSetup(true);
+    cb.disabled = true;
+    if (pill)  pill.style.opacity = "0.45";
+    if (label) label.title = "Halving is automatic with 4+ players";
+  } else {
+    cb.disabled = false;
+    if (pill)  pill.style.opacity = "";
+    if (label) label.title = "";
+  }
 }
 
 document.addEventListener("click", e => {
@@ -363,9 +392,10 @@ async function startGame() {
   const numDecks  = getStepperValue("num-decks") || 1;
 
   const bustVoteEnabled = !!(document.getElementById("bust-vote-setup-toggle")?.checked);
+  const easyMode        = !!(document.getElementById("easy-mode-setup-toggle")?.checked);
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
   if (isDigital) body.num_decks = numDecks;
 
   const res  = await fetch("/setup", {

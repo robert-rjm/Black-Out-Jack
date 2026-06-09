@@ -197,7 +197,7 @@ def harvest_drink_log(session: GameRoom) -> None:
                 elif "Sweep cancels doubled-hand drink" in reason:
                     drinks_detail.append({"name": p.name, "sips": sips,
                                           "reason": "-1 sip: doubled-hand drink waived (covered by sweep)"})
-                elif "4-player halving" in reason:
+                elif "4-player halving" in reason or "Easy mode halving" in reason:
                     drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
             elif reason and "Hard Switch triggered" in reason:
                 notices.append(reason)

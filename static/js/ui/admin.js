@@ -214,6 +214,18 @@ async function setBustVoteEnabled(on) {
   } catch (_) {}
 }
 
+async function setEasyModeAdmin(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, easy_mode: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
 async function setGodMode(on) {
   try {
     const res = await fetch("/toggle_god_mode", {

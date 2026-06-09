@@ -478,6 +478,13 @@ function _populateSettingsUI(state) {
   // Bust vote pill toggle sync is handled by updateBustVoteUI — just sync checkbox here
   const bustCb2 = document.getElementById("bust-vote-toggle-modal");
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
+  const easyModalCb = document.getElementById("easy-mode-toggle-modal");
+  const easyModalOff = document.getElementById("easy-mode-lbl-modal");
+  const easyModalOn  = document.getElementById("easy-mode-lbl-modal-on");
+  const easyOn = !!state.easy_mode;
+  if (easyModalCb) easyModalCb.checked = easyOn;
+  if (easyModalOff) easyModalOff.style.display = easyOn ? "none"   : "inline";
+  if (easyModalOn)  easyModalOn.style.display  = easyOn ? "inline" : "none";
   const godCb = document.getElementById("god-mode-toggle-modal");
   if (godCb) godCb.checked = !!state.god_mode_enabled;
   const godLblOff = document.getElementById("god-mode-lbl-off");

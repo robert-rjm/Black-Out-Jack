@@ -21,6 +21,12 @@
     if (action === "setBustVoteEnabled") {
       return window.setBustVoteEnabled(!!el.checked);
     }
+    if (action === "setEasyModeAdmin") {
+      return window.setEasyModeAdmin(!!el.checked);
+    }
+    if (action === "setEasyModeSetup") {
+      return window.setEasyModeSetup(!!el.checked);
+    }
     if (action === "setGodMode") {
       return window.setGodMode(!!el.checked);
     }
