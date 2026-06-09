@@ -4,13 +4,14 @@ This document outlines the full set of rules for _**Black(Out)Jack**_: a fun, fa
 
 Standard BlackJack rules apply unless explicitly modified below. These custom rules are designed to add energy, unpredictability, and fun to the game, especially when played socially.
 
-**Note:** This rule set is always evolving. Players are encouraged to propose new rules during gameplay if they make the experience better.
+> [!NOTE]
+> These rules are always evolving. Players are encouraged to propose new rules during gameplay if they make the experience better.
 
 ## Table of Contents
 - [Game Setup](#game-setup)
 - [General Rule Modifications](#general-rule-modifications)
 - [Drinking Rules](#drinking-rules)
-- [Easy Mode](#easy-mode)
+- [Relaxed Drinking Rules](#relaxed-drinking-rules)
 - [Potential future rules](#potential-future-rules)
 
 ---
@@ -179,7 +180,7 @@ This base sip is **doubled cumulatively**:
 
 These rules apply based on specific card combinations during gameplay.
 
-#### 1. 5+ Cards
+#### 1. 5+ Cards (Handouts)
 
 These rules trigger when a Player or Dealer holds 5 or more cards in a single hand.
 
@@ -215,6 +216,10 @@ If the Dealer's final hand is entirely one suit, all Players drink 2 sips (regar
 - Includes all Player hands and the Dealer's face-up card.
 - These two cannot stack (first-deal rule takes precedence).
 
+#### 5. Bust Vote
+
+
+
 ---
 
 ### Drinking on behalf of the Dealer (Hard Dealer Switch):
@@ -241,13 +246,31 @@ Ace effects still apply normally. Two exceptions specific to the Hard Switch cal
 
 ---
 
-## Large Group Rule (4+ Players)
+## Relaxed Drinking Rules
 
-When 4 or more players are in the game, all drink amounts are halved (rounded up) each round. This applies to all end-of-round drinks: net losses, Blackjack bonuses, sweeps, insurance, and the Hard Switch. Mid-round effects are not halved: ace suit effects, dealer suited hand, and four aces on first deal fire immediately as they happen.
+### Large Group Rule (4+ Players)
+
+When 4 or more players are in the game, **end-of-round drinks are halved (rounded up)**. Mid-round effects fire immediately and are never halved.
+
+| Halved (end-of-round) | Not halved (mid-round) |
+| --------------------- | ---------------------- |
+| Net hand losses (incl. doubled +1, suited +1) | Ace suit effects ♣♠♥♦ |
+| Blackjack bonus (player BJ) | Dealer suited hand (2 sips to all) |
+| Hard Dealer Switch | Four aces on first deal |
+| All-hands sweep | 5-card handouts |
+| Insurance resolution | Bust vote penalty/credit (+1/−1) |
+| Four aces at end of round | |
+| RoundEndEvent drinks (wins-all, immunity breakers) | |
 
 ### Easy Mode
 
-Any group, regardless of size, can opt into the same halving by enabling **Easy Mode** in the setup screen. The host can also toggle it mid-game from admin settings; the change takes effect from the next round. When 4+ players are present, Easy Mode is always on (the toggle is locked and greyed out since the Large Group Rule already applies).
+Any group can opt into the same halving rule regardless of player count.
+
+| Setting | Behaviour |
+| ------- | --------- |
+| **Toggle** | Setup screen or admin settings mid-game |
+| **Applies** | From the next round |
+| **4+ players** | Always on (toggle locked) |
 
 ---
 
@@ -259,7 +282,7 @@ Playtest feedback is welcome!_
 - **Perfect Split**:  Split with both hands winning at same total → others drink 2
 - **Bust Chain**: 3+ Players bust → last to bust drinks 1 extra per earlier bust
 
-_Have a rule idea? Open a pull request or suggest it mid-game!
+_Have a rule idea? Open an issue or suggest it mid-game!
 The best rules often come from the chaos of gameplay._ 🍻
 
 ---

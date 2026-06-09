@@ -101,6 +101,10 @@ def state():
             if round_phase(session) == "playing":
                 auto_play_npc_turns(session)   # unblock NPCs held by pending vote
             _run_deferred_dealer_play(session)
+        # Safety net: dealer stuck at "dealer-ready" with no bust-vote window
+        # (e.g. bust vote disabled, or all-BJ deal where no hit/stand fires).
+        elif round_phase(session) == "dealer-ready" and session._bust_vote_expires_at is None:
+            _run_deferred_dealer_play(session)
 
     return jsonify(serialize_state(session, client_id))
 

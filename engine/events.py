@@ -122,8 +122,7 @@ class HardDealerSwitchEvent:
     """Fired when the dealer loses every hand at the table."""
     dealer_name:    str
     winning_hands:  list[tuple[str, Hand]]  # (player_name, hand) for each winning hand
-    protected:      bool                    # True = dealer-hand A♣ full protection
-    half_protected: bool = False            # True = dealer-hand A♠ half protection
+    half_protected: bool = False            # True = dealer-hand A♣ half protection
 
 
 # ---------------------------------------------------------------------------
