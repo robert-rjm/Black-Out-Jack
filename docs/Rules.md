@@ -217,7 +217,7 @@ Even if you won all your hands, you still drink if another Player wins with:
 
 ### 5.3 Blackjack Bonus
 
-When any Player gets a Blackjack, **everyone** drinks 1 sip (regardless of own result).
+When any Player gets a Blackjack, **all other Players** drinks 1 sip (regardless of own result).
 This includes Blackjacks from split Aces.
 No immunity applies.
 
@@ -242,7 +242,7 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 |---|-----|-----------|--------|
 | 1 | Player | **Exactly 21** | Distribute sips equal to card count to other Players (e.g. 6 cards = 6 sips distributed) |
 | 2 | Player | **Wins** | All other Players drink 1 sip |
-| 3 | Dealer | **Exactly 21** | All Players' wagers doubled this round |
+| 3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round |
 
 **Clarifications:**
 - Rule 1 does not require a win.
