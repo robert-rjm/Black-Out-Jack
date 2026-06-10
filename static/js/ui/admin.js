@@ -319,6 +319,22 @@ function _openBustVoteModal(secondsLeft) {
   let secs = duration;
   function tick() {
     if (!_bustVoteModalOpen) return;
+
+    // Re-sync with the server's clock each tick. The server pauses/extends
+    // the bust-vote window while an insurance vote is pending, so trust
+    // bust_vote_seconds_left over our local countdown when it's available
+    // and the window is still open server-side.
+    if (lastState) {
+      if (lastState.bust_vote_window_open && typeof lastState.bust_vote_seconds_left === "number") {
+        secs = lastState.bust_vote_seconds_left;
+      } else if (!lastState.bust_vote_window_open) {
+        // Server says the window already closed (e.g. all votes decided) —
+        // close the modal without re-submitting votes.
+        _closeBustVoteModal();
+        return;
+      }
+    }
+
     const display = Math.min(secs, 15);
     if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
     if (label) label.textContent = `${display}s`;
