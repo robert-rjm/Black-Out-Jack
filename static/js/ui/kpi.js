@@ -2,6 +2,14 @@
 // KPI PANEL — leaderboard, stats, trivia
 // ============================================================
 
+// ---- Win% color coding ----
+function wrClass(wr) {
+  if (wr === null) return "";
+  if (wr >= 50) return "lb-wr-good";
+  if (wr >= 40) return "lb-wr-ok";
+  return "lb-wr-bad";
+}
+
 // ---- Tab switching ----
 function switchKpiTab(name, el) {
   document.querySelectorAll(".kpi-tabs-bar .kpi-tab").forEach(t => t.classList.toggle("active", t === el));
@@ -71,13 +79,6 @@ function renderLeaderboard(state) {
     if (b.wr !== a.wr) return b.wr - a.wr;
     return a.sips - b.sips;
   });
-
-  function wrClass(wr) {
-    if (wr === null) return "";
-    if (wr >= 55) return "lb-wr-good";
-    if (wr >= 40) return "lb-wr-ok";
-    return "lb-wr-bad";
-  }
 
   const rankEmoji = ["🥇", "🥈", "🥉"];
 
@@ -232,13 +233,6 @@ function renderStats(state) {
   }
 
   const isDlr = name => name.toLowerCase() === dealer;
-
-  function wrClass(wr) {
-    if (wr === null) return "";
-    if (wr >= 55) return "lb-wr-good";
-    if (wr >= 40) return "lb-wr-ok";
-    return "lb-wr-bad";
-  }
 
   const tbody = rows.map(r => {
     const rc       = isDlr(r.name) ? " lb-row-dealer" : "";
