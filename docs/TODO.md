@@ -62,3 +62,17 @@ Frontend
 - [ ] Ad-hoc color thresholds (item 10 frontend, kpi.js dealer-bust %) — >= 40 / >= 25 thresholds duplicated as inline styles, separate from wrClass's >=50/>=40. Either name these as constants (DEALER_BUST_GOOD/OK thresholds) or, if they're meant to represent the same "good/ok/bad" semantics, consider a generalized colorClass(value, thresholds) helper. Small, cosmetic, low risk.
 - [ ] _milestoneAllocations stale entries (item 16) — Very low priority edge case (requires player roster to change between two milestones with identical boundary+winner). I'd just add a one-line reset of _milestoneAllocations = {} whenever _lastMilestoneKey changes, which is nearly free and closes the gap entirely.
 - [X] seatMap index-based mapping (item 17) — Switch _collectNewCardEls's seatMap lookup from positional seatEls[i] to seat.dataset.player (already set). Small, robust improvement — removes a fragile coupling between renderPlayers() ordering and animation code for very little cost.
+
+### Priority order for remaining items
+
+1. Insurance votes_needed == 0 manual verification — Trivial (manual test + comment, no code change expected)
+2. _milestoneAllocations stale entries (item 16) — Trivial (one-line reset)
+3. verify_rules() CLI-only comment — Trivial (add a comment, no functional change)
+4. _openBustVoteModal off-by-one (item 12) — Low (isolated, cosmetic display fix)
+5. Ad-hoc color thresholds in kpi.js — Low (extract constants/helper)
+6. Repeated DOM queries every poll (items 7 & 14) — Low/Medium (read-only caching, several files)
+7. serialize_state() ~80-key breakup — Low/Medium (cosmetic restructuring, easy but touches a large function)
+8. "Dealer" magic string sentinel (item 13) — Medium (mechanical but spans several files)
+9. Five "once-per-seq" trackers (item 9) — Medium (consolidation utility, but each tracker's reset semantics must be audited individually — risk of changing toast/modal timing)
+10. command() ~500-line monolith — High (biggest structural item; recommend extracting the shared "after any player action" block first as a lower-risk intermediate step)
+11. Global state sprawl (state.js) — High (defer; touches nearly every UI file — only tackle as part of a larger rewrite)
