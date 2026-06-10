@@ -307,10 +307,10 @@ async function requestLocalSeat(name) {
 
 
 function _openBustVoteModal(secondsLeft) {
-  const overlay = document.getElementById("bust-vote-modal-overlay");
-  if (!overlay || _bustVoteModalOpen) return;
-  _bustVoteModalOpen    = true;
-  overlay.style.display = "flex";
+  if (_bustVoteModalOpen) return;
+  const overlay = openModal("bust-vote-modal-overlay");
+  if (!overlay) return;
+  _bustVoteModalOpen = true;
 
   const bar      = document.getElementById("bust-vote-timer-bar");
   const label    = document.getElementById("bust-vote-timer-label");
@@ -420,8 +420,7 @@ function _closeBustVoteModal() {
   if (!_bustVoteModalOpen) return;
   _bustVoteModalOpen = false;
   if (_bustVoteTimerHandle) { clearTimeout(_bustVoteTimerHandle); _bustVoteTimerHandle = null; }
-  const overlay = document.getElementById("bust-vote-modal-overlay");
-  if (overlay) overlay.style.display = "none";
+  closeModal("bust-vote-modal-overlay");
 }
 
 function updateBustVoteUI(state) {

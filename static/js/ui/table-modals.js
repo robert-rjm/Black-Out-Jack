@@ -42,14 +42,14 @@ function renderInsuranceModal(state) {
   if (_insuranceModalKey !== key) {
     _insuranceModalKey  = key;
     _insuranceMinimised = false;  // always expand on new vote
-    overlay.classList.add("open");
+    openModal("insurance-modal-overlay", { useClass: true });
     // Wire up minimize button once
     const minBtn = document.getElementById("insurance-modal-minimize");
     if (minBtn && !minBtn._wired) {
       minBtn._wired = true;
       minBtn.addEventListener("click", () => {
         _insuranceMinimised = true;
-        overlay.classList.remove("open");
+        closeModal("insurance-modal-overlay", { useClass: true });
       });
     }
   }
@@ -65,7 +65,7 @@ function renderInsuranceModal(state) {
 
   // If minimised, keep overlay closed — render compact banner instead
   if (_insuranceMinimised) {
-    overlay.classList.remove("open");
+    closeModal("insurance-modal-overlay", { useClass: true });
     _renderInsuranceBanner(v, true, activeVoter);
     return;
   }
@@ -155,8 +155,7 @@ function renderInsuranceModal(state) {
 }
 
 function _closeInsuranceModal() {
-  const overlay = document.getElementById("insurance-modal-overlay");
-  if (overlay) overlay.classList.remove("open");
+  closeModal("insurance-modal-overlay", { useClass: true });
   _insuranceModalKey = null;
 }
 
@@ -212,8 +211,7 @@ function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = nu
 
 function _expandInsuranceModal() {
   _insuranceMinimised = false;
-  const overlay = document.getElementById("insurance-modal-overlay");
-  if (overlay) overlay.classList.add("open");
+  openModal("insurance-modal-overlay", { useClass: true });
   const banner = document.getElementById("insurance-vote-banner");
   if (banner) { banner.classList.remove("minimised"); banner.style.display = "none"; }
 }
@@ -394,12 +392,11 @@ function _openMilestoneModal(ms, state) {
 
   _renderMilestoneSteppers(players, ms.handout);
   _updateMilestoneTimer(ms.seconds_left);
-  overlay.classList.add("open");
+  openModal("milestone-modal-overlay", { useClass: true });
 }
 
 function _closeMilestoneModal() {
-  const overlay = document.getElementById("milestone-modal-overlay");
-  if (overlay) overlay.classList.remove("open");
+  closeModal("milestone-modal-overlay", { useClass: true });
 }
 
 function _renderMilestoneSteppers(players, total) {
