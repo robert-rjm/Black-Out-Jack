@@ -101,6 +101,9 @@ def harvest_drink_log(session: GameRoom) -> None:
     session-wide CSV accumulator. Call this right after cmd_endround() and
     before start_round() resets drink_log to [].
     """
+    if session._drink_log_harvested:
+        return  # already harvested this round — do not double-count
+
     rows      = session._drink_csv_rows
     round_num = session.round_count
     dealer    = session.dealer_name
@@ -124,9 +127,6 @@ def harvest_drink_log(session: GameRoom) -> None:
                 "sips":   sips,
             })
     session._drink_csv_rows = rows
-
-    if session._drink_log_harvested:
-        return  # already harvested this round — do not double-count
 
     # Live sip ticker — cumulative net totals across all rounds (credits reduce total)
     ticker = session._sip_ticker
