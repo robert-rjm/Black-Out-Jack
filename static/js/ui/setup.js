@@ -12,9 +12,8 @@ let _milestoneModalOpened   = null;  // key for which we already opened the moda
 let _milestoneAllocations   = {};    // { playerName: sips } — stepper state in modal
 
 function openLastRoundModal() {
-  const overlay = document.getElementById("last-round-overlay");
-  const body    = document.getElementById("last-round-modal-body");
-  if (!overlay || !body) return;
+  const body = document.getElementById("last-round-modal-body");
+  if (!document.getElementById("last-round-overlay") || !body) return;
 
   const sips     = _lastRoundSips;   // last completed round — the main value
   const prevSips = _prevRoundSips;   // round before that — delta reference only
@@ -40,12 +39,11 @@ function openLastRoundModal() {
       </div>`;
     }).join("");
   }
-  overlay.style.display = "flex";
+  openModal("last-round-overlay");
 }
 
 function closeLastRoundModal() {
-  const overlay = document.getElementById("last-round-overlay");
-  if (overlay) overlay.style.display = "none";
+  closeModal("last-round-overlay");
 }
 
 // While waiting for the host to start, poll until the game exists.
