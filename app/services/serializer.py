@@ -228,10 +228,21 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
     when the last vote comes in rather than always defaulting to "DECLINE".
     """
     bj_player    = v["player"]
+    # NPCs never cast insurance votes, so exclude them from the required
+    # count — otherwise votes_cast can never reach votes_needed when NPCs
+    # are seated, and the vote sits "unresolved" for the full 60s timeout,
+    # stalling the dealer's turn even though every human has already voted.
     votes_needed = sum(1 for p in session.all_players
-                       if p.name.lower() != bj_player.lower())
+                       if p.name.lower() != bj_player.lower()
+                       and not getattr(p, "is_npc", False))
     votes_cast   = len(v["votes"])
     counts_ready = v["resolved"] or votes_cast >= votes_needed
+    # Bots abstain — only humans with drinking stake count toward the
+    # majority. Any human who hasn't voted (or voted decline) counts toward
+    # decline_count, so non-voters default to decline. Ties (incl. 0-0 when
+    # everyone is a bot) default to decline via `insured = insure > decline`.
+    insure_count  = sum(1 for x in v["votes"].values() if x)
+    decline_count = votes_needed - insure_count
     return {
         "bj_player":      bj_player,
         "hand_idx":       v["hand_idx"],
@@ -240,8 +251,8 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
         "votes_cast":     votes_cast,
         "votes_needed":   votes_needed,
         "votes_cast_by":  dict(v["votes"]),   # {voter_name: bool} — local multiplayer uses this to advance seats
-        "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
-        "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
+        "insure_count":  insure_count  if counts_ready else None,
+        "decline_count": decline_count if counts_ready else None,
         "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
     }
 
