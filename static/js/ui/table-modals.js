@@ -55,6 +55,15 @@ function renderInsuranceModal(state) {
     }
   }
 
+  // Local multiplayer: find which local seats still need to vote
+  const voterNames   = myNames.filter(n => n.toLowerCase() !== v.bj_player.toLowerCase());
+  const votedNames   = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
+  const pendingLocal = voterNames.filter(n => !votedNames.includes(n.toLowerCase()));
+
+  // Active voter: prefer first pending local seat, else fall back to myActiveName/myName
+  const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
+                     : (myActiveName || myName);
+
   // If minimised, keep overlay closed — render compact banner instead
   if (_insuranceMinimised) {
     overlay.classList.remove("open");
@@ -70,14 +79,6 @@ function renderInsuranceModal(state) {
     return;
   }
 
-  // Local multiplayer: find which local seats still need to vote
-  const voterNames   = myNames.filter(n => n.toLowerCase() !== v.bj_player.toLowerCase());
-  const votedNames   = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
-  const pendingLocal = voterNames.filter(n => !votedNames.includes(n.toLowerCase()));
-
-  // Active voter: prefer first pending local seat, else fall back to myActiveName/myName
-  const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
-                     : (myActiveName || myName);
   const iAmBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
   const myVote       = v.my_vote;
   const hasVoted     = myVote !== null && myVote !== undefined;
