@@ -1,4 +1,3 @@
-let _insuranceTimerID    = null;
 let _insuranceModalKey   = null;
 let _insuranceMinimised  = false;
 
@@ -401,7 +400,6 @@ function _openMilestoneModal(ms, state) {
 function _closeMilestoneModal() {
   const overlay = document.getElementById("milestone-modal-overlay");
   if (overlay) overlay.classList.remove("open");
-  if (_milestoneTimerID) { clearInterval(_milestoneTimerID); _milestoneTimerID = null; }
 }
 
 function _renderMilestoneSteppers(players, total) {

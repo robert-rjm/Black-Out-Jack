@@ -10,7 +10,6 @@ let _lastMilestoneKey       = null;  // "boundary:winner" — prevents re-showin
 let _lastMilestoneResultKey = null;  // same format — prevents re-showing drink toast on every poll
 let _milestoneModalOpened   = null;  // key for which we already opened the modal (prevents re-open on re-poll)
 let _milestoneAllocations   = {};    // { playerName: sips } — stepper state in modal
-let _milestoneTimerID       = null;  // setInterval handle for the modal countdown
 
 function openLastRoundModal() {
   const overlay = document.getElementById("last-round-overlay");
