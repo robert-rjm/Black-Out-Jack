@@ -100,12 +100,12 @@ function _collectNewCardEls(state) {
     seq.push({ isDealer: true, cardIdx: round });
   }
 
-  // Index seat DOM elements by player name using play_order index.
-  // renderPlayers() renders in play_order order, so seat[i] == order[i].
-  const seatEls  = Array.from(document.querySelectorAll("#left-col .seat"));
-  const seatMap  = {};
-  order.forEach((name, i) => {
-    if (seatEls[i]) seatMap[name.toLowerCase()] = seatEls[i];
+  // Index seat DOM elements by player name via the seat's data-player
+  // attribute (set in renderPlayers()), rather than assuming DOM order
+  // matches play_order — keeps this correct even if a seat fails to render.
+  const seatMap = {};
+  document.querySelectorAll("#left-col .seat[data-player]").forEach(seat => {
+    seatMap[seat.dataset.player.toLowerCase()] = seat;
   });
 
   const els = [];
