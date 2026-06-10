@@ -39,7 +39,6 @@ async function createRoom() {
 async function joinRoom() {
   hideLobbyMsg();
   const input = document.getElementById("join-code");
-  const code  = (input.value || "").trim().toUpperCase();
   // Normalise: preserve original capitalisation from the server (Title-case word)
   // We'll just send whatever the user typed and let the server normalise
   const raw   = (input.value || "").trim();
