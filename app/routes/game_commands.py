@@ -36,6 +36,7 @@ from app.services.game_engine import (
 )
 from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
+from app.config import BUST_VOTE_WINDOW_SECONDS
 
 log = logging.getLogger(__name__)
 
@@ -207,9 +208,10 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._bust_votes    = {}     # fresh votes each deal
-                # Open bust-vote window for 17 seconds (countdown displays from 15)
+                # Open the bust-vote window (countdown displays from 15)
                 game_session._bust_vote_expires_at = (
-                    time.monotonic() + 17 if game_session.bust_vote_enabled else None
+                    time.monotonic() + BUST_VOTE_WINDOW_SECONDS
+                    if game_session.bust_vote_enabled else None
                 )
                 game_session._bust_handouts_given  = set()   # clear any stale handouts
                 game_session._bust_handout_expires_at = None

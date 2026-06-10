@@ -15,6 +15,7 @@ from engine.drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
+from app.config import INSURANCE_VOTE_TIMEOUT
 
 
 # ---------------------------------------------------------------------------
@@ -253,7 +254,7 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
         "votes_cast_by":  dict(v["votes"]),   # {voter_name: bool} — local multiplayer uses this to advance seats
         "insure_count":  insure_count  if counts_ready else None,
         "decline_count": decline_count if counts_ready else None,
-        "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
+        "seconds_left":  max(0, int(INSURANCE_VOTE_TIMEOUT - (time.monotonic() - v.get("started_at", time.monotonic())))),
     }
 
 

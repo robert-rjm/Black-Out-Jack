@@ -14,7 +14,7 @@ import time
 
 from app.models.game_room import GameRoom
 from engine.drinking_rules import classify_rule
-from app.config import MILESTONE_STEP, MILESTONE_TTL
+from app.config import MILESTONE_STEP, MILESTONE_TTL, BUST_HANDOUT_WINDOW_SECONDS
 
 log = logging.getLogger(__name__)
 
@@ -75,9 +75,9 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         "losers":        losers,
     } if (winners or losers) else None
 
-    # Give winners 20 seconds to hand out their sip; auto-assign expires after that
+    # Give winners a window to hand out their sip; auto-assign expires after that
     if winners:
-        session._bust_handout_expires_at = time.monotonic() + 20
+        session._bust_handout_expires_at = time.monotonic() + BUST_HANDOUT_WINDOW_SECONDS
     else:
         session._bust_handout_expires_at = None
 

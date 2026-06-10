@@ -25,6 +25,7 @@ from app.services.validators import sanitize_name, is_dealer_client
 from app.services.serializer import serialize_state, round_phase
 from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties, apply_milestone_forfeit
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
+from app.config import INSURANCE_VOTE_TIMEOUT, INSURANCE_PAUSE_BUFFER, MAX_REG_DENIALS
 
 log = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def state():
                     if p.name.lower() != bj_player.lower()
                     and not getattr(p, "is_npc", False)
                 )
-                if _now - _v.get("started_at", _now) >= 60:
+                if _now - _v.get("started_at", _now) >= INSURANCE_VOTE_TIMEOUT:
                     _v["resolved"] = True   # auto-resolve expired vote as decline
                 elif len(_v["votes"]) >= votes_needed:
                     _v["resolved"] = True   # everyone eligible has voted — resolve now
@@ -95,7 +96,7 @@ def state():
         if any_insurance_pending and session._bust_vote_expires_at is not None:
             session._bust_vote_expires_at = max(
                 session._bust_vote_expires_at,
-                _now + 5,   # keep at least 5 s on the clock while insurance is unresolved
+                _now + INSURANCE_PAUSE_BUFFER,
             )
 
         # Milestone forfeit: if the handout window expired without the winner submitting,
@@ -174,7 +175,6 @@ def register():
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
     # Block clients who have been denied too many times
-    MAX_REG_DENIALS = 2
     if existing.get("reg_denials", 0) >= MAX_REG_DENIALS:
         return jsonify({"ok": False,
                         "error": "You have been denied too many times and cannot request to join."})
