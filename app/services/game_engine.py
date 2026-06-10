@@ -313,7 +313,12 @@ def dealer_turn(session: GameRoom) -> None:
                 if hand.is_blackjack() and (p.name, i) in voted_keys:
                     vote          = next(v for v in insurance_votes
                                          if v["player"] == p.name and v["hand_idx"] == i)
-                    voters        = [x for x in session.all_players if x.name != p.name]
+                    # Bots abstain — only humans with drinking stake count
+                    # toward the majority. Non-voting humans default to
+                    # decline; ties (incl. 0-0 when everyone is a bot)
+                    # default to decline.
+                    voters        = [x for x in session.all_players
+                                      if x.name != p.name and not getattr(x, "is_npc", False)]
                     insure_count  = sum(1 for v in vote["votes"].values() if v)
                     decline_count = len(voters) - insure_count
                     insured       = insure_count > decline_count   # tie -> decline

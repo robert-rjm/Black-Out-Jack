@@ -77,8 +77,16 @@ def state():
         any_insurance_pending = False
         for _v in session._insurance_votes:
             if not _v.get("resolved"):
+                bj_player    = _v["player"]
+                votes_needed = sum(
+                    1 for p in session.all_players
+                    if p.name.lower() != bj_player.lower()
+                    and not getattr(p, "is_npc", False)
+                )
                 if _now - _v.get("started_at", _now) >= 60:
                     _v["resolved"] = True   # auto-resolve expired vote as decline
+                elif len(_v["votes"]) >= votes_needed:
+                    _v["resolved"] = True   # everyone eligible has voted — resolve now
                 else:
                     any_insurance_pending = True
 
