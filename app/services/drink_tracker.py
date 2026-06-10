@@ -159,9 +159,13 @@ def harvest_drink_log(session: GameRoom) -> None:
         # /give_bust_sip are offset correctly against any existing -1 credits.
         # e.g. -1 credit + 1 assigned = 0 net, not 1.
         # Callers that display or accumulate sips clamp to 0 themselves.
+        # Always record an entry, even when raw == 0 — the frontend uses
+        # `name in last_round_sips` to detect a "clean" (0-sip) round for
+        # the crown badge. Omitting zero-sip players made them
+        # indistinguishable from players who didn't play last round at all,
+        # so the crown never showed for a perfectly clean round.
         raw = sum((e[0] or 0) for e in p.drink_log if e)
-        if raw != 0:
-            last[p.name] = raw
+        last[p.name] = raw
     session._last_round_sips = last
 
     # Rolling per-round sip history (total across all players)
