@@ -73,10 +73,9 @@ def round_phase(session: GameRoom) -> str:
     """
     'pre-deal'     → waiting for initial deal
     'playing'      → at least one player still has an active hand
-    'dealer-ready' → all player hands done, dealer hand not yet fully revealed
-    'round-over'   → dealer has stood/busted, results assigned
+    'dealer-ready' → all player hands done, results not yet assigned
+    'round-over'   → every hand has a result (dealer has resolved the round)
     """
-    dealer = session._get_dealer()
     has_player_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
     if not has_player_cards:
         return "pre-deal"
@@ -84,13 +83,17 @@ def round_phase(session: GameRoom) -> str:
     if current_turn(session) is not None:
         return "playing"
 
-    d_hand = dealer.dealer_hand if dealer else None
-    if d_hand and (d_hand.stood or d_hand.is_bust() or d_hand.score() >= 17 or d_hand.is_blackjack()):
-        all_resolved = all(
-            h.result is not None for p in session.all_players for h in p.hands
-        )
-        if all_resolved:
-            return "round-over"
+    # `result` is only ever set by the resolution step (after the dealer
+    # plays/reveals), so it's the definitive round-over signal — unlike
+    # inferring "dealer is done" from dealer_hand score/stood/bust, which
+    # can be true from the initial deal alone (e.g. a 17+ up-card total)
+    # before the dealer has actually played, and breaks entirely if
+    # dealer_hand is ever None/missing.
+    all_resolved = all(
+        h.result is not None for p in session.all_players for h in p.hands
+    )
+    if all_resolved:
+        return "round-over"
     return "dealer-ready"
 
 
