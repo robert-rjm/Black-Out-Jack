@@ -74,6 +74,39 @@ def capture(fn, *args) -> str:
 # Round lifecycle
 # ---------------------------------------------------------------------------
 
+def reset_round_state(session: GameRoom, *, digital: bool = False) -> None:
+    """Clear per-round transient state shared by digital and referee
+    "newround" handling. Call after rotate/queued-settings handling and
+    before session.start_round().
+
+    digital=True additionally clears the digital-only deferred hole-card
+    message buffer (referee mode never populates it).
+    """
+    session.switch_this_round             = None
+    session._hard_switch_drinking_applied = False
+
+    # Clear shared log and peeked card for the new round
+    session._log_entries   = []
+    session._log_version   = session._log_version + 1
+    session._last_peeked   = None
+    if digital:
+        session._deferred_hole_card_msgs = []
+
+    session._preselections          = {}
+    session._suggestions            = {}
+    session._bust_votes             = {}    # clear bust votes each round
+    session._bust_vote_expires_at   = None
+    session._bust_vote_result       = None
+    session._bust_handout_expires_at = None
+    session._insurance_result       = None
+    session._ace_drink_events       = []
+    session._ace_drink_seq          = 0
+    session._bust_handouts_given    = set()
+    session._drink_log_harvested    = False
+    session._kick_votes             = {}    # reset vote-kick tally each round
+    session._pending_milestone      = None  # clear between rounds
+
+
 def apply_queued_settings(session: GameRoom) -> list[str]:
     """Apply any queued settings to the session before a new round starts.
     Returns a list of human-readable change descriptions.

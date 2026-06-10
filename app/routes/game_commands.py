@@ -35,7 +35,7 @@ from app.services.game_engine import (
     bust_vote_pending,
 )
 from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
-from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker
+from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
 
 log = logging.getLogger(__name__)
 
@@ -441,26 +441,7 @@ def command():
                     game_session.rounds_this_dealer = 1
                 else:
                     game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
-                game_session.switch_this_round = None
-                game_session._hard_switch_drinking_applied = False
-                # Clear shared log and peeked card for the new round
-                game_session._log_entries = []
-                game_session._log_version = game_session._log_version + 1
-                game_session._deferred_hole_card_msgs = []
-                game_session._last_peeked   = None
-                game_session._preselections = {}
-                game_session._suggestions   = {}
-                game_session._bust_votes             = {}    # clear bust votes each round
-                game_session._bust_vote_expires_at   = None
-                game_session._bust_vote_result        = None
-                game_session._bust_handout_expires_at = None
-                game_session._insurance_result        = None
-                game_session._ace_drink_events        = []
-                game_session._ace_drink_seq           = 0
-                game_session._bust_handouts_given     = set()
-                game_session._drink_log_harvested     = False
-                game_session._kick_votes    = {}  # reset vote-kick tally each round
-                game_session._pending_milestone = None  # clear between rounds
+                reset_round_state(game_session, digital=True)
                 if game_session.drinking_mode or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     log.debug("  Shoe reshuffled.")
@@ -545,25 +526,7 @@ def command():
                     game_session.rounds_this_dealer = 1
                 else:
                     game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
-                game_session.switch_this_round = None
-                game_session._hard_switch_drinking_applied = False
-                # Clear the shared log and peeked card for the new round
-                game_session._log_entries = []
-                game_session._log_version = game_session._log_version + 1
-                game_session._last_peeked            = None
-                game_session._preselections          = {}
-                game_session._suggestions            = {}
-                game_session._bust_votes              = {}
-                game_session._bust_vote_expires_at    = None
-                game_session._bust_vote_result        = None
-                game_session._bust_handout_expires_at = None
-                game_session._insurance_result        = None
-                game_session._ace_drink_events        = []
-                game_session._ace_drink_seq           = 0
-                game_session._bust_handouts_given     = set()
-                game_session._drink_log_harvested     = False
-                game_session._kick_votes              = {}
-                game_session._pending_milestone      = None
+                reset_round_state(game_session, digital=False)
                 game_session.start_round()
                 patch_tracker(game_session)
                 game_session.session.tracker.easy_mode = game_session.easy_mode
