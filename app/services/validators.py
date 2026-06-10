@@ -15,18 +15,28 @@ import re
 
 _NAME_STRIP_RE = re.compile(r"[<>\"'`\\]")
 
+# Unicode bidi-control characters (RTL/LTR override and embedding marks),
+# zero-width/invisible joiners, and the BOM (U+FEFF) -- these have no visible
+# glyph but could be used to visually spoof or reorder a player's name
+# wherever it's displayed (lists, kick prompts, leaderboards, etc.)
+_BIDI_CONTROL_RE = re.compile(
+    "[​-‏‪-‮⁠-⁩﻿]"
+)
+
 
 def sanitize_name(raw: str) -> str:
     """Sanitize a player name before storing it.
 
     Strips HTML tags, removes characters that could break out of HTML
-    attribute or script contexts (<>"'`\\), trims whitespace, capitalizes,
-    and caps length at 20 characters.  Returns an empty string if nothing
-    is left after sanitization.
+    attribute or script contexts (<>"'`\\), strips invisible Unicode
+    bidi-control/formatting characters that could visually spoof the name,
+    trims whitespace, capitalizes, and caps length at 20 characters.
+    Returns an empty string if nothing is left after sanitization.
     """
     raw = raw[:40]                            # cap before regex (ReDoS guard)
     name = re.sub(r"<[^>]*>", "", raw)        # strip HTML tags
     name = _NAME_STRIP_RE.sub("", name)       # strip dangerous chars
+    name = _BIDI_CONTROL_RE.sub("", name)     # strip invisible bidi/formatting chars
     name = name.strip()
     if not name:
         return ""
