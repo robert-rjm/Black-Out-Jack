@@ -389,7 +389,8 @@ def preselect():
 
 @bp.route("/suggest_action", methods=["POST"])
 def suggest_action():
-    """Dealer suggests a different action to a player.
+    """Dealer suggests a different action to a player, or any player suggests
+    a move for an NPC bot's turn (the bot will play it automatically).
     Body: { room_code, client_id, player_name, hand, action }  action: h|s|d|sp"""
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
@@ -402,7 +403,14 @@ def suggest_action():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    if not is_dealer_client(session, client_id):
+    target_player = session._get_player(target_name)
+    target_is_npc = bool(target_player and getattr(target_player, "is_npc", False))
+
+    info = session._room_clients.get(client_id, {})
+    if info.get("kicked") or (info.get("role") or "spectator") == "spectator":
+        return jsonify({"ok": False, "error": "Spectators can't suggest actions."})
+
+    if not target_is_npc and not is_dealer_client(session, client_id):
         return jsonify({"ok": False, "error": "Only the dealer can suggest actions."})
 
     if action not in ("h", "s", "d", "sp"):

@@ -445,9 +445,14 @@ def auto_play_npc_turns(session: GameRoom) -> None:
         if hand.can_split():
             valid.append("sp")
 
-        action = NPC_Player.best_play(
-            hand, dealer_up, valid,
-            drinking_mode=session.drinking_mode)
+        suggestion_key = f"{player.name.lower()}:{hand_label}"
+        suggested      = session._suggestions.pop(suggestion_key, None)
+        if suggested in valid:
+            action = suggested
+        else:
+            action = NPC_Player.best_play(
+                hand, dealer_up, valid,
+                drinking_mode=session.drinking_mode)
         log.debug(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
 
         if action == "h":
