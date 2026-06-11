@@ -25,6 +25,7 @@ from app.services.validators import sanitize_name, is_dealer_client
 from app.services.serializer import serialize_state, round_phase
 from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties, apply_milestone_forfeit
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
+from app.config import INSURANCE_VOTE_TIMEOUT, INSURANCE_PAUSE_BUFFER, MAX_REG_DENIALS
 
 log = logging.getLogger(__name__)
 
@@ -77,8 +78,16 @@ def state():
         any_insurance_pending = False
         for _v in session._insurance_votes:
             if not _v.get("resolved"):
-                if _now - _v.get("started_at", _now) >= 60:
+                bj_player    = _v["player"]
+                votes_needed = sum(
+                    1 for p in session.all_players
+                    if p.name.lower() != bj_player.lower()
+                    and not getattr(p, "is_npc", False)
+                )
+                if _now - _v.get("started_at", _now) >= INSURANCE_VOTE_TIMEOUT:
                     _v["resolved"] = True   # auto-resolve expired vote as decline
+                elif len(_v["votes"]) >= votes_needed:
+                    _v["resolved"] = True   # everyone eligible has voted — resolve now
                 else:
                     any_insurance_pending = True
 
@@ -87,7 +96,7 @@ def state():
         if any_insurance_pending and session._bust_vote_expires_at is not None:
             session._bust_vote_expires_at = max(
                 session._bust_vote_expires_at,
-                _now + 5,   # keep at least 5 s on the clock while insurance is unresolved
+                _now + INSURANCE_PAUSE_BUFFER,
             )
 
         # Milestone forfeit: if the handout window expired without the winner submitting,
@@ -166,7 +175,6 @@ def register():
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
     # Block clients who have been denied too many times
-    MAX_REG_DENIALS = 2
     if existing.get("reg_denials", 0) >= MAX_REG_DENIALS:
         return jsonify({"ok": False,
                         "error": "You have been denied too many times and cannot request to join."})
@@ -389,7 +397,8 @@ def preselect():
 
 @bp.route("/suggest_action", methods=["POST"])
 def suggest_action():
-    """Dealer suggests a different action to a player.
+    """Dealer suggests a different action to a player, or any player suggests
+    a move for an NPC bot's turn (the bot will play it automatically).
     Body: { room_code, client_id, player_name, hand, action }  action: h|s|d|sp"""
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
@@ -402,7 +411,14 @@ def suggest_action():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    if not is_dealer_client(session, client_id):
+    target_player = session._get_player(target_name)
+    target_is_npc = bool(target_player and getattr(target_player, "is_npc", False))
+
+    info = session._room_clients.get(client_id, {})
+    if info.get("kicked") or (info.get("role") or "spectator") == "spectator":
+        return jsonify({"ok": False, "error": "Spectators can't suggest actions."})
+
+    if not target_is_npc and not is_dealer_client(session, client_id):
         return jsonify({"ok": False, "error": "Only the dealer can suggest actions."})
 
     if action not in ("h", "s", "d", "sp"):

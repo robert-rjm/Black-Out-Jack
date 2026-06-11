@@ -35,7 +35,8 @@ from app.services.game_engine import (
     bust_vote_pending,
 )
 from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
-from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker
+from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
+from app.config import BUST_VOTE_WINDOW_SECONDS
 
 log = logging.getLogger(__name__)
 
@@ -129,6 +130,43 @@ def _record_strategy_decision(session, player, hand, chosen_action: str) -> None
     sd[player.name]["correct"] += 1 if chosen_action == optimal else 0
 
 
+def _after_player_action(game_session):
+    """Shared follow-up after any digital hit/stand/double/split.
+
+    Deals pending second cards to split hands whose predecessor hand just
+    finished, lets any NPCs play out their turns, and — if every hand is
+    now resolved — advances to the dealer (mirroring the "all done" handling
+    in deal/dealer/endround).
+
+    The bust-vote window gets special treatment: if it's still open when the
+    last hand finishes, expire it immediately so the next /state poll runs
+    the dealer right away instead of waiting out the remaining countdown.
+    """
+    deal_pending_split_cards(game_session)
+    auto_play_npc_turns(game_session)
+    if round_phase(game_session) == "dealer-ready":
+        _bust_open = (
+            game_session.bust_vote_enabled
+            and game_session._bust_vote_expires_at is not None
+            and time.monotonic() < game_session._bust_vote_expires_at
+        )
+        if _bust_open:
+            # All hands are done — no point holding the dealer for the
+            # remaining bust-vote window. Expire it now so the next
+            # /state poll triggers the dealer immediately instead of
+            # waiting up to 17s (common when player2 is a bot and
+            # the NPC plays out instantly after the human's last action).
+            game_session._bust_vote_expires_at = time.monotonic()
+            log.debug("\n  (All players done — bust vote window closed, dealer plays on next poll)")
+        else:
+            log.debug("\n  (All players done — dealer plays automatically)")
+            dealer_turn(game_session)
+            game_session.cmd_endround()
+            apply_bust_vote_penalties(game_session)
+            harvest_drink_log(game_session)
+            check_and_set_milestone(game_session)
+
+
 # ---------------------------------------------------------------------------
 # Command dispatcher
 # ---------------------------------------------------------------------------
@@ -207,9 +245,10 @@ def command():
                 game_session._preselections = {}
                 game_session._suggestions   = {}
                 game_session._bust_votes    = {}     # fresh votes each deal
-                # Open bust-vote window for 17 seconds (countdown displays from 15)
+                # Open the bust-vote window (countdown displays from 15)
                 game_session._bust_vote_expires_at = (
-                    time.monotonic() + 17 if game_session.bust_vote_enabled else None
+                    time.monotonic() + BUST_VOTE_WINDOW_SECONDS
+                    if game_session.bust_vote_enabled else None
                 )
                 game_session._bust_handouts_given  = set()   # clear any stale handouts
                 game_session._bust_handout_expires_at = None
@@ -441,26 +480,7 @@ def command():
                     game_session.rounds_this_dealer = 1
                 else:
                     game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
-                game_session.switch_this_round = None
-                game_session._hard_switch_drinking_applied = False
-                # Clear shared log and peeked card for the new round
-                game_session._log_entries = []
-                game_session._log_version = game_session._log_version + 1
-                game_session._deferred_hole_card_msgs = []
-                game_session._last_peeked   = None
-                game_session._preselections = {}
-                game_session._suggestions   = {}
-                game_session._bust_votes             = {}    # clear bust votes each round
-                game_session._bust_vote_expires_at   = None
-                game_session._bust_vote_result        = None
-                game_session._bust_handout_expires_at = None
-                game_session._insurance_result        = None
-                game_session._ace_drink_events        = []
-                game_session._ace_drink_seq           = 0
-                game_session._bust_handouts_given     = set()
-                game_session._drink_log_harvested     = False
-                game_session._kick_votes    = {}  # reset vote-kick tally each round
-                game_session._pending_milestone = None  # clear between rounds
+                reset_round_state(game_session, digital=True)
                 if game_session.drinking_mode or game_session.shoe.needs_reshuffle():
                     game_session.shoe.reset()
                     log.debug("  Shoe reshuffled.")
@@ -486,29 +506,7 @@ def command():
             # After any player action: deal pending second cards to split hands
             # whose predecessor just finished, then check if dealer should auto-play
             if cmd in {"hit", "stand", "double", "split"}:
-                deal_pending_split_cards(game_session)
-                auto_play_npc_turns(game_session)
-                if round_phase(game_session) == "dealer-ready":
-                    _bust_open = (
-                        game_session.bust_vote_enabled
-                        and game_session._bust_vote_expires_at is not None
-                        and time.monotonic() < game_session._bust_vote_expires_at
-                    )
-                    if _bust_open:
-                        # All hands are done — no point holding the dealer for the
-                        # remaining bust-vote window. Expire it now so the next
-                        # /state poll triggers the dealer immediately instead of
-                        # waiting up to 17s (common when player2 is a bot and
-                        # the NPC plays out instantly after the human's last action).
-                        game_session._bust_vote_expires_at = time.monotonic()
-                        log.debug("\n  (All players done — bust vote window closed, dealer plays on next poll)")
-                    else:
-                        log.debug("\n  (All players done — dealer plays automatically)")
-                        dealer_turn(game_session)
-                        game_session.cmd_endround()
-                        apply_bust_vote_penalties(game_session)
-                        harvest_drink_log(game_session)
-                        check_and_set_milestone(game_session)
+                _after_player_action(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
@@ -545,25 +543,7 @@ def command():
                     game_session.rounds_this_dealer = 1
                 else:
                     game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
-                game_session.switch_this_round = None
-                game_session._hard_switch_drinking_applied = False
-                # Clear the shared log and peeked card for the new round
-                game_session._log_entries = []
-                game_session._log_version = game_session._log_version + 1
-                game_session._last_peeked            = None
-                game_session._preselections          = {}
-                game_session._suggestions            = {}
-                game_session._bust_votes              = {}
-                game_session._bust_vote_expires_at    = None
-                game_session._bust_vote_result        = None
-                game_session._bust_handout_expires_at = None
-                game_session._insurance_result        = None
-                game_session._ace_drink_events        = []
-                game_session._ace_drink_seq           = 0
-                game_session._bust_handouts_given     = set()
-                game_session._drink_log_harvested     = False
-                game_session._kick_votes              = {}
-                game_session._pending_milestone      = None
+                reset_round_state(game_session, digital=False)
                 game_session.start_round()
                 patch_tracker(game_session)
                 game_session.session.tracker.easy_mode = game_session.easy_mode

@@ -1,4 +1,3 @@
-let _insuranceTimerID    = null;
 let _insuranceModalKey   = null;
 let _insuranceMinimised  = false;
 
@@ -43,21 +42,30 @@ function renderInsuranceModal(state) {
   if (_insuranceModalKey !== key) {
     _insuranceModalKey  = key;
     _insuranceMinimised = false;  // always expand on new vote
-    overlay.classList.add("open");
+    openModal("insurance-modal-overlay", { useClass: true });
     // Wire up minimize button once
     const minBtn = document.getElementById("insurance-modal-minimize");
     if (minBtn && !minBtn._wired) {
       minBtn._wired = true;
       minBtn.addEventListener("click", () => {
         _insuranceMinimised = true;
-        overlay.classList.remove("open");
+        closeModal("insurance-modal-overlay", { useClass: true });
       });
     }
   }
 
+  // Local multiplayer: find which local seats still need to vote
+  const voterNames   = myNames.filter(n => n.toLowerCase() !== v.bj_player.toLowerCase());
+  const votedNames   = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
+  const pendingLocal = voterNames.filter(n => !votedNames.includes(n.toLowerCase()));
+
+  // Active voter: prefer first pending local seat, else fall back to myActiveName/myName
+  const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
+                     : (myActiveName || myName);
+
   // If minimised, keep overlay closed — render compact banner instead
   if (_insuranceMinimised) {
-    overlay.classList.remove("open");
+    closeModal("insurance-modal-overlay", { useClass: true });
     _renderInsuranceBanner(v, true, activeVoter);
     return;
   }
@@ -70,14 +78,6 @@ function renderInsuranceModal(state) {
     return;
   }
 
-  // Local multiplayer: find which local seats still need to vote
-  const voterNames   = myNames.filter(n => n.toLowerCase() !== v.bj_player.toLowerCase());
-  const votedNames   = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
-  const pendingLocal = voterNames.filter(n => !votedNames.includes(n.toLowerCase()));
-
-  // Active voter: prefer first pending local seat, else fall back to myActiveName/myName
-  const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
-                     : (myActiveName || myName);
   const iAmBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
   const myVote       = v.my_vote;
   const hasVoted     = myVote !== null && myVote !== undefined;
@@ -155,8 +155,7 @@ function renderInsuranceModal(state) {
 }
 
 function _closeInsuranceModal() {
-  const overlay = document.getElementById("insurance-modal-overlay");
-  if (overlay) overlay.classList.remove("open");
+  closeModal("insurance-modal-overlay", { useClass: true });
   _insuranceModalKey = null;
 }
 
@@ -212,8 +211,7 @@ function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = nu
 
 function _expandInsuranceModal() {
   _insuranceMinimised = false;
-  const overlay = document.getElementById("insurance-modal-overlay");
-  if (overlay) overlay.classList.add("open");
+  openModal("insurance-modal-overlay", { useClass: true });
   const banner = document.getElementById("insurance-vote-banner");
   if (banner) { banner.classList.remove("minimised"); banner.style.display = "none"; }
 }
@@ -389,18 +387,25 @@ function _openMilestoneModal(ms, state) {
   const players = (lastState && lastState.players || []).filter(
     n => n.toLowerCase() !== (myName || "").toLowerCase()
   );
+  // Drop any allocation entries for players no longer in the roster (e.g. a
+  // player left/was kicked between two milestones with the same
+  // boundary+winner, so _lastMilestoneKey didn't change and the dict wasn't
+  // reset) — stale entries would otherwise count toward `used` and could
+  // block the winner from allocating their full handout.
+  Object.keys(_milestoneAllocations).forEach(n => {
+    if (!players.includes(n)) delete _milestoneAllocations[n];
+  });
+
   // Initialize allocations to 0 for everyone
   players.forEach(n => { if (!(_milestoneAllocations[n] >= 0)) _milestoneAllocations[n] = 0; });
 
   _renderMilestoneSteppers(players, ms.handout);
   _updateMilestoneTimer(ms.seconds_left);
-  overlay.classList.add("open");
+  openModal("milestone-modal-overlay", { useClass: true });
 }
 
 function _closeMilestoneModal() {
-  const overlay = document.getElementById("milestone-modal-overlay");
-  if (overlay) overlay.classList.remove("open");
-  if (_milestoneTimerID) { clearInterval(_milestoneTimerID); _milestoneTimerID = null; }
+  closeModal("milestone-modal-overlay", { useClass: true });
 }
 
 function _renderMilestoneSteppers(players, total) {
