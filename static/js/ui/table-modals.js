@@ -319,7 +319,7 @@ function _showMilestoneToast(ms) {
     setTimeout(() => _hideMilestoneToast(), 5000);
   };
   if (typeof _bustVoteOpen === "function" && _bustVoteOpen()) {
-    _toastQueue.push(_show);
+    ToastUI.queue.push(_show);
   } else {
     _show();
   }
