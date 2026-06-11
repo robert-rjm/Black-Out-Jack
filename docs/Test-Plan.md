@@ -370,50 +370,43 @@ Flask test client.
 - Already given (`winner_name in _bust_handouts_given`) → rejected
   ("Already given.").
 - `recipient_name` not a valid player → rejected.
-- Self-assignment (`recipient == winner`, `forfeit=False`) → rejected
-  ("Cannot give to yourself.").
+- Self-assignment (`recipient == winner`) → always rejected ("Cannot give to
+  yourself.") — there is no `forfeit` override; self-assignment can only
+  happen via the server-side forfeit path below.
 - Valid handout: recipient gets `+1` (`"Bust vote handout from {winner}: +1
   sip"`), `winner_name` added to `_bust_handouts_given`,
   `_last_round_sips`/`_sip_ticker`/`_drink_csv_rows` all patched, milestone
   check re-run.
-- `forfeit=True`: self-assignment to the winner is allowed, reason becomes
-  `"Bust vote forfeited — {winner} didn't assign in time: +1 sip"`.
 
-### ⚠ Bug: handout forfeit is not server-enforced
-`_bust_handout_expires_at` is set when winners are determined, but **nothing
-on the backend checks it**. Compare to milestones: `apply_milestone_forfeit`
-is called on every `/state` poll (`app/routes/polling.py`) and auto-penalizes
-a winner who doesn't assign their handout in time. The bust-vote equivalent
-only happens if the *frontend* notices its local timer expired and calls
-`/give_bust_sip` with `forfeit=true` — if that call never arrives (closed
-tab, client bug, network drop), the winner's `-1` credit stands with no
-counterbalancing `+1`, and `_bust_handout_expires_at`/`_bust_handouts_given`
-are never finalized for that round.
-
-Given the goal of keeping all scoring/timing logic server-authoritative (no
-client-trusted timers), this should be fixed by adding an
-`apply_bust_handout_forfeit(session)` function mirroring
-`apply_milestone_forfeit`:
+### `apply_bust_handout_forfeit` (server-enforced, fixed)
+`_bust_handout_expires_at` is set when winners are determined.
+`apply_bust_handout_forfeit(session)` is called on every `/state` poll
+(`app/routes/polling.py`, alongside `apply_milestone_forfeit`), mirroring its
+behavior:
 - If `_bust_handout_expires_at` is set and `time.monotonic() >=
   _bust_handout_expires_at`, for every winner in `_bust_vote_result["winners"]`
-  not yet in `_bust_handouts_given`, apply the same `+1` "forfeited" drink,
-  add to `_bust_handouts_given`, and clear `_bust_handout_expires_at` once all
-  winners are resolved.
-- Call it from the same poll-tick spot as `apply_milestone_forfeit`
-  (`app/routes/polling.py` line ~104).
-- Once added, `/give_bust_sip`'s client-supplied `forfeit=true` path becomes
-  redundant/defense-in-depth rather than the sole enforcement — tests should
-  cover both the server-side auto-forfeit and the route still behaving
-  correctly if called concurrently (idempotent via `_bust_handouts_given`
-  check).
+  not yet in `_bust_handouts_given`, apply `+1` ("Bust vote forfeited —
+  {winner} didn't assign in time: +1 sip"), patch
+  `_last_round_sips`/`_sip_ticker`/`_drink_csv_rows`/`_log_entries`, re-run
+  milestone check, and add to `_bust_handouts_given`.
+- Once all winners are resolved, clear `_bust_handout_expires_at`.
 
-Test additions for the fix:
+This is now the *sole* forfeit path — the frontend's client-timer auto-forfeit
+trigger and the `/give_bust_sip` `forfeit` parameter have been removed
+(`static/js/ui/admin.js`, `app/routes/polling.py`). The handout panel
+self-clears on the next poll via `my_bust_handout_pending` once
+`_bust_handouts_given` is updated.
+
+Tests:
 - Time-travel (`monotonic` patched/advanced past `_bust_handout_expires_at`)
   with an unresolved winner → `apply_bust_handout_forfeit` applies `+1` and
   marks them given.
 - Already-given winner → no double penalty.
 - Window not yet expired → no-op.
 - No `_bust_vote_result` / no winners → no-op.
+- All winners resolved → `_bust_handout_expires_at` cleared.
+- After forfeit runs, `/give_bust_sip` for that winner → rejected
+  ("Already given."), confirming idempotency.
 
 ## 10. Running
 
