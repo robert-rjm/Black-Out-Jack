@@ -130,6 +130,43 @@ def _record_strategy_decision(session, player, hand, chosen_action: str) -> None
     sd[player.name]["correct"] += 1 if chosen_action == optimal else 0
 
 
+def _after_player_action(game_session):
+    """Shared follow-up after any digital hit/stand/double/split.
+
+    Deals pending second cards to split hands whose predecessor hand just
+    finished, lets any NPCs play out their turns, and — if every hand is
+    now resolved — advances to the dealer (mirroring the "all done" handling
+    in deal/dealer/endround).
+
+    The bust-vote window gets special treatment: if it's still open when the
+    last hand finishes, expire it immediately so the next /state poll runs
+    the dealer right away instead of waiting out the remaining countdown.
+    """
+    deal_pending_split_cards(game_session)
+    auto_play_npc_turns(game_session)
+    if round_phase(game_session) == "dealer-ready":
+        _bust_open = (
+            game_session.bust_vote_enabled
+            and game_session._bust_vote_expires_at is not None
+            and time.monotonic() < game_session._bust_vote_expires_at
+        )
+        if _bust_open:
+            # All hands are done — no point holding the dealer for the
+            # remaining bust-vote window. Expire it now so the next
+            # /state poll triggers the dealer immediately instead of
+            # waiting up to 17s (common when player2 is a bot and
+            # the NPC plays out instantly after the human's last action).
+            game_session._bust_vote_expires_at = time.monotonic()
+            log.debug("\n  (All players done — bust vote window closed, dealer plays on next poll)")
+        else:
+            log.debug("\n  (All players done — dealer plays automatically)")
+            dealer_turn(game_session)
+            game_session.cmd_endround()
+            apply_bust_vote_penalties(game_session)
+            harvest_drink_log(game_session)
+            check_and_set_milestone(game_session)
+
+
 # ---------------------------------------------------------------------------
 # Command dispatcher
 # ---------------------------------------------------------------------------
@@ -469,29 +506,7 @@ def command():
             # After any player action: deal pending second cards to split hands
             # whose predecessor just finished, then check if dealer should auto-play
             if cmd in {"hit", "stand", "double", "split"}:
-                deal_pending_split_cards(game_session)
-                auto_play_npc_turns(game_session)
-                if round_phase(game_session) == "dealer-ready":
-                    _bust_open = (
-                        game_session.bust_vote_enabled
-                        and game_session._bust_vote_expires_at is not None
-                        and time.monotonic() < game_session._bust_vote_expires_at
-                    )
-                    if _bust_open:
-                        # All hands are done — no point holding the dealer for the
-                        # remaining bust-vote window. Expire it now so the next
-                        # /state poll triggers the dealer immediately instead of
-                        # waiting up to 17s (common when player2 is a bot and
-                        # the NPC plays out instantly after the human's last action).
-                        game_session._bust_vote_expires_at = time.monotonic()
-                        log.debug("\n  (All players done — bust vote window closed, dealer plays on next poll)")
-                    else:
-                        log.debug("\n  (All players done — dealer plays automatically)")
-                        dealer_turn(game_session)
-                        game_session.cmd_endround()
-                        apply_bust_vote_penalties(game_session)
-                        harvest_drink_log(game_session)
-                        check_and_set_milestone(game_session)
+                _after_player_action(game_session)
 
         # ── Referee mode (original behaviour, unchanged) ─────────────────────
         else:
