@@ -49,6 +49,36 @@
     `python scripts/simulation.py` locally to confirm a clean 10,000-round run and check
     `simulation_results.txt` / `simulation_log.csv` for any rule classified as "Other".
 
+## Benchmark implementation (in progress)
+
+- [X] `scripts/simulation.py` now also tallies hand outcomes (blackjacks, busts,
+  wins/losses/pushes, dealer busts) during the run and writes `scripts/benchmarks.json`
+  plus a generated `static/js/benchmarks.js` (`const BENCHMARKS = {...}`) with:
+  blackjack/bust/win/loss/push/dealer-bust rates, avg sips/round, and sips/round per
+  drinking rule.
+- [X] `static/js/ui/kpi.js`: replaced `colorStyleByThreshold` (hand-picked 40%/25%
+  dealer-bust thresholds) and the hardcoded "expected ~4.8%" / "casino avg ~28%" comments
+  with a generic `benchmarkColor(value, benchmark, {lowerIsBetter})` that compares live
+  session stats to `BENCHMARKS` (within 25% = neutral, 25-50% = yellow, >50% = green/red
+  depending on direction). Applied to: blackjack rate callout, dealer-bust callout, and
+  per-player avg sips/round (vs. `avg_sips_per_round / playerCount`).
+- [X] Wired `static/js/benchmarks.js` into `templates/partials/index/_scripts.html`
+  (loaded right after `utils.js`, before `state.js`, so `BENCHMARKS` is defined before
+  any UI module needs it).
+- [ ] **`static/js/benchmarks.js` is currently a PLACEHOLDER** — only `blackjack_rate_pct`
+  (4.8) and `dealer_bust_pct` (28.0) are filled in (the old hardcoded values); everything
+  else is `null`/`{}`. Could not run `python scripts/simulation.py` this session due to a
+  sandbox file-sync issue (see "Bug fixes" section above). **Action needed**: run
+  `python scripts/simulation.py` from the project root locally — it will overwrite
+  `static/js/benchmarks.js` and `scripts/benchmarks.json` with real numbers for the
+  current 3-player/2-deck config. `benchmarkColor()` degrades gracefully (no color) for
+  any benchmark that's still `null`.
+- [ ] Per-player avg-sips benchmark (`avg_sips_per_round / playerCount`) assumes an even
+  split across seats, which drinking rules don't guarantee — fine for a wide-band
+  "lucky/unlucky" signal, but worth revisiting if it feels noisy in practice.
+- [ ] Benchmarks are generated for the hardcoded 3-player/2-deck sim config; revisit once
+  the 4th-player handling (see Bugs) is sorted, since baselines shift with table size.
+
 ## Benchmark idea (from simulation.py)
 
 - [ ] Use `simulation_results.txt` / `simulation_log.csv` as a regression baseline for the
