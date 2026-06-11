@@ -23,7 +23,10 @@ from flask import Blueprint, jsonify, request
 from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
 from app.services.validators import sanitize_name, is_dealer_client
 from app.services.serializer import serialize_state, round_phase
-from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties, apply_milestone_forfeit
+from app.services.drink_tracker import (
+    check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties,
+    apply_milestone_forfeit, apply_bust_handout_forfeit,
+)
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
 from app.config import INSURANCE_VOTE_TIMEOUT, INSURANCE_PAUSE_BUFFER, MAX_REG_DENIALS
 
@@ -102,6 +105,11 @@ def state():
         # Milestone forfeit: if the handout window expired without the winner submitting,
         # the full handout sip total comes back on them.
         apply_milestone_forfeit(session)
+
+        # Bust-vote handout forfeit: if a bust-vote winner didn't assign their
+        # 1-sip reward in time, it comes back on them (server-enforced —
+        # does not rely on the client sending forfeit=true).
+        apply_bust_handout_forfeit(session)
 
         # When the bust-vote window expires (or all players have voted), unblock
         # any NPC turns that were held and then let the dealer play if ready.
@@ -595,7 +603,6 @@ def give_bust_sip():
     client_id      = (data.get("client_id")      or "").strip()
     winner_name    = sanitize_name(data.get("winner_name")    or "")
     recipient_name = sanitize_name(data.get("recipient_name") or "")
-    forfeit        = bool(data.get("forfeit", False))
 
     session = game_sessions.get(room_code)
     if not session:
@@ -617,22 +624,17 @@ def give_bust_sip():
     if winner_name in session._bust_handouts_given:
         return jsonify({"ok": False, "error": "Already given."})
 
-    # Recipient must be a player in the game.
-    # Self-assignment is allowed only on forfeit (timer expired).
+    # Recipient must be a player in the game (no self-assignment).
     valid_names = {p.name for p in session.all_players}
     if recipient_name not in valid_names:
         return jsonify({"ok": False, "error": "Recipient not found."})
-    if recipient_name.lower() == winner_name.lower() and not forfeit:
+    if recipient_name.lower() == winner_name.lower():
         return jsonify({"ok": False, "error": "Cannot give to yourself."})
 
     recipient = session._get_player(recipient_name)
     if recipient:
-        if forfeit:
-            recipient.add_drink(1, f"Bust vote forfeited — {winner_name} didn't assign in time: +1 sip", "player")
-            log.debug(f"  [bust vote] {winner_name} forfeited — drinks 1 sip themselves")
-        else:
-            recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
-            log.debug(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
+        recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
+        log.debug(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
     session._bust_handouts_given.add(winner_name)
 
@@ -662,11 +664,7 @@ def give_bust_sip():
     })
 
     # Log entry visible to all players
-    log_line = (
-        f"  💥 Bust bet: {winner_name} didn't assign in time — drinks 1 sip (forfeited)\n"
-        if forfeit else
-        f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
-    )
+    log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
     session._log_entries.append(log_line)
     session._log_version = session._log_version + 1
 

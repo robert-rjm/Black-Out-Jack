@@ -3,7 +3,7 @@ function cardEl(card) {
   div.className = "card-vis card-el";
   if (!card || card.suit === "hidden" || card.rank === "?") {
     div.classList.add("hidden");
-    div.innerHTML = `<div class="top">?</div><div class="mid"><img class="card-logo" src="/static/Logo-BlackOutJack-transparent.png" alt="" /></div><div class="bot">?</div>`;
+    div.innerHTML = `<div class="top">?</div><div class="mid"><img class="card-logo" src="/static/img/logo-transparent.png" alt="" /></div><div class="bot">?</div>`;
     return div;
   }
   if (SUIT_RED[card.suit]) div.classList.add("red");

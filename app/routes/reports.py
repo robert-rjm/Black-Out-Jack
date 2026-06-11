@@ -33,7 +33,7 @@ _ROOT = os.path.dirname(os.path.dirname(_HERE))      # .../Black-Out-Jack/
 
 @bp.route("/logo.png")
 def serve_logo():
-    return send_from_directory(current_app.static_folder, "Logo-BlackOutJack.png")
+    return send_from_directory(current_app.static_folder, "img/logo.png")
 
 
 @bp.route("/manifest.json")

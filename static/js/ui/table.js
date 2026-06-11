@@ -429,23 +429,23 @@ function applyState(state) {
   }
 
   // Always sync last/prev round data from server so both variables stay in lockstep.
-  // Do NOT gate _lastRoundSips on being non-empty — that desynchronises it from
-  // _prevRoundSips and makes the diff compare different rounds.
-  if (state.last_round_sips !== undefined)  _lastRoundSips  = state.last_round_sips  || {};
-  if (state.last_round_drinks !== undefined) _lastRoundDrinks = state.last_round_drinks || [];
-  if (state.prev_round_sips !== undefined)  _prevRoundSips  = state.prev_round_sips  || {};
-  if (state.prev_round_drinks !== undefined) _prevRoundDrinks = state.prev_round_drinks || [];
+  // Do NOT gate DrinkUI.lastRoundSips on being non-empty — that desynchronises it from
+  // DrinkUI.prevRoundSips and makes the diff compare different rounds.
+  if (state.last_round_sips !== undefined)  DrinkUI.lastRoundSips  = state.last_round_sips  || {};
+  if (state.last_round_drinks !== undefined) DrinkUI.lastRoundDrinks = state.last_round_drinks || [];
+  if (state.prev_round_sips !== undefined)  DrinkUI.prevRoundSips  = state.prev_round_sips  || {};
+  if (state.prev_round_drinks !== undefined) DrinkUI.prevRoundDrinks = state.prev_round_drinks || [];
 
   // One-shot round-end effects — all gated on round_over_seq so a duplicate
   // or late poll (backgrounded tab, slow network) can never re-fire them.
   // prevPhase checks were unreliable: if lastState was stale when applyState
   // ran, prevPhase could be wrong and toasts would fire twice or not at all.
   const newRoundOverSeq = state.round_over_seq || 0;
-  const isNewRoundOver  = newRoundOverSeq > _lastRoundOverSeq;
+  const isNewRoundOver  = newRoundOverSeq > DrinkUI.lastRoundOverSeq;
   if (isNewRoundOver) {
     // Player drink toast (registered non-spectators only)
     if (myNames.length > 0 && myRole !== "spectator") {
-      myNames.forEach(n => showPlayerDrinkToast(_lastRoundSips[n] || 0, n));
+      myNames.forEach(n => showPlayerDrinkToast(DrinkUI.lastRoundSips[n] || 0, n));
     }
     // Switch toast — hard/soft dealer switch (visible to all)
     if (state.switch_this_round) {
@@ -460,7 +460,7 @@ function applyState(state) {
       showInsuranceToast(state.insurance_result);
     }
   }
-  _lastRoundOverSeq = Math.max(_lastRoundOverSeq, newRoundOverSeq);
+  DrinkUI.lastRoundOverSeq = Math.max(DrinkUI.lastRoundOverSeq, newRoundOverSeq);
 
   // Detect bust vote window closing — flush any toasts that were queued during it.
   const _prevBustOpen = lastState && lastState.bust_vote_window_open;
@@ -600,11 +600,11 @@ function updateBestPlay(state) {
 // ── Drinks pane: player card selection ──────────────────────────────────────
 function selectDrinksPlayer(name) {
   // Toggle: tap same card again to deselect
-  _drinksPaneSelected = (_drinksPaneSelected === name) ? null : name;
+  DrinkUI.drinksPaneSelected = (DrinkUI.drinksPaneSelected === name) ? null : name;
   renderDrinksDetail();
   // Re-highlight cards
   document.querySelectorAll(".drinks-card").forEach(el => {
-    el.style.outline = el.dataset.name === _drinksPaneSelected
+    el.style.outline = el.dataset.name === DrinkUI.drinksPaneSelected
       ? "2px solid var(--accent)" : "none";
   });
 }
@@ -612,21 +612,21 @@ function selectDrinksPlayer(name) {
 function renderDrinksDetail() {
   const detail = document.getElementById("dig-drinks-detail");
   if (!detail) return;
-  if (!_drinksPaneSelected) {
+  if (!DrinkUI.drinksPaneSelected) {
     detail.innerHTML = `<div style="color:var(--muted);font-size:12px;text-align:center;
       padding:20px 8px;opacity:.55;line-height:1.5">← tap a name<br>to see details</div>`;
     return;
   }
-  const entries = _lastRoundDrinks.filter(d => d.name === _drinksPaneSelected);
-  const total   = _lastRoundSips[_drinksPaneSelected] || 0;
+  const entries = DrinkUI.lastRoundDrinks.filter(d => d.name === DrinkUI.drinksPaneSelected);
+  const total   = DrinkUI.lastRoundSips[DrinkUI.drinksPaneSelected] || 0;
   if (!entries.length) {
     detail.innerHTML = `<div style="color:var(--green);font-size:12px;text-align:center;padding:10px 4px">
-      ${escapeHtml(_drinksPaneSelected)} — no drinks 🎉</div>`;
+      ${escapeHtml(DrinkUI.drinksPaneSelected)} — no drinks 🎉</div>`;
     return;
   }
   detail.innerHTML =
     `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
-                 letter-spacing:.5px;margin-bottom:5px">${escapeHtml(_drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
+                 letter-spacing:.5px;margin-bottom:5px">${escapeHtml(DrinkUI.drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
     entries.map(d => {
       const isCredit = d.sips < 0;
       const col   = isCredit ? "var(--green)"              : "var(--red)";
@@ -670,17 +670,17 @@ function updateRoundPane(state) {
     // LEFT: 2-col grid of tappable player cards
     if (agg) {
       agg.innerHTML = allPlayers.map(name => {
-        const sips       = _lastRoundSips[name] || 0;
+        const sips       = DrinkUI.lastRoundSips[name] || 0;
         const hot        = sips > 0;
-        const isSelected = _drinksPaneSelected === name;
+        const isSelected = DrinkUI.drinksPaneSelected === name;
         const bg         = hot ? "rgba(224,92,92,.18)"  : "rgba(62,207,110,.14)";
         const border     = hot ? "rgba(224,92,92,.4)"   : "rgba(62,207,110,.4)";
         const color      = hot ? "var(--red)"           : "var(--green)";
         const outline    = isSelected ? "outline:2px solid var(--accent);outline-offset:1px;" : "";
         // Treat missing prev as 0 when at least one round has completed —
-        // absent from _prevRoundSips means the player had 0 sips that round.
+        // absent from DrinkUI.prevRoundSips means the player had 0 sips that round.
         const hasPrev = (state.round || 0) > 1;
-        const prev    = hasPrev ? (_prevRoundSips[name] || 0) : null;
+        const prev    = hasPrev ? (DrinkUI.prevRoundSips[name] || 0) : null;
         const diff    = hasPrev ? sips - prev : 0;
         const diffColor = diff > 0 ? "var(--red)" : "var(--green)";
         const diffStr = hasPrev
@@ -708,7 +708,7 @@ function updateRoundPane(state) {
 
   } else {
     // Mid-round: waiting for turn or finished, not yet round-over
-    _drinksPaneSelected = null;
+    DrinkUI.drinksPaneSelected = null;
     if (panel)    panel.style.display    = "none";
     if (none)     none.style.display     = "none";
     if (agg)      agg.innerHTML          = "";

@@ -1,0 +1,42 @@
+{
+  "3p_1d": {
+    "generated": "2026-06-11 16:39:49",
+    "config": {
+      "num_rounds": 100000,
+      "num_players": 3,
+      "num_decks": 1,
+      "hands_per_round": 2
+    },
+    "blackjack_rate_pct": 6.1,
+    "bust_rate_pct": 17.3,
+    "win_rate_pct": 42.0,
+    "loss_rate_pct": 50.3,
+    "push_rate_pct": 7.7,
+    "dealer_bust_pct": 28.4,
+    "avg_sips_per_round": 13.009,
+    "std_sips_per_round": 7.41,
+    "sips_per_round_by_rule": {
+      "Net hand losses": 2.2607,
+      "Lost doubled hand": 0.343,
+      "Ace dealt: Ace of Hearts (dealer hand)": 0.1666,
+      "Lost suited hand": 0.4034,
+      "Suited winning hand": 0.9526,
+      "5-card 21 handout received": 0.0556,
+      "5+ card win": 0.0571,
+      "Doubled win (immunity break)": 0.7211,
+      "Blackjack bonus": 2.9838,
+      "Dealer suited hand": 0.6598,
+      "Ace dealt: Ace of Hearts (player hand)": 0.3492,
+      "Other-player sweep": 0.9817,
+      "Ace dealt: Ace of Spades (player hand)": 0.3501,
+      "Split win (immunity break)": 0.5109,
+      "Four Aces (first deal)": 0.0335,
+      "Four Aces (end of round)": 0.1016,
+      "Ace dealt: Ace of Diamonds (dealer hand)": 0.4615,
+      "Dealer BJ (auto-insurance)": 0.2771,
+      "Ace dealt: Ace of Spades (dealer hand)": 0.1018,
+      "Hard Dealer Switch": 1.2127,
+      "Hard Dealer Switch (half, A\u2663)": 0.0257
+    }
+  }
+}

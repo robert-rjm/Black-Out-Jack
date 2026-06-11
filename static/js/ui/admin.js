@@ -524,7 +524,7 @@ function updateBustVoteUI(state) {
   if (statusElRound) statusElRound.innerHTML = statusEl.innerHTML;
 }
 
-async function giveBustSip(winnerName, recipientName, forfeit = false) {
+async function giveBustSip(winnerName, recipientName) {
   _requestsInFlight++;
   try {
     const res  = await fetch("/give_bust_sip", {
@@ -533,7 +533,6 @@ async function giveBustSip(winnerName, recipientName, forfeit = false) {
       body:    JSON.stringify({
         room_code: roomCode, client_id: clientId,
         winner_name: winnerName, recipient_name: recipientName,
-        forfeit,
       }),
     });
     const data = await res.json();
@@ -559,12 +558,6 @@ function _renderBustGivePanel(state) {
   const allPlayers  = (state.players || []);
   const secsLeft    = state.bust_handout_seconds_left || 0;
   overlay.style.display = "flex";
-
-  // Timer expired — winner forfeits and drinks the sip themselves
-  if (secsLeft === 0 && pending.length) {
-    pending.forEach(winnerName => giveBustSip(winnerName, winnerName, true));
-    return;
-  }
 
   const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
   const timerStr    = secsLeft > 0
