@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/Logo-BlackOutJack.png" alt="Black(Out)Jack Logo" height="200">
+  <img src="static/img/logo.png" alt="Black(Out)Jack Logo" height="200">
 </p>
 
 <h1 align="center">Black(Out)Jack</h1>
