@@ -31,27 +31,6 @@
   - add Black(Out)Jack specific fun facts
 
 
-- [ ] Per-player avg-sips benchmark (`avg_sips_per_round / playerCount`) assumes an even
-  split across seats, which drinking rules don't guarantee — fine for a wide-band
-  "lucky/unlucky" signal, but worth revisiting if it feels noisy in practice.
-- [X] `scripts/simulation.py` now prompts for player count (2-6) and deck count (1-8) and
-  names players `Player1..N`. Results are merged into `static/js/benchmarks.js` /
-  `scripts/benchmarks.json` as `BENCHMARKS_BY_CONFIG`, keyed by `"<players>p_<decks>d"`
-  (e.g. `"3p_1d"`) — each config's run accumulates rather than overwriting others.
-  `kpi.js`'s `_benchmarkTable(numPlayers, numDecks)` picks the matching config for the
-  live session, falling back to any config with the same player count, then to whatever's
-  available, then `null` (graceful no-color degradation).
-- [ ] Currently only `"3p_1d"` has been simulated (in `static/js/benchmarks.js`). Run
-  `python scripts/simulation.py` for other table sizes (e.g. 2p/1d, 4p/2d, 5p/2d) to fill
-  out `BENCHMARKS_BY_CONFIG` as those configs come into use.
-
-- [X] `scripts/snapshot.py` added: run `python scripts/simulation.py` then
-  `python scripts/snapshot.py [label]` to copy `simulation_results.txt` and
-  `benchmarks.json` into `scripts/snapshots/<players>p/<decks>deck/<label>/` (config read
-  from the most-recently-generated entry in `benchmarks.json`; timestamp used if no label
-  given). Note: `scripts/snapshots/baseline_3p_2deck/` predates this nesting and uses the
-  old flat `BENCHMARKS` format — kept for reference, not directly diffable against new
-  snapshots.
 - [ ] Use `simulation_results.txt` / `simulation_log.csv` as a regression baseline for the
   drinking-rules engine:
   - Run once on a known-good engine state, save it via `scripts/snapshot.py` as a baseline
@@ -59,8 +38,6 @@
   - After any change to `engine/drinking_rules.py` or `engine/blackjack.py`, re-run and diff
     sips/session per rule against the snapshot — flags unintended balance shifts (e.g. a rule
     firing too often/rarely) that unit tests on individual rules might miss.
-  - Same run also gives a rough perf baseline (10k-round wall time) for catching engine
-    slowdowns.
   - Any reason classified as "Other" by `classify_rule` is a signal the classifier (and
     possibly the live CSV export) is missing a newer rule string — worth checking each run.
   - This pairs naturally with the planned `tests/` suite (see Features) as an integration-level
@@ -82,4 +59,4 @@
     - [X] Step 1: Drink/milestone tracker group — consolidated the 10 globals originally declared together in setup.js (lastRoundSips, lastRoundDrinks, prevRoundSips, prevRoundDrinks, drinksPaneSelected, lastRoundOverSeq, lastMilestoneKey, lastMilestoneResultKey, milestoneModalOpened, milestoneAllocations) into a single `const DrinkUI = {...}` object in setup.js, and updated all read/write sites in table.js and table-modals.js. Other global groups (trivia state, toast-timer handles, setup-screen state, core session/identity) remain as separate future steps.
     - [X] Step 2: Trivia panel state group — consolidated the 5 globals in trivia.js (_triviaFilter, _triviaIndex, _triviaList, _triviaRendered, _triviaLastRound) into a single `const TriviaUI = {...}` object, all usages local to trivia.js. Remaining groups (toast-timer handles, setup-screen state, core session/identity) still pending.
     - [X] Step 3: Toast state group — consolidated the 4 globals in log.js (_toastQueue, _dealerToastTimer, _playerToastTimer, _switchToastTimer) into a single `const ToastUI = {...}` object; updated the one cross-file usage in table-modals.js. Also dropped a now-unnecessary `typeof ... !== "undefined"` guard around the player toast timer (the old `let` could theoretically be read in TDZ; `const ToastUI` cannot). Remaining groups (setup-screen state, core session/identity in state.js) still pending.
-    - [X] Stopping here — the remaining state.js globals (players, lastState, roomCode, clientId, myRole, myName, myNames, etc.) each have ~30-76 usages across 7-12 files (several hundred call sites total), a different scale of change from the three completed groups (each confined to 1-3 files). The leftover setup.js singletons (_rowIdCtr, _lastActivityAt, _idleWatcherID) are unrelated to each other and not worth grouping. Per the original assessment, the core session/identity consolidation stays deferred — only worth doing as part of a larger rewrite, not as an incremental step.
+    - [ ] Stopping here — the remaining state.js globals (players, lastState, roomCode, clientId, myRole, myName, myNames, etc.) each have ~30-76 usages across 7-12 files (several hundred call sites total), a different scale of change from the three completed groups (each confined to 1-3 files). The leftover setup.js singletons (_rowIdCtr, _lastActivityAt, _idleWatcherID) are unrelated to each other and not worth grouping. Per the original assessment, the core session/identity consolidation stays deferred — only worth doing as part of a larger rewrite, not as an incremental step.
