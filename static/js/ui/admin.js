@@ -324,9 +324,11 @@ function _openBustVoteModal(secondsLeft) {
     // the bust-vote window while an insurance vote is pending, so trust
     // bust_vote_seconds_left over our local countdown when it's available
     // and the window is still open server-side.
+    let resynced = false;
     if (lastState) {
       if (lastState.bust_vote_window_open && typeof lastState.bust_vote_seconds_left === "number") {
         secs = lastState.bust_vote_seconds_left;
+        resynced = true;
       } else if (!lastState.bust_vote_window_open) {
         // Server says the window already closed (e.g. all votes decided) —
         // close the modal without re-submitting votes.
@@ -353,7 +355,10 @@ function _openBustVoteModal(secondsLeft) {
       }
       return;
     }
-    secs--;
+    // Only decrement locally when this tick wasn't just resynced from the
+    // server — otherwise the next resync overwrites this and we end up
+    // double-decrementing (timer skips a number every poll).
+    if (!resynced) secs--;
     _bustVoteTimerHandle = setTimeout(tick, 1000);
   }
   tick();
