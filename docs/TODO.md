@@ -37,9 +37,13 @@
 - [ ] Benchmarks are generated for the hardcoded 3-player/2-deck sim config; revisit once
   the 4th-player handling (see Bugs) is sorted, since baselines shift with table size.
 
+- [X] `scripts/snapshot.py` added: run `python scripts/simulation.py` then
+  `python scripts/snapshot.py [label]` to copy `simulation_results.txt` and
+  `benchmarks.json` into `scripts/snapshots/<label>/` (timestamp if no label given).
 - [ ] Use `simulation_results.txt` / `simulation_log.csv` as a regression baseline for the
   drinking-rules engine:
-  - Run once on a known-good engine state, commit the output as a snapshot.
+  - Run once on a known-good engine state, save it via `scripts/snapshot.py` as a baseline
+    and commit it.
   - After any change to `engine/drinking_rules.py` or `engine/blackjack.py`, re-run and diff
     sips/session per rule against the snapshot — flags unintended balance shifts (e.g. a rule
     firing too often/rarely) that unit tests on individual rules might miss.
