@@ -53,8 +53,15 @@ def _ask_int(prompt, default, lo, hi):
 
 
 if __name__ == "__main__":
-    NUM_PLAYERS = _ask_int("Number of players (2-6, default 3): ", 3, 2, 6)
-    NUM_DECKS   = _ask_int("Number of decks (1-8, default 1): ", 1, 1, 8)
+    # Allow non-interactive use: `python scripts/simulation.py <players> <decks>`
+    # (used by scripts/run_all_configs.py to batch multiple configs without
+    # prompting). Falls back to interactive prompts if no args are given.
+    if len(_sys.argv) >= 3:
+        NUM_PLAYERS = max(2, min(6, int(_sys.argv[1])))
+        NUM_DECKS   = max(1, min(8, int(_sys.argv[2])))
+    else:
+        NUM_PLAYERS = _ask_int("Number of players (2-6, default 3): ", 3, 2, 6)
+        NUM_DECKS   = _ask_int("Number of decks (1-8, default 1): ", 1, 1, 8)
 else:
     NUM_PLAYERS = 3
     NUM_DECKS   = 1
