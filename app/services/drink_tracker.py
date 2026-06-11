@@ -83,6 +83,68 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Bust vote handout forfeit
+# ---------------------------------------------------------------------------
+
+def apply_bust_handout_forfeit(session: GameRoom) -> None:
+    """
+    If the bust-vote handout window has expired, penalise any winner who
+    hasn't yet given away their 1-sip reward with the same +1 sip they would
+    have given out (mirrors apply_milestone_forfeit).
+
+    Safe to call on every /state tick — exits immediately if no handout
+    window is pending or it hasn't closed yet.
+    """
+    expires = session._bust_handout_expires_at
+    if expires is None or time.monotonic() < expires:
+        return
+
+    result  = session._bust_vote_result or {}
+    winners = result.get("winners", [])
+
+    for winner_name in winners:
+        if winner_name in session._bust_handouts_given:
+            continue
+
+        winner_p = session._get_player(winner_name)
+        if winner_p:
+            reason = f"Bust vote forfeited — {winner_name} didn't assign in time: +1 sip"
+            winner_p.add_drink(1, reason, "player")
+            session._sip_ticker[winner_name] = (
+                session._sip_ticker.get(winner_name, 0) + 1
+            )
+            session._last_round_sips[winner_name] = (
+                session._last_round_sips.get(winner_name, 0) + 1
+            )
+            session._last_round_drinks.append({
+                "name":   winner_name,
+                "sips":   1,
+                "reason": reason,
+            })
+            session._drink_csv_rows.append({
+                "round":  session.round_count,
+                "dealer": session.dealer_name,
+                "player": winner_name,
+                "role":   "player",
+                "rule":   "Bust vote handout",
+                "sips":   1,
+            })
+            check_and_set_milestone(session)
+            log_line = (
+                f"  ⏱ {winner_name} didn't assign their bust-vote sip in time — "
+                f"drinks 1 sip\n"
+            )
+            session._log_entries.append(log_line)
+            session._log_version += 1
+            log.debug(f"  [bust vote] {winner_name} forfeited handout — drinks 1 sip")
+
+        session._bust_handouts_given.add(winner_name)
+
+    if all(w in session._bust_handouts_given for w in winners):
+        session._bust_handout_expires_at = None
+
+
+# ---------------------------------------------------------------------------
 # Log harvesting
 # ---------------------------------------------------------------------------
 

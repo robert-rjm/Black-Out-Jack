@@ -1,7 +1,15 @@
 // ============================================================
 // TOAST QUEUE — suppress mid-round toasts during bust vote window
 // ============================================================
-let _toastQueue = [];
+// Toast state, consolidated under one namespaced object (was 4 separate
+// module-level globals: ToastUI.queue, ToastUI.dealerTimer, ToastUI.playerTimer,
+// ToastUI.switchTimer). Same values, same mutation patterns as before.
+const ToastUI = {
+  queue:        [],   // queued toast-show callbacks, flushed after bust vote closes
+  dealerTimer:  null, // setTimeout handle for the dealer toast auto-hide
+  playerTimer:  null, // setTimeout handle for the player drink toast auto-hide
+  switchTimer:  null, // setTimeout handle for the dealer switch toast auto-hide
+};
 
 /** True while the bust vote window is open (reads lastState set in table.js). */
 function _bustVoteOpen() {
@@ -13,8 +21,8 @@ function _bustVoteOpen() {
  * Called by table.js when bust_vote_window_open transitions true → false.
  */
 function flushToastQueue() {
-  if (!_toastQueue.length) return;
-  const q = _toastQueue.splice(0);
+  if (!ToastUI.queue.length) return;
+  const q = ToastUI.queue.splice(0);
   q.forEach((fn, i) => setTimeout(fn, i * 3500));
 }
 
@@ -104,28 +112,26 @@ function showPeekedCard(card) {
 // ============================================================
 // DEALER TOAST
 // ============================================================
-let _dealerToastTimer = null;
 function showDealerToast() {
   const el = document.getElementById("dealer-toast");
   if (!el) return;
   // Cross-dismiss: hide drink toast if it's still up
   _dismissPlayerToast();
-  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
+  if (ToastUI.dealerTimer) { clearTimeout(ToastUI.dealerTimer); ToastUI.dealerTimer = null; }
   el.classList.add("show");
-  _dealerToastTimer = setTimeout(() => {
+  ToastUI.dealerTimer = setTimeout(() => {
     el.classList.remove("show");
-    _dealerToastTimer = null;
+    ToastUI.dealerTimer = null;
   }, 10000);
 }
 
 // ============================================================
 // PLAYER DRINK TOAST
 // ============================================================
-let _playerToastTimer = null;
 function _dismissPlayerToast() {
   const el = document.getElementById("player-toast");
   if (el) el.classList.remove("show");
-  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+  if (ToastUI.playerTimer) { clearTimeout(ToastUI.playerTimer); ToastUI.playerTimer = null; }
 }
 function showPlayerDrinkToast(sips, playerName) {
   const el = document.getElementById("player-toast");
@@ -133,8 +139,8 @@ function showPlayerDrinkToast(sips, playerName) {
   // Cross-dismiss: hide dealer toast if it's still up
   const dt = document.getElementById("dealer-toast");
   if (dt) dt.classList.remove("show");
-  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
-  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+  if (ToastUI.dealerTimer) { clearTimeout(ToastUI.dealerTimer); ToastUI.dealerTimer = null; }
+  if (ToastUI.playerTimer) { clearTimeout(ToastUI.playerTimer); ToastUI.playerTimer = null; }
   const prefix = playerName ? escapeHtml(playerName) + " — " : "";
   if (sips > 0) {
     el.textContent = `🍺 ${prefix}drink ${sips} sip${sips !== 1 ? "s" : ""}!`;
@@ -143,9 +149,9 @@ function showPlayerDrinkToast(sips, playerName) {
     el.textContent = playerName ? `🎉 ${prefix}clean round!` : "🎉 Clean round!";
     el.className   = "clean show";
   }
-  _playerToastTimer = setTimeout(() => {
+  ToastUI.playerTimer = setTimeout(() => {
     el.classList.remove("show");
-    _playerToastTimer = null;
+    ToastUI.playerTimer = null;
   }, 6000);
 }
 
@@ -164,11 +170,10 @@ const _SOFT_MSGS = [
   "🤑 Table wrecked by the Dealer. Soft Switch!",
 ];
 
-let _switchToastTimer = null;
 function showSwitchToast(switchType, dealerName) {
   const el = document.getElementById("switch-toast");
   if (!el) return;
-  if (_switchToastTimer) { clearTimeout(_switchToastTimer); _switchToastTimer = null; }
+  if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
   const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
   const tmpl = pool[Math.floor(Math.random() * pool.length)];
   el.textContent = tmpl;
@@ -180,9 +185,9 @@ function showSwitchToast(switchType, dealerName) {
     el.style.color      = "#000";
   }
   el.classList.add("show");
-  _switchToastTimer = setTimeout(() => {
+  ToastUI.switchTimer = setTimeout(() => {
     el.classList.remove("show");
-    _switchToastTimer = null;
+    ToastUI.switchTimer = null;
   }, 4500);
 }
 
@@ -310,14 +315,14 @@ function processAceDrinkEvents(state) {
     if (dtEl) dtEl.classList.remove("show");
     toastEl.textContent = text;
     toastEl.className   = "drink show";
-    if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
-      clearTimeout(_playerToastTimer);
+    if (ToastUI.playerTimer) {
+      clearTimeout(ToastUI.playerTimer);
     }
     setTimeout(() => toastEl.classList.remove("show"), duration);
   };
 
   if (_bustVoteOpen()) {
-    _toastQueue.push(_showAceToast);
+    ToastUI.queue.push(_showAceToast);
   } else {
     _showAceToast();
   }
