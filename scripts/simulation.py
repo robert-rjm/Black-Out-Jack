@@ -26,7 +26,7 @@ NUM_ROUNDS   = 100000
 PLAYER_NAMES = ["Alice", "Bob", "Charlie"]
 NUM_HANDS    = 2
 WAGER        = 1
-NUM_DECKS    = 2
+NUM_DECKS    = 1
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # classify_rule is imported from engine.drinking_rules — that copy is the
@@ -51,6 +51,11 @@ def run_simulation():
     hand_totals = {"hands": 0, "blackjacks": 0, "busts": 0,
                    "wins": 0, "losses": 0, "pushes": 0}
     dealer_bust_rounds = 0
+
+    # Running sum / sum-of-squares of total sips per round, used to derive
+    # std_sips_per_round (for z-score-based benchmark coloring in kpi.js).
+    round_sips_sum   = 0.0
+    round_sips_sumsq = 0.0
 
     for round_num in range(1, NUM_ROUNDS + 1):
         players       = [NPC_Player(name) for name in PLAYER_NAMES]
@@ -77,6 +82,8 @@ def run_simulation():
                 elif hand.result == "push":
                     hand_totals["pushes"] += 1
 
+        round_total_sips = 0
+        for p in players:
             for sips, reason, role in p.drink_log:
                 if sips <= 0:
                     continue
@@ -87,15 +94,24 @@ def run_simulation():
                 event_log.append({"round": round_num, "dealer": dealer_name,
                                    "player": p.name, "role": role,
                                    "rule": rule, "sips": sips})
+                round_total_sips += sips
+
+        round_sips_sum   += round_total_sips
+        round_sips_sumsq += round_total_sips ** 2
 
         if dealer_player.dealer_hand and dealer_player.dealer_hand.is_bust():
             dealer_bust_rounds += 1
 
         dealer_idx = (dealer_idx + 1) % len(PLAYER_NAMES)
-        if round_num % 1000 == 0:
+        if round_num % (NUM_ROUNDS // 10) == 0:
             print(f"  [{round_num:>5}/{NUM_ROUNDS}] rounds complete...", flush=True)
 
-    return player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds
+    n = NUM_ROUNDS
+    mean_sips = round_sips_sum / n
+    var_sips  = max(0.0, round_sips_sumsq / n - mean_sips ** 2)
+    std_sips_per_round = var_sips ** 0.5
+
+    return player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds, std_sips_per_round
 
 
 SESSION = 10  # rounds per session — unit used throughout the summary
@@ -171,7 +187,7 @@ def write_summary(player_sips, dealer_sips, path):
 
 
 def write_benchmarks(player_sips, dealer_sips, hand_totals, dealer_bust_rounds,
-                      json_path, js_path):
+                      std_sips_per_round, json_path, js_path):
     """
     Derive benchmark rates/averages from this run and write them as both a
     JSON file (for any backend/offline use) and a `BENCHMARKS` JS constant
@@ -207,6 +223,7 @@ def write_benchmarks(player_sips, dealer_sips, hand_totals, dealer_bust_rounds,
         "push_rate_pct":      pct(hand_totals["pushes"], hands),
         "dealer_bust_pct":    pct(dealer_bust_rounds, N),
         "avg_sips_per_round": round(sum(rule_totals.values()) / N, 3),
+        "std_sips_per_round": round(std_sips_per_round, 3),
         "sips_per_round_by_rule": {
             rule: round(total / N, 4) for rule, total in rule_totals.items()
         },
@@ -244,13 +261,13 @@ if __name__ == "__main__":
     print(f"Shoe    : {NUM_DECKS} decks  |  Dealer rotates every {len(PLAYER_NAMES)} rounds")
     print()
 
-    player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds = run_simulation()
+    player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds, std_sips_per_round = run_simulation()
 
     print("\nDone. Writing output files...")
     write_summary(player_sips, dealer_sips, os.path.join(HERE, "simulation_results.txt"))
     write_csv(event_log,                    os.path.join(HERE, "simulation_log.csv"))
     write_benchmarks(
-        player_sips, dealer_sips, hand_totals, dealer_bust_rounds,
+        player_sips, dealer_sips, hand_totals, dealer_bust_rounds, std_sips_per_round,
         json_path=os.path.join(HERE, "benchmarks.json"),
         js_path=os.path.join(os.path.dirname(HERE), "static", "js", "benchmarks.js"),
     )
