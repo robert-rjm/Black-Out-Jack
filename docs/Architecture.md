@@ -40,9 +40,7 @@ Black-Out-Jack/
 │   ├── Architecture.md          # This file
 │   ├── Multiplayer.md           # Full multiplayer documentation
 │   ├── DOM-Hooks.md             # Frontend element IDs and JS hook reference
-│   ├── TODO.md                  # Known issues and planned features
-│   ├── backend_refactor_map.svg # Backend dependency diagram
-│   └── frontend_refactor_map.svg# Frontend dependency diagram
+│   └── TODO.md                  # Known issues and planned features
 ├── static/
 │   ├── css/
 │   │   ├── main.css             # Variables, reset, layout, bottom nav
