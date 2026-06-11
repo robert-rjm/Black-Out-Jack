@@ -1,22 +1,30 @@
 // LAST ROUND DRINK SUMMARY
 // ============================================================
-let _lastRoundSips      = {};   // current completed round — shown in Drinks pane
-let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
-let _prevRoundSips      = {};   // round before last — shown in 🍺 header modal
-let _prevRoundDrinks    = [];   // detailed drink entries for the previous round
-let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
-let _lastRoundOverSeq   = 0;    // seq-based: fire drink toast whenever this advances
-let _lastMilestoneKey       = null;  // "boundary:winner" — prevents re-showing toast on every poll
-let _lastMilestoneResultKey = null;  // same format — prevents re-showing drink toast on every poll
-let _milestoneModalOpened   = null;  // key for which we already opened the modal (prevents re-open on re-poll)
-let _milestoneAllocations   = {};    // { playerName: sips } — stepper state in modal
+// Drink-summary and milestone-toast tracking state, consolidated under one
+// namespaced object (was 10 separate module-level globals). Same values,
+// same mutation patterns as before — grouping them here just makes it clear
+// they all belong to the same feature area (Drinks pane + milestone toasts/
+// modal). Referenced from table.js and table-modals.js, both of which load
+// after this file.
+const DrinkUI = {
+  lastRoundSips:      {},   // current completed round — shown in Drinks pane
+  lastRoundDrinks:    [],   // detailed drink entries for the Drinks pane
+  prevRoundSips:      {},   // round before last — shown in 🍺 header modal
+  prevRoundDrinks:    [],   // detailed drink entries for the previous round
+  drinksPaneSelected: null, // name of player whose detail is shown in Drinks pane
+  lastRoundOverSeq:   0,    // seq-based: fire drink toast whenever this advances
+  lastMilestoneKey:       null, // "boundary:winner" — prevents re-showing toast on every poll
+  lastMilestoneResultKey: null, // same format — prevents re-showing drink toast on every poll
+  milestoneModalOpened:   null, // key for which we already opened the modal (prevents re-open on re-poll)
+  milestoneAllocations:   {},   // { playerName: sips } — stepper state in modal
+};
 
 function openLastRoundModal() {
   const body = document.getElementById("last-round-modal-body");
   if (!document.getElementById("last-round-overlay") || !body) return;
 
-  const sips     = _lastRoundSips;   // last completed round — the main value
-  const prevSips = _prevRoundSips;   // round before that — delta reference only
+  const sips     = DrinkUI.lastRoundSips;   // last completed round — the main value
+  const prevSips = DrinkUI.prevRoundSips;   // round before that — delta reference only
   const names    = Object.keys(sips);
   if (!names.length) {
     body.innerHTML = `<div style="color:var(--muted);text-align:center;font-size:13px">No previous round yet.</div>`;
