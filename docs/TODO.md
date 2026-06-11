@@ -39,6 +39,8 @@
   - potentially .pdf file output with graphs
   - show in Dealer who drank most for each ace
 - [ ] implement test suite (`tests/` directory)
+  - have way to compare simulation results with own game performance
+  - use simulation to change bot behavior (possibility to have a "Marko bot" or "David bot" that replicates the respetive way of playing)
 - [ ] `game_room.py` bloat risk: split into `GameRoom` vs `RoundState` vs `MilestoneTracker` (not issue yet, for future with next feature)
 
 
@@ -55,6 +57,8 @@ Backend
 
 Frontend
 - [ ] Global state sprawl (state.js) — Largest frontend item. Full consolidation into a single AppState object touches nearly every UI file — high risk of subtle bugs from missed references. I'd treat this as "not now" unless you're doing a larger rewrite; the TDZ bug we just fixed is a symptom but a narrow one. If you want incremental progress, start by grouping related globals into small namespaced objects (e.g. _voteState = { lastSips, prevSips, lastMilestoneKey, ... }) one feature area at a time, rather than one big-bang refactor.
+  - [X] Step 1: Drink/milestone tracker group — consolidated the 10 globals originally declared together in setup.js (lastRoundSips, lastRoundDrinks, prevRoundSips, prevRoundDrinks, drinksPaneSelected, lastRoundOverSeq, lastMilestoneKey, lastMilestoneResultKey, milestoneModalOpened, milestoneAllocations) into a single `const DrinkUI = {...}` object in setup.js, and updated all read/write sites in table.js and table-modals.js. Other global groups (trivia state, toast-timer handles, setup-screen state, core session/identity) remain as separate future steps.
+  - [X] Step 2: Trivia panel state group — consolidated the 5 globals in trivia.js (_triviaFilter, _triviaIndex, _triviaList, _triviaRendered, _triviaLastRound) into a single `const TriviaUI = {...}` object, all usages local to trivia.js. Remaining groups (toast-timer handles, setup-screen state, core session/identity) still pending.
 - [X] _openBustVoteModal off-by-one (secs-- after server resync, item 12) — Fixed: a `resynced` flag tracks whether `secs` was just set from `lastState.bust_vote_seconds_left` this tick; `secs--` now only runs when it wasn't, preventing the double-decrement/timer-skip.
 - [X] "Dealer" magic string sentinel (item 13) — Added `DEALER_SENTINEL = "Dealer"` in ui/config.js and replaced the referee-mode `=== "Dealer"` / list-literal usages in table.js (buildPlayerButtons, handCountFor, tryDeal, sendResult). Left `state.dealer || "Dealer"` in showSwitchToast alone — that's a display fallback, not a sentinel comparison.
 - [X] Repeated DOM queries every poll (items 7 & 14) — #dig-action-row1/2 .btn and #panel .btn, #bottom-nav .bnav-btn re-queried on every 800ms poll/command. Cache the NodeList once at startup (or recompute only when the DOM structure actually changes, e.g. on hand-count change) and reuse. Straightforward perf win, low risk since it's read-only caching — good candidate for a focused commit.

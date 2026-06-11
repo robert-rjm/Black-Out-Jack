@@ -63,19 +63,24 @@ var TRIVIA_CATS = [
 var CAT_LABELS = { strategy:"Strategy", probability:"Odds", history:"History", drinking:"Drinking", game:"This game" };
 var CAT_COLORS = { strategy:"var(--accent)", probability:"var(--yellow)", history:"#a78bfa", drinking:"var(--red)", game:"var(--green)" };
 
-var _triviaFilter    = "all";
-var _triviaIndex     = 0;
-var _triviaList      = [];
-var _triviaRendered  = false;
-var _triviaLastRound = -1;
+// Trivia panel state, consolidated under one namespaced object (was 5
+// separate module-level globals). Same values, same mutation patterns —
+// all belong to the trivia panel feature area.
+const TriviaUI = {
+  filter:    "all", // selected category filter ("all" or a TRIVIA_CATS key)
+  index:     0,     // index of the currently shown fact within `list`
+  list:      [],    // current filtered/ordered list of trivia facts
+  rendered:  false, // whether the trivia DOM has been built yet
+  lastRound: -1,    // last round number we rotated the fact for
+};
 
 function _buildTriviaList(round) {
-  var base = _triviaFilter === "all"
+  var base = TriviaUI.filter === "all"
     ? TRIVIA_FACTS
-    : TRIVIA_FACTS.filter(function(f) { return f.cat === _triviaFilter; });
-  _triviaList = base.slice();
-  _triviaIndex = (typeof round === "number" && round > 0)
-    ? round % _triviaList.length : 0;
+    : TRIVIA_FACTS.filter(function(f) { return f.cat === TriviaUI.filter; });
+  TriviaUI.list = base.slice();
+  TriviaUI.index = (typeof round === "number" && round > 0)
+    ? round % TriviaUI.list.length : 0;
 }
 
 function _isTriviaActive() {
@@ -105,9 +110,9 @@ function _buildTriviaHTML() {
 
 // ---- Partial updates (fast path) ----
 function _updateTriviaContent() {
-  if (!_triviaList.length) return;
-  var fact     = _triviaList[_triviaIndex];
-  var total    = _triviaList.length;
+  if (!TriviaUI.list.length) return;
+  var fact     = TriviaUI.list[TriviaUI.index];
+  var total    = TriviaUI.list.length;
   var catColor = CAT_COLORS[fact.cat] || "var(--muted)";
   var catLabel = CAT_LABELS[fact.cat] || fact.cat;
   var catIcon  = (TRIVIA_CATS.filter(function(c){ return c.key === fact.cat; })[0] || {}).icon || "";
@@ -128,19 +133,19 @@ function _updateTriviaContent() {
   // Nav: dots (category mode) or ← counter → (all mode)
   var navRow = document.getElementById("trivia-nav-row");
   if (navRow) {
-    if (_triviaFilter !== "all" && total <= 12) {
+    if (TriviaUI.filter !== "all" && total <= 12) {
       var dots = '<div class="trivia-dots">';
       for (var i = 0; i < total; i++) {
         // Use CSS class for active dot — avoids inline CSS variable in style string
-        var cls = "trivia-dot" + (i === _triviaIndex ? " active" : "");
+        var cls = "trivia-dot" + (i === TriviaUI.index ? " active" : "");
         dots += '<button class="' + cls + '" onclick="jumpTrivia(' + i + ')"></button>';
       }
       dots += '</div>';
       navRow.innerHTML = dots;
     } else {
       navRow.innerHTML =
-        '<button class="trivia-arr" onclick="prevTrivia()" ' + (_triviaIndex === 0 ? "disabled" : "") + '>&#8592;</button>' +
-        '<span class="trivia-counter">' + (_triviaIndex + 1) + ' / ' + total + '</span>' +
+        '<button class="trivia-arr" onclick="prevTrivia()" ' + (TriviaUI.index === 0 ? "disabled" : "") + '>&#8592;</button>' +
+        '<span class="trivia-counter">' + (TriviaUI.index + 1) + ' / ' + total + '</span>' +
         '<button class="trivia-arr" onclick="nextTrivia()">&#8594;</button>';
     }
   }
@@ -148,56 +153,56 @@ function _updateTriviaContent() {
   // Category buttons active state
   var btns = document.querySelectorAll(".trivia-cat-btn");
   for (var j = 0; j < btns.length; j++) {
-    btns[j].classList.toggle("active", btns[j].dataset.cat === _triviaFilter);
+    btns[j].classList.toggle("active", btns[j].dataset.cat === TriviaUI.filter);
   }
 }
 
 function renderTrivia() {
   var el = document.getElementById("trivia-content");
   if (!el) return;
-  if (!_triviaList.length) _buildTriviaList(null);
+  if (!TriviaUI.list.length) _buildTriviaList(null);
 
   // Rebuild if not yet rendered or if DOM was cleared externally
-  if (!_triviaRendered || !document.getElementById("trivia-text")) {
+  if (!TriviaUI.rendered || !document.getElementById("trivia-text")) {
     el.innerHTML = _buildTriviaHTML();
-    _triviaRendered = true;
+    TriviaUI.rendered = true;
   }
   _updateTriviaContent();
 }
 
 function nextTrivia() {
-  _triviaIndex = (_triviaIndex + 1) % _triviaList.length;
+  TriviaUI.index = (TriviaUI.index + 1) % TriviaUI.list.length;
   _updateTriviaContent();
 }
 
 function prevTrivia() {
-  if (_triviaIndex > 0) { _triviaIndex--; _updateTriviaContent(); }
+  if (TriviaUI.index > 0) { TriviaUI.index--; _updateTriviaContent(); }
 }
 
 function jumpTrivia(i) {
-  _triviaIndex = i;
+  TriviaUI.index = i;
   _updateTriviaContent();
 }
 
 function setTriviaFilter(cat) {
-  _triviaFilter = cat;
-  _buildTriviaList(_triviaLastRound > 0 ? _triviaLastRound : null);
+  TriviaUI.filter = cat;
+  _buildTriviaList(TriviaUI.lastRound > 0 ? TriviaUI.lastRound : null);
   _updateTriviaContent();
 }
 
 function _resetTriviaRender() {
   // Call if trivia-content is cleared externally so HTML gets rebuilt
-  _triviaRendered = false;
+  TriviaUI.rendered = false;
 }
 
 function updateTriviaPanel(state) {
   var round = state && state.round ? state.round : null;
-  if (round !== null && round !== _triviaLastRound && _triviaLastRound >= 0 && _isTriviaActive()) {
-    _triviaLastRound = round;
+  if (round !== null && round !== TriviaUI.lastRound && TriviaUI.lastRound >= 0 && _isTriviaActive()) {
+    TriviaUI.lastRound = round;
     _buildTriviaList(round);
   } else {
-    if (round !== null) _triviaLastRound = round;
-    if (!_triviaList.length) _buildTriviaList(round);
+    if (round !== null) TriviaUI.lastRound = round;
+    if (!TriviaUI.list.length) _buildTriviaList(round);
   }
   renderTrivia();
 }

@@ -248,8 +248,8 @@ function renderMilestoneState(state) {
   // ── Drink notification for recipients (fires once per result) ──────────
   if (result) {
     const rKey = `${result.boundary}:${result.winner}`;
-    if (rKey !== _lastMilestoneResultKey) {
-      _lastMilestoneResultKey = rKey;
+    if (rKey !== DrinkUI.lastMilestoneResultKey) {
+      DrinkUI.lastMilestoneResultKey = rKey;
       // Check if I'm a recipient
       if (myName) {
         // allocations keys might be capitalised differently — case-insensitive lookup
@@ -268,7 +268,7 @@ function renderMilestoneState(state) {
     _hideMilestoneToast();
     _hideWaitingBanner();
     // Close modal if the TTL expired server-side while modal was open
-    if (_lastMilestoneKey && document.getElementById("milestone-modal-overlay").classList.contains("open")) {
+    if (DrinkUI.lastMilestoneKey && document.getElementById("milestone-modal-overlay").classList.contains("open")) {
       _closeMilestoneModal();
     }
     return;
@@ -278,17 +278,17 @@ function renderMilestoneState(state) {
   const iAmWinner = !!ms.i_am_winner;  // server-authoritative; no JS name-matching needed
 
   // Show announcement toast exactly once per new milestone (all players)
-  if (key !== _lastMilestoneKey) {
-    _lastMilestoneKey     = key;
-    _milestoneAllocations = {};
+  if (key !== DrinkUI.lastMilestoneKey) {
+    DrinkUI.lastMilestoneKey     = key;
+    DrinkUI.milestoneAllocations = {};
     _showMilestoneToast(ms);
   }
 
   if (iAmWinner) {
     _hideWaitingBanner();
     // Open the handout modal exactly once for this milestone
-    if (_milestoneModalOpened !== key) {
-      _milestoneModalOpened = key;
+    if (DrinkUI.milestoneModalOpened !== key) {
+      DrinkUI.milestoneModalOpened = key;
       // Short delay so the toast is visible before modal covers it
       setTimeout(() => _openMilestoneModal(ms, state), 600);
     } else {
@@ -389,15 +389,15 @@ function _openMilestoneModal(ms, state) {
   );
   // Drop any allocation entries for players no longer in the roster (e.g. a
   // player left/was kicked between two milestones with the same
-  // boundary+winner, so _lastMilestoneKey didn't change and the dict wasn't
+  // boundary+winner, so DrinkUI.lastMilestoneKey didn't change and the dict wasn't
   // reset) — stale entries would otherwise count toward `used` and could
   // block the winner from allocating their full handout.
-  Object.keys(_milestoneAllocations).forEach(n => {
-    if (!players.includes(n)) delete _milestoneAllocations[n];
+  Object.keys(DrinkUI.milestoneAllocations).forEach(n => {
+    if (!players.includes(n)) delete DrinkUI.milestoneAllocations[n];
   });
 
   // Initialize allocations to 0 for everyone
-  players.forEach(n => { if (!(_milestoneAllocations[n] >= 0)) _milestoneAllocations[n] = 0; });
+  players.forEach(n => { if (!(DrinkUI.milestoneAllocations[n] >= 0)) DrinkUI.milestoneAllocations[n] = 0; });
 
   _renderMilestoneSteppers(players, ms.handout);
   _updateMilestoneTimer(ms.seconds_left);
@@ -415,7 +415,7 @@ function _renderMilestoneSteppers(players, total) {
   players.forEach(name => {
     const row = document.createElement("div");
     row.className = "ms-stepper";
-    const val = _milestoneAllocations[name] || 0;
+    const val = DrinkUI.milestoneAllocations[name] || 0;
     row.innerHTML = `
       <span class="ms-name">${escapeHtml(name)}</span>
       <button onclick="milestoneAdjust('${escapeHtml(name)}', -1)">−</button>
@@ -429,20 +429,20 @@ function _renderMilestoneSteppers(players, total) {
 function milestoneAdjust(name, delta) {
   const ms = lastState && lastState.pending_milestone;
   const total = ms ? ms.handout : 5;
-  const cur   = _milestoneAllocations[name] || 0;
-  const used  = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
+  const cur   = DrinkUI.milestoneAllocations[name] || 0;
+  const used  = Object.values(DrinkUI.milestoneAllocations).reduce((a, b) => a + b, 0);
   const newVal = Math.max(0, Math.min(cur + delta, cur + (total - used) + (delta < 0 ? 0 : 0)));
 
   if (delta > 0 && used >= total) return;  // budget exhausted
 
-  _milestoneAllocations[name] = Math.max(0, cur + delta);
+  DrinkUI.milestoneAllocations[name] = Math.max(0, cur + delta);
   const el = document.getElementById(`ms-count-${name}`);
-  if (el) el.textContent = _milestoneAllocations[name];
+  if (el) el.textContent = DrinkUI.milestoneAllocations[name];
   _updateMilestoneRemaining(total);
 }
 
 function _updateMilestoneRemaining(total) {
-  const used = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
+  const used = Object.values(DrinkUI.milestoneAllocations).reduce((a, b) => a + b, 0);
   const left = total - used;
   const rem  = document.getElementById("milestone-remaining");
   const btn  = document.getElementById("milestone-submit-btn");
@@ -470,7 +470,7 @@ function _updateMilestoneTimer(secondsLeft) {
 async function submitMilestoneHandout() {
   const ms = lastState && lastState.pending_milestone;
   if (!ms) return;
-  const used = Object.values(_milestoneAllocations).reduce((a, b) => a + b, 0);
+  const used = Object.values(DrinkUI.milestoneAllocations).reduce((a, b) => a + b, 0);
 
   const btn = document.getElementById("milestone-submit-btn");
   if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
@@ -479,13 +479,13 @@ async function submitMilestoneHandout() {
     const res = await fetch("/claim_milestone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room_code: roomCode, client_id: clientId, allocations: _milestoneAllocations }),
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, allocations: DrinkUI.milestoneAllocations }),
     });
     const data = await res.json();
     if (data.ok) {
       _closeMilestoneModal();
-      _lastMilestoneKey     = null;
-      _milestoneModalOpened = null;
+      DrinkUI.lastMilestoneKey     = null;
+      DrinkUI.milestoneModalOpened = null;
       applyState(data);
     } else {
       alert(data.error || "Could not claim milestone.");
