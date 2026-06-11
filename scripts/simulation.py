@@ -104,7 +104,8 @@ def run_simulation():
 
         dealer_idx = (dealer_idx + 1) % len(PLAYER_NAMES)
         if round_num % (NUM_ROUNDS // 10) == 0:
-            print(f"  [{round_num:>5}/{NUM_ROUNDS}] rounds complete...", flush=True)
+            pct = round_num * 100 // NUM_ROUNDS
+            print(f"  [{round_num:>5}/{NUM_ROUNDS}] rounds complete... ({pct}%)", flush=True)
 
     n = NUM_ROUNDS
     mean_sips = round_sips_sum / n
