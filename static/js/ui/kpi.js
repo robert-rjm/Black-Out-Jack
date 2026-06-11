@@ -52,10 +52,26 @@ function benchmarkColor(value, benchmark, round, { lowerIsBetter = false, std = 
   return better ? "color:var(--green)" : "color:var(--red)";
 }
 
-// Safe accessor — BENCHMARKS may be a placeholder with null fields until
-// scripts/simulation.py has been run to generate real values.
-function _benchmark(key) {
-  return (typeof BENCHMARKS !== "undefined" && BENCHMARKS) ? BENCHMARKS[key] : null;
+// BENCHMARKS_BY_CONFIG (static/js/benchmarks.js) is keyed by "<players>p_<decks>d",
+// since baselines (blackjack rate, dealer-bust rate, sips/round, etc.) shift with
+// table size. Pick the table for the live session's config, falling back to any
+// table with the same player count, then to whatever's available, then to null
+// (benchmarkColor() degrades gracefully when benchmark is null).
+function _benchmarkTable(numPlayers, numDecks) {
+  if (typeof BENCHMARKS_BY_CONFIG === "undefined" || !BENCHMARKS_BY_CONFIG) return null;
+  const exact = BENCHMARKS_BY_CONFIG[`${numPlayers}p_${numDecks}d`];
+  if (exact) return exact;
+
+  const keys = Object.keys(BENCHMARKS_BY_CONFIG);
+  const sameP = keys.find(k => k.startsWith(`${numPlayers}p_`));
+  if (sameP) return BENCHMARKS_BY_CONFIG[sameP];
+
+  return keys.length ? BENCHMARKS_BY_CONFIG[keys[0]] : null;
+}
+
+// Safe accessor — `table` may be null if no benchmarks have been generated yet.
+function _benchmark(table, key) {
+  return table ? (table[key] ?? null) : null;
 }
 
 // ---- Tab switching ----
@@ -286,11 +302,12 @@ function renderStats(state) {
   // the simulated total across all seats per round, split evenly as a rough
   // per-player expectation (drinking rules don't land perfectly evenly, but
   // this is enough for a wide-band "lucky/unlucky" signal).
-  const _totalSipBenchmark    = _benchmark("avg_sips_per_round");
+  const _benchTable = _benchmarkTable(playOrder.length, state.num_decks || 1);
+  const _totalSipBenchmark    = _benchmark(_benchTable, "avg_sips_per_round");
   const _perPlayerSipBenchmark = (_totalSipBenchmark && playOrder.length)
     ? _totalSipBenchmark / playOrder.length
     : null;
-  const _stdTotal = _benchmark("std_sips_per_round");
+  const _stdTotal = _benchmark(_benchTable, "std_sips_per_round");
   const _perPlayerSipStd = (_stdTotal && playOrder.length)
     ? _stdTotal / Math.sqrt(playOrder.length)
     : null;
@@ -406,7 +423,7 @@ function renderStats(state) {
 
   if (totalBJ > 0) {
     const bjRate    = round > 0 ? ((totalBJ / (Object.keys(handStats).length * round)) * 100) : null;
-    const bjBench   = _benchmark("blackjack_rate_pct");
+    const bjBench   = _benchmark(_benchTable, "blackjack_rate_pct");
     const bjCol     = bjRate !== null ? benchmarkColor(bjRate, bjBench, round) : "";
     const bjBenchTxt = bjBench !== null ? ` · expected ~${bjBench}%` : "";
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">🃏</div><div class="stat-card-body">
@@ -421,7 +438,7 @@ function renderStats(state) {
     </div></div>`);
   }
   if (dealerBustPct !== null) {
-    const dbBench  = _benchmark("dealer_bust_pct");
+    const dbBench  = _benchmark(_benchTable, "dealer_bust_pct");
     const col      = dealerBustRnds === 0 ? "" : benchmarkColor(dealerBustPct, dbBench, round);
     const dbBenchTxt = dbBench !== null ? ` · expected ~${dbBench}%` : "";
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">🎰</div><div class="stat-card-body">
