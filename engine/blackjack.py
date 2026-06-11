@@ -381,7 +381,7 @@ class RoundManager:
         hand.cards.append(card)
 
         if self.drinking_mode:
-            from drinking_rules import DrinkingRules
+            from engine.drinking_rules import DrinkingRules
             from engine.events import CardDealtEvent
             is_dealer_hand = (hand is self.dealer_player.dealer_hand)
             msgs = DrinkingRules.handle(CardDealtEvent(
@@ -417,7 +417,7 @@ class RoundManager:
     # ---------------------------------------------------------------- four aces
 
     def _check_four_aces(self, phase):
-        from drinking_rules import DrinkingRules
+        from engine.drinking_rules import DrinkingRules
         all_cards = ([c for p in self.players for h in p.hands for c in h.cards]
                      + self.dealer_player.dealer_hand.cards)
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
@@ -513,7 +513,7 @@ class RoundManager:
             hand.stood = True
             print(f"  BLACKJACK! {hand}")
             if self.drinking_mode:
-                from drinking_rules import DrinkingRules
+                from engine.drinking_rules import DrinkingRules
                 from engine.events import BlackjackEvent
                 self._drink(DrinkingRules.handle(BlackjackEvent(
                     player_name=player.name, hand=hand, all_names=self._all_names,
@@ -587,7 +587,7 @@ class RoundManager:
                     hand.stood = True
                     print(f"  BLACKJACK! {hand}")
                     if self.drinking_mode:
-                        from drinking_rules import DrinkingRules
+                        from engine.drinking_rules import DrinkingRules
                         from engine.events import BlackjackEvent
                         self._drink(DrinkingRules.handle(BlackjackEvent(
                             player_name=player.name, hand=hand, all_names=self._all_names,
@@ -624,7 +624,7 @@ class RoundManager:
                 print(f"  Dealer stands at {d_hand.score()}.")
 
         if self.drinking_mode:
-            from drinking_rules import DrinkingRules
+            from engine.drinking_rules import DrinkingRules
             from engine.events import DealerHandRevealedEvent
             self._drink(DrinkingRules.handle(DealerHandRevealedEvent(dealer_hand=d_hand)))
 
@@ -660,7 +660,7 @@ class RoundManager:
 
         # Pass 2 — fire drinking events with conditional dealer exemption
         if self.drinking_mode:
-            from drinking_rules import DrinkingRules
+            from engine.drinking_rules import DrinkingRules
             from engine.events import (
                 BlackjackEvent, HandResolvedEvent,
                 InsuranceResolvedEvent, HardDealerSwitchEvent,
@@ -706,7 +706,7 @@ class RoundManager:
                 )))
 
     def _round_end_drinks(self):
-        from drinking_rules import DrinkingRules
+        from engine.drinking_rules import DrinkingRules
         from engine.events import RoundEndEvent
         d_hand    = self.dealer_player.dealer_hand
         dealer_bj = d_hand.is_blackjack()
@@ -779,7 +779,7 @@ class BlackJackGame:
         mode = self._ask_int("Game mode — 1: Normal  2: Drinking: ", 1, 2)
         self._drinking = (mode == 2)
         if self._drinking:
-            from drinking_rules import verify_rules
+            from engine.drinking_rules import verify_rules
             verify_rules()
 
         n = self._ask_int("Number of players (1-4): ", 1, 4)
@@ -863,7 +863,7 @@ class BlackJackGame:
 
             tracker = None
             if self._drinking:
-                from drinking_rules import DrinkTracker
+                from engine.drinking_rules import DrinkTracker
                 all_for_tracker = self.players + ([self.dealer_player] if self._house_mode else [])
                 tracker = DrinkTracker(all_for_tracker, self.dealer_player)
 
