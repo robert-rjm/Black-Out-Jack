@@ -387,6 +387,15 @@ function _openMilestoneModal(ms, state) {
   const players = (lastState && lastState.players || []).filter(
     n => n.toLowerCase() !== (myName || "").toLowerCase()
   );
+  // Drop any allocation entries for players no longer in the roster (e.g. a
+  // player left/was kicked between two milestones with the same
+  // boundary+winner, so _lastMilestoneKey didn't change and the dict wasn't
+  // reset) — stale entries would otherwise count toward `used` and could
+  // block the winner from allocating their full handout.
+  Object.keys(_milestoneAllocations).forEach(n => {
+    if (!players.includes(n)) delete _milestoneAllocations[n];
+  });
+
   // Initialize allocations to 0 for everyone
   players.forEach(n => { if (!(_milestoneAllocations[n] >= 0)) _milestoneAllocations[n] = 0; });
 
