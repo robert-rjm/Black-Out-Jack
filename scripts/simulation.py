@@ -1,7 +1,9 @@
 """
-scripts/simulation.py -- 10,000-round Drinking Blackjack simulation.
-3 NPC players, 2 hands each, dealer rotates every 3 rounds.
-Outputs: simulation_results.txt, simulation_log.csv
+scripts/simulation.py -- 100,000-round Drinking Blackjack simulation.
+Prompts for player count and deck count, 2 hands each, dealer rotates
+every N rounds (N = player count).
+Outputs: simulation_results.txt, simulation_log.csv, benchmarks.json,
+static/js/benchmarks.js (per-config, see BENCHMARKS_BY_CONFIG).
 Run: python simulation.py
 """
 import sys as _sys
@@ -23,10 +25,8 @@ with contextlib.redirect_stdout(_buf):
     from engine.drinking_rules import DrinkTracker, classify_rule
 
 NUM_ROUNDS   = 100000
-PLAYER_NAMES = ["Alice", "Bob", "Charlie"]
 NUM_HANDS    = 2
 WAGER        = 1
-NUM_DECKS    = 1
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 # classify_rule is imported from engine.drinking_rules — that copy is the
@@ -34,6 +34,33 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # live web CSV export). A local copy here previously drifted out of sync with
 # the engine's rule set (missing A♣ protection/credit cases, "Other" buckets
 # for newer reason strings, etc.) — see docs/TODO.md.
+
+
+def _ask_int(prompt, default, lo, hi):
+    """Prompt for an int within [lo, hi], falling back to `default` on
+    blank input, non-numeric input, or non-interactive runs (EOF)."""
+    try:
+        raw = input(prompt).strip()
+    except EOFError:
+        raw = ""
+    if not raw:
+        return default
+    try:
+        v = int(raw)
+    except ValueError:
+        return default
+    return max(lo, min(hi, v))
+
+
+if __name__ == "__main__":
+    NUM_PLAYERS = _ask_int("Number of players (2-6, default 3): ", 3, 2, 6)
+    NUM_DECKS   = _ask_int("Number of decks (1-8, default 1): ", 1, 1, 8)
+else:
+    NUM_PLAYERS = 3
+    NUM_DECKS   = 1
+
+PLAYER_NAMES = [f"Player{i + 1}" for i in range(NUM_PLAYERS)]
+CONFIG_KEY   = f"{NUM_PLAYERS}p_{NUM_DECKS}d"
 
 
 def run_simulation():
@@ -187,12 +214,36 @@ def write_summary(player_sips, dealer_sips, path):
     print(f"  Summary  -> {path}")
 
 
+def _load_existing_config_dict(path):
+    """Load an existing benchmarks file (.json or .js) as a dict keyed by
+    config (e.g. "3p_1d"). Returns {} if missing, unreadable, or in the old
+    single-config format (no config-keyed wrapper)."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        if path.endswith(".js"):
+            content = content[content.index("{"): content.rindex("}") + 1]
+        data = json.loads(content)
+    except Exception:
+        return {}
+    # Old format had top-level keys like "blackjack_rate_pct" directly —
+    # discard rather than trying to migrate it under a guessed config key.
+    if "blackjack_rate_pct" in data:
+        return {}
+    return data
+
+
 def write_benchmarks(player_sips, dealer_sips, hand_totals, dealer_bust_rounds,
                       std_sips_per_round, json_path, js_path):
     """
-    Derive benchmark rates/averages from this run and write them as both a
-    JSON file (for any backend/offline use) and a `BENCHMARKS` JS constant
-    consumed by static/js/ui/kpi.js for "vs. expected" % coloring.
+    Derive benchmark rates/averages from this run and merge them into a
+    config-keyed JSON file and `BENCHMARKS_BY_CONFIG` JS constant consumed by
+    static/js/ui/kpi.js for "vs. expected" % coloring. Each run's results are
+    stored under a key like "3p_1d" (players + decks), so results for
+    different table sizes accumulate across runs instead of overwriting
+    each other.
 
     These replace previously hand-picked magic numbers (e.g. "expected
     ~4.8%" blackjack rate, "casino avg ~28%" dealer bust rate) with values
@@ -213,9 +264,9 @@ def write_benchmarks(player_sips, dealer_sips, hand_totals, dealer_bust_rounds,
         "generated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "config": {
             "num_rounds": N,
-            "players": PLAYER_NAMES,
+            "num_players": NUM_PLAYERS,
+            "num_decks": NUM_DECKS,
             "hands_per_round": NUM_HANDS,
-            "decks": NUM_DECKS,
         },
         "blackjack_rate_pct": pct(hand_totals["blackjacks"], hands),
         "bust_rate_pct":      pct(hand_totals["busts"], hands),
@@ -230,20 +281,25 @@ def write_benchmarks(player_sips, dealer_sips, hand_totals, dealer_bust_rounds,
         },
     }
 
+    all_json = _load_existing_config_dict(json_path)
+    all_json[CONFIG_KEY] = benchmarks
     with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(benchmarks, f, indent=2)
-    print(f"  Benchmarks (json) -> {json_path}")
+        json.dump(all_json, f, indent=2)
+    print(f"  Benchmarks (json) -> {json_path}  [{CONFIG_KEY}]")
 
+    all_js = _load_existing_config_dict(js_path)
+    all_js[CONFIG_KEY] = benchmarks
     js = (
         "// AUTO-GENERATED by scripts/simulation.py — do not edit by hand.\n"
-        "// Re-run `python scripts/simulation.py` to refresh after any change\n"
-        "// to engine/drinking_rules.py or engine/blackjack.py.\n"
+        "// Re-run `python scripts/simulation.py` to refresh/add a config\n"
+        "// after any change to engine/drinking_rules.py or engine/blackjack.py.\n"
         "// Used by static/js/ui/kpi.js for benchmark-relative % coloring.\n"
-        f"const BENCHMARKS = {json.dumps(benchmarks, indent=2)};\n"
+        "// Keyed by \"<players>p_<decks>d\", e.g. \"3p_1d\".\n"
+        f"const BENCHMARKS_BY_CONFIG = {json.dumps(all_js, indent=2)};\n"
     )
     with open(js_path, "w", encoding="utf-8") as f:
         f.write(js)
-    print(f"  Benchmarks (js)   -> {js_path}")
+    print(f"  Benchmarks (js)   -> {js_path}  [{CONFIG_KEY}]")
 
 
 def write_csv(event_log, path):
@@ -257,9 +313,9 @@ def write_csv(event_log, path):
 
 
 if __name__ == "__main__":
-    print(f"Running {NUM_ROUNDS:,}-round simulation...")
+    print(f"\nRunning {NUM_ROUNDS:,}-round simulation... [{CONFIG_KEY}]")
     print(f"Players : {', '.join(PLAYER_NAMES)}  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
-    print(f"Shoe    : {NUM_DECKS} decks  |  Dealer rotates every {len(PLAYER_NAMES)} rounds")
+    print(f"Shoe    : {NUM_DECKS} deck(s)  |  Dealer rotates every {len(PLAYER_NAMES)} rounds")
     print()
 
     player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds, std_sips_per_round = run_simulation()

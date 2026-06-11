@@ -133,21 +133,29 @@ This ensures the code and documentation never silently drift apart.
 
 Curious whether the rules are balanced or which rule is responsible for most of the drinking?
 
-Track every drink event from start to finish in a simulation (100,000 rounds; 3 players, 2 hands each, 2-deck shoe, rotating dealer). Frequency and rule breakdown are output in `simulation_results.txt` and `simulation_log.csv` respectively.
+Track every drink event from start to finish in a simulation (100,000 rounds, 2 hands per
+player, rotating dealer). Frequency and rule breakdown are output in `simulation_results.txt`
+and `simulation_log.csv` respectively.
 
 ```bash
 python scripts/simulation.py
 ```
 
+The script prompts for player count (2-6, default 3) and deck count (1-8, default 1);
+players are named `Player1..N`.
+
 The same run also tallies hand outcomes (blackjack/bust/win/loss/push rates, dealer-bust rate),
-average sips/round, and the standard deviation of sips/round (`std_sips_per_round`), writing
-them to `scripts/benchmarks.json` and `static/js/benchmarks.js` (`const BENCHMARKS = {...}`).
-`static/js/ui/kpi.js` compares live session stats against `BENCHMARKS` using a z-score /
-standard-error calculation that scales with the live round count — `benchmarkColor()` colors
-a stat yellow at |z| > 1 and green/red at |z| > 2, depending on whether the deviation is
-favorable. Re-run `simulation.py` after any change to `engine/drinking_rules.py` or
-`engine/blackjack.py` to refresh `benchmarks.js`. Note: benchmarks are generated for the
-hardcoded 3-player/2-deck config and don't yet account for other table sizes.
+average sips/round, and the standard deviation of sips/round (`std_sips_per_round`), merging
+them into `scripts/benchmarks.json` and `static/js/benchmarks.js`
+(`const BENCHMARKS_BY_CONFIG = {...}`), keyed by `"<players>p_<decks>d"` (e.g. `"3p_1d"`) —
+each config's results accumulate across runs rather than overwriting other configs.
+`static/js/ui/kpi.js` picks the table matching the live session's player/deck count
+(`_benchmarkTable()`, falling back to same-player-count or any available config) and compares
+live stats against it using a z-score / standard-error calculation that scales with the live
+round count — `benchmarkColor()` colors a stat yellow at |z| > 1 and green/red at |z| > 2,
+depending on whether the deviation is favorable. Re-run `simulation.py` after any change to
+`engine/drinking_rules.py` or `engine/blackjack.py` to refresh the benchmarks for a given
+config.
 
 ### Regression snapshots
 
@@ -156,12 +164,13 @@ simulation output as a labeled snapshot:
 
 ```bash
 python scripts/simulation.py
-python scripts/snapshot.py baseline_3p_2deck   # or omit label for a timestamp
+python scripts/snapshot.py baseline   # or omit label for a timestamp
 ```
 
 This copies `simulation_results.txt` and `benchmarks.json` into
-`scripts/snapshots/<label>/`. After future engine changes, re-run the simulation and diff
-the new output against the snapshot to spot unintended balance shifts.
+`scripts/snapshots/<players>p/<decks>deck/<label>/` (config taken from the most recently
+generated entry in `benchmarks.json`). After future engine changes, re-run the simulation
+and diff the new output against the snapshot to spot unintended balance shifts.
 
 ## Common Issues
 

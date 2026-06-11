@@ -34,12 +34,24 @@
 - [ ] Per-player avg-sips benchmark (`avg_sips_per_round / playerCount`) assumes an even
   split across seats, which drinking rules don't guarantee — fine for a wide-band
   "lucky/unlucky" signal, but worth revisiting if it feels noisy in practice.
-- [ ] Benchmarks are generated for the hardcoded 3-player/2-deck sim config; revisit once
-  the 4th-player handling (see Bugs) is sorted, since baselines shift with table size.
+- [X] `scripts/simulation.py` now prompts for player count (2-6) and deck count (1-8) and
+  names players `Player1..N`. Results are merged into `static/js/benchmarks.js` /
+  `scripts/benchmarks.json` as `BENCHMARKS_BY_CONFIG`, keyed by `"<players>p_<decks>d"`
+  (e.g. `"3p_1d"`) — each config's run accumulates rather than overwriting others.
+  `kpi.js`'s `_benchmarkTable(numPlayers, numDecks)` picks the matching config for the
+  live session, falling back to any config with the same player count, then to whatever's
+  available, then `null` (graceful no-color degradation).
+- [ ] Currently only `"3p_1d"` has been simulated (in `static/js/benchmarks.js`). Run
+  `python scripts/simulation.py` for other table sizes (e.g. 2p/1d, 4p/2d, 5p/2d) to fill
+  out `BENCHMARKS_BY_CONFIG` as those configs come into use.
 
 - [X] `scripts/snapshot.py` added: run `python scripts/simulation.py` then
   `python scripts/snapshot.py [label]` to copy `simulation_results.txt` and
-  `benchmarks.json` into `scripts/snapshots/<label>/` (timestamp if no label given).
+  `benchmarks.json` into `scripts/snapshots/<players>p/<decks>deck/<label>/` (config read
+  from the most-recently-generated entry in `benchmarks.json`; timestamp used if no label
+  given). Note: `scripts/snapshots/baseline_3p_2deck/` predates this nesting and uses the
+  old flat `BENCHMARKS` format — kept for reference, not directly diffable against new
+  snapshots.
 - [ ] Use `simulation_results.txt` / `simulation_log.csv` as a regression baseline for the
   drinking-rules engine:
   - Run once on a known-good engine state, save it via `scripts/snapshot.py` as a baseline
