@@ -35,11 +35,11 @@ function buildDigitalUI() {
   // Player and hand selection is driven automatically by game state (applyTurnGate)
 }
 
-// includeDealer: referee needs "Dealer" in player lists; digital play does not
+// includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
 function buildPlayerButtons(containerId, pane, includeDealer) {
   const c = document.getElementById(containerId);
   c.innerHTML = "";
-  let list = includeDealer ? [...players, "Dealer"] : players;
+  let list = includeDealer ? [...players, DEALER_SENTINEL] : players;
   // Exclude NPC players from the Play pane — they act automatically
   if (pane === "digital") list = list.filter(name => !npcPlayers.has(name));
   list.forEach(name => {
@@ -123,7 +123,7 @@ function setHandSel(pane, hand, btn, containerId) {
 // How many hands does the named player currently have?
 function handCountFor(playerName) {
   if (!lastState || !lastState.table) return numHands;
-  if (playerName === "Dealer") return 1;
+  if (playerName === DEALER_SENTINEL) return 1;
   const seat = lastState.table.find(s => s.name === playerName);
   if (!seat || !seat.hands) return numHands;
   return Math.max(numHands, seat.hands.length);
@@ -183,7 +183,7 @@ function tryDeal() {
   const hand   = sel.deal.hand;
   if (!player) { appendLog("  Select a player first.\n"); return; }
 
-  const pToken = (player === "Dealer") ? "dealer" : player;
+  const pToken = (player === DEALER_SENTINEL) ? "dealer" : player;
   const card   = selRank.toLowerCase() + selSuit;
   sendCmd(`deal ${pToken} ${card} ${hand}`);
 
@@ -198,7 +198,7 @@ function sendResult(outcome) {
   const player = sel.result.player;
   const hand   = sel.result.hand;
   if (!player) { appendLog("  Select a player first.\n"); return; }
-  sendCmd(player === "Dealer"
+  sendCmd(player === DEALER_SENTINEL
     ? `result dealer ${outcome}`
     : `result ${player} ${outcome} ${hand}`);
 }
