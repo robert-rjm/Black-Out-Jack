@@ -65,14 +65,22 @@
 }
 .card-vis.red    { color: #c12525; }
 .card-vis.hidden {
-  background: repeating-linear-gradient(45deg, #1d3a72, #1d3a72 6px, #0d1f44 6px, #0d1f44 12px);
-  color: #cad6ef;
-  border-color: #0d1f44;
+  background-color: #0a0e1a;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 58 82'%3E%3Crect x='4' y='4' width='50' height='74' fill='none' stroke='%23e8a23c' stroke-width='1.5'/%3E%3Crect x='6' y='6' width='46' height='70' fill='none' stroke='%23e8a23c' stroke-width='0.75'/%3E%3Cpolygon points='4,4 9,4 4,9' fill='%23e8a23c'/%3E%3Cpolygon points='54,4 49,4 54,9' fill='%23e8a23c'/%3E%3Cpolygon points='4,78 9,78 4,73' fill='%23e8a23c'/%3E%3Cpolygon points='54,78 49,78 54,73' fill='%23e8a23c'/%3E%3C/svg%3E");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #f0c987;
+  border-color: #e8a23c;
 }
 .card-vis .top  { font-size: 14px; align-self: flex-start; }
 .card-vis .mid  { font-size: 25px; align-self: center; }
 .card-vis .bot  { font-size: 14px; align-self: flex-end; transform: rotate(180deg); opacity: .85; }
-.card-vis.hidden .mid { font-size: 20px; opacity: .55; }
+.card-vis.hidden .top,
+.card-vis.hidden .bot { opacity: 0; }
+.card-vis.hidden .mid {
+  font-size: 22px;
+  text-shadow: 0 0 6px rgba(255,150,50,.7);
+}
 
 .hand-meta {
   font-size: 11px; color: var(--muted);
