@@ -54,7 +54,7 @@
   border-radius: 8px;
   background: #f6f6f6;
   color: #111;
-  border: 1px solid rgba(0,0,0,.35);
+  border: 1px solid #e8a23c;
   display: flex; flex-direction: column;
   justify-content: space-between;
   padding: 4px 6px;
