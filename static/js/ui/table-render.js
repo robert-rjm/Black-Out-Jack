@@ -180,7 +180,7 @@ function applyTurnGate(state) {
   const isNpcTurn   = gate && currentSeat && currentSeat.is_npc;
 
   // Disable all action buttons while an NPC is taking its turn
-  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
+  digActionButtons().forEach(b => {
     b.classList.toggle("disabled", !!isNpcTurn);
   });
 

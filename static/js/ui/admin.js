@@ -75,11 +75,9 @@ function updateRoleUI(state) {
   const presel       = state.preselections || {};
   const suggestions  = state.suggestions   || {};
 
-  const actionSel = "#dig-action-row1 .btn, #dig-action-row2 .btn";
-
   // Clear all highlights
-  document.querySelectorAll("#dig-action-row1 .btn.voted,       #dig-action-row2 .btn.voted").forEach(b => b.classList.remove("voted"));
-  document.querySelectorAll("#dig-action-row1 .btn.voted-dealer, #dig-action-row2 .btn.voted-dealer").forEach(b => b.classList.remove("voted-dealer"));
+  digActionButtons().forEach(b => b.classList.remove("voted"));
+  digActionButtons().forEach(b => b.classList.remove("voted-dealer"));
 
   // Hide suggest UI by default
   if (suggestBanner) suggestBanner.style.display = "none";
@@ -101,7 +99,7 @@ function updateRoleUI(state) {
 
   // Spectators: disable everything and stop
   if (myRole === "spectator" || !myRole) {
-    document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+    digActionButtons().forEach(b => b.classList.add("disabled"));
     return;
   }
 
@@ -120,7 +118,7 @@ function updateRoleUI(state) {
 
     if (vote) {
       // Lock dealer to voted action; highlight it yellow
-      document.querySelectorAll(actionSel).forEach(b => {
+      digActionButtons().forEach(b => {
         const lbl = b.textContent.trim();
         if (lbl === VOTE_LABEL[vote]) {
           b.classList.add("voted-dealer");
@@ -142,7 +140,7 @@ function updateRoleUI(state) {
 
     // Not your turn → grey everything out, done
     if (!isMyTurn) {
-      document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+      digActionButtons().forEach(b => b.classList.add("disabled"));
       return;
     }
 
@@ -157,14 +155,14 @@ function updateRoleUI(state) {
         suggestText.textContent = `Dealer suggests: ${VOTE_LABEL[suggestion] || suggestion} — do you agree?`;
         suggestBanner.style.display = "block";
       }
-      document.querySelectorAll(actionSel).forEach(b => {
+      digActionButtons().forEach(b => {
         if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
       });
     }
 
     if (voteDisp) {
       if (vote) {
-        document.querySelectorAll(actionSel).forEach(b => {
+        digActionButtons().forEach(b => {
           if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
         });
         voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
