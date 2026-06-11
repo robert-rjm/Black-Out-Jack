@@ -259,7 +259,7 @@ function openKickModal() {
   // Populate game settings section (admin only)
   if (lastState) _populateSettingsUI(lastState);
 
-  overlay.style.display = "flex";
+  openModal("kick-overlay");
 }
 
 async function doTransferAdmin(targetName) {
@@ -364,8 +364,7 @@ async function doUndoKick(targetClientId) {
 }
 
 function closeKickModal() {
-  const overlay = document.getElementById("kick-overlay");
-  if (overlay) overlay.style.display = "none";
+  closeModal("kick-overlay");
 }
 
 async function doHandleRejoin(targetClientId, approve) {
@@ -418,10 +417,9 @@ function renderKickVoteBanner(state) {
 let _rulesCached = null;
 
 async function openRulesModal() {
-  const overlay = document.getElementById("rules-overlay");
-  const body    = document.getElementById("rules-body");
-  if (!overlay || !body) return;
-  overlay.classList.add("open");
+  const body = document.getElementById("rules-body");
+  if (!document.getElementById("rules-overlay") || !body) return;
+  openModal("rules-overlay", { useClass: true });
 
   if (_rulesCached) {
     body.innerHTML = _rulesCached;
@@ -447,8 +445,7 @@ async function openRulesModal() {
 }
 
 function closeRulesModal() {
-  const overlay = document.getElementById("rules-overlay");
-  if (overlay) overlay.classList.remove("open");
+  closeModal("rules-overlay", { useClass: true });
 }
 
 function handleRulesBackdropClick(e) {
@@ -683,7 +680,7 @@ async function showSessionSummary() {
 
   meta.textContent = "Loading…";
   body.innerHTML   = "";
-  overlay.style.display = "flex";
+  openModal("summary-overlay");
 
   try {
     const res  = await fetch(`/summary_json?room_code=${encodeURIComponent(roomCode)}&_=${Date.now()}`);
@@ -723,8 +720,7 @@ async function showSessionSummary() {
 }
 
 function closeSummaryModal() {
-  const overlay = document.getElementById("summary-overlay");
-  if (overlay) overlay.style.display = "none";
+  closeModal("summary-overlay");
 }
 
 // ============================================================

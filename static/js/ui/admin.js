@@ -75,11 +75,9 @@ function updateRoleUI(state) {
   const presel       = state.preselections || {};
   const suggestions  = state.suggestions   || {};
 
-  const actionSel = "#dig-action-row1 .btn, #dig-action-row2 .btn";
-
   // Clear all highlights
-  document.querySelectorAll("#dig-action-row1 .btn.voted,       #dig-action-row2 .btn.voted").forEach(b => b.classList.remove("voted"));
-  document.querySelectorAll("#dig-action-row1 .btn.voted-dealer, #dig-action-row2 .btn.voted-dealer").forEach(b => b.classList.remove("voted-dealer"));
+  digActionButtons().forEach(b => b.classList.remove("voted"));
+  digActionButtons().forEach(b => b.classList.remove("voted-dealer"));
 
   // Hide suggest UI by default
   if (suggestBanner) suggestBanner.style.display = "none";
@@ -101,7 +99,7 @@ function updateRoleUI(state) {
 
   // Spectators: disable everything and stop
   if (myRole === "spectator" || !myRole) {
-    document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+    digActionButtons().forEach(b => b.classList.add("disabled"));
     return;
   }
 
@@ -120,7 +118,7 @@ function updateRoleUI(state) {
 
     if (vote) {
       // Lock dealer to voted action; highlight it yellow
-      document.querySelectorAll(actionSel).forEach(b => {
+      digActionButtons().forEach(b => {
         const lbl = b.textContent.trim();
         if (lbl === VOTE_LABEL[vote]) {
           b.classList.add("voted-dealer");
@@ -142,7 +140,7 @@ function updateRoleUI(state) {
 
     // Not your turn → grey everything out, done
     if (!isMyTurn) {
-      document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+      digActionButtons().forEach(b => b.classList.add("disabled"));
       return;
     }
 
@@ -157,14 +155,14 @@ function updateRoleUI(state) {
         suggestText.textContent = `Dealer suggests: ${VOTE_LABEL[suggestion] || suggestion} — do you agree?`;
         suggestBanner.style.display = "block";
       }
-      document.querySelectorAll(actionSel).forEach(b => {
+      digActionButtons().forEach(b => {
         if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
       });
     }
 
     if (voteDisp) {
       if (vote) {
-        document.querySelectorAll(actionSel).forEach(b => {
+        digActionButtons().forEach(b => {
           if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
         });
         voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
@@ -307,10 +305,10 @@ async function requestLocalSeat(name) {
 
 
 function _openBustVoteModal(secondsLeft) {
-  const overlay = document.getElementById("bust-vote-modal-overlay");
-  if (!overlay || _bustVoteModalOpen) return;
-  _bustVoteModalOpen    = true;
-  overlay.style.display = "flex";
+  if (_bustVoteModalOpen) return;
+  const overlay = openModal("bust-vote-modal-overlay");
+  if (!overlay) return;
+  _bustVoteModalOpen = true;
 
   const bar      = document.getElementById("bust-vote-timer-bar");
   const label    = document.getElementById("bust-vote-timer-label");
@@ -319,6 +317,24 @@ function _openBustVoteModal(secondsLeft) {
   let secs = duration;
   function tick() {
     if (!_bustVoteModalOpen) return;
+
+    // Re-sync with the server's clock each tick. The server pauses/extends
+    // the bust-vote window while an insurance vote is pending, so trust
+    // bust_vote_seconds_left over our local countdown when it's available
+    // and the window is still open server-side.
+    let resynced = false;
+    if (lastState) {
+      if (lastState.bust_vote_window_open && typeof lastState.bust_vote_seconds_left === "number") {
+        secs = lastState.bust_vote_seconds_left;
+        resynced = true;
+      } else if (!lastState.bust_vote_window_open) {
+        // Server says the window already closed (e.g. all votes decided) —
+        // close the modal without re-submitting votes.
+        _closeBustVoteModal();
+        return;
+      }
+    }
+
     const display = Math.min(secs, 15);
     if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
     if (label) label.textContent = `${display}s`;
@@ -337,7 +353,10 @@ function _openBustVoteModal(secondsLeft) {
       }
       return;
     }
-    secs--;
+    // Only decrement locally when this tick wasn't just resynced from the
+    // server — otherwise the next resync overwrites this and we end up
+    // double-decrementing (timer skips a number every poll).
+    if (!resynced) secs--;
     _bustVoteTimerHandle = setTimeout(tick, 1000);
   }
   tick();
@@ -404,8 +423,7 @@ function _closeBustVoteModal() {
   if (!_bustVoteModalOpen) return;
   _bustVoteModalOpen = false;
   if (_bustVoteTimerHandle) { clearTimeout(_bustVoteTimerHandle); _bustVoteTimerHandle = null; }
-  const overlay = document.getElementById("bust-vote-modal-overlay");
-  if (overlay) overlay.style.display = "none";
+  closeModal("bust-vote-modal-overlay");
 }
 
 function updateBustVoteUI(state) {

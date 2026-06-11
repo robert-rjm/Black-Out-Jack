@@ -14,7 +14,7 @@ import time
 
 from app.models.game_room import GameRoom
 from engine.drinking_rules import classify_rule
-from app.config import MILESTONE_STEP, MILESTONE_TTL
+from app.config import MILESTONE_STEP, MILESTONE_TTL, BUST_HANDOUT_WINDOW_SECONDS
 
 log = logging.getLogger(__name__)
 
@@ -75,20 +75,11 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         "losers":        losers,
     } if (winners or losers) else None
 
-    # Give winners 20 seconds to hand out their sip; auto-assign expires after that
+    # Give winners a window to hand out their sip; auto-assign expires after that
     if winners:
-        session._bust_handout_expires_at = time.monotonic() + 20
+        session._bust_handout_expires_at = time.monotonic() + BUST_HANDOUT_WINDOW_SECONDS
     else:
         session._bust_handout_expires_at = None
-
-
-# ---------------------------------------------------------------------------
-# Display-reason helper — strip verbose detail from panel labels
-# ---------------------------------------------------------------------------
-
-def _display_reason(rule: str, raw: str) -> str:
-    """Return a human-readable label for the drinks detail panel."""
-    return raw
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +92,9 @@ def harvest_drink_log(session: GameRoom) -> None:
     session-wide CSV accumulator. Call this right after cmd_endround() and
     before start_round() resets drink_log to [].
     """
+    if session._drink_log_harvested:
+        return  # already harvested this round — do not double-count
+
     rows      = session._drink_csv_rows
     round_num = session.round_count
     dealer    = session.dealer_name
@@ -124,9 +118,6 @@ def harvest_drink_log(session: GameRoom) -> None:
                 "sips":   sips,
             })
     session._drink_csv_rows = rows
-
-    if session._drink_log_harvested:
-        return  # already harvested this round — do not double-count
 
     # Live sip ticker — cumulative net totals across all rounds (credits reduce total)
     ticker = session._sip_ticker
@@ -159,9 +150,13 @@ def harvest_drink_log(session: GameRoom) -> None:
         # /give_bust_sip are offset correctly against any existing -1 credits.
         # e.g. -1 credit + 1 assigned = 0 net, not 1.
         # Callers that display or accumulate sips clamp to 0 themselves.
+        # Always record an entry, even when raw == 0 — the frontend uses
+        # `name in last_round_sips` to detect a "clean" (0-sip) round for
+        # the crown badge. Omitting zero-sip players made them
+        # indistinguishable from players who didn't play last round at all,
+        # so the crown never showed for a perfectly clean round.
         raw = sum((e[0] or 0) for e in p.drink_log if e)
-        if raw != 0:
-            last[p.name] = raw
+        last[p.name] = raw
     session._last_round_sips = last
 
     # Rolling per-round sip history (total across all players)
@@ -186,7 +181,7 @@ def harvest_drink_log(session: GameRoom) -> None:
                                               "reason": f"Hard Dealer Switch — A♣ protected ({sips} sip(s) waived)"})
                     continue
                 drinks_detail.append({"name": p.name, "sips": sips,
-                                      "reason": _display_reason(rule, reason)})
+                                      "reason": reason})
             elif sips and sips < 0 and reason:
                 # Credit entries — show green in drinks detail, skip CSV
                 if "bust vote correct" in reason:

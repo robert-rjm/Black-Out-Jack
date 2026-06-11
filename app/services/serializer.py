@@ -15,6 +15,7 @@ from engine.drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
 from app.services.validators import get_client_info
+from app.config import INSURANCE_VOTE_TIMEOUT
 
 
 # ---------------------------------------------------------------------------
@@ -72,10 +73,9 @@ def round_phase(session: GameRoom) -> str:
     """
     'pre-deal'     → waiting for initial deal
     'playing'      → at least one player still has an active hand
-    'dealer-ready' → all player hands done, dealer hand not yet fully revealed
-    'round-over'   → dealer has stood/busted, results assigned
+    'dealer-ready' → all player hands done, results not yet assigned
+    'round-over'   → every hand has a result (dealer has resolved the round)
     """
-    dealer = session._get_dealer()
     has_player_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
     if not has_player_cards:
         return "pre-deal"
@@ -83,13 +83,17 @@ def round_phase(session: GameRoom) -> str:
     if current_turn(session) is not None:
         return "playing"
 
-    d_hand = dealer.dealer_hand if dealer else None
-    if d_hand and (d_hand.stood or d_hand.is_bust() or d_hand.score() >= 17 or d_hand.is_blackjack()):
-        all_resolved = all(
-            h.result is not None for p in session.all_players for h in p.hands
-        )
-        if all_resolved:
-            return "round-over"
+    # `result` is only ever set by the resolution step (after the dealer
+    # plays/reveals), so it's the definitive round-over signal — unlike
+    # inferring "dealer is done" from dealer_hand score/stood/bust, which
+    # can be true from the initial deal alone (e.g. a 17+ up-card total)
+    # before the dealer has actually played, and breaks entirely if
+    # dealer_hand is ever None/missing.
+    all_resolved = all(
+        h.result is not None for p in session.all_players for h in p.hands
+    )
+    if all_resolved:
+        return "round-over"
     return "dealer-ready"
 
 
@@ -228,10 +232,21 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
     when the last vote comes in rather than always defaulting to "DECLINE".
     """
     bj_player    = v["player"]
+    # NPCs never cast insurance votes, so exclude them from the required
+    # count — otherwise votes_cast can never reach votes_needed when NPCs
+    # are seated, and the vote sits "unresolved" for the full 60s timeout,
+    # stalling the dealer's turn even though every human has already voted.
     votes_needed = sum(1 for p in session.all_players
-                       if p.name.lower() != bj_player.lower())
+                       if p.name.lower() != bj_player.lower()
+                       and not getattr(p, "is_npc", False))
     votes_cast   = len(v["votes"])
     counts_ready = v["resolved"] or votes_cast >= votes_needed
+    # Bots abstain — only humans with drinking stake count toward the
+    # majority. Any human who hasn't voted (or voted decline) counts toward
+    # decline_count, so non-voters default to decline. Ties (incl. 0-0 when
+    # everyone is a bot) default to decline via `insured = insure > decline`.
+    insure_count  = sum(1 for x in v["votes"].values() if x)
+    decline_count = votes_needed - insure_count
     return {
         "bj_player":      bj_player,
         "hand_idx":       v["hand_idx"],
@@ -240,9 +255,9 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
         "votes_cast":     votes_cast,
         "votes_needed":   votes_needed,
         "votes_cast_by":  dict(v["votes"]),   # {voter_name: bool} — local multiplayer uses this to advance seats
-        "insure_count":  sum(1 for x in v["votes"].values() if x)     if counts_ready else None,
-        "decline_count": sum(1 for x in v["votes"].values() if not x) if counts_ready else None,
-        "seconds_left":  max(0, int(60 - (time.monotonic() - v.get("started_at", time.monotonic())))),
+        "insure_count":  insure_count  if counts_ready else None,
+        "decline_count": decline_count if counts_ready else None,
+        "seconds_left":  max(0, int(INSURANCE_VOTE_TIMEOUT - (time.monotonic() - v.get("started_at", time.monotonic())))),
     }
 
 
@@ -319,8 +334,146 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
 
     sip_totals = compute_sip_totals(session)
 
-    # KPI panel data — cumulative per-player hand outcomes + session stats
-    hand_stats = dict(session._hand_stats)
+    # ---- KPI panel data — cumulative per-player hand outcomes + session stats ----
+    _kpi_data = {
+        "hand_stats":             dict(session._hand_stats),
+        "strategy_decisions":     dict(session._strategy_decisions),
+        "streaks":                dict(session._streaks),
+        "max_round_sips":         dict(session._max_round_sips),
+        "dealer_bust_rounds":     session._dealer_bust_rounds,
+        "round_sip_history":      list(session._round_sip_history),
+        "session_seconds":        max(0, round(time.monotonic() - session._session_started_at)),
+    }
+
+    # ---- This-round / last-round drink summaries ----
+    _drink_summary_data = {
+        "sip_totals":             sip_totals,
+        "sip_grand_total":        sum(sip_totals.values()),
+        "round_over_seq":         session._round_over_seq,
+        "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
+        "last_round_drinks":      session._last_round_drinks,
+        "round_notices":          session._round_notices,
+        "prev_round_sips":        {k: max(0, v) for k, v in session._prev_round_sips.items()},
+        "prev_round_drinks":      session._prev_round_drinks,
+        "dealer_role_sips":       compute_dealer_role_sips(session),
+        "ace_drink_events":       session._ace_drink_events,
+        "ace_drink_seq":          session._ace_drink_seq,
+    }
+
+    # ---- Bust-vote data ----
+    _bust_vote_data = {
+        "bust_vote_enabled":      session.bust_vote_enabled,
+        "bust_votes":             dict(session._bust_votes),
+        "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
+        "my_bust_votes":          {
+            n: session._bust_votes.get(n)
+            for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
+        },
+        "bust_vote_result":       session._bust_vote_result,
+        "bust_handout_seconds_left": (
+            max(0, round(session._bust_handout_expires_at - time.monotonic()))
+            if session._bust_handout_expires_at else 0
+        ),
+        "my_bust_handout_pending": [
+            n for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
+            if (session._bust_vote_result or {}).get("dealer_busted")
+            and n in (session._bust_vote_result or {}).get("winners", [])
+            and n not in session._bust_handouts_given
+        ],
+        **_bust_vote_window(session),
+    }
+
+    # ---- Insurance data ----
+    _insurance_data = {
+        "insurance_result":       session._insurance_result,
+        "insurance_votes":        [
+            _serialize_insurance_vote(v, session, _ci)
+            for v in session._insurance_votes
+        ],
+    }
+
+    # ---- Milestone data ----
+    _milestone_data = {
+        "last_milestone_result":  (lambda r: {
+            "winner":      r["winner"],
+            "boundary":    r["boundary"],
+            "allocations": r["allocations"],
+            "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
+        } if r and time.monotonic() - r["set_at"] < 90 else None)(
+            session._last_milestone_result
+        ),
+        "pending_milestone":      (lambda m: {
+            "boundary":     m["boundary"],
+            "winner":       m["winner"],
+            "handout":      m["handout"],
+            "seconds_left": max(0, round(m["expires_at"] - time.monotonic())),
+            "i_am_winner":  bool(_ci.get("name") and
+                                 m["winner"].lower() == _ci["name"].lower()),
+        } if m and time.monotonic() < m["expires_at"] else None)(
+            session._pending_milestone
+        ),
+    }
+
+    # ---- Connection / room-membership data (admin-only fields gated below) ----
+    _connection_data = {
+        "kick_votes":             {k: len(v) for k, v in session._kick_votes.items()},
+        "kick_votes_mine":        [k for k, v in session._kick_votes.items()
+                                   if (_ci.get("name") or "").lower() in v],
+        "kick_votes_detail":      {k: sorted(v) for k, v in session._kick_votes.items()},
+        "rejoin_requests":        [r for r in session._rejoin_requests
+                                   if _ci.get("role") == "admin"],
+        "my_rejoin_pending":      any(r["client_id"] == client_id
+                                      for r in session._rejoin_requests),
+        "pending_registrations":  [{"client_id": r["client_id"], "name": r["name"]}
+                                   for r in session._pending_registrations
+                                   if _ci.get("role") == "admin"],
+        "my_registration_pending": any(r["client_id"] == client_id
+                                       for r in session._pending_registrations),
+        "my_registration_rejected": _ci.get("role") == "denied",         # any denial
+        "my_registration_denied":   (                                     # permanent block
+            _ci.get("role") == "denied" and
+            _ci.get("reg_denials", 0) >= 2
+        ),
+        "connected_clients":      [
+            {"name": info.get("name"), "role": info.get("role")}
+            for info in session._room_clients.values()
+            if not info.get("kicked")
+        ],
+        "kicked_clients":         [
+            {"client_id": cid, "name": info.get("name") or ""}
+            for cid, info in session._room_clients.items()
+            if info.get("kicked") and info.get("name")
+        ] if _ci.get("role") == "admin" else [],
+        "denied_clients":         [
+            {"client_id": cid}
+            for cid, info in session._room_clients.items()
+            if info.get("role") == "denied" and info.get("reg_denials", 0) >= 2
+        ] if _ci.get("role") == "admin" else [],
+    }
+
+    # ---- This client's identity / permissions ----
+    _client_identity_data = {
+        "my_role":                _ci.get("role"),
+        "my_name":                _ci.get("name"),
+        "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
+        "can_add_local_seat":     (
+            _ci.get("role") == "admin" and
+            any(
+                p.name not in {(info.get("name") or "").capitalize()
+                               for info in session._room_clients.values()
+                               if not info.get("kicked")}
+                and p.name not in (_ci.get("local_names") or [])
+                for p in session.all_players
+            )
+        ),
+        "is_dealer_client":       (
+            (_ci.get("role") == "admin" and session._god_mode) or
+            session.dealer_name.lower() in {
+                (n or "").lower()
+                for n in ([_ci.get("name")] + list(_ci.get("local_names") or []))
+            }
+        ),
+    }
 
     return {
         "ok":              True,
@@ -346,127 +499,20 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "log_count":              len(session._log_entries),
         "log_version":            session._log_version,
         "peeked_card":            session._last_peeked,
-        "sip_totals":             sip_totals,
-        "sip_grand_total":        sum(sip_totals.values()),
-        "round_over_seq":         session._round_over_seq,
-        # KPI panel data
-        "hand_stats":             hand_stats,
-        "strategy_decisions":     dict(session._strategy_decisions),
-        "streaks":                dict(session._streaks),
-        "max_round_sips":         dict(session._max_round_sips),
-        "dealer_bust_rounds":     session._dealer_bust_rounds,
-        "round_sip_history":      list(session._round_sip_history),
-        "session_seconds":        max(0, round(time.monotonic() - session._session_started_at)),
-        "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
-        "last_round_drinks":      session._last_round_drinks,
-        "round_notices":          session._round_notices,
-        "prev_round_sips":        {k: max(0, v) for k, v in session._prev_round_sips.items()},
-        "prev_round_drinks":      session._prev_round_drinks,
-        "dealer_role_sips":       compute_dealer_role_sips(session),
         "preselections":          session._preselections,
         "suggestions":            session._suggestions,
-        "kick_votes":             {k: len(v) for k, v in session._kick_votes.items()},
-        "kick_votes_mine":        [k for k, v in session._kick_votes.items()
-                                   if (_ci.get("name") or "").lower() in v],
-        "kick_votes_detail":      {k: sorted(v) for k, v in session._kick_votes.items()},
-        "rejoin_requests":        [r for r in session._rejoin_requests
-                                   if _ci.get("role") == "admin"],
-        "my_rejoin_pending":      any(r["client_id"] == client_id
-                                      for r in session._rejoin_requests),
-        "pending_registrations":  [{"client_id": r["client_id"], "name": r["name"]}
-                                   for r in session._pending_registrations
-                                   if _ci.get("role") == "admin"],
-        "my_registration_pending": any(r["client_id"] == client_id
-                                       for r in session._pending_registrations),
-        "my_registration_rejected": _ci.get("role") == "denied",         # any denial
-        "my_registration_denied":   (                                     # permanent block
-            _ci.get("role") == "denied" and
-            _ci.get("reg_denials", 0) >= 2
-        ),
         "anim_default":           session._anim_default,
         "easy_mode":              session.easy_mode,
-        "bust_vote_enabled":      session.bust_vote_enabled,
         "god_mode_enabled":       session._god_mode,
-        "bust_votes":             dict(session._bust_votes),
-        "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
-        "bust_vote_result":       session._bust_vote_result,
-        "bust_handout_seconds_left": (
-            max(0, round(session._bust_handout_expires_at - time.monotonic()))
-            if session._bust_handout_expires_at else 0
-        ),
-        "insurance_result":       session._insurance_result,
-        "ace_drink_events":       session._ace_drink_events,
-        "ace_drink_seq":          session._ace_drink_seq,
-        "my_bust_handout_pending": [
-            n for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
-            if (session._bust_vote_result or {}).get("dealer_busted")
-            and n in (session._bust_vote_result or {}).get("winners", [])
-            and n not in session._bust_handouts_given
-        ],
-        **_bust_vote_window(session),
-        "connected_clients":      [
-            {"name": info.get("name"), "role": info.get("role")}
-            for info in session._room_clients.values()
-            if not info.get("kicked")
-        ],
-        "kicked_clients":         [
-            {"client_id": cid, "name": info.get("name") or ""}
-            for cid, info in session._room_clients.items()
-            if info.get("kicked") and info.get("name")
-        ] if _ci.get("role") == "admin" else [],
-        "denied_clients":         [
-            {"client_id": cid}
-            for cid, info in session._room_clients.items()
-            if info.get("role") == "denied" and info.get("reg_denials", 0) >= 2
-        ] if _ci.get("role") == "admin" else [],
-        "my_role":                _ci.get("role"),
-        "my_name":                _ci.get("name"),
-        "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
-        "can_add_local_seat":     (
-            _ci.get("role") == "admin" and
-            any(
-                p.name not in {(info.get("name") or "").capitalize()
-                               for info in session._room_clients.values()
-                               if not info.get("kicked")}
-                and p.name not in (_ci.get("local_names") or [])
-                for p in session.all_players
-            )
-        ),
-        "my_bust_votes":          {
-            n: session._bust_votes.get(n)
-            for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
-        },
-        "is_dealer_client":       (
-            (_ci.get("role") == "admin" and session._god_mode) or
-            session.dealer_name.lower() in {
-                (n or "").lower()
-                for n in ([_ci.get("name")] + list(_ci.get("local_names") or []))
-            }
-        ),
         "queued_settings":        session._queued_settings,
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
-        "last_milestone_result":  (lambda r: {
-            "winner":      r["winner"],
-            "boundary":    r["boundary"],
-            "allocations": r["allocations"],
-            "seconds_ago": max(0, round(time.monotonic() - r["set_at"])),
-        } if r and time.monotonic() - r["set_at"] < 90 else None)(
-            session._last_milestone_result
-        ),
-        "pending_milestone":      (lambda m: {
-            "boundary":     m["boundary"],
-            "winner":       m["winner"],
-            "handout":      m["handout"],
-            "seconds_left": max(0, round(m["expires_at"] - time.monotonic())),
-            "i_am_winner":  bool(_ci.get("name") and
-                                 m["winner"].lower() == _ci["name"].lower()),
-        } if m and time.monotonic() < m["expires_at"] else None)(
-            session._pending_milestone
-        ),
-        "insurance_votes":        [
-            _serialize_insurance_vote(v, session, _ci)
-            for v in session._insurance_votes
-        ],
+        **_kpi_data,
+        **_drink_summary_data,
+        **_bust_vote_data,
+        **_insurance_data,
+        **_milestone_data,
+        **_connection_data,
+        **_client_identity_data,
         # Monotonically increasing token (µs since process start).
         # The frontend drops any applyState() call whose state_seq is older
         # than the last one it applied — prevents stale poll responses from

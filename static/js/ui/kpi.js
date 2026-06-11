@@ -2,6 +2,26 @@
 // KPI PANEL — leaderboard, stats, trivia
 // ============================================================
 
+// ---- Win% color coding ----
+function wrClass(wr) {
+  if (wr === null) return "";
+  if (wr >= 50) return "lb-wr-good";
+  if (wr >= 40) return "lb-wr-ok";
+  return "lb-wr-bad";
+}
+
+// ---- Generic "good / ok / bad" inline color thresholds ----
+// Used for ad-hoc stat callouts (e.g. dealer-bust %) that aren't styled via
+// the lb-wr-* classes above but represent the same good/ok/bad semantics.
+const DEALER_BUST_GOOD_PCT = 40;
+const DEALER_BUST_OK_PCT   = 25;
+
+function colorStyleByThreshold(value, goodThreshold, okThreshold) {
+  if (value >= goodThreshold) return "color:var(--green)";
+  if (value >= okThreshold)   return "color:var(--yellow)";
+  return "color:var(--muted)";
+}
+
 // ---- Tab switching ----
 function switchKpiTab(name, el) {
   document.querySelectorAll(".kpi-tabs-bar .kpi-tab").forEach(t => t.classList.toggle("active", t === el));
@@ -71,13 +91,6 @@ function renderLeaderboard(state) {
     if (b.wr !== a.wr) return b.wr - a.wr;
     return a.sips - b.sips;
   });
-
-  function wrClass(wr) {
-    if (wr === null) return "";
-    if (wr >= 55) return "lb-wr-good";
-    if (wr >= 40) return "lb-wr-ok";
-    return "lb-wr-bad";
-  }
 
   const rankEmoji = ["🥇", "🥈", "🥉"];
 
@@ -233,13 +246,6 @@ function renderStats(state) {
 
   const isDlr = name => name.toLowerCase() === dealer;
 
-  function wrClass(wr) {
-    if (wr === null) return "";
-    if (wr >= 55) return "lb-wr-good";
-    if (wr >= 40) return "lb-wr-ok";
-    return "lb-wr-bad";
-  }
-
   const tbody = rows.map(r => {
     const rc       = isDlr(r.name) ? " lb-row-dealer" : "";
     const nameCell = `${escapeHtml(r.name)}${isDlr(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
@@ -360,7 +366,7 @@ function renderStats(state) {
     </div></div>`);
   }
   if (dealerBustPct !== null) {
-    const col = dealerBustRnds === 0 ? "" : dealerBustPct >= 40 ? "color:var(--green)" : dealerBustPct >= 25 ? "color:var(--yellow)" : "color:var(--muted)";
+    const col = dealerBustRnds === 0 ? "" : colorStyleByThreshold(dealerBustPct, DEALER_BUST_GOOD_PCT, DEALER_BUST_OK_PCT);
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">🎰</div><div class="stat-card-body">
       <div class="stat-card-value" style="${col}">${dealerBustPct}% dealer busts</div>
       <div class="stat-card-label">${dealerBustRnds} of ${round} rounds · casino avg ~28%</div>

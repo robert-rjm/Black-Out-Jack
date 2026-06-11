@@ -40,6 +40,23 @@ MILESTONE_HANDOUT_SIPS = 5    # sips the winner gets to hand out
 MILESTONE_TTL          = 60   # seconds before an unclaimed handout is forfeited
 
 # ---------------------------------------------------------------------------
+# Side-bet / vote timing windows
+# ---------------------------------------------------------------------------
+
+BUST_VOTE_WINDOW_SECONDS     = 17  # how long the dealer-bust side-bet vote stays open
+                                    # (frontend countdown UI displays from 15)
+BUST_HANDOUT_WINDOW_SECONDS  = 20  # window to claim a dealer-bust sip handout
+INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) after this long
+INSURANCE_PAUSE_BUFFER       = 5   # seconds kept on the bust-vote clock while insurance
+                                    # voting is still pending
+
+# ---------------------------------------------------------------------------
+# Registration / connection limits
+# ---------------------------------------------------------------------------
+
+MAX_REG_DENIALS = 2   # times a client can be denied (re-)entry before being locked out
+
+# ---------------------------------------------------------------------------
 # Game defaults (used by /setup when the caller omits a field)
 # ---------------------------------------------------------------------------
 
