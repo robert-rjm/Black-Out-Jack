@@ -31,6 +31,39 @@
   - add Black(Out)Jack specific fun facts
 
 
+## Bug fixes (this session)
+
+- [X] `engine/blackjack.py` had 9 broken imports (`from drinking_rules import X` missing the
+  `engine.` prefix) inside `RoundManager`/`BlackJackGame` methods. This crashed
+  `RoundManager(drinking_mode=True)` (and the legacy CLI's drinking mode) on the very first
+  card deal with `ModuleNotFoundError: No module named 'drinking_rules'`. Did NOT affect the
+  live web app (uses `app/services/game_engine.py`, already correct). Fixed all 9 to
+  `from engine.drinking_rules import ...`.
+- [X] `scripts/simulation.py` imported a non-existent `drinking_rules` module and carried its
+  own stale, drifted copy of `classify_rule()` (missing A♣ protect/credit cases, older Ace
+  naming). Now imports `classify_rule`/`DrinkTracker` from `engine.drinking_rules`, the same
+  source of truth `app/services/drink_tracker.py` uses for the live CSV export.
+  - NOTE: Could not execute end-to-end this session due to a sandbox file-sync issue (the
+    Linux sandbox's copy of `engine/blackjack.py` is a stale/truncated snapshot unrelated to
+    these edits). Source-level fixes are verified correct via direct file read; please run
+    `python scripts/simulation.py` locally to confirm a clean 10,000-round run and check
+    `simulation_results.txt` / `simulation_log.csv` for any rule classified as "Other".
+
+## Benchmark idea (from simulation.py)
+
+- [ ] Use `simulation_results.txt` / `simulation_log.csv` as a regression baseline for the
+  drinking-rules engine:
+  - Run once on a known-good engine state, commit the output as a snapshot.
+  - After any change to `engine/drinking_rules.py` or `engine/blackjack.py`, re-run and diff
+    sips/session per rule against the snapshot — flags unintended balance shifts (e.g. a rule
+    firing too often/rarely) that unit tests on individual rules might miss.
+  - Same run also gives a rough perf baseline (10k-round wall time) for catching engine
+    slowdowns.
+  - Any reason classified as "Other" by `classify_rule` is a signal the classifier (and
+    possibly the live CSV export) is missing a newer rule string — worth checking each run.
+  - This pairs naturally with the planned `tests/` suite (see Features) as an integration-level
+    check, complementing unit tests on individual `DrinkingRules` methods.
+
 ## Features
 
 - [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
