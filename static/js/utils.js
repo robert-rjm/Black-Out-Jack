@@ -29,3 +29,30 @@ function closeModal(id, { useClass = false } = {}) {
 }
 
 // ============================================================
+// CACHED BUTTON-GROUP LOOKUPS
+// #dig-action-row1/2 .btn and #panel .btn / #bottom-nav .bnav-btn are
+// static markup (rendered once by the server template, never rebuilt) but
+// were being re-queried with querySelectorAll on every poll/command. Cache
+// each NodeList as an array on first access and reuse it.
+// ============================================================
+let _digActionBtnsCache = null;
+function digActionButtons() {
+  if (!_digActionBtnsCache) {
+    _digActionBtnsCache = Array.from(
+      document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn")
+    );
+  }
+  return _digActionBtnsCache;
+}
+
+let _cmdLockBtnsCache = null;
+function cmdLockButtons() {
+  if (!_cmdLockBtnsCache) {
+    _cmdLockBtnsCache = Array.from(
+      document.querySelectorAll("#panel .btn, #bottom-nav .bnav-btn")
+    );
+  }
+  return _cmdLockBtnsCache;
+}
+
+// ============================================================

@@ -224,8 +224,8 @@ function sendDigitalPlay(action) {
     // Immediate optimistic feedback — highlight button + update vote display NOW
     // (will be confirmed/corrected once the server responds)
     const ACT_LBL = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
-    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
-    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
+    digActionButtons().forEach(b => b.classList.remove("voted"));
+    digActionButtons().forEach(b => {
       if (b.textContent.trim() === (ACT_LBL[action] || action.toUpperCase()))
         b.classList.add("voted");
     });
@@ -267,11 +267,11 @@ async function sendPreselect(action, hand) {
       applyState(data);
     } else {
       // Vote was rejected — clear optimistic highlight and show reason
-      document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
+      digActionButtons().forEach(b => b.classList.remove("voted"));
       if (vd) { vd.textContent = `Vote failed: ${data.error || "not registered"}`; vd.style.display = "block"; }
     }
   } catch (_) {
-    document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => b.classList.remove("voted"));
+    digActionButtons().forEach(b => b.classList.remove("voted"));
     if (vd) { vd.textContent = "Vote failed: network error"; vd.style.display = "block"; }
   } finally {
     _requestsInFlight--;
@@ -286,7 +286,7 @@ async function sendCmd(cmd) {
   _requestsInFlight++;
   if (typeof resetIdleTimer === "function") resetIdleTimer();
   // Visually lock all action buttons while the request is in flight
-  document.querySelectorAll("#panel .btn, #bottom-nav .bnav-btn").forEach(b => b.classList.add("cmd-pending"));
+  cmdLockButtons().forEach(b => b.classList.add("cmd-pending"));
   try {
     const res  = await fetch("/command", {
       method: "POST",
@@ -562,7 +562,7 @@ function updateActionButtons(state) {
 
   const canDouble = (activeHand.cards || []).length === 2 && !activeHand.doubled;
 
-  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
+  digActionButtons().forEach(b => {
     const lbl = b.textContent.trim();
     if (lbl === "SPLIT")  b.classList.toggle("disabled", !activeHand.can_split);
     if (lbl === "DOUBLE") b.classList.toggle("disabled", !canDouble);
@@ -587,12 +587,12 @@ const BS_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
 
 function updateBestPlay(state) {
   // Clear any previous highlight
-  document.querySelectorAll("#dig-action-row1 .btn.best, #dig-action-row2 .btn.best").forEach(b => b.classList.remove("best"));
+  digActionButtons().forEach(b => b.classList.remove("best"));
   if (!state || state.phase !== "playing" || !state.best_play) return;
   const label = BS_LABEL[state.best_play];
   if (!label) return;
   // Find the matching action button and highlight it
-  document.querySelectorAll("#dig-action-row1 .btn, #dig-action-row2 .btn").forEach(b => {
+  digActionButtons().forEach(b => {
     if (b.textContent.trim() === label) b.classList.add("best");
   });
 }
