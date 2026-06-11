@@ -21,6 +21,10 @@ def verify_rules():
     Fetch Rules.md from GitHub and compare its SHA256 to the known hash.
     If changed, warn that drinking_rules.py may be out of date.
     Silently skips on network failure.
+
+    NOTE: CLI-only. Only called from BlackJackGame.setup() (the terminal
+    entry point) and not reachable from the web app. Safe to delete along
+    with other CLI-only code if/when the legacy CLI is dropped.
     """
     try:
         with urllib.request.urlopen(_RULES_URL, timeout=5) as r:
