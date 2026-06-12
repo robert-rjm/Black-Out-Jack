@@ -48,6 +48,9 @@
 - [X] Normal mode complete overwork
   - remove "sip" reference and all other drinking references
 - [ ] Normal Mode: add cash option and bankroll (bust 2.5, 2:1 win, 3:2 Blackjack)
+- [ ] Referee mode complete overwork
+  - ensure works standalone
+  - have "bust vote" included on setup and in game logic
 - [ ] simplified rule set for beginners
 - [ ] csv addition
   - potentially .pdf file output with graphs
