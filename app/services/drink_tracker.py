@@ -426,12 +426,67 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     claimed[boundary] = winner
     session._milestones_claimed = claimed
+
+    # NPC winners can't drive the handout-allocation UI, so resolve their
+    # milestone immediately via round-robin distribution to the other
+    # players rather than leaving it pending (and eventually self-forfeiting).
+    winner_p = session._get_player(winner)
+    if winner_p and getattr(winner_p, "is_npc", False):
+        _distribute_milestone_round_robin(session, winner, boundary, handout_sips)
+        return
+
     session._pending_milestone  = {
         "boundary":   boundary,
         "winner":     winner,
         "handout":    handout_sips,
         "expires_at": time.monotonic() + MILESTONE_TTL,
     }
+
+
+def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: int, handout: int) -> None:
+    """
+    Distribute an NPC milestone winner's handout to the other players,
+    round-robin, one sip at a time (mirrors the auto-handout used for
+    5-card-21 bonuses). Falls back to a self-penalty if no other players
+    exist.
+    """
+    others = [p for p in session.all_players if p.name.lower() != winner.lower()]
+    if not others:
+        winner_p = session._get_player(winner)
+        if winner_p:
+            winner_p.add_drink(
+                handout,
+                f"Milestone handout ({boundary} sips) — no other players to give to: you drink {handout} sips",
+                "player",
+            )
+            session._sip_ticker[winner] = session._sip_ticker.get(winner, 0) + handout
+            session._last_round_sips[winner] = session._last_round_sips.get(winner, 0) + handout
+            session._last_round_drinks.append({
+                "name":   winner,
+                "sips":   handout,
+                "reason": f"Milestone ({boundary} sips) — no other players to give to: you drink {handout} sips",
+            })
+        log.debug(f"  [milestone] {winner} hit {boundary} sips — no other players, drinks {handout} sips")
+        return
+
+    log.debug(f"  [milestone] {winner} hit {boundary} sips — auto-distributes {handout} sip(s) round-robin")
+    for i in range(handout):
+        t = others[i % len(others)]
+        t.add_drink(1, f"{winner} hit the {boundary}-sip milestone and handed you 1 sip (auto)", "player")
+        session._sip_ticker[t.name] = session._sip_ticker.get(t.name, 0) + 1
+        session._last_round_sips[t.name] = session._last_round_sips.get(t.name, 0) + 1
+        session._last_round_drinks.append({
+            "name":   t.name,
+            "sips":   1,
+            "reason": f"{winner} hit the {boundary}-sip milestone — you drink 1 sip (auto)",
+        })
+        log.debug(f"    -> {t.name} +1 sip")
+
+    session._log_entries.append(
+        f"  🎯 {winner} (bot) hit the {boundary}-sip milestone — auto-distributes "
+        f"{handout} sip(s) round-robin\n"
+    )
+    session._log_version += 1
 
 
 # ---------------------------------------------------------------------------
