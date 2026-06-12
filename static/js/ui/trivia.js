@@ -46,7 +46,7 @@ const TRIVIA_FACTS = [
   { cat: "game",        text: "A suited A+J of Spades in Black(Out)Jack triggers all three multipliers: suited x A+J x both black = 8x bonus." },
   { cat: "game",        text: "With 4 players and 2 hands each: 8 player hands + 1 dealer hand = 9 hands per round." },
   { cat: "game",        text: "Splitting Aces up to 5 times means a single starting Ace can spawn up to 5 hands." },
-  { cat: "game",        text: "Never split 10s in a casino. In Black(Out)Jack the drinking penalty makes it worth the chaos." },
+  { cat: "game",        text: "Never split 10s in a casino. In Black(Out)Jack, the house rules make it worth the chaos." },
   { cat: "game",        text: "The dealer busts ~28% of rounds - every bust hands sips back to the players." },
   { cat: "game",        text: "The 4 Aces rule: 2 sips after first deal, 1 sip at round end. They cannot stack." },
 ];
@@ -72,12 +72,23 @@ const TriviaUI = {
   list:      [],    // current filtered/ordered list of trivia facts
   rendered:  false, // whether the trivia DOM has been built yet
   lastRound: -1,    // last round number we rotated the fact for
+  drinking:  true,  // whether drinking-mode trivia (facts + category) should show
 };
 
+function _availableFacts() {
+  return TriviaUI.drinking ? TRIVIA_FACTS : TRIVIA_FACTS.filter(function(f) { return f.cat !== "drinking"; });
+}
+
+function _availableCats() {
+  return TriviaUI.drinking ? TRIVIA_CATS : TRIVIA_CATS.filter(function(c) { return c.key !== "drinking"; });
+}
+
 function _buildTriviaList(round) {
+  var facts = _availableFacts();
   var base = TriviaUI.filter === "all"
-    ? TRIVIA_FACTS
-    : TRIVIA_FACTS.filter(function(f) { return f.cat === TriviaUI.filter; });
+    ? facts
+    : facts.filter(function(f) { return f.cat === TriviaUI.filter; });
+  if (!base.length) base = facts;
   TriviaUI.list = base.slice();
   TriviaUI.index = (typeof round === "number" && round > 0)
     ? round % TriviaUI.list.length : 0;
@@ -90,7 +101,7 @@ function _isTriviaActive() {
 
 // ---- Full initial render ----
 function _buildTriviaHTML() {
-  var catBtns = TRIVIA_CATS.map(function(c) {
+  var catBtns = _availableCats().map(function(c) {
     return '<button class="trivia-cat-btn" data-cat="' + c.key + '" onclick="setTriviaFilter(\'' + c.key + '\')">' +
       '<span class="t-icon">' + c.icon + '</span>' +
       '<span class="t-label">' + c.label + '</span>' +
@@ -196,6 +207,13 @@ function _resetTriviaRender() {
 }
 
 function updateTriviaPanel(state) {
+  var drinking = !state || state.drinking_mode !== false;
+  if (drinking !== TriviaUI.drinking) {
+    TriviaUI.drinking = drinking;
+    if (TriviaUI.filter === "drinking" && !drinking) TriviaUI.filter = "all";
+    TriviaUI.rendered = false; // rebuild category buttons
+    _buildTriviaList(TriviaUI.lastRound > 0 ? TriviaUI.lastRound : null);
+  }
   var round = state && state.round ? state.round : null;
   if (round !== null && round !== TriviaUI.lastRound && TriviaUI.lastRound >= 0 && _isTriviaActive()) {
     TriviaUI.lastRound = round;

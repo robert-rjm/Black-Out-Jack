@@ -82,6 +82,16 @@ class GameRoom:
     _ace_drink_events: list = field(default_factory=list)
     _ace_drink_seq: int = 0
 
+    # Tracks (player_name, id(hand)) pairs that have already been resolved
+    # for the "mandatory split 10s" house rule this round, so it doesn't
+    # re-fire after the player makes a choice (drinking mode only).
+    _honor_acked: set = field(default_factory=set)
+
+    # Set when a STAND attempt is blocked by the "mandatory split 10s" house
+    # rule and is awaiting the player's choice via /honor_resolve.
+    # Shape: {"player": <name>, "hand_id": id(hand)} or None.
+    _honor_pending: dict | None = None
+
     # Misc UI state
     _last_peeked: dict | None = None
 

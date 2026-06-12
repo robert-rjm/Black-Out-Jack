@@ -27,12 +27,12 @@ from app.services.session_store import game_sessions
 from app.services.validators import is_dealer_client
 from app.services.serializer import (
     serialize_state, serialize_card,
-    round_phase, current_turn,
+    round_phase, current_turn, compute_mandatory_split10,
 )
 from app.services.game_engine import (
     deal_card, deal_pending_split_cards,
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
-    bust_vote_pending,
+    bust_vote_pending, _push_ace_drink_event,
 )
 from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
@@ -128,6 +128,28 @@ def _record_strategy_decision(session, player, hand, chosen_action: str) -> None
         sd[player.name] = {"correct": 0, "total": 0}
     sd[player.name]["total"]   += 1
     sd[player.name]["correct"] += 1 if chosen_action == optimal else 0
+
+
+def _check_honor_house_rule(game_session, player, hand) -> bool:
+    """Drinking-mode "mandatory split 10s" house rule.
+
+    If `hand` is an unsuited 10-value pair, split is still legal, and this
+    hand hasn't been resolved yet, block the STAND attempt by recording it
+    in session._honor_pending and return True. The frontend shows the
+    "Play with honor / Stand (1 sip)" prompt purely by reading
+    state.honor_pending — the choice is later applied via /honor_resolve.
+    Always returns False (no-op) in Normal mode.
+    """
+    if not game_session.drinking_mode:
+        return False
+    turn  = current_turn(game_session)
+    phase = round_phase(game_session)
+    if not compute_mandatory_split10(game_session, turn, phase):
+        return False
+    if not turn or turn.lower() != player.name.lower():
+        return False
+    game_session._honor_pending = {"player": player.name, "hand_id": id(hand)}
+    return True
 
 
 def _resolve_endround(game_session):
@@ -253,9 +275,81 @@ def _cmd_stand(game_session, parts):
     if hand.stood or hand.bust:
         log.debug(f"  {player.name} {hand_label} is already done.")
         return
+    if _check_honor_house_rule(game_session, player, hand):
+        log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
+                  f"this unsuited 10-pair — awaiting choice.")
+        return
     _record_strategy_decision(game_session, player, hand, "s")
     hand.stood = True
     log.debug(f"  {player.name} {hand_label}: stands at {hand.score()}.")
+
+
+@bp.route("/honor_resolve", methods=["POST"])
+def honor_resolve():
+    """Resolve a pending "mandatory split 10s" house-rule prompt
+    (state.honor_pending == true), drinking mode only.
+    Body: { room_code, client_id, choice }  choice: "split" | "stand"
+
+    choice == "split": comply with the house rule -- splits the hand
+        (equivalent to pressing SPLIT), no penalty.
+    choice == "stand": "stand with honor" -- stands on the hand
+        (equivalent to pressing STAND) and applies a 1-sip penalty,
+        delivered via the existing ace-drink toast pipeline.
+
+    Either way this is the single follow-up action -- no further button
+    press is needed to complete the hand's action.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    choice    = (data.get("choice") or "").strip().lower()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    info = session._room_clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered in this session."})
+
+    if not session.drinking_mode or not session._honor_pending:
+        # Nothing pending (stale request / already resolved elsewhere) -- no-op.
+        return jsonify({**serialize_state(session, client_id), "ok": True})
+
+    if choice not in ("split", "stand"):
+        return jsonify({"ok": False, "error": f"Invalid choice '{choice}'."})
+
+    pending = session._honor_pending
+    player  = session._get_player(pending["player"])
+    hand    = next((h for h in player.hands if id(h) == pending["hand_id"]), None)
+    if not player or not hand:
+        # Hand no longer exists (shouldn't happen) -- clear and bail safely.
+        session._honor_pending = None
+        return jsonify({**serialize_state(session, client_id), "ok": True})
+
+    session._honor_acked.add((player.name, id(hand)))
+    session._honor_pending = None
+    hand_label = f"hand{player.hands.index(hand) + 1}"
+    session._preselections.pop(f"{player.name.lower()}:{hand_label}", None)
+
+    if choice == "split":
+        _cmd_split(session, ["split", player.name, hand_label])
+    else:
+        _record_strategy_decision(session, player, hand, "s")
+        hand.stood = True
+        log.debug(f"  {player.name}: stands without honor at {hand.score()} "
+                  f"(declined mandatory 10-split, +1 sip penalty).")
+
+        # 1-sip "stand without honor" penalty via the existing ace-drink toast pipeline.
+        session.tracker.apply([
+            (player.name, 1, f"{player.name} stood without honor (declined mandatory 10-split)"),
+        ])
+        _push_ace_drink_event(session, (player.name, 1,
+            f"Stood without honor => {player.name} drinks 1 sip"))
+
+    _after_player_action(session)
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 def _cmd_double(game_session, parts):

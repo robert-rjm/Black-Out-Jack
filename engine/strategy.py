@@ -40,10 +40,10 @@ _BS_SOFT = {
 # Pair split: (pair_rank_value, dealer_up_value) -> action
 # Drinking-mode 10-split override is applied in best_play(), not here.
 _BS_PAIR = {
-    **{(11, d): "sp"                                        for d in range(2, 12)},  # A-A always split
-    **{(10, d): "s"                                         for d in range(2, 12)},  # 10s stand (drinking overrides)
+    **{(11, d): "sp"                                        for d in range(2, 12)}, # A-A always split
+    **{(10, d): "s"                                         for d in range(2, 12)}, # 10s stand (drinking overrides)
     **{(9,  d): ("sp" if d not in (7, 10, 11) else "s")    for d in range(2, 12)},  # 9-9
-    **{(8,  d): "sp"                                        for d in range(2, 12)},  # 8-8 always split
+    **{(8,  d): "sp"                                        for d in range(2, 12)}, # 8-8 always split
     **{(7,  d): ("sp" if d <= 7 else "h")                  for d in range(2, 12)},  # 7-7
     **{(6,  d): ("sp" if 2 <= d <= 6 else "h")             for d in range(2, 12)},  # 6-6
     **{(5,  d): ("d" if 2 <= d <= 9 else "h")              for d in range(2, 12)},  # 5-5 never split → treat as 10

@@ -45,12 +45,17 @@
 
 ## Features
 
-- [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
+- [X] Normal mode complete overwork
+  - remove "sip" reference and all other drinking references
+- [ ] Normal Mode: add cash option and bankroll (bust 2.5, 2:1 win, 3:2 Blackjack)
+- [ ] Referee mode complete overwork
+  - ensure works standalone
+  - have "bust vote" included on setup and in game logic
 - [ ] simplified rule set for beginners
 - [ ] csv addition
   - potentially .pdf file output with graphs
   - show in Dealer who drank most for each ace
-- [ ] implement test suite (`tests/` directory)
+- [X] implement test suite (`tests/` directory)
   - have way to compare simulation results with own game performance
   - use simulation to change bot behavior (possibility to have a "Marko bot" or "David bot" that replicates the respetive way of playing)
 - [ ] `game_room.py` bloat risk: split into `GameRoom` vs `RoundState` vs `MilestoneTracker` (not issue yet, for future with next feature)
