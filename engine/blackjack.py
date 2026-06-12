@@ -158,11 +158,23 @@ class Hand:
         self.cards:     list = []
         self.doubled    = doubled
         self.from_split = from_split
-        self.split_count = 0   # inherited from parent on split so limit tracks the whole chain
+        # Shared mutable counter so the split limit applies to the WHOLE
+        # split tree descended from one starting hand, not just one branch's
+        # depth. New hands created by split() share this same list with
+        # their sibling/parent hands (see split() below).
+        self._split_chain = [0]
         self.stood      = False
         self.bust       = False
         self.insured    = False
         self.result     = None   # "win" | "loss" | "push"
+
+    @property
+    def split_count(self) -> int:
+        return self._split_chain[0]
+
+    @split_count.setter
+    def split_count(self, value: int) -> None:
+        self._split_chain[0] = value
 
     # --- scoring ---
     def score(self) -> int:
@@ -191,8 +203,8 @@ class Hand:
         new_hand = Hand(from_split=True)
         new_hand.cards.append(self.cards.pop())
         self.from_split   = True
-        self.split_count += 1
-        new_hand.split_count = self.split_count   # child inherits count so chain limit holds
+        new_hand._split_chain = self._split_chain  # share counter across the whole chain
+        self.split_count += 1   # increments the shared counter for both hands
         return new_hand
 
     # --- display ---

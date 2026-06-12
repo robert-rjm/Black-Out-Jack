@@ -488,8 +488,8 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             new_hand = Hand(from_split=True)
             new_hand.cards.append(hand.cards.pop())
             hand.from_split    = True
+            new_hand._split_chain = hand._split_chain  # share counter across the whole chain
             hand.split_count  += 1
-            new_hand.split_count = hand.split_count
             player.hands.insert(hand_idx + 1, new_hand)
             deal_card(session, hand, player.name)
             log.debug(f"  {player.name} splits {hand_label}")

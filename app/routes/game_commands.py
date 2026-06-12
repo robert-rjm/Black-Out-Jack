@@ -408,8 +408,8 @@ def _cmd_split(game_session, parts):
     new_hand = Hand(from_split=True)
     new_hand.cards.append(hand.cards.pop())
     hand.from_split    = True
+    new_hand._split_chain = hand._split_chain  # share counter across the whole chain
     hand.split_count  += 1
-    new_hand.split_count = hand.split_count  # child inherits so chain limit holds
     idx       = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
     new_label = f"hand{idx + 2}"
     player.hands.insert(idx + 1, new_hand)
