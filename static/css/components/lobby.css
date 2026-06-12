@@ -32,6 +32,7 @@
 .field select option { background: var(--surface); }
 
 #gametype-row { display: flex; gap: 8px; margin-bottom: 2px; }
+#gametype-row .btn { flex: 1; }
 #name-fields { display: flex; flex-direction: column; gap: 8px; }
 
 /* ---- DYNAMIC PLAYER ROWS ---- */
