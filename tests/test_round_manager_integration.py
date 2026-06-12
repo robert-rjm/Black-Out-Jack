@@ -9,8 +9,6 @@ RoundEndEvent + apply_end_of_round integration check for 4+ player halving.
 import io
 import contextlib
 
-import pytest
-
 from engine.blackjack import NPC_Player, Shoe, RoundManager
 from engine.drinking_rules import DrinkTracker, DrinkingRules
 from tests.conftest import make_card, make_player, make_hand
