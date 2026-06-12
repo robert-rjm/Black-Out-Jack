@@ -83,6 +83,7 @@ Black-Out-Jack/
 │   └── test_bust_vote*.py                  # Bust vote side bet tests (Rules.md §4.4)
 ├── server.py                               # Flask entry point
 ├── requirements.txt                        # Python dependencies for deployment
+├── requirements-dev.txt                    # Adds pytest for running the test suite
 ├── .gitignore
 ├── pyproject.toml                          # Ruff linting config + pytest markers ("slow")
 ├── README.md
@@ -194,7 +195,9 @@ and diff the new output against the snapshot to spot unintended balance shifts.
 - `flask` (for web UI)
 - `pytest` (for running the test suite)
 - No other dependencies for terminal play
-- Consult [requirements.txt](requirements.txt)
+- Consult [requirements.txt](requirements.txt) (deployment) or
+  [requirements-dev.txt](requirements-dev.txt) (adds `pytest` for local
+  development: `pip install -r requirements-dev.txt`)
 
 ### Running locally
 ```bash
