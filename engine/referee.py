@@ -288,6 +288,7 @@ class RefereeSession:
             # Create a new hand for the split
             new_hand = Hand(from_split=True)
             hand.from_split   = True
+            new_hand._split_chain = hand._split_chain  # share counter across the whole chain
             hand.split_count += 1
             idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
             player.hands.insert(idx + 1, new_hand)
