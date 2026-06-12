@@ -165,6 +165,32 @@ depending on whether the deviation is favorable. Re-run `simulation.py` after an
 `engine/drinking_rules.py` or `engine/blackjack.py` to refresh the benchmarks for a given
 config.
 
+### Committing regenerated benchmarks
+
+`scripts/benchmarks.json` and `static/js/benchmarks.js` are **generated, but
+checked into git** — they're committed so `kpi.js` has benchmark data to
+compare against without requiring every dev/deploy to run a 100k-round
+simulation first.
+
+- Run `python scripts/simulation.py` and commit the resulting changes to
+  `scripts/benchmarks.json` + `static/js/benchmarks.js` whenever
+  `engine/drinking_rules.py` or `engine/blackjack.py` changes in a way that
+  could shift sip frequencies (new/changed rule, probability tweak, etc.).
+  Purely cosmetic or non-engine changes don't need a regeneration.
+- Because `run_simulation` is unseeded by default, every regeneration
+  produces a full-file diff (every numeric field shifts slightly) even when
+  nothing meaningful changed. This is expected — review the diff for
+  *direction/magnitude* of change in the relevant config(s)/rule(s), not for
+  an exact match.
+- Only the config(s) you actually ran get a new `"generated"` timestamp and
+  updated stats; other configs in the file are left untouched (results
+  accumulate per-config rather than being overwritten wholesale — see above).
+- If you only touched docs/UI/tests and didn't change engine behavior, leave
+  `benchmarks.json`/`benchmarks.js` alone — don't regenerate just to "freshen"
+  the timestamp.
+- CI does **not** verify `benchmarks.js` is in sync with the engine; this is
+  a manual step for now.
+
 ### Regression snapshots
 
 To check whether an engine change shifted the drinking-rule balance, save the current
