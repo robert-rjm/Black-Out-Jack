@@ -555,6 +555,16 @@ function _renderBustGivePanel(state) {
     return;
   }
 
+  // Defer behind the milestone handout popup so the two allocation prompts
+  // (and their countdown timers) appear one after the other, not stacked.
+  // The server gives the bust-handout window a fresh countdown once the
+  // milestone prompt clears (see polling.py), so nothing is lost by waiting.
+  if (state.pending_milestone) {
+    overlay.style.display = "none";
+    body.innerHTML = "";
+    return;
+  }
+
   const allPlayers  = (state.players || []);
   const secsLeft    = state.bust_handout_seconds_left || 0;
   overlay.style.display = "flex";
