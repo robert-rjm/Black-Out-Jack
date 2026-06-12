@@ -220,6 +220,32 @@ def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | 
     return NPC_Player.best_play(active_hand, dealer_up, valid, drinking_mode=session.drinking_mode)
 
 
+def compute_mandatory_split10(session: GameRoom, turn: str | None, phase: str) -> bool:
+    """
+    Drinking-mode "house rule": an unsuited 10-value pair must be split.
+    Returns True when the current human turn's active hand is exactly such
+    a pair, splitting is still a valid action, and the player hasn't yet
+    been prompted/acknowledged this hand. Always False in Normal mode.
+    """
+    if not session.drinking_mode or phase != "playing" or not turn:
+        return False
+    player = session._get_player(turn)
+    if not player or getattr(player, "is_npc", False):
+        return False
+    active_hand = next((h for h in player.hands if not hand_done(h)), None)
+    if not active_hand or len(active_hand.cards) != 2:
+        return False
+    if not active_hand.can_split():
+        return False
+    if active_hand.cards[0].rank.blackjack_value != 10:
+        return False
+    if active_hand.is_suited():
+        return False
+    if (player.name, id(active_hand)) in session._honor_acked:
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Insurance vote serializer helper
 # ---------------------------------------------------------------------------
@@ -491,6 +517,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "phase":           phase,
         "drinking_mode":          session.drinking_mode,
         "best_play":              compute_best_play(session, turn, phase),
+        "honor_pending":          bool(session.drinking_mode and session._honor_pending),
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,
         "rounds_this_dealer":     rounds_td,

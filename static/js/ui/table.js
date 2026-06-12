@@ -487,6 +487,7 @@ function applyState(state) {
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
   if (drinkingOn) processAceDrinkEvents(state);  // mid-round ace drink toasts
+  if (drinkingOn) updateHonorPrompt(state);      // mandatory split-10s house-rule prompt
   updateKpiPanel(state);     // leaderboard + future KPI panes
 
   // Keep settings modal in sync while it's open
@@ -605,6 +606,33 @@ function updateBestPlay(state) {
     if (b.textContent.trim() === label) b.classList.add("best");
   });
 }
+
+// ── House rule: mandatory split on unsuited 10s (drinking mode only) ───────
+// Purely a display layer: the backend decides when this prompt is needed
+// (state.honor_pending) and what each choice does. The frontend just shows
+// or hides the overlay and forwards the player's choice to /honor_resolve.
+function updateHonorPrompt(state) {
+  const overlay = document.getElementById("honor-split-overlay");
+  if (!overlay) return;
+  overlay.classList.toggle("open", !!(state && state.honor_pending));
+}
+
+async function honorResolve(choice) {
+  document.getElementById("honor-split-overlay")?.classList.remove("open");
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/honor_resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, choice }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } finally {
+    _requestsInFlight--;
+  }
+}
+window.honorResolve = honorResolve;
 
 // ── Drinks pane: player card selection ──────────────────────────────────────
 function selectDrinksPlayer(name) {
