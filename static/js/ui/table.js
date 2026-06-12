@@ -335,6 +335,15 @@ const SUIT_RED    = { hearts: true, diamonds: true };
 function applyState(state) {
   if (!state || !state.ok) return;
 
+  // Toggle a body-level class so all drink/sip-related UI (sip ticker, drinks
+  // panel/tab, last-round button & modal, milestone toasts, leaderboard sip
+  // columns, drinking trivia, etc.) can be hidden purely via CSS in Normal
+  // mode. Defaults to drinking ON unless the server explicitly says otherwise.
+  const drinkingOn = state.drinking_mode !== false;
+  document.body.classList.toggle("no-drinking", !drinkingOn);
+  const drinksTab = document.getElementById("dig-drinks-tab");
+  if (drinksTab) drinksTab.textContent = drinkingOn ? "🍺 Drinks" : "🃏 Round";
+
   // Drop stale responses — if the server sent a state_seq and it's older than
   // what we already applied, discard silently. Prevents a slow poll from
   // overwriting a fresher command/preselect/vote response.
@@ -444,7 +453,7 @@ function applyState(state) {
   const isNewRoundOver  = newRoundOverSeq > DrinkUI.lastRoundOverSeq;
   if (isNewRoundOver) {
     // Player drink toast (registered non-spectators only)
-    if (myNames.length > 0 && myRole !== "spectator") {
+    if (drinkingOn && myNames.length > 0 && myRole !== "spectator") {
       myNames.forEach(n => showPlayerDrinkToast(DrinkUI.lastRoundSips[n] || 0, n));
     }
     // Switch toast — hard/soft dealer switch (visible to all)
@@ -477,7 +486,8 @@ function applyState(state) {
   }
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
-  processAceDrinkEvents(state);  // mid-round ace drink toasts
+  if (drinkingOn) processAceDrinkEvents(state);  // mid-round ace drink toasts
+  if (drinkingOn) updateHonorPrompt(state);      // mandatory split-10s house-rule prompt
   updateKpiPanel(state);     // leaderboard + future KPI panes
 
   // Keep settings modal in sync while it's open
@@ -596,6 +606,33 @@ function updateBestPlay(state) {
     if (b.textContent.trim() === label) b.classList.add("best");
   });
 }
+
+// ── House rule: mandatory split on unsuited 10s (drinking mode only) ───────
+// Purely a display layer: the backend decides when this prompt is needed
+// (state.honor_pending) and what each choice does. The frontend just shows
+// or hides the overlay and forwards the player's choice to /honor_resolve.
+function updateHonorPrompt(state) {
+  const overlay = document.getElementById("honor-split-overlay");
+  if (!overlay) return;
+  overlay.classList.toggle("open", !!(state && state.honor_pending));
+}
+
+async function honorResolve(choice) {
+  document.getElementById("honor-split-overlay")?.classList.remove("open");
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/honor_resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, choice }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } finally {
+    _requestsInFlight--;
+  }
+}
+window.honorResolve = honorResolve;
 
 // ── Drinks pane: player card selection ──────────────────────────────────────
 function selectDrinksPlayer(name) {

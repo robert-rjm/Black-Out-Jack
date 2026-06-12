@@ -123,10 +123,22 @@ function setGameType(type, btn) {
   document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
 
-  const refSettings  = document.getElementById("settings-ref");
-  const digSettings  = document.getElementById("settings-dig");
-  const wagerCell    = document.getElementById("wager-dig-cell");
-  const sub          = document.getElementById("setup-sub");
+  const refSettings    = document.getElementById("settings-ref");
+  const digSettings    = document.getElementById("settings-dig-wrap");
+  const wagerCell      = document.getElementById("wager-dig-cell");
+  const easyModeField  = document.getElementById("easy-mode-setup-field");
+  const handsDecksRow  = document.getElementById("settings-dig");
+  const togglesRow     = document.getElementById("settings-dig-toggles");
+  const sub            = document.getElementById("setup-sub");
+
+  // In Normal mode, Sips/hand and Easy Mode are hidden, leaving only 2
+  // visible items per row — switch those rows from a 3-col to a true
+  // 2-col grid so the remaining items are evenly sized and centered.
+  const setRowCols = (row, twoCol) => {
+    if (!row) return;
+    row.classList.toggle("two-col", twoCol);
+    row.classList.toggle("three-col", !twoCol);
+  };
 
   if (type === "drinking-digital") {
     setupMode     = "digital";
@@ -134,6 +146,9 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "";
+    if (easyModeField) easyModeField.style.display = "";
+    setRowCols(handsDecksRow, false);
+    setRowCols(togglesRow, false);
     sub.textContent = "Virtual Drinking Blackjack";
   } else if (type === "normal") {
     setupMode     = "digital";
@@ -141,14 +156,23 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "none";
-    sub.textContent = "Virtual Blackjack — standard rules, no drinks";
-    _showMaintenanceOverlay(type, btn);
+    // Easy Mode only applies to drink halving — not relevant for Normal mode
+    if (easyModeField) {
+      easyModeField.style.display = "none";
+      setEasyModeSetup(false);
+    }
+    setRowCols(handsDecksRow, true);
+    setRowCols(togglesRow, true);
+    sub.textContent = "Standard Blackjack with No Drinks";
   } else {   // referee
     setupMode     = "referee";
     setupDrinking = true;
     refSettings.style.display  = "block";
     digSettings.style.display  = "none";
-    sub.textContent = "Physical deck scorekeeper — real-time drink tracker";
+    if (easyModeField) easyModeField.style.display = "";
+    setRowCols(handsDecksRow, false);
+    setRowCols(togglesRow, false);
+    sub.textContent = "Drinking Blackjack Physical Scorekeeper and Drink Tracker";
     _showMaintenanceOverlay(type, btn);
   }
 }
@@ -271,7 +295,8 @@ function renderPlayerRows() {
     const removeBtn = document.createElement("button");
     removeBtn.className        = "player-remove-btn";
     removeBtn.textContent      = "×";
-    removeBtn.style.visibility = showRemove ? "visible" : "hidden";
+    removeBtn.style.opacity = showRemove ? "1" : "0.3";
+    removeBtn.disabled = !showRemove;
     removeBtn.addEventListener("click", e => {
       e.preventDefault();
       syncPlayerRowsFromDOM();

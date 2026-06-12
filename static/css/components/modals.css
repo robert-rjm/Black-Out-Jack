@@ -234,6 +234,36 @@
 }
 .ms-ack-btn:active { opacity: .8; }
 
+/* ── House rule: mandatory split on unsuited 10s ── */
+#honor-split-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 920;
+  align-items: center; justify-content: center;
+}
+#honor-split-overlay.open { display: flex; }
+#honor-split-modal {
+  background: var(--surface);
+  border: 2px solid var(--yellow);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  width: min(320px, 88vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+#honor-split-modal .btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ms-ack-btn-secondary {
+  background: transparent;
+  color: var(--yellow);
+  border: 2px solid var(--yellow);
+}
+
 /* ── Insurance vote modal ── */
 #idle-urgent-overlay {
   display: none;

@@ -15,6 +15,7 @@ import io  # noqa: E402
 import os  # noqa: E402
 import csv  # noqa: E402
 import json  # noqa: E402
+import random  # noqa: E402
 import contextlib  # noqa: E402
 from collections import defaultdict  # noqa: E402
 from datetime import datetime  # noqa: E402
@@ -70,13 +71,33 @@ PLAYER_NAMES = [f"Player{i + 1}" for i in range(NUM_PLAYERS)]
 CONFIG_KEY   = f"{NUM_PLAYERS}p_{NUM_DECKS}d"
 
 
-def run_simulation():
-    shoe = Shoe(NUM_DECKS)
+def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None):
+    """Run the drinking-blackjack simulation and return aggregate stats.
+
+    Parameters are optional and default to the module-level NUM_PLAYERS /
+    NUM_DECKS / NUM_ROUNDS (set from CLI args or interactive prompts) so the
+    existing `__main__` behavior is unchanged. Passing explicit values lets
+    callers (e.g. regression tests) run smaller/seeded simulations for other
+    configs without touching module globals.
+
+    `seed`, if given, seeds the shared `random` module before shuffling the
+    shoe, making the run reproducible. Default `None` leaves production
+    behavior (unseeded) unchanged.
+    """
+    num_players = NUM_PLAYERS if num_players is None else num_players
+    num_decks   = NUM_DECKS if num_decks is None else num_decks
+    num_rounds  = NUM_ROUNDS if num_rounds is None else num_rounds
+    player_names = [f"Player{i + 1}" for i in range(num_players)]
+
+    if seed is not None:
+        random.seed(seed)
+
+    shoe = Shoe(num_decks)
     with contextlib.redirect_stdout(io.StringIO()):
         shoe.shuffle()
 
-    player_sips = {n: defaultdict(int) for n in PLAYER_NAMES}
-    dealer_sips = {n: defaultdict(int) for n in PLAYER_NAMES}
+    player_sips = {n: defaultdict(int) for n in player_names}
+    dealer_sips = {n: defaultdict(int) for n in player_names}
     event_log   = []
     dealer_idx  = 0
 
@@ -91,9 +112,9 @@ def run_simulation():
     round_sips_sum   = 0.0
     round_sips_sumsq = 0.0
 
-    for round_num in range(1, NUM_ROUNDS + 1):
-        players       = [NPC_Player(name) for name in PLAYER_NAMES]
-        dealer_name   = PLAYER_NAMES[dealer_idx % len(PLAYER_NAMES)]
+    for round_num in range(1, num_rounds + 1):
+        players       = [NPC_Player(name) for name in player_names]
+        dealer_name   = player_names[dealer_idx % len(player_names)]
         dealer_player = next(p for p in players if p.name == dealer_name)
         dealer_player.is_dealer = True
         tracker = DrinkTracker(players, dealer_player)
@@ -136,12 +157,12 @@ def run_simulation():
         if dealer_player.dealer_hand and dealer_player.dealer_hand.is_bust():
             dealer_bust_rounds += 1
 
-        dealer_idx = (dealer_idx + 1) % len(PLAYER_NAMES)
-        if round_num % (NUM_ROUNDS // 10) == 0:
-            pct = round_num * 100 // NUM_ROUNDS
-            print(f"  [{round_num:>5}/{NUM_ROUNDS}] rounds complete... ({pct}%)", flush=True)
+        dealer_idx = (dealer_idx + 1) % len(player_names)
+        if num_rounds >= 10 and round_num % (num_rounds // 10) == 0:
+            pct = round_num * 100 // num_rounds
+            print(f"  [{round_num:>5}/{num_rounds}] rounds complete... ({pct}%)", flush=True)
 
-    n = NUM_ROUNDS
+    n = num_rounds
     mean_sips = round_sips_sum / n
     var_sips  = max(0.0, round_sips_sumsq / n - mean_sips ** 2)
     std_sips_per_round = var_sips ** 0.5
