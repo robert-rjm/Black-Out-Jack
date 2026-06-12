@@ -71,6 +71,9 @@ class GameRoom:
 
     # Bust vote side bet
     bust_vote_enabled: bool = False
+
+    # Basic-strategy "best play" highlight (blue border) — opt-in, off by default
+    strategy_hint_enabled: bool = False
     _god_mode: bool = True
     _bust_votes: dict = field(default_factory=dict)        # player_name -> "bust" | "pass"
     _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
