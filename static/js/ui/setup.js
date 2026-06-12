@@ -278,7 +278,8 @@ function renderPlayerRows() {
     const removeBtn = document.createElement("button");
     removeBtn.className        = "player-remove-btn";
     removeBtn.textContent      = "×";
-    removeBtn.style.visibility = showRemove ? "visible" : "hidden";
+    removeBtn.style.opacity = showRemove ? "1" : "0.3";
+    removeBtn.disabled = !showRemove;
     removeBtn.addEventListener("click", e => {
       e.preventDefault();
       syncPlayerRowsFromDOM();
