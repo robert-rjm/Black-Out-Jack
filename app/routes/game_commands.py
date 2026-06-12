@@ -312,6 +312,9 @@ def honor_resolve():
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered in this session."})
 
+    if (info.get("role") or "spectator") not in ("admin", "player"):
+        return jsonify({"ok": False, "error": "Spectators cannot resolve this prompt."})
+
     if not session.drinking_mode or not session._honor_pending:
         # Nothing pending (stale request / already resolved elsewhere) -- no-op.
         return jsonify({**serialize_state(session, client_id), "ok": True})
