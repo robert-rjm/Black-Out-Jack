@@ -148,7 +148,7 @@ function setGameType(type, btn) {
       easyModeField.style.display = "none";
       setEasyModeSetup(false);
     }
-    sub.textContent = "Virtual Blackjack with Standard Rule and No Drinks";
+    sub.textContent = "Standard Blackjack with No Drinks";
   } else {   // referee
     setupMode     = "referee";
     setupDrinking = true;
