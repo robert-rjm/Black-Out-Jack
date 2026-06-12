@@ -107,6 +107,19 @@ function updateRoleUI(state) {
 
   // ── DEALER VIEW ──────────────────────────────────────────────
   if (isMyDealerClient) {
+    // While the bust-vote side-bet window is still open, grey out the play
+    // panel so it doesn't look "ready to go" — players are still placing
+    // their bust bets.
+    if (state.bust_vote_window_open) {
+      digActionButtons().forEach(b => b.classList.add("disabled"));
+      if (hint) hint.textContent = "⏳ Waiting on bust-vote bets...";
+      if (voteDisp) {
+        voteDisp.textContent   = "⏳ Waiting on bust-vote bets...";
+        voteDisp.style.display = "block";
+      }
+      return;
+    }
+
     const hand = (sel.digital.hand || "hand1").toLowerCase();
     const key  = `${turn.toLowerCase()}:${hand}`;
     const vote = presel[key];
