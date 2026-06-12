@@ -43,6 +43,7 @@ def patch_tracker(session: RefereeSession) -> None:
     """
     tracker = session.tracker
     tracker.verbose = False  # suppress prints in web context
+    session.verbose = False  # suppress RefereeSession's own round-summary prints
 
     def web_handout(giver: str, total: int, reason: str):
         log.debug(f"    [drink] {reason}")

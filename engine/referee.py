@@ -99,11 +99,12 @@ class RefereeSession:
     """
 
     def __init__(self, players: list, dealer_name: str,
-                 wager: int = 1, num_hands: int = 2):
+                 wager: int = 1, num_hands: int = 2, verbose: bool = True):
         self.all_players   = players           # list of Player objects (includes dealer-player)
         self.dealer_name   = dealer_name
         self.wager         = wager
         self.num_hands     = num_hands
+        self.verbose       = verbose  # set False by web layer to silence terminal output
         self.round_count   = 0
         self._all_names    = [p.name for p in players]
         self._player_map   = {p.name.lower(): p for p in players}
@@ -123,6 +124,13 @@ class RefereeSession:
         self.tracker = DrinkTracker(players, self._get_dealer())
 
     # ---------------------------------------------------------------- helpers
+
+    def _log(self, *args, **kwargs):
+        """print() that respects self.verbose — silenced by the web layer
+        so the terminal stays clean while playing online, but preserved
+        for the interactive CLI session."""
+        if self.verbose:
+            print(*args, **kwargs)
 
     def _get_dealer(self) -> Player:
         return self._player_map.get(self.dealer_name.lower())
@@ -155,11 +163,11 @@ class RefereeSession:
         # Rebuild index to pick up any players added after __init__
         self._player_map = {p.name.lower(): p for p in self.all_players}
         self._all_names  = [p.name for p in self.all_players]
-        print(f"\n{'='*52}")
-        print(f"  ROUND {self.round_count}  |  Dealer: {self.dealer_name}")
-        print("="*52)
+        self._log(f"\n{'='*52}")
+        self._log(f"  ROUND {self.round_count}  |  Dealer: {self.dealer_name}")
+        self._log("="*52)
         if not digital:
-            print("  Enter cards as they are dealt. Type 'help' for commands.\n")
+            self._log("  Enter cards as they are dealt. Type 'help' for commands.\n")
 
         # Reset all player hands and drink logs
         for p in self.all_players:
@@ -188,8 +196,8 @@ class RefereeSession:
     def cmd_deal(self, parts: list):
         """deal <player> <card> [hand<n>]"""
         if len(parts) < 3:
-            print("  Usage: deal <player> <card> [hand<n>]")
-            print("  Example: deal Rob Ah hand1   |   deal dealer 7d")
+            self._log("  Usage: deal <player> <card> [hand<n>]")
+            self._log("  Example: deal Rob Ah hand1   |   deal dealer 7d")
             return
 
         player_name = parts[1]
@@ -207,14 +215,14 @@ class RefereeSession:
             player = self._get_player(player_name)
 
         if not player:
-            print(f"  Unknown player '{player_name}'. Known: {', '.join(self._all_names)}")
+            self._log(f"  Unknown player '{player_name}'. Known: {', '.join(self._all_names)}")
             return
 
         # Parse card
         try:
             card = parse_card(card_str)
         except ValueError as e:
-            print(f"  {e}")
+            self._log(f"  {e}")
             return
 
         # Get hand
@@ -228,7 +236,7 @@ class RefereeSession:
         # Add card to hand
         card_pos = len(hand.cards) + 1
         hand.cards.append(card)
-        print(f"  {recipient_name} {'(dealer) ' if is_dealer_seat else ''}"
+        self._log(f"  {recipient_name} {'(dealer) ' if is_dealer_seat else ''}"
               f"{hand_label if not is_dealer_seat else ''}: dealt {card}  "
               f"-> {hand}")
 
@@ -243,22 +251,22 @@ class RefereeSession:
             _, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
                 self._ace_credits.append(recipient_name)
-                print(f"    (i) {reason}")
+                self._log(f"    (i) {reason}")
             else:
                 self.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
 
         # Check for blackjack on first two cards
         if len(hand.cards) == 2 and hand.is_blackjack() and not is_dealer_seat:
-            print(f"  *** {recipient_name} has BLACKJACK! ***")
-            print(f"  (Use 'action {recipient_name} insurance {hand_label}' if dealer shows A and they want to insure)")
+            self._log(f"  *** {recipient_name} has BLACKJACK! ***")
+            self._log(f"  (Use 'action {recipient_name} insurance {hand_label}' if dealer shows A and they want to insure)")
 
     # ---------------------------------------------------------------- command: action
 
     def cmd_action(self, parts: list):
         """action <player> <action> [hand<n>]"""
         if len(parts) < 3:
-            print("  Usage: action <player> <action> [hand<n>]")
-            print("  Actions: double, split, insurance, blackjack")
+            self._log("  Usage: action <player> <action> [hand<n>]")
+            self._log("  Actions: double, split, insurance, blackjack")
             return
 
         player_name = parts[1]
@@ -267,14 +275,14 @@ class RefereeSession:
 
         player = self._get_player(player_name)
         if not player:
-            print(f"  Unknown player '{player_name}'.")
+            self._log(f"  Unknown player '{player_name}'.")
             return
 
         hand = self._get_hand(player, hand_label)
 
         if action == "double":
             hand.doubled = True
-            print(f"  {player.name} {hand_label}: marked as doubled.")
+            self._log(f"  {player.name} {hand_label}: marked as doubled.")
 
         elif action == "split":
             # Create a new hand for the split
@@ -284,33 +292,33 @@ class RefereeSession:
             idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
             player.hands.insert(idx + 1, new_hand)
             new_label = f"hand{idx + 2}"
-            print(f"  {player.name} splits {hand_label} -> {hand_label} + {new_label}")
-            print(f"  Now deal one card each to {hand_label} and {new_label}.")
+            self._log(f"  {player.name} splits {hand_label} -> {hand_label} + {new_label}")
+            self._log(f"  Now deal one card each to {hand_label} and {new_label}.")
 
         elif action == "insurance":
             if not hand.is_blackjack():
-                print("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
+                self._log("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                 return
             hand.insured = True
-            print(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21, no bonus drinks.")
+            self._log(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21, no bonus drinks.")
 
         elif action in ("blackjack", "bj"):
             hand.stood = True
-            print(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
+            self._log(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
             self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
                 player_name=player.name, hand=hand, all_names=self._all_names,
             )))
 
         else:
-            print(f"  Unknown action '{action}'. Use: double, split, insurance, blackjack")
+            self._log(f"  Unknown action '{action}'. Use: double, split, insurance, blackjack")
 
     # ---------------------------------------------------------------- command: result
 
     def cmd_result(self, parts: list):
         """result <player> <win|loss|push|bust> [hand<n>]"""
         if len(parts) < 3:
-            print("  Usage: result <player> <win|loss|push|bust> [hand<n>]")
-            print("  Special: 'result dealer bust' marks dealer bust (all non-bust players win)")
+            self._log("  Usage: result <player> <win|loss|push|bust> [hand<n>]")
+            self._log("  Special: 'result dealer bust' marks dealer bust (all non-bust players win)")
             return
 
         player_name = parts[1]
@@ -322,7 +330,7 @@ class RefereeSession:
         if player_name.lower() == "dealer" and outcome == "bust":
             dealer = self._get_dealer()
             dealer.dealer_hand.bust = True
-            print("  Dealer busts. Mark each non-busted player hand as 'win'.")
+            self._log("  Dealer busts. Mark each non-busted player hand as 'win'.")
             # Check dealer suited hand
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
@@ -330,14 +338,14 @@ class RefereeSession:
 
         player = self._get_player(player_name)
         if not player:
-            print(f"  Unknown player '{player_name}'.")
+            self._log(f"  Unknown player '{player_name}'.")
             return
 
         hand = self._get_hand(player, hand_label)
 
         if outcome in ("win", "loss", "push"):
             hand.result = outcome
-            print(f"  {player.name} {hand_label}: {outcome.upper()}")
+            self._log(f"  {player.name} {hand_label}: {outcome.upper()}")
             dealer    = self._get_dealer()
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
             if hand.is_blackjack() and outcome == "win" and not hand.insured:
@@ -349,16 +357,16 @@ class RefereeSession:
         elif outcome == "bust":
             hand.result = "loss"
             hand.bust   = True
-            print(f"  {player.name} {hand_label}: BUST => LOSS")
+            self._log(f"  {player.name} {hand_label}: BUST => LOSS")
         else:
-            print(f"  Unknown outcome '{outcome}'. Use: win, loss, push, bust")
+            self._log(f"  Unknown outcome '{outcome}'. Use: win, loss, push, bust")
 
     # ---------------------------------------------------------------- command: dealer reveal
 
     def cmd_dealer(self, parts: list):
         """dealer <final|suited|bust|blackjack> — mark the dealer's final state"""
         if len(parts) < 2:
-            print("  Usage: dealer <final|suited|bust|blackjack>")
+            self._log("  Usage: dealer <final|suited|bust|blackjack>")
             return
 
         sub = parts[1].lower()
@@ -368,20 +376,20 @@ class RefereeSession:
             # Trigger dealer-suited-hand check
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
-            print(f"  Dealer final hand checked: {dealer.dealer_hand}")
+            self._log(f"  Dealer final hand checked: {dealer.dealer_hand}")
 
         elif sub == "bust":
             dealer.dealer_hand.bust = True
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
-            print("  Dealer bust registered.")
+            self._log("  Dealer bust registered.")
 
         elif sub == "blackjack":
             dealer.dealer_hand.stood = True
-            print("  Dealer blackjack registered.")
+            self._log("  Dealer blackjack registered.")
 
         else:
-            print(f"  Unknown dealer command '{sub}'. Use: final, bust, blackjack")
+            self._log(f"  Unknown dealer command '{sub}'. Use: final, bust, blackjack")
 
     # ---------------------------------------------------------------- command: four aces
 
@@ -390,7 +398,7 @@ class RefereeSession:
         phase_map = {"firstdeal": "first_deal", "endround": "end_of_round"}
         phase = phase_map.get(parts[1].lower() if len(parts) > 1 else "", "")
         if not phase:
-            print("  Usage: fouraces <firstdeal|endround>")
+            self._log("  Usage: fouraces <firstdeal|endround>")
             return
         all_cards = [c for p in self.all_players for h in p.hands for c in h.cards]
         if self._get_dealer():
@@ -409,7 +417,7 @@ class RefereeSession:
         skip_sweep: pass True in digital mode (dealer_turn already fired it).
         extra_eor_msgs: msgs buffered by dealer_turn (digital mode) that must
         be combined with this round's msgs before halving is applied."""
-        print("\n--- End of Round ---")
+        self._log("\n--- End of Round ---")
 
         # Hard dealer switch check
         dealer  = self._get_dealer()
@@ -492,15 +500,15 @@ class RefereeSession:
                         dealer_bj=dealer_bj,
                     )))
                 except Exception as e:
-                    print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
+                    self._log(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
         if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
             w *= 2
-            print(
+            self._log(
                 f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards "
                 f"— wager doubled to {w} sip(s) this round!"
                 )
         if dealer_bj:
-            print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
+            self._log("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         eor_msgs.extend(DrinkingRules.handle(RoundEndEvent(
             players=players, wager=w, dealer_bj=dealer_bj,
             hard_switch_dealer=self.dealer_name if hard_switch else "",
@@ -523,7 +531,7 @@ class RefereeSession:
             p = self._get_player(pending_credit)
             if p:
                 self.tracker.apply_ace_clubs_credit(p)
-                print(f"    (i) A♣ credit applied to {pending_credit} (no hard switch this round)")
+                self._log(f"    (i) A♣ credit applied to {pending_credit} (no hard switch this round)")
 
         # Update cumulative stats
         for p in players:
@@ -539,7 +547,7 @@ class RefereeSession:
 
     def cmd_status(self):
         """Show the current state of all hands this round."""
-        print("\n--- Current Round State ---")
+        self._log("\n--- Current Round State ---")
         rows = []
         for p in self.all_players:
             for i, h in enumerate(p.hands):
@@ -555,14 +563,14 @@ class RefereeSession:
                     str(p.dealer_hand),
                     "BUST" if p.dealer_hand.bust else "-"
                 ])
-        print(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
+        self._log(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
 
     # ---------------------------------------------------------------- show results
 
     def _show_results(self):
-        print("\n" + "="*52)
-        print("  ROUND RESULTS")
-        print("="*52)
+        self._log("\n" + "="*52)
+        self._log("  ROUND RESULTS")
+        self._log("="*52)
         rows = []
         for p in self.all_players:
             for i, h in enumerate(p.hands):
@@ -574,8 +582,8 @@ class RefereeSession:
             rows.append([f"Dealer ({self.dealer_name})", str(dh),
                          "BJ" if dh.is_blackjack() else
                          "BUST" if dh.is_bust() else str(dh.score())])
-        print(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
-        print("="*52)
+        self._log(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
+        self._log("="*52)
 
     # ---------------------------------------------------------------- help
 
