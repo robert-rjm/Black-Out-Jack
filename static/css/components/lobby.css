@@ -96,6 +96,11 @@
   transition: opacity .12s;
 }
 .player-remove-btn:active { opacity: 1; }
+.player-remove-btn:disabled {
+  color: #555;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .two-col   { display: grid; grid-template-columns: 1fr 1fr;     gap: 10px; width: 100%; max-width: 420px; }
 .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
