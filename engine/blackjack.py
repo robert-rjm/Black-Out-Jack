@@ -110,6 +110,11 @@ class Shoe:
         self.cards       = []
         self.penetration = random.uniform(0.70, 0.85)
         self.total_cards = num_decks * 52
+        # Set by deal_card() when a reshuffle happened *because the shoe ran
+        # low mid-deal* (as opposed to a routine reshuffle the caller
+        # triggers explicitly between rounds). Callers can check + clear
+        # this to surface a toast to players.
+        self.just_reshuffled = False
         for _ in range(num_decks):
             self.cards.extend(Deck().cards)
 
@@ -140,6 +145,7 @@ class Shoe:
             if not quiet:
                 print("Reshuffling shoe...")
             self.reset(quiet=quiet)
+            self.just_reshuffled = True
         return self.cards.pop()
 
 

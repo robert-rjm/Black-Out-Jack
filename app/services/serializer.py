@@ -385,6 +385,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "dealer_role_sips":       compute_dealer_role_sips(session),
         "ace_drink_events":       session._ace_drink_events,
         "ace_drink_seq":          session._ace_drink_seq,
+        "reshuffle_events":       session._reshuffle_events,
+        "reshuffle_seq":          session._reshuffle_seq,
     }
 
     # ---- Bust-vote data ----

@@ -45,6 +45,15 @@ def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
     })
 
 
+def _push_reshuffle_event(session: GameRoom) -> None:
+    """Push a mid-round shoe-reshuffle event to the toast queue."""
+    session._reshuffle_seq += 1
+    session._reshuffle_events.append({
+        "seq":       session._reshuffle_seq,
+        "decks":     session.shoe.num_decks,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Hand / player helpers
 # ---------------------------------------------------------------------------
@@ -77,6 +86,9 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
     not revealed in the log before the dealer turn.
     """
     card     = session.shoe.deal_card(quiet=True)
+    if session.shoe.just_reshuffled:
+        session.shoe.just_reshuffled = False
+        _push_reshuffle_event(session)
     card_pos = len(hand.cards) + 1
     hand.cards.append(card)
 

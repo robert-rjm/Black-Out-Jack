@@ -85,6 +85,11 @@ class GameRoom:
     _ace_drink_events: list = field(default_factory=list)
     _ace_drink_seq: int = 0
 
+    # Mid-round shoe reshuffle events (shoe ran low and auto-reshuffled
+    # while dealing, not the routine between-round reshuffle)
+    _reshuffle_events: list = field(default_factory=list)
+    _reshuffle_seq: int = 0
+
     # Tracks (player_name, id(hand)) pairs that have already been resolved
     # for the "mandatory split 10s" house rule this round, so it doesn't
     # re-fire after the player makes a choice (drinking mode only).
