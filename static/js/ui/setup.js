@@ -148,7 +148,7 @@ function setGameType(type, btn) {
       easyModeField.style.display = "none";
       setEasyModeSetup(false);
     }
-    sub.textContent = "Virtual Blackjack — standard rules, no drinks";
+    sub.textContent = "Virtual Blackjack with Standard Rule and No Drinks";
     _showMaintenanceOverlay(type, btn);
   } else {   // referee
     setupMode     = "referee";
@@ -156,7 +156,7 @@ function setGameType(type, btn) {
     refSettings.style.display  = "block";
     digSettings.style.display  = "none";
     if (easyModeField) easyModeField.style.display = "";
-    sub.textContent = "Physical deck scorekeeper — real-time drink tracker";
+    sub.textContent = "Drinking Blackjack Physical Scorekeeper and Drink Tracker";
     _showMaintenanceOverlay(type, btn);
   }
 }
