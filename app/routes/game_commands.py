@@ -337,15 +337,15 @@ def honor_resolve():
     else:
         _record_strategy_decision(session, player, hand, "s")
         hand.stood = True
-        log.debug(f"  {player.name}: stands with honor at {hand.score()} "
+        log.debug(f"  {player.name}: stands without honor at {hand.score()} "
                   f"(declined mandatory 10-split, +1 sip penalty).")
 
-        # 1-sip "stand with honor" penalty via the existing ace-drink toast pipeline.
+        # 1-sip "stand without honor" penalty via the existing ace-drink toast pipeline.
         session.tracker.apply([
-            (player.name, 1, f"{player.name} stood with honor (declined mandatory 10-split)"),
+            (player.name, 1, f"{player.name} stood without honor (declined mandatory 10-split)"),
         ])
         _push_ace_drink_event(session, (player.name, 1,
-            f"Stand with honor => {player.name} drinks 1 sip(s)"))
+            f"Stood without honor => {player.name} drinks 1 sip"))
 
     _after_player_action(session)
 
