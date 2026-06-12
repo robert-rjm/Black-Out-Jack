@@ -607,7 +607,11 @@ function showBustVoteToast(result) {
   }
   if (!parts.length) return;
   toast.textContent = parts.join(" · ");
-  toast.classList.remove("show");
+  // Red if I'm one of the players drinking the bust-vote penalty, green if
+  // I'm not (someone else drinks / I'm a winner).
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const iDrink = _myNames.some(n => result.losers.includes(n));
+  toast.className = (iDrink ? "drink" : "clean") + " show";
   void toast.offsetWidth;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 6000);
@@ -636,7 +640,20 @@ function showInsuranceToast(results) {
     return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
   });
   toast.textContent = parts.join(" · ");
-  toast.classList.remove("show");
+
+  // Red if any insurance outcome means I personally drink, green otherwise
+  // (someone else drinks / I don't).
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const iDrink = results.some(r => {
+    const amHolder = _myNames.includes(r.player);
+    if (amHolder) {
+      // BJ holder drinks their own bonus when insured & dealer had BJ.
+      return r.insured && r.dealer_bj;
+    }
+    // Rest of the group drinks double when the group's insurance call lost.
+    return !r.group_won;
+  });
+  toast.className = (iDrink ? "drink" : "clean") + " show";
   void toast.offsetWidth;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 8000);
