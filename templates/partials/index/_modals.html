@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+    <div class="kick-toggle-row drink-only" style="padding:8px 0;border-bottom:none;margin-bottom:0">
       <label class="kick-toggle-label" style="font-size:13px">Easy Mode <span style="font-size:10px;color:var(--muted)">(halve drinks every round)</span></label>
       <div class="pill-toggle-wrap">
         <label class="pill-toggle" id="easy-mode-toggle-wrap-modal">
@@ -88,7 +88,7 @@
       <div class="modal-section-title modal-gap-lg">GAME SETTINGS</div>
       <div class="modal-note">Changes queue for next round — never applied mid-round.</div>
 
-      <div class="settings-row">
+      <div class="settings-row drink-only">
         <label>Sips / hand</label>
         <input type="number" id="setting-wager" min="1" max="20" value="1" class="w-72">
       </div>
@@ -140,7 +140,7 @@
   </div>
 </div>
 
-<div id="last-round-overlay" class="overlay-last-round" data-backdrop-action="closeLastRoundModal">
+<div id="last-round-overlay" class="overlay-last-round drink-only" data-backdrop-action="closeLastRoundModal">
   <div class="last-round-card" data-stop-propagation="true">
     <h3 class="last-round-title">🍺 Last Round</h3>
     <div id="last-round-modal-body"></div>
@@ -170,11 +170,11 @@
 <div id="dealer-toast">🃏 You are the dealer now!</div>
 <div id="player-toast"></div>
 <div id="switch-toast"></div>
-<div id="milestone-toast"></div>
-<div id="ms-waiting-banner"></div>
-<div id="ms-drink-toast"></div>
+<div id="milestone-toast" class="drink-only"></div>
+<div id="ms-waiting-banner" class="drink-only"></div>
+<div id="ms-drink-toast" class="drink-only"></div>
 
-<div id="ms-ack-overlay">
+<div id="ms-ack-overlay" class="drink-only">
   <div id="ms-ack-modal">
     <div class="ms-ack-emoji">🍺</div>
     <div id="ms-ack-title" class="ms-ack-title"></div>
@@ -183,7 +183,7 @@
   </div>
 </div>
 
-<div id="milestone-modal-overlay">
+<div id="milestone-modal-overlay" class="drink-only">
   <div id="milestone-modal">
     <div id="milestone-modal-header" class="milestone-header">
       <div class="milestone-emoji">🎉</div>
@@ -204,7 +204,7 @@
     <div id="summary-body"></div>
     <div class="btn-row summary-actions">
       {{ action_btn('Close', 'closeSummaryModal', '[]', 'btn wide') }}
-      {{ action_btn('⬇️ Export Drinks CSV', 'exportDrinksAndClose', '[]', 'btn wide') }}
+      {{ action_btn('⬇️ Export Drinks CSV', 'exportDrinksAndClose', '[]', 'btn wide drink-only') }}
     </div>
   </div>
 </div>
