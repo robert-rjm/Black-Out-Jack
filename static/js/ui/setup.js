@@ -124,7 +124,7 @@ function setGameType(type, btn) {
   btn.classList.add("sel");
 
   const refSettings    = document.getElementById("settings-ref");
-  const digSettings    = document.getElementById("settings-dig");
+  const digSettings    = document.getElementById("settings-dig-wrap");
   const wagerCell      = document.getElementById("wager-dig-cell");
   const easyModeField  = document.getElementById("easy-mode-setup-field");
   const sub            = document.getElementById("setup-sub");
@@ -149,7 +149,6 @@ function setGameType(type, btn) {
       setEasyModeSetup(false);
     }
     sub.textContent = "Virtual Blackjack with Standard Rule and No Drinks";
-    _showMaintenanceOverlay(type, btn);
   } else {   // referee
     setupMode     = "referee";
     setupDrinking = true;

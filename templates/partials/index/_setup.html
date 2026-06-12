@@ -39,62 +39,66 @@
     </div>
   </div>
 
-  <div id="settings-dig" class="three-col">
-    <div class="field field-unbounded" id="wager-dig-cell">
-      <label>Sips / hand</label>
-      <div class="stepper" id="wager-dig" data-value="1" data-min="1" data-max="10">
-        <button class="stepper-btn stepper-dec at-limit" type="button">−</button>
-        <span class="stepper-display">1</span>
-        <button class="stepper-btn stepper-inc" type="button">+</button>
+  <div id="settings-dig-wrap">
+    <div id="settings-dig" class="three-col">
+      <div class="field field-unbounded" id="wager-dig-cell">
+        <label>Sips / hand</label>
+        <div class="stepper" id="wager-dig" data-value="1" data-min="1" data-max="10">
+          <button class="stepper-btn stepper-dec at-limit" type="button">−</button>
+          <span class="stepper-display">1</span>
+          <button class="stepper-btn stepper-inc" type="button">+</button>
+        </div>
+      </div>
+      <div class="field field-unbounded">
+        <label>Hands / player</label>
+        <div class="stepper" id="num-hands-dig" data-value="2" data-min="1" data-max="4">
+          <button class="stepper-btn stepper-dec" type="button">−</button>
+          <span class="stepper-display">2</span>
+          <button class="stepper-btn stepper-inc" type="button">+</button>
+        </div>
+      </div>
+      <div class="field field-unbounded">
+        <label>Decks in shoe</label>
+        <div class="stepper" id="num-decks" data-value="1" data-min="1" data-max="8">
+          <button class="stepper-btn stepper-dec at-limit" type="button">−</button>
+          <span class="stepper-display">1</span>
+          <button class="stepper-btn stepper-inc" type="button">+</button>
+        </div>
       </div>
     </div>
-    <div class="field field-unbounded">
-      <label>Hands / player</label>
-      <div class="stepper" id="num-hands-dig" data-value="2" data-min="1" data-max="4">
-        <button class="stepper-btn stepper-dec" type="button">−</button>
-        <span class="stepper-display">2</span>
-        <button class="stepper-btn stepper-inc" type="button">+</button>
+    <div class="three-col" style="margin-top:10px">
+      <div class="field field-unbounded field-top-pad">
+        <label class="compact-label">Animation</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="anim-toggle" checked data-change-action="setAnimToggle">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="anim-lbl-setup">OFF</span>
+          <span class="pill-label-on" id="anim-lbl-setup-on">ON</span>
+        </div>
       </div>
-    </div>
-    <div class="field field-unbounded">
-      <label>Decks in shoe</label>
-      <div class="stepper" id="num-decks" data-value="1" data-min="1" data-max="8">
-        <button class="stepper-btn stepper-dec at-limit" type="button">−</button>
-        <span class="stepper-display">1</span>
-        <button class="stepper-btn stepper-inc" type="button">+</button>
+      <div class="field field-unbounded field-top-pad">
+        <label class="compact-label">Bust vote</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="bust-vote-setup-toggle" checked data-change-action="setBustVoteSetupToggle">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="bust-vote-lbl-setup" style="display:none">OFF</span>
+          <span class="pill-label-on" id="bust-vote-lbl-setup-on">ON</span>
+        </div>
       </div>
-    </div>
-    <div class="field field-unbounded field-top-pad">
-      <label class="compact-label">Animation</label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="anim-toggle" checked data-change-action="setAnimToggle">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="anim-lbl-setup">OFF</span>
-        <span class="pill-label-on" id="anim-lbl-setup-on">ON</span>
-      </div>
-    </div>
-    <div class="field field-unbounded field-top-pad">
-      <label class="compact-label">Bust vote</label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="bust-vote-setup-toggle" checked data-change-action="setBustVoteSetupToggle">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="bust-vote-lbl-setup" style="display:none">OFF</span>
-        <span class="pill-label-on" id="bust-vote-lbl-setup-on">ON</span>
-      </div>
-    </div>
-    <div class="field field-unbounded field-top-pad" id="easy-mode-setup-field">
-      <label class="compact-label" id="easy-mode-setup-label">Easy Mode</label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle" id="easy-mode-setup-pill">
-          <input type="checkbox" id="easy-mode-setup-toggle" data-change-action="setEasyModeSetup">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="easy-mode-lbl-setup">OFF</span>
-        <span class="pill-label-on" id="easy-mode-lbl-setup-on" style="display:none">ON</span>
+      <div class="field field-unbounded field-top-pad" id="easy-mode-setup-field">
+        <label class="compact-label" id="easy-mode-setup-label">Easy Mode</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle" id="easy-mode-setup-pill">
+            <input type="checkbox" id="easy-mode-setup-toggle" data-change-action="setEasyModeSetup">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="easy-mode-lbl-setup">OFF</span>
+          <span class="pill-label-on" id="easy-mode-lbl-setup-on" style="display:none">ON</span>
+        </div>
       </div>
     </div>
   </div>
