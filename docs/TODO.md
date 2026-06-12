@@ -45,7 +45,9 @@
 
 ## Features
 
-- [ ] Normal mode complete overwork (remove "sip" reference and all other drinking references)
+- [ ] Normal mode complete overwork
+  - remove "sip" reference and all other drinking references
+  - add cash option and bankroll (bust 2.5, 2:1 win, 3:2 Blackjack)
 - [ ] simplified rule set for beginners
 - [ ] csv addition
   - potentially .pdf file output with graphs
