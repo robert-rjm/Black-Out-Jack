@@ -197,7 +197,8 @@ def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | 
     """
     Return the basic-strategy best action ('h'|'s'|'d'|'sp') for the
     current active hand, or None when it's not applicable.
-    Always assumes drinking mode (web is always drinking mode).
+    Uses drinking-mode overrides (mandatory 10-split, etc.) only when the
+    session itself is in drinking mode; Normal mode gets pure basic strategy.
     """
     if phase != "playing" or not turn:
         return None
@@ -216,7 +217,7 @@ def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | 
         valid.append("d")
     if active_hand.can_split():
         valid.append("sp")
-    return NPC_Player.best_play(active_hand, dealer_up, valid, drinking_mode=True)
+    return NPC_Player.best_play(active_hand, dealer_up, valid, drinking_mode=session.drinking_mode)
 
 
 # ---------------------------------------------------------------------------
