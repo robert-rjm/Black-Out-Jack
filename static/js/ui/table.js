@@ -615,6 +615,14 @@ function updateHonorPrompt(state) {
   const overlay = document.getElementById("honor-split-overlay");
   if (!overlay) return;
   overlay.classList.toggle("open", !!(state && state.honor_pending));
+
+  // Only admins and seated players may resolve the prompt -- spectators
+  // see it (for visibility) but their buttons are disabled.
+  const role     = state && state.my_role;
+  const canAct   = role === "admin" || role === "player";
+  overlay.querySelectorAll("#honor-split-modal .btn-row button").forEach(btn => {
+    btn.disabled = !canAct;
+  });
 }
 
 async function honorResolve(choice) {
