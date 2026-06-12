@@ -1,3 +1,8 @@
+[tool.pytest.ini_options]
+markers = [
+    "slow: full 100k-round simulation regression",
+]
+
 [tool.ruff]
 line-length = 120
 exclude = [".git", "__pycache__", ".venv", "venv", "build", "dist"]
