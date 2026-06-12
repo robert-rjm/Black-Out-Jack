@@ -177,13 +177,10 @@ function showSwitchToast(switchType, dealerName) {
   const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
   const tmpl = pool[Math.floor(Math.random() * pool.length)];
   el.textContent = tmpl;
-  if (switchType === "hard") {
-    el.style.background = "var(--red)";
-    el.style.color      = "#fff";
-  } else {
-    el.style.background = "var(--green)";
-    el.style.color      = "#000";
-  }
+  // Dealer switches are purely informational — always yellow, regardless of
+  // hard/soft type.
+  el.style.background = "var(--yellow)";
+  el.style.color      = "#000";
   el.classList.add("show");
   ToastUI.switchTimer = setTimeout(() => {
     el.classList.remove("show");
@@ -314,7 +311,9 @@ function processAceDrinkEvents(state) {
     const dtEl = document.getElementById("dealer-toast");
     if (dtEl) dtEl.classList.remove("show");
     toastEl.textContent = text;
-    toastEl.className   = "drink show";
+    // Red if I'm one of the players drinking from this ace effect, green
+    // if someone else is drinking instead.
+    toastEl.className   = (mine.length > 0 ? "drink" : "clean") + " show";
     if (ToastUI.playerTimer) {
       clearTimeout(ToastUI.playerTimer);
     }
