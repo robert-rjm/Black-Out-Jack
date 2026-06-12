@@ -326,3 +326,44 @@ function processAceDrinkEvents(state) {
     _showAceToast();
   }
 }
+
+// ============================================================
+// SHOE RESHUFFLE TOAST (fires mid-round if the shoe runs low
+// and auto-reshuffles before the next card is dealt)
+// ============================================================
+let _lastReshuffleSeq = 0;
+
+function processReshuffleEvents(state) {
+  const events = state.reshuffle_events || [];
+  const seq    = state.reshuffle_seq    || 0;
+  // Reset if server started a new round (seq went back to 0 or below our last seen)
+  if (seq < _lastReshuffleSeq) _lastReshuffleSeq = 0;
+  if (seq <= _lastReshuffleSeq || !events.length) return;
+
+  const newEvents = events.filter(e => e.seq > _lastReshuffleSeq);
+  _lastReshuffleSeq = seq;
+  if (!newEvents.length) return;
+
+  const el = document.getElementById("switch-toast");
+  if (!el) return;
+
+  const _showReshuffleToast = () => {
+    if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
+    el.textContent      = "🔀 Shoe ran low — reshuffled mid-round!";
+    el.style.background = "var(--yellow)";
+    el.style.color      = "#000";
+    el.classList.remove("show");
+    void el.offsetWidth;
+    el.classList.add("show");
+    ToastUI.switchTimer = setTimeout(() => {
+      el.classList.remove("show");
+      ToastUI.switchTimer = null;
+    }, 4500);
+  };
+
+  if (_bustVoteOpen()) {
+    ToastUI.queue.push(_showReshuffleToast);
+  } else {
+    _showReshuffleToast();
+  }
+}

@@ -487,6 +487,7 @@ function applyState(state) {
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
   if (drinkingOn) processAceDrinkEvents(state);  // mid-round ace drink toasts
+  processReshuffleEvents(state);                 // mid-round shoe reshuffle toast (all modes)
   if (drinkingOn) updateHonorPrompt(state);      // mandatory split-10s house-rule prompt
   updateKpiPanel(state);     // leaderboard + future KPI panes
 
