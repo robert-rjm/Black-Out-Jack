@@ -9,13 +9,13 @@
     <div id="header-actions">
       <button class="btn icon-btn" data-action="openRulesModal" title="Rules">📖</button>
       <button class="btn icon-btn" data-action="showSessionSummary" title="Summary">📊</button>
-      <button class="btn icon-btn" id="btn-last-round-header" data-action="openLastRoundModal" title="Last round drinks">🍺</button>
+      <button class="btn icon-btn drink-only" id="btn-last-round-header" data-action="openLastRoundModal" title="Last round drinks">🍺</button>
       <button class="btn icon-btn" id="btn-admin-players" data-action="openKickModal" title="Settings">⚙️</button>
       <button class="btn red home-btn" data-action="resetToSetup">🏠 Lobby</button>
     </div>
   </header>
 
-  <div id="sip-ticker"></div>
+  <div id="sip-ticker" class="drink-only"></div>
 
   <div id="idle-warning-banner" class="idle-warning-banner" style="display:none">
     <span id="idle-warning-text">Still there?</span>
@@ -132,7 +132,7 @@
           {{ action_btn('4 ACES (DEAL)', 'sendCmd', '["fouraces firstdeal"]', 'btn wide') }}
           {{ action_btn('4 ACES (END)', 'sendCmd', '["fouraces endround"]', 'btn wide') }}
         </div>
-        <div class="btn-row">
+        <div class="btn-row drink-only">
           {{ action_btn('📊 Export Drinks CSV', 'exportDrinkCSV', '[]', 'btn wide') }}
         </div>
       </div>
@@ -211,13 +211,13 @@
       <div id="pane-dig-round" class="pane">
         <div id="dig-drinks-progress" class="round-progress">✋ You're done — waiting for results…</div>
 
-        <div id="dig-drinks-panel" class="drinks-panel">
+        <div id="dig-drinks-panel" class="drinks-panel drink-only">
           <div id="dig-drinks-agg" class="drinks-agg"></div>
           <div class="drinks-divider"></div>
           <div id="dig-drinks-detail" class="drinks-detail"></div>
         </div>
 
-        <div id="dig-drinks-none" class="drinks-none">No drinks this round 🎉</div>
+        <div id="dig-drinks-none" class="drinks-none drink-only">No drinks this round 🎉</div>
         <div id="bust-vote-status-round" class="bust-vote-status"></div>
         <div id="dig-round-notices"></div>
 
@@ -241,7 +241,7 @@
   <nav id="bottom-nav">
     <button class="bnav-btn" data-action="openRulesModal"><span class="bnav-icon">📖</span><span class="bnav-label">Rules</span></button>
     <button class="bnav-btn" data-action="showSessionSummary"><span class="bnav-icon">📊</span><span class="bnav-label">Summary</span></button>
-    <button class="bnav-btn" id="btn-last-round-nav" data-action="openLastRoundModal"><span class="bnav-icon">🍺</span><span class="bnav-label">Last Round</span></button>
+    <button class="bnav-btn drink-only" id="btn-last-round-nav" data-action="openLastRoundModal"><span class="bnav-icon">🍺</span><span class="bnav-label">Last Round</span></button>
     <button class="bnav-btn" id="btn-admin-nav" data-action="openKickModal"><span class="bnav-icon">⚙️</span><span class="bnav-label">Settings</span></button>
     <button class="bnav-btn bnav-home" data-action="resetToSetup"><span class="bnav-icon">🏠</span><span class="bnav-label">Lobby</span></button>
   </nav>

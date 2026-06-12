@@ -687,29 +687,34 @@ async function showSessionSummary() {
     const data = await res.json();
 
     if (!data.ok || !data.players || !data.players.length) {
-      meta.textContent = "No drink data yet — play some rounds first.";
+      meta.textContent = "No session data yet — play some rounds first.";
       return;
     }
 
     meta.textContent = `${data.rounds} round${data.rounds !== 1 ? "s" : ""} completed`;
 
+    const drinking = lastState?.drinking_mode !== false;
     const tbl = document.createElement("table");
     tbl.id = "summary-table";
-    tbl.innerHTML = `
+    tbl.innerHTML = drinking ? `
       <thead><tr>
         <th>Player</th>
         <th>As player</th>
         <th>As dealer</th>
         <th>Total 🍺</th>
+      </tr></thead>` : `
+      <thead><tr>
+        <th>Player</th>
       </tr></thead>`;
     const tb = document.createElement("tbody");
     data.players.forEach(p => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
+      tr.innerHTML = drinking ? `
         <td style="font-weight:600">${escapeHtml(p.name)}</td>
         <td>${p.player_sips}</td>
         <td>${p.dealer_sips}</td>
-        <td class="sum-total">${p.total_sips}</td>`;
+        <td class="sum-total">${p.total_sips}</td>` : `
+        <td style="font-weight:600">${escapeHtml(p.name)}</td>`;
       tb.appendChild(tr);
     });
     tbl.appendChild(tb);

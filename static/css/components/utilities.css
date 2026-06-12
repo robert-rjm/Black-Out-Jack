@@ -2,6 +2,15 @@
 
 .is-hidden { display: none; }
 
+/* Normal mode: hide every drink/sip-related element regardless of any
+   inline styles JS may set (last-round button/modal, sip ticker, drinks
+   tab panel, milestone toasts, sip columns in KPI panel, drinking trivia
+   category, "Sips/hand" settings, Easy Mode toggle, etc.). Toggled via the
+   `no-drinking` class on <body>, set from `state.drinking_mode` in table.js. */
+body.no-drinking .drink-only {
+  display: none !important;
+}
+
 .pressable:active { transform: scale(.97); }
 
 /* Hidden by default; shown by JS when needed */

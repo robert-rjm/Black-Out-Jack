@@ -335,6 +335,15 @@ const SUIT_RED    = { hearts: true, diamonds: true };
 function applyState(state) {
   if (!state || !state.ok) return;
 
+  // Toggle a body-level class so all drink/sip-related UI (sip ticker, drinks
+  // panel/tab, last-round button & modal, milestone toasts, leaderboard sip
+  // columns, drinking trivia, etc.) can be hidden purely via CSS in Normal
+  // mode. Defaults to drinking ON unless the server explicitly says otherwise.
+  const drinkingOn = state.drinking_mode !== false;
+  document.body.classList.toggle("no-drinking", !drinkingOn);
+  const drinksTab = document.getElementById("dig-drinks-tab");
+  if (drinksTab) drinksTab.textContent = drinkingOn ? "🍺 Drinks" : "🃏 Round";
+
   // Drop stale responses — if the server sent a state_seq and it's older than
   // what we already applied, discard silently. Prevents a slow poll from
   // overwriting a fresher command/preselect/vote response.
@@ -444,7 +453,7 @@ function applyState(state) {
   const isNewRoundOver  = newRoundOverSeq > DrinkUI.lastRoundOverSeq;
   if (isNewRoundOver) {
     // Player drink toast (registered non-spectators only)
-    if (myNames.length > 0 && myRole !== "spectator") {
+    if (drinkingOn && myNames.length > 0 && myRole !== "spectator") {
       myNames.forEach(n => showPlayerDrinkToast(DrinkUI.lastRoundSips[n] || 0, n));
     }
     // Switch toast — hard/soft dealer switch (visible to all)
@@ -477,7 +486,7 @@ function applyState(state) {
   }
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
-  processAceDrinkEvents(state);  // mid-round ace drink toasts
+  if (drinkingOn) processAceDrinkEvents(state);  // mid-round ace drink toasts
   updateKpiPanel(state);     // leaderboard + future KPI panes
 
   // Keep settings modal in sync while it's open

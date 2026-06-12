@@ -111,6 +111,7 @@ function renderLeaderboard(state) {
   const el = document.getElementById("leaderboard-content");
   if (!el) return;
 
+  const drinking  = state.drinking_mode !== false;
   const handStats = state.hand_stats || {};
   const sipTotals = state.sip_totals || {};
   const streaks   = state.streaks    || {};
@@ -137,11 +138,11 @@ function renderLeaderboard(state) {
   }
 
   rows.sort((a, b) => {
-    if (a.wr === null && b.wr === null) return a.sips - b.sips;
+    if (a.wr === null && b.wr === null) return drinking ? a.sips - b.sips : 0;
     if (a.wr === null) return 1;
     if (b.wr === null) return -1;
     if (b.wr !== a.wr) return b.wr - a.wr;
-    return a.sips - b.sips;
+    return drinking ? a.sips - b.sips : 0;
   });
 
   const rankEmoji = ["🥇", "🥈", "🥉"];
@@ -167,7 +168,7 @@ function renderLeaderboard(state) {
       <td>${wrStr}</td>
       <td>${wlp}</td>
       <td>${_streakLabel(r.current)}</td>
-      <td>${sipStr}</td>
+      ${drinking ? `<td>${sipStr}</td>` : ""}
     </tr>`;
   }).join("");
 
@@ -177,7 +178,7 @@ function renderLeaderboard(state) {
     ${roundLabel ? `<div class="lb-meta">${roundLabel}</div>` : ""}
     <table class="lb-table">
       <thead><tr>
-        <th>Player</th><th>Win%</th><th>W/L/P</th><th>Streak</th><th>Sips</th>
+        <th>Player</th><th>Win%</th><th>W/L/P</th><th>Streak</th>${drinking ? "<th>Sips</th>" : ""}
       </tr></thead>
       <tbody>${tbody}</tbody>
     </table>`;
@@ -188,6 +189,7 @@ function renderStats(state) {
   const el = document.getElementById("stats-content");
   if (!el) return;
 
+  const drinking           = state.drinking_mode        !== false;
   const handStats         = state.hand_stats           || {};
   const sipTotals         = state.sip_totals           || {};
   const maxRoundSips      = state.max_round_sips       || {};
@@ -202,11 +204,11 @@ function renderStats(state) {
 
   // ── Session-wide callout banner ──────────────────────────────
   const totalSips    = Object.values(sipTotals).reduce((a, b) => a + b, 0);
-  const avgPerRound  = round > 0 ? (totalSips / round).toFixed(1) : null;
-  const avg3         = _rollingAvg(history, 3);
-  const avg5         = _rollingAvg(history, 5);
-  const avg10        = _rollingAvg(history, 10);
-  const sipm         = sessionSecs > 0 ? (totalSips / (sessionSecs / 60)).toFixed(2) : null;
+  const avgPerRound  = (drinking && round > 0) ? (totalSips / round).toFixed(1) : null;
+  const avg3         = drinking ? _rollingAvg(history, 3)  : null;
+  const avg5         = drinking ? _rollingAvg(history, 5)  : null;
+  const avg10        = drinking ? _rollingAvg(history, 10) : null;
+  const sipm         = (drinking && sessionSecs > 0) ? (totalSips / (sessionSecs / 60)).toFixed(2) : null;
   const totalHands   = Object.values(handStats).reduce((a, h) => a + (h.hands || 0), 0);
   const totalBJ      = Object.values(handStats).reduce((a, h) => a + (h.blackjacks || 0), 0);
   const totalBusts   = Object.values(handStats).reduce((a, h) => a + (h.busts || 0), 0);
@@ -240,7 +242,7 @@ function renderStats(state) {
           <div class="ssb-lbl">Avg/round</div>
           ${rollingTags ? `<div class="ssb-rolling">${rollingTags}</div>` : ""}
         </div>` : ""}
-        <div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${totalSips}</div><div class="ssb-lbl">Total sips</div></div>
+        ${drinking ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${totalSips}</div><div class="ssb-lbl">Total sips</div></div>` : ""}
         ${sipm !== null ? `<div class="ssb-item"><div class="ssb-val">${sipm}</div><div class="ssb-lbl">Sips/min</div></div>` : ""}
         <div class="ssb-item"><div class="ssb-val">${_fmtDuration(sessionSecs)}</div><div class="ssb-lbl">Duration</div></div>
       </div>
@@ -342,8 +344,7 @@ function renderStats(state) {
       <td>${bstCell}</td>
       <td>${stCell}</td>
       <td>${sdCell}</td>
-      <td>${avgSipsCell}</td>
-      <td>${maxCell}</td>
+      ${drinking ? `<td>${avgSipsCell}</td><td>${maxCell}</td>` : ""}
       <td>${lwCell}</td>
       <td>${llCell}</td>
     </tr>`;
@@ -362,8 +363,7 @@ function renderStats(state) {
         <th title="Times busted">Bust</th>
         <th title="Suited hands">Suit</th>
         <th title="Basic strategy accuracy (shown after 3+ decisions)">Strat%</th>
-        <th title="Average sips per round">Avg🍺</th>
-        <th title="Biggest single-round sip hit">Peak🍺</th>
+        ${drinking ? `<th title="Average sips per round">Avg🍺</th><th title="Biggest single-round sip hit">Peak🍺</th>` : ""}
         <th title="Longest win streak">🔥</th>
         <th title="Longest loss streak">💀</th>
       </tr></thead>
@@ -378,13 +378,14 @@ function renderStats(state) {
   const lbSorted = [...rows]
     .filter(r => r.hands > 0)
     .sort((a, b) => {
-      if (a.wr === null && b.wr === null) return a.totalSipsP - b.totalSipsP;
+      if (a.wr === null && b.wr === null) return drinking ? a.totalSipsP - b.totalSipsP : 0;
       if (a.wr === null) return 1;
       if (b.wr === null) return -1;
       if (b.wr !== a.wr) return b.wr - a.wr;
-      return a.totalSipsP - b.totalSipsP;
+      return drinking ? a.totalSipsP - b.totalSipsP : 0;
     });
-  const COL = "20px 1fr 36px 64px 30px 36px"; // medal · name · win% · W/L/P · streak · sips
+  // medal · name · win% · W/L/P · streak [· sips]
+  const COL = drinking ? "20px 1fr 36px 64px 30px 36px" : "20px 1fr 36px 64px 30px";
   if (lbSorted.length > 0) {
     const headerRow = `<div style="display:grid;grid-template-columns:${COL};gap:0 6px;
         font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;
@@ -394,7 +395,7 @@ function renderStats(state) {
       <span style="text-align:right">Win%</span>
       <span style="text-align:center">W / L / P</span>
       <span style="text-align:center">Str</span>
-      <span style="text-align:right">Sips</span>
+      ${drinking ? `<span style="text-align:right">Sips</span>` : ""}
     </div>`;
     const lbLines = lbSorted.map((r, i) => {
       const medal  = i < 3 ? rankEmoji[i] : `<span style="font-size:10px;color:var(--muted)">${i + 1}</span>`;
@@ -408,7 +409,7 @@ function renderStats(state) {
         <span style="text-align:right">${wrStr}</span>
         <span style="text-align:center">${wlp}</span>
         <span style="text-align:center">${_streakLabel(r.current)}</span>
-        <span style="text-align:right">${sipStr}</span>
+        ${drinking ? `<span style="text-align:right">${sipStr}</span>` : ""}
       </div>`;
     }).join("");
     callouts.push(`<div class="stat-card stat-card-primary" style="flex-direction:column;align-items:stretch;gap:0">
@@ -431,7 +432,7 @@ function renderStats(state) {
       <div class="stat-card-label" style="${bjCol}">${bjRate !== null ? `${bjRate.toFixed(1)}% rate${bjBenchTxt}` : "this session"}</div>
     </div></div>`);
   }
-  if (peakRow && peakRow.maxSips > 0) {
+  if (drinking && peakRow && peakRow.maxSips > 0) {
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">💀</div><div class="stat-card-body">
       <div class="stat-card-value">${peakRow.maxSips} sips</div>
       <div class="stat-card-label">worst round — ${escapeHtml(peakRow.name)}</div>

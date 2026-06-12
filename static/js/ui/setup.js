@@ -123,10 +123,11 @@ function setGameType(type, btn) {
   document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
 
-  const refSettings  = document.getElementById("settings-ref");
-  const digSettings  = document.getElementById("settings-dig");
-  const wagerCell    = document.getElementById("wager-dig-cell");
-  const sub          = document.getElementById("setup-sub");
+  const refSettings    = document.getElementById("settings-ref");
+  const digSettings    = document.getElementById("settings-dig");
+  const wagerCell      = document.getElementById("wager-dig-cell");
+  const easyModeField  = document.getElementById("easy-mode-setup-field");
+  const sub            = document.getElementById("setup-sub");
 
   if (type === "drinking-digital") {
     setupMode     = "digital";
@@ -134,6 +135,7 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "";
+    if (easyModeField) easyModeField.style.display = "";
     sub.textContent = "Virtual Drinking Blackjack";
   } else if (type === "normal") {
     setupMode     = "digital";
@@ -141,6 +143,11 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "none";
+    // Easy Mode only applies to drink halving — not relevant for Normal mode
+    if (easyModeField) {
+      easyModeField.style.display = "none";
+      setEasyModeSetup(false);
+    }
     sub.textContent = "Virtual Blackjack — standard rules, no drinks";
     _showMaintenanceOverlay(type, btn);
   } else {   // referee
@@ -148,6 +155,7 @@ function setGameType(type, btn) {
     setupDrinking = true;
     refSettings.style.display  = "block";
     digSettings.style.display  = "none";
+    if (easyModeField) easyModeField.style.display = "";
     sub.textContent = "Physical deck scorekeeper — real-time drink tracker";
     _showMaintenanceOverlay(type, btn);
   }
