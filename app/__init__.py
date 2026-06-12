@@ -10,7 +10,8 @@ Usage:
 
 import os
 
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
+from werkzeug.exceptions import HTTPException
 
 # Project root — one level above this file (app/__init__.py -> Black-Out-Jack/)
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -35,6 +36,22 @@ def create_app() -> Flask:
             response.headers["Pragma"]        = "no-cache"
             response.headers["Expires"]       = "0"
         return response
+
+    # -- Centralized error handling -------------------------------------
+    # The frontend talks to this app almost entirely via fetch/long-poll and
+    # expects JSON back. Without this, an unhandled exception (or a 404 on a
+    # bad route) returns Flask's default HTML error page, which breaks
+    # response.json() on the client and surfaces as a generic stuck state.
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e):
+        response = jsonify({"ok": False, "output": e.description or e.name})
+        response.status_code = e.code or 500
+        return response
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_exception(e):
+        app.logger.exception("Unhandled exception")
+        return jsonify({"ok": False, "output": "Internal server error — please try again."}), 500
 
     # -- Index ---------------------------------------------------------
     @app.route("/")
