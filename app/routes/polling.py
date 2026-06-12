@@ -22,7 +22,10 @@ from flask import Blueprint, jsonify, request
 
 from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
 from app.services.validators import sanitize_name, is_dealer_client
-from app.services.serializer import serialize_state, round_phase
+from app.services.serializer import (
+    serialize_state, round_phase, current_turn, hand_done,
+    compute_mandatory_split10,
+)
 from app.services.drink_tracker import (
     check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties,
     apply_milestone_forfeit, apply_bust_handout_forfeit,
@@ -398,6 +401,19 @@ def preselect():
 
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
+
+    # House rule: pre-selecting STAND on a hand the "mandatory split 10s"
+    # rule applies to opens the "Play with honor / Stand (1 sip)" prompt
+    # (state.honor_pending) instead of recording a plain stand vote.
+    if (action == "s" and session.drinking_mode
+            and current_turn(session)
+            and current_turn(session).lower() == name.lower()
+            and compute_mandatory_split10(session, current_turn(session), round_phase(session))):
+        player      = session._get_player(name)
+        active_hand = next((h for h in player.hands if not hand_done(h)), None)
+        if player and active_hand:
+            session._honor_pending = {"player": player.name, "hand_id": id(active_hand)}
+            return jsonify({**serialize_state(session, client_id), "ok": True})
 
     session._preselections[f"{name.lower()}:{hand}"] = action
     return jsonify({**serialize_state(session, client_id), "ok": True})
