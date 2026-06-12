@@ -40,6 +40,7 @@ Black-Out-Jack/
 │   ├── Architecture.md          # This file
 │   ├── Multiplayer.md           # Full multiplayer documentation
 │   ├── DOM-Hooks.md             # Frontend element IDs and JS hook reference
+│   ├── Test-Plan.md             # Test suite plan and coverage map
 │   └── TODO.md                  # Known issues and planned features
 ├── static/
 │   ├── css/
@@ -72,10 +73,18 @@ Black-Out-Jack/
 │   │                            # benchmarks.json, and static/js/benchmarks.js
 │   ├── snapshot.py              # Saves simulation output as a labeled regression snapshot
 │   └── snapshots/               # Saved snapshots (scripts/snapshots/<label>/)
+├── tests/                       # pytest suite (see docs/Test-Plan.md)
+│   ├── conftest.py              # Shared fixtures/builders (make_card, make_hand, make_player...)
+│   ├── test_drinking_rules_*.py # Unit tests per DrinkingRules method
+│   ├── test_classify_rule.py    # classify_rule unit tests
+│   ├── test_drink_tracker.py    # DrinkTracker unit tests
+│   ├── test_round_manager_integration.py  # Scripted, seeded full-round integration tests
+│   ├── test_regression_snapshots.py       # Statistical regression vs. scripts/snapshots/
+│   └── test_bust_vote*.py       # Bust vote side bet tests (Rules.md §4.4)
 ├── server.py                    # Flask entry point
 ├── requirements.txt             # Python dependencies for deployment
 ├── .gitignore
-├── pyproject.toml               # Ruff linting config (max-line-length 120)
+├── pyproject.toml               # Ruff linting config + pytest markers ("slow")
 ├── README.md
 └── LICENSE
 ```
@@ -183,6 +192,7 @@ and diff the new output against the snapshot to spot unintended balance shifts.
 ### Prerequisites
 - Python 3.10+
 - `flask` (for web UI)
+- `pytest` (for running the test suite)
 - No other dependencies for terminal play
 - Consult [requirements.txt](requirements.txt)
 
@@ -199,7 +209,13 @@ python engine/referee.py         # Physical deck, digital tracking
 
 # Simulation
 python scripts/simulation.py     # Outputs to simulation_results.txt
+
+# Tests
+pytest -m "not slow"             # Fast unit + regression suite (CI default)
+pytest -m slow                   # Full 100k-round snapshot diff (manual/release)
 ```
+
+See [docs/Test-Plan.md](Test-Plan.md) for coverage details.
 
 ### Contributing
 

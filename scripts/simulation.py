@@ -365,6 +365,3 @@ if __name__ == "__main__":
         print(f"  {name:<12} {(pt+dt)/NUM_ROUNDS:>5.2f} sips/round"
               f"  (player: {pt/NUM_ROUNDS:.2f}, dealer: {dt/NUM_ROUNDS:.2f})")
     print()
-f"  {name:<12} {(pt+dt)/NUM_ROUNDS:>5.2f} sips/round"
-              f"  (player: {pt/NUM_ROUNDS:.2f}, dealer: {dt/NUM_ROUNDS:.2f})")
-    print()
