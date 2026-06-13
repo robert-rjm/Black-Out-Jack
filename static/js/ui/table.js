@@ -487,6 +487,7 @@ function applyState(state) {
   syncLogFromState(state);   // shared log — all players see same entries
   updateSipTicker(state);    // header strip
   if (drinkingOn) processAceDrinkEvents(state);  // mid-round ace drink toasts
+  processReshuffleEvents(state);                 // mid-round shoe reshuffle toast (all modes)
   if (drinkingOn) updateHonorPrompt(state);      // mandatory split-10s house-rule prompt
   updateKpiPanel(state);     // leaderboard + future KPI panes
 
@@ -615,6 +616,14 @@ function updateHonorPrompt(state) {
   const overlay = document.getElementById("honor-split-overlay");
   if (!overlay) return;
   overlay.classList.toggle("open", !!(state && state.honor_pending));
+
+  // Only admins and seated players may resolve the prompt -- spectators
+  // see it (for visibility) but their buttons are disabled.
+  const role     = state && state.my_role;
+  const canAct   = role === "admin" || role === "player";
+  overlay.querySelectorAll("#honor-split-modal .btn-row button").forEach(btn => {
+    btn.disabled = !canAct;
+  });
 }
 
 async function honorResolve(choice) {

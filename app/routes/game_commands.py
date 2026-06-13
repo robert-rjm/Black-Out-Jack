@@ -312,6 +312,9 @@ def honor_resolve():
     if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered in this session."})
 
+    if (info.get("role") or "spectator") not in ("admin", "player"):
+        return jsonify({"ok": False, "error": "Spectators cannot resolve this prompt."})
+
     if not session.drinking_mode or not session._honor_pending:
         # Nothing pending (stale request / already resolved elsewhere) -- no-op.
         return jsonify({**serialize_state(session, client_id), "ok": True})
@@ -405,8 +408,8 @@ def _cmd_split(game_session, parts):
     new_hand = Hand(from_split=True)
     new_hand.cards.append(hand.cards.pop())
     hand.from_split    = True
+    new_hand._split_chain = hand._split_chain  # share counter across the whole chain
     hand.split_count  += 1
-    new_hand.split_count = hand.split_count  # child inherits so chain limit holds
     idx       = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
     new_label = f"hand{idx + 2}"
     player.hands.insert(idx + 1, new_hand)

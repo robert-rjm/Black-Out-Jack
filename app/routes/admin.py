@@ -558,6 +558,10 @@ def update_settings():
         session.bust_vote_enabled = bool(data["bust_vote_enabled"])
         session._bust_votes = {}   # clear any stale votes when toggling
 
+    # strategy_hint_enabled (basic-strategy "best play" blue border) — live setting
+    if "strategy_hint_enabled" in data:
+        session.strategy_hint_enabled = bool(data["strategy_hint_enabled"])
+
     # local_names — update which seats this admin client controls directly (live)
     if "local_names" in data:
         raw_names = data["local_names"]

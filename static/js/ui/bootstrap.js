@@ -24,6 +24,9 @@
     if (action === "setEasyModeAdmin") {
       return window.setEasyModeAdmin(!!el.checked);
     }
+    if (action === "setStrategyHintEnabled") {
+      return window.setStrategyHintEnabled(!!el.checked);
+    }
     if (action === "setEasyModeSetup") {
       return window.setEasyModeSetup(!!el.checked);
     }

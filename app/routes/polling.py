@@ -31,7 +31,10 @@ from app.services.drink_tracker import (
     apply_milestone_forfeit, apply_bust_handout_forfeit,
 )
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
-from app.config import INSURANCE_VOTE_TIMEOUT, INSURANCE_PAUSE_BUFFER, MAX_REG_DENIALS
+from app.config import (
+    INSURANCE_VOTE_TIMEOUT, INSURANCE_PAUSE_BUFFER, MAX_REG_DENIALS,
+    BUST_HANDOUT_WINDOW_SECONDS,
+)
 
 log = logging.getLogger(__name__)
 
@@ -108,6 +111,18 @@ def state():
         # Milestone forfeit: if the handout window expired without the winner submitting,
         # the full handout sip total comes back on them.
         apply_milestone_forfeit(session)
+
+        # Pause the bust-vote handout countdown while a milestone handout is
+        # pending, so the two allocation popups (and their timers) don't run
+        # concurrently. The bust-handout window gets a fresh full countdown
+        # starting once the milestone prompt clears.
+        if session._pending_milestone and session._bust_handout_expires_at is not None:
+            ms_expires = session._pending_milestone.get("expires_at")
+            if ms_expires is not None:
+                session._bust_handout_expires_at = max(
+                    session._bust_handout_expires_at,
+                    ms_expires + BUST_HANDOUT_WINDOW_SECONDS,
+                )
 
         # Bust-vote handout forfeit: if a bust-vote winner didn't assign their
         # 1-sip reward in time, it comes back on them (server-enforced —

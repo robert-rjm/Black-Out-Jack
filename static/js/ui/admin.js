@@ -107,6 +107,19 @@ function updateRoleUI(state) {
 
   // ── DEALER VIEW ──────────────────────────────────────────────
   if (isMyDealerClient) {
+    // While the bust-vote side-bet window is still open, grey out the play
+    // panel so it doesn't look "ready to go" — players are still placing
+    // their bust bets.
+    if (state.bust_vote_window_open) {
+      digActionButtons().forEach(b => b.classList.add("disabled"));
+      if (hint) hint.textContent = "⏳ Waiting on bust-vote bets...";
+      if (voteDisp) {
+        voteDisp.textContent   = "⏳ Waiting on bust-vote bets...";
+        voteDisp.style.display = "block";
+      }
+      return;
+    }
+
     const hand = (sel.digital.hand || "hand1").toLowerCase();
     const key  = `${turn.toLowerCase()}:${hand}`;
     const vote = presel[key];
@@ -206,6 +219,18 @@ async function setBustVoteEnabled(on) {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId, bust_vote_enabled: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+async function setStrategyHintEnabled(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, strategy_hint_enabled: on }),
     });
     const data = await res.json();
     if (data.ok) applyState(data);
@@ -555,6 +580,16 @@ function _renderBustGivePanel(state) {
     return;
   }
 
+  // Defer behind the milestone handout popup so the two allocation prompts
+  // (and their countdown timers) appear one after the other, not stacked.
+  // The server gives the bust-handout window a fresh countdown once the
+  // milestone prompt clears (see polling.py), so nothing is lost by waiting.
+  if (state.pending_milestone) {
+    overlay.style.display = "none";
+    body.innerHTML = "";
+    return;
+  }
+
   const allPlayers  = (state.players || []);
   const secsLeft    = state.bust_handout_seconds_left || 0;
   overlay.style.display = "flex";
@@ -597,7 +632,11 @@ function showBustVoteToast(result) {
   }
   if (!parts.length) return;
   toast.textContent = parts.join(" · ");
-  toast.classList.remove("show");
+  // Red if I'm one of the players drinking the bust-vote penalty, green if
+  // I'm not (someone else drinks / I'm a winner).
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const iDrink = _myNames.some(n => result.losers.includes(n));
+  toast.className = (iDrink ? "drink" : "clean") + " show";
   void toast.offsetWidth;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 6000);
@@ -626,7 +665,20 @@ function showInsuranceToast(results) {
     return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
   });
   toast.textContent = parts.join(" · ");
-  toast.classList.remove("show");
+
+  // Red if any insurance outcome means I personally drink, green otherwise
+  // (someone else drinks / I don't).
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const iDrink = results.some(r => {
+    const amHolder = _myNames.includes(r.player);
+    if (amHolder) {
+      // BJ holder drinks their own bonus when insured & dealer had BJ.
+      return r.insured && r.dealer_bj;
+    }
+    // Rest of the group drinks double when the group's insurance call lost.
+    return !r.group_won;
+  });
+  toast.className = (iDrink ? "drink" : "clean") + " show";
   void toast.offsetWidth;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 8000);
