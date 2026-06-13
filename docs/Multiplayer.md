@@ -101,6 +101,13 @@ When a player's cumulative sip total crosses a **multiple of 50**, they earn bon
 - If the **timer expires** without a submission, the full handout becomes the winner's own drink
 - Only **one milestone** can be active at a time — a new boundary won't fire until the current handout is resolved
 
+### "Worst Average" Penalty
+
+At each milestone, the player with the **lowest average sips/round overall** (total sips ÷ rounds played, excluding the milestone winner) is flagged as the "worst" player.
+
+- If the **same player** is flagged as worst for **two milestones in a row**, they take a **one-time penalty**: drink a number of sips equal to the milestone **winner's average sips/round** (rounded, minimum 1).
+- After the penalty fires, the streak resets — they need to be "worst" two more times in a row to trigger it again.
+
 ---
 
 ## Dealer Bust Vote

@@ -385,6 +385,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "dealer_role_sips":       compute_dealer_role_sips(session),
         "ace_drink_events":       session._ace_drink_events,
         "ace_drink_seq":          session._ace_drink_seq,
+        "reshuffle_events":       session._reshuffle_events,
+        "reshuffle_seq":          session._reshuffle_seq,
     }
 
     # ---- Bust-vote data ----
@@ -516,7 +518,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "play_order":      play_order(session),
         "phase":           phase,
         "drinking_mode":          session.drinking_mode,
-        "best_play":              compute_best_play(session, turn, phase),
+        "best_play":              compute_best_play(session, turn, phase) if session.strategy_hint_enabled else None,
+        "strategy_hint_enabled":  session.strategy_hint_enabled,
         "honor_pending":          bool(session.drinking_mode and session._honor_pending),
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,

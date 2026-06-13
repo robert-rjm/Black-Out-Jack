@@ -325,6 +325,17 @@ Any group can opt into the same halving rule regardless of player count.
 | **4+ players** | Always on (toggle locked) |
 
 
+### 6.3 Milestone Handouts
+
+Every time a Player's cumulative sip total crosses a multiple of 50, they earn bonus sips to hand out to other Players (5 sips at 50, 6 at 100, 7 at 150, +1 per additional milestone). The winner has 60 seconds to distribute the sips; unassigned sips return to them. Only one milestone can be active at a time.
+
+### "Worst Average" Penalty
+
+At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."
+
+If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (rounded, minimum 1). The streak then resets.
+
+
 ## 7. Potential Future Rules
 
 _Have a rule idea? Open an issue or suggest it mid-game!

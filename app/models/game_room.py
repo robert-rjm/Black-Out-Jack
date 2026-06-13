@@ -66,11 +66,19 @@ class GameRoom:
     _pending_milestone: dict | None = None
     _last_milestone_result: dict | None = None
 
+    # "Worst player" (lowest avg sips/round) streak tracking across milestones.
+    # If the same player is worst for 2 consecutive milestones, they take a
+    # one-time penalty equal to the milestone winner's avg sips/round.
+    _last_milestone_worst: str | None = None
+
     # Easy mode (halve drinks every round)
     easy_mode: bool = False
 
     # Bust vote side bet
     bust_vote_enabled: bool = False
+
+    # Basic-strategy "best play" highlight (blue border) — opt-in, off by default
+    strategy_hint_enabled: bool = False
     _god_mode: bool = True
     _bust_votes: dict = field(default_factory=dict)        # player_name -> "bust" | "pass"
     _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
@@ -81,6 +89,11 @@ class GameRoom:
     # Mid-round state (digital only - reset each newround in game_commands.py)
     _ace_drink_events: list = field(default_factory=list)
     _ace_drink_seq: int = 0
+
+    # Mid-round shoe reshuffle events (shoe ran low and auto-reshuffled
+    # while dealing, not the routine between-round reshuffle)
+    _reshuffle_events: list = field(default_factory=list)
+    _reshuffle_seq: int = 0
 
     # Tracks (player_name, id(hand)) pairs that have already been resolved
     # for the "mandatory split 10s" house rule this round, so it doesn't
