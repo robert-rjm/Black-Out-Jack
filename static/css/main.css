@@ -58,8 +58,9 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   left: 55%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 28px;
-  height: 28px;
+  height: calc(100% - 8px);  /* fill header minus some breathing room */
+  width: auto;
+  aspect-ratio: 1;
   border-radius: 50%;
   pointer-events: none;
 }
@@ -68,7 +69,6 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   header { padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); }
   header h1 { font-size: 17px; }
   #header-sub { font-size: 12px; margin-top: 2px; }
-  #header-logo { width: 36px; height: 36px; }
 }
 .mode-badge {
   display: inline-block;
