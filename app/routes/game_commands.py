@@ -404,6 +404,13 @@ def _cmd_split(game_session, parts):
             log.debug("  Cannot split this hand.")
         return
     _record_strategy_decision(game_session, player, hand, "sp")
+    # `hand` keeps its identity (id(hand)) across the split — only its second
+    # card is moved out to `new_hand`. If this hand was previously acked for
+    # the "mandatory split 10s" house rule (split OR stood-without-honor),
+    # that ack must not carry over: once it's dealt a new second card it's a
+    # brand-new 2-card hand and may need the house-rule prompt again (e.g.
+    # re-splitting into another unsuited 10-10).
+    game_session._honor_acked.discard((player.name, id(hand)))
     # Move second card to new hand (no second cards dealt yet)
     new_hand = Hand(from_split=True)
     new_hand.cards.append(hand.cards.pop())
