@@ -15,6 +15,7 @@ import io
 import os
 from collections import defaultdict
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, current_app, jsonify, request, Response, send_from_directory
 
@@ -111,9 +112,11 @@ def export_csv():
     def _pct(n, d):
         return f"{n/d*100:.1f}%" if d else "—"
 
+    _tz = ZoneInfo("Europe/Zurich")
+
     # Header metadata
     w.writerow(["Drinking Blackjack — Session Summary"])
-    w.writerow(["Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+    w.writerow(["Generated", datetime.now(_tz).strftime("%Y-%m-%d %H:%M:%S")])
     w.writerow(["Rounds completed", num_rounds])
     w.writerow(["Players"] + players_seen)
     w.writerow([])
