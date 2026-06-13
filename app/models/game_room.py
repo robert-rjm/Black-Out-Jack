@@ -66,6 +66,11 @@ class GameRoom:
     _pending_milestone: dict | None = None
     _last_milestone_result: dict | None = None
 
+    # "Worst player" (lowest avg sips/round) streak tracking across milestones.
+    # If the same player is worst for 2 consecutive milestones, they take a
+    # one-time penalty equal to the milestone winner's avg sips/round.
+    _last_milestone_worst: str | None = None
+
     # Easy mode (halve drinks every round)
     easy_mode: bool = False
 
