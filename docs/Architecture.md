@@ -40,8 +40,7 @@ Black-Out-Jack/
 │   ├── Architecture.md                     # This file
 │   ├── Multiplayer.md                      # Full multiplayer documentation
 │   ├── DOM-Hooks.md                        # Frontend element IDs and JS hook reference
-│   ├── Test-Plan.md                        # Test suite plan and coverage map
-│   └── TODO.md                             # Known issues and planned features
+│   └── planning/                           # Plans, roadmaps, TODOs
 ├── static/
 │   ├── css/
 │   │   ├── main.css                        # Variables, reset, layout, bottom nav
@@ -73,7 +72,7 @@ Black-Out-Jack/
 │   │                                       # benchmarks.json, and static/js/benchmarks.js
 │   ├── snapshot.py                         # Saves simulation output as a labeled regression snapshot
 │   └── snapshots/                          # Saved snapshots (scripts/snapshots/<label>/)
-├── tests/                                  # pytest suite (see docs/Test-Plan.md)
+├── tests/                                  # pytest suite (see docs/planning/Test-Plan.md)
 │   ├── conftest.py                         # Shared fixtures/builders (make_card, make_hand, make_player...)
 │   ├── test_drinking_rules_*.py            # Unit tests per DrinkingRules method
 │   ├── test_classify_rule.py               # classify_rule unit tests
@@ -244,7 +243,7 @@ pytest -m "not slow"             # Fast unit + regression suite (CI default)
 pytest -m slow                   # Full 100k-round snapshot diff (manual/release)
 ```
 
-See [docs/Test-Plan.md](Test-Plan.md) for coverage details.
+See [docs/planning/Test-Plan.md](planning/Test-Plan.md) for coverage details.
 
 ### Contributing
 
