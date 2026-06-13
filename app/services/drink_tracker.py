@@ -380,6 +380,60 @@ def harvest_drink_log(session: GameRoom) -> None:
 # Milestone checking
 # ---------------------------------------------------------------------------
 
+def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> None:
+    """
+    House rule: track the player with the lowest average sips/round (overall)
+    at each milestone, excluding the milestone winner. If the SAME player is
+    "worst" for two consecutive milestones, they take a one-time penalty —
+    drinking a number of sips equal to the milestone winner's avg sips/round
+    (rounded to the nearest whole sip, minimum 1).
+    """
+    rounds_played = max(1, len(session._round_sip_history))
+
+    candidates = [
+        (ticker.get(p.name, 0) / rounds_played, p.name.lower(), p.name)
+        for p in session.all_players
+        if p.name.lower() != winner.lower()
+    ]
+    if not candidates:
+        return
+
+    candidates.sort(key=lambda t: (t[0], t[1]))
+    worst_name = candidates[0][2]
+
+    if session._last_milestone_worst and session._last_milestone_worst.lower() == worst_name.lower():
+        # Second consecutive milestone as "worst" — apply the one-time penalty.
+        winner_avg = ticker.get(winner, 0) / rounds_played
+        penalty    = max(1, round(winner_avg))
+
+        worst_p = session._get_player(worst_name)
+        if worst_p:
+            reason = (
+                f"Worst average sips/round for 2 milestones in a row — "
+                f"drinks {penalty} sip{'s' if penalty != 1 else ''} "
+                f"(matching {winner}'s avg)"
+            )
+            worst_p.add_drink(penalty, reason, "player")
+            session._sip_ticker[worst_name] = session._sip_ticker.get(worst_name, 0) + penalty
+            session._last_round_sips[worst_name] = session._last_round_sips.get(worst_name, 0) + penalty
+            session._last_round_drinks.append({
+                "name":   worst_name,
+                "sips":   penalty,
+                "reason": reason,
+            })
+            session._log_entries.append(
+                f"  📉 {worst_name} was the worst average for 2 milestones running — "
+                f"drinks {penalty} sip{'s' if penalty != 1 else ''}\n"
+            )
+            session._log_version += 1
+            log.debug(f"  [milestone] {worst_name} worst avg 2x in a row — drinks {penalty} sips")
+
+        # Reset the streak — this is a one-time penalty.
+        session._last_milestone_worst = None
+    else:
+        session._last_milestone_worst = worst_name
+
+
 def check_and_set_milestone(session: GameRoom) -> None:
     """
     After harvesting a round's drink log, check whether any player has newly
@@ -426,6 +480,12 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     claimed[boundary] = winner
     session._milestones_claimed = claimed
+
+    # "Worst player" streak check — lowest avg sips/round overall, excluding
+    # the milestone winner. If the same player is worst for 2 consecutive
+    # milestones, they take a one-time penalty equal to the winner's avg
+    # sips/round (rounded, min 1).
+    _apply_worst_player_streak(session, winner, ticker)
 
     # NPC winners can't drive the handout-allocation UI, so resolve their
     # milestone immediately via round-robin distribution to the other
