@@ -451,6 +451,18 @@ def _cmd_split(game_session, parts):
         else:
             log.debug("  Cannot split this hand.")
         return
+    # House rule: splitting an unsuited 10-pair is mandatory (free) and
+    # complying carries no penalty — but suited 10-pairs are EXEMPT from
+    # the mandatory rule, meaning a 20 is voluntarily being broken up.
+    # Warn the player and charge 1 sip for choosing to split anyway.
+    _was_suited_10_split = (
+        game_session.drinking_mode
+        and len(hand.cards) == 2
+        and hand.cards[0].rank.blackjack_value == 10
+        and hand.cards[1].rank.blackjack_value == 10
+        and hand.is_suited()
+    )
+
     _record_strategy_decision(game_session, player, hand, "sp")
     # `hand` keeps its identity (id(hand)) across the split — only its second
     # card is moved out to `new_hand`. If this hand was previously acked for
@@ -485,6 +497,17 @@ def _cmd_split(game_session, parts):
         log.debug(f"  {player.name} splits:")
         log.debug(f"    {hand_label}: {hand}  ← play this hand first")
         log.debug(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+
+    if _was_suited_10_split:
+        log.debug(f"  {player.name}: mandatory split-10s doesn't apply to suited "
+                  f"20s — splits anyway, drinks 1 sip.")
+        game_session.tracker.apply([
+            (player.name, 1, f"{player.name} split a suited 20 (mandatory split 10s "
+                              f"does not apply if suited)"),
+        ])
+        _push_ace_drink_event(game_session, (player.name, 1,
+            f"⚠️ Mandatory split 10s does not apply if suited — "
+            f"{player.name} split anyway => drinks 1 sip"))
 
 
 def _cmd_insurance(game_session, parts):
