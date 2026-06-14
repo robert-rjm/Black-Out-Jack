@@ -38,7 +38,13 @@ html, body {
 
 /* ---- LAYOUT ---- */
 /* 100vh first as fallback for Safari < 15.4 which doesn't support dvh */
-#app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
 
 header {
   position: relative;
@@ -52,24 +58,35 @@ header {
 header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 #header-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-/* Sits right above the #left-col / #right-col divider (55% split) */
+/* ─── Logo ─── */
 #header-logo {
   position: absolute;
-  left: 55%;
   top: 50%;
-  transform: translate(-50%, -50%);
-  height: calc(100% - 8px);  /* fill header minus some breathing room */
+  height: calc(100% - 8px);
   width: auto;
   aspect-ratio: 1;
   border-radius: 50%;
   pointer-events: none;
+
+  /* Mobile: right-aligned */
+  right: 16px;
+  transform: translateY(-50%);
 }
 
+/* ─── Desktop ─── */
 @media (min-width: 640px) {
   header { padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); }
   header h1 { font-size: 17px; }
   #header-sub { font-size: 12px; margin-top: 2px; }
+
+  /* Sits right above the #left-col / #right-col divider (55% split) */
+  #header-logo {
+    left: 55%;
+    right: auto;
+    transform: translate(-50%, -50%);
+  }
 }
+
 .mode-badge {
   display: inline-block;
   font-size: 10px; font-weight: 700;
