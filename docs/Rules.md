@@ -67,7 +67,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 |---|---|
 | Dealer stands on | All 17s (including soft 17) |
 | Double down | Allowed on any two-card hand, including after any split |
-| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)) |
+| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)). Hitting, standing, or doubling on an unsuited 10-pair instead ("without honor") costs 1 sip. |
 | Splitting | Maximum 5 splits per starting hand |
 
 ### 3.1 Splitting Aces:
