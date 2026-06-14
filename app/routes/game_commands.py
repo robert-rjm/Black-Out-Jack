@@ -371,8 +371,7 @@ def honor_resolve():
         # Nothing pending (stale request / already resolved elsewhere) -- no-op.
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
-    # "stand" accepted as a legacy alias for "no" (older clients).
-    if choice not in ("split", "no", "stand"):
+    if choice not in ("split", "no"):
         return jsonify({"ok": False, "error": f"Invalid choice '{choice}'."})
 
     pending = session._honor_pending
