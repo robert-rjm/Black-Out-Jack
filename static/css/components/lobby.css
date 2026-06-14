@@ -4,10 +4,11 @@
 
 /* ---- SETUP SCREEN ---- */
 #setup {
+  position: fixed;
+  inset: 0;
   display: flex; flex-direction: column;
   justify-content: center; align-items: center;
-  height: 100vh; height: 100dvh;
-  padding: 24px 20px;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
   gap: 14px;
   overflow-y: auto;
 }
@@ -117,10 +118,12 @@
 
 /* ---- LOBBY / WAITING ---- */
 #lobby, #waiting {
+  position: fixed;
+  inset: 0;
   display: flex; flex-direction: column;
   justify-content: center; align-items: center;
-  height: 100vh; height: 100dvh;
-  padding: 24px 20px; gap: 14px;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  gap: 14px;
   overflow-y: auto;
 }
 #lobby h2  { font-size: 28px; font-weight: 800; letter-spacing: .5px; }

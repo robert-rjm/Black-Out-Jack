@@ -7,7 +7,6 @@
   flex-shrink: 0;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* panes */
