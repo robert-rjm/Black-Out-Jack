@@ -624,6 +624,15 @@ function updateHonorPrompt(state) {
   overlay.querySelectorAll("#honor-split-modal .btn-row button").forEach(btn => {
     btn.disabled = !canAct;
   });
+
+  // Label the "without honor" button with the action that's actually
+  // pending (Hit / Double / Stand), so the +1 sip context is clear.
+  const noBtn = document.getElementById("honor-no-btn");
+  if (noBtn) {
+    const action = (state && state.honor_pending_action) || "stand";
+    const label  = action.charAt(0).toUpperCase() + action.slice(1);
+    noBtn.textContent = `${label} without honor (1 sip)`;
+  }
 }
 
 async function honorResolve(choice) {

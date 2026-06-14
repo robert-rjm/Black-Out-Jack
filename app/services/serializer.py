@@ -521,6 +521,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "best_play":              compute_best_play(session, turn, phase) if session.strategy_hint_enabled else None,
         "strategy_hint_enabled":  session.strategy_hint_enabled,
         "honor_pending":          bool(session.drinking_mode and session._honor_pending),
+        "honor_pending_action":   (session._honor_pending or {}).get("action") if session.drinking_mode else None,
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,
         "rounds_this_dealer":     rounds_td,
