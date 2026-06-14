@@ -38,7 +38,13 @@ html, body {
 
 /* ---- LAYOUT ---- */
 /* 100vh first as fallback for Safari < 15.4 which doesn't support dvh */
-#app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
 
 header {
   position: relative;
