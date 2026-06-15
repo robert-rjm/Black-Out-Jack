@@ -132,8 +132,20 @@ captured **before** the action mutates the hand:
 Not designed in detail yet — sketch only, to revisit once Phase C has produced
 real data from actual sessions with Rob, Marco, and David.
 
+### D0. Data loading — ✅ DONE (`scripts/load_decision_logs.py`)
+- Loads every `decision_log_*.csv` from `data/decisions/` (configurable via
+  `--dir`), concatenates them, and prints a per-player breakdown: total
+  decisions, action counts (h/s/d/sp/insurance), NPC vs. human, deviation
+  from `basic_strategy_action`, and win/loss/push split.
+- `--player <name>` filters the summary to one player.
+- `--out <path>` writes the concatenated rows to a single combined CSV for
+  D1 to consume.
+- Run this periodically as exports accumulate to gauge whether there's
+  "enough" data per player yet (see Open questions below).
+
 ### D1. Feature engineering (offline script, `scripts/train_player_bot.py`)
-- Load accumulated `decisions.csv`, filter to one player.
+- Load accumulated `decisions.csv` (via `load_decision_logs.py --out`),
+  filter to one player.
 - Derive features from `visible_cards`: counts of each rank still
   unseen/seen (simple counting signal), `hand_total_before`, `is_soft`,
   `dealer_upcard`, `valid_actions`, `cards_remaining`.
