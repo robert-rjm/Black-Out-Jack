@@ -8,7 +8,6 @@ Technical documentation for **Black(Out)Jack**: project structure, file dependen
 - [Project Structure](#project-structure)
 - [File Dependencies](#file-dependencies)
 - [Separation of Concerns](#separation-of-concerns)
-- [Rules Verification](#rules-verification)
 - [Simulation & Statistics](#simulation--statistics)
 - [Common Issues](#common-issues)
 - [Development Guide](#development-guide)
@@ -68,6 +67,7 @@ Black-Out-Jack/
 │   └── referee.py                          # RefereeSession class for real-life play
 ├── scripts/                                # Standalone CLI tools
 │   ├── __init__.py
+│   ├── play_terminal.py                    # Interactive terminal play (RoundManager + DrinkTracker)
 │   ├── simulation.py                       # 100,000-round NPC simulation; outputs CSV, txt,
 │   │                                       # benchmarks.json, and static/js/benchmarks.js
 │   ├── snapshot.py                         # Saves simulation output as a labeled regression snapshot
@@ -99,6 +99,7 @@ The main files are intentionally decoupled:
 | `engine/blackjack.py` | `engine/strategy.py` | Core game logic, card/hand/deck classes, game loop |
 | `engine/drinking_rules.py` | `engine/blackjack.py` | Drinking layer only, no game logic |
 | `engine/referee.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | RefereeSession for real-life play |
+| `scripts/play_terminal.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | Interactive terminal play via `RoundManager` + `DrinkTracker` |
 | `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 100,000-round NPC simulation; outputs CSV, txt, `benchmarks.json`, and `static/js/benchmarks.js` |
 | `scripts/snapshot.py` | `scripts/simulation.py` output | Copies `simulation_results.txt` + `benchmarks.json` into `scripts/snapshots/<label>/` for regression diffing |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
@@ -116,24 +117,6 @@ The main files are intentionally decoupled:
 - **Changing web routes or server logic** → edit `app/routes/` or `app/services/`
 - **Changing web UI behaviour** → edit `static/js/ui/` and/or `templates/index.html`
 - **Changing styles** → edit `static/css/main.css` or the relevant `static/css/components/` file
-
-
-## Rules Verification
-
-`engine/drinking_rules.py` contains a SHA256 hash and date pinned to the version of `Rules.md` the implementation was verified against:
-
-```python
-_RULES_HASH  = "1d0d65ff..."
-_RULES_DATE  = "2026-05-15"
-```
-
-**How it works:**
-
-1. On startup the script fetches `Rules.md` from GitHub and compares hashes
-2. If they differ, a warning is printed to the console.
-3. When the rules change, update `_RULES_HASH` and `_RULES_DATE` in `engine/drinking_rules.py`.
-
-This ensures the code and documentation never silently drift apart.
 
 
 ## Simulation & Statistics
