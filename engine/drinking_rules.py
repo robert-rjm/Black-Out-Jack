@@ -62,6 +62,8 @@ def classify_rule(reason: str) -> str | None:
     if "4 Aces" in r and "end of round" in r:       return "Four Aces (end of round)"
     if "Dealer hand is all" in r:                   return "Dealer suited hand"
     if "handed" in r and "5-card 21" in r:          return "5-card 21 handout received"
+    if "handed" in r and "bust vote" in r:          return "Bust vote handout received"
+    if "Bust vote forfeited" in r:                  return "Bust vote handout forfeited"
     if "won with" in r and "cards" in r:            return "5+ card win"
     if "A\u2660" in r and "to dealer" in r:        return "Ace dealt: Ace of Spades (dealer hand)"
     if "A\u2665" in r and "dealer" in r:           return "Ace dealt: Ace of Hearts (dealer hand)"
@@ -734,11 +736,15 @@ class DrinkTracker:
 
     # ---------------------------------------------------------------- handout
 
-    def _handle_handout(self, giver: str, total: int, reason: str):
+    def _handle_handout(self, giver: str, total: int, reason: str, label: str = "5-card 21"):
         """
-        Handle 5-card-21 sip handout.
+        Handle a sip handout (5-card-21 win, or a bust-vote reward).
         NPC givers distribute round-robin automatically.
         Human givers are prompted interactively.
+
+        label: short tag appended to each per-sip reason string, e.g.
+               "5-card 21" or "bust vote" — used by classify_rule() to
+               distinguish handout sources in the CSV export.
         """
         if self.verbose:
             print(f"    [drink] {reason}")
@@ -751,7 +757,7 @@ class DrinkTracker:
         if getattr(giver_player, "is_npc", False):
             for i in range(remaining):
                 t = others[i % len(others)]
-                t.add_drink(1, f"{giver} (NPC) handed 1 sip to {t.name} (5-card 21)", "player")
+                t.add_drink(1, f"{giver} (NPC) handed 1 sip to {t.name} ({label})", "player")
                 if self.verbose:
                     print(f"    -> {t.name} +1 sip (NPC auto-distributed)")
             return
@@ -771,7 +777,7 @@ class DrinkTracker:
 
             t = self._map.get(raw.lower())
             if t and t.name.lower() != giver.lower():
-                t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21)", "player")
+                t.add_drink(1, f"{giver} handed 1 sip to {t.name} ({label})", "player")
                 remaining -= 1
                 bad_attempts = 0
                 if self.verbose:
@@ -784,7 +790,7 @@ class DrinkTracker:
                               f"auto-distributing remaining {remaining} sip(s) round-robin.")
                     for j in range(remaining):
                         t = others[(i + j) % len(others)]
-                        t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)", "player")
+                        t.add_drink(1, f"{giver} handed 1 sip to {t.name} ({label}, auto)", "player")
                         if self.verbose:
                             print(f"    -> {t.name} +1 sip (auto-distributed)")
                     remaining = 0

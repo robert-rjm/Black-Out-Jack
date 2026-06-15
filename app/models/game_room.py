@@ -108,6 +108,14 @@ class GameRoom:
     # Misc UI state
     _last_peeked: dict | None = None
 
+    # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
+    bet_amount: float = 10
+    starting_bankroll: float = 100
+    _bankrolls: dict = field(default_factory=dict)        # player_name -> balance
+    _last_round_payouts: dict = field(default_factory=dict)  # player_name -> net $ change last round
+    _bank_run_players: list = field(default_factory=list)    # players currently at $0 (bank run pending)
+    _biggest_round_payouts: dict = field(default_factory=dict)  # player_name -> {"best": float, "worst": float}
+
     # ------------------------------------------------------------------
     # Explicit properties delegating to RefereeSession
     # ------------------------------------------------------------------

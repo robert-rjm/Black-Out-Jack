@@ -195,6 +195,19 @@
   </div>
 </div>
 
+<div id="bank-run-overlay">
+  <div id="bank-run-modal">
+    <div class="ms-ack-emoji">🏃💸</div>
+    <div class="ms-ack-title">Bank Run!</div>
+    <div class="ms-ack-sub"><span id="bank-run-player-name">You</span> are tapped out — bankroll hit $0.
+      Hit the ATM for a fresh stack, or step away from the table and spectate?</div>
+    <div class="btn-row">
+      {{ action_btn('💰 Re-buy (back to start)', 'bankRebuy', '[]', 'ms-ack-btn') }}
+      {{ action_btn('🚪 Exit / Spectate', 'bankExit', '[]', 'ms-ack-btn ms-ack-btn-secondary') }}
+    </div>
+  </div>
+</div>
+
 <div id="honor-split-overlay" class="drink-only">
   <div id="honor-split-modal">
     <div class="ms-ack-emoji">🃏</div>

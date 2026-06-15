@@ -4,9 +4,10 @@ Goal: make "🃏 Normal" a fully working, standalone blackjack mode with **zero 
 references** — no sip ticker, drink panel, drink stats, milestone toasts, or
 drinking trivia — while keeping the existing "🍺 Drinking" mode untouched.
 
-Status: Normal mode currently shows a maintenance overlay on selection
-("Continue Anyway" / "← Back to Drinking"). It stays gated behind that overlay
-until Phase A is complete and verified.
+Status: Phase A is complete and verified — Normal mode plays a clean, standard
+blackjack round with no drinking UI, stats, or copy anywhere in active
+gameplay screens, and the maintenance overlay has been removed. Phase B
+(cash wager / bankroll system) is next.
 
 ---
 

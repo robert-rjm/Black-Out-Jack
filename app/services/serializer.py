@@ -193,6 +193,21 @@ def compute_dealer_role_sips(session: GameRoom) -> dict:
     return ticker
 
 
+def compute_payout_data(session: GameRoom) -> dict:
+    """Cash wager / bankroll fields for Normal mode (drinking_mode = False,
+    digital only). Empty in Drinking/Referee mode."""
+    if session.drinking_mode or session.mode != "digital":
+        return {}
+    return {
+        "bet_amount":         session.bet_amount,
+        "starting_bankroll":  session.starting_bankroll,
+        "balances":           dict(session._bankrolls),
+        "round_payouts":      dict(session._last_round_payouts),
+        "bank_run_players":   list(session._bank_run_players),
+        "biggest_round_payouts": {k: dict(v) for k, v in session._biggest_round_payouts.items()},
+    }
+
+
 def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | None:
     """
     Return the basic-strategy best action ('h'|'s'|'d'|'sp') for the
@@ -373,6 +388,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "session_seconds":        max(0, round(time.monotonic() - session._session_started_at)),
     }
 
+    _payout_data = compute_payout_data(session)
+
     # ---- This-round / last-round drink summaries ----
     _drink_summary_data = {
         "sip_totals":             sip_totals,
@@ -540,6 +557,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "queued_settings":        session._queued_settings,
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
         **_kpi_data,
+        **_payout_data,
         **_drink_summary_data,
         **_bust_vote_data,
         **_insurance_data,

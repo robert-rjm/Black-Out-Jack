@@ -121,6 +121,24 @@
   flex-shrink: 0;
 }
 
+.seat-bankroll-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: rgba(80,200,120,.12);
+  border: 1px solid rgba(80,200,120,.22);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px; font-weight: 700; color: var(--green, #4caf50);
+  flex-shrink: 0;
+}
+
+.seat-payout {
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.seat-payout.win  { color: var(--green, #4caf50); }
+.seat-payout.loss { color: var(--red, #e05c5c); }
+.seat-payout.push { color: var(--muted); }
+
 /* ---- CARD PICKER ---- */
 .card-grid { display: grid; gap: 7px; margin-bottom: 10px; }
 #rank-grid { grid-template-columns: repeat(7, 1fr); }
