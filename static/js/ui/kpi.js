@@ -448,7 +448,7 @@ function renderStats(state) {
   const bestLoss = [...rows].sort((a, b) => b.ll - a.ll)[0];
 
   if (totalBJ > 0) {
-    const bjRate    = round > 0 ? ((totalBJ / (Object.keys(handStats).length * round)) * 100) : null;
+    const bjRate    = totalHands > 0 ? ((totalBJ / totalHands) * 100) : null;
     const bjBench   = _benchmark(_benchTable, "blackjack_rate_pct");
     const bjCol     = bjRate !== null ? benchmarkColor(bjRate, bjBench, round) : "";
     const bjBenchTxt = bjBench !== null ? ` · expected ~${bjBench}%` : "";
