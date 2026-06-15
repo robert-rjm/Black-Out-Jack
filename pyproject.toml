@@ -10,16 +10,14 @@ exclude = [".git", "__pycache__", ".venv", "venv", "build", "dist"]
 [tool.ruff.lint]
 select = ["E", "F", "W"]
 ignore = [
-    "E221",  # multiple spaces before operator (alignment)
+    # Alignment Style
+    "E221",  # multiple spaces before operator
     "E225",  # missing whitespace around operator
     "E231",  # missing whitespace after ',' or ':'
     "E261",  # at least two spaces before inline comment
     "E271",  # multiple spaces after keyword
     "E272",  # multiple spaces before keyword
-    "E301",  # expected 1 blank line before nested definition
-    "E302",  # expected 2 blank lines between top-level defs
-    "E305",  # expected 2 blank lines after class/function
-    "E401",  # multiple imports on one line
+    # Compact Lines
     "E701",  # multiple statements on one line (colon)
     "E702",  # multiple statements on one line (semicolon)
 ]

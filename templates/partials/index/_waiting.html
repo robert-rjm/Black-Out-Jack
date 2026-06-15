@@ -1,8 +1,36 @@
 <div id="waiting">
-  <h2>⏳ Waiting for host...</h2>
+  <!-- Animated logo -->
+  <div class="waiting-logo-wrap">
+    <div class="waiting-pulse-ring"></div>
+    <img src="/static/img/logo-transparent.png" alt="Black(Out)Jack Logo" class="waiting-logo" />
+  </div>
+
+  <h2 class="waiting-title">Waiting for Host</h2>
   <p class="waiting-sub">
-    The host is setting up the game. This page updates automatically.
+    The host is setting up the table. You'll be dealt in automatically.
   </p>
-  <div id="waiting-code-badge" class="room-code-badge waiting-code"></div>
+
+  <!-- Room code -->
+  <div class="waiting-code-section">
+    <span class="waiting-code-label">Room Code</span>
+    <div id="waiting-code-badge" class="room-code-badge waiting-code" title="Click to copy"></div>
+    <button class="copy-btn" data-action="copyCode">📋 Copy</button>
+  </div>
+
+  <!-- Players -->
+  <div class="waiting-players">
+    <span class="waiting-players-label">Players in lobby</span>
+    <div id="waiting-player-list" class="waiting-player-avatars"></div>
+    <span id="waiting-player-count" class="waiting-player-count">1 / ?</span>
+  </div>
+
+  <!-- Animated dots loader -->
+  <div class="waiting-loader">
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+  </div>
+
   <button class="btn red waiting-back-btn" data-action="backToLobby">← Back to Lobby</button>
+</div>
 </div>

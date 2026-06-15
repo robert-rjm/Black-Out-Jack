@@ -56,6 +56,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
     dealer_busted = dealer.dealer_hand.is_bust()
     winners, losers = [], []
     session._bust_handouts_given = set()   # reset handout tracking for this round
+    session._bust_handout_log    = []      # reset handout reveal log for this round
 
     for p in session.all_players:
         if p.name not in voters:
@@ -138,10 +139,17 @@ def apply_bust_handout_forfeit(session: GameRoom) -> None:
             session._log_version += 1
             log.debug(f"  [bust vote] {winner_name} forfeited handout — drinks 1 sip")
 
+        session._bust_handout_log.append({
+            "winner":    winner_name,
+            "recipient": None,
+            "forfeited": True,
+        })
         session._bust_handouts_given.add(winner_name)
 
     if all(w in session._bust_handouts_given for w in winners):
         session._bust_handout_expires_at = None
+        if winners:
+            session._bust_handout_seq += 1
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +429,14 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
                 "sips":   penalty,
                 "reason": reason,
             })
+            session._drink_csv_rows.append({
+                "round":  session.round_count,
+                "dealer": session.dealer_name,
+                "player": worst_name,
+                "role":   "player",
+                "rule":   "Worst average for 2 milestones",
+                "sips":   penalty,
+            })
             session._log_entries.append(
                 f"  📉 {worst_name} was the worst average for 2 milestones running — "
                 f"drinks {penalty} sip{'s' if penalty != 1 else ''}\n"
@@ -526,6 +542,14 @@ def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: 
                 "sips":   handout,
                 "reason": f"Milestone ({boundary} sips) — no other players to give to: you drink {handout} sips",
             })
+            session._drink_csv_rows.append({
+                "round":  session.round_count,
+                "dealer": session.dealer_name,
+                "player": winner,
+                "role":   "player",
+                "rule":   "Milestone handout (no other players)",
+                "sips":   handout,
+            })
         log.debug(f"  [milestone] {winner} hit {boundary} sips — no other players, drinks {handout} sips")
         return
 
@@ -539,6 +563,14 @@ def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: 
             "name":   t.name,
             "sips":   1,
             "reason": f"{winner} hit the {boundary}-sip milestone — you drink 1 sip (auto)",
+        })
+        session._drink_csv_rows.append({
+            "round":  session.round_count,
+            "dealer": session.dealer_name,
+            "player": t.name,
+            "role":   "player",
+            "rule":   "Milestone handout (round-robin)",
+            "sips":   1,
         })
         log.debug(f"    -> {t.name} +1 sip")
 
@@ -585,6 +617,14 @@ def apply_milestone_forfeit(session: GameRoom) -> None:
             "name":   winner_name,
             "sips":   handout,
             "reason": f"Milestone forfeited ({ms['boundary']} sip milestone) — you drink {handout} sips",
+        })
+        session._drink_csv_rows.append({
+            "round":  session.round_count,
+            "dealer": session.dealer_name,
+            "player": winner_name,
+            "role":   "player",
+            "rule":   "Milestone handout forfeit",
+            "sips":   handout,
         })
         log_line = (
             f"  ⏱ {winner_name} didn't assign the {ms['boundary']}-sip milestone handout "
