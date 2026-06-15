@@ -42,8 +42,18 @@
   width: 100%; max-width: 380px;
   border: 1px solid var(--border);
   max-height: 80vh; overflow-y: auto;
+  position: relative;
 }
 #kick-card h3, #summary-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+
+#summary-close-btn {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+  width: 28px; height: 28px; line-height: 1;
+  padding: 0; cursor: pointer;
+}
+#summary-close-btn:hover { background: rgba(255,255,255,.18); }
 
 /* Summary table */
 #summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
