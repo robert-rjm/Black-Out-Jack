@@ -89,6 +89,8 @@ class GameRoom:
     _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
     _bust_handouts_given: set = field(default_factory=set)  # winner names who have given their handout sip
     _bust_handout_expires_at: float | None = None          # monotonic; winners have until this to give their sip
+    _bust_handout_log: list = field(default_factory=list)   # [{"winner","recipient","forfeited"}] this round
+    _bust_handout_seq: int = 0                              # bumped once all handouts for the round resolve
 
     # Mid-round state (digital only - reset each newround in game_commands.py)
     _ace_drink_events: list = field(default_factory=list)

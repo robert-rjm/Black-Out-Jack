@@ -29,6 +29,11 @@ game_sessions: dict = {}          # room_code → GameRoom | None
 _room_created_at: dict[str, float] = {}   # room_code → time.monotonic() at creation
 _room_last_access: dict[str, float] = {}  # room_code → time.monotonic() of last activity
 
+# Clients that have joined a room but are waiting for the host to run /setup.
+# room_code → {client_id: last_seen monotonic time}
+_waiting_clients: dict[str, dict[str, float]] = defaultdict(dict)
+WAITING_CLIENT_TTL = 15   # seconds — drop a waiting client if it stops polling
+
 ACTIVE_SESSION_TTL = 24 * 3600   # expire active sessions idle for more than 24 hours
 
 # ---------------------------------------------------------------------------
@@ -115,6 +120,25 @@ def find_room_code(raw: str) -> str | None:
     return next((k for k in game_sessions if k.lower() == raw.lower()), None)
 
 
+def mark_waiting_client(room_code: str, client_id: str) -> None:
+    """Record that client_id is waiting in room_code's lobby (pre-/setup)."""
+    if not room_code or not client_id:
+        return
+    _waiting_clients[room_code][client_id] = time.monotonic()
+
+
+def get_waiting_clients(room_code: str) -> list[str]:
+    """Return client_ids currently waiting in room_code, pruning stale ones."""
+    clients = _waiting_clients.get(room_code)
+    if not clients:
+        return []
+    now = time.monotonic()
+    stale = [cid for cid, seen in clients.items() if now - seen > WAITING_CLIENT_TTL]
+    for cid in stale:
+        del clients[cid]
+    return list(clients.keys())
+
+
 def cleanup_stale_sessions() -> None:
     """Drop rooms that are past TTL.
 
@@ -134,3 +158,4 @@ def cleanup_stale_sessions() -> None:
         del game_sessions[code]
         _room_created_at.pop(code, None)
         _room_last_access.pop(code, None)
+        _waiting_clients.pop(code, None)

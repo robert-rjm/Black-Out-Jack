@@ -20,7 +20,7 @@ import io
 
 import pytest
 
-from engine.blackjack import Player, NPC_Player, Shoe
+from engine.blackjack import Player, Shoe
 from engine.referee import RefereeSession
 from app.models.game_room import GameRoom
 from app.services.decision_log import (
@@ -30,7 +30,7 @@ from app.services.decision_log import (
 )
 from app.services.session_store import game_sessions
 
-from tests.conftest import make_card, make_hand
+from tests.conftest import make_card
 
 
 # ---------------------------------------------------------------------------
