@@ -18,6 +18,7 @@ from app.services.session_store import (
     game_sessions,
     reserve_room, set_session, find_room_code,
     is_join_rate_limited,
+    mark_waiting_client, get_waiting_clients,
 )
 from app.services.validators  import sanitize_name
 from app.services.serializer  import serialize_state
@@ -96,10 +97,14 @@ def join_room():
 
     session  = game_sessions[code]
     has_game = session is not None
+    if not has_game:
+        mark_waiting_client(code, client_id)
     state    = serialize_state(session, client_id)
     state["ok"]        = True
     state["has_game"]  = has_game
     state["room_code"] = code   # return canonical casing
+    if not has_game:
+        state["waiting_count"] = len(get_waiting_clients(code))
     return jsonify(state)
 
 

@@ -127,7 +127,8 @@
   overflow-y: auto;
 }
 #lobby h2  { font-size: 28px; font-weight: 800; letter-spacing: .5px; }
-#waiting h2 { font-size: 22px; font-weight: 800; }
+#waiting h2,
+.waiting-title { font-size: 22px; font-weight: 800; }
 #lobby h2 img.lobby-logo {
   width: 48px;
   height: 48px;
@@ -157,6 +158,135 @@
   width: 100%; max-width: 420px; text-align: center;
   background: rgba(79,142,247,.06); border: 1px solid rgba(79,142,247,.2);
   border-radius: var(--radius); padding: 10px 16px;
+}
+
+/* ---- WAITING: Logo ---- */
+.waiting-logo-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.waiting-logo {
+  width: 100px;
+  height: auto;
+  position: relative;
+  z-index: 1;
+  animation: waitingFloat 3s ease-in-out infinite;
+  filter: drop-shadow(0 2px 10px rgba(79, 142, 247, 0.3));
+}
+
+.waiting-pulse-ring {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(79, 142, 247, 0.1);
+  animation: waitingPulse 2s ease-in-out infinite;
+}
+
+@keyframes waitingFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes waitingPulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.5); opacity: 0; }
+}
+
+/* ---- WAITING: Code Section ---- */
+.waiting-code-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.waiting-code-label,
+.waiting-players-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+}
+
+.copy-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+  transition: color 0.2s, background 0.2s;
+}
+
+.copy-btn:hover {
+  color: var(--accent);
+  background: rgba(79, 142, 247, 0.08);
+}
+
+/* ---- WAITING: Players ---- */
+.waiting-players {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.waiting-player-avatars {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.waiting-player-avatars .avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(79, 142, 247, 0.1);
+  border: 2px solid rgba(79, 142, 247, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  animation: avatarPop 0.3s ease-out;
+}
+
+@keyframes avatarPop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.waiting-player-count {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---- WAITING: Dot Loader ---- */
+.waiting-loader {
+  display: flex;
+  gap: 5px;
+}
+
+.waiting-loader .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.7;
+  animation: waitingBounce 1.4s ease-in-out infinite;
+}
+
+.waiting-loader .dot:nth-child(2) { animation-delay: 0.2s; }
+.waiting-loader .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes waitingBounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-8px); }
 }
 
 /* ---- DRINK NOTICE ---- */
