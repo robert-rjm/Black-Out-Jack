@@ -57,11 +57,15 @@ header {
 header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 #header-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
-/* ─── Logo ─── */
+/* ─── Logo ───
+   Sized/positioned relative to the header's *content* box (excluding its
+   safe-area-driven top padding), not the header's total height — otherwise
+   the logo balloons in standalone mode where padding-top grows to clear the
+   Dynamic Island / status bar. */
 #header-logo {
   position: absolute;
-  top: 50%;
-  height: calc(100% - 8px);
+  top: calc(max(6px, env(safe-area-inset-top)) + 2px);
+  height: calc(100% - max(6px, env(safe-area-inset-top)) - 10px);
   width: auto;
   aspect-ratio: 1;
   border-radius: 50%;
@@ -69,7 +73,6 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 
   /* Mobile: right-aligned */
   right: 16px;
-  transform: translateY(-50%);
 }
 
 /* ─── Desktop ─── */
@@ -80,9 +83,11 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 
   /* Sits right above the #left-col / #right-col divider (55% split) */
   #header-logo {
+    top: calc(max(12px, env(safe-area-inset-top)) + 2px);
+    height: calc(100% - max(12px, env(safe-area-inset-top)) - 16px);
     left: 55%;
     right: auto;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
   }
 }
 
