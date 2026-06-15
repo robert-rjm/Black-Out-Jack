@@ -258,7 +258,9 @@ class RefereeSession:
         # Check for blackjack on first two cards
         if len(hand.cards) == 2 and hand.is_blackjack() and not is_dealer_seat:
             self._log(f"  *** {recipient_name} has BLACKJACK! ***")
-            self._log(f"  (Use 'action {recipient_name} insurance {hand_label}' if dealer shows A and they want to insure)")
+            self._log(
+                f"  (Use 'action {recipient_name} insurance {hand_label}' "
+                f"if dealer shows A and they want to insure)")
 
     # ---------------------------------------------------------------- command: action
 

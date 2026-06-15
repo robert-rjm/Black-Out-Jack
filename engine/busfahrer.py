@@ -13,9 +13,8 @@ Designed as add-on to Black-Out-Jack.
 """
 
 import random
-import time
 from enum import Enum
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
