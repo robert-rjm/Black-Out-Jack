@@ -739,6 +739,11 @@ function exportDrinkCSV() {
   window.location.href = "/export_csv?room_code=" + encodeURIComponent(roomCode);
 }
 
+function exportDecisionLog() {
+  if (!roomCode) { alert("No active session."); return; }
+  window.location.href = "/export_decisions?room_code=" + encodeURIComponent(roomCode);
+}
+
 // ============================================================
 // RESET
 // ============================================================
