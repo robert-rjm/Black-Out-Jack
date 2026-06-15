@@ -35,6 +35,7 @@ from app.services.game_engine import (
     bust_vote_pending, _push_ace_drink_event,
 )
 from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
+from app.services.decision_log import record_decision, backfill_hand_results
 from app.services.payout_tracker import apply_payouts, cmd_rebuy
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
 from app.config import BUST_VOTE_WINDOW_SECONDS
@@ -167,6 +168,7 @@ def _perform_action_without_honor(game_session, player, hand, action) -> None:
 
     if action == "hit":
         _record_strategy_decision(game_session, player, hand, "h")
+        record_decision(game_session, player, hand, "h")
         card = deal_card(game_session, hand, player.name)
         log.debug(f"  {player.name} {hand_label} hits without honor {card}: {hand}")
         if hand.is_bust():
@@ -176,6 +178,7 @@ def _perform_action_without_honor(game_session, player, hand, action) -> None:
             hand.stood = True
     elif action == "double":
         _record_strategy_decision(game_session, player, hand, "d")
+        record_decision(game_session, player, hand, "d")
         hand.doubled = True
         deal_card(game_session, hand, player.name)
         hand.stood = True
@@ -186,6 +189,7 @@ def _perform_action_without_honor(game_session, player, hand, action) -> None:
     else:  # "stand" (default / fallback)
         action = "stand"
         _record_strategy_decision(game_session, player, hand, "s")
+        record_decision(game_session, player, hand, "s")
         hand.stood = True
         log.debug(f"  {player.name} {hand_label}: stands without honor at {hand.score()}.")
 
@@ -213,6 +217,7 @@ def _resolve_endround(game_session):
     harvest_drink_log(game_session)
     check_and_set_milestone(game_session)
     apply_payouts(game_session)
+    backfill_hand_results(game_session)
 
 
 def _after_player_action(game_session):
@@ -303,6 +308,7 @@ def _cmd_hit(game_session, parts):
                   f"this unsuited 10-pair — awaiting choice.")
         return
     _record_strategy_decision(game_session, player, hand, "h")
+    record_decision(game_session, player, hand, "h")
     card = deal_card(game_session, hand, player.name)
     log.debug(f"  {player.name} {hand_label} hits {card}: {hand}")
     if hand.is_bust():
@@ -333,6 +339,7 @@ def _cmd_stand(game_session, parts):
                   f"this unsuited 10-pair — awaiting choice.")
         return
     _record_strategy_decision(game_session, player, hand, "s")
+    record_decision(game_session, player, hand, "s")
     hand.stood = True
     log.debug(f"  {player.name} {hand_label}: stands at {hand.score()}.")
 
@@ -446,6 +453,7 @@ def _cmd_double(game_session, parts):
                   f"this unsuited 10-pair — awaiting choice.")
         return
     _record_strategy_decision(game_session, player, hand, "d")
+    record_decision(game_session, player, hand, "d")
     hand.doubled = True
     deal_card(game_session, hand, player.name)
     hand.stood   = True
@@ -489,6 +497,7 @@ def _cmd_split(game_session, parts):
     )
 
     _record_strategy_decision(game_session, player, hand, "sp")
+    record_decision(game_session, player, hand, "sp")
     # `hand` keeps its identity (id(hand)) across the split — only its second
     # card is moved out to `new_hand`. If this hand was previously acked for
     # the "mandatory split 10s" house rule (split OR stood-without-honor),
@@ -549,6 +558,7 @@ def _cmd_insurance(game_session, parts):
     if not hand.is_blackjack():
         log.debug("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
         return
+    record_decision(game_session, player, hand, "insurance")
     hand.insured = True
     # Sync with the vote system: force all voters' votes to True so
     # dealer_turn resolves this hand as insured via voted_keys.

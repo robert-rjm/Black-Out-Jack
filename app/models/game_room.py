@@ -28,6 +28,10 @@ class GameRoom:
     _log_version: int = 0
     _deferred_hole_card_msgs: list = field(default_factory=list)
 
+    # Decision log (Phase C — per-decision board-state capture for
+    # per-player bot training; see docs/planning/DecisionLog-Plan.md)
+    _decision_log: list = field(default_factory=list)
+
     # Drink accounting
     _drink_csv_rows: list = field(default_factory=list)
     _sip_ticker: dict = field(default_factory=dict)

@@ -13,6 +13,7 @@ import logging
 import time as _time
 
 from engine.blackjack import Hand, HandEvaluator, NPC_Player
+from app.services.decision_log import record_decision
 from engine.drinking_rules import DrinkingRules
 from engine.events import (
     CardDealtEvent,
@@ -471,6 +472,8 @@ def auto_play_npc_turns(session: GameRoom) -> None:
                 hand, dealer_up, valid,
                 drinking_mode=session.drinking_mode)
         log.debug(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
+
+        record_decision(session, player, hand, action, is_npc=True)
 
         if action == "h":
             card = deal_card(session, hand, player.name)

@@ -8,3 +8,8 @@ pytest-cache-files-*/
 scripts/simulation_log.csv
 scripts/simulation_results.txt
 scripts/benchmarks.json
+
+# Decision-log exports (Phase C / DecisionLog-Plan.md) — real session data,
+# not code. Save exports here locally; not tracked/published.
+data/decisions/
+data/drinks/

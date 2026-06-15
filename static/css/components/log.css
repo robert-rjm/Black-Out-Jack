@@ -72,7 +72,7 @@
 /* ---- DEALER TOAST ---- */
 #dealer-toast {
   position: fixed;
-  top: max(64px, calc(env(safe-area-inset-top) + 64px));
+  top: 64px;
   left: 50%;
   transform: translateX(-50%) translateY(-20px);
   background: var(--yellow);
@@ -96,7 +96,7 @@
 /* ---- PLAYER DRINK TOAST ---- */
 #player-toast {
   position: fixed;
-  top: max(64px, calc(env(safe-area-inset-top) + 64px));
+  top: 64px;
   left: 50%;
   transform: translateX(-50%) translateY(-16px);
   font-size: 15px; font-weight: 800;
@@ -117,7 +117,7 @@
 /* ---- SWITCH TOAST (hard/soft dealer switch — everyone sees it) ---- */
 #switch-toast {
   position: fixed;
-  top: max(120px, calc(env(safe-area-inset-top) + 120px));
+  top: 120px;
   left: 50%;
   transform: translateX(-50%) translateY(-16px);
   font-size: 14px; font-weight: 800;
