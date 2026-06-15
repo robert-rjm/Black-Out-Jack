@@ -179,7 +179,23 @@ def harvest_drink_log(session: GameRoom) -> None:
             sips   = entry[0]
             reason = entry[1]
             role   = entry[2] if len(entry) > 2 else "player"
-            if sips <= 0:
+            if sips == 0:
+                continue
+            if sips < 0:
+                # Credit entries reduce a player's net total — include them in the
+                # CSV as negative rows so that summing the sips column matches the
+                # sip tracker shown on the WebUI.  classify_rule returns None for
+                # most credits (intentionally omitting them from named-rule stats),
+                # so fall back to a generic "Sip credit" label.
+                credit_rule = classify_rule(reason) or "Sip credit"
+                rows.append({
+                    "round":  round_num,
+                    "dealer": dealer,
+                    "player": p.name,
+                    "role":   role,
+                    "rule":   credit_rule,
+                    "sips":   sips,
+                })
                 continue
             rule = classify_rule(reason)
             if rule is None:
