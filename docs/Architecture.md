@@ -9,6 +9,7 @@ Technical documentation for **Black(Out)Jack**: project structure, file dependen
 - [File Dependencies](#file-dependencies)
 - [Separation of Concerns](#separation-of-concerns)
 - [Simulation & Statistics](#simulation--statistics)
+- [Rules/Code Sync Check](#rulescode-sync-check)
 - [Common Issues](#common-issues)
 - [Development Guide](#development-guide)
 
@@ -71,6 +72,7 @@ Black-Out-Jack/
 │   ├── simulation.py                       # 100,000-round NPC simulation; outputs CSV, txt,
 │   │                                       # benchmarks.json, and static/js/benchmarks.js
 │   ├── snapshot.py                         # Saves simulation output as a labeled regression snapshot
+│   ├── rules_sync.py                       # Rules/code drift check + re-pin (docs/.rules_sync.json)
 │   └── snapshots/                          # Saved snapshots (scripts/snapshots/<label>/)
 ├── tests/                                  # pytest suite (see docs/planning/Test-Plan.md)
 │   ├── conftest.py                         # Shared fixtures/builders (make_card, make_hand, make_player...)
@@ -79,7 +81,8 @@ Black-Out-Jack/
 │   ├── test_drink_tracker.py               # DrinkTracker unit tests
 │   ├── test_round_manager_integration.py   # Scripted, seeded full-round integration tests
 │   ├── test_regression_snapshots.py        # Statistical regression vs. scripts/snapshots/
-│   └── test_bust_vote*.py                  # Bust vote side bet tests (Rules.md §4.4)
+│   ├── test_bust_vote*.py                  # Bust vote side bet tests (Rules.md §4.4)
+│   └── test_rules_doc_sync.py              # Fails if docs/Rules.md / drinking_rules.py drift apart
 ├── server.py                               # Flask entry point
 ├── requirements.txt                        # Python dependencies for deployment
 ├── requirements-dev.txt                    # Adds pytest for running the test suite
@@ -102,6 +105,7 @@ The main files are intentionally decoupled:
 | `scripts/play_terminal.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | Interactive terminal play via `RoundManager` + `DrinkTracker` |
 | `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 100,000-round NPC simulation; outputs CSV, txt, `benchmarks.json`, and `static/js/benchmarks.js` |
 | `scripts/snapshot.py` | `scripts/simulation.py` output | Copies `simulation_results.txt` + `benchmarks.json` into `scripts/snapshots/<label>/` for regression diffing |
+| `scripts/rules_sync.py` | `docs/Rules.md`, `engine/drinking_rules.py`, `docs/.rules_sync.json` | Hash-based drift check + re-pin helper (see [Rules/Code Sync Check](#rulescode-sync-check)) |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
 | `app/` | `engine/` | Routes, models, and services for the web UI |
 | `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
@@ -187,6 +191,39 @@ This copies `simulation_results.txt` and `benchmarks.json` into
 `scripts/snapshots/<players>p/<decks>deck/<label>/` (config taken from the most recently
 generated entry in `benchmarks.json`). After future engine changes, re-run the simulation
 and diff the new output against the snapshot to spot unintended balance shifts.
+
+## Rules/Code Sync Check
+
+`docs/Rules.md` (what players read) and `engine/drinking_rules.py` (what
+the code actually does) can drift apart silently — someone edits the
+rules doc without updating the logic, or vice versa. `scripts/rules_sync.py`
+guards against this by pinning SHA256 hashes of both files in
+`docs/.rules_sync.json`.
+
+`tests/test_rules_doc_sync.py` runs this check as part of the normal
+test suite and fails with one of:
+
+- **in sync** — pass, nothing to do
+- **docs changed, code didn't** — review whether `drinking_rules.py` needs
+  updating to match the new rule text
+- **code changed, docs didn't** — review whether `Rules.md` (and
+  `Cheat-Sheet.md` / `Comprehensive-Example.md`) need updating to describe
+  the new behavior
+- **both changed** — review that the two are still consistent with each
+  other
+- **no baseline recorded** — `docs/.rules_sync.json` is missing
+
+Once you've confirmed the doc and code are aligned (after editing one,
+the other, or both), re-pin the hashes:
+
+```bash
+python scripts/rules_sync.py update
+```
+
+Commit the updated `docs/.rules_sync.json` alongside your change. This
+check only covers `Rules.md` + `drinking_rules.py` — it doesn't replace the
+benchmark regeneration step above, which covers behavioral/statistical
+drift in `engine/blackjack.py` as well.
 
 ## Common Issues
 
