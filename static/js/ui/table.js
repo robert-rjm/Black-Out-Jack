@@ -489,6 +489,7 @@ function applyState(state) {
   if (drinkingOn) processAceDrinkEvents(state);  // mid-round ace drink toasts
   processReshuffleEvents(state);                 // mid-round shoe reshuffle toast (all modes)
   if (drinkingOn) updateHonorPrompt(state);      // mandatory split-10s house-rule prompt
+  if (!drinkingOn) updateBankRunPrompt(state);   // "Bank Run" modal (Normal mode bankroll = $0)
   updateKpiPanel(state);     // leaderboard + future KPI panes
 
   // Keep settings modal in sync while it's open
@@ -651,6 +652,59 @@ async function honorResolve(choice) {
   }
 }
 window.honorResolve = honorResolve;
+
+// ── "Bank Run" modal: shown to a player whose bankroll hits $0 (Normal
+// mode only). Offers a re-buy back to the starting bankroll, or to keep
+// spectating with $0 (Exit / Spectate just dismisses the modal — the
+// player can still watch the table).
+function updateBankRunPrompt(state) {
+  const overlay = document.getElementById("bank-run-overlay");
+  if (!overlay) return;
+
+  const bankRun = (state && state.bank_run_players) || [];
+  // Only show the modal to a busted player who hasn't dismissed it yet.
+  const myBusted = myNames.find(n => bankRun.some(b => b.toLowerCase() === n.toLowerCase()));
+
+  if (myBusted && !DrinkUI._bankRunDismissed?.has(myBusted)) {
+    overlay.classList.add("open");
+    const nameEl = document.getElementById("bank-run-player-name");
+    if (nameEl) nameEl.textContent = myBusted;
+    overlay.dataset.player = myBusted;
+  } else {
+    overlay.classList.remove("open");
+  }
+}
+
+async function bankRebuy() {
+  const overlay = document.getElementById("bank-run-overlay");
+  const player  = overlay?.dataset.player;
+  overlay?.classList.remove("open");
+  if (!player) return;
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/rebuy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: roomCode, client_id: clientId, player }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } finally {
+    _requestsInFlight--;
+  }
+}
+window.bankRebuy = bankRebuy;
+
+function bankExit() {
+  const overlay = document.getElementById("bank-run-overlay");
+  const player  = overlay?.dataset.player;
+  overlay?.classList.remove("open");
+  if (player) {
+    DrinkUI._bankRunDismissed = DrinkUI._bankRunDismissed || new Set();
+    DrinkUI._bankRunDismissed.add(player);
+  }
+}
+window.bankExit = bankExit;
 
 // ── Drinks pane: player card selection ──────────────────────────────────────
 function selectDrinksPlayer(name) {

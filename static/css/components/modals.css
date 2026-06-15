@@ -264,6 +264,32 @@
   border: 2px solid var(--yellow);
 }
 
+/* ── Bank Run modal (Normal mode, bankroll hit $0) ── */
+#bank-run-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 920;
+  align-items: center; justify-content: center;
+}
+#bank-run-overlay.open { display: flex; }
+#bank-run-modal {
+  background: var(--surface);
+  border: 2px solid var(--green, #4caf50);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  width: min(320px, 88vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+#bank-run-modal .btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 /* ── Insurance vote modal ── */
 #idle-urgent-overlay {
   display: none;

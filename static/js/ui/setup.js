@@ -126,6 +126,7 @@ function setGameType(type, btn) {
   const refSettings    = document.getElementById("settings-ref");
   const digSettings    = document.getElementById("settings-dig-wrap");
   const wagerCell      = document.getElementById("wager-dig-cell");
+  const betCell        = document.getElementById("bet-dig-cell");
   const easyModeField  = document.getElementById("easy-mode-setup-field");
   const handsDecksRow  = document.getElementById("settings-dig");
   const togglesRow     = document.getElementById("settings-dig-toggles");
@@ -146,6 +147,7 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "";
+    if (betCell) betCell.style.display = "none";
     if (easyModeField) easyModeField.style.display = "";
     setRowCols(handsDecksRow, false);
     setRowCols(togglesRow, false);
@@ -156,12 +158,13 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "none";
+    if (betCell) betCell.style.display = "";
     // Easy Mode only applies to drink halving — not relevant for Normal mode
     if (easyModeField) {
       easyModeField.style.display = "none";
       setEasyModeSetup(false);
     }
-    setRowCols(handsDecksRow, true);
+    setRowCols(handsDecksRow, false);
     setRowCols(togglesRow, true);
     sub.textContent = "Standard Blackjack with No Drinks";
   } else {   // referee
@@ -169,6 +172,7 @@ function setGameType(type, btn) {
     setupDrinking = true;
     refSettings.style.display  = "block";
     digSettings.style.display  = "none";
+    if (betCell) betCell.style.display = "none";
     if (easyModeField) easyModeField.style.display = "";
     setRowCols(handsDecksRow, false);
     setRowCols(togglesRow, false);
@@ -293,21 +297,32 @@ renderPlayerRows();
 // ============================================================
 // NUMBER STEPPER
 // ============================================================
+function _stepperDisplay(el, val) {
+  const step = parseFloat(el.dataset.step) || 1;
+  return el.dataset.money !== undefined || step % 1 !== 0
+    ? `$${val.toFixed(2)}`
+    : String(val);
+}
+
 function getStepperValue(id) {
   const el = document.getElementById(id);
   if (!el) return null;
   if (el.tagName === "INPUT") return parseInt(el.value) || 0;  // fallback for plain inputs
-  return parseInt(el.dataset.value) || 0;
+  const step = parseFloat(el.dataset.step) || 1;
+  const val = parseFloat(el.dataset.value) || 0;
+  return step % 1 !== 0 ? val : (parseInt(el.dataset.value) || 0);
 }
 
 function setStepperValue(id, val) {
   const el = document.getElementById(id);
   if (!el || !el.classList.contains("stepper")) return;
-  const min = parseInt(el.dataset.min) || 0;
-  const max = parseInt(el.dataset.max) || Infinity;
+  const step = parseFloat(el.dataset.step) || 1;
+  const min = parseFloat(el.dataset.min) || 0;
+  const max = parseFloat(el.dataset.max) || Infinity;
   val = Math.max(min, Math.min(max, val));
+  if (step % 1 !== 0) val = Math.round(val * 100) / 100;
   el.dataset.value = val;
-  el.querySelector(".stepper-display").textContent = val;
+  el.querySelector(".stepper-display").textContent = _stepperDisplay(el, val);
   el.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
   el.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
 }
@@ -346,16 +361,18 @@ document.addEventListener("click", e => {
   const stepper = btn.closest(".stepper");
   if (!stepper) return;
 
-  const min = parseInt(stepper.dataset.min) || 0;
-  const max = parseInt(stepper.dataset.max) || Infinity;
-  let val   = parseInt(stepper.dataset.value) || 0;
+  const step = parseFloat(stepper.dataset.step) || 1;
+  const min  = parseFloat(stepper.dataset.min) || 0;
+  const max  = parseFloat(stepper.dataset.max) || Infinity;
+  let val    = parseFloat(stepper.dataset.value) || 0;
 
   val = btn.classList.contains("stepper-dec")
-    ? Math.max(min, val - 1)
-    : Math.min(max, val + 1);
+    ? Math.max(min, val - step)
+    : Math.min(max, val + step);
+  if (step % 1 !== 0) val = Math.round(val * 100) / 100;
 
   stepper.dataset.value = val;
-  stepper.querySelector(".stepper-display").textContent = val;
+  stepper.querySelector(".stepper-display").textContent = _stepperDisplay(stepper, val);
   stepper.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
   stepper.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
 });
@@ -391,6 +408,9 @@ async function startGame() {
   // Player 1 is always the starting dealer
   const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
   if (isDigital) body.num_decks = numDecks;
+  if (!setupDrinking) {
+    body.bet_amount = getStepperValue("bet-dig") || 10;
+  }
 
   const res  = await fetch("/setup", {
     method: "POST",
