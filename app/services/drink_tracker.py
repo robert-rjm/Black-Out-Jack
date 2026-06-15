@@ -457,10 +457,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
             session._log_version += 1
             log.debug(f"  [milestone] {worst_name} worst avg 2x in a row — drinks {penalty} sips")
 
-        # Reset the streak — this is a one-time penalty.
-        session._last_milestone_worst = None
-    else:
-        session._last_milestone_worst = worst_name
+    session._last_milestone_worst = worst_name
 
 
 def check_and_set_milestone(session: GameRoom) -> None:
