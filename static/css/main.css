@@ -211,10 +211,13 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 .bnav-icon {
   font-size: 22px;
   line-height: 1;
-  height: 26px;
+  height: 36px;
+  width: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(255,255,255,.05);
+  border-radius: 16px;
 }
 #btn-admin-nav .bnav-icon { transform: translateY(12px); }
 .bnav-label { display: none; }
