@@ -236,15 +236,15 @@
   </div>
 </div>
 
-<div id="summary-overlay">
-  <div id="summary-card">
+<div id="summary-overlay" data-backdrop-action="closeSummaryModal">
+  <div id="summary-card" data-stop-propagation="true">
+    <button id="summary-close-btn" data-action="closeSummaryModal" title="Close">✕</button>
     <h3>🃏 Session Summary</h3>
     <div id="summary-meta" class="summary-meta"></div>
     <div id="summary-body"></div>
     <div class="btn-row summary-actions">
-      {{ action_btn('Close', 'closeSummaryModal', '[]', 'btn wide') }}
-      {{ action_btn('⬇️ Export Drinks CSV', 'exportDrinksAndClose', '[]', 'btn wide drink-only') }}
-      {{ action_btn('⬇️ Export Decision Log', 'exportDecisionLogAndClose', '[]', 'btn wide') }}
+      {{ action_btn('⬇️ Export Drinks CSV', 'exportDrinksAndClose', '[]', 'btn wide green drink-only') }}
+      {{ action_btn('⬇️ Export Drinks Log', 'exportDecisionLogAndClose', '[]', 'btn wide') }}
     </div>
   </div>
 </div>
