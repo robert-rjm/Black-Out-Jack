@@ -286,6 +286,8 @@ function renderStats(state) {
     const hitH        = hs.hit_hands    || 0;
     const sub17       = hs.stand_sub17  || 0;
     const sub17Pct    = hands > 0 ? Math.round((sub17 / hands) * 100) : null;
+    const bustPct     = hands > 0 ? Math.round((busts / hands) * 100) : null;
+    const suitedPct   = hands > 0 ? Math.round((suited / hands) * 100) : null;
     const totalScore  = hs.total_score  || 0;
     const scoredH     = hs.scored_hands || 0;
     const totalSipsP  = sipTotals[name] || 0;
@@ -306,7 +308,7 @@ function renderStats(state) {
     const startBank   = state.starting_bankroll || 100;
     const netPL       = balance !== undefined ? balance - startBank : null;
     const big         = (state.biggest_round_payouts || {})[name] || {};
-    return { name, hands, wins, losses, pushes, wr, current, bj, busts, suited, hitRate, sub17, sub17Pct, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal, balance, netPL, bigWin: big.best || 0, bigLoss: big.worst || 0 };
+    return { name, hands, wins, losses, pushes, wr, current, bj, busts, bustPct, suited, suitedPct, hitRate, sub17, sub17Pct, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal, balance, netPL, bigWin: big.best || 0, bigLoss: big.worst || 0 };
   }).filter(r => r.hands > 0 || r.totalSipsP > 0 || r.balance !== undefined);
 
   if (rows.length === 0) {
@@ -334,11 +336,11 @@ function renderStats(state) {
     const rc       = isDlr(r.name) ? " lb-row-dealer" : "";
     const nameCell = `${escapeHtml(r.name)}${isDlr(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
     const bjCell   = r.bj    > 0 ? `<span style="color:var(--yellow);font-weight:700">🃏${r.bj}</span>`  : `<span style="opacity:.35">—</span>`;
-    const bstCell  = r.busts > 0 ? `<span style="color:var(--red)">${r.busts}</span>` : `<span style="opacity:.35">0</span>`;
+    const bstCell  = r.busts > 0 ? `<span style="color:var(--red)">${r.bustPct}%</span>` : `<span style="opacity:.35">0%</span>`;
     const maxCell  = r.maxSips > 0 ? `<span style="color:var(--red)">🍺${r.maxSips}</span>` : `<span style="opacity:.35">—</span>`;
     const lwCell   = r.lw > 0 ? `<span style="color:var(--green)">🔥${r.lw}</span>` : `<span style="opacity:.35">—</span>`;
     const llCell   = r.ll > 0 ? `<span style="color:var(--red)">💀${r.ll}</span>`   : `<span style="opacity:.35">—</span>`;
-    const stCell   = r.suited > 0 ? `<span style="color:var(--accent)">${r.suited}</span>` : `<span style="opacity:.35">—</span>`;
+    const stCell   = r.suited > 0 ? `<span style="color:var(--accent)">${r.suitedPct}%</span>` : `<span style="opacity:.35">0%</span>`;
     const bankrollCell = r.balance !== undefined
       ? `<span>$${r.balance.toFixed(2)}</span>` : `<span style="opacity:.35">—</span>`;
     const netPLCell = r.netPL !== null
