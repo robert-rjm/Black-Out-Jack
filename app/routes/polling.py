@@ -687,6 +687,14 @@ def give_bust_sip():
         log.debug(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
     session._bust_handouts_given.add(winner_name)
+    session._bust_handout_log.append({
+        "winner":    winner_name,
+        "recipient": recipient_name,
+        "forfeited": False,
+    })
+    if all(w in session._bust_handouts_given for w in result.get("winners", [])):
+        session._bust_handout_expires_at = None
+        session._bust_handout_seq += 1
 
     # harvest_drink_log already ran — patch the round snapshots directly so
     # the sip shows up in the drinks panel and cumulative ticker without waiting

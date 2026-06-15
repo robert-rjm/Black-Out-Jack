@@ -56,6 +56,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
     dealer_busted = dealer.dealer_hand.is_bust()
     winners, losers = [], []
     session._bust_handouts_given = set()   # reset handout tracking for this round
+    session._bust_handout_log    = []      # reset handout reveal log for this round
 
     for p in session.all_players:
         if p.name not in voters:
@@ -138,10 +139,17 @@ def apply_bust_handout_forfeit(session: GameRoom) -> None:
             session._log_version += 1
             log.debug(f"  [bust vote] {winner_name} forfeited handout — drinks 1 sip")
 
+        session._bust_handout_log.append({
+            "winner":    winner_name,
+            "recipient": None,
+            "forfeited": True,
+        })
         session._bust_handouts_given.add(winner_name)
 
     if all(w in session._bust_handouts_given for w in winners):
         session._bust_handout_expires_at = None
+        if winners:
+            session._bust_handout_seq += 1
 
 
 # ---------------------------------------------------------------------------

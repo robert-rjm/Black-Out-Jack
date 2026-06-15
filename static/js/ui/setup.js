@@ -13,6 +13,7 @@ const DrinkUI = {
   prevRoundDrinks:    [],   // detailed drink entries for the previous round
   drinksPaneSelected: null, // name of player whose detail is shown in Drinks pane
   lastRoundOverSeq:   0,    // seq-based: fire drink toast whenever this advances
+  lastBustHandoutSeq: 0,    // seq-based: fire bust-handout-result toast whenever this advances
   lastMilestoneKey:       null, // "boundary:winner" — prevents re-showing toast on every poll
   lastMilestoneResultKey: null, // same format — prevents re-showing drink toast on every poll
   milestoneModalOpened:   null, // key for which we already opened the modal (prevents re-open on re-poll)
