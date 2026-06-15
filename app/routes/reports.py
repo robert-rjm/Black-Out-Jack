@@ -227,6 +227,50 @@ def export_csv():
 
 
 # ---------------------------------------------------------------------------
+# Decision log export (Phase C — see docs/planning/DecisionLog-Plan.md)
+# ---------------------------------------------------------------------------
+
+_DECISION_COLUMNS = [
+    "session_id", "timestamp", "round", "player", "hand_index",
+    "dealer_name", "hand_cards_before", "hand_total_before", "is_soft",
+    "dealer_upcard", "visible_cards", "cards_remaining", "decks_in_play",
+    "valid_actions", "action_taken", "basic_strategy_action",
+    "drinking_mode", "mode", "bet_amount", "wager", "is_npc", "hand_result",
+]
+
+
+@bp.route("/export_decisions")
+def export_decisions():
+    """
+    Return a CSV of recorded player decisions for this session.
+    Usage: GET /export_decisions?room_code=Jack-21&player=<name optional>
+    """
+    room_code = request.args.get("room_code", "")
+    player    = request.args.get("player", "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return Response("No active session.", status=404, mimetype="text/plain")
+
+    rows = session._decision_log
+    if player:
+        rows = [r for r in rows if r["player"].lower() == player.lower()]
+
+    buf = io.StringIO()
+    w   = csv.writer(buf)
+    w.writerow(_DECISION_COLUMNS)
+    for row in rows:
+        w.writerow([row.get(col, "") for col in _DECISION_COLUMNS])
+
+    return Response(
+        b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
+        status=200,
+        mimetype="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="decision_log.csv"'},
+    )
+
+
+# ---------------------------------------------------------------------------
 # JSON summary
 # ---------------------------------------------------------------------------
 
