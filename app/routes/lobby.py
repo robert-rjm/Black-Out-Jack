@@ -165,6 +165,7 @@ def setup():
     room = GameRoom(
         session=raw_session,
         mode=mode,
+        room_code=room_code,
         drinking_mode=drinking,
         rounds_this_dealer=1,
         switch_this_round=None,

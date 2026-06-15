@@ -18,6 +18,11 @@ class GameRoom:
     mode: str = "referee"
     drinking_mode: bool = True
 
+    # Room code this session is stored under in app.services.session_store
+    # (set at creation time in app/routes/lobby.py:setup). Used for
+    # tagging exported logs (e.g. decision_log.py's "session_id" column).
+    room_code: str = ""
+
     # Dealer rotation
     rounds_this_dealer: int = 1
     switch_this_round: str | None = None

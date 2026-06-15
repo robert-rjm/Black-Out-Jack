@@ -81,7 +81,7 @@ def record_decision(session: GameRoom, player, hand, action: str, *,
 
     shoe = session.shoe
     row = {
-        "session_id":              getattr(session, "room_code", None) or "",
+        "session_id":              session.room_code,
         "timestamp":               time.time(),
         "round":                   session.round_count,
         "player":                  player.name,
