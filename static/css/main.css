@@ -43,7 +43,6 @@ html, body {
   inset: 0;
   display: flex;
   flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 header {
