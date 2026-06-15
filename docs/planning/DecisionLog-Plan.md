@@ -10,15 +10,19 @@ This is independent of the Normal Mode rebuild (`NormalMode-Plan.md`) and
 applies to **both Drinking and Normal modes** — the decision data is the same
 shape in either mode; only `drinking_mode`/`bet_amount` context differs.
 
-Status: not started. Split into two phases — **Phase C (logging + export)** is
-the near-term buildable piece; **Phase D (training + bot integration)** is the
-future payoff and can be designed in more detail once real data exists.
+Status: Phase C mostly done — C1, C2, C3 (incl. C3a, resolved as manual
+session-scoped export), C4, and C5 (automated tests) are implemented. Only
+the C5 manual play/export spot-check remains before exit criteria are fully
+met. See per-section status below. Split into two
+phases — **Phase C (logging + export)** is the near-term buildable piece;
+**Phase D (training + bot integration)** is the future payoff and can be
+designed in more detail once real data exists.
 
 ---
 
 ## Phase C — Decision logging + export
 
-### C1. Data schema
+### C1. Data schema — ✅ DONE
 One row per player decision (`hit`, `stand`, `double`, `split`, `insurance`),
 captured **before** the action mutates the hand:
 
@@ -48,7 +52,7 @@ captured **before** the action mutates the hand:
 | `bet_amount` (normal) / `wager` (drinking) | stake context |
 | `hand_result` | win/loss/push — **backfilled** after `_resolve_endround` |
 
-### C2. Capture hooks (`app/routes/game_commands.py`)
+### C2. Capture hooks (`app/routes/game_commands.py`) — ✅ DONE
 - Add a small helper in a new module `app/services/decision_log.py`:
   `record_decision(session, player, hand, action)` — builds the row above
   from current session state and appends to `session._decision_log` (new
@@ -68,48 +72,58 @@ captured **before** the action mutates the hand:
   checks (e.g. confirming the "standard" bot always matches
   `basic_strategy_action`), but excluded by default from training exports.
 
-### C3. Export route (`app/routes/reports.py`)
-- New `GET /export_decisions?room_code=...&player=<name optional>`
-- Returns CSV (one row per decision, columns as in C1) — same
+### C3. Export route (`app/routes/reports.py`) — ✅ DONE
+- ✅ New `GET /export_decisions?room_code=...&player=<name optional>`
+- ✅ Returns CSV (one row per decision, columns as in C1) — same
   BOM/`Content-Disposition` pattern as `/export_csv`.
-- Available in **both** modes (not gated by `drinking_mode`), unlike the
+- ✅ Available in **both** modes (not gated by `drinking_mode`), unlike the
   existing sip-focused export.
-- Open question (C3a): session-scoped download only, or also append to a
-  persistent file on disk (e.g. `data/decisions.csv`) so multiple sessions'
-  data accumulates for training without manual exporting each time? Given the
-  end goal is training data collection across many real sessions, leaning
-  toward **also appending to a persistent file** — but as an explicit
-  opt-in (admin toggle) so casual games aren't silently logged.
+- ✅ C3a resolved: **session-scoped download only**, no persistent
+  server-side file. Workflow is "play a session → hit Export Decision Log
+  before closing the room." Rows live in `session._decision_log`
+  (in-memory) until exported or the session expires.
+  - Rationale: avoids an admin-toggle/opt-in UX and any disk-write/PII
+    surface for a v1; each export already contains everything needed for
+    Phase D. If accumulating across sessions becomes painful in practice
+    (forgetting to export, wanting a running dataset), revisit a
+    persistent-file opt-in then — but don't build it speculatively.
+  - Practical note: each export's `session_id` differs per room, so the
+    Phase D loader should just concatenate exported CSVs rather than rely on
+    a single growing file.
 
-### C4. Frontend
-- Add an "⬇️ Export Decision Log" button (admin settings modal,
+### C4. Frontend — ✅ DONE
+- Added an "⬇️ Export Decision Log" button (admin settings modal,
   `_modals.html` / `admin-settings.js`) — visible in both modes, separate from
   the drinking-only "Export Drinks CSV" button.
 - No other UI changes required for Phase C; this is a data-collection feature,
   not a gameplay feature.
 
-### C5. Testing (Phase C)
-- Unit test: scripted round with a hit → double → split sequence; assert
-  `_decision_log` rows have correct `hand_cards_before`/`hand_total_before`
-  (i.e., captured *before* mutation) and correct `visible_cards` (matches
-  manually-computed table state at that point).
-- Unit test: dealer hole card never appears in `visible_cards` while hidden,
-  but does once revealed (if a decision were logged post-reveal — edge case,
-  likely none occur).
-- Unit test: `hand_result` backfill — after `_resolve_endround`, every row for
-  that round has a non-null `hand_result`.
-- Unit test: `/export_decisions` returns well-formed CSV with the documented
-  columns, including for a Drinking-mode session (no `bet_amount`, has
-  `wager`/sip context instead — or both columns present, empty as
-  appropriate).
-- Manual: play a few rounds across both modes, export, spot-check rows by hand
-  against what was actually played.
+### C5. Testing (Phase C) — ⚠️ AUTOMATED TESTS DONE, MANUAL CHECK OUTSTANDING
+- [x] Unit test: scripted hit/split decision; assert `_decision_log` rows have
+  correct `hand_cards_before`/`hand_total_before` (captured *before*
+  mutation) and correct `visible_cards`. See
+  `tests/test_decision_log.py::test_record_decision_captures_pre_action_state`.
+- [x] Unit test: dealer hole card never appears in `visible_cards` while
+  hidden. See
+  `tests/test_decision_log.py::test_visible_cards_excludes_hidden_dealer_hole_card`.
+- [x] Unit test: `hand_result` backfill — every row for the resolved round
+  gets a non-null `hand_result`, idempotently, without touching other rounds'
+  rows. See `tests/test_decision_log.py::test_backfill_hand_results`.
+- [x] Unit test: `/export_decisions` returns well-formed CSV with the
+  documented columns for both Normal mode (`bet_amount` populated, `wager`
+  empty) and Drinking mode (vice versa), plus a 404 for an unknown room. See
+  `test_export_decisions_normal_mode`, `test_export_decisions_drinking_mode`,
+  `test_export_decisions_no_session_returns_404`.
+- [ ] Manual: play a few rounds across both modes, export via the UI button,
+  spot-check rows by hand against what was actually played. (Not
+  automatable — outstanding follow-up for Robert.)
 
-### Exit criteria for Phase C
-- Every player decision in a session is captured with full board-state
+### Exit criteria for Phase C — NEARLY MET
+- ✅ Every player decision in a session is captured with full board-state
   context and the eventual result.
-- CSV export works in both modes and round-trips into a dataframe with one row
-  per decision.
+- ✅ CSV export works in both modes — verified by automated tests
+  (`tests/test_decision_log.py`); manual UI spot-check still recommended.
+- ✅ C3a resolved (session-scoped manual export, see C3 above).
 
 ---
 
