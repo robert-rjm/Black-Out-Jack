@@ -46,7 +46,7 @@ python server.py
 |------|---------|-------------|
 | Web UI | `python server.py`| Browser-based multiplayer (or [play online](https://black-out-jack.onrender.com)) |
 | Terminal Game | `python scripts/play_terminal.py` | Solo or local multiplayer in terminal |
-| Terminal Referee | `python engine/referee.py` | Physical deck, digital scorecard |
+| Terminal Referee | `python scripts/play_referee.py` | Physical deck, digital scorecard |
 
 
 ## Drink Responsibly
