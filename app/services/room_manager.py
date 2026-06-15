@@ -45,7 +45,7 @@ def patch_tracker(session: RefereeSession) -> None:
     tracker.verbose = False  # suppress prints in web context
     session.verbose = False  # suppress RefereeSession's own round-summary prints
 
-    def web_handout(giver: str, total: int, reason: str):
+    def web_handout(giver: str, total: int, reason: str, label: str = "5-card 21"):
         log.debug(f"    [drink] {reason}")
         others = [p for p in tracker.players if p.name.lower() != giver.lower()]
         if not others:
@@ -53,7 +53,7 @@ def patch_tracker(session: RefereeSession) -> None:
         log.debug(f"    {giver} auto-distributes {total} sip(s) round-robin")
         for i in range(total):
             t = others[i % len(others)]
-            t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)", "player")
+            t.add_drink(1, f"{giver} handed 1 sip to {t.name} ({label}, auto)", "player")
             log.debug(f"    -> {t.name} +1 sip")
 
     tracker._handle_handout = web_handout
