@@ -218,11 +218,12 @@ def export_csv():
                 ds["pushes"], _pct(ds["pushes"],  dh),
             ])
 
+    _date_str = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
     return Response(
         b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
         status=200,
         mimetype="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="drinks_summary.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="drinks_summary_{_date_str}.csv"'},
     )
 
 
@@ -262,11 +263,12 @@ def export_decisions():
     for row in rows:
         w.writerow([row.get(col, "") for col in _DECISION_COLUMNS])
 
+    _date_str = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
     return Response(
         b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
         status=200,
         mimetype="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="decision_log.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="decision_log_{_date_str}.csv"'},
     )
 
 

@@ -3,7 +3,7 @@
 Goal: record every in-game decision (hit/stand/double/split/insurance) made by
 each human player, with enough board-state context (own hand, dealer upcard,
 **all other visible cards on the table**) to later train per-player bot models
-("Rob", "Marco", "David") that mimic each person's real tendencies — alongside
+("Rob", "Marko", "David") that mimic each person's real tendencies — alongside
 the existing standard basic-strategy bot as a baseline/control.
 
 This is independent of the Normal Mode rebuild (`NormalMode-Plan.md`) and
@@ -98,7 +98,7 @@ captured **before** the action mutates the hand:
 - No other UI changes required for Phase C; this is a data-collection feature,
   not a gameplay feature.
 
-### C5. Testing (Phase C) — ⚠️ AUTOMATED TESTS DONE, MANUAL CHECK OUTSTANDING
+### C5. Testing (Phase C) — ✅ AUTOMATED TESTS DONE
 - [x] Unit test: scripted hit/split decision; assert `_decision_log` rows have
   correct `hand_cards_before`/`hand_total_before` (captured *before*
   mutation) and correct `visible_cards`. See
@@ -138,7 +138,7 @@ real data from actual sessions with Rob, Marco, and David.
   unseen/seen (simple counting signal), `hand_total_before`, `is_soft`,
   `dealer_upcard`, `valid_actions`, `cards_remaining`.
 - Label = `action_taken`.
-- Also compute `deviates_from_basic_strategy` (action_taken != 
+- Also compute `deviates_from_basic_strategy` (action_taken !=
   basic_strategy_action) as a diagnostic — how "by the book" vs. "by feel"
   each player is, and under what conditions they deviate (e.g. more deviation
   when many 10s are visible).
