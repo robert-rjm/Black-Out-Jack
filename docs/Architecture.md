@@ -32,7 +32,10 @@ Black-Out-Jack/
 │       ├── game_engine.py                  # Digital mode card/turn logic
 │       ├── drink_tracker.py                # Sip harvesting, milestones, bust votes
 │       ├── room_manager.py                 # Tracker patching, dealer rotation helpers
-│       └── session_store.py                # In-memory room store
+│       ├── session_store.py                # In-memory room store
+│       └── decision_log.py                 # Per-decision board-state capture (Phase C, player-mimicry bot training)
+├── data/
+│   └── decisions/                          # Exported decision_log_*.csv files (gitignored, local only)
 ├── docs/
 │   ├── Rules.md                            # Drinking Rules
 │   ├── Cheat-Sheet.md                      # One-page quick reference for gameplay
@@ -73,6 +76,7 @@ Black-Out-Jack/
 │   │                                       # benchmarks.json, and static/js/benchmarks.js
 │   ├── snapshot.py                         # Saves simulation output as a labeled regression snapshot
 │   ├── rules_sync.py                       # Rules/code drift check + re-pin (docs/.rules_sync.json)
+│   ├── load_decision_logs.py               # Phase D step 0 — load/concat data/decisions/*.csv, per-player summary
 │   └── snapshots/                          # Saved snapshots (scripts/snapshots/<label>/)
 ├── tests/                                  # pytest suite (see docs/planning/Test-Plan.md)
 │   ├── conftest.py                         # Shared fixtures/builders (make_card, make_hand, make_player...)
@@ -82,6 +86,7 @@ Black-Out-Jack/
 │   ├── test_round_manager_integration.py   # Scripted, seeded full-round integration tests
 │   ├── test_regression_snapshots.py        # Statistical regression vs. scripts/snapshots/
 │   ├── test_bust_vote*.py                  # Bust vote side bet tests (Rules.md §4.4)
+│   ├── test_decision_log.py                # Decision-log capture, visible_cards, backfill, /export_decisions CSV
 │   └── test_rules_doc_sync.py              # Fails if docs/Rules.md / drinking_rules.py drift apart
 ├── server.py                               # Flask entry point
 ├── requirements.txt                        # Python dependencies for deployment
@@ -106,6 +111,8 @@ The main files are intentionally decoupled:
 | `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 100,000-round NPC simulation; outputs CSV, txt, `benchmarks.json`, and `static/js/benchmarks.js` |
 | `scripts/snapshot.py` | `scripts/simulation.py` output | Copies `simulation_results.txt` + `benchmarks.json` into `scripts/snapshots/<label>/` for regression diffing |
 | `scripts/rules_sync.py` | `docs/Rules.md`, `engine/drinking_rules.py`, `docs/.rules_sync.json` | Hash-based drift check + re-pin helper (see [Rules/Code Sync Check](#rulescode-sync-check)) |
+| `app/services/decision_log.py` | `app/models/game_room.py`, `engine/strategy.py` | Captures one row per player decision (hit/stand/double/split/insurance) with board-state context for Phase D bot training; exported via `/export_decisions` |
+| `scripts/load_decision_logs.py` | `data/decisions/decision_log_*.csv` (output of `/export_decisions`) | Concatenates exports and prints a per-player summary (decision counts, deviation from basic strategy, results) — Phase D step 0 |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
 | `app/` | `engine/` | Routes, models, and services for the web UI |
 | `templates/index.html` + `templates/partials/index/*` | served by `server.py` | Mobile-first browser UI (responsive, PWA) |
