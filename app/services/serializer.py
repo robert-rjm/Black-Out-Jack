@@ -284,7 +284,8 @@ def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> 
         "votes_cast_by":  dict(v["votes"]),   # {voter_name: bool} — local multiplayer uses this to advance seats
         "insure_count":  insure_count  if counts_ready else None,
         "decline_count": decline_count if counts_ready else None,
-        "seconds_left":  max(0, int(INSURANCE_VOTE_TIMEOUT - (time.monotonic() - v.get("started_at", time.monotonic())))),
+        "seconds_left":  max(0, int(INSURANCE_VOTE_TIMEOUT -
+                                    (time.monotonic() - v.get("started_at", time.monotonic())))),
     }
 
 
@@ -521,6 +522,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "best_play":              compute_best_play(session, turn, phase) if session.strategy_hint_enabled else None,
         "strategy_hint_enabled":  session.strategy_hint_enabled,
         "honor_pending":          bool(session.drinking_mode and session._honor_pending),
+        "honor_pending_action":   (session._honor_pending or {}).get("action") if session.drinking_mode else None,
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,
         "rounds_this_dealer":     rounds_td,

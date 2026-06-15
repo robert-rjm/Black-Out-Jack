@@ -200,11 +200,11 @@
     <div class="ms-ack-emoji">🃏</div>
     <div class="ms-ack-title">House Rule: Always Split 10s</div>
     <div class="ms-ack-sub">Your hand is two unsuited 10-value cards:
-      the house rule says you must split. Stand anyway and take a 1-sip
+      the house rule says you must split. Do it anyway and take a 1-sip
       penalty?</div>
     <div class="btn-row">
       {{ action_btn('Play with honor', 'honorResolve', '["split"]', 'ms-ack-btn') }}
-      {{ action_btn('Stand (1 sip)', 'honorResolve', '["stand"]', 'ms-ack-btn ms-ack-btn-secondary') }}
+      {{ action_btn('Without honor (1 sip)', 'honorResolve', '["no"]', 'ms-ack-btn ms-ack-btn-secondary', extra_attrs='id="honor-no-btn"') }}
     </div>
   </div>
 </div>

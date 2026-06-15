@@ -45,7 +45,7 @@ python server.py
 | Mode | Command | Description |
 |------|---------|-------------|
 | Web UI | `python server.py`| Browser-based multiplayer (or [play online](https://black-out-jack.onrender.com)) |
-| Terminal Game | `python engine/blackjack.py` | Solo play locally in terminal |
+| Terminal Game | `python scripts/play_terminal.py` | Solo or local multiplayer in terminal |
 | Terminal Referee | `python engine/referee.py` | Physical deck, digital scorecard |
 
 

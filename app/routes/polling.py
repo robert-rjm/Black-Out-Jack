@@ -417,17 +417,23 @@ def preselect():
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
 
-    # House rule: pre-selecting STAND on a hand the "mandatory split 10s"
-    # rule applies to opens the "Play with honor / Stand (1 sip)" prompt
-    # (state.honor_pending) instead of recording a plain stand vote.
-    if (action == "s" and session.drinking_mode
+    # House rule: pre-selecting HIT, STAND, or DOUBLE on a hand the
+    # "mandatory split 10s" rule applies to opens the "Play with honor /
+    # <action> without honor (1 sip)" prompt (state.honor_pending) instead
+    # of recording a plain action vote.
+    _ACTION_NAMES = {"h": "hit", "s": "stand", "d": "double"}
+    if (action in _ACTION_NAMES and session.drinking_mode
             and current_turn(session)
             and current_turn(session).lower() == name.lower()
             and compute_mandatory_split10(session, current_turn(session), round_phase(session))):
         player      = session._get_player(name)
         active_hand = next((h for h in player.hands if not hand_done(h)), None)
         if player and active_hand:
-            session._honor_pending = {"player": player.name, "hand_id": id(active_hand)}
+            session._honor_pending = {
+                "player":  player.name,
+                "hand_id": id(active_hand),
+                "action":  _ACTION_NAMES[action],
+            }
             return jsonify({**serialize_state(session, client_id), "ok": True})
 
     session._preselections[f"{name.lower()}:{hand}"] = action

@@ -130,13 +130,14 @@ def _record_strategy_decision(session, player, hand, chosen_action: str) -> None
     sd[player.name]["correct"] += 1 if chosen_action == optimal else 0
 
 
-def _check_honor_house_rule(game_session, player, hand) -> bool:
+def _check_honor_house_rule(game_session, player, hand, action) -> bool:
     """Drinking-mode "mandatory split 10s" house rule.
 
     If `hand` is an unsuited 10-value pair, split is still legal, and this
-    hand hasn't been resolved yet, block the STAND attempt by recording it
-    in session._honor_pending and return True. The frontend shows the
-    "Play with honor / Stand (1 sip)" prompt purely by reading
+    hand hasn't been resolved yet, block the attempted action (hit, stand,
+    or double) by recording it — along with which action was attempted — in
+    session._honor_pending and return True. The frontend shows the
+    "Play with honor / <action> (1 sip)" prompt purely by reading
     state.honor_pending — the choice is later applied via /honor_resolve.
     Always returns False (no-op) in Normal mode.
     """
@@ -148,8 +149,54 @@ def _check_honor_house_rule(game_session, player, hand) -> bool:
         return False
     if not turn or turn.lower() != player.name.lower():
         return False
-    game_session._honor_pending = {"player": player.name, "hand_id": id(hand)}
+    game_session._honor_pending = {
+        "player":  player.name,
+        "hand_id": id(hand),
+        "action":  action,
+    }
     return True
+
+
+def _perform_action_without_honor(game_session, player, hand, action) -> None:
+    """Carry out the originally-attempted action (hit/double/stand) after the
+    player declines the mandatory-split-10s house rule, then apply the 1-sip
+    "without honor" penalty via the existing ace-drink toast pipeline.
+    """
+    hand_label = f"hand{player.hands.index(hand) + 1}"
+
+    if action == "hit":
+        _record_strategy_decision(game_session, player, hand, "h")
+        card = deal_card(game_session, hand, player.name)
+        log.debug(f"  {player.name} {hand_label} hits without honor {card}: {hand}")
+        if hand.is_bust():
+            hand.bust = hand.stood = True
+            hand.result = "loss"
+        elif hand.score() == 21:
+            hand.stood = True
+    elif action == "double":
+        _record_strategy_decision(game_session, player, hand, "d")
+        hand.doubled = True
+        deal_card(game_session, hand, player.name)
+        hand.stood = True
+        log.debug(f"  {player.name} {hand_label}: doubles without honor — card dealt face-down.")
+        if hand.is_bust():
+            hand.bust   = True
+            hand.result = "loss"
+    else:  # "stand" (default / fallback)
+        action = "stand"
+        _record_strategy_decision(game_session, player, hand, "s")
+        hand.stood = True
+        log.debug(f"  {player.name} {hand_label}: stands without honor at {hand.score()}.")
+
+    log.debug(f"  {player.name}: {action} without honor "
+              f"(declined mandatory 10-split, +1 sip penalty).")
+
+    # 1-sip "without honor" penalty via the existing ace-drink toast pipeline.
+    game_session.tracker.apply([
+        (player.name, 1, f"{player.name} played without honor ({action}, declined mandatory 10-split)"),
+    ])
+    _push_ace_drink_event(game_session, (player.name, 1,
+        f"Played without honor ({action}) => {player.name} drinks 1 sip"))
 
 
 def _resolve_endround(game_session):
@@ -249,6 +296,10 @@ def _cmd_hit(game_session, parts):
     if hand.stood or hand.bust:
         log.debug(f"  {player.name} {hand_label} is already done.")
         return
+    if _check_honor_house_rule(game_session, player, hand, "hit"):
+        log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
+                  f"this unsuited 10-pair — awaiting choice.")
+        return
     _record_strategy_decision(game_session, player, hand, "h")
     card = deal_card(game_session, hand, player.name)
     log.debug(f"  {player.name} {hand_label} hits {card}: {hand}")
@@ -275,7 +326,7 @@ def _cmd_stand(game_session, parts):
     if hand.stood or hand.bust:
         log.debug(f"  {player.name} {hand_label} is already done.")
         return
-    if _check_honor_house_rule(game_session, player, hand):
+    if _check_honor_house_rule(game_session, player, hand, "stand"):
         log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
                   f"this unsuited 10-pair — awaiting choice.")
         return
@@ -288,13 +339,14 @@ def _cmd_stand(game_session, parts):
 def honor_resolve():
     """Resolve a pending "mandatory split 10s" house-rule prompt
     (state.honor_pending == true), drinking mode only.
-    Body: { room_code, client_id, choice }  choice: "split" | "stand"
+    Body: { room_code, client_id, choice }  choice: "split" | "no"
 
     choice == "split": comply with the house rule -- splits the hand
         (equivalent to pressing SPLIT), no penalty.
-    choice == "stand": "stand with honor" -- stands on the hand
-        (equivalent to pressing STAND) and applies a 1-sip penalty,
-        delivered via the existing ace-drink toast pipeline.
+    choice == "no": "play without honor" -- carries out whichever action
+        the player originally attempted (hit, double, or stand —
+        recorded in session._honor_pending["action"]) and applies a
+        1-sip penalty, delivered via the existing ace-drink toast pipeline.
 
     Either way this is the single follow-up action -- no further button
     press is needed to complete the hand's action.
@@ -319,7 +371,7 @@ def honor_resolve():
         # Nothing pending (stale request / already resolved elsewhere) -- no-op.
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
-    if choice not in ("split", "stand"):
+    if choice not in ("split", "no"):
         return jsonify({"ok": False, "error": f"Invalid choice '{choice}'."})
 
     pending = session._honor_pending
@@ -338,17 +390,8 @@ def honor_resolve():
     if choice == "split":
         _cmd_split(session, ["split", player.name, hand_label])
     else:
-        _record_strategy_decision(session, player, hand, "s")
-        hand.stood = True
-        log.debug(f"  {player.name}: stands without honor at {hand.score()} "
-                  f"(declined mandatory 10-split, +1 sip penalty).")
-
-        # 1-sip "stand without honor" penalty via the existing ace-drink toast pipeline.
-        session.tracker.apply([
-            (player.name, 1, f"{player.name} stood without honor (declined mandatory 10-split)"),
-        ])
-        _push_ace_drink_event(session, (player.name, 1,
-            f"Stood without honor => {player.name} drinks 1 sip"))
+        action = pending.get("action") or "stand"
+        _perform_action_without_honor(session, player, hand, action)
 
     _after_player_action(session)
 
@@ -371,6 +414,10 @@ def _cmd_double(game_session, parts):
         return
     if hand.stood or hand.bust:
         log.debug(f"  {player.name} {hand_label} is already done.")
+        return
+    if _check_honor_house_rule(game_session, player, hand, "double"):
+        log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
+                  f"this unsuited 10-pair — awaiting choice.")
         return
     _record_strategy_decision(game_session, player, hand, "d")
     hand.doubled = True
@@ -403,6 +450,18 @@ def _cmd_split(game_session, parts):
         else:
             log.debug("  Cannot split this hand.")
         return
+    # House rule: splitting an unsuited 10-pair is mandatory (free) and
+    # complying carries no penalty — but suited 10-pairs are EXEMPT from
+    # the mandatory rule, meaning a 20 is voluntarily being broken up.
+    # Warn the player and charge 1 sip for choosing to split anyway.
+    _was_suited_10_split = (
+        game_session.drinking_mode
+        and len(hand.cards) == 2
+        and hand.cards[0].rank.blackjack_value == 10
+        and hand.cards[1].rank.blackjack_value == 10
+        and hand.is_suited()
+    )
+
     _record_strategy_decision(game_session, player, hand, "sp")
     # `hand` keeps its identity (id(hand)) across the split — only its second
     # card is moved out to `new_hand`. If this hand was previously acked for
@@ -437,6 +496,17 @@ def _cmd_split(game_session, parts):
         log.debug(f"  {player.name} splits:")
         log.debug(f"    {hand_label}: {hand}  ← play this hand first")
         log.debug(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
+
+    if _was_suited_10_split:
+        log.debug(f"  {player.name}: mandatory split-10s doesn't apply to suited "
+                  f"20s — splits anyway, drinks 1 sip.")
+        game_session.tracker.apply([
+            (player.name, 1, f"{player.name} split a suited 20 (mandatory split 10s "
+                              f"does not apply if suited)"),
+        ])
+        _push_ace_drink_event(game_session, (player.name, 1,
+            f"⚠️ Mandatory split 10s does not apply if suited — "
+            f"{player.name} split anyway => drinks 1 sip"))
 
 
 def _cmd_insurance(game_session, parts):
