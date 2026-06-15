@@ -146,12 +146,30 @@ function renderPlayers(state) {
     const crownBadge    = (wasClean && state.drinking_mode !== false)
       ? `<span class="seat-crown" title="Clean last round">👑</span>` : "";
 
-    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${tag}</div>`;
+    // Normal mode: show bankroll + this round's payout near each seat
+    let bankrollBadge = "";
+    if (state.drinking_mode === false && state.balances) {
+      const bal = state.balances[s.name];
+      if (bal !== undefined) {
+        const net = (state.round_payouts || {})[s.name];
+        let netStr = "";
+        if (net !== undefined && net !== null) {
+          netStr = net > 0 ? ` <span class="seat-payout win">+$${net.toFixed(2)}</span>`
+                 : net < 0 ? ` <span class="seat-payout loss">-$${Math.abs(net).toFixed(2)}</span>`
+                 : ` <span class="seat-payout push">push</span>`;
+        }
+        bankrollBadge = `<span class="seat-bankroll-badge">💰 $${bal.toFixed(2)}</span>${netStr}`;
+      }
+    }
+
+    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
     hands.className = "hands-row";
-    (s.hands || []).forEach((h, i) => hands.appendChild(handBlock(h, `Hand ${i+1}`)));
+    const betSuffix = (state.drinking_mode === false && state.bet_amount)
+      ? ` ($${Number(state.bet_amount).toFixed(2)})` : "";
+    (s.hands || []).forEach((h, i) => hands.appendChild(handBlock(h, `Hand ${i+1}${betSuffix}`)));
     if (!s.hands || s.hands.length === 0) {
       const empty = document.createElement("div");
       empty.className = "hand-label";

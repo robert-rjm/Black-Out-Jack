@@ -4,12 +4,15 @@ engine/referee.py
 Real-life referee for Drinking Blackjack.
 
 Use when playing with a physical deck. You deal real cards and make real
-decisions — this script acts as a scorekeeper and drink tracker. Tell it
+decisions — this module acts as a scorekeeper and drink tracker. Tell it
 what cards were dealt and what happened, and it fires all the drinking rules
 in real time.
 
-Run:
-    python referee.py
+`RefereeSession` is the shared library used by both the web app's referee
+mode (see app/routes/lobby.py) and the standalone terminal CLI.
+
+Run the standalone CLI:
+    python scripts/play_referee.py
 
 Commands (type 'help' in-session for full reference):
     deal <player> <card> [hand<n>]   — register a card dealt
@@ -99,7 +102,8 @@ class RefereeSession:
     """
 
     def __init__(self, players: list, dealer_name: str,
-                 wager: int = 1, num_hands: int = 2, verbose: bool = True):
+                 wager: int = 1, num_hands: int = 2, verbose: bool = True,
+                 bust_vote_enabled: bool = False):
         self.all_players   = players           # list of Player objects (includes dealer-player)
         self.dealer_name   = dealer_name
         self.wager         = wager
@@ -119,6 +123,11 @@ class RefereeSession:
         self._initial_dealt   = False  # True once all first-deal cards are entered
         self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
         self._pending_eor_msgs = []  # BJ bonuses + four-aces-endround — buffered for halving
+
+        # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
+        self.bust_vote_enabled = bust_vote_enabled
+        self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
+        self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
 
         # Tracker — resolves recipients and logs drinks
         self.tracker = DrinkTracker(players, self._get_dealer())
@@ -189,6 +198,8 @@ class RefereeSession:
         self._initial_dealt   = False
         self._pending_resolved = []
         self._pending_eor_msgs = []
+        self._bust_votes        = {}
+        self._bust_vote_result  = None
         self.tracker = DrinkTracker(self.all_players, self._get_dealer())
 
     # ---------------------------------------------------------------- command: deal
@@ -232,6 +243,10 @@ class RefereeSession:
         else:
             hand = self._get_hand(player, hand_label)
             recipient_name = player.name
+
+        # First card of the round locks in any bust-vote side bets (Rules.md §4.4
+        # — votes are placed "before the first deal").
+        self._initial_dealt = True
 
         # Add card to hand
         card_pos = len(hand.cards) + 1
@@ -413,6 +428,94 @@ class RefereeSession:
         else:
             self._pending_eor_msgs.extend(msgs)  # end-of-round, halved
 
+    # ---------------------------------------------------------------- command: bust vote
+
+    def cmd_bustvotetoggle(self, parts: list):
+        """bustvotetoggle <on|off> — host toggles the dealer-bust side bet (Rules.md §4.4)."""
+        if len(parts) < 2 or parts[1].lower() not in ("on", "off"):
+            self._log("  Usage: bustvotetoggle <on|off>")
+            return
+        self.bust_vote_enabled = (parts[1].lower() == "on")
+        state = "enabled" if self.bust_vote_enabled else "disabled"
+        self._log(f"  Bust vote side bet {state}.")
+        if not self.bust_vote_enabled:
+            self._bust_votes = {}
+
+    def cmd_bustvote(self, parts: list):
+        """bustvote <player> <bust|skip> — side bet on dealer bust, before the first deal."""
+        if not self.bust_vote_enabled:
+            self._log("  Bust vote side bet is disabled. Use 'bustvotetoggle on' first.")
+            return
+        if len(parts) < 3:
+            self._log("  Usage: bustvote <player> <bust|skip>")
+            return
+        if self._initial_dealt:
+            self._log("  Bust votes must be placed before the first deal.")
+            return
+
+        player_name = parts[1]
+        vote        = parts[2].lower()
+        player      = self._get_player(player_name)
+        if not player:
+            self._log(f"  Unknown player '{player_name}'. Known: {', '.join(self._all_names)}")
+            return
+
+        if vote in ("bust", "b"):
+            self._bust_votes[player.name] = "bust"
+            self._log(f"  {player.name} bets the Dealer will bust this round.")
+        elif vote in ("skip", "no", "n", "abstain"):
+            self._bust_votes.pop(player.name, None)
+            self._log(f"  {player.name} skips the bust side bet.")
+        else:
+            self._log("  Vote must be 'bust' or 'skip'.")
+
+    def _resolve_bust_votes(self):
+        """
+        Resolve Rules.md §4.4 — fires once per round, called from cmd_endround
+        after the dealer's final hand is known.
+
+        Correct 'bust' voters: -1 sip credit, then hand out 1 sip to another
+        player (interactive for humans, round-robin for NPCs).
+        Incorrect 'bust' voters: +1 sip penalty.
+        Never halved (Instant Effect rule — see Rules.md §6.1).
+        """
+        self._bust_vote_result = None
+        if not self.bust_vote_enabled or not self._bust_votes:
+            return
+
+        dealer = self._get_dealer()
+        if not dealer or not dealer.dealer_hand:
+            return
+
+        dealer_busted = dealer.dealer_hand.bust or dealer.dealer_hand.is_bust()
+        winners, losers = [], []
+
+        for name in list(self._bust_votes):
+            p = self._get_player(name)
+            if not p:
+                continue
+            if dealer_busted:
+                p.add_drink(-1, f"{name} bust vote correct: -1 sip credit", "player")
+                winners.append(name)
+                if self.verbose:
+                    print(f"    (i) {name} called the Dealer bust correctly "
+                          f"— -1 sip credit, hands out 1 sip")
+            else:
+                p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
+                losers.append(name)
+                if self.verbose:
+                    print(f"    [drink] {name}: Bust vote wrong — dealer didn't bust: +1 sip")
+
+        self._bust_vote_result = {
+            "dealer_busted": dealer_busted,
+            "winners":       winners,
+            "losers":        losers,
+        }
+
+        for name in winners:
+            self.tracker._handle_handout(
+                name, 1, f"{name} won the bust vote — hands out 1 sip", label="bust vote")
+
     # ---------------------------------------------------------------- command: endround
 
     def cmd_endround(self, skip_sweep: bool = False, extra_eor_msgs=None):
@@ -421,6 +524,10 @@ class RefereeSession:
         extra_eor_msgs: msgs buffered by dealer_turn (digital mode) that must
         be combined with this round's msgs before halving is applied."""
         self._log("\n--- End of Round ---")
+
+        # Bust vote side bet (instant effect, never halved) — resolved first so
+        # it appears in each player's drink_log alongside the round's other drinks.
+        self._resolve_bust_votes()
 
         # Hard dealer switch check
         dealer  = self._get_dealer()
@@ -626,6 +733,15 @@ class RefereeSession:
 
   fouraces <firstdeal|endround>
       Manually trigger the four-aces check.
+
+  bustvotetoggle <on|off>
+      Host toggles the dealer-bust side bet on/off (can change any time).
+
+  bustvote <player> <bust|skip>
+      Before the first deal: Player bets the Dealer will bust this round.
+      Correct => -1 sip + hand out 1 sip. Wrong => +1 sip. (Rules.md §4.4)
+      Example: bustvote Rob bust
+               bustvote Markoi skip
 
   endround
       Finalise the round — fires all end-of-round drink rules

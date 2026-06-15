@@ -35,6 +35,7 @@ from app.services.game_engine import (
     bust_vote_pending, _push_ace_drink_event,
 )
 from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
+from app.services.payout_tracker import apply_payouts, cmd_rebuy
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
 from app.config import BUST_VOTE_WINDOW_SECONDS
 
@@ -211,6 +212,7 @@ def _resolve_endround(game_session):
     apply_bust_vote_penalties(game_session)
     harvest_drink_log(game_session)
     check_and_set_milestone(game_session)
+    apply_payouts(game_session)
 
 
 def _after_player_action(game_session):
@@ -333,6 +335,30 @@ def _cmd_stand(game_session, parts):
     _record_strategy_decision(game_session, player, hand, "s")
     hand.stood = True
     log.debug(f"  {player.name} {hand_label}: stands at {hand.score()}.")
+
+
+@bp.route("/rebuy", methods=["POST"])
+def rebuy():
+    """Re-buy a busted player's bankroll back to the starting amount
+    (Normal mode "Bank Run" modal). Body: { room_code, client_id, player }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    player_name = (data.get("player") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    info = session._room_clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered in this session."})
+
+    if session.drinking_mode or session.mode != "digital":
+        return jsonify({**serialize_state(session, client_id), "ok": True})
+
+    cmd_rebuy(session, player_name)
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @bp.route("/honor_resolve", methods=["POST"])
@@ -769,7 +795,7 @@ def command():
             if cmd in PLAYER_ACTION_CMDS:
                 _after_player_action(game_session)
 
-        # ── Referee mode (original behaviour, unchanged) ─────────────────────
+        # ── Referee mode (original behaviour, unchanged) ───────────────────────
         else:
             handler = REFEREE_COMMANDS.get(cmd)
             if handler:
