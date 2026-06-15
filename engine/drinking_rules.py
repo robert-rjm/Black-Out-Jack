@@ -756,20 +756,42 @@ class DrinkTracker:
                     print(f"    -> {t.name} +1 sip (NPC auto-distributed)")
             return
 
-        other_names = [p.name for p in others]
+        other_names   = [p.name for p in others]
+        max_attempts  = 5  # consecutive invalid/blank entries before auto-distributing the rest
+        bad_attempts  = 0
         if self.verbose:
             print(f"    {giver}, hand out {remaining} sip(s) among: {', '.join(other_names)}")
+        i = 0
         while remaining > 0:
-            raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
-            t   = self._map.get(raw.lower())
+            try:
+                raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
+            except EOFError:
+                raw = ""
+                bad_attempts = max_attempts  # no terminal to read from — stop asking
+
+            t = self._map.get(raw.lower())
             if t and t.name.lower() != giver.lower():
                 t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21)", "player")
                 remaining -= 1
+                bad_attempts = 0
                 if self.verbose:
                     print(f"    -> {t.name} +1 sip")
             else:
-                if self.verbose:
-                    print(f"    Invalid. Choose from: {', '.join(other_names)}")
+                bad_attempts += 1
+                if bad_attempts >= max_attempts:
+                    if self.verbose:
+                        print(f"    No valid choice after {max_attempts} tries — "
+                              f"auto-distributing remaining {remaining} sip(s) round-robin.")
+                    for j in range(remaining):
+                        t = others[(i + j) % len(others)]
+                        t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)", "player")
+                        if self.verbose:
+                            print(f"    -> {t.name} +1 sip (auto-distributed)")
+                    remaining = 0
+                else:
+                    if self.verbose:
+                        print(f"    Invalid. Choose from: {', '.join(other_names)}")
+            i += 1
 
     # ---------------------------------------------------------------- summary
 
