@@ -107,6 +107,7 @@ def reset_round_state(session: GameRoom, *, digital: bool = False) -> None:
     session._honor_acked            = set()
     session._honor_pending          = None
     session._bust_handouts_given    = set()
+    session._bust_handout_log       = []
     session._drink_log_harvested    = False
     session._kick_votes             = {}    # reset vote-kick tally each round
     session._pending_milestone      = None  # clear between rounds

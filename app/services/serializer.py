@@ -427,6 +427,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             and n in (session._bust_vote_result or {}).get("winners", [])
             and n not in session._bust_handouts_given
         ],
+        "bust_handout_seq":       session._bust_handout_seq,
+        "bust_handout_results":   list(session._bust_handout_log),
         **_bust_vote_window(session),
     }
 

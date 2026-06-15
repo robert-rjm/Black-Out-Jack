@@ -471,6 +471,17 @@ function applyState(state) {
   }
   DrinkUI.lastRoundOverSeq = Math.max(DrinkUI.lastRoundOverSeq, newRoundOverSeq);
 
+  // Bust-handout reveal — fires once all bust-vote winners have resolved
+  // their handout (gave a sip or forfeited). Gated on bust_handout_seq so
+  // it never re-fires on a duplicate/late poll.
+  const newBustHandoutSeq = state.bust_handout_seq || 0;
+  if (newBustHandoutSeq > DrinkUI.lastBustHandoutSeq) {
+    if (state.bust_handout_results && state.bust_handout_results.length) {
+      showBustHandoutToast(state.bust_handout_results);
+    }
+    DrinkUI.lastBustHandoutSeq = newBustHandoutSeq;
+  }
+
   // Detect bust vote window closing — flush any toasts that were queued during it.
   const _prevBustOpen = lastState && lastState.bust_vote_window_open;
   lastState   = state;

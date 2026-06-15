@@ -642,6 +642,29 @@ function showBustVoteToast(result) {
   setTimeout(() => toast.classList.remove("show"), 6000);
 }
 
+function showBustHandoutToast(results) {
+  if (!results || !results.length) return;
+  const toast = document.getElementById("player-toast");
+  if (!toast) return;
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const parts = results.map(r => {
+    if (r.forfeited) {
+      return `⏱️ ${r.winner} didn't choose in time — drinks it themselves`;
+    }
+    return `🎁 ${r.winner} gave 1 sip to ${r.recipient}`;
+  });
+  toast.textContent = parts.join(" · ");
+  // Red if I gave away a sip or forfeited (drink), green otherwise.
+  const iDrink = results.some(r =>
+    (r.forfeited && _myNames.includes(r.winner)) ||
+    (!r.forfeited && _myNames.includes(r.recipient))
+  );
+  toast.className = (iDrink ? "drink" : "clean") + " show";
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 6000);
+}
+
 function showInsuranceToast(results) {
   if (!results || !results.length) return;
   const toast = document.getElementById("player-toast");
