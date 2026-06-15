@@ -58,6 +58,11 @@
     closeSummaryModal();
   };
 
+  window.exportDecisionLogAndClose = function exportDecisionLogAndClose() {
+    exportDecisionLog();
+    closeSummaryModal();
+  };
+
   document.addEventListener("click", (event) => {
     const stopper = event.target.closest("[data-stop-propagation='true']");
     if (stopper) {
