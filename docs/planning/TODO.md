@@ -2,29 +2,17 @@
 
 ## Bugs
 
-- [ ] Brainstorm fix for Mobile UI
-  - respect safe area (iphone notch)
-  - big wasted space with play panel
-  - big wasted space in action bar
-  - remove other dead space
-  - trivia / stats section
-    - too big, not readable
-    - not optimized for mobile
-    - trivia show maybe max 1 fact
-    - trivia not visible (currently with leaderboard)
-    - consider trivia as web only feature
-    - reduce stats for mobile optimized UX
-- [ ] Brainstorm fix for Web UI
-  - difficult to see on standard computer (without monitor)
-  - potentially collapsible stats/trivia section
-  - eliminate dead space
-- [ ] issues with 4th player
-  - ensure no issue with "late joiners"
-  - ensure drink sips are halved automatically (round up)
-  - check if fixes work as intended
-  - check if maximum number of players in game logic
-  - check for # decks needed per extra players. {Player:deck = (2,1), (3,1), (4,2),(5,?), etc}
+- [ ] Brainstorm fix for UI
+  - [ ] Mobile / Standalone PWA
+    - Big wasted space in action "play" panel
+    - remove other dead space / optimize UI
+    - consider removing Trivia / Stats section (optimize it for mobile UI)
+  - [ ] Web UI
+    - difficult to see on standard screen size (zoom issue)
+    - potentially collapsible stats / trivia section
+    - eliminate dead space / optimize UI
 - [ ] Trivia Panel
+  - check if needed
   - fact check
   - add / edits facts
   - add Black(Out)Jack specific fun facts
@@ -32,10 +20,7 @@
 
 ## Features
 
-- [ ] Normal Mode: add cash option and bankroll (bust 2.5, 2:1 win, 3:2 Blackjack)
-- [ ] Referee mode complete overwork
-  - ensure works standalone
-  - have "bust vote" included on setup and in game logic
+- [ ] trained "custom" BOTs, selectable and reflect actual player behavior deviation from basic strategy
 - [ ] simplified rule set for beginners
 - [ ] csv addition
   - potentially .pdf file output with graphs
