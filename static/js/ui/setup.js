@@ -173,43 +173,7 @@ function setGameType(type, btn) {
     setRowCols(handsDecksRow, false);
     setRowCols(togglesRow, false);
     sub.textContent = "Drinking Blackjack Physical Scorekeeper and Drink Tracker";
-    _showMaintenanceOverlay(type, btn);
   }
-}
-
-function _showMaintenanceOverlay(type, btn) {
-  const existing = document.getElementById("maintenance-overlay");
-  if (existing) existing.remove();
-
-  const labels = { normal: "Normal", referee: "Referee" };
-  const label  = labels[type] || type;
-
-  const overlay = document.createElement("div");
-  overlay.id = "maintenance-overlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:700;display:flex;align-items:center;justify-content:center;padding:24px";
-
-  overlay.innerHTML = `
-    <div style="background:var(--surface);border-radius:16px;padding:24px;width:100%;max-width:360px;border:1px solid var(--border);text-align:center">
-      <div style="font-size:28px;margin-bottom:10px">🚧</div>
-      <h3 style="font-size:17px;font-weight:800;margin-bottom:10px">${label} Mode — Under Maintenance</h3>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">
-        This mode hasn't been updated to match recent features and may not work correctly.<br>
-        Only <strong>Drinking</strong> mode is actively supported right now.
-      </p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn" style="background:var(--border);color:var(--fg)" onclick="document.getElementById('maintenance-overlay').remove()">
-          Continue Anyway
-        </button>
-        <button class="btn green" onclick="
-          document.getElementById('maintenance-overlay').remove();
-          setGameType('drinking-digital', document.querySelector('#gametype-row .btn'));
-        ">
-          ← Back to Drinking
-        </button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
 }
 
 // ============================================================
