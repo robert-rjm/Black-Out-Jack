@@ -22,6 +22,7 @@ from app.services.session_store import (
 from app.services.validators  import sanitize_name
 from app.services.serializer  import serialize_state
 from app.services.room_manager import NullTracker, patch_tracker, capture
+from app.services.payout_tracker import init_bankrolls
 
 bp = Blueprint("lobby", __name__)
 
@@ -137,6 +138,8 @@ def setup():
         dealer_idx = int(data.get("dealer_index", 0))
         wager      = max(1, int(data.get("wager", 1)))
         num_hands  = max(1, int(data.get("num_hands", 2)))
+        bet_amount = max(2.5, float(data.get("bet_amount", 10)))
+        starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
     except (ValueError, TypeError):
         return jsonify({"ok": False, "output": "Invalid numeric field."})
     dealer_name = names[min(dealer_idx, len(names) - 1)]
@@ -163,6 +166,8 @@ def setup():
         _dealer_rotate_every=len(players),
         bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
         easy_mode=bool(data.get("easy_mode", False)),
+        bet_amount=bet_amount,
+        starting_bankroll=starting_bankroll,
     )
     if client_id:
         # All non-NPC seats start as local — a seat moves to remote only when
@@ -187,6 +192,9 @@ def setup():
 
     if not drinking:
         raw_session.tracker = NullTracker()
+
+    if mode == "digital" and not drinking:
+        init_bankrolls(room)
 
     output = capture(raw_session.start_round)
     if drinking:
