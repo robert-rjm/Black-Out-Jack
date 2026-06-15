@@ -6,45 +6,8 @@ Imported by blackjack.py (drinking mode) and referee.py.
 Has no game logic of its own — purely reacts to events fired by the game.
 """
 
-import hashlib
 import math
-import urllib.request
 from engine.blackjack import Rank, Suit, Hand, Player
-
-_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Black-Out-Jack/main/docs/Rules.md"
-_RULES_HASH  = "CC092107596D44EE4068E5782E8663CF12EF360234FB8D39AE700756AEBF32CC"
-_RULES_DATE  = "2026-05-22"
-
-
-def verify_rules():
-    """
-    Fetch Rules.md from GitHub and compare its SHA256 to the known hash.
-    If changed, warn that drinking_rules.py may be out of date.
-    Silently skips on network failure.
-
-    NOTE: CLI-only. Only called from BlackJackGame.setup() (the terminal
-    entry point) and not reachable from the web app. Safe to delete along
-    with other CLI-only code if/when the legacy CLI is dropped.
-    """
-    try:
-        with urllib.request.urlopen(_RULES_URL, timeout=5) as r:
-            current_hash = hashlib.sha256(r.read()).hexdigest()
-    except Exception:
-        return
-
-    if current_hash != _RULES_HASH:
-        print("=" * 52)
-        print("  WARNING: Rules.md has changed on GitHub!")
-        print(f"  Last verified : {_RULES_DATE}")
-        print(f"  Expected hash : {_RULES_HASH[:16]}...")
-        print(f"  Current hash  : {current_hash[:16]}...")
-        print("  drinking_rules.py may not reflect the latest rules.")
-        review_url = (_RULES_URL
-                      .replace('raw.githubusercontent.com', 'github.com')
-                      .replace('/main/', '/blob/main/'))
-        print(f"  Review changes at: {review_url}")
-        print("  Update _RULES_HASH and _RULES_DATE in drinking_rules.py.")
-        print("=" * 52 + "\n")
 
 
 # =============================================================================
@@ -793,20 +756,42 @@ class DrinkTracker:
                     print(f"    -> {t.name} +1 sip (NPC auto-distributed)")
             return
 
-        other_names = [p.name for p in others]
+        other_names   = [p.name for p in others]
+        max_attempts  = 5  # consecutive invalid/blank entries before auto-distributing the rest
+        bad_attempts  = 0
         if self.verbose:
             print(f"    {giver}, hand out {remaining} sip(s) among: {', '.join(other_names)}")
+        i = 0
         while remaining > 0:
-            raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
-            t   = self._map.get(raw.lower())
+            try:
+                raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
+            except EOFError:
+                raw = ""
+                bad_attempts = max_attempts  # no terminal to read from — stop asking
+
+            t = self._map.get(raw.lower())
             if t and t.name.lower() != giver.lower():
                 t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21)", "player")
                 remaining -= 1
+                bad_attempts = 0
                 if self.verbose:
                     print(f"    -> {t.name} +1 sip")
             else:
-                if self.verbose:
-                    print(f"    Invalid. Choose from: {', '.join(other_names)}")
+                bad_attempts += 1
+                if bad_attempts >= max_attempts:
+                    if self.verbose:
+                        print(f"    No valid choice after {max_attempts} tries — "
+                              f"auto-distributing remaining {remaining} sip(s) round-robin.")
+                    for j in range(remaining):
+                        t = others[(i + j) % len(others)]
+                        t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21, auto)", "player")
+                        if self.verbose:
+                            print(f"    -> {t.name} +1 sip (auto-distributed)")
+                    remaining = 0
+                else:
+                    if self.verbose:
+                        print(f"    Invalid. Choose from: {', '.join(other_names)}")
+            i += 1
 
     # ---------------------------------------------------------------- summary
 

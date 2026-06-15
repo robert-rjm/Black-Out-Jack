@@ -1,4 +1,4 @@
-# <img src="../static/img/logo.png" alt="Logo-BlackOutJack" height="48" align="absmiddle"> Drinking Black(Out)Jack Rules 
+# <img src="../static/img/logo.png" alt="Logo-BlackOutJack" height="48" align="absmiddle"> Drinking Black(Out)Jack Rules
 
 This document outlines the full set of rules for _**Black(Out)Jack**_: a fun, fast, and occasionally chaotic variation of classical BlackJack enhanced with custom drinking mechanics.
 
@@ -67,7 +67,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 |---|---|
 | Dealer stands on | All 17s (including soft 17) |
 | Double down | Allowed on any two-card hand, including after any split |
-| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)) |
+| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)). Deviating on an unsuited 10-pair instead ("without honor") costs 1 sip. Splitting a **suited** 10-pair (a 20) is **not** mandatory, choosing to split it anyway costs 1 sip. |
 | Splitting | Maximum 5 splits per starting hand |
 
 ### 3.1 Splitting Aces:

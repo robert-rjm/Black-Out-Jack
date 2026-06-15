@@ -40,8 +40,8 @@ def serve_logo():
 @bp.route("/manifest.json")
 def serve_manifest():
     return jsonify({
-        "name":             "Black-Out Jack",
-        "short_name":       "Black-Out Jack",
+        "name":             "Black(Out)Jack",
+        "short_name":       "Black(Out)Jack",
         "start_url":        "/",
         "display":          "standalone",
         "background_color": "#0f1117",
