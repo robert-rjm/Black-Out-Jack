@@ -72,6 +72,7 @@ async function joinRoom() {
     document.getElementById("lobby").style.display          = "none";
     document.getElementById("waiting-code-badge").textContent = roomCode;
     document.getElementById("waiting").style.display         = "flex";
+    renderWaitingPlayers(data.waiting_count || 1);
     startWaiting();
   }
 }
@@ -104,6 +105,9 @@ function backToLobby() {
   document.getElementById("waiting").style.display = "none";
   document.getElementById("lobby").style.display   = "flex";
   document.getElementById("join-code").value = "";
+  _lastWaitingCount = 0;
+  document.getElementById("waiting-player-list").innerHTML = "";
+  document.getElementById("waiting-player-count").textContent = "1 / ?";
 }
 
 // ============================================================

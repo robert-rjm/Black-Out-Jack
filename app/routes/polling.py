@@ -20,7 +20,10 @@ import time as _time
 
 from flask import Blueprint, jsonify, request
 
-from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
+from app.services.session_store import (
+    game_sessions, _room_last_access, cleanup_stale_sessions,
+    mark_waiting_client, get_waiting_clients,
+)
 from app.services.validators import sanitize_name, is_dealer_client
 from app.services.serializer import (
     serialize_state, round_phase, current_turn, hand_done,
@@ -140,6 +143,16 @@ def state():
         # (e.g. bust vote disabled, or all-BJ deal where no hit/stand fires).
         elif round_phase(session) == "dealer-ready" and session._bust_vote_expires_at is None:
             _run_deferred_dealer_play(session)
+
+    if session is None:
+        if room_code in game_sessions:
+            mark_waiting_client(room_code, client_id)
+            return jsonify({
+                "ok": True,
+                "waiting": True,
+                "waiting_count": len(get_waiting_clients(room_code)),
+            })
+        return jsonify({"ok": False})
 
     return jsonify(serialize_state(session, client_id))
 
