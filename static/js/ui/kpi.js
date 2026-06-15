@@ -285,6 +285,7 @@ function renderStats(state) {
     const suited      = hs.suited_hands || 0;
     const hitH        = hs.hit_hands    || 0;
     const sub17       = hs.stand_sub17  || 0;
+    const sub17Pct    = hands > 0 ? Math.round((sub17 / hands) * 100) : null;
     const totalScore  = hs.total_score  || 0;
     const scoredH     = hs.scored_hands || 0;
     const totalSipsP  = sipTotals[name] || 0;
@@ -305,7 +306,7 @@ function renderStats(state) {
     const startBank   = state.starting_bankroll || 100;
     const netPL       = balance !== undefined ? balance - startBank : null;
     const big         = (state.biggest_round_payouts || {})[name] || {};
-    return { name, hands, wins, losses, pushes, wr, current, bj, busts, suited, hitRate, sub17, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal, balance, netPL, bigWin: big.best || 0, bigLoss: big.worst || 0 };
+    return { name, hands, wins, losses, pushes, wr, current, bj, busts, suited, hitRate, sub17, sub17Pct, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal, balance, netPL, bigWin: big.best || 0, bigLoss: big.worst || 0 };
   }).filter(r => r.hands > 0 || r.totalSipsP > 0 || r.balance !== undefined);
 
   if (rows.length === 0) {
@@ -350,7 +351,7 @@ function renderStats(state) {
     const avgSipsCell = r.avgSips !== "—" && _perPlayerSipStd
       ? `<span style="${benchmarkColor(parseFloat(r.avgSips), _perPlayerSipBenchmark, round, { lowerIsBetter: true, std: _perPlayerSipStd })}">${r.avgSips}</span>`
       : r.avgSips;
-    const s17Cell  = r.sub17  > 0 ? `<span style="color:var(--yellow)">${r.sub17}</span>`  : `<span style="opacity:.35">0</span>`;
+    const s17Cell  = r.sub17  > 0 ? `<span style="color:var(--yellow)">${r.sub17Pct}%</span>`  : `<span style="opacity:.35">0%</span>`;
     let sdCell;
     if (r.sdPct === null) {
       sdCell = `<span style="opacity:.35">—</span>`;
