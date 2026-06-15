@@ -67,6 +67,7 @@ async function joinRoom() {
     document.getElementById("lobby").style.display = "none";
     document.getElementById("app").style.display   = "flex";
     startPolling();
+    startIdleWatcher();
   } else {
     // Game not started yet — show waiting screen
     document.getElementById("lobby").style.display          = "none";
