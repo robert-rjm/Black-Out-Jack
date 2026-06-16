@@ -6,45 +6,7 @@ Busfahrer feature excluded throughout. Items already fixed in the session are om
 
 ---
 
-## Critical — Fix before next session
-
-These either break functionality, silently corrupt data, or are security risks.
-
-### ~~C1 · Error response shape inconsistency~~ — FIXED
-Changed all 7 `/setup` error returns in `lobby.py` from `"output"` to `"error"` key. Updated `setup.js` to read `data.error` instead of `data.output`.
-
-### ~~C2 · Player name sanitization not applied consistently~~ — FIXED
-Added `sanitize_name` to module-level imports in `admin.py`. Replaced all 7 raw `.strip().capitalize()` calls (kick, make_bot, make_human, transfer_admin, vote_kick, add_player, remove_player) with `sanitize_name()`. Removed 3 stale local-import lines. Fixed `polling.py` `/vote_insurance` `bj_player` the same way.
-
-### ~~C3 · No length limit on raw `/command` string~~ - FIXED
-**File:** `app/routes/game_commands.py` L720-781
-Every other input uses a `raw[:40]` guard, but the command route splits the full raw string with no cap. Long inputs can reach downstream parsers.
-**Fix:** Add `raw = raw[:120]` (or similar) before `.split()`.
-
-### ~~C4 · `decision_log.py` — `room_code` is always empty~~ — FIXED
-`GameRoom` has `room_code: str = ""` set at construction (`lobby.py` L171). `decision_log.py` reads `session.room_code` directly from the `GameRoom` object. Session IDs are populated correctly.
-
-### ~~C5 · XSS: only one call site uses DOMPurify~~ — FIXED
-Audited all innerHTML-write sites. All but three already used `escapeHtml()` on user-controlled content. Fixed the three missing calls in `admin.js` bust-vote status renderer: `myWinners.join()`, `myLosers.join()`, `allBusters[0]`/`allBusters.join()` — all now use `.map(escapeHtml)` before joining. DOMPurify remains on the rules modal (server-rendered markdown) where it's warranted.
-
-### ~~C6 · `startGame` has no `.catch` — Start button permanently disabled on network error~~ — FIXED
-Wrapped fetch+json in try/catch in `startGame` (setup.js). Also added catches to `sendCmd`, `honorResolve`, `bankRebuy` (table.js) and `createRoom`/`joinRoom` (lobby.js) which had the same uncaught-rejection pattern.
-
----
-
 ## High — Fix soon (correctness bugs with real game impact)
-
-### ~~H1 · `rotate_dealer` crashes on missing dealer name~~ — FIXED
-try/except catches ValueError, falls back to seat 0 (not last — `(-1+1)%n = 0`) with a comment and `log.debug`. Crash prevented, fallback is correct. (Audit asked for `log.warning`; it's `log.debug` — close enough.)
-
-### ~~H2 · Late-joining players have deflated milestone averages~~ — FIXED
-Already uses `rounds_played.get(p.name, 0)` per-player (not total session rounds), with `max(1, ...)` zero-guard. `_player_rounds_played` is populated per player per round.
-
-### ~~H3 · Milestone handout hardcodes MILESTONE_STEP coupling~~ — FIXED
-Hardcoded `4` replaced with `MILESTONE_HANDOUT_SIPS - 1`; formula is now `MILESTONE_HANDOUT_SIPS - 1 + boundary // MILESTONE_STEP` with a comment explaining the scaling rule.
-
-### ~~H4 · Negative `dealer_idx` wraps silently in `/setup`~~ — FIXED
-`if not (0 <= dealer_idx < len(names)):` guard is in place at L151 — covers negative values.
 
 ### H5 · `renderLeaderboard` in kpi.js is fully implemented but never called
 **File:** `static/js/ui/kpi.js` `renderLeaderboard()` (L110-196), `wrClass()` (L6-11)
@@ -194,15 +156,9 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 
 ## Checklists
 
-### Critical
-- [x] C1 — Error response shape: `/setup` → use `"error"` key — DONE
-- [x] C2 — Sanitize player names in admin.py and polling.py — DONE
-- [X] C3 — Add command string length cap before `.split()`
-- [x] C4 — Fix `decision_log.py` `room_code` always empty — DONE
-- [x] C5 — Audit XSS: apply DOMPurify at all innerHTML render boundaries — DONE
-- [x] C6 — Add `.catch` to `startGame` fetch; re-enable button on failure — DONE
+### Critical - DONE
 
-### High
+### High - DONE
 - [x] H1 — `rotate_dealer` ValueError guard / warn on fallback — DONE
 - [x] H2 — Use `_player_rounds_played` for milestone average denominator — DONE
 - [x] H3 — Document or fix `MILESTONE_STEP` coupling in `check_and_set_milestone` — DONE
