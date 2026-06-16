@@ -714,7 +714,7 @@ def command():
     if not game_session:
         return jsonify({"ok": False, "output": "No active session — set up a game first."})
 
-    cmd_str   = _req.get("cmd", "").strip()
+    cmd_str   = _req.get("cmd", "").strip()[:200]
     client_id = _req.get("client_id", "")
     if not cmd_str:
         return jsonify({"ok": False, "output": "Empty command."})
