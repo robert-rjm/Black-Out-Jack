@@ -138,11 +138,11 @@ def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
 
 def _bust_vote_window(session: GameRoom) -> dict:
     """Return bust_vote_window_open and bust_vote_seconds_left for the frontend."""
-    if not session.bust_vote_enabled or not session._bust_vote_expires_at:
+    if not session.bust_vote_enabled or not session.round._bust_vote_expires_at:
         return {"bust_vote_window_open": False, "bust_vote_seconds_left": 0}
 
     now        = time.monotonic()
-    secs_left  = session._bust_vote_expires_at - now
+    secs_left  = session.round._bust_vote_expires_at - now
     if secs_left <= 0:
         return {"bust_vote_window_open": False, "bust_vote_seconds_left": 0}
 
@@ -150,7 +150,7 @@ def _bust_vote_window(session: GameRoom) -> dict:
     human_players = [p for p in session.all_players
                      if not getattr(p, "is_npc", False)]
     all_decided = bool(human_players) and all(
-        session._bust_votes.get(p.name) is not None for p in human_players
+        session.round._bust_votes.get(p.name) is not None for p in human_players
     )
     if all_decided:
         return {"bust_vote_window_open": False, "bust_vote_seconds_left": 0}
@@ -170,7 +170,7 @@ def compute_sip_totals(session: GameRoom) -> dict:
     if not session.drinking_mode:
         return {}
     ticker = dict(session._sip_ticker)
-    if not session._drink_log_harvested:
+    if not session.round._drink_log_harvested:
         for p in session.all_players:
             net = max(0, sum((e[0] or 0) for e in p.drink_log if e))
             if net > 0:
@@ -183,7 +183,7 @@ def compute_dealer_role_sips(session: GameRoom) -> dict:
     if not session.drinking_mode:
         return {}
     ticker = dict(session._dealer_role_ticker)
-    if not session._drink_log_harvested:
+    if not session.round._drink_log_harvested:
         for p in session.all_players:
             for entry in p.drink_log:
                 sips = entry[0] if entry else 0
@@ -256,7 +256,7 @@ def compute_mandatory_split10(session: GameRoom, turn: str | None, phase: str) -
         return False
     if active_hand.is_suited():
         return False
-    if (player.name, id(active_hand)) in session._honor_acked:
+    if (player.name, id(active_hand)) in session.round._honor_acked:
         return False
     return True
 
@@ -362,7 +362,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             }
 
     # Dealer-rotation suggestion
-    switch         = session.switch_this_round
+    switch         = session.round.switch_this_round
     rounds_td      = session.rounds_this_dealer
     num_p          = len(session.all_players)
     suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= num_p)
@@ -401,34 +401,34 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "prev_round_sips":        {k: max(0, v) for k, v in session._prev_round_sips.items()},
         "prev_round_drinks":      session._prev_round_drinks,
         "dealer_role_sips":       compute_dealer_role_sips(session),
-        "ace_drink_events":       session._ace_drink_events,
-        "ace_drink_seq":          session._ace_drink_seq,
-        "reshuffle_events":       session._reshuffle_events,
-        "reshuffle_seq":          session._reshuffle_seq,
+        "ace_drink_events":       session.round._ace_drink_events,
+        "ace_drink_seq":          session.round._ace_drink_seq,
+        "reshuffle_events":       session.round._reshuffle_events,
+        "reshuffle_seq":          session.round._reshuffle_seq,
     }
 
     # ---- Bust-vote data ----
     _bust_vote_data = {
         "bust_vote_enabled":      session.bust_vote_enabled,
-        "bust_votes":             dict(session._bust_votes),
-        "my_bust_vote":           session._bust_votes.get((_ci.get("name") or "").capitalize()),
+        "bust_votes":             dict(session.round._bust_votes),
+        "my_bust_vote":           session.round._bust_votes.get((_ci.get("name") or "").capitalize()),
         "my_bust_votes":          {
-            n: session._bust_votes.get(n)
+            n: session.round._bust_votes.get(n)
             for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
-        "bust_vote_result":       session._bust_vote_result,
+        "bust_vote_result":       session.round._bust_vote_result,
         "bust_handout_seconds_left": (
-            max(0, round(session._bust_handout_expires_at - time.monotonic()))
-            if session._bust_handout_expires_at else 0
+            max(0, round(session.round._bust_handout_expires_at - time.monotonic()))
+            if session.round._bust_handout_expires_at else 0
         ),
         "my_bust_handout_pending": [
             n for n in (_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
-            if (session._bust_vote_result or {}).get("dealer_busted")
-            and n in (session._bust_vote_result or {}).get("winners", [])
-            and n not in session._bust_handouts_given
+            if (session.round._bust_vote_result or {}).get("dealer_busted")
+            and n in (session.round._bust_vote_result or {}).get("winners", [])
+            and n not in session.round._bust_handouts_given
         ],
         "bust_handout_seq":       session._bust_handout_seq,
-        "bust_handout_results":   list(session._bust_handout_log),
+        "bust_handout_results":   list(session.round._bust_handout_log),
         **_bust_vote_window(session),
     }
 
@@ -437,7 +437,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "insurance_result":       session._insurance_result,
         "insurance_votes":        [
             _serialize_insurance_vote(v, session, _ci)
-            for v in session._insurance_votes
+            for v in session.round._insurance_votes
         ],
     }
 
@@ -459,16 +459,16 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "i_am_winner":  bool(_ci.get("name") and
                                  m["winner"].lower() == _ci["name"].lower()),
         } if m and time.monotonic() < m["expires_at"] else None)(
-            session._pending_milestone
+            session.round._pending_milestone
         ),
     }
 
     # ---- Connection / room-membership data (admin-only fields gated below) ----
     _connection_data = {
-        "kick_votes":             {k: len(v) for k, v in session._kick_votes.items()},
-        "kick_votes_mine":        [k for k, v in session._kick_votes.items()
+        "kick_votes":             {k: len(v) for k, v in session.round._kick_votes.items()},
+        "kick_votes_mine":        [k for k, v in session.round._kick_votes.items()
                                    if (_ci.get("name") or "").lower() in v],
-        "kick_votes_detail":      {k: sorted(v) for k, v in session._kick_votes.items()},
+        "kick_votes_detail":      {k: sorted(v) for k, v in session.round._kick_votes.items()},
         "rejoin_requests":        [r for r in session._rejoin_requests
                                    if _ci.get("role") == "admin"],
         "my_rejoin_pending":      any(r["client_id"] == client_id
@@ -540,19 +540,19 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "drinking_mode":          session.drinking_mode,
         "best_play":              compute_best_play(session, turn, phase) if session.strategy_hint_enabled else None,
         "strategy_hint_enabled":  session.strategy_hint_enabled,
-        "honor_pending":          bool(session.drinking_mode and session._honor_pending),
-        "honor_pending_action":   (session._honor_pending or {}).get("action") if session.drinking_mode else None,
+        "honor_pending":          bool(session.drinking_mode and session.round._honor_pending),
+        "honor_pending_action":   (session.round._honor_pending or {}).get("action") if session.drinking_mode else None,
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,
         "rounds_this_dealer":     rounds_td,
         "dealer_rotate_every":    session._dealer_rotate_every,
         "switch_this_round":      switch,
-        "log_entries":            session._log_entries,
-        "log_count":              len(session._log_entries),
+        "log_entries":            session.round._log_entries,
+        "log_count":              len(session.round._log_entries),
         "log_version":            session._log_version,
-        "peeked_card":            session._last_peeked,
-        "preselections":          session._preselections,
-        "suggestions":            session._suggestions,
+        "peeked_card":            session.round._last_peeked,
+        "preselections":          session.round._preselections,
+        "suggestions":            session.round._suggestions,
         "anim_default":           session._anim_default,
         "easy_mode":              session.easy_mode,
         "god_mode_enabled":       session._god_mode,

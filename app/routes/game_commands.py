@@ -139,7 +139,7 @@ def _check_honor_house_rule(game_session, player, hand, action) -> bool:
     If `hand` is an unsuited 10-value pair, split is still legal, and this
     hand hasn't been resolved yet, block the attempted action (hit, stand,
     or double) by recording it — along with which action was attempted — in
-    session._honor_pending and return True. The frontend shows the
+    session.round._honor_pending and return True. The frontend shows the
     "Play with honor / <action> (1 sip)" prompt purely by reading
     state.honor_pending — the choice is later applied via /honor_resolve.
     Always returns False (no-op) in Normal mode.
@@ -152,7 +152,7 @@ def _check_honor_house_rule(game_session, player, hand, action) -> bool:
         return False
     if not turn or turn.lower() != player.name.lower():
         return False
-    game_session._honor_pending = {
+    game_session.round._honor_pending = {
         "player":  player.name,
         "hand_id": id(hand),
         "action":  action,
@@ -234,8 +234,8 @@ def _after_player_action(game_session):
     if round_phase(game_session) == "dealer-ready":
         _bust_open = (
             game_session.bust_vote_enabled
-            and game_session._bust_vote_expires_at is not None
-            and time.monotonic() < game_session._bust_vote_expires_at
+            and game_session.round._bust_vote_expires_at is not None
+            and time.monotonic() < game_session.round._bust_vote_expires_at
         )
         if _bust_open:
             # All hands are done — no point holding the dealer for the
@@ -243,7 +243,7 @@ def _after_player_action(game_session):
             # /state poll triggers the dealer immediately instead of
             # waiting up to 17s (common when player2 is a bot and
             # the NPC plays out instantly after the human's last action).
-            game_session._bust_vote_expires_at = time.monotonic()
+            game_session.round._bust_vote_expires_at = time.monotonic()
             log.debug("\n  (All players done — bust vote window closed, dealer plays on next poll)")
         else:
             log.debug("\n  (All players done — dealer plays automatically)")
@@ -257,24 +257,24 @@ def _after_player_action(game_session):
 
 def _cmd_deal_digital(game_session, parts):
     # Initial deal — no card args; shoe deals automatically
-    game_session._last_peeked   = None   # peeked card is now stale
-    game_session._preselections = {}
-    game_session._suggestions   = {}
-    game_session._bust_votes    = {}     # fresh votes each deal
+    game_session.round._last_peeked   = None   # peeked card is now stale
+    game_session.round._preselections = {}
+    game_session.round._suggestions   = {}
+    game_session.round._bust_votes    = {}     # fresh votes each deal
     # Open the bust-vote window (countdown displays from 15)
-    game_session._bust_vote_expires_at = (
+    game_session.round._bust_vote_expires_at = (
         time.monotonic() + BUST_VOTE_WINDOW_SECONDS
         if game_session.bust_vote_enabled else None
     )
-    game_session._bust_handouts_given  = set()   # clear any stale handouts
-    game_session._bust_handout_expires_at = None
+    game_session.round._bust_handouts_given  = set()   # clear any stale handouts
+    game_session.round._bust_handout_expires_at = None
     initial_deal(game_session)
     # NPCs always decline the bust side bet — cast their votes immediately
     # so only human players can hold up the start of play.
-    if game_session.bust_vote_enabled and game_session._bust_vote_expires_at is not None:
+    if game_session.bust_vote_enabled and game_session.round._bust_vote_expires_at is not None:
         for _p in game_session.all_players:
             if getattr(_p, "is_npc", False):
-                game_session._bust_votes[_p.name] = "pass"
+                game_session.round._bust_votes[_p.name] = "pass"
     auto_play_npc_turns(game_session)  # no-op if bust vote still pending
     # If all hands are already done after the deal (e.g. all players
     # have a natural BJ), the hit/stand block below never fires so we
@@ -375,7 +375,7 @@ def honor_resolve():
         (equivalent to pressing SPLIT), no penalty.
     choice == "no": "play without honor" -- carries out whichever action
         the player originally attempted (hit, double, or stand —
-        recorded in session._honor_pending["action"]) and applies a
+        recorded in session.round._honor_pending["action"]) and applies a
         1-sip penalty, delivered via the existing ace-drink toast pipeline.
 
     Either way this is the single follow-up action -- no further button
@@ -397,25 +397,25 @@ def honor_resolve():
     if (info.get("role") or "spectator") not in ("admin", "player"):
         return jsonify({"ok": False, "error": "Spectators cannot resolve this prompt."})
 
-    if not session.drinking_mode or not session._honor_pending:
+    if not session.drinking_mode or not session.round._honor_pending:
         # Nothing pending (stale request / already resolved elsewhere) -- no-op.
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
     if choice not in ("split", "no"):
         return jsonify({"ok": False, "error": f"Invalid choice '{choice}'."})
 
-    pending = session._honor_pending
+    pending = session.round._honor_pending
     player  = session._get_player(pending["player"])
     hand    = next((h for h in player.hands if id(h) == pending["hand_id"]), None)
     if not player or not hand:
         # Hand no longer exists (shouldn't happen) -- clear and bail safely.
-        session._honor_pending = None
+        session.round._honor_pending = None
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
-    session._honor_acked.add((player.name, id(hand)))
-    session._honor_pending = None
+    session.round._honor_acked.add((player.name, id(hand)))
+    session.round._honor_pending = None
     hand_label = f"hand{player.hands.index(hand) + 1}"
-    session._preselections.pop(f"{player.name.lower()}:{hand_label}", None)
+    session.round._preselections.pop(f"{player.name.lower()}:{hand_label}", None)
 
     if choice == "split":
         _cmd_split(session, ["split", player.name, hand_label])
@@ -501,7 +501,7 @@ def _cmd_split(game_session, parts):
     # that ack must not carry over: once it's dealt a new second card it's a
     # brand-new 2-card hand and may need the house-rule prompt again (e.g.
     # re-splitting into another unsuited 10-10).
-    game_session._honor_acked.discard((player.name, id(hand)))
+    game_session.round._honor_acked.discard((player.name, id(hand)))
     idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
     new_hand, new_label = perform_split(game_session, player, hand, idx)
     # Check for instant 21/bust on H1 after the second card is dealt
@@ -553,7 +553,7 @@ def _cmd_insurance(game_session, parts):
     # dealer_turn resolves this hand as insured via voted_keys.
     hand_idx   = player.hands.index(hand)
     vote_entry = next(
-        (v for v in game_session._insurance_votes
+        (v for v in game_session.round._insurance_votes
          if v["player"] == player.name and v["hand_idx"] == hand_idx
          and not v.get("resolved")),
         None,
@@ -586,18 +586,18 @@ def _cmd_blackjack(game_session, parts):
 def _cmd_peek(game_session, parts):
     # Toggle: hide peeked card if already shown, otherwise reveal it
     shoe = getattr(game_session, "shoe", None)
-    if game_session._last_peeked:
+    if game_session.round._last_peeked:
         # Already showing — toggle off
-        game_session._last_peeked = None
+        game_session.round._last_peeked = None
         log.debug("  Next card hidden.")
     elif shoe and shoe.cards:
         card = shoe.cards[-1]   # pop() takes from the end
         log.debug(f"  Next card in shoe: {card}")
         log.debug(f"  ({len(shoe.cards)} cards remaining)")
-        game_session._last_peeked = serialize_card(card)
+        game_session.round._last_peeked = serialize_card(card)
     else:
         log.debug("  Shoe is empty or not available.")
-        game_session._last_peeked = None
+        game_session.round._last_peeked = None
 
 
 def _cmd_dealer_digital(game_session, parts):
@@ -787,7 +787,7 @@ def command():
             if cmd in PLAYER_ACTION_CMDS and len(parts) >= 2:
                 _p = parts[1].strip().capitalize()
                 _h = (parts[2] if len(parts) > 2 else "hand1").strip().lower()
-                game_session._preselections.pop(f"{_p.lower()}:{_h}", None)
+                game_session.round._preselections.pop(f"{_p.lower()}:{_h}", None)
 
             # After any player action: deal pending second cards to split hands
             # whose predecessor just finished, then check if dealer should auto-play
@@ -807,7 +807,7 @@ def command():
     # newround already cleared _log_entries above; appending here adds the
     # new-round start text to the fresh log.
     if output.strip():
-        game_session._log_entries.append(output)
+        game_session.round._log_entries.append(output)
     state = serialize_state(game_session, client_id)
     state["output"] = output   # kept for immediate display on the sender's side
     # peeked_card is included in serialize_state and persists until cleared

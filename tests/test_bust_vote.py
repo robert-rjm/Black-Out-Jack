@@ -47,75 +47,75 @@ def _make_room(num_players=3, bust_vote_enabled=True, dealer_hand=None):
 
 def test_disabled_is_noop():
     room = _make_room(bust_vote_enabled=False)
-    room._bust_votes = {"Bob": "bust"}
+    room.round._bust_votes = {"Bob": "bust"}
     apply_bust_vote_penalties(room)
-    assert room._bust_vote_result is None
+    assert room.round._bust_vote_result is None
 
 
 def test_no_votes_cast_is_noop():
     room = _make_room()
-    room._bust_votes = {}
+    room.round._bust_votes = {}
     apply_bust_vote_penalties(room)
-    assert room._bust_vote_result is None
+    assert room.round._bust_vote_result is None
 
 
 def test_all_votes_pass_is_noop():
     room = _make_room()
-    room._bust_votes = {"Bob": "pass", "Carol": "pass"}
+    room.round._bust_votes = {"Bob": "pass", "Carol": "pass"}
     apply_bust_vote_penalties(room)
-    assert room._bust_vote_result is None
+    assert room.round._bust_vote_result is None
 
 
 def test_dealer_no_dealer_hand_is_noop():
     room = _make_room(dealer_hand=make_hand())
     room._get_dealer().dealer_hand = None
-    room._bust_votes = {"Bob": "bust"}
+    room.round._bust_votes = {"Bob": "bust"}
     apply_bust_vote_penalties(room)
-    assert room._bust_vote_result is None
+    assert room.round._bust_vote_result is None
 
 
 def test_dealer_busts_credits_winners():
     busted_hand = make_hand(("K", "S"), ("Q", "H"), ("5", "D"))  # 25 -> bust
     room = _make_room(dealer_hand=busted_hand)
-    room._bust_votes = {"Bob": "bust", "Carol": "bust"}
+    room.round._bust_votes = {"Bob": "bust", "Carol": "bust"}
     apply_bust_vote_penalties(room)
 
     bob = room._get_player("Bob")
     carol = room._get_player("Carol")
     assert bob.drink_log == [(-1, "bust vote correct: -1 sip credit", "player")]
     assert carol.drink_log == [(-1, "bust vote correct: -1 sip credit", "player")]
-    assert room._bust_vote_result == {
+    assert room.round._bust_vote_result == {
         "dealer_busted": True,
         "winners": ["Bob", "Carol"],
         "losers": [],
     }
-    assert room._bust_handouts_given == set()
-    assert room._bust_handout_expires_at is not None
-    assert room._bust_handout_expires_at > time.monotonic()
+    assert room.round._bust_handouts_given == set()
+    assert room.round._bust_handout_expires_at is not None
+    assert room.round._bust_handout_expires_at > time.monotonic()
 
 
 def test_dealer_does_not_bust_penalizes_voters():
     good_hand = make_hand(("K", "S"), ("9", "H"))  # 19 -> no bust
     room = _make_room(dealer_hand=good_hand)
-    room._bust_votes = {"Bob": "bust", "Carol": "bust"}
+    room.round._bust_votes = {"Bob": "bust", "Carol": "bust"}
     apply_bust_vote_penalties(room)
 
     bob = room._get_player("Bob")
     carol = room._get_player("Carol")
     assert bob.drink_log == [(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")]
     assert carol.drink_log == [(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")]
-    assert room._bust_vote_result == {
+    assert room.round._bust_vote_result == {
         "dealer_busted": False,
         "winners": [],
         "losers": ["Bob", "Carol"],
     }
-    assert room._bust_handout_expires_at is None
+    assert room.round._bust_handout_expires_at is None
 
 
 def test_mixed_votes_dealer_busts():
     busted_hand = make_hand(("K", "S"), ("Q", "H"), ("5", "D"))  # bust
     room = _make_room(num_players=4, dealer_hand=busted_hand)
-    room._bust_votes = {"Bob": "bust", "Carol": "pass"}
+    room.round._bust_votes = {"Bob": "bust", "Carol": "pass"}
     apply_bust_vote_penalties(room)
 
     bob = room._get_player("Bob")
@@ -124,8 +124,8 @@ def test_mixed_votes_dealer_busts():
     assert bob.drink_log == [(-1, "bust vote correct: -1 sip credit", "player")]
     assert carol.drink_log == []
     assert dave.drink_log == []
-    assert room._bust_vote_result["winners"] == ["Bob"]
-    assert room._bust_vote_result["losers"] == []
+    assert room.round._bust_vote_result["winners"] == ["Bob"]
+    assert room.round._bust_vote_result["losers"] == []
 
 
 def test_classify_rule_round_trip():
@@ -137,7 +137,7 @@ def test_winner_net_drinks_owed_floor():
     """A bust-vote winner with no other drinks this round shouldn't go negative."""
     busted_hand = make_hand(("K", "S"), ("Q", "H"), ("5", "D"))
     room = _make_room(dealer_hand=busted_hand)
-    room._bust_votes = {"Bob": "bust"}
+    room.round._bust_votes = {"Bob": "bust"}
     apply_bust_vote_penalties(room)
 
     bob = room._get_player("Bob")
@@ -153,66 +153,66 @@ def test_winner_net_drinks_owed_floor():
 
 def test_forfeit_noop_when_no_expiry_set():
     room = _make_room()
-    room._bust_handout_expires_at = None
+    room.round._bust_handout_expires_at = None
     apply_bust_handout_forfeit(room)
     assert room._get_player("Bob").drink_log == []
 
 
 def test_forfeit_noop_when_window_not_expired():
     room = _make_room()
-    room._bust_vote_result = {"dealer_busted": True, "winners": ["Bob"], "losers": []}
-    room._bust_handouts_given = set()
-    room._bust_handout_expires_at = time.monotonic() + 100
+    room.round._bust_vote_result = {"dealer_busted": True, "winners": ["Bob"], "losers": []}
+    room.round._bust_handouts_given = set()
+    room.round._bust_handout_expires_at = time.monotonic() + 100
     apply_bust_handout_forfeit(room)
     assert room._get_player("Bob").drink_log == []
 
 
 def test_forfeit_applies_penalty_when_expired(monkeypatch):
     room = _make_room()
-    room._bust_vote_result = {"dealer_busted": True, "winners": ["Bob"], "losers": []}
-    room._bust_handouts_given = set()
-    room._bust_handout_expires_at = time.monotonic() - 1  # already expired
+    room.round._bust_vote_result = {"dealer_busted": True, "winners": ["Bob"], "losers": []}
+    room.round._bust_handouts_given = set()
+    room.round._bust_handout_expires_at = time.monotonic() - 1  # already expired
 
     apply_bust_handout_forfeit(room)
 
     bob = room._get_player("Bob")
     assert bob.drink_log[-1][0] == 1
     assert "didn't assign in time" in bob.drink_log[-1][1]
-    assert "Bob" in room._bust_handouts_given
-    assert room._bust_handout_expires_at is None  # all winners resolved -> cleared
+    assert "Bob" in room.round._bust_handouts_given
+    assert room.round._bust_handout_expires_at is None  # all winners resolved -> cleared
 
 
 def test_forfeit_already_given_no_double_penalty():
     room = _make_room()
-    room._bust_vote_result = {"dealer_busted": True, "winners": ["Bob"], "losers": []}
-    room._bust_handouts_given = {"Bob"}
-    room._bust_handout_expires_at = time.monotonic() - 1
+    room.round._bust_vote_result = {"dealer_busted": True, "winners": ["Bob"], "losers": []}
+    room.round._bust_handouts_given = {"Bob"}
+    room.round._bust_handout_expires_at = time.monotonic() - 1
 
     apply_bust_handout_forfeit(room)
 
     bob = room._get_player("Bob")
     assert bob.drink_log == []  # no penalty applied
-    assert room._bust_handout_expires_at is None
+    assert room.round._bust_handout_expires_at is None
 
 
 def test_forfeit_partial_resolution_keeps_expiry():
     room = _make_room(num_players=4)
-    room._bust_vote_result = {"dealer_busted": True, "winners": ["Bob", "Carol"], "losers": []}
-    room._bust_handouts_given = {"Bob"}  # Bob already gave; Carol hasn't
-    room._bust_handout_expires_at = time.monotonic() - 1
+    room.round._bust_vote_result = {"dealer_busted": True, "winners": ["Bob", "Carol"], "losers": []}
+    room.round._bust_handouts_given = {"Bob"}  # Bob already gave; Carol hasn't
+    room.round._bust_handout_expires_at = time.monotonic() - 1
 
     apply_bust_handout_forfeit(room)
 
     carol = room._get_player("Carol")
     assert carol.drink_log[-1][0] == 1
-    assert room._bust_handouts_given == {"Bob", "Carol"}
-    assert room._bust_handout_expires_at is None  # all resolved now
+    assert room.round._bust_handouts_given == {"Bob", "Carol"}
+    assert room.round._bust_handout_expires_at is None  # all resolved now
 
 
 def test_forfeit_no_result_or_winners_is_noop():
     room = _make_room()
-    room._bust_vote_result = None
-    room._bust_handout_expires_at = time.monotonic() - 1
+    room.round._bust_vote_result = None
+    room.round._bust_handout_expires_at = time.monotonic() - 1
     # Should not raise
     apply_bust_handout_forfeit(room)
 
@@ -242,7 +242,7 @@ def room_setup():
     room._room_clients["client-1"] = {
         "name": "Bob", "local_names": ["Bob", "Carol"], "role": "admin", "kicked": False,
     }
-    room._bust_vote_expires_at = time.monotonic() + 60
+    room.round._bust_vote_expires_at = time.monotonic() + 60
     set_session(room_code, room)
     yield room_code, room
     game_sessions.pop(room_code, None)
@@ -271,7 +271,7 @@ def test_cast_vote_not_enabled(client):
 
 def test_cast_vote_window_expired(client, room_setup):
     room_code, room = room_setup
-    room._bust_vote_expires_at = time.monotonic() - 1  # expired
+    room.round._bust_vote_expires_at = time.monotonic() - 1  # expired
 
     resp = client.post("/cast_bust_vote", json={
         "room_code": room_code, "client_id": "client-1", "vote": "bust",
@@ -298,14 +298,14 @@ def test_cast_vote_records_and_recast_overwrites(client, room_setup):
         "room_code": room_code, "client_id": "client-1", "vote": "bust",
     })
     assert resp.get_json()["ok"] is True
-    assert room._bust_votes["Bob"] == "bust"
+    assert room.round._bust_votes["Bob"] == "bust"
 
     # Re-cast — last vote wins
     resp = client.post("/cast_bust_vote", json={
         "room_code": room_code, "client_id": "client-1", "vote": "pass",
     })
     assert resp.get_json()["ok"] is True
-    assert room._bust_votes["Bob"] == "pass"
+    assert room.round._bust_votes["Bob"] == "pass"
 
 
 def test_cast_vote_local_player_override(client, room_setup):
@@ -317,8 +317,8 @@ def test_cast_vote_local_player_override(client, room_setup):
     })
     data = resp.get_json()
     assert data["ok"] is True
-    assert room._bust_votes["Carol"] == "bust"
-    assert "Bob" not in room._bust_votes
+    assert room.round._bust_votes["Carol"] == "bust"
+    assert "Bob" not in room.round._bust_votes
 
 
 def test_cast_vote_local_player_not_in_local_names_rejected(client, room_setup):
@@ -357,7 +357,7 @@ def test_cast_vote_all_humans_voted_triggers_deferred_play(client, room_setup, m
 
     # Dealer (Alice) also counts as a human player in the all-voted check;
     # simulate her vote having already been recorded.
-    room._bust_votes["Alice"] = "pass"
+    room.round._bust_votes["Alice"] = "pass"
 
     resp = client.post("/cast_bust_vote", json={
         "room_code": room_code, "client_id": "client-1", "vote": "bust",
@@ -373,12 +373,12 @@ def test_cast_vote_all_humans_voted_triggers_deferred_play(client, room_setup, m
 # ---------------------------------------------------------------------------
 
 def _set_winner(room, winner="Bob", dealer_busted=True, winners=None):
-    room._bust_vote_result = {
+    room.round._bust_vote_result = {
         "dealer_busted": dealer_busted,
         "winners": winners if winners is not None else [winner],
         "losers": [],
     }
-    room._bust_handouts_given = set()
+    room.round._bust_handouts_given = set()
 
 
 def test_give_sip_not_a_winner(client, room_setup):
@@ -410,7 +410,7 @@ def test_give_sip_dealer_did_not_bust(client, room_setup):
 def test_give_sip_already_given(client, room_setup):
     room_code, room = room_setup
     _set_winner(room, winner="Bob")
-    room._bust_handouts_given = {"Bob"}
+    room.round._bust_handouts_given = {"Bob"}
 
     resp = client.post("/give_bust_sip", json={
         "room_code": room_code, "client_id": "client-1",
@@ -460,7 +460,7 @@ def test_give_sip_valid_handout(client, room_setup):
 
     carol = room._get_player("Carol")
     assert carol.drink_log[-1] == (1, "Bust vote handout from Bob: +1 sip", "player")
-    assert "Bob" in room._bust_handouts_given
+    assert "Bob" in room.round._bust_handouts_given
     assert room._last_round_sips["Carol"] >= 1
     assert room._sip_ticker["Carol"] >= 1
     assert any(
@@ -474,9 +474,9 @@ def test_give_sip_idempotent_after_forfeit(client, room_setup):
     for that winner is rejected."""
     room_code, room = room_setup
     _set_winner(room, winner="Bob")
-    room._bust_handout_expires_at = time.monotonic() - 1
+    room.round._bust_handout_expires_at = time.monotonic() - 1
     apply_bust_handout_forfeit(room)
-    assert "Bob" in room._bust_handouts_given
+    assert "Bob" in room.round._bust_handouts_given
 
     resp = client.post("/give_bust_sip", json={
         "room_code": room_code, "client_id": "client-1",

@@ -16,7 +16,7 @@ import logging
 from engine.blackjack import Hand, NPC_Player, Player, Shoe
 from engine.referee import RefereeSession
 
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, RoundState
 
 log = logging.getLogger(__name__)
 
@@ -78,41 +78,27 @@ def capture(fn, *args) -> str:
 # ---------------------------------------------------------------------------
 
 def reset_round_state(session: GameRoom, *, digital: bool = False) -> None:
-    """Clear per-round transient state shared by digital and referee
-    "newround" handling. Call after rotate/queued-settings handling and
-    before session.start_round().
+    """Replace the per-round RoundState and reset non-RoundState guards.
 
-    digital=True additionally clears the digital-only deferred hole-card
-    message buffer (referee mode never populates it).
+    RoundState is replaced wholesale so every field defined there is
+    automatically cleared — no need to update this function when new
+    per-round fields are added to RoundState.
+
+    The three items below live outside RoundState because they are either
+    session-lifetime counters or properties that delegate into RefereeSession:
+
+    - _log_version: increments each round so clients detect log changes
+    - _hard_switch_drinking_applied: guard on RefereeSession
+    - _insurance_result: attribute on RefereeSession
+
+    The ``digital`` parameter is retained for call-site compatibility;
+    _deferred_hole_card_msgs is now part of RoundState so it is cleared in
+    both modes (harmless in referee mode, which never populates it).
     """
-    session.switch_this_round             = None
+    session.round                         = RoundState()
+    session._log_version                 += 1
     session._hard_switch_drinking_applied = False
-
-    # Clear shared log and peeked card for the new round
-    session._log_entries   = []
-    session._log_version   = session._log_version + 1
-    session._last_peeked   = None
-    if digital:
-        session._deferred_hole_card_msgs = []
-
-    session._preselections          = {}
-    session._suggestions            = {}
-    session._bust_votes             = {}    # clear bust votes each round
-    session._bust_vote_expires_at   = None
-    session._bust_vote_result       = None
-    session._bust_handout_expires_at = None
-    session._insurance_result       = None
-    session._ace_drink_events       = []
-    session._ace_drink_seq          = 0
-    session._reshuffle_events       = []
-    session._reshuffle_seq          = 0
-    session._honor_acked            = set()
-    session._honor_pending          = None
-    session._bust_handouts_given    = set()
-    session._bust_handout_log       = []
-    session._drink_log_harvested    = False
-    session._kick_votes             = {}    # reset vote-kick tally each round
-    session._pending_milestone      = None  # clear between rounds
+    session._insurance_result             = None
 
 
 def apply_queued_settings(session: GameRoom) -> list[str]:

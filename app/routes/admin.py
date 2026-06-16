@@ -137,7 +137,7 @@ def make_bot():
 
     # Clear any pending preselections / suggestions for this player
     key_prefix = f"{target_name.lower()}:"
-    for d in (session._preselections, session._suggestions):
+    for d in (session.round._preselections, session.round._suggestions):
         for k in [k for k in d if k.startswith(key_prefix)]:
             d.pop(k, None)
 
@@ -186,8 +186,8 @@ def make_human():
 
     # Clear any lingering auto-voted "pass" so they can cast a real vote
     # if a bust-vote window happens to be open right now.
-    if session._bust_votes.get(player.name) == "pass":
-        session._bust_votes.pop(player.name, None)
+    if session.round._bust_votes.get(player.name) == "pass":
+        session.round._bust_votes.pop(player.name, None)
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -375,7 +375,7 @@ def vote_kick():
         return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
 
     key   = target_name.lower()
-    votes = session._kick_votes.setdefault(key, set())
+    votes = session.round._kick_votes.setdefault(key, set())
 
     # Toggle
     if voter_name in votes:
@@ -397,7 +397,7 @@ def vote_kick():
         for cid, v in list(clients.items()):
             if (v.get("name") or "").lower() == key:
                 v["kicked"] = True
-        session._kick_votes.pop(key, None)
+        session.round._kick_votes.pop(key, None)
         kicked = True
 
     state = serialize_state(session, client_id)
@@ -556,7 +556,7 @@ def update_settings():
     # bust_vote_enabled is a live setting — toggled immediately
     if "bust_vote_enabled" in data:
         session.bust_vote_enabled = bool(data["bust_vote_enabled"])
-        session._bust_votes = {}   # clear any stale votes when toggling
+        session.round._bust_votes = {}   # clear any stale votes when toggling
 
     # strategy_hint_enabled (basic-strategy "best play" blue border) — live setting
     if "strategy_hint_enabled" in data:
@@ -603,11 +603,11 @@ def claim_milestone():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    milestone = session._pending_milestone
+    milestone = session.round._pending_milestone
     if not milestone:
         return jsonify({"ok": False, "error": "No active milestone."})
     if time.monotonic() >= milestone["expires_at"]:
-        session._pending_milestone = None
+        session.round._pending_milestone = None
         return jsonify({"ok": False, "error": "Milestone claim window has expired."})
 
     # Verify caller is the winner
@@ -712,10 +712,10 @@ def claim_milestone():
     if residual > 0:
         sip_word = "sip" if residual == 1 else "sips"
         log_lines.append(f"  → {winner} keeps {residual} {sip_word} (drinks them)")
-    session._log_entries = session._log_entries + ["\n".join(log_lines)]
+    session.round._log_entries = session.round._log_entries + ["\n".join(log_lines)]
     session._log_version = session._log_version + 1
 
-    session._pending_milestone     = None
+    session.round._pending_milestone     = None
     session._last_milestone_result = {
         "winner":      winner,
         "boundary":    boundary,
