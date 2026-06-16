@@ -263,7 +263,7 @@ Items are ordered by impact × effort ratio. Work left to right through the tier
 ### Tier 4 — UI polish
 
 - [X] **Fix duplicate `min-height` in `.bnav-btn`** (UI 5.2) — trivial.
-- [ ] **Merge duplicate `.bust-vote-status` rules** (UI 5.3) — trivial.
+- [X] **Merge duplicate `.bust-vote-status` rules** (UI 5.3) — trivial.
 - [ ] **Add `overflow-x: auto` to `.cards-row`** (UI 5.4) — prevents card overflow on long hands.
 - [ ] **Soften done-seat dimming** (UI 5.5) — `opacity: .55` → `.80`, or switch to active-seat accent.
 - [ ] **Add bottom nav text labels on desktop** (UI 5.1) — accessibility win.
