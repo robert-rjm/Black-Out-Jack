@@ -32,7 +32,15 @@ function renderInsuranceModal(state) {
 
   if (!openVotes.length) {
     _closeInsuranceModal();
-    _renderInsuranceBanner(null);
+    // If the vote just resolved, show the outcome in the banner instead of
+    // hiding it immediately.  The backend clears insurance_result on new round,
+    // so the banner disappears naturally without extra cleanup.
+    const results = state.insurance_result;
+    if (results && results.length) {
+      _renderInsuranceBannerOutcome(results);
+    } else {
+      _renderInsuranceBanner(null);
+    }
     return;
   }
 
@@ -206,6 +214,26 @@ function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = nu
   content.innerHTML  =
     `🃏 Insurance vote closed — <strong style="color:${color}">${voteLabel}</strong> ` +
     `(${insureCount} insure / ${declineCount} decline) · waiting for dealer to reveal`;
+  banner.style.display = "block";
+}
+
+function _renderInsuranceBannerOutcome(results) {
+  const banner  = document.getElementById("insurance-vote-banner");
+  const content = document.getElementById("insurance-vote-banner-content");
+  if (!banner || !content) return;
+  banner.classList.remove("minimised");
+  const parts = results.map(r => {
+    const voted = r.insured ? "INSURE" : "DECLINE";
+    const icon  = r.group_won ? "✅" : "❌";
+    const color = r.group_won ? "var(--green)" : "var(--red)";
+    let outcome;
+    if (r.insured && r.dealer_bj)    outcome = "dealer had BJ — BJ holder drinks own bonus, group safe";
+    else if (r.insured && !r.dealer_bj) outcome = "no dealer BJ — group drinks double";
+    else if (!r.insured && !r.dealer_bj) outcome = "no dealer BJ — normal BJ bonus";
+    else                                  outcome = "dealer had BJ — auto-insurance applies";
+    return `${icon} <strong style="color:${color}">${escapeHtml(r.player)}: ${voted}</strong> — ${outcome}`;
+  });
+  content.innerHTML = `🃏 Insurance result — ${parts.join(" &nbsp;·&nbsp; ")}`;
   banner.style.display = "block";
 }
 
