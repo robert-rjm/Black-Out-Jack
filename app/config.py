@@ -60,5 +60,4 @@ MAX_REG_DENIALS = 2   # times a client can be denied (re-)entry before being loc
 
 DEFAULT_WAGER     = 1
 DEFAULT_NUM_HANDS = 2
-DEFAULT_NUM_DECKS = 1
 DEFAULT_MODE      = "referee"   # "referee" | "digital"
