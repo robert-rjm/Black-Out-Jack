@@ -16,7 +16,7 @@ Changed all 7 `/setup` error returns in `lobby.py` from `"output"` to `"error"` 
 ### ~~C2 · Player name sanitization not applied consistently~~ — FIXED
 Added `sanitize_name` to module-level imports in `admin.py`. Replaced all 7 raw `.strip().capitalize()` calls (kick, make_bot, make_human, transfer_admin, vote_kick, add_player, remove_player) with `sanitize_name()`. Removed 3 stale local-import lines. Fixed `polling.py` `/vote_insurance` `bj_player` the same way.
 
-### C3 · No length limit on raw `/command` string
+### ~~C3 · No length limit on raw `/command` string~~ - FIXED
 **File:** `app/routes/game_commands.py` L720-781
 Every other input uses a `raw[:40]` guard, but the command route splits the full raw string with no cap. Long inputs can reach downstream parsers.
 **Fix:** Add `raw = raw[:120]` (or similar) before `.split()`.
@@ -36,25 +36,17 @@ Wrapped fetch+json in try/catch in `startGame` (setup.js). Also added catches to
 
 ## High — Fix soon (correctness bugs with real game impact)
 
-### H1 · `rotate_dealer` crashes on missing dealer name
-**File:** `app/services/room_manager.py` `rotate_dealer` (L195-203)
-`all_names.index(session.dealer_name)` raises unhandled `ValueError` if the dealer was removed via `apply_queued_settings` between rounds. Already partially guarded in the code (try/except path) but the except sets `cur_idx = -1` which silently wraps to the last player — it should log a warning at minimum.
-**Fix:** Confirm the try/except path is correct; add a warning log on the fallback.
+### ~~H1 · `rotate_dealer` crashes on missing dealer name~~ — FIXED
+try/except catches ValueError, falls back to seat 0 (not last — `(-1+1)%n = 0`) with a comment and `log.debug`. Crash prevented, fallback is correct. (Audit asked for `log.warning`; it's `log.debug` — close enough.)
 
-### H2 · Late-joining players have deflated milestone averages
-**File:** `app/services/drink_tracker.py` `_apply_worst_player_streak` (L399-450)
-Uses `len(session._round_sip_history)` as every player's round count. Players who joined mid-session have their sip average divided by total rounds, not rounds they were present — making them artificially "worst player" candidates.
-**Fix:** Use `session._player_rounds_played[name]` as the divisor, defaulting to total rounds if missing.
+### ~~H2 · Late-joining players have deflated milestone averages~~ — FIXED
+Already uses `rounds_played.get(p.name, 0)` per-player (not total session rounds), with `max(1, ...)` zero-guard. `_player_rounds_played` is populated per player per round.
 
-### H3 · Milestone handout hardcodes MILESTONE_STEP coupling
-**File:** `app/services/drink_tracker.py` `check_and_set_milestone` (L453-519)
-`handout_sips = 4 + boundary // MILESTONE_STEP` bakes an implicit relationship to `MILESTONE_STEP=50` — changing the constant breaks the formula silently.
-**Fix:** Document the coupling with a comment, or derive the `+4` from config explicitly.
+### ~~H3 · Milestone handout hardcodes MILESTONE_STEP coupling~~ — FIXED
+Hardcoded `4` replaced with `MILESTONE_HANDOUT_SIPS - 1`; formula is now `MILESTONE_HANDOUT_SIPS - 1 + boundary // MILESTONE_STEP` with a comment explaining the scaling rule.
 
-### H4 · Negative `dealer_idx` wraps silently in `/setup`
-**File:** `app/routes/lobby.py` `/setup` L150
-`dealer_idx >= 0` is not validated. A negative value wraps via Python negative indexing and silently picks the wrong dealer instead of returning an error.
-**Fix:** Add `if not (0 <= dealer_idx < len(names)):` guard (already partially present — verify it covers negative values).
+### ~~H4 · Negative `dealer_idx` wraps silently in `/setup`~~ — FIXED
+`if not (0 <= dealer_idx < len(names)):` guard is in place at L151 — covers negative values.
 
 ### H5 · `renderLeaderboard` in kpi.js is fully implemented but never called
 **File:** `static/js/ui/kpi.js` `renderLeaderboard()` (L110-196), `wrClass()` (L6-11)
@@ -207,16 +199,16 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 ### Critical
 - [x] C1 — Error response shape: `/setup` → use `"error"` key — DONE
 - [x] C2 — Sanitize player names in admin.py and polling.py — DONE
-- [ ] C3 — Add command string length cap before `.split()`
+- [X] C3 — Add command string length cap before `.split()`
 - [x] C4 — Fix `decision_log.py` `room_code` always empty — DONE
 - [ ] C5 — Audit XSS: apply DOMPurify at all innerHTML render boundaries
 - [x] C6 — Add `.catch` to `startGame` fetch; re-enable button on failure — DONE
 
 ### High
-- [ ] H1 — `rotate_dealer` ValueError guard / warn on fallback
-- [ ] H2 — Use `_player_rounds_played` for milestone average denominator
-- [ ] H3 — Document or fix `MILESTONE_STEP` coupling in `check_and_set_milestone`
-- [ ] H4 — Validate `dealer_idx >= 0` in `/setup`
+- [x] H1 — `rotate_dealer` ValueError guard / warn on fallback — DONE
+- [x] H2 — Use `_player_rounds_played` for milestone average denominator — DONE
+- [x] H3 — Document or fix `MILESTONE_STEP` coupling in `check_and_set_milestone` — DONE
+- [x] H4 — Validate `dealer_idx >= 0` in `/setup` — DONE
 - [ ] H5 — Decide: restore `renderLeaderboard` or delete dead code + CSS
 - [ ] H6 — Show user-visible error in `app.js` reconnect catch
 
