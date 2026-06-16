@@ -496,3 +496,98 @@ class BusfahrerGame:
             }
 
         return view
+
+
+# ─────────────────────────────────────────────
+# TERMINAL INTERFACE
+# ─────────────────────────────────────────────
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def print_header():
+    print("""
+╔══════════════════════════════════════════╗
+║     🚌  SOLO BUSFAHRER  🚌              ║
+║     Guess 5 cards to escape the bus!    ║
+╚══════════════════════════════════════════╝
+    """)
+
+
+def get_input(prompt: str, options: List[str]) -> str:
+    """Validated user input."""
+    while True:
+        choice = input(f"  {prompt} [{'/'.join(options)}]: ").strip().lower()
+        if choice in options:
+            return choice
+        print(f"  ❌ Choose from: {', '.join(options)}")
+
+
+def play():
+    """Main game loop."""
+    clear_screen()
+    print_header()
+
+    # Setup
+    name = input("  Your name: ").strip() or "Player"
+    drinking = get_input("Drinking mode?", ["yes", "no"]) == "yes"
+
+    game = Busfahrer(player_name=name, drinking_mode=drinking)
+
+    print(f"\n  🎲 Alright {name}, let's ride the bus!")
+    print("  Get 5 correct in a row. One wrong and you restart.\n")
+    time.sleep(1)
+
+    # Game loop
+    while not game.completed and game.attempt <= SoloBusfahrer.MAX_ATTEMPTS:
+        print("  " + "─" * 40)
+        print(f"  {game.get_progress_bar()}")
+        print(f"  {game.get_stats()}")
+
+        if game.revealed_cards:
+            print(f"  Last card: {game.revealed_cards[-1]} "
+                  f"(value: {game.revealed_cards[-1].value})")
+
+        q = game.current_question
+        options = game.get_valid_options()
+
+        print(f"\n  ❓ Card {game.current_step + 1}: {q['text']}")
+        guess = get_input("Your guess", options)
+
+        correct, card = game.evaluate(guess)
+
+        if correct:
+            print(f"  ✅ YES! Card: {card}")
+            if game.completed:
+                break
+        else:
+            print(f"  ❌ NOPE! Card was: {card}")
+            if drinking:
+                print(f"  🍺 Drink {game.attempt - 1} sip{'s' if game.attempt - 1 > 1 else ''}! "
+                      f"Back to start...")
+            else:
+                print(f"  Back to start! (Attempt #{game.attempt})")
+            time.sleep(1)
+
+        print()
+
+    # End
+    print("\n  " + "═" * 40)
+    if game.completed:
+        print(f"  🎉🎉🎉 {name} ESCAPED THE BUS! 🎉🎉🎉")
+        print(f"  Completed in {game.attempt} attempt{'s' if game.attempt > 1 else ''}!")
+    else:
+        print(f"  😵 Mercy rule! The bus crashed after {SoloBusfahrer.MAX_ATTEMPTS} attempts.")
+
+    print(f"\n  📊 FINAL STATS:")
+    print(f"  {'─' * 30}")
+    print(f"  Player:      {name}")
+    print(f"  Attempts:    {game.attempt}")
+    print(f"  Total sips:  {game.total_sips} 🍺")
+    print(f"  {'─' * 30}")
+    print(f"\n  Thanks for riding the bus! 🚌💨\n")
+
+
+if __name__ == "__main__":
+    play()
