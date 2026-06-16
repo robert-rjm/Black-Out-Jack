@@ -23,14 +23,14 @@ from datetime import datetime  # noqa: E402
 _buf = io.StringIO()
 with contextlib.redirect_stdout(_buf):
     from engine.blackjack import NPC_Player, Shoe, RoundManager
-    from engine.drinking_rules import DrinkTracker, classify_rule
+    from engine.drinking_rules import DrinkTracker
+from app.services.utils import classify_rule
 
 NUM_ROUNDS   = 100000
 NUM_HANDS    = 2
 WAGER        = 1
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# classify_rule is imported from engine.drinking_rules — that copy is the
 # single source of truth (also used by app/services/drink_tracker.py for the
 # live web CSV export). A local copy here previously drifted out of sync with
 # the engine's rule set (missing A♣ protection/credit cases, "Other" buckets

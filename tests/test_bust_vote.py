@@ -17,7 +17,7 @@ from app.services.drink_tracker import (
     apply_bust_handout_forfeit,
 )
 from engine.referee import RefereeSession
-from engine.drinking_rules import classify_rule
+from app.services.utils import classify_rule
 from tests.conftest import make_player, make_hand
 
 

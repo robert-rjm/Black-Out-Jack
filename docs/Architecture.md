@@ -31,6 +31,7 @@ Black-Out-Jack/
 │   └── services/
 │       ├── game_engine.py                  # Digital mode card/turn logic
 │       ├── drink_tracker.py                # Sip harvesting, milestones, bust votes
+│       ├── utils.py                        # Cross-cutting app-layer utilities (classify_rule)
 │       ├── round_pipeline.py               # Shared post-round pipeline (bust votes → harvest → milestone → payouts → backfill)
 │       ├── room_manager.py                 # Tracker patching, dealer rotation helpers
 │       ├── session_store.py                # In-memory room store
@@ -112,6 +113,7 @@ The main files are intentionally decoupled:
 | `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 100,000-round NPC simulation; outputs CSV, txt, `benchmarks.json`, and `static/js/benchmarks.js` |
 | `scripts/snapshot.py` | `scripts/simulation.py` output | Copies `simulation_results.txt` + `benchmarks.json` into `scripts/snapshots/<label>/` for regression diffing |
 | `scripts/rules_sync.py` | `docs/Rules.md`, `engine/drinking_rules.py`, `docs/.rules_sync.json` | Hash-based drift check + re-pin helper (see [Rules/Code Sync Check](#rulescode-sync-check)) |
+| `app/services/utils.py` | _(none)_ | Pure helper functions used across app services. Currently: `classify_rule()` — maps raw drink-reason strings to short canonical category names for CSV export and the UI. Moved here from `engine/drinking_rules.py` (refactor 4.2). |
 | `app/services/round_pipeline.py` | `app/services/drink_tracker.py`, `app/services/payout_tracker.py`, `app/services/decision_log.py` | Single authoritative post-round sequence: bust-vote penalties → harvest drink log → milestone check → payouts → backfill. Imported by both `game_commands.py` and `polling.py` so pipeline ordering only needs to change in one place. |
 | `app/services/decision_log.py` | `app/models/game_room.py`, `engine/strategy.py` | Captures one row per player decision (hit/stand/double/split/insurance) with board-state context for Phase D bot training; exported via `/export_decisions` |
 | `scripts/load_decision_logs.py` | `data/decisions/decision_log_*.csv` (output of `/export_decisions`) | Concatenates exports and prints a per-player summary (decision counts, deviation from basic strategy, results) — Phase D step 0 |

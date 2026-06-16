@@ -12,7 +12,7 @@ and makes these functions unit-testable without a Flask context.
 import logging
 import time as _time
 
-from engine.blackjack import Hand, HandEvaluator, NPC_Player
+from engine.blackjack import Hand, HandEvaluator, NPC_Player, get_player_hand
 from app.services.decision_log import record_decision
 from engine.drinking_rules import DrinkingRules
 from engine.events import (
