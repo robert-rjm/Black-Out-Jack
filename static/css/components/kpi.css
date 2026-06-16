@@ -165,6 +165,9 @@
 /* "You" row — faint yellow wash */
 .lb-row-me td { background: rgba(255,220,50,.06); }
 
+/* Column group separators */
+.lb-table .col-sep { border-left: 1px solid var(--border); }
+
 /* Win-rate cell colouring */
 .lb-wr-good  { color: var(--green)  !important; font-weight: 700; }
 .lb-wr-ok    { color: var(--yellow) !important; }

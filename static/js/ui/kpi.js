@@ -369,16 +369,16 @@ function renderStats(state) {
     }
     return `<tr class="${rc}">
       <td class="lb-name">${nameCell}</td>
-      <td>${bjCell}</td>
-      <td>${r.dblPct}</td>
-      <td>${r.spPct}</td>
-      <td>${r.hitRate}</td>
-      <td>${s17Cell}</td>
+      <td class="col-sep">${bjCell}</td>
       <td>${avgHVCell}</td>
       <td>${bstCell}</td>
-      <td>${stCell}</td>
+      <td>${r.hitRate}</td>
+      <td>${r.dblPct}</td>
+      <td>${r.spPct}</td>
+      <td class="col-sep">${stCell}</td>
+      <td>${s17Cell}</td>
       <td>${sdCell}</td>
-      ${drinking ? `<td>${avgSipsCell}</td><td>${maxCell}</td>` : `<td>${bankrollCell}</td><td>${netPLCell}</td><td>${bigWinCell}</td><td>${bigLossCell}</td>`}
+      ${drinking ? `<td class="col-sep">${avgSipsCell}</td><td>${maxCell}</td>` : `<td class="col-sep">${bankrollCell}</td><td>${netPLCell}</td><td>${bigWinCell}</td><td>${bigLossCell}</td>`}
       <td>${lwCell}</td>
       <td>${llCell}</td>
     </tr>`;
@@ -388,17 +388,17 @@ function renderStats(state) {
     <table class="lb-table stats-table">
       <thead><tr>
         <th>Player</th>
-        <th title="Natural blackjacks won">BJ</th>
-        <th title="Double down win rate">Dbl%</th>
-        <th title="Split win rate">Sp%</th>
-        <th title="Hit rate (hands with ≥1 hit)">Hit%</th>
-        <th title="Times stood on sub-17">&lt;17</th>
+        <th title="Natural blackjacks won" class="col-sep">BJ</th>
         <th title="Average non-bust hand value">AvgHV</th>
         <th title="Times busted">Bust</th>
-        <th title="Suited hands">Suit</th>
+        <th title="Hit rate (hands with ≥1 hit)">Hit%</th>
+        <th title="Double down win rate">Dbl%</th>
+        <th title="Split win rate">Sp%</th>
+        <th title="Suited hands" class="col-sep">Suit</th>
+        <th title="Times stood on sub-17">&lt;17</th>
         <th title="Basic strategy accuracy (shown after 3+ decisions)">Strat%</th>
-        ${drinking ? `<th title="Average sips per round">Avg🍺</th><th title="Biggest single-round sip hit">Peak🍺</th>`
-                   : `<th title="Current bankroll">Bankroll</th><th title="Total $ won/lost this session">$ P/L</th><th title="Biggest single-round win">Best Round</th><th title="Biggest single-round loss">Worst Round</th>`}
+        ${drinking ? `<th title="Average sips per round" class="col-sep">Avg🍺</th><th title="Biggest single-round sip hit">Peak🍺</th>`
+                   : `<th title="Current bankroll" class="col-sep">Bankroll</th><th title="Total $ won/lost this session">$ P/L</th><th title="Biggest single-round win">Best Round</th><th title="Biggest single-round loss">Worst Round</th>`}
         <th title="Longest win streak">🔥</th>
         <th title="Longest loss streak">💀</th>
       </tr></thead>
