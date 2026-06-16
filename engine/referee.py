@@ -121,8 +121,9 @@ class RefereeSession:
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False  # True once all first-deal cards are entered
-        self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
-        self._pending_eor_msgs = []  # BJ bonuses + four-aces-endround — buffered for halving
+        self._pending_resolved  = []  # buffered (player_name, hand, dealer_bj) — fired at endround
+        self._pending_bj_hands  = []  # buffered (player_name, hand) — BJ bonus fired at endround with exempt_dealer
+        self._pending_eor_msgs  = []  # four-aces-endround and other pre-computed msgs — buffered for halving
 
         # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
         self.bust_vote_enabled = bust_vote_enabled
@@ -182,8 +183,9 @@ class RefereeSession:
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
-        self._pending_resolved = []
-        self._pending_eor_msgs = []
+        self._pending_resolved  = []
+        self._pending_bj_hands  = []
+        self._pending_eor_msgs  = []
         self._bust_votes        = {}
         self._bust_vote_result  = None
         self.tracker = DrinkTracker(self.all_players, self._get_dealer())
@@ -312,9 +314,7 @@ class RefereeSession:
         elif action in ("blackjack", "bj"):
             hand.stood = True
             self._log(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
-            self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
-                player_name=player.name, hand=hand, all_names=self._all_names,
-            )))
+            self._pending_bj_hands.append((player.name, hand))
 
         else:
             self._log(f"  Unknown action '{action}'. Use: double, split, insurance, blackjack")
@@ -356,9 +356,7 @@ class RefereeSession:
             dealer    = self._get_dealer()
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
             if hand.is_blackjack() and outcome == "win" and not hand.insured:
-                self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
-                    player_name=player.name, hand=hand, all_names=self._all_names,
-                )))
+                self._pending_bj_hands.append((player.name, hand))
             # Buffer on_hand_resolved — fired at endround once hard_switch is known
             self._pending_resolved.append((player.name, hand, dealer_bj))
         elif outcome == "bust":
@@ -548,6 +546,14 @@ class RefereeSession:
         # Resolve dealer BJ early — needed by both hard-switch and round-end logic below.
         dealer    = self._get_dealer()
         dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+
+        # Fire buffered BJ bonus events — now we know exempt_dealer (hard switch)
+        for p_name, hand in self._pending_bj_hands:
+            eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
+                player_name=p_name, hand=hand, all_names=self._all_names,
+                hard_switch_dealer=exempt_dealer,
+            )))
+        self._pending_bj_hands = []
 
         # Fire buffered on_hand_resolved calls — now we know if it's a hard switch
         for p_name, hand, dealer_bj_at_time in self._pending_resolved:
