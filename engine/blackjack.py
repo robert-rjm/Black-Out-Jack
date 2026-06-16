@@ -717,6 +717,22 @@ class RoundManager:
                     [h for h in winning_hds if h[0].lower() != self.dealer_player.name.lower()]
                     if partial_protected else winning_hds
                 )
+                # Insurance Case 2, sub-case B: dealer-player IS the BJ holder,
+                # group voted insure, no dealer BJ → their BJ hand is covered by the
+                # insurance rule (they drink nothing from insurance; group drinks double).
+                # Exclude dealer's BJ hand from the Hard Switch penalty to avoid
+                # double-counting.
+                dealer_bj_insured = any(
+                    p.name.lower() == self.dealer_player.name.lower()
+                    and h.is_blackjack() and vote_insured and not dealer_bj
+                    for (p, h, vote_insured) in self._insurance_votes
+                )
+                if dealer_bj_insured:
+                    hs_for_penalty = [
+                        (pn, h) for (pn, h) in hs_for_penalty
+                        if not (pn.lower() == self.dealer_player.name.lower()
+                                and h.is_blackjack())
+                    ]
                 self._drink(DrinkingRules.handle(HardDealerSwitchEvent(
                     dealer_name=self.dealer_player.name, winning_hands=hs_for_penalty,
                     half_protected=half_protected,

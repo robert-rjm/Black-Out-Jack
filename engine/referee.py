@@ -567,6 +567,23 @@ class RefereeSession:
                 [h for h in winning if h[0].lower() != self.dealer_name.lower()]
                 if partial_protected else winning
             )
+            # Insurance Case 2, sub-case B: dealer-player IS the BJ holder,
+            # group voted insure, no dealer BJ → exclude their BJ from Hard Switch
+            # (insurance rule covers it; they drink nothing from insurance and the
+            # group drinks double instead).
+            dealer_bj_insured = (
+                not dealer_bj
+                and any(
+                    pn.lower() == self.dealer_name.lower()
+                    and h.is_blackjack() and getattr(h, "insured", False)
+                    for (pn, h) in winning
+                )
+            )
+            if dealer_bj_insured:
+                hs_for_penalty = [
+                    (pn, h) for (pn, h) in hs_for_penalty
+                    if not (pn.lower() == self.dealer_name.lower() and h.is_blackjack())
+                ]
             eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
                 dealer_name=self.dealer_name, winning_hands=hs_for_penalty,
                 half_protected=half_protected,
