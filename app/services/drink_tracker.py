@@ -14,7 +14,12 @@ import time
 
 from app.models.game_room import GameRoom
 from engine.drinking_rules import classify_rule
-from app.config import MILESTONE_STEP, MILESTONE_TTL, BUST_HANDOUT_WINDOW_SECONDS
+from app.config import (
+    MILESTONE_STEP,
+    MILESTONE_TTL,
+    MILESTONE_HANDOUT_SIPS,
+    BUST_HANDOUT_WINDOW_SECONDS,
+)
 
 log = logging.getLogger(__name__)
 
@@ -174,7 +179,23 @@ def harvest_drink_log(session: GameRoom) -> None:
             sips   = entry[0]
             reason = entry[1]
             role   = entry[2] if len(entry) > 2 else "player"
-            if sips <= 0:
+            if sips == 0:
+                continue
+            if sips < 0:
+                # Credit entries reduce a player's net total — include them in the
+                # CSV as negative rows so that summing the sips column matches the
+                # sip tracker shown on the WebUI.  classify_rule returns None for
+                # most credits (intentionally omitting them from named-rule stats),
+                # so fall back to a generic "Sip credit" label.
+                credit_rule = classify_rule(reason) or "Sip credit"
+                rows.append({
+                    "round":  round_num,
+                    "dealer": dealer,
+                    "player": p.name,
+                    "role":   role,
+                    "rule":   credit_rule,
+                    "sips":   sips,
+                })
                 continue
             rule = classify_rule(reason)
             if rule is None:
@@ -232,6 +253,13 @@ def harvest_drink_log(session: GameRoom) -> None:
     # Rolling per-round sip history (total across all players)
     round_total = max(0, sum(last.values()))
     session._round_sip_history = session._round_sip_history + [round_total]
+
+    # Per-player rounds-played counter — used to compute fair averages for
+    # players who joined mid-session (see _apply_worst_player_streak).
+    rounds_played = session._player_rounds_played
+    for p in session.all_players:
+        rounds_played[p.name] = rounds_played.get(p.name, 0) + 1
+    session._player_rounds_played = rounds_played
 
     # Detailed drink entries for the Drinks pane
     drinks_detail = []
@@ -396,10 +424,10 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     drinking a number of sips equal to the milestone winner's avg sips/round
     (rounded to the nearest whole sip, minimum 1).
     """
-    rounds_played = max(1, len(session._round_sip_history))
+    rounds_played = session._player_rounds_played
 
     candidates = [
-        (ticker.get(p.name, 0) / rounds_played, p.name.lower(), p.name)
+        (ticker.get(p.name, 0) / max(1, rounds_played.get(p.name, 0)), p.name.lower(), p.name)
         for p in session.all_players
         if p.name.lower() != winner.lower()
     ]
@@ -411,8 +439,9 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
 
     if session._last_milestone_worst and session._last_milestone_worst.lower() == worst_name.lower():
         # Second consecutive milestone as "worst" — apply the one-time penalty.
-        winner_avg = ticker.get(winner, 0) / rounds_played
-        penalty    = max(1, round(winner_avg))
+        winner_rounds = max(1, rounds_played.get(winner, 0))
+        winner_avg    = ticker.get(winner, 0) / winner_rounds
+        penalty       = max(1, round(winner_avg))
 
         worst_p = session._get_player(worst_name)
         if worst_p:
@@ -444,10 +473,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
             session._log_version += 1
             log.debug(f"  [milestone] {worst_name} worst avg 2x in a row — drinks {penalty} sips")
 
-        # Reset the streak — this is a one-time penalty.
-        session._last_milestone_worst = None
-    else:
-        session._last_milestone_worst = worst_name
+    session._last_milestone_worst = worst_name
 
 
 def check_and_set_milestone(session: GameRoom) -> None:
@@ -491,8 +517,10 @@ def check_and_set_milestone(session: GameRoom) -> None:
     candidates.sort(key=lambda t: (t[0], t[1].lower()))
     _round_sips, winner = candidates[0]
 
-    # Handout scales: 5 sips at the 50 boundary, +1 per additional step
-    handout_sips = 4 + boundary // MILESTONE_STEP
+    # Handout scales: MILESTONE_HANDOUT_SIPS at the first boundary, +1 sip
+    # for each additional MILESTONE_STEP boundary crossed (e.g. with the
+    # defaults of STEP=50 / HANDOUT=5: 5 sips at 50, 6 at 100, 7 at 150...).
+    handout_sips = MILESTONE_HANDOUT_SIPS - 1 + boundary // MILESTONE_STEP
 
     claimed[boundary] = winner
     session._milestones_claimed = claimed

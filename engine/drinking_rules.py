@@ -224,41 +224,73 @@ class DrinkingRules:
 
         insured:    True if majority voted to insure, False if decline (tie = decline).
         dealer_bj:  True if dealer has a natural blackjack.
+        hard_switch_dealer: dealer-player name when a Hard Dealer Switch is active.
 
-        Outcomes:
-          Insure + dealer BJ:    BJ holder drinks own bonus, hand pushes, group drinks nothing.
-          Insure + dealer no BJ: Group drinks double the normal BJ bonus.
-          Decline + dealer BJ:   Existing auto-insurance handles it; no extra drinks here.
-          Decline + dealer no BJ: Normal BJ bonus (group drinks as usual).
+        Insurance rules are independent of who is the dealer.  The Hard Dealer Switch
+        only modifies the dealer-player's share in Case 2 (see below).
+
+        Case 1 — Insure + dealer BJ (group bet correctly):
+            BJ holder drinks own BJ Bonus; hand pushes. Group drinks nothing.
+
+        Case 2 — Insure + no dealer BJ (group gambled wrong):
+            BJ holder drinks nothing.
+            Group drinks double BJ Bonus.
+            Hard switch, dealer is a group member (not the BJ holder):
+              dealer drinks 1× BJ Bonus only (softened — Hard Switch is their main
+              penalty); the rest of the group still drinks double.
+            Hard switch, dealer IS the BJ holder:
+              BJ holder/dealer drinks nothing from insurance; group drinks double.
+              Calling code must exclude dealer's BJ hand from the Hard Switch penalty.
+
+        Case 3 — Decline + dealer BJ:
+            Auto-insurance already handles the net-loss cap; nothing extra here.
+
+        Case 4 — Decline + no dealer BJ:
+            Normal BJ bonus (group drinks as usual).
         """
         mult   = _bj_multiplier(hand)
+        # others: everyone except the BJ holder and (on hard switch) the dealer-player.
+        # When player_name == hard_switch_dealer they are the same person.
         others = [p for p in all_player_names
                   if p != player_name and p != hard_switch_dealer]
 
+        # ---- Case 1: insured + dealer BJ — group bet correctly ----
         if insured and dealer_bj:
-            # BJ holder drinks their own bonus; group is protected
-            sips = mult
-            msgs = [(player_name, sips,
-                     f"Insurance (group voted insure) + dealer BJ: "
-                     f"{player_name} drinks own bonus {sips} sip(s), group protected")]
-            msgs.append((None, 0, f"{player_name}'s blackjack pushes (insured vs dealer BJ)"))
-            return msgs
+            return [
+                (player_name, mult,
+                 f"Insurance (group voted insure) + dealer BJ: "
+                 f"{player_name} drinks own BJ bonus {mult} sip(s), hand pushes, "
+                 f"group protected"),
+                (None, 0, f"{player_name}'s blackjack pushes (insured vs dealer BJ)"),
+            ]
 
+        # ---- Case 2: insured + no dealer BJ — group gambled wrong ----
         if insured and not dealer_bj:
-            # Group gambled wrong — drinks double
             sips = mult * 2
-            return [(p, sips,
+            # Group (excl. BJ holder and dealer-player when hard switch) drinks double.
+            msgs = [(p, sips,
                      f"Insurance (group voted insure) + no dealer BJ: "
                      f"{p} drinks double BJ bonus {sips} sip(s)")
                     for p in others]
+            if hard_switch_dealer and hard_switch_dealer.lower() != player_name.lower():
+                # Sub-case A: dealer is in the group but not the BJ holder.
+                # Soften their insurance share to 1× — Hard Switch is their main penalty.
+                msgs.append((hard_switch_dealer, mult,
+                             f"Insurance (insured + no dealer BJ) + Hard Dealer Switch: "
+                             f"{hard_switch_dealer} drinks BJ bonus {mult} sip(s) "
+                             f"(not doubled — hard switch penalty applies separately)"))
+            # Sub-case B: dealer IS the BJ holder (hard_switch_dealer == player_name).
+            # BJ holder drinks nothing; group (others) already drinks double above.
+            # Calling code is responsible for excluding dealer's BJ from Hard Switch.
+            return msgs
 
+        # ---- Case 3: declined + dealer BJ ----
         if not insured and dealer_bj:
-            # Decline + dealer BJ: auto-insurance already handles net-loss cap
             return [(None, 0,
                      f"{player_name} blackjack: group declined insurance, dealer has BJ "
                      f"=> auto-insurance applies, normal max sips only")]
 
-        # Decline + no dealer BJ: normal BJ bonus
+        # ---- Case 4: declined + no dealer BJ — normal BJ bonus ----
         return DrinkingRules.on_blackjack(player_name, hand, all_player_names,
                                           hard_switch_dealer=hard_switch_dealer)
 

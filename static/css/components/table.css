@@ -110,6 +110,10 @@
   font-size: 11px;
   line-height: 1;
 }
+.seat-jug {
+  font-size: 11px;
+  line-height: 1;
+}
 
 .seat-sip-badge {
   display: inline-flex; align-items: center; gap: 3px;

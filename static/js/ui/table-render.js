@@ -118,6 +118,12 @@ function renderPlayers(state) {
   (state.table || []).forEach(s => { byName[s.name] = s; });
 
   const showTurn = state.mode === "digital" && state.phase === "playing";
+
+  // Worst round (session record): player(s) holding the all-time peak
+  // single-round sip total, matching kpi.js's "worst round — {name}" stat.
+  const maxRoundSipsAll = state.max_round_sips || {};
+  const worstRoundPeak  = Math.max(0, ...Object.values(maxRoundSipsAll));
+
   order.forEach(name => {
     const s = byName[name];
     if (!s) return;
@@ -146,6 +152,12 @@ function renderPlayers(state) {
     const crownBadge    = (wasClean && state.drinking_mode !== false)
       ? `<span class="seat-crown" title="Clean last round">👑</span>` : "";
 
+    // Beer jug: player holds the session record for worst single round
+    // (matches the "worst round — {name}" stat card).
+    const wasWorst      = worstRoundPeak > 0 && (maxRoundSipsAll[s.name] || 0) === worstRoundPeak;
+    const jugBadge      = (wasWorst && state.drinking_mode !== false)
+      ? `<span class="seat-jug" title="Worst round (session record)">🍻</span>` : "";
+
     // Normal mode: show bankroll + this round's payout near each seat
     let bankrollBadge = "";
     if (state.drinking_mode === false && state.balances) {
@@ -162,7 +174,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${jugBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
