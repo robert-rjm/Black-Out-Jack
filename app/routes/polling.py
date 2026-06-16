@@ -30,12 +30,10 @@ from app.services.serializer import (
     compute_mandatory_split10,
 )
 from app.services.drink_tracker import (
-    check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties,
-    apply_milestone_forfeit, apply_bust_handout_forfeit,
+    check_and_set_milestone, apply_milestone_forfeit, apply_bust_handout_forfeit,
 )
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
-from app.services.payout_tracker import apply_payouts
-from app.services.decision_log import backfill_hand_results
+from app.services.round_pipeline import apply_endround_pipeline
 from app.config import (
     INSURANCE_VOTE_TIMEOUT, MAX_REG_DENIALS,
     BUST_HANDOUT_WINDOW_SECONDS, BUST_VOTE_WINDOW_SECONDS,
@@ -57,18 +55,14 @@ def _run_deferred_dealer_play(session):
     if round_phase(session) != "dealer-ready":
         return
     # Don't fire if window is still open
-    if (session._bust_vote_expires_at is not None
-            and _time.monotonic() < session._bust_vote_expires_at):
+    if (session.round._bust_vote_expires_at is not None
+            and _time.monotonic() < session.round._bust_vote_expires_at):
         return
     log.debug("\n  (Bust vote closed — dealer plays automatically)")
     dealer_turn(session)
     with contextlib.redirect_stdout(io.StringIO()):
         session.cmd_endround()
-    apply_bust_vote_penalties(session)
-    harvest_drink_log(session)
-    check_and_set_milestone(session)
-    apply_payouts(session)
-    backfill_hand_results(session)
+    apply_endround_pipeline(session)
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +86,7 @@ def state():
     if session is not None:
         _now = _time.monotonic()
         any_insurance_pending = False
-        for _v in session._insurance_votes:
+        for _v in session.round._insurance_votes:
             if not _v.get("resolved"):
                 bj_player    = _v["player"]
                 votes_needed = sum(
@@ -111,9 +105,9 @@ def state():
         # Keep a full window remaining so players always get the full time
         # to vote after insurance resolves (not just whatever seconds were left
         # when the BJ was detected).
-        if any_insurance_pending and session._bust_vote_expires_at is not None:
-            session._bust_vote_expires_at = max(
-                session._bust_vote_expires_at,
+        if any_insurance_pending and session.round._bust_vote_expires_at is not None:
+            session.round._bust_vote_expires_at = max(
+                session.round._bust_vote_expires_at,
                 _now + BUST_VOTE_WINDOW_SECONDS,
             )
 
@@ -125,11 +119,11 @@ def state():
         # pending, so the two allocation popups (and their timers) don't run
         # concurrently. The bust-handout window gets a fresh full countdown
         # starting once the milestone prompt clears.
-        if session._pending_milestone and session._bust_handout_expires_at is not None:
-            ms_expires = session._pending_milestone.get("expires_at")
+        if session.round._pending_milestone and session.round._bust_handout_expires_at is not None:
+            ms_expires = session.round._pending_milestone.get("expires_at")
             if ms_expires is not None:
-                session._bust_handout_expires_at = max(
-                    session._bust_handout_expires_at,
+                session.round._bust_handout_expires_at = max(
+                    session.round._bust_handout_expires_at,
                     ms_expires + BUST_HANDOUT_WINDOW_SECONDS,
                 )
 
@@ -140,14 +134,14 @@ def state():
 
         # When the bust-vote window expires (or all players have voted), unblock
         # any NPC turns that were held and then let the dealer play if ready.
-        if (session._bust_vote_expires_at is not None
-                and _now >= session._bust_vote_expires_at):
+        if (session.round._bust_vote_expires_at is not None
+                and _now >= session.round._bust_vote_expires_at):
             if round_phase(session) == "playing":
                 auto_play_npc_turns(session)   # unblock NPCs held by pending vote
             _run_deferred_dealer_play(session)
         # Safety net: dealer stuck at "dealer-ready" with no bust-vote window
         # (e.g. bust vote disabled, or all-BJ deal where no hit/stand fires).
-        elif round_phase(session) == "dealer-ready" and session._bust_vote_expires_at is None:
+        elif round_phase(session) == "dealer-ready" and session.round._bust_vote_expires_at is None:
             _run_deferred_dealer_play(session)
 
     if session is None:
@@ -363,8 +357,8 @@ def handle_registration():
             claimed_player.is_npc = False
             # Clear the bot's auto-voted "pass" so the new human can vote
             # if the bust-vote window is still open.
-            if session._bust_votes.get(claimed_player.name) == "pass":
-                session._bust_votes.pop(claimed_player.name, None)
+            if session.round._bust_votes.get(claimed_player.name) == "pass":
+                session.round._bust_votes.pop(claimed_player.name, None)
         # Seat is now claimed — remove from admin's local_names
         for info in session._room_clients.values():
             if info.get("role") == "admin":
@@ -448,14 +442,14 @@ def preselect():
         player      = session._get_player(name)
         active_hand = next((h for h in player.hands if not hand_done(h)), None)
         if player and active_hand:
-            session._honor_pending = {
+            session.round._honor_pending = {
                 "player":  player.name,
                 "hand_id": id(active_hand),
                 "action":  _ACTION_NAMES[action],
             }
             return jsonify({**serialize_state(session, client_id), "ok": True})
 
-    session._preselections[f"{name.lower()}:{hand}"] = action
+    session.round._preselections[f"{name.lower()}:{hand}"] = action
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
@@ -488,7 +482,7 @@ def suggest_action():
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
 
-    session._suggestions[f"{target_name.lower()}:{hand}"] = action
+    session.round._suggestions[f"{target_name.lower()}:{hand}"] = action
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
@@ -514,14 +508,14 @@ def respond_suggest():
     name = info.get("name", "")
     key  = f"{name.lower()}:{hand}"
 
-    suggestion  = session._suggestions.get(key)
+    suggestion  = session.round._suggestions.get(key)
     if not suggestion:
         return jsonify({"ok": False, "error": "No pending suggestion."})
 
     if accept:
-        session._preselections[key] = suggestion
+        session.round._preselections[key] = suggestion
 
-    session._suggestions.pop(key, None)
+    session.round._suggestions.pop(key, None)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
@@ -539,7 +533,7 @@ def vote_insurance():
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
-    bj_player = (data.get("bj_player") or "").strip().capitalize()
+    bj_player = sanitize_name(data.get("bj_player") or "")
     try:
         hand_idx = int(data.get("hand_idx", 0))
     except (ValueError, TypeError):
@@ -568,7 +562,7 @@ def vote_insurance():
         return jsonify({"ok": False, "error": "You cannot vote on your own blackjack."})
 
     vote_entry = next(
-        (v for v in session._insurance_votes
+        (v for v in session.round._insurance_votes
          if v["player"].lower() == bj_player.lower() and v["hand_idx"] == hand_idx),
         None,
     )
@@ -606,7 +600,7 @@ def cast_bust_vote():
         return jsonify({"ok": False, "error": "Bust vote not enabled."})
 
     # Reject if window is expired (simple timestamp check — avoids double-calling serializer helper)
-    expires = session._bust_vote_expires_at
+    expires = session.round._bust_vote_expires_at
     if not expires or _time.monotonic() >= expires:
         return jsonify({"ok": False, "error": "Vote window is closed."})
 
@@ -627,7 +621,7 @@ def cast_bust_vote():
             return jsonify({"ok": False, "error": "Player not found."})
         voter_name = player_name
 
-    session._bust_votes[voter_name] = vote
+    session.round._bust_votes[voter_name] = vote
 
     # If every human non-dealer player has now voted, unblock NPC auto-play
     # (NPCs were holding off waiting for humans) then let the dealer run if ready.
@@ -635,7 +629,7 @@ def cast_bust_vote():
         p for p in session.all_players
         if not getattr(p, "is_npc", False)
     ]
-    if _human_players and all(session._bust_votes.get(p.name) is not None for p in _human_players):
+    if _human_players and all(session.round._bust_votes.get(p.name) is not None for p in _human_players):
         if round_phase(session) == "playing":
             auto_play_npc_turns(session)
         _run_deferred_dealer_play(session)
@@ -673,11 +667,11 @@ def give_bust_sip():
     if winner_name not in local_names:
         return jsonify({"ok": False, "error": "Not one of your local players."})
 
-    result = session._bust_vote_result or {}
+    result = session.round._bust_vote_result or {}
     if not result.get("dealer_busted") or winner_name not in result.get("winners", []):
         return jsonify({"ok": False, "error": "No pending handout for this player."})
 
-    if winner_name in session._bust_handouts_given:
+    if winner_name in session.round._bust_handouts_given:
         return jsonify({"ok": False, "error": "Already given."})
 
     # Recipient must be a player in the game (no self-assignment).
@@ -692,14 +686,14 @@ def give_bust_sip():
         recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
         log.debug(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
-    session._bust_handouts_given.add(winner_name)
-    session._bust_handout_log.append({
+    session.round._bust_handouts_given.add(winner_name)
+    session.round._bust_handout_log.append({
         "winner":    winner_name,
         "recipient": recipient_name,
         "forfeited": False,
     })
-    if all(w in session._bust_handouts_given for w in result.get("winners", [])):
-        session._bust_handout_expires_at = None
+    if all(w in session.round._bust_handouts_given for w in result.get("winners", [])):
+        session.round._bust_handout_expires_at = None
         session._bust_handout_seq += 1
 
     # harvest_drink_log already ran — patch the round snapshots directly so
@@ -729,7 +723,7 @@ def give_bust_sip():
 
     # Log entry visible to all players
     log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
-    session._log_entries.append(log_line)
+    session.round._log_entries.append(log_line)
     session._log_version = session._log_version + 1
 
     return jsonify({**serialize_state(session, client_id), "ok": True})

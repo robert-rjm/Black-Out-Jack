@@ -298,6 +298,8 @@ async function sendCmd(cmd) {
     // see them via polling — no direct appendLog/showPeekedCard here.
     if (data.dealer || data.players) updateHeader(data);
     applyState(data);
+  } catch (_) {
+    appendLog("  Command failed — server unreachable.\n");
   } finally {
     _requestsInFlight--;
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
@@ -658,6 +660,8 @@ async function honorResolve(choice) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
+  } catch (_) {
+    appendLog("  Honor resolve failed — server unreachable.\n");
   } finally {
     _requestsInFlight--;
   }
@@ -700,6 +704,8 @@ async function bankRebuy() {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
+  } catch (_) {
+    appendLog("  Rebuy failed — server unreachable.\n");
   } finally {
     _requestsInFlight--;
   }

@@ -12,7 +12,7 @@ and makes these functions unit-testable without a Flask context.
 import logging
 import time as _time
 
-from engine.blackjack import Hand, HandEvaluator, NPC_Player
+from engine.blackjack import Hand, HandEvaluator, NPC_Player, get_player_hand
 from app.services.decision_log import record_decision
 from engine.drinking_rules import DrinkingRules
 from engine.events import (
@@ -37,9 +37,9 @@ log = logging.getLogger(__name__)
 def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
     """Push a single ace drink message to the mid-round toast queue."""
     recipient, sips, reason = msg[0], msg[1], msg[2]
-    session._ace_drink_seq += 1
-    session._ace_drink_events.append({
-        "seq":       session._ace_drink_seq,
+    session.round._ace_drink_seq += 1
+    session.round._ace_drink_events.append({
+        "seq":       session.round._ace_drink_seq,
         "recipient": recipient or "all",
         "sips":      sips,
         "reason":    reason,
@@ -48,9 +48,9 @@ def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
 
 def _push_reshuffle_event(session: GameRoom) -> None:
     """Push a mid-round shoe-reshuffle event to the toast queue."""
-    session._reshuffle_seq += 1
-    session._reshuffle_events.append({
-        "seq":       session._reshuffle_seq,
+    session.round._reshuffle_seq += 1
+    session.round._reshuffle_events.append({
+        "seq":       session.round._reshuffle_seq,
         "decks":     session.shoe.num_decks,
     })
 
@@ -58,23 +58,6 @@ def _push_reshuffle_event(session: GameRoom) -> None:
 # ---------------------------------------------------------------------------
 # Hand / player helpers
 # ---------------------------------------------------------------------------
-
-def get_player_hand(player, hand_label: str) -> Hand:
-    """
-    Return a player's betting hand by label (e.g. 'hand1', 'hand2').
-
-    Always uses player.hands[idx] directly — unlike RefereeSession._get_hand,
-    this never redirects to dealer_hand, so the dealer-player can still act
-    on their own betting hands.
-    """
-    try:
-        idx = int(hand_label.lower().replace("hand", "").strip()) - 1
-    except (ValueError, AttributeError):
-        idx = 0
-    while len(player.hands) <= idx:
-        player.hands.append(Hand())
-    return player.hands[idx]
-
 
 # ---------------------------------------------------------------------------
 # Card dealing
@@ -116,7 +99,7 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                     log.debug(f"    (i) {reason}")
             elif is_hole_card or is_double_card:
                 # Defer until the card is face-up
-                session._deferred_hole_card_msgs.append(msg)
+                session.round._deferred_hole_card_msgs.append(msg)
             else:
                 session.tracker.apply([msg])
                 if s and s > 0:
@@ -162,12 +145,12 @@ def deal_pending_split_cards(session: GameRoom) -> None:
                             and dealer.dealer_hand.cards[0].rank.label == "A"
                             and session.drinking_mode):
                         existing = next(
-                            (v for v in session._insurance_votes
+                            (v for v in session.round._insurance_votes
                              if v["player"] == p.name and v["hand_idx"] == i),
                             None,
                         )
                         if not existing:
-                            session._insurance_votes.append({
+                            session.round._insurance_votes.append({
                                 "player":    p.name,
                                 "hand_idx":  i,
                                 "votes":     {},
@@ -189,12 +172,34 @@ def deal_pending_split_cards(session: GameRoom) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Split helper
+# ---------------------------------------------------------------------------
+
+def perform_split(session: GameRoom, player, hand: Hand, hand_idx: int) -> tuple[Hand, str]:
+    """Mechanical digital split: move the second card to a new hand, share the
+    split-chain counter, insert the new hand into the player's hand list, and
+    deal a replacement second card to the original hand.
+
+    Returns ``(new_hand, new_label)`` so callers can log or react to the
+    post-deal state (21, bust, etc.).
+
+    Note: referee.py has its own split path that does *not* move card data
+    (physical cards are moved by the player), so this helper is digital-only.
+    """
+    new_hand = hand.split(session.shoe)          # card pop + chain counter + from_split flags
+    player.hands.insert(hand_idx + 1, new_hand)
+    deal_card(session, hand, player.name)
+    new_label = f"hand{hand_idx + 2}"
+    return new_hand, new_label
+
+
+# ---------------------------------------------------------------------------
 # Round flow
 # ---------------------------------------------------------------------------
 
 def initial_deal(session: GameRoom) -> None:
     """Deal 2 cards to every player hand and the dealer hand from the shoe."""
-    session._deferred_hole_card_msgs = []
+    session.round._deferred_hole_card_msgs = []
     dealer = session._get_dealer()
 
     log.debug("\n--- Dealing ---")
@@ -221,12 +226,12 @@ def initial_deal(session: GameRoom) -> None:
         session.tracker.apply(msgs)
 
     # Set up insurance vote slots if dealer shows Ace
-    session._insurance_votes = []
+    session.round._insurance_votes = []
     if dealer.dealer_hand.cards[0].rank.label == "A" and session.drinking_mode:
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack():
-                    session._insurance_votes.append({
+                    session.round._insurance_votes.append({
                         "player":    p.name,
                         "hand_idx":  i,
                         "votes":     {},
@@ -244,13 +249,13 @@ def dealer_turn(session: GameRoom) -> None:
     d_hand = dealer.dealer_hand
 
     # Apply deferred ace messages now that hidden cards are revealed
-    deferred = session._deferred_hole_card_msgs
+    deferred = session.round._deferred_hole_card_msgs
     if deferred:
         session.tracker.apply(deferred)
         for msg in deferred:
             if len(msg) >= 2 and msg[1] and msg[1] > 0:
                 _push_ace_drink_event(session, msg)
-        session._deferred_hole_card_msgs = []
+        session.round._deferred_hole_card_msgs = []
 
     log.debug(f"\n--- Dealer ({dealer.name}) reveals ---")
     log.debug(f"  Full hand: {d_hand}")
@@ -300,18 +305,18 @@ def dealer_turn(session: GameRoom) -> None:
             soft_switch = False
             log.debug("  Soft Switch suppressed — insurance on blackjack.")
     if hard_switch:
-        session.switch_this_round = "hard"
+        session.round.switch_this_round = "hard"
         log.debug("  >>> HARD DEALER SWITCH <<<")
     elif soft_switch:
-        session.switch_this_round = "soft"
+        session.round.switch_this_round = "soft"
         log.debug("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
     else:
-        session.switch_this_round = None
+        session.round.switch_this_round = None
 
     # Pass 2 — fire drinking events
     if drinking:
         exempt_dealer   = session.dealer_name if hard_switch else ""
-        insurance_votes = session._insurance_votes
+        insurance_votes = session.round._insurance_votes
         voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
 
         if session._insurance_result is None:
@@ -398,7 +403,7 @@ def dealer_turn(session: GameRoom) -> None:
         # Buffer msgs — cmd_endround will combine with RoundEndEvent (net losses)
         # and flush through apply_end_of_round once, so halving operates on the
         # full-round total per player, not on each batch independently.
-        session._eor_msgs_buffer = eor_msgs
+        session.round._eor_msgs_buffer = eor_msgs
 
 
 # ---------------------------------------------------------------------------
@@ -415,12 +420,12 @@ def bust_vote_pending(session: GameRoom) -> bool:
     """
     if not session.bust_vote_enabled:
         return False
-    if session._bust_vote_expires_at is None:
+    if session.round._bust_vote_expires_at is None:
         return False
-    if _time.monotonic() >= session._bust_vote_expires_at:
+    if _time.monotonic() >= session.round._bust_vote_expires_at:
         return False
     return any(
-        session._bust_votes.get(p.name) is None
+        session.round._bust_votes.get(p.name) is None
         for p in session.all_players
         if not getattr(p, "is_npc", False)
     )
@@ -464,7 +469,7 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             valid.append("sp")
 
         suggestion_key = f"{player.name.lower()}:{hand_label}"
-        suggested      = session._suggestions.pop(suggestion_key, None)
+        suggested      = session.round._suggestions.pop(suggestion_key, None)
         if suggested in valid:
             action = suggested
         else:
@@ -500,11 +505,5 @@ def auto_play_npc_turns(session: GameRoom) -> None:
                 hand.result = "loss"
 
         elif action == "sp":
-            new_hand = Hand(from_split=True)
-            new_hand.cards.append(hand.cards.pop())
-            hand.from_split    = True
-            new_hand._split_chain = hand._split_chain  # share counter across the whole chain
-            hand.split_count  += 1
-            player.hands.insert(hand_idx + 1, new_hand)
-            deal_card(session, hand, player.name)
+            perform_split(session, player, hand, hand_idx)
             log.debug(f"  {player.name} splits {hand_label}")

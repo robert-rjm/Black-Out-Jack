@@ -20,7 +20,6 @@ NOTE — two DrinkingRules helpers are NOT events and are called directly:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
@@ -28,24 +27,7 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Event type registry — every entry must have a matching case in
-# DrinkingRules.handle(); the NotImplementedError guard enforces this at
-# runtime.
-# ---------------------------------------------------------------------------
-
-class GameEventType(Enum):
-    CARD_DEALT           = auto()
-    BLACKJACK            = auto()
-    INSURANCE_RESOLVED   = auto()
-    HAND_RESOLVED        = auto()
-    ALL_HANDS_SWEEP      = auto()
-    DEALER_HAND_REVEALED = auto()
-    ROUND_END            = auto()
-    HARD_DEALER_SWITCH   = auto()
-
-
-# ---------------------------------------------------------------------------
-# Event dataclasses — one per GameEventType entry.
+# Event dataclasses — one per handled event type.
 # ---------------------------------------------------------------------------
 
 @dataclass

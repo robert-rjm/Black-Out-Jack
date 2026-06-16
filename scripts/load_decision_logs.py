@@ -55,7 +55,7 @@ def load_rows(directory: str) -> list[dict]:
 
 def summarize(rows: list[dict], player_filter: str | None = None) -> None:
     if player_filter:
-        rows = [r for r in rows if r["player"].lower() == player_filter.lower()]
+        rows = [r for r in rows if r.get("player", "").lower() == player_filter.lower()]
 
     if not rows:
         print("No rows to summarize.")
@@ -63,7 +63,7 @@ def summarize(rows: list[dict], player_filter: str | None = None) -> None:
 
     by_player: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
-        by_player[r["player"]].append(r)
+        by_player[r.get("player", "")].append(r)
 
     print(f"\nTotal decisions: {len(rows)}")
     print(f"{'Player':<12} {'Total':>6} {'h':>5} {'s':>5} {'d':>5} {'sp':>5} {'ins':>5} {'NPC':>5}")
@@ -117,7 +117,9 @@ def write_combined(rows: list[dict], out_path: str) -> None:
         fieldnames.remove("_source_file")
         fieldnames.append("_source_file")
 
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     with open(out_path, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()

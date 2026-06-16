@@ -3,10 +3,70 @@ app/models/game_room.py — typed container for all per-room state.
 
 All RefereeSession attributes used by app/ code are exposed as explicit
 properties or method wrappers below — no __getattr__ magic.
+
+State is divided into two layers:
+
+  RoundState  — per-round transient fields. Replaced wholesale by
+                reset_round_state() so it's impossible to forget
+                to clear a field on newround.
+
+  GameRoom    — session-lifetime fields that survive across rounds,
+                plus a ``round: RoundState`` slot and delegation
+                properties that proxy into RefereeSession.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
 from engine.referee import RefereeSession
+
+
+@dataclass
+class RoundState:
+    """All per-round transient state for a GameRoom.
+
+    Replaced wholesale by ``reset_round_state()`` — adding a new per-round
+    field here automatically gets it cleared on every newround without
+    touching reset logic.
+    """
+    # Game flow
+    switch_this_round: str | None = None
+    _drink_log_harvested: bool = False
+
+    # Log
+    _log_entries: list = field(default_factory=list)
+    _last_peeked: dict | None = None
+    _deferred_hole_card_msgs: list = field(default_factory=list)  # digital only
+
+    # Action queues
+    _preselections: dict = field(default_factory=dict)
+    _suggestions: dict = field(default_factory=dict)
+    _insurance_votes: list = field(default_factory=list)
+    _kick_votes: dict = field(default_factory=dict)
+
+    # Bust vote side bet
+    _bust_votes: dict = field(default_factory=dict)
+    _bust_vote_expires_at: float | None = None
+    _bust_vote_result: dict | None = None
+    _bust_handout_expires_at: float | None = None
+    _bust_handouts_given: set = field(default_factory=set)
+    _bust_handout_log: list = field(default_factory=list)
+
+    # Ace drink events (digital only)
+    _ace_drink_events: list = field(default_factory=list)
+    _ace_drink_seq: int = 0
+
+    # Shoe reshuffle events (mid-round, digital only)
+    _reshuffle_events: list = field(default_factory=list)
+    _reshuffle_seq: int = 0
+
+    # Mandatory split-10s house rule tracking
+    _honor_acked: set = field(default_factory=set)
+    _honor_pending: dict | None = None
+
+    # Milestone
+    _pending_milestone: dict | None = None
+
+    # End-of-round message buffer (populated by dealer_turn, drained by cmd_endround)
+    _eor_msgs_buffer: list = field(default_factory=list)
 
 
 @dataclass
@@ -23,24 +83,23 @@ class GameRoom:
     # tagging exported logs (e.g. decision_log.py's "session_id" column).
     room_code: str = ""
 
+    # Per-round transient state — replaced wholesale on each newround
+    round: RoundState = field(default_factory=RoundState)
+
     # Dealer rotation
     rounds_this_dealer: int = 1
-    switch_this_round: str | None = None
     _dealer_rotate_every: int = 1
 
-    # Shared log
-    _log_entries: list = field(default_factory=list)
+    # Log version — increments each round so clients detect log changes
     _log_version: int = 0
-    _deferred_hole_card_msgs: list = field(default_factory=list)
 
     # Decision log (Phase C — per-decision board-state capture for
     # per-player bot training; see docs/planning/DecisionLog-Plan.md)
     _decision_log: list = field(default_factory=list)
 
-    # Drink accounting
+    # Drink accounting (session-lifetime accumulators)
     _drink_csv_rows: list = field(default_factory=list)
     _sip_ticker: dict = field(default_factory=dict)
-    _drink_log_harvested: bool = False
     _last_round_sips: dict = field(default_factory=dict)
     _last_round_drinks: list = field(default_factory=list)
     _round_notices: list = field(default_factory=list)
@@ -52,81 +111,45 @@ class GameRoom:
     # Client registry
     _room_clients: dict = field(default_factory=dict)
     _pending_registrations: list = field(default_factory=list)
-    _kick_votes: dict = field(default_factory=dict)
     _rejoin_requests: list = field(default_factory=list)
     _anim_default: bool = True
 
-    # Action queues
-    _preselections: dict = field(default_factory=dict)
-    _suggestions: dict = field(default_factory=dict)
-    _insurance_votes: list = field(default_factory=list)
+    # Queued settings (applied at newround)
     _queued_settings: dict = field(default_factory=dict)
 
-    # Stats and milestones
+    # Stats and milestones (session-lifetime)
     _hand_stats: dict = field(default_factory=dict)
     _dealer_hand_stats: dict = field(default_factory=dict)
     _strategy_decisions: dict = field(default_factory=dict)  # player -> {correct: N, total: N}
-    _max_round_sips: dict = field(default_factory=dict)   # player -> highest single-round sip total
-    _dealer_bust_rounds: int = 0                          # rounds where dealer hand busted
-    _streaks: dict = field(default_factory=dict)          # player -> {current, longest_win, longest_loss}
-    _round_sip_history: list = field(default_factory=list)  # total sips (all players) per completed round
-    _player_rounds_played: dict = field(default_factory=dict)  # player -> number of rounds harvested while present
+    _max_round_sips: dict = field(default_factory=dict)      # player -> highest single-round sip total
+    _dealer_bust_rounds: int = 0                             # rounds where dealer hand busted
+    _streaks: dict = field(default_factory=dict)             # player -> {current, longest_win, longest_loss}
+    _round_sip_history: list = field(default_factory=list)   # total sips (all players) per completed round
+    _player_rounds_played: dict = field(default_factory=dict)
     _session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
     _milestones_claimed: dict = field(default_factory=dict)
-    _pending_milestone: dict | None = None
     _last_milestone_result: dict | None = None
-
-    # "Worst player" (lowest avg sips/round) streak tracking across milestones.
-    # If the same player is worst for 2 consecutive milestones, they take a
-    # one-time penalty equal to the milestone winner's avg sips/round.
     _last_milestone_worst: str | None = None
 
     # Easy mode (halve drinks every round)
     easy_mode: bool = False
 
-    # Bust vote side bet
+    # Feature flags
     bust_vote_enabled: bool = False
-
-    # Basic-strategy "best play" highlight (blue border) — opt-in, off by default
     strategy_hint_enabled: bool = False
     _god_mode: bool = True
-    _bust_votes: dict = field(default_factory=dict)        # player_name -> "bust" | "pass"
-    _bust_vote_expires_at: float | None = None             # monotonic timestamp; None = window closed
-    _bust_vote_result: dict | None = None                  # set after resolve, cleared on newround
-    _bust_handouts_given: set = field(default_factory=set)  # winner names who have given their handout sip
-    _bust_handout_expires_at: float | None = None          # monotonic; winners have until this to give their sip
-    _bust_handout_log: list = field(default_factory=list)   # [{"winner","recipient","forfeited"}] this round
-    _bust_handout_seq: int = 0                              # bumped once all handouts for the round resolve
 
-    # Mid-round state (digital only - reset each newround in game_commands.py)
-    _ace_drink_events: list = field(default_factory=list)
-    _ace_drink_seq: int = 0
-
-    # Mid-round shoe reshuffle events (shoe ran low and auto-reshuffled
-    # while dealing, not the routine between-round reshuffle)
-    _reshuffle_events: list = field(default_factory=list)
-    _reshuffle_seq: int = 0
-
-    # Tracks (player_name, id(hand)) pairs that have already been resolved
-    # for the "mandatory split 10s" house rule this round, so it doesn't
-    # re-fire after the player makes a choice (drinking mode only).
-    _honor_acked: set = field(default_factory=set)
-
-    # Set when a STAND attempt is blocked by the "mandatory split 10s" house
-    # rule and is awaiting the player's choice via /honor_resolve.
-    # Shape: {"player": <name>, "hand_id": id(hand)} or None.
-    _honor_pending: dict | None = None
-
-    # Misc UI state
-    _last_peeked: dict | None = None
+    # Bust handout sequence counter (session-lifetime; bumped when all
+    # handouts for a round resolve — never reset between rounds)
+    _bust_handout_seq: int = 0
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     bet_amount: float = 10
     starting_bankroll: float = 100
-    _bankrolls: dict = field(default_factory=dict)        # player_name -> balance
-    _last_round_payouts: dict = field(default_factory=dict)  # player_name -> net $ change last round
-    _bank_run_players: list = field(default_factory=list)    # players currently at $0 (bank run pending)
-    _biggest_round_payouts: dict = field(default_factory=dict)  # player_name -> {"best": float, "worst": float}
+    _bankrolls: dict = field(default_factory=dict)
+    _last_round_payouts: dict = field(default_factory=dict)
+    _bank_run_players: list = field(default_factory=list)
+    _biggest_round_payouts: dict = field(default_factory=dict)
 
     # ------------------------------------------------------------------
     # Explicit properties delegating to RefereeSession
@@ -222,7 +245,7 @@ class GameRoom:
 
     @property
     def _hard_switch_drinking_applied(self) -> bool:
-        return getattr(self.session, "_hard_switch_drinking_applied", False)
+        return self.session._hard_switch_drinking_applied
 
     @_hard_switch_drinking_applied.setter
     def _hard_switch_drinking_applied(self, value: bool):
@@ -267,8 +290,8 @@ class GameRoom:
         return self.session.cmd_fouraces(parts)
 
     def cmd_endround(self):
-        extra = getattr(self, '_eor_msgs_buffer', [])
-        self._eor_msgs_buffer = []
+        extra = self.round._eor_msgs_buffer
+        self.round._eor_msgs_buffer = []
         return self.session.cmd_endround(
             skip_sweep=(self.mode == "digital"),
             extra_eor_msgs=extra,

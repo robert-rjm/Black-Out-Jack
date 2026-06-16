@@ -13,7 +13,7 @@ import logging
 import time
 
 from app.models.game_room import GameRoom
-from engine.drinking_rules import classify_rule
+from app.services.utils import classify_rule
 from app.config import (
     MILESTONE_STEP,
     MILESTONE_TTL,
@@ -28,7 +28,6 @@ log = logging.getLogger(__name__)
 # Rule classification
 # ---------------------------------------------------------------------------
 
-# classify_rule imported from drinking_rules
 
 
 # ---------------------------------------------------------------------------
@@ -42,26 +41,26 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
       - dealer busted  → correct: -1 sip credit + 1 sip to hand out (via /give_bust_sip)
       - dealer stood   → wrong:   +1 sip penalty
     Players who abstained are unaffected.
-    Builds session._bust_vote_result for the toast.
+    Builds session.round._bust_vote_result for the toast.
     """
     if not session.bust_vote_enabled:
-        session._bust_vote_result = None
+        session.round._bust_vote_result = None
         return
 
-    voters = {name: v for name, v in session._bust_votes.items() if v == "bust"}
+    voters = {name: v for name, v in session.round._bust_votes.items() if v == "bust"}
     if not voters:
-        session._bust_vote_result = None
+        session.round._bust_vote_result = None
         return
 
     dealer = session._get_dealer()
     if not dealer or not dealer.dealer_hand:
-        session._bust_vote_result = None
+        session.round._bust_vote_result = None
         return
 
     dealer_busted = dealer.dealer_hand.is_bust()
     winners, losers = [], []
-    session._bust_handouts_given = set()   # reset handout tracking for this round
-    session._bust_handout_log    = []      # reset handout reveal log for this round
+    session.round._bust_handouts_given = set()   # reset handout tracking for this round
+    session.round._bust_handout_log    = []      # reset handout reveal log for this round
 
     for p in session.all_players:
         if p.name not in voters:
@@ -75,7 +74,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
             losers.append(p.name)
             log.debug(f"  [bust vote] {p.name} wrong — +1 sip")
 
-    session._bust_vote_result = {
+    session.round._bust_vote_result = {
         "dealer_busted": dealer_busted,
         "winners":       winners,
         "losers":        losers,
@@ -83,9 +82,9 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
 
     # Give winners a window to hand out their sip; auto-assign expires after that
     if winners:
-        session._bust_handout_expires_at = time.monotonic() + BUST_HANDOUT_WINDOW_SECONDS
+        session.round._bust_handout_expires_at = time.monotonic() + BUST_HANDOUT_WINDOW_SECONDS
     else:
-        session._bust_handout_expires_at = None
+        session.round._bust_handout_expires_at = None
 
 
 # ---------------------------------------------------------------------------
@@ -101,15 +100,15 @@ def apply_bust_handout_forfeit(session: GameRoom) -> None:
     Safe to call on every /state tick — exits immediately if no handout
     window is pending or it hasn't closed yet.
     """
-    expires = session._bust_handout_expires_at
+    expires = session.round._bust_handout_expires_at
     if expires is None or time.monotonic() < expires:
         return
 
-    result  = session._bust_vote_result or {}
+    result  = session.round._bust_vote_result or {}
     winners = result.get("winners", [])
 
     for winner_name in winners:
-        if winner_name in session._bust_handouts_given:
+        if winner_name in session.round._bust_handouts_given:
             continue
 
         winner_p = session._get_player(winner_name)
@@ -140,19 +139,19 @@ def apply_bust_handout_forfeit(session: GameRoom) -> None:
                 f"  ⏱ {winner_name} didn't assign their bust-vote sip in time — "
                 f"drinks 1 sip\n"
             )
-            session._log_entries.append(log_line)
+            session.round._log_entries.append(log_line)
             session._log_version += 1
             log.debug(f"  [bust vote] {winner_name} forfeited handout — drinks 1 sip")
 
-        session._bust_handout_log.append({
+        session.round._bust_handout_log.append({
             "winner":    winner_name,
             "recipient": None,
             "forfeited": True,
         })
-        session._bust_handouts_given.add(winner_name)
+        session.round._bust_handouts_given.add(winner_name)
 
-    if all(w in session._bust_handouts_given for w in winners):
-        session._bust_handout_expires_at = None
+    if all(w in session.round._bust_handouts_given for w in winners):
+        session.round._bust_handout_expires_at = None
         if winners:
             session._bust_handout_seq += 1
 
@@ -167,7 +166,7 @@ def harvest_drink_log(session: GameRoom) -> None:
     session-wide CSV accumulator. Call this right after cmd_endround() and
     before start_round() resets drink_log to [].
     """
-    if session._drink_log_harvested:
+    if session.round._drink_log_harvested:
         return  # already harvested this round — do not double-count
 
     rows      = session._drink_csv_rows
@@ -217,7 +216,7 @@ def harvest_drink_log(session: GameRoom) -> None:
         if net > 0:
             ticker[p.name] = ticker.get(p.name, 0) + net
     session._sip_ticker          = ticker
-    session._drink_log_harvested = True
+    session.round._drink_log_harvested = True
     session._round_over_seq     += 1   # seq-based trigger so clients never miss the toast
 
     # Cumulative dealer-role sips (shown in dealer panel)
@@ -466,7 +465,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
                 "rule":   "Worst average for 2 milestones",
                 "sips":   penalty,
             })
-            session._log_entries.append(
+            session.round._log_entries.append(
                 f"  📉 {worst_name} was the worst average for 2 milestones running — "
                 f"drinks {penalty} sip{'s' if penalty != 1 else ''}\n"
             )
@@ -480,7 +479,7 @@ def check_and_set_milestone(session: GameRoom) -> None:
     """
     After harvesting a round's drink log, check whether any player has newly
     crossed a MILESTONE_STEP boundary. If so, record the winner in
-    session._pending_milestone so the frontend can display the handout UI.
+    session.round._pending_milestone so the frontend can display the handout UI.
 
     Tiebreak: fewest sips THIS round wins (prevents gaming). Alphabetical
     name order breaks any remaining tie.
@@ -489,7 +488,7 @@ def check_and_set_milestone(session: GameRoom) -> None:
     """
     # Never overwrite an active unresolved milestone — the winner gets to hand
     # out their sips before we fire the next one.
-    if session._pending_milestone:
+    if session.round._pending_milestone:
         return
 
     ticker  = session._sip_ticker
@@ -539,7 +538,7 @@ def check_and_set_milestone(session: GameRoom) -> None:
         _distribute_milestone_round_robin(session, winner, boundary, handout_sips)
         return
 
-    session._pending_milestone  = {
+    session.round._pending_milestone  = {
         "boundary":   boundary,
         "winner":     winner,
         "handout":    handout_sips,
@@ -602,7 +601,7 @@ def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: 
         })
         log.debug(f"    -> {t.name} +1 sip")
 
-    session._log_entries.append(
+    session.round._log_entries.append(
         f"  🎯 {winner} (bot) hit the {boundary}-sip milestone — auto-distributes "
         f"{handout} sip(s) round-robin\n"
     )
@@ -622,7 +621,7 @@ def apply_milestone_forfeit(session: GameRoom) -> None:
     Safe to call on every /state tick — exits immediately if no milestone is
     pending or the window has not yet closed.
     """
-    ms = session._pending_milestone
+    ms = session.round._pending_milestone
     if not ms or time.monotonic() < ms["expires_at"]:
         return
 
@@ -658,8 +657,8 @@ def apply_milestone_forfeit(session: GameRoom) -> None:
             f"  ⏱ {winner_name} didn't assign the {ms['boundary']}-sip milestone handout "
             f"in time — drinks {handout} sips\n"
         )
-        session._log_entries.append(log_line)
+        session.round._log_entries.append(log_line)
         session._log_version += 1
         log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
 
-    session._pending_milestone = None
+    session.round._pending_milestone = None

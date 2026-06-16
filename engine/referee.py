@@ -38,7 +38,7 @@ Examples:
 """
 
 from engine.blackjack import (
-    Rank, Suit, Card, Hand, Player
+    Rank, Suit, Card, Hand, Player, get_player_hand,
 )
 from engine.drinking_rules import DrinkingRules, DrinkTracker
 from engine.events import (
@@ -121,13 +121,18 @@ class RefereeSession:
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False  # True once all first-deal cards are entered
-        self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
-        self._pending_eor_msgs = []  # BJ bonuses + four-aces-endround — buffered for halving
+        self._pending_resolved  = []  # buffered (player_name, hand, dealer_bj) — fired at endround
+        self._pending_bj_hands  = []  # buffered (player_name, hand) — BJ bonus fired at endround with exempt_dealer
+        self._pending_eor_msgs  = []  # four-aces-endround and other pre-computed msgs — buffered for halving
 
         # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
         self.bust_vote_enabled = bust_vote_enabled
         self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
         self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
+
+        # Hard-switch drinking guard — True once hard-switch drinks have been applied
+        # for the current round so they are not double-fired. Reset by room_manager.py.
+        self._hard_switch_drinking_applied = False
 
         # Tracker — resolves recipients and logs drinks
         self.tracker = DrinkTracker(players, self._get_dealer())
@@ -146,24 +151,6 @@ class RefereeSession:
 
     def _get_player(self, name: str) -> Player:
         return self._player_map.get(name.strip().lower())
-
-    def _get_hand(self, player: Player, hand_label: str) -> Hand:
-        """
-        Resolve a player's betting hand by label ('hand1', 'hand2', ...).
-
-        Note: the dealer-player also has their own player hands. To target
-        the dealer's *dealer hand*, use the literal 'dealer' keyword (handled
-        explicitly in cmd_deal / cmd_result / cmd_dealer); never via this
-        helper. That way clicking the "Player1" button still routes to
-        Player1's own player hands when Player1 happens to be the dealer.
-        """
-        try:
-            idx = int(hand_label.lower().replace("hand", "").strip()) - 1
-        except (ValueError, AttributeError):
-            idx = 0
-        while len(player.hands) <= idx:
-            player.hands.append(Hand())
-        return player.hands[idx]
 
     # ---------------------------------------------------------------- setup round
 
@@ -196,8 +183,9 @@ class RefereeSession:
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
-        self._pending_resolved = []
-        self._pending_eor_msgs = []
+        self._pending_resolved  = []
+        self._pending_bj_hands  = []
+        self._pending_eor_msgs  = []
         self._bust_votes        = {}
         self._bust_vote_result  = None
         self.tracker = DrinkTracker(self.all_players, self._get_dealer())
@@ -241,7 +229,7 @@ class RefereeSession:
             hand = player.dealer_hand
             recipient_name = self.dealer_name
         else:
-            hand = self._get_hand(player, hand_label)
+            hand = get_player_hand(player, hand_label)
             recipient_name = player.name
 
         # First card of the round locks in any bust-vote side bets (Rules.md §4.4
@@ -295,14 +283,17 @@ class RefereeSession:
             self._log(f"  Unknown player '{player_name}'.")
             return
 
-        hand = self._get_hand(player, hand_label)
+        hand = get_player_hand(player, hand_label)
 
         if action == "double":
             hand.doubled = True
             self._log(f"  {player.name} {hand_label}: marked as doubled.")
 
         elif action == "split":
-            # Create a new hand for the split
+            # Referee mode: cards are physical, so we only create the new hand
+            # slot and share the chain counter — we do NOT pop card data or deal
+            # a replacement card (the player does that with the real deck).
+            # Digital mode uses app.services.game_engine.perform_split() instead.
             new_hand = Hand(from_split=True)
             hand.from_split   = True
             new_hand._split_chain = hand._split_chain  # share counter across the whole chain
@@ -323,9 +314,7 @@ class RefereeSession:
         elif action in ("blackjack", "bj"):
             hand.stood = True
             self._log(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
-            self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
-                player_name=player.name, hand=hand, all_names=self._all_names,
-            )))
+            self._pending_bj_hands.append((player.name, hand))
 
         else:
             self._log(f"  Unknown action '{action}'. Use: double, split, insurance, blackjack")
@@ -359,7 +348,7 @@ class RefereeSession:
             self._log(f"  Unknown player '{player_name}'.")
             return
 
-        hand = self._get_hand(player, hand_label)
+        hand = get_player_hand(player, hand_label)
 
         if outcome in ("win", "loss", "push"):
             hand.result = outcome
@@ -367,9 +356,7 @@ class RefereeSession:
             dealer    = self._get_dealer()
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
             if hand.is_blackjack() and outcome == "win" and not hand.insured:
-                self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
-                    player_name=player.name, hand=hand, all_names=self._all_names,
-                )))
+                self._pending_bj_hands.append((player.name, hand))
             # Buffer on_hand_resolved — fired at endround once hard_switch is known
             self._pending_resolved.append((player.name, hand, dealer_bj))
         elif outcome == "bust":
@@ -431,7 +418,10 @@ class RefereeSession:
     # ---------------------------------------------------------------- command: bust vote
 
     def cmd_bustvotetoggle(self, parts: list):
-        """bustvotetoggle <on|off> — host toggles the dealer-bust side bet (Rules.md §4.4)."""
+        """bustvotetoggle <on|off> — host toggles the dealer-bust side bet (Rules.md §4.4).
+
+        Terminal-CLI only. The web layer uses the /bust_vote_toggle route instead.
+        """
         if len(parts) < 2 or parts[1].lower() not in ("on", "off"):
             self._log("  Usage: bustvotetoggle <on|off>")
             return
@@ -442,7 +432,10 @@ class RefereeSession:
             self._bust_votes = {}
 
     def cmd_bustvote(self, parts: list):
-        """bustvote <player> <bust|skip> — side bet on dealer bust, before the first deal."""
+        """bustvote <player> <bust|skip> — side bet on dealer bust, before the first deal.
+
+        Terminal-CLI only. The web layer uses the /cast_bust_vote route instead.
+        """
         if not self.bust_vote_enabled:
             self._log("  Bust vote side bet is disabled. Use 'bustvotetoggle on' first.")
             return
@@ -554,6 +547,14 @@ class RefereeSession:
         dealer    = self._get_dealer()
         dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
 
+        # Fire buffered BJ bonus events — now we know exempt_dealer (hard switch)
+        for p_name, hand in self._pending_bj_hands:
+            eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
+                player_name=p_name, hand=hand, all_names=self._all_names,
+                hard_switch_dealer=exempt_dealer,
+            )))
+        self._pending_bj_hands = []
+
         # Fire buffered on_hand_resolved calls — now we know if it's a hard switch
         for p_name, hand, dealer_bj_at_time in self._pending_resolved:
             eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
@@ -563,7 +564,7 @@ class RefereeSession:
         self._pending_resolved = []
         # _pending_eor_msgs already drained above when building eor_msgs
 
-        if hard_switch and not getattr(self, "_hard_switch_drinking_applied", False):
+        if hard_switch and not self._hard_switch_drinking_applied:
             partial_protected = self._ace_clubs_flag.get("partial_protected", False)
             half_protected    = self._ace_clubs_flag.get("half_protected", False)
             # Partial protection (player-hand A♣): exclude dealer's own hands

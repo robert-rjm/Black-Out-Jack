@@ -109,7 +109,6 @@
 }
 
 /* ---- LEADERBOARD TABLE ---- */
-#leaderboard-content,
 #stats-content {
   width: 100%;
 }
@@ -172,37 +171,6 @@
 .lb-wr-good  { color: var(--green)  !important; font-weight: 700; }
 .lb-wr-ok    { color: var(--yellow) !important; }
 .lb-wr-bad   { color: var(--red)    !important; }
-
-/* Rank badge */
-.lb-rank {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--muted);
-  width: 14px;
-  text-align: right;
-  margin-right: 4px;
-  vertical-align: middle;
-}
-.lb-rank-1, .lb-rank-2, .lb-rank-3 {
-  font-size: 15px;
-  width: 20px;
-}
-.lb-rank-1 { color: gold; }
-.lb-rank-2 { color: silver; }
-.lb-rank-3 { color: #cd7f32; }
-
-/* Sip cells */
-.lb-sips      { color: var(--red); vertical-align: middle; }
-.lb-sips-zero { color: var(--muted); opacity: .45; vertical-align: middle; }
-
-/* Sub-label */
-.lb-meta {
-  font-size: 9px;
-  color: var(--muted);
-  padding: 4px 8px 6px;
-  opacity: .7;
-}
 
 /* ---- STATS TABLE ---- */
 .stats-table th { font-size: 8px; padding: 5px 4px; }

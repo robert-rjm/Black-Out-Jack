@@ -25,8 +25,14 @@ function hideLobbyMsg() {
 
 async function createRoom() {
   hideLobbyMsg();
-  const res  = await fetch("/create_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-  const data = await res.json();
+  let data;
+  try {
+    const res  = await fetch("/create_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    data = await res.json();
+  } catch (_) {
+    showLobbyMsg("Could not reach server — check your connection.");
+    return;
+  }
   if (!data.ok) { showLobbyMsg("Could not create room. Try again."); return; }
   roomCode = data.code;
   lsSet("bjRoomCode", roomCode);
@@ -44,8 +50,14 @@ async function joinRoom() {
   const raw   = (input.value || "").trim();
   if (!raw) { showLobbyMsg("Enter a room code first."); return; }
 
-  const res  = await fetch("/join_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: raw, client_id: clientId }) });
-  const data = await res.json();
+  let data;
+  try {
+    const res  = await fetch("/join_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: raw, client_id: clientId }) });
+    data = await res.json();
+  } catch (_) {
+    showLobbyMsg("Could not reach server — check your connection.");
+    return;
+  }
   if (!data.ok) { showLobbyMsg(data.error || "Room not found."); return; }
 
   roomCode = data.room_code || raw;   // use canonical casing from server
@@ -162,4 +174,4 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// ============================================================
+// =====================================

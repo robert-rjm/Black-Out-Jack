@@ -6,7 +6,7 @@ Covers every branch in source order, including ordering-sensitive overlaps.
 
 import pytest
 
-from engine.drinking_rules import classify_rule
+from app.services.utils import classify_rule
 
 
 # ---------------------------------------------------------------------------
