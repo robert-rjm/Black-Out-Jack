@@ -58,6 +58,7 @@ setBustVoteSetupToggle(true);                 // bust-vote toggle starts ON in s
       document.getElementById("lobby").style.display = "none";
       document.getElementById("app").style.display   = "flex";
       startPolling();
+      startIdleWatcher();
     }
   } catch (_) {}
 })();

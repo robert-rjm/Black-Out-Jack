@@ -194,8 +194,15 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
 
 def rotate_dealer(session: GameRoom) -> None:
     """Rotate the dealer role one seat clockwise."""
-    all_names  = [p.name for p in session.all_players]
-    cur_idx    = all_names.index(session.dealer_name)
+    all_names = [p.name for p in session.all_players]
+    if not all_names:
+        return
+    try:
+        cur_idx = all_names.index(session.dealer_name)
+    except ValueError:
+        # Current dealer no longer exists (e.g. removed via
+        # apply_queued_settings) — fall back to the first seat.
+        cur_idx = -1
     new_dealer = all_names[(cur_idx + 1) % len(all_names)]
     for p in session.all_players:
         p.is_dealer   = (p.name == new_dealer)

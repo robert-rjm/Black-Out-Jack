@@ -147,7 +147,9 @@ def setup():
         starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
     except (ValueError, TypeError):
         return jsonify({"ok": False, "output": "Invalid numeric field."})
-    dealer_name = names[min(dealer_idx, len(names) - 1)]
+    if not (0 <= dealer_idx < len(names)):
+        return jsonify({"ok": False, "output": "Invalid dealer index."})
+    dealer_name = names[dealer_idx]
 
     npc_names = {sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
 
@@ -165,6 +167,7 @@ def setup():
     room = GameRoom(
         session=raw_session,
         mode=mode,
+        room_code=room_code,
         drinking_mode=drinking,
         rounds_this_dealer=1,
         switch_this_round=None,

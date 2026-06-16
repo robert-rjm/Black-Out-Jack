@@ -150,9 +150,12 @@ function renderLeaderboard(state) {
 
   const rankEmoji = ["🥇", "🥈", "🥉"];
 
+  const _myNameLower = (typeof myName !== "undefined" && myName) ? myName.toLowerCase() : null;
+  const _npcSet      = typeof npcPlayers !== "undefined" ? npcPlayers : new Set();
   const tbody = rows.map((r, i) => {
     const isDealer  = r.name.toLowerCase() === dealer;
-    const rowClass  = isDealer ? " lb-row-dealer" : "";
+    const isMe      = !!_myNameLower && r.name.toLowerCase() === _myNameLower && !_npcSet.has(r.name);
+    const rowClass  = (isDealer ? " lb-row-dealer" : "") + (isMe ? " lb-row-me" : "");
     const rankLabel = i < 3
       ? `<span class="lb-rank lb-rank-${i+1}">${rankEmoji[i]}</span>`
       : `<span class="lb-rank">${i+1}</span>`;
@@ -285,6 +288,9 @@ function renderStats(state) {
     const suited      = hs.suited_hands || 0;
     const hitH        = hs.hit_hands    || 0;
     const sub17       = hs.stand_sub17  || 0;
+    const sub17Pct    = hands > 0 ? Math.round((sub17 / hands) * 100) : null;
+    const bustPct     = hands > 0 ? Math.round((busts / hands) * 100) : null;
+    const suitedPct   = hands > 0 ? Math.round((suited / hands) * 100) : null;
     const totalScore  = hs.total_score  || 0;
     const scoredH     = hs.scored_hands || 0;
     const totalSipsP  = sipTotals[name] || 0;
@@ -305,7 +311,7 @@ function renderStats(state) {
     const startBank   = state.starting_bankroll || 100;
     const netPL       = balance !== undefined ? balance - startBank : null;
     const big         = (state.biggest_round_payouts || {})[name] || {};
-    return { name, hands, wins, losses, pushes, wr, current, bj, busts, suited, hitRate, sub17, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal, balance, netPL, bigWin: big.best || 0, bigLoss: big.worst || 0 };
+    return { name, hands, wins, losses, pushes, wr, current, bj, busts, bustPct, suited, suitedPct, hitRate, sub17, sub17Pct, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal, balance, netPL, bigWin: big.best || 0, bigLoss: big.worst || 0 };
   }).filter(r => r.hands > 0 || r.totalSipsP > 0 || r.balance !== undefined);
 
   if (rows.length === 0) {
@@ -313,7 +319,10 @@ function renderStats(state) {
     return;
   }
 
-  const isDlr = name => name.toLowerCase() === dealer;
+  const isDlr      = name => name.toLowerCase() === dealer;
+  const _myNameL   = (typeof myName !== "undefined" && myName) ? myName.toLowerCase() : null;
+  const _npcSetSt  = typeof npcPlayers !== "undefined" ? npcPlayers : new Set();
+  const isMe       = name => !!_myNameL && name.toLowerCase() === _myNameL && !_npcSetSt.has(name);
 
   // Per-player baseline for avg sips/round: BENCHMARKS.avg_sips_per_round is
   // the simulated total across all seats per round, split evenly as a rough
@@ -330,14 +339,14 @@ function renderStats(state) {
     : null;
 
   const tbody = rows.map(r => {
-    const rc       = isDlr(r.name) ? " lb-row-dealer" : "";
+    const rc       = (isDlr(r.name) ? " lb-row-dealer" : "") + (isMe(r.name) ? " lb-row-me" : "");
     const nameCell = `${escapeHtml(r.name)}${isDlr(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
     const bjCell   = r.bj    > 0 ? `<span style="color:var(--yellow);font-weight:700">🃏${r.bj}</span>`  : `<span style="opacity:.35">—</span>`;
-    const bstCell  = r.busts > 0 ? `<span style="color:var(--red)">${r.busts}</span>` : `<span style="opacity:.35">0</span>`;
+    const bstCell  = r.busts > 0 ? `<span style="color:var(--red)">${r.bustPct}%</span>` : `<span style="opacity:.35">0%</span>`;
     const maxCell  = r.maxSips > 0 ? `<span style="color:var(--red)">🍺${r.maxSips}</span>` : `<span style="opacity:.35">—</span>`;
     const lwCell   = r.lw > 0 ? `<span style="color:var(--green)">🔥${r.lw}</span>` : `<span style="opacity:.35">—</span>`;
     const llCell   = r.ll > 0 ? `<span style="color:var(--red)">💀${r.ll}</span>`   : `<span style="opacity:.35">—</span>`;
-    const stCell   = r.suited > 0 ? `<span style="color:var(--accent)">${r.suited}</span>` : `<span style="opacity:.35">—</span>`;
+    const stCell   = r.suited > 0 ? `<span style="color:var(--accent)">${r.suitedPct}%</span>` : `<span style="opacity:.35">0%</span>`;
     const bankrollCell = r.balance !== undefined
       ? `<span>$${r.balance.toFixed(2)}</span>` : `<span style="opacity:.35">—</span>`;
     const netPLCell = r.netPL !== null
@@ -350,7 +359,8 @@ function renderStats(state) {
     const avgSipsCell = r.avgSips !== "—" && _perPlayerSipStd
       ? `<span style="${benchmarkColor(parseFloat(r.avgSips), _perPlayerSipBenchmark, round, { lowerIsBetter: true, std: _perPlayerSipStd })}">${r.avgSips}</span>`
       : r.avgSips;
-    const s17Cell  = r.sub17  > 0 ? `<span style="color:var(--yellow)">${r.sub17}</span>`  : `<span style="opacity:.35">0</span>`;
+    const s17Cell  = r.sub17  > 0 ? `<span>${r.sub17Pct}%</span>`  : `<span style="opacity:.35">0%</span>`;
+    const avgHVCell = r.avgHV !== "—" ? `<span style="color:var(--yellow)">${r.avgHV}</span>` : `<span style="opacity:.35">—</span>`;
     let sdCell;
     if (r.sdPct === null) {
       sdCell = `<span style="opacity:.35">—</span>`;
@@ -359,16 +369,16 @@ function renderStats(state) {
     }
     return `<tr class="${rc}">
       <td class="lb-name">${nameCell}</td>
-      <td>${bjCell}</td>
+      <td class="col-sep">${bjCell}</td>
+      <td>${avgHVCell}</td>
+      <td>${bstCell}</td>
+      <td>${r.hitRate}</td>
       <td>${r.dblPct}</td>
       <td>${r.spPct}</td>
-      <td>${r.hitRate}</td>
+      <td class="col-sep">${stCell}</td>
       <td>${s17Cell}</td>
-      <td>${r.avgHV}</td>
-      <td>${bstCell}</td>
-      <td>${stCell}</td>
       <td>${sdCell}</td>
-      ${drinking ? `<td>${avgSipsCell}</td><td>${maxCell}</td>` : `<td>${bankrollCell}</td><td>${netPLCell}</td><td>${bigWinCell}</td><td>${bigLossCell}</td>`}
+      ${drinking ? `<td class="col-sep">${avgSipsCell}</td><td>${maxCell}</td>` : `<td class="col-sep">${bankrollCell}</td><td>${netPLCell}</td><td>${bigWinCell}</td><td>${bigLossCell}</td>`}
       <td>${lwCell}</td>
       <td>${llCell}</td>
     </tr>`;
@@ -378,17 +388,17 @@ function renderStats(state) {
     <table class="lb-table stats-table">
       <thead><tr>
         <th>Player</th>
-        <th title="Natural blackjacks won">BJ</th>
-        <th title="Double down win rate">Dbl%</th>
-        <th title="Split win rate">Sp%</th>
-        <th title="Hit rate (hands with ≥1 hit)">Hit%</th>
-        <th title="Times stood on sub-17">&lt;17</th>
+        <th title="Natural blackjacks won" class="col-sep">BJ</th>
         <th title="Average non-bust hand value">AvgHV</th>
         <th title="Times busted">Bust</th>
-        <th title="Suited hands">Suit</th>
+        <th title="Hit rate (hands with ≥1 hit)">Hit%</th>
+        <th title="Double down win rate">Dbl%</th>
+        <th title="Split win rate">Sp%</th>
+        <th title="Suited hands" class="col-sep">Suit</th>
+        <th title="Times stood on sub-17">&lt;17</th>
         <th title="Basic strategy accuracy (shown after 3+ decisions)">Strat%</th>
-        ${drinking ? `<th title="Average sips per round">Avg🍺</th><th title="Biggest single-round sip hit">Peak🍺</th>`
-                   : `<th title="Current bankroll">Bankroll</th><th title="Total $ won/lost this session">$ P/L</th><th title="Biggest single-round win">Best Round</th><th title="Biggest single-round loss">Worst Round</th>`}
+        ${drinking ? `<th title="Average sips per round" class="col-sep">Avg🍺</th><th title="Biggest single-round sip hit">Peak🍺</th>`
+                   : `<th title="Current bankroll" class="col-sep">Bankroll</th><th title="Total $ won/lost this session">$ P/L</th><th title="Biggest single-round win">Best Round</th><th title="Biggest single-round loss">Worst Round</th>`}
         <th title="Longest win streak">🔥</th>
         <th title="Longest loss streak">💀</th>
       </tr></thead>
@@ -448,7 +458,7 @@ function renderStats(state) {
   const bestLoss = [...rows].sort((a, b) => b.ll - a.ll)[0];
 
   if (totalBJ > 0) {
-    const bjRate    = round > 0 ? ((totalBJ / (Object.keys(handStats).length * round)) * 100) : null;
+    const bjRate    = totalHands > 0 ? ((totalBJ / totalHands) * 100) : null;
     const bjBench   = _benchmark(_benchTable, "blackjack_rate_pct");
     const bjCol     = bjRate !== null ? benchmarkColor(bjRate, bjBench, round) : "";
     const bjBenchTxt = bjBench !== null ? ` · expected ~${bjBench}%` : "";

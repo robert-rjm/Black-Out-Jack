@@ -18,6 +18,11 @@ class GameRoom:
     mode: str = "referee"
     drinking_mode: bool = True
 
+    # Room code this session is stored under in app.services.session_store
+    # (set at creation time in app/routes/lobby.py:setup). Used for
+    # tagging exported logs (e.g. decision_log.py's "session_id" column).
+    room_code: str = ""
+
     # Dealer rotation
     rounds_this_dealer: int = 1
     switch_this_round: str | None = None
@@ -65,6 +70,7 @@ class GameRoom:
     _dealer_bust_rounds: int = 0                          # rounds where dealer hand busted
     _streaks: dict = field(default_factory=dict)          # player -> {current, longest_win, longest_loss}
     _round_sip_history: list = field(default_factory=list)  # total sips (all players) per completed round
+    _player_rounds_played: dict = field(default_factory=dict)  # player -> number of rounds harvested while present
     _session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
     _milestones_claimed: dict = field(default_factory=dict)
     _pending_milestone: dict | None = None
