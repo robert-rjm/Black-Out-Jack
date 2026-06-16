@@ -302,7 +302,10 @@ class RefereeSession:
             self._log(f"  {player.name} {hand_label}: marked as doubled.")
 
         elif action == "split":
-            # Create a new hand for the split
+            # Referee mode: cards are physical, so we only create the new hand
+            # slot and share the chain counter — we do NOT pop card data or deal
+            # a replacement card (the player does that with the real deck).
+            # Digital mode uses app.services.game_engine.perform_split() instead.
             new_hand = Hand(from_split=True)
             hand.from_split   = True
             new_hand._split_chain = hand._split_chain  # share counter across the whole chain
