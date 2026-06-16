@@ -38,7 +38,7 @@ Phase strings (`"pre-deal"`, `"playing"`, `"round-over"`, `"dealer-ready"`) and 
 `compute_sip_totals()` and `compute_dealer_role_sips()` are called in the same `serialize_state()` pass but each iterate the full drink log separately.
 **Fix:** Single pass accumulating both totals.
 
-### M7 · `_bj_multiplier` conditions computed twice
+### ~~M7 · `_bj_multiplier` conditions computed twice~~
 **File:** `engine/drinking_rules.py`
 Suited/A+J/both-black multiplier conditions exist in `_bj_multiplier()` (L17-26) and are recomputed inline in `on_blackjack()` (~L202-209).
 **Fix:** Remove the inline recomputation; use `_bj_multiplier()` as the single source.
@@ -153,7 +153,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] M4 — Split `applyState` into named phase functions
 - [ ] M5 — Centralize phase/role string constants in JS
 - [X] M6 — Single-pass sip total accumulation in serializer
-- [ ] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`
+- [X] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`
 - [ ] M8 — Split `on_round_end` into named helpers
 - [ ] M9 — Pass `hard_switch_dealer` in `cmd_result` BJ insurance path
 - [ ] M10 — Share `pollState` helper across lobby/setup/visibility JS
