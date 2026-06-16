@@ -36,7 +36,7 @@ from app.services.drink_tracker import (
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
 from app.config import (
     INSURANCE_VOTE_TIMEOUT, INSURANCE_PAUSE_BUFFER, MAX_REG_DENIALS,
-    BUST_HANDOUT_WINDOW_SECONDS,
+    BUST_HANDOUT_WINDOW_SECONDS, BUST_VOTE_WINDOW_SECONDS,
 )
 
 log = logging.getLogger(__name__)
@@ -103,12 +103,14 @@ def state():
                 else:
                     any_insurance_pending = True
 
-        # Pause the bust-vote countdown while insurance voting is open.
-        # Extend the expiry so it doesn't tick down while players are occupied.
+        # Freeze the bust-vote countdown while insurance voting is open.
+        # Keep a full window remaining so players always get the full time
+        # to vote after insurance resolves (not just whatever seconds were left
+        # when the BJ was detected).
         if any_insurance_pending and session._bust_vote_expires_at is not None:
             session._bust_vote_expires_at = max(
                 session._bust_vote_expires_at,
-                _now + INSURANCE_PAUSE_BUFFER,
+                _now + BUST_VOTE_WINDOW_SECONDS,
             )
 
         # Milestone forfeit: if the handout window expired without the winner submitting,
