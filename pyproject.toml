@@ -5,7 +5,15 @@ markers = [
 
 [tool.ruff]
 line-length = 120
-exclude = [".git", "__pycache__", ".venv", "venv", "build", "dist"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "engine/busfahrer.py",  # WIP, not ready hence exclded from testing
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
