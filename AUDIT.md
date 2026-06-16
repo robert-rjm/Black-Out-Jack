@@ -93,7 +93,7 @@ Both resolve a `"handN"` label to a `Hand` object, extending `player.hands` if n
 
 ---
 
-### 2.4 `_print_digital_help()` logs to `log.debug()`, referee help uses `self._log()`
+### 2.4 `_print_digital_help()` logs to `log.debug()`, referee help uses `self._log()` - DONE
 **File:** `app/routes/game_commands.py`
 
 The two help printers use different output channels. `log.debug()` never reaches the web client; `self._log()` appends to the room's message buffer which is returned to the frontend. Digital mode help is therefore silent in production.

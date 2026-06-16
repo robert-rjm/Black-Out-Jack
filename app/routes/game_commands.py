@@ -51,7 +51,7 @@ bp = Blueprint("game_commands", __name__)
 # ---------------------------------------------------------------------------
 
 def _print_digital_help():
-    log.debug("""
+    print("""
   DIGITAL MODE COMMANDS
   =====================
   deal
