@@ -550,6 +550,10 @@ class RefereeSession:
         eor_msgs = list(extra_eor_msgs or []) + list(self._pending_eor_msgs)
         self._pending_eor_msgs = []
 
+        # Resolve dealer BJ early — needed by both hard-switch and round-end logic below.
+        dealer    = self._get_dealer()
+        dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+
         # Fire buffered on_hand_resolved calls — now we know if it's a hard switch
         for p_name, hand, dealer_bj_at_time in self._pending_resolved:
             eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
@@ -590,9 +594,7 @@ class RefereeSession:
             )))
 
         # Round-end rules (net losses, sweeps)
-        w         = self.wager
-        dealer    = self._get_dealer()
-        dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+        w = self.wager
 
         # Insurance resolution — for hands marked insured via the INSURANCE button
         if not hasattr(self, "_insurance_result") or self._insurance_result is None:
