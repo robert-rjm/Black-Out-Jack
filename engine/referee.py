@@ -38,7 +38,7 @@ Examples:
 """
 
 from engine.blackjack import (
-    Rank, Suit, Card, Hand, Player
+    Rank, Suit, Card, Hand, Player, get_player_hand,
 )
 from engine.drinking_rules import DrinkingRules, DrinkTracker
 from engine.events import (
@@ -147,24 +147,6 @@ class RefereeSession:
     def _get_player(self, name: str) -> Player:
         return self._player_map.get(name.strip().lower())
 
-    def _get_hand(self, player: Player, hand_label: str) -> Hand:
-        """
-        Resolve a player's betting hand by label ('hand1', 'hand2', ...).
-
-        Note: the dealer-player also has their own player hands. To target
-        the dealer's *dealer hand*, use the literal 'dealer' keyword (handled
-        explicitly in cmd_deal / cmd_result / cmd_dealer); never via this
-        helper. That way clicking the "Player1" button still routes to
-        Player1's own player hands when Player1 happens to be the dealer.
-        """
-        try:
-            idx = int(hand_label.lower().replace("hand", "").strip()) - 1
-        except (ValueError, AttributeError):
-            idx = 0
-        while len(player.hands) <= idx:
-            player.hands.append(Hand())
-        return player.hands[idx]
-
     # ---------------------------------------------------------------- setup round
 
     def start_round(self, digital=False):
@@ -241,7 +223,7 @@ class RefereeSession:
             hand = player.dealer_hand
             recipient_name = self.dealer_name
         else:
-            hand = self._get_hand(player, hand_label)
+            hand = get_player_hand(player, hand_label)
             recipient_name = player.name
 
         # First card of the round locks in any bust-vote side bets (Rules.md §4.4
@@ -295,7 +277,7 @@ class RefereeSession:
             self._log(f"  Unknown player '{player_name}'.")
             return
 
-        hand = self._get_hand(player, hand_label)
+        hand = get_player_hand(player, hand_label)
 
         if action == "double":
             hand.doubled = True
@@ -362,7 +344,7 @@ class RefereeSession:
             self._log(f"  Unknown player '{player_name}'.")
             return
 
-        hand = self._get_hand(player, hand_label)
+        hand = get_player_hand(player, hand_label)
 
         if outcome in ("win", "loss", "push"):
             hand.result = outcome

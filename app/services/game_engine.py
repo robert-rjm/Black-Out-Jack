@@ -12,7 +12,7 @@ and makes these functions unit-testable without a Flask context.
 import logging
 import time as _time
 
-from engine.blackjack import Hand, HandEvaluator, NPC_Player
+from engine.blackjack import Hand, HandEvaluator, NPC_Player, get_player_hand
 from app.services.decision_log import record_decision
 from engine.drinking_rules import DrinkingRules
 from engine.events import (
@@ -58,23 +58,6 @@ def _push_reshuffle_event(session: GameRoom) -> None:
 # ---------------------------------------------------------------------------
 # Hand / player helpers
 # ---------------------------------------------------------------------------
-
-def get_player_hand(player, hand_label: str) -> Hand:
-    """
-    Return a player's betting hand by label (e.g. 'hand1', 'hand2').
-
-    Always uses player.hands[idx] directly — unlike RefereeSession._get_hand,
-    this never redirects to dealer_hand, so the dealer-player can still act
-    on their own betting hands.
-    """
-    try:
-        idx = int(hand_label.lower().replace("hand", "").strip()) - 1
-    except (ValueError, AttributeError):
-        idx = 0
-    while len(player.hands) <= idx:
-        player.hands.append(Hand())
-    return player.hands[idx]
-
 
 # ---------------------------------------------------------------------------
 # Card dealing

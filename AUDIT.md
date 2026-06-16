@@ -64,7 +64,7 @@ session.tracker.easy_mode = session.easy_mode
 
 ## 2. Inconsistencies
 
-### 2.1 Four independent split implementations
+### 2.1 Four independent split implementations - DONE
 **Files:**
 - `engine/blackjack.py` line 212 — `Hand.split()` (canonical)
 - `engine/blackjack.py` line 592 — `RoundManager._play_hand` (terminal play, calls `hand.split()`)
@@ -240,32 +240,32 @@ Items are ordered by impact × effort ratio. Work left to right through the tier
 
 ### Tier 1 — Fix before next session (correctness)
 
-1. **Fix `NullTracker` missing `easy_mode`** (Bug 1.2) — one-liner, prevents AttributeError in Normal mode.
-2. **Fix `_cmd_blackjack` event bypass** (Bug 1.1) — one-liner, brings blackjack into the event system.
-3. **Fix `capture` dead import in lobby.py** (Bug 1.4) — cleanup, avoids confusion.
-4. **Remove `io.StringIO` redirect in `command()`** (Bug 1.5) — remove or actually use the captured output.
+- [X] **Fix `NullTracker` missing `easy_mode`** (Bug 1.2) — one-liner, prevents AttributeError in Normal mode.
+- [X] **Fix `_cmd_blackjack` event bypass** (Bug 1.1) — one-liner, brings blackjack into the event system.
+- [X] **Fix `capture` dead import in lobby.py** (Bug 1.4) — cleanup, avoids confusion.
+- [X] **Remove `io.StringIO` redirect in `command()`** (Bug 1.5) — remove or actually use the captured output.
 
 ### Tier 2 — Refactor soon (prevent future bugs)
 
-5. **Extract shared post-round pipeline** (Bug 1.3, Refactor 4.1) — prevents the two sites from drifting. Create `do_endround_pipeline(session)` in a service module and call it from both `game_commands.py` and `polling.py`.
-6. **Extract shared split helper** (Inconsistency 2.1) — three inline copies → one function. Highest deduplication ROI in the codebase.
-7. **Consolidate `get_player_hand` / `_get_hand`** (Inconsistency 2.2) — remove the duplicate.
+- [X] **Extract shared post-round pipeline** (Bug 1.3, Refactor 4.1) — prevents the two sites from drifting. Create `do_endround_pipeline(session)` in a service module and call it from both `game_commands.py` and `polling.py`.
+- [X] **Extract shared split helper** (Inconsistency 2.1) — three inline copies → one function. Highest deduplication ROI in the codebase.
+- [X] **Consolidate `get_player_hand` / `_get_hand`** (Inconsistency 2.2) — remove the duplicate.
 
 ### Tier 3 — Cleanup (maintainability)
 
-8. **Delete `GameEventType` enum** (Dead Code) — it's noise; document why the enum was abandoned or remove it entirely.
-9. **Wire `/setup` to `DEFAULT_*` constants** (Inconsistency 2.5) — one place to change defaults.
-10. **Move `classify_rule()` to `drink_tracker.py`** (Refactor 4.2) — right module, right direction.
-11. **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
-12. **Extract serializer milestone lambda** (Refactor 4.3) — testability.
-13. **Clean root `__pycache__/`** (Dead Code) — one-time housekeeping, add to `.gitignore`.
+- [ ] **Delete `GameEventType` enum** (Dead Code) — it's noise; document why the enum was abandoned or remove it entirely.
+- [ ] **Wire `/setup` to `DEFAULT_*` constants** (Inconsistency 2.5) — one place to change defaults.
+- [ ] **Move `classify_rule()` to `drink_tracker.py`** (Refactor 4.2) — right module, right direction.
+- [ ] **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
+- [ ] **Extract serializer milestone lambda** (Refactor 4.3) — testability.
+- [ ] **Clean root `__pycache__/`** (Dead Code) — one-time housekeeping, add to `.gitignore`.
 
 ### Tier 4 — UI polish
 
-14. **Fix duplicate `min-height` in `.bnav-btn`** (UI 5.2) — trivial.
-15. **Merge duplicate `.bust-vote-status` rules** (UI 5.3) — trivial.
-16. **Add `overflow-x: auto` to `.cards-row`** (UI 5.4) — prevents card overflow on long hands.
-17. **Soften done-seat dimming** (UI 5.5) — `opacity: .55` → `.80`, or switch to active-seat accent.
-18. **Add bottom nav text labels on desktop** (UI 5.1) — accessibility win.
-19. **Add reconnection/loading indicator** (UI 5.7) — polish for multi-player sessions.
-20. **Fix sip ticker overflow on 4+ players** (UI 5.6) — move out of header or add proper scroll.
+- [X] **Fix duplicate `min-height` in `.bnav-btn`** (UI 5.2) — trivial.
+- [ ] **Merge duplicate `.bust-vote-status` rules** (UI 5.3) — trivial.
+- [ ] **Add `overflow-x: auto` to `.cards-row`** (UI 5.4) — prevents card overflow on long hands.
+- [ ] **Soften done-seat dimming** (UI 5.5) — `opacity: .55` → `.80`, or switch to active-seat accent.
+- [ ] **Add bottom nav text labels on desktop** (UI 5.1) — accessibility win.
+- [ ] **Add reconnection/loading indicator** (UI 5.7) — polish for multi-player sessions.
+- [ ] **Fix sip ticker overflow on 4+ players** (UI 5.6) — move out of header or add proper scroll.
