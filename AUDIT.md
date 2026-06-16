@@ -78,7 +78,7 @@ The canonical `Hand.split()` in `blackjack.py` handles chain-counter sharing and
 
 ---
 
-### 2.2 `get_player_hand()` vs `RefereeSession._get_hand()` — near-identical
+### 2.2 `get_player_hand()` vs `RefereeSession._get_hand()` — near-identical - DONE
 **Files:** `app/services/game_engine.py`, `engine/referee.py`
 
 Both resolve a `"handN"` label to a `Hand` object, extending `player.hands` if needed. The logic is copy-pasted. The web layer uses `get_player_hand`; the referee CLI uses `_get_hand`.
@@ -87,10 +87,9 @@ Both resolve a `"handN"` label to a `Hand` object, extending `player.hands` if n
 
 ---
 
-### 2.3 `RoundManager._round_end_drinks` bypasses `DrinkingRules.handle()`
-**File:** `engine/blackjack.py`
+### 2.3 ~~`RoundManager._round_end_drinks` bypasses `DrinkingRules.handle()`~~ — RETRACTED
 
-`_round_end_drinks` calls `DrinkingRules.on_round_end()` directly, same pattern as issue 1.1. Not production-critical (terminal play only), but inconsistent.
+`_round_end_drinks` already calls `DrinkingRules.handle(RoundEndEvent(...))` at line 770. The audit note was wrong — it was never bypassing the event system. False positive.
 
 ---
 
@@ -101,7 +100,7 @@ The two help printers use different output channels. `log.debug()` never reaches
 
 ---
 
-### 2.5 `/setup` route hardcodes defaults rather than using `app/config.py`
+### 2.5 `/setup` route hardcodes defaults rather than using `app/config.py` - DONE
 **File:** `app/routes/lobby.py` line 144–145, `app/config.py` lines 63–66
 
 `config.py` defines `DEFAULT_WAGER = 1`, `DEFAULT_NUM_HANDS = 2`, etc., but the setup route hardcodes the same values inline with `data.get("wager", 1)`. If you change a default in config, setup doesn't pick it up.
@@ -143,7 +142,7 @@ This exists because the attribute isn't guaranteed to be present on all `Referee
 
 ## 4. Refactor Opportunities
 
-### 4.1 Extract the 5-step post-round pipeline
+### 4.1 Extract the 5-step post-round pipeline - DONE
 See bug 1.3. The sequence `cmd_endround → bust_vote_penalties → harvest → milestone → payouts → backfill` should live in one place and be called from both `game_commands.py` and `polling.py`.
 
 ### 4.2 `classify_rule()` is in the wrong module

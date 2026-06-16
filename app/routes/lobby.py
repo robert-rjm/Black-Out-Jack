@@ -24,6 +24,7 @@ from app.services.validators  import sanitize_name
 from app.services.serializer  import serialize_state
 from app.services.room_manager import NullTracker, patch_tracker, capture
 from app.services.payout_tracker import init_bankrolls
+from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
 
 bp = Blueprint("lobby", __name__)
 
@@ -139,10 +140,10 @@ def setup():
         return jsonify({"ok": False, "output": "No player names provided."})
 
     try:
-        mode       = data.get("mode", "referee")   # "referee" | "digital"
+        mode       = data.get("mode", DEFAULT_MODE)
         dealer_idx = int(data.get("dealer_index", 0))
-        wager      = max(1, int(data.get("wager", 1)))
-        num_hands  = max(1, int(data.get("num_hands", 2)))
+        wager      = max(1, int(data.get("wager", DEFAULT_WAGER)))
+        num_hands  = max(1, int(data.get("num_hands", DEFAULT_NUM_HANDS)))
         bet_amount = max(2.5, float(data.get("bet_amount", 10)))
         starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
     except (ValueError, TypeError):
