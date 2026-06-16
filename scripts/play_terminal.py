@@ -68,7 +68,6 @@ def setup_session():
     if len(names) < 2:
         # RoundManager expects at least a dealer + one player; fall back to House NPC.
         names.append("House")
-        num_npcs += 1
 
     num_decks = _safe_int("  Number of decks (1-8): ", default=1, lo=1, hi=8)
     wager     = _safe_int("  Sips per hand wager (default 1): ", default=1, lo=1, hi=20)
