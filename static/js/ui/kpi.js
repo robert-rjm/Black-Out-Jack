@@ -150,9 +150,12 @@ function renderLeaderboard(state) {
 
   const rankEmoji = ["🥇", "🥈", "🥉"];
 
+  const _myNameLower = (typeof myName !== "undefined" && myName) ? myName.toLowerCase() : null;
+  const _npcSet      = typeof npcPlayers !== "undefined" ? npcPlayers : new Set();
   const tbody = rows.map((r, i) => {
     const isDealer  = r.name.toLowerCase() === dealer;
-    const rowClass  = isDealer ? " lb-row-dealer" : "";
+    const isMe      = !!_myNameLower && r.name.toLowerCase() === _myNameLower && !_npcSet.has(r.name);
+    const rowClass  = (isDealer ? " lb-row-dealer" : "") + (isMe ? " lb-row-me" : "");
     const rankLabel = i < 3
       ? `<span class="lb-rank lb-rank-${i+1}">${rankEmoji[i]}</span>`
       : `<span class="lb-rank">${i+1}</span>`;
@@ -316,7 +319,10 @@ function renderStats(state) {
     return;
   }
 
-  const isDlr = name => name.toLowerCase() === dealer;
+  const isDlr      = name => name.toLowerCase() === dealer;
+  const _myNameL   = (typeof myName !== "undefined" && myName) ? myName.toLowerCase() : null;
+  const _npcSetSt  = typeof npcPlayers !== "undefined" ? npcPlayers : new Set();
+  const isMe       = name => !!_myNameL && name.toLowerCase() === _myNameL && !_npcSetSt.has(name);
 
   // Per-player baseline for avg sips/round: BENCHMARKS.avg_sips_per_round is
   // the simulated total across all seats per round, split evenly as a rough
@@ -333,7 +339,7 @@ function renderStats(state) {
     : null;
 
   const tbody = rows.map(r => {
-    const rc       = isDlr(r.name) ? " lb-row-dealer" : "";
+    const rc       = (isDlr(r.name) ? " lb-row-dealer" : "") + (isMe(r.name) ? " lb-row-me" : "");
     const nameCell = `${escapeHtml(r.name)}${isDlr(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
     const bjCell   = r.bj    > 0 ? `<span style="color:var(--yellow);font-weight:700">🃏${r.bj}</span>`  : `<span style="opacity:.35">—</span>`;
     const bstCell  = r.busts > 0 ? `<span style="color:var(--red)">${r.bustPct}%</span>` : `<span style="opacity:.35">0%</span>`;
@@ -353,7 +359,8 @@ function renderStats(state) {
     const avgSipsCell = r.avgSips !== "—" && _perPlayerSipStd
       ? `<span style="${benchmarkColor(parseFloat(r.avgSips), _perPlayerSipBenchmark, round, { lowerIsBetter: true, std: _perPlayerSipStd })}">${r.avgSips}</span>`
       : r.avgSips;
-    const s17Cell  = r.sub17  > 0 ? `<span style="color:var(--yellow)">${r.sub17Pct}%</span>`  : `<span style="opacity:.35">0%</span>`;
+    const s17Cell  = r.sub17  > 0 ? `<span>${r.sub17Pct}%</span>`  : `<span style="opacity:.35">0%</span>`;
+    const avgHVCell = r.avgHV !== "—" ? `<span style="color:var(--yellow)">${r.avgHV}</span>` : `<span style="opacity:.35">—</span>`;
     let sdCell;
     if (r.sdPct === null) {
       sdCell = `<span style="opacity:.35">—</span>`;
@@ -367,7 +374,7 @@ function renderStats(state) {
       <td>${r.spPct}</td>
       <td>${r.hitRate}</td>
       <td>${s17Cell}</td>
-      <td>${r.avgHV}</td>
+      <td>${avgHVCell}</td>
       <td>${bstCell}</td>
       <td>${stCell}</td>
       <td>${sdCell}</td>
