@@ -13,7 +13,7 @@ import logging
 import time
 
 from app.models.game_room import GameRoom
-from engine.drinking_rules import classify_rule
+from app.services.utils import classify_rule
 from app.config import (
     MILESTONE_STEP,
     MILESTONE_TTL,
@@ -28,7 +28,6 @@ log = logging.getLogger(__name__)
 # Rule classification
 # ---------------------------------------------------------------------------
 
-# classify_rule imported from drinking_rules
 
 
 # ---------------------------------------------------------------------------

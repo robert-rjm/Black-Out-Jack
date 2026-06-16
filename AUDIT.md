@@ -145,7 +145,7 @@ This exists because the attribute isn't guaranteed to be present on all `Referee
 ### 4.1 Extract the 5-step post-round pipeline - DONE
 See bug 1.3. The sequence `cmd_endround → bust_vote_penalties → harvest → milestone → payouts → backfill` should live in one place and be called from both `game_commands.py` and `polling.py`.
 
-### 4.2 `classify_rule()` is in the wrong module
+### 4.2 `classify_rule()` is in the wrong module - DONE
 **File:** `engine/drinking_rules.py`
 
 `classify_rule()` is a pure lookup function that maps rule names to categories. Its only meaningful consumer is in `app/services/drink_tracker.py`. Having it in `engine/` creates an `engine→app` knowledge coupling that goes in the wrong direction (engine shouldn't know about app-layer classifications).
@@ -256,7 +256,7 @@ Items are ordered by impact × effort ratio. Work left to right through the tier
 - [X] **Delete `DEFAULT_NUM_DECKS`** (Dead Code) — removed from `app/config.py`.
 - [X] **Mark terminal-only CLI commands** (Dead Code) — `cmd_bustvotetoggle`/`cmd_bustvote` docstrings clarified.
 - [X] **Wire `/setup` to `DEFAULT_*` constants** (Inconsistency 2.5) — one place to change defaults.
-- [ ] **Move `classify_rule()` to `drink_tracker.py`** (Refactor 4.2) — right module, right direction.
+- [X] **Move `classify_rule()` to `app/services/utils.py`** (Refactor 4.2) — right module, right direction.
 - [X] **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
 - [X] **Extract `RoundState` dataclass** (Inconsistency 2.7) — 23 per-round fields moved out of `GameRoom`; `reset_round_state()` simplified to a single wholesale replacement.
 - [X] **Extract serializer milestone lambda** (Refactor 4.3) — testability.
