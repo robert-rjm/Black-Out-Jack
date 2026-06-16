@@ -34,6 +34,8 @@ from app.services.drink_tracker import (
     apply_milestone_forfeit, apply_bust_handout_forfeit,
 )
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
+from app.services.payout_tracker import apply_payouts
+from app.services.decision_log import backfill_hand_results
 from app.config import (
     INSURANCE_VOTE_TIMEOUT, MAX_REG_DENIALS,
     BUST_HANDOUT_WINDOW_SECONDS, BUST_VOTE_WINDOW_SECONDS,
@@ -65,6 +67,8 @@ def _run_deferred_dealer_play(session):
     apply_bust_vote_penalties(session)
     harvest_drink_log(session)
     check_and_set_milestone(session)
+    apply_payouts(session)
+    backfill_hand_results(session)
 
 
 # ---------------------------------------------------------------------------
