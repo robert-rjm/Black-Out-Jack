@@ -30,6 +30,8 @@ class NullTracker:
     All methods are silent no-ops so game logic can call tracker.apply()
     unconditionally regardless of mode.
     """
+    easy_mode: bool = False  # mirrors DrinkTracker.easy_mode; written by apply_queued_settings
+
     def apply(self, msgs):                    pass
     def apply_end_of_round(self, *msg_lists): pass
     def apply_ace_clubs_credit(self, player): pass
