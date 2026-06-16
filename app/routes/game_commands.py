@@ -35,9 +35,9 @@ from app.services.game_engine import (
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
     bust_vote_pending, _push_ace_drink_event,
 )
-from app.services.drink_tracker import harvest_drink_log, check_and_set_milestone, apply_bust_vote_penalties
-from app.services.decision_log import record_decision, backfill_hand_results
-from app.services.payout_tracker import apply_payouts, cmd_rebuy
+from app.services.decision_log import record_decision
+from app.services.payout_tracker import cmd_rebuy
+from app.services.round_pipeline import apply_endround_pipeline
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
 from app.config import BUST_VOTE_WINDOW_SECONDS
 
@@ -214,11 +214,7 @@ def _resolve_endround(game_session):
     sites previously repeated this same four-line sequence.
     """
     game_session.cmd_endround()
-    apply_bust_vote_penalties(game_session)
-    harvest_drink_log(game_session)
-    check_and_set_milestone(game_session)
-    apply_payouts(game_session)
-    backfill_hand_results(game_session)
+    apply_endround_pipeline(game_session)
 
 
 def _after_player_action(game_session):

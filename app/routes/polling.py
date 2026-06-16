@@ -30,12 +30,10 @@ from app.services.serializer import (
     compute_mandatory_split10,
 )
 from app.services.drink_tracker import (
-    check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties,
-    apply_milestone_forfeit, apply_bust_handout_forfeit,
+    check_and_set_milestone, apply_milestone_forfeit, apply_bust_handout_forfeit,
 )
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
-from app.services.payout_tracker import apply_payouts
-from app.services.decision_log import backfill_hand_results
+from app.services.round_pipeline import apply_endround_pipeline
 from app.config import (
     INSURANCE_VOTE_TIMEOUT, MAX_REG_DENIALS,
     BUST_HANDOUT_WINDOW_SECONDS, BUST_VOTE_WINDOW_SECONDS,
@@ -64,11 +62,7 @@ def _run_deferred_dealer_play(session):
     dealer_turn(session)
     with contextlib.redirect_stdout(io.StringIO()):
         session.cmd_endround()
-    apply_bust_vote_penalties(session)
-    harvest_drink_log(session)
-    check_and_set_milestone(session)
-    apply_payouts(session)
-    backfill_hand_results(session)
+    apply_endround_pipeline(session)
 
 
 # ---------------------------------------------------------------------------
