@@ -523,8 +523,8 @@ function updateBustVoteUI(state) {
       const myWinners  = myBusters.filter(n => winners.includes(n));
       const myLosers   = myBusters.filter(n => !winners.includes(n));
       const parts = [];
-      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.join(", ")} called it — -1 sip + give 1!</span>`);
-      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.join(", ")} wrong — +1 sip each</span>`);
+      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} called it — -1 sip + give 1!</span>`);
+      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} wrong — +1 sip each</span>`);
       statusEl.innerHTML = parts.join("<br>");
     } else {
       // Result not yet available — re-render from current state to avoid stale text
@@ -536,8 +536,8 @@ function updateBustVoteUI(state) {
       .map(([n]) => n);
     if (allBusters.length) {
       const label = allBusters.length === 1
-        ? `💥 ${allBusters[0]} bet dealer busts`
-        : `💥 ${allBusters.join(" & ")} bet dealer busts`;
+        ? `💥 ${escapeHtml(allBusters[0])} bet dealer busts`
+        : `💥 ${allBusters.map(escapeHtml).join(" & ")} bet dealer busts`;
       statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">${label}</span>`;
     } else if (myVote === "pass") {
       statusEl.textContent = "You passed the bust bet.";
