@@ -189,6 +189,28 @@ def deal_pending_split_cards(session: GameRoom) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Split helper
+# ---------------------------------------------------------------------------
+
+def perform_split(session: GameRoom, player, hand: Hand, hand_idx: int) -> tuple[Hand, str]:
+    """Mechanical digital split: move the second card to a new hand, share the
+    split-chain counter, insert the new hand into the player's hand list, and
+    deal a replacement second card to the original hand.
+
+    Returns ``(new_hand, new_label)`` so callers can log or react to the
+    post-deal state (21, bust, etc.).
+
+    Note: referee.py has its own split path that does *not* move card data
+    (physical cards are moved by the player), so this helper is digital-only.
+    """
+    new_hand = hand.split(session.shoe)          # card pop + chain counter + from_split flags
+    player.hands.insert(hand_idx + 1, new_hand)
+    deal_card(session, hand, player.name)
+    new_label = f"hand{hand_idx + 2}"
+    return new_hand, new_label
+
+
+# ---------------------------------------------------------------------------
 # Round flow
 # ---------------------------------------------------------------------------
 
@@ -500,11 +522,5 @@ def auto_play_npc_turns(session: GameRoom) -> None:
                 hand.result = "loss"
 
         elif action == "sp":
-            new_hand = Hand(from_split=True)
-            new_hand.cards.append(hand.cards.pop())
-            hand.from_split    = True
-            new_hand._split_chain = hand._split_chain  # share counter across the whole chain
-            hand.split_count  += 1
-            player.hands.insert(hand_idx + 1, new_hand)
-            deal_card(session, hand, player.name)
+            perform_split(session, player, hand, hand_idx)
             log.debug(f"  {player.name} splits {hand_label}")

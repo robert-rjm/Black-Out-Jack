@@ -31,7 +31,7 @@ from app.services.serializer import (
     round_phase, current_turn, compute_mandatory_split10,
 )
 from app.services.game_engine import (
-    deal_card, deal_pending_split_cards,
+    deal_card, deal_pending_split_cards, perform_split,
     get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
     bust_vote_pending, _push_ace_drink_event,
 )
@@ -502,17 +502,9 @@ def _cmd_split(game_session, parts):
     # brand-new 2-card hand and may need the house-rule prompt again (e.g.
     # re-splitting into another unsuited 10-10).
     game_session._honor_acked.discard((player.name, id(hand)))
-    # Move second card to new hand (no second cards dealt yet)
-    new_hand = Hand(from_split=True)
-    new_hand.cards.append(hand.cards.pop())
-    hand.from_split    = True
-    new_hand._split_chain = hand._split_chain  # share counter across the whole chain
-    hand.split_count  += 1
-    idx       = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
-    new_label = f"hand{idx + 2}"
-    player.hands.insert(idx + 1, new_hand)
-    # Deal second card to H1; check for instant 21/bust
-    deal_card(game_session, hand, player.name)
+    idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+    new_hand, new_label = perform_split(game_session, player, hand, idx)
+    # Check for instant 21/bust on H1 after the second card is dealt
     if hand.score() == 21:
         hand.stood = True
         log.debug(f"  {player.name} splits:")
