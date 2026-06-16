@@ -117,27 +117,27 @@ def join_room():
 def setup():
     data = request.json
     if not isinstance(data, dict):
-        return jsonify({"ok": False, "output": "Invalid request body."})
+        return jsonify({"ok": False, "error": "Invalid request body."})
 
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
     if room_code not in game_sessions:
-        return jsonify({"ok": False, "output": "Room not found."})
+        return jsonify({"ok": False, "error": "Room not found."})
 
     # Prevent any client from overwriting an active game.
     # The admin (session creator) may reconfigure; everyone else is blocked.
     existing = game_sessions[room_code]
     if existing is not None:
         if existing._room_clients.get(client_id, {}).get("role") != "admin":
-            return jsonify({"ok": False, "output": "Game already in progress."})
+            return jsonify({"ok": False, "error": "Game already in progress."})
 
     raw_players = data.get("players")
     if not isinstance(raw_players, list):
-        return jsonify({"ok": False, "output": "Invalid players list."})
+        return jsonify({"ok": False, "error": "Invalid players list."})
     names = [sanitize_name(n) for n in raw_players if isinstance(n, str) and n.strip()]
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
-        return jsonify({"ok": False, "output": "No player names provided."})
+        return jsonify({"ok": False, "error": "No player names provided."})
 
     try:
         mode       = data.get("mode", DEFAULT_MODE)
@@ -147,9 +147,9 @@ def setup():
         bet_amount = max(2.5, float(data.get("bet_amount", 10)))
         starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
     except (ValueError, TypeError):
-        return jsonify({"ok": False, "output": "Invalid numeric field."})
+        return jsonify({"ok": False, "error": "Invalid numeric field."})
     if not (0 <= dealer_idx < len(names)):
-        return jsonify({"ok": False, "output": "Invalid dealer index."})
+        return jsonify({"ok": False, "error": "Invalid dealer index."})
     dealer_name = names[dealer_idx]
 
     npc_names = {sanitize_name(n) for n in data.get("npcs", []) if n.strip()}

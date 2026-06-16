@@ -454,7 +454,7 @@ async function startGame() {
   }
   btn.disabled = false;
 
-  if (!data.ok) { alert(data.output || "Setup failed."); return; }
+  if (!data.ok) { alert(data.error || "Setup failed."); return; }
 
   players          = data.players;
   numHands         = nh;
