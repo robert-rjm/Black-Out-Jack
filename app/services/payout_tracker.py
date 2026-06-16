@@ -79,7 +79,7 @@ def apply_payouts(session: GameRoom) -> None:
             line = f"  {p.name} wins ${net:.2f}\n"
         else:
             line = f"  {p.name} loses ${abs(net):.2f}\n"
-        session._log_entries.append(line)
+        session.round._log_entries.append(line)
         session._log_version += 1
 
     # Bank run detection — bankroll at or below $0
@@ -95,6 +95,6 @@ def cmd_rebuy(session: GameRoom, player_name: str) -> bool:
         return False
     session._bankrolls[player_name] = session.starting_bankroll
     session._bank_run_players = [n for n in session._bank_run_players if n != player_name]
-    session._log_entries.append(f"  💸 {player_name} hits the ATM and re-buys for ${session.starting_bankroll:.2f}\n")
+    session.round._log_entries.append(f"  💸 {player_name} hits the ATM and re-buys for ${session.starting_bankroll:.2f}\n")
     session._log_version += 1
     return True

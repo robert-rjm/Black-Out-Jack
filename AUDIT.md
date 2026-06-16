@@ -120,7 +120,7 @@ This exists because the attribute isn't guaranteed to be present on all `Referee
 
 ---
 
-### 2.7 `GameRoom` state vs `RefereeSession` state boundary is blurry
+### 2.7 `GameRoom` state vs `RefereeSession` state boundary is blurry - DONE
 **File:** `app/models/game_room.py`
 
 `GameRoom` has 50+ fields and delegates ~15 of them directly to `self.session` via properties. Per-round transient state (`bust_vote_open`, `insurance_vote`, `_pending_resolved`, etc.) lives partly in `GameRoom` and partly in `RefereeSession`, with `reset_round_state()` responsible for clearing the `GameRoom` side. There's no clear contract about which layer owns what.
@@ -176,7 +176,7 @@ Called in the same `serialize_state()` pass, they do two full iterations over th
 
 `.bnav-label { display: none }` hides text labels permanently on all breakpoints. Icon-only navigation fails accessibility guidelines and is confusing for first-time players. Add visible labels on desktop (≥640px) or add tooltip/title attributes.
 
-### 5.2 `.bnav-btn` has duplicate `min-height`
+### 5.2 `.bnav-btn` has duplicate `min-height` - DONE
 **File:** `static/css/main.css` around line 194
 
 ```css
@@ -189,7 +189,7 @@ Called in the same `serialize_state()` pass, they do two full iterations over th
 
 The first value is dead. Remove it.
 
-### 5.3 `.bust-vote-status` defined twice
+### 5.3 `.bust-vote-status` defined twice - DONE
 **File:** `static/css/components/controls.css` lines 230 and 233
 
 Two separate rule blocks for `.bust-vote-status` with different properties. The first (just `margin-top: 8px`) is likely a survivor of a refactor. Merge into one block.
@@ -255,9 +255,10 @@ Items are ordered by impact × effort ratio. Work left to right through the tier
 - [ ] **Delete `GameEventType` enum** (Dead Code) — it's noise; document why the enum was abandoned or remove it entirely.
 - [X] **Wire `/setup` to `DEFAULT_*` constants** (Inconsistency 2.5) — one place to change defaults.
 - [ ] **Move `classify_rule()` to `drink_tracker.py`** (Refactor 4.2) — right module, right direction.
-- [ ] **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
+- [X] **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
+- [X] **Extract `RoundState` dataclass** (Inconsistency 2.7) — 23 per-round fields moved out of `GameRoom`; `reset_round_state()` simplified to a single wholesale replacement.
 - [ ] **Extract serializer milestone lambda** (Refactor 4.3) — testability.
-- [ ] **Clean root `__pycache__/`** (Dead Code) — one-time housekeeping, add to `.gitignore`.
+- [X] **Clean root `__pycache__/`** (Dead Code) — one-time housekeeping, add to `.gitignore`.
 
 ### Tier 4 — UI polish
 

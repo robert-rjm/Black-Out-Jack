@@ -171,7 +171,6 @@ def setup():
         room_code=room_code,
         drinking_mode=drinking,
         rounds_this_dealer=1,
-        switch_this_round=None,
         _dealer_rotate_every=len(players),
         bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
         easy_mode=bool(data.get("easy_mode", False)),
@@ -210,7 +209,7 @@ def setup():
         patch_tracker(raw_session)  # must run AFTER start_round creates a fresh tracker
         raw_session.tracker.easy_mode = room.easy_mode
     if output.strip():
-        room._log_entries.append(output)
+        room.round._log_entries.append(output)
     state  = serialize_state(room, client_id)
     state["output"] = output   # kept for host's immediate display
     return jsonify(state)
