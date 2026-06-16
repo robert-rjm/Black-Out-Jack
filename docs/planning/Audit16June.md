@@ -33,7 +33,7 @@ Handles identity sync, toasts, log sync, tab switching, modal sync, and animatio
 Phase strings (`"pre-deal"`, `"playing"`, `"round-over"`, `"dealer-ready"`) and role strings (`"admin"`, `"player"`, `"spectator"`, `"kicked"`) repeated as raw literals. A typo causes a silent mismatch.
 **Fix:** Centralize in a shared `constants.js` or object at the top of `app.js`.
 
-### M6 · Double iteration over `drink_log` in serializer
+### ~~M6 · Double iteration over `drink_log` in serializer~~
 **File:** `app/services/serializer.py`
 `compute_sip_totals()` and `compute_dealer_role_sips()` are called in the same `serialize_state()` pass but each iterate the full drink log separately.
 **Fix:** Single pass accumulating both totals.
@@ -152,7 +152,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] M3 — Extract `tick(session)` from `/state` route
 - [ ] M4 — Split `applyState` into named phase functions
 - [ ] M5 — Centralize phase/role string constants in JS
-- [ ] M6 — Single-pass sip total accumulation in serializer
+- [X] M6 — Single-pass sip total accumulation in serializer
 - [ ] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`
 - [ ] M8 — Split `on_round_end` into named helpers
 - [ ] M9 — Pass `hard_switch_dealer` in `cmd_result` BJ insurance path

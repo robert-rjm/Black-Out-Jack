@@ -202,6 +202,33 @@ def _bust_vote_window(session: GameRoom) -> dict:
 # Sip / drink aggregation helpers
 # ---------------------------------------------------------------------------
 
+def _compute_live_drink_totals(session: GameRoom) -> tuple[dict, dict]:
+    """Single pass over drink_log → (sip_totals, dealer_role_sips).
+
+    Called by serialize_state() so the live drink_log is only walked once per
+    poll instead of twice (once for sip totals, once for dealer-role sips).
+    Only meaningful when drinking_mode is on and the log has not yet been
+    harvested; callers should short-circuit on !drinking_mode themselves.
+    """
+    sip_ticker    = dict(session._sip_ticker)
+    dealer_ticker = dict(session._dealer_role_ticker)
+    if not session.round._drink_log_harvested:
+        for p in session.all_players:
+            net = 0
+            for entry in p.drink_log:
+                if not entry:
+                    continue
+                sips = entry[0] or 0
+                net += sips
+                if sips > 0:
+                    role = entry[2] if len(entry) > 2 else "player"
+                    if role == "dealer":
+                        dealer_ticker[p.name] = dealer_ticker.get(p.name, 0) + sips
+            if net > 0:
+                sip_ticker[p.name] = sip_ticker.get(p.name, 0) + net
+    return sip_ticker, dealer_ticker
+
+
 def compute_sip_totals(session: GameRoom) -> dict:
     """Return cumulative sip counts per player: past rounds + current round."""
     if not session.drinking_mode:
@@ -412,7 +439,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     else:
         rotate_reason = f"Round {rounds_td} of {num_p} as dealer"
 
-    sip_totals = compute_sip_totals(session)
+    sip_totals, _dealer_role_sips = (
+        _compute_live_drink_totals(session) if session.drinking_mode else ({}, {})
+    )
 
     # ---- KPI panel data — cumulative per-player hand outcomes + session stats ----
     _kpi_data = {
@@ -437,7 +466,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "round_notices":          session._round_notices,
         "prev_round_sips":        {k: max(0, v) for k, v in session._prev_round_sips.items()},
         "prev_round_drinks":      session._prev_round_drinks,
-        "dealer_role_sips":       compute_dealer_role_sips(session),
+        "dealer_role_sips":       _dealer_role_sips,
         "ace_drink_events":       session.round._ace_drink_events,
         "ace_drink_seq":          session.round._ace_drink_seq,
         "reshuffle_events":       session.round._reshuffle_events,
