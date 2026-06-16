@@ -47,7 +47,7 @@ Suited/A+J/both-black multiplier conditions exist in `_bj_multiplier()` (L17-26)
 **File:** `engine/drinking_rules.py` (L405-514)
 **Fix:** Extract into named helpers (`_net_loss_drinks`, `_double_loss_drinks`, etc.).
 
-### M9 · `referee.py` cmd_result BJ insurance inconsistency
+### ~~M9 · `referee.py` cmd_result BJ insurance inconsistency~~
 **File:** `engine/referee.py` `cmd_result` (L369-372)
 The BJ-insurance bonus event fires immediately into `_pending_eor_msgs` without passing `hard_switch_dealer`, unlike the equivalent path in `blackjack.py` (L696). The dealer-switch exemption can be missed for this bonus.
 **Fix:** Pass `hard_switch_dealer` consistently on this event path.
@@ -115,7 +115,7 @@ Hardcodes "blackjack = 2 wins" — a drinking-game house rule in a supposedly st
 Mirrors `lastState.current_turn` but is not referenced elsewhere.
 **Fix:** Remove if unused.
 
-### L13 · `admin.py` imports `sanitize_name` inside function bodies
+### ~~L13 · `admin.py` imports `sanitize_name` inside function bodies~~
 **File:** `app/routes/admin.py` (`request_rejoin`, `update_settings`, `take_back_seat`)
 Import should be at module level, not repeated inside three functions.
 
@@ -155,7 +155,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [X] M6 — Single-pass sip total accumulation in serializer
 - [X] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`
 - [ ] M8 — Split `on_round_end` into named helpers
-- [ ] M9 — Pass `hard_switch_dealer` in `cmd_result` BJ insurance path
+- [X] M9 — Pass `hard_switch_dealer` in `cmd_result` BJ insurance path
 - [ ] M10 — Share `pollState` helper across lobby/setup/visibility JS
 
 ### Low
@@ -171,7 +171,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] L10 — Clarify / fix `Hand.split()` unused shoe param
 - [ ] L11 — Move `Player.net_losses()` drinking rule out of engine
 - [ ] L12 — Remove `state.js` `currentTurn` if unused
-- [ ] L13 — Move `sanitize_name` imports to admin.py module level
+- [X] L13 — Move `sanitize_name` imports to admin.py module level
 - [ ] L14 — Replace inline CSS strings in JS with toggled classes
 - [ ] L15 — Pick one event-wiring style in admin.js
 - [ ] L16 — Consolidate script CLI utilities into `scripts/_cli.py`
