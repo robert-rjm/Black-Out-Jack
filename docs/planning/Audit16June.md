@@ -163,7 +163,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [x] H2 — Use `_player_rounds_played` for milestone average denominator — DONE
 - [x] H3 — Document or fix `MILESTONE_STEP` coupling in `check_and_set_milestone` — DONE
 - [x] H4 — Validate `dealer_idx >= 0` in `/setup` — DONE
-- [ ] H5 — Decide: restore `renderLeaderboard` or delete dead code + CSS
+- [x] H5 — Decide: restore `renderLeaderboard` or delete dead code + CSS — DONE (deleted)
 - [ ] H6 — Show user-visible error in `app.js` reconnect catch
 
 ### Medium
