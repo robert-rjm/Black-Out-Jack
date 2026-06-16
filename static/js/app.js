@@ -60,5 +60,7 @@ setBustVoteSetupToggle(true);                 // bust-vote toggle starts ON in s
       startPolling();
       startIdleWatcher();
     }
-  } catch (_) {}
+  } catch (_) {
+  showLobbyMsg("Connection lost — refresh to reconnect.");
+  }
 })();

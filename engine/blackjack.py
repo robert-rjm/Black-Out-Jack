@@ -275,6 +275,23 @@ class Player:
 from engine.strategy import best_play as _strategy_best_play  # noqa: E402
 
 
+def get_player_hand(player: Player, hand_label: str) -> "Hand":
+    """Resolve a player's betting hand by label ('hand1', 'hand2', …).
+
+    Extends ``player.hands`` with empty Hand objects if the requested index
+    doesn't exist yet. Always targets ``player.hands`` directly — never
+    redirects to a dealer hand — so the dealer-player can still act on their
+    own betting hands via this helper.
+    """
+    try:
+        idx = int(hand_label.lower().replace("hand", "").strip()) - 1
+    except (ValueError, AttributeError):
+        idx = 0
+    while len(player.hands) <= idx:
+        player.hands.append(Hand())
+    return player.hands[idx]
+
+
 class NPC_Player(Player):
     """
     Computer-controlled seat using standard basic strategy.

@@ -228,9 +228,6 @@
 }
 
 .bust-vote-status {
-  margin-top: 8px;
-}
-.bust-vote-status {
   font-size: 11px;
   color: var(--muted);
   margin-top: 5px;

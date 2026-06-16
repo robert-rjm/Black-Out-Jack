@@ -36,7 +36,11 @@ def recorded_hashes() -> dict | None:
     if not os.path.exists(HASH_FILE):
         return None
     with open(HASH_FILE, encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"Warning: could not parse {HASH_FILE}: {e}", file=sys.stderr)
+            return None
 
 
 def check() -> tuple[bool, str]:

@@ -27,6 +27,7 @@ from app.services.serializer    import serialize_state, round_phase
 from app.services.drink_tracker import check_and_set_milestone
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
+from app.services.validators    import sanitize_name
 
 bp = Blueprint("admin", __name__)
 
@@ -41,7 +42,7 @@ def kick():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("target_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("target_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -107,7 +108,7 @@ def make_bot():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("player_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("player_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -137,7 +138,7 @@ def make_bot():
 
     # Clear any pending preselections / suggestions for this player
     key_prefix = f"{target_name.lower()}:"
-    for d in (session._preselections, session._suggestions):
+    for d in (session.round._preselections, session.round._suggestions):
         for k in [k for k in d if k.startswith(key_prefix)]:
             d.pop(k, None)
 
@@ -155,7 +156,7 @@ def make_human():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("player_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("player_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -186,8 +187,8 @@ def make_human():
 
     # Clear any lingering auto-voted "pass" so they can cast a real vote
     # if a bust-vote window happens to be open right now.
-    if session._bust_votes.get(player.name) == "pass":
-        session._bust_votes.pop(player.name, None)
+    if session.round._bust_votes.get(player.name) == "pass":
+        session.round._bust_votes.pop(player.name, None)
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -220,7 +221,7 @@ def transfer_admin():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("target_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("target_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -346,7 +347,7 @@ def vote_kick():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("target_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("target_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -375,7 +376,7 @@ def vote_kick():
         return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
 
     key   = target_name.lower()
-    votes = session._kick_votes.setdefault(key, set())
+    votes = session.round._kick_votes.setdefault(key, set())
 
     # Toggle
     if voter_name in votes:
@@ -397,7 +398,7 @@ def vote_kick():
         for cid, v in list(clients.items()):
             if (v.get("name") or "").lower() == key:
                 v["kicked"] = True
-        session._kick_votes.pop(key, None)
+        session.round._kick_votes.pop(key, None)
         kicked = True
 
     state = serialize_state(session, client_id)
@@ -414,7 +415,6 @@ def vote_kick():
 def request_rejoin():
     """Spectator (formerly kicked) asks admin to let them rejoin.
     Body: { room_code, client_id, display_name }"""
-    from app.services.validators import sanitize_name
     data         = request.json or {}
     room_code    = (data.get("room_code") or "").strip()
     client_id    = (data.get("client_id") or "").strip()
@@ -513,7 +513,7 @@ def update_settings():
         return jsonify({"ok": False, "error": "Invalid numeric setting."})
 
     if "add_player" in data:
-        name   = str(data["add_player"]).strip().capitalize()
+        name   = sanitize_name(str(data.get("add_player") or ""))
         is_npc = bool(data.get("add_player_npc", False))
         if name:
             adds = queued.get("add_players", [])
@@ -522,7 +522,7 @@ def update_settings():
             queued["add_players"] = adds
 
     if "remove_player" in data:
-        name = str(data["remove_player"]).strip().capitalize()
+        name = sanitize_name(str(data.get("remove_player") or ""))
         if name:
             if name.lower() == admin_name_lc:
                 return jsonify({"ok": False, "error": "Cannot remove your own seat."})
@@ -556,7 +556,7 @@ def update_settings():
     # bust_vote_enabled is a live setting — toggled immediately
     if "bust_vote_enabled" in data:
         session.bust_vote_enabled = bool(data["bust_vote_enabled"])
-        session._bust_votes = {}   # clear any stale votes when toggling
+        session.round._bust_votes = {}   # clear any stale votes when toggling
 
     # strategy_hint_enabled (basic-strategy "best play" blue border) — live setting
     if "strategy_hint_enabled" in data:
@@ -566,7 +566,6 @@ def update_settings():
     if "local_names" in data:
         raw_names = data["local_names"]
         if isinstance(raw_names, list):
-            from app.services.validators import sanitize_name
             valid_names = {p.name for p in session.all_players}
             cleaned = [sanitize_name(n) for n in raw_names if isinstance(n, str)]
             cleaned = [n for n in cleaned if n in valid_names]
@@ -603,11 +602,11 @@ def claim_milestone():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    milestone = session._pending_milestone
+    milestone = session.round._pending_milestone
     if not milestone:
         return jsonify({"ok": False, "error": "No active milestone."})
     if time.monotonic() >= milestone["expires_at"]:
-        session._pending_milestone = None
+        session.round._pending_milestone = None
         return jsonify({"ok": False, "error": "Milestone claim window has expired."})
 
     # Verify caller is the winner
@@ -712,10 +711,10 @@ def claim_milestone():
     if residual > 0:
         sip_word = "sip" if residual == 1 else "sips"
         log_lines.append(f"  → {winner} keeps {residual} {sip_word} (drinks them)")
-    session._log_entries = session._log_entries + ["\n".join(log_lines)]
+    session.round._log_entries = session.round._log_entries + ["\n".join(log_lines)]
     session._log_version = session._log_version + 1
 
-    session._pending_milestone     = None
+    session.round._pending_milestone     = None
     session._last_milestone_result = {
         "winner":      winner,
         "boundary":    boundary,
@@ -802,7 +801,6 @@ def take_back_seat():
         return jsonify({"ok": False, "error": "No player name provided."})
 
     # Capitalise to match stored names
-    from app.services.validators import sanitize_name
     player_name = sanitize_name(player_name)
     valid = {p.name for p in session.all_players}
     if player_name not in valid:
