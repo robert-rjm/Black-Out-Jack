@@ -47,8 +47,6 @@ BUST_VOTE_WINDOW_SECONDS     = 15.5  # how long the dealer-bust side-bet vote st
                                    # (frontend countdown UI displays from 15)
 BUST_HANDOUT_WINDOW_SECONDS  = 20  # window to claim a dealer-bust sip handout
 INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) after this long
-INSURANCE_PAUSE_BUFFER       = 5   # seconds kept on the bust-vote clock while insurance
-                                    # voting is still pending
 
 # ---------------------------------------------------------------------------
 # Registration / connection limits
