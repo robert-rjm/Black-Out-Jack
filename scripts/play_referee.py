@@ -52,7 +52,7 @@ def _setup_session() -> "RefereeSession":
         if not raw:
             dealer_name = names[0]
             break
-        match = next((n for n in names if n.lower() == raw.strip().lower()), None)
+        match = next((n for n in names if n.lower() == raw.lower()), None)
         if match:
             dealer_name = match
             break

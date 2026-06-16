@@ -131,7 +131,7 @@ Import should be at module level, not repeated inside three functions.
 All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prompt for int with default/bounds" helpers.
 **Fix:** Consolidate into `scripts/_cli.py`.
 
-### L17 · Minor script bugs
+### ~~L17 · Minor script bugs~~
 - `load_decision_logs.py` L58: `r["player"]` raises `KeyError` (use `.get()`)
 - `load_decision_logs.py` L120: `os.makedirs` crashes if output has no directory component
 - `rules_sync.py` L39: no try/except around `json.load`
@@ -175,4 +175,4 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] L14 — Replace inline CSS strings in JS with toggled classes
 - [ ] L15 — Pick one event-wiring style in admin.js
 - [ ] L16 — Consolidate script CLI utilities into `scripts/_cli.py`
-- [ ] L17 — Fix minor script bugs (load_decision_logs, rules_sync, play_referee, play_terminal)
+- [X] L17 — Fix minor script bugs (load_decision_logs, rules_sync, play_referee, play_terminal)
