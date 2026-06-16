@@ -151,7 +151,7 @@ def test_insurance_insured_dealer_bj_holder_drinks_own_bonus():
     holder_msg, push_msg = msgs
     assert holder_msg[0] == "Alice"
     assert holder_msg[1] == 8
-    assert "drinks own bonus" in holder_msg[2]
+    assert "drinks own BJ bonus" in holder_msg[2]
     assert push_msg[0] is None
     assert push_msg[1] == 0
     assert "pushes" in push_msg[2]
