@@ -533,7 +533,7 @@ def vote_insurance():
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
-    bj_player = (data.get("bj_player") or "").strip().capitalize()
+    bj_player = sanitize_name(data.get("bj_player") or "")
     try:
         hand_idx = int(data.get("hand_idx", 0))
     except (ValueError, TypeError):

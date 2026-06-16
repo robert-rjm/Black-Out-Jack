@@ -13,10 +13,8 @@ These either break functionality, silently corrupt data, or are security risks.
 ### ~~C1 · Error response shape inconsistency~~ — FIXED
 Changed all 7 `/setup` error returns in `lobby.py` from `"output"` to `"error"` key. Updated `setup.js` to read `data.error` instead of `data.output`.
 
-### C2 · Player name sanitization not applied consistently
-**File:** `app/routes/admin.py` (kick L44, make_bot L110, make_human L158, transfer_admin L223, vote_kick L349), `app/routes/polling.py` (`/vote_insurance` L536)
-`sanitize_name()` in `validators.py` strips HTML/bidi/length — but these routes use raw `.strip().capitalize()`. A malformed player name can pass through unsanitized.
-**Fix:** Replace all raw `.strip().capitalize()` on player-supplied names with `sanitize_name()`.
+### ~~C2 · Player name sanitization not applied consistently~~ — FIXED
+Added `sanitize_name` to module-level imports in `admin.py`. Replaced all 7 raw `.strip().capitalize()` calls (kick, make_bot, make_human, transfer_admin, vote_kick, add_player, remove_player) with `sanitize_name()`. Removed 3 stale local-import lines. Fixed `polling.py` `/vote_insurance` `bj_player` the same way.
 
 ### C3 · No length limit on raw `/command` string
 **File:** `app/routes/game_commands.py` L720-781
@@ -208,7 +206,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 
 ### Critical
 - [x] C1 — Error response shape: `/setup` → use `"error"` key — DONE
-- [ ] C2 — Sanitize player names in admin.py and polling.py
+- [x] C2 — Sanitize player names in admin.py and polling.py — DONE
 - [ ] C3 — Add command string length cap before `.split()`
 - [x] C4 — Fix `decision_log.py` `room_code` always empty — DONE
 - [ ] C5 — Audit XSS: apply DOMPurify at all innerHTML render boundaries
