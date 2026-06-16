@@ -10,10 +10,8 @@ Busfahrer feature excluded throughout. Items already fixed in the session are om
 
 These either break functionality, silently corrupt data, or are security risks.
 
-### C1 · Error response shape inconsistency
-**File:** `app/routes/lobby.py` `/setup`
-`/setup` returns `{"ok": false, "output": "..."}` while every other route uses `{"ok": false, "error": "..."}`. Frontend handlers check both keys inconsistently — likely cause of stuck-UI bugs when setup fails.
-**Fix:** Change `/setup` error responses to use `"error"` key consistently.
+### ~~C1 · Error response shape inconsistency~~ — FIXED
+Changed all 7 `/setup` error returns in `lobby.py` from `"output"` to `"error"` key. Updated `setup.js` to read `data.error` instead of `data.output`.
 
 ### C2 · Player name sanitization not applied consistently
 **File:** `app/routes/admin.py` (kick L44, make_bot L110, make_human L158, transfer_admin L223, vote_kick L349), `app/routes/polling.py` (`/vote_insurance` L536)
@@ -209,7 +207,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 ## Checklists
 
 ### Critical
-- [ ] C1 — Error response shape: `/setup` → use `"error"` key
+- [x] C1 — Error response shape: `/setup` → use `"error"` key — DONE
 - [ ] C2 — Sanitize player names in admin.py and polling.py
 - [ ] C3 — Add command string length cap before `.split()`
 - [x] C4 — Fix `decision_log.py` `room_code` always empty — DONE
