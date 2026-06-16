@@ -35,7 +35,7 @@ from app.services.drink_tracker import (
 )
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
 from app.config import (
-    INSURANCE_VOTE_TIMEOUT, INSURANCE_PAUSE_BUFFER, MAX_REG_DENIALS,
+    INSURANCE_VOTE_TIMEOUT, MAX_REG_DENIALS,
     BUST_HANDOUT_WINDOW_SECONDS, BUST_VOTE_WINDOW_SECONDS,
 )
 
