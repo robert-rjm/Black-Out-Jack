@@ -14,15 +14,31 @@ from engine.blackjack import Rank, Suit, Hand, Player
 # Internal helpers
 # =============================================================================
 
-def _bj_multiplier(hand: Hand) -> int:
-    """Cumulative x2 multiplier for blackjack bonus sips."""
+def _bj_breakdown(hand: Hand) -> tuple[int, list[str]]:
+    """Return (multiplier, label_parts) for a blackjack bonus hand.
+
+    Single source of truth for the suited/A+J/both-black x2 conditions so
+    callers that need the breakdown (on_blackjack label) and callers that
+    only need the multiplier (serializer, resolve_insurance_vote) both derive
+    from the same computation.
+    """
     mult  = 1
+    parts: list[str] = []
     ranks = {c.rank for c in hand.cards}
     suits = {c.suit for c in hand.cards}
     black = {Suit.SPADES, Suit.CLUBS}
-    if hand.is_suited():                          mult *= 2
-    if {Rank.ACE, Rank.JACK}.issubset(ranks):     mult *= 2
-    if suits.issubset(black):                     mult *= 2
+    if hand.is_suited():
+        mult *= 2; parts.append("suited x2")
+    if {Rank.ACE, Rank.JACK}.issubset(ranks):
+        mult *= 2; parts.append("A+J x2")
+    if suits.issubset(black):
+        mult *= 2; parts.append("both black x2")
+    return mult, parts
+
+
+def _bj_multiplier(hand: Hand) -> int:
+    """Cumulative x2 multiplier for blackjack bonus sips."""
+    mult, _ = _bj_breakdown(hand)
     return mult
 
 
@@ -157,14 +173,8 @@ class DrinkingRules:
         Multipliers: suited x2, A+J x2, both black x2 — cumulative.
         hard_switch_dealer: dealer-player is exempt on a Hard Dealer Switch.
         """
-        mult   = _bj_multiplier(hand)
+        mult, parts = _bj_breakdown(hand)
         sips   = mult
-        parts  = []
-        ranks  = {c.rank for c in hand.cards}
-        suits  = {c.suit for c in hand.cards}
-        if hand.is_suited():                                parts.append("suited x2")
-        if {Rank.ACE, Rank.JACK}.issubset(ranks):           parts.append("A+J x2")
-        if suits.issubset({Suit.SPADES, Suit.CLUBS}):       parts.append("both black x2")
         detail = f" ({' '.join(parts)})" if parts else ""
         others = [p for p in all_player_names
                   if p != player_name and p != hard_switch_dealer]
