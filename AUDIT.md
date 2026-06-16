@@ -109,7 +109,7 @@ The two help printers use different output channels. `log.debug()` never reaches
 
 ---
 
-### 2.6 `_hard_switch_drinking_applied` read via `getattr` with a default
+### 2.6 `_hard_switch_drinking_applied` read via `getattr` with a default - DONE
 **File:** `app/models/game_room.py`
 
 ```python
@@ -253,7 +253,7 @@ Items are ordered by impact × effort ratio. Work left to right through the tier
 ### Tier 3 — Cleanup (maintainability)
 
 - [ ] **Delete `GameEventType` enum** (Dead Code) — it's noise; document why the enum was abandoned or remove it entirely.
-- [ ] **Wire `/setup` to `DEFAULT_*` constants** (Inconsistency 2.5) — one place to change defaults.
+- [X] **Wire `/setup` to `DEFAULT_*` constants** (Inconsistency 2.5) — one place to change defaults.
 - [ ] **Move `classify_rule()` to `drink_tracker.py`** (Refactor 4.2) — right module, right direction.
 - [ ] **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
 - [ ] **Extract serializer milestone lambda** (Refactor 4.3) — testability.
