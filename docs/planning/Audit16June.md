@@ -8,12 +8,12 @@ Busfahrer feature excluded throughout. Items already fixed in the session are om
 
 ## High — Fix soon (correctness bugs with real game impact)
 
-### H5 · `renderLeaderboard` in kpi.js is fully implemented but never called
+### H5 ~~· `renderLeaderboard` in kpi.js is fully implemented but never called~~ - FIXED
 **File:** `static/js/ui/kpi.js` `renderLeaderboard()` (L110-196), `wrClass()` (L6-11)
 Both functions are implemented but `updateKpiPanel` never calls them. Either this is dead code (remove it and the `.lb-*` CSS) or a leaderboard feature was disconnected and needs rewiring.
 **Fix:** Decide: restore the leaderboard feature or delete the dead code and CSS.
 
-### H6 · `app.js` reconnect IIFE silently swallows all errors
+### H6 ~~· `app.js` reconnect IIFE silently swallows all errors~~ - FIXED
 **File:** `static/js/app.js` reconnect IIFE (L38-62)
 Outer `catch (_) {}` catches everything silently. On failure the user is left on the lobby with no message and no recovery.
 **Fix:** Show a user-visible "Connection lost — refresh to reconnect" message on catch.
@@ -164,7 +164,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [x] H3 — Document or fix `MILESTONE_STEP` coupling in `check_and_set_milestone` — DONE
 - [x] H4 — Validate `dealer_idx >= 0` in `/setup` — DONE
 - [x] H5 — Decide: restore `renderLeaderboard` or delete dead code + CSS — DONE (deleted)
-- [ ] H6 — Show user-visible error in `app.js` reconnect catch
+- [X] H6 — Show user-visible error in `app.js` reconnect catch
 
 ### Medium
 - [ ] M1 — Split `harvest_drink_log` into named helpers
