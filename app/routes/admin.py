@@ -27,6 +27,7 @@ from app.services.serializer    import serialize_state, round_phase
 from app.services.drink_tracker import check_and_set_milestone
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
+from app.services.validators    import sanitize_name
 
 bp = Blueprint("admin", __name__)
 
@@ -41,7 +42,7 @@ def kick():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("target_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("target_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -107,7 +108,7 @@ def make_bot():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("player_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("player_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -155,7 +156,7 @@ def make_human():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("player_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("player_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -220,7 +221,7 @@ def transfer_admin():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("target_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("target_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -346,7 +347,7 @@ def vote_kick():
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
     client_id   = (data.get("client_id") or "").strip()
-    target_name = (data.get("target_name") or "").strip().capitalize()
+    target_name = sanitize_name(data.get("target_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
@@ -414,7 +415,6 @@ def vote_kick():
 def request_rejoin():
     """Spectator (formerly kicked) asks admin to let them rejoin.
     Body: { room_code, client_id, display_name }"""
-    from app.services.validators import sanitize_name
     data         = request.json or {}
     room_code    = (data.get("room_code") or "").strip()
     client_id    = (data.get("client_id") or "").strip()
@@ -513,7 +513,7 @@ def update_settings():
         return jsonify({"ok": False, "error": "Invalid numeric setting."})
 
     if "add_player" in data:
-        name   = str(data["add_player"]).strip().capitalize()
+        name   = sanitize_name(str(data.get("add_player") or ""))
         is_npc = bool(data.get("add_player_npc", False))
         if name:
             adds = queued.get("add_players", [])
@@ -522,7 +522,7 @@ def update_settings():
             queued["add_players"] = adds
 
     if "remove_player" in data:
-        name = str(data["remove_player"]).strip().capitalize()
+        name = sanitize_name(str(data.get("remove_player") or ""))
         if name:
             if name.lower() == admin_name_lc:
                 return jsonify({"ok": False, "error": "Cannot remove your own seat."})
@@ -566,7 +566,6 @@ def update_settings():
     if "local_names" in data:
         raw_names = data["local_names"]
         if isinstance(raw_names, list):
-            from app.services.validators import sanitize_name
             valid_names = {p.name for p in session.all_players}
             cleaned = [sanitize_name(n) for n in raw_names if isinstance(n, str)]
             cleaned = [n for n in cleaned if n in valid_names]
@@ -802,7 +801,6 @@ def take_back_seat():
         return jsonify({"ok": False, "error": "No player name provided."})
 
     # Capitalise to match stored names
-    from app.services.validators import sanitize_name
     player_name = sanitize_name(player_name)
     valid = {p.name for p in session.all_players}
     if player_name not in valid:
