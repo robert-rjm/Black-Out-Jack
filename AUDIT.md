@@ -152,7 +152,7 @@ See bug 1.3. The sequence `cmd_endround → bust_vote_penalties → harvest → 
 
 **Fix:** Move to `app/services/drink_tracker.py` or a new `app/utils.py`.
 
-### 4.3 Serializer's milestone lambda
+### 4.3 Serializer's milestone lambda - DONE
 **File:** `app/services/serializer.py`
 
 `serialize_state()` contains a multi-expression inline lambda for milestone progress. It's untestable in isolation. Extract it as a named function.
@@ -259,7 +259,7 @@ Items are ordered by impact × effort ratio. Work left to right through the tier
 - [ ] **Move `classify_rule()` to `drink_tracker.py`** (Refactor 4.2) — right module, right direction.
 - [X] **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
 - [X] **Extract `RoundState` dataclass** (Inconsistency 2.7) — 23 per-round fields moved out of `GameRoom`; `reset_round_state()` simplified to a single wholesale replacement.
-- [ ] **Extract serializer milestone lambda** (Refactor 4.3) — testability.
+- [X] **Extract serializer milestone lambda** (Refactor 4.3) — testability.
 - [X] **Clean root `__pycache__/`** (Dead Code) — one-time housekeeping, add to `.gitignore`.
 
 ### Tier 4 — UI polish
