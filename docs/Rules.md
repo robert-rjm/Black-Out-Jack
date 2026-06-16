@@ -100,6 +100,15 @@ If multiple Players have Blackjack, a separate vote is held for each in deal ord
 > Group votes insure + dealer has no BJ: group each drinks 16 sips.
 > Group votes decline + dealer has BJ: auto-insurance, max 2 sips only.
 
+**Hard Dealer Switch interaction (Insure + no dealer BJ only):**
+
+When a Hard Switch is active and the vote result is Insure + no dealer BJ, the dealer's double-penalty is softened because the Hard Switch penalty already covers them:
+
+| Dealer's role | Effect |
+|---|---|
+| Dealer is a group member (not the BJ holder) | Dealer drinks 1× BJ bonus (not doubled). Hard Switch penalty applies separately. Rest of group drinks 2×. |
+| Dealer is the BJ holder | Dealer drinks nothing from insurance resolution. Their Blackjack hand is excluded from the Hard Switch penalty calculation. Rest of group drinks 2×. |
+
 
 ## 4. Drinking Rules (Instant Effect)
 

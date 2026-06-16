@@ -200,3 +200,33 @@ def test_insurance_declined_no_dealer_bj_propagates_hard_switch_dealer():
     )
     assert via_insurance == direct
     assert {m[0] for m in via_insurance} == {"Carol"}
+
+
+def test_insurance_insured_no_dealer_bj_hard_switch_dealer_in_group():
+    """Case 2 sub-case A: dealer is a group member (not the BJ holder).
+    Others drink 2× BJ bonus; dealer drinks 1× (hard switch penalty applies separately)."""
+    hand = make_hand(("A", "H"), ("K", "D"), result="win")  # mult = 1
+    msgs = DrinkingRules.resolve_insurance_vote(
+        "Alice", hand, ["Alice", "Bob", "Carol"],
+        insured=True, dealer_bj=False, hard_switch_dealer="Bob",
+    )
+    recipients = {m[0]: m[1] for m in msgs}
+    assert "Carol" in recipients
+    assert recipients["Carol"] == 2          # double
+    assert "Bob" in recipients
+    assert recipients["Bob"] == 1            # softened to 1× (hard switch applies separately)
+    assert "Alice" not in recipients         # BJ holder drinks nothing in Case 2
+
+
+def test_insurance_insured_no_dealer_bj_hard_switch_dealer_is_bj_holder():
+    """Case 2 sub-case B: dealer IS the BJ holder.
+    Group drinks double; dealer/BJ holder drinks nothing from insurance."""
+    hand = make_hand(("A", "H"), ("K", "D"), result="win")  # mult = 1
+    msgs = DrinkingRules.resolve_insurance_vote(
+        "Alice", hand, ["Alice", "Bob", "Carol"],
+        insured=True, dealer_bj=False, hard_switch_dealer="Alice",
+    )
+    recipients = {m[0]: m[1] for m in msgs}
+    assert "Bob" in recipients and recipients["Bob"] == 2
+    assert "Carol" in recipients and recipients["Carol"] == 2
+    assert "Alice" not in recipients         # dealer = BJ holder — excluded entirely
