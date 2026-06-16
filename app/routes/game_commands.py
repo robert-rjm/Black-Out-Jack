@@ -20,6 +20,7 @@ from flask import Blueprint, jsonify, request
 
 from engine.blackjack import Hand
 from engine.drinking_rules import DrinkingRules
+from engine.events import BlackjackEvent
 from engine.referee import RefereeSession
 from engine.strategy import best_play as _best_play
 
@@ -590,7 +591,7 @@ def _cmd_blackjack(game_session, parts):
     hand.stood = True
     all_names  = [p.name for p in game_session.all_players]
     game_session.tracker.apply(
-        DrinkingRules.on_blackjack(player.name, hand, all_names))
+        DrinkingRules.handle(BlackjackEvent(player_name=player.name, hand=hand, all_names=all_names)))
     log.debug(f"  {player.name} BLACKJACK confirmed.")
 
 
