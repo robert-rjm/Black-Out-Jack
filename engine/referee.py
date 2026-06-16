@@ -129,6 +129,10 @@ class RefereeSession:
         self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
         self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
 
+        # Hard-switch drinking guard — True once hard-switch drinks have been applied
+        # for the current round so they are not double-fired. Reset by room_manager.py.
+        self._hard_switch_drinking_applied = False
+
         # Tracker — resolves recipients and logs drinks
         self.tracker = DrinkTracker(players, self._get_dealer())
 
@@ -548,7 +552,7 @@ class RefereeSession:
         self._pending_resolved = []
         # _pending_eor_msgs already drained above when building eor_msgs
 
-        if hard_switch and not getattr(self, "_hard_switch_drinking_applied", False):
+        if hard_switch and not self._hard_switch_drinking_applied:
             partial_protected = self._ace_clubs_flag.get("partial_protected", False)
             half_protected    = self._ace_clubs_flag.get("half_protected", False)
             # Partial protection (player-hand A♣): exclude dealer's own hands

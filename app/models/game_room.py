@@ -222,7 +222,7 @@ class GameRoom:
 
     @property
     def _hard_switch_drinking_applied(self) -> bool:
-        return getattr(self.session, "_hard_switch_drinking_applied", False)
+        return self.session._hard_switch_drinking_applied
 
     @_hard_switch_drinking_applied.setter
     def _hard_switch_drinking_applied(self, value: bool):
