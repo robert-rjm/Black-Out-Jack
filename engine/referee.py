@@ -420,7 +420,10 @@ class RefereeSession:
     # ---------------------------------------------------------------- command: bust vote
 
     def cmd_bustvotetoggle(self, parts: list):
-        """bustvotetoggle <on|off> — host toggles the dealer-bust side bet (Rules.md §4.4)."""
+        """bustvotetoggle <on|off> — host toggles the dealer-bust side bet (Rules.md §4.4).
+
+        Terminal-CLI only. The web layer uses the /bust_vote_toggle route instead.
+        """
         if len(parts) < 2 or parts[1].lower() not in ("on", "off"):
             self._log("  Usage: bustvotetoggle <on|off>")
             return
@@ -431,7 +434,10 @@ class RefereeSession:
             self._bust_votes = {}
 
     def cmd_bustvote(self, parts: list):
-        """bustvote <player> <bust|skip> — side bet on dealer bust, before the first deal."""
+        """bustvote <player> <bust|skip> — side bet on dealer bust, before the first deal.
+
+        Terminal-CLI only. The web layer uses the /cast_bust_vote route instead.
+        """
         if not self.bust_vote_enabled:
             self._log("  Bust vote side bet is disabled. Use 'bustvotetoggle on' first.")
             return

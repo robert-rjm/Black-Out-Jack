@@ -133,10 +133,10 @@ This exists because the attribute isn't guaranteed to be present on all `Referee
 
 | Item | Location | Notes |
 |------|----------|-------|
-| `GameEventType` enum | `engine/events.py` lines 36–46 | Defined but never imported or used. Event dispatch is type-matched on dataclasses directly. |
-| `DEFAULT_WAGER / NUM_HANDS / NUM_DECKS / MODE` | `app/config.py` lines 63–66 | Defined but not used in setup route (see 2.5). |
-| `cmd_bustvotetoggle`, `cmd_bustvote` | `engine/referee.py` | Terminal CLI only; web layer uses `cast_bust_vote` route. These are dead in the web context but would need to stay for `play_referee.py`. Mark clearly. |
-| Root `__pycache__/` | Project root | Contains stale `.pyc` files for `blackjack.py`, `drinking_rules.py`, etc. from before the `engine/` package was created. Add to `.gitignore` and delete. |
+| ~~`GameEventType` enum~~ | `engine/events.py` | DONE — deleted; enum was never imported or used anywhere. |
+| ~~`DEFAULT_NUM_DECKS`~~ | `app/config.py` | DONE — deleted; `DEFAULT_WAGER`, `DEFAULT_NUM_HANDS`, `DEFAULT_MODE` are used. `DEFAULT_NUM_DECKS` was not. |
+| `cmd_bustvotetoggle`, `cmd_bustvote` | `engine/referee.py` | DONE — marked with "Terminal-CLI only" docstring note; kept because `play_referee.py` calls them. |
+| ~~Root `__pycache__/`~~ | Project root | Already in `.gitignore`; OS permissions prevent deletion but it won't be tracked. |
 
 ---
 
@@ -252,7 +252,9 @@ Items are ordered by impact × effort ratio. Work left to right through the tier
 
 ### Tier 3 — Cleanup (maintainability)
 
-- [ ] **Delete `GameEventType` enum** (Dead Code) — it's noise; document why the enum was abandoned or remove it entirely.
+- [X] **Delete `GameEventType` enum** (Dead Code) — deleted from `engine/events.py`.
+- [X] **Delete `DEFAULT_NUM_DECKS`** (Dead Code) — removed from `app/config.py`.
+- [X] **Mark terminal-only CLI commands** (Dead Code) — `cmd_bustvotetoggle`/`cmd_bustvote` docstrings clarified.
 - [X] **Wire `/setup` to `DEFAULT_*` constants** (Inconsistency 2.5) — one place to change defaults.
 - [ ] **Move `classify_rule()` to `drink_tracker.py`** (Refactor 4.2) — right module, right direction.
 - [X] **Initialize `_hard_switch_drinking_applied` in `RefereeSession.__init__`** (Inconsistency 2.6) — remove the `getattr` guard.
