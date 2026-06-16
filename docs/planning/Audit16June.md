@@ -25,20 +25,16 @@ These either break functionality, silently corrupt data, or are security risks.
 Every other input uses a `raw[:40]` guard, but the command route splits the full raw string with no cap. Long inputs can reach downstream parsers.
 **Fix:** Add `raw = raw[:120]` (or similar) before `.split()`.
 
-### C4 · `decision_log.py` — `room_code` is always empty
-**File:** `app/services/decision_log.py` L181
-Uses `getattr(session, "room_code", None)` — `GameRoom` has a `room_code` field but the `getattr` call targets `session` (the `RefereeSession` inside `GameRoom`, not `GameRoom` itself). Every exported decision-log row has an empty `session_id`.
-**Fix:** Pass `game_room.room_code` explicitly or access it correctly.
+### ~~C4 · `decision_log.py` — `room_code` is always empty~~ — FIXED
+`GameRoom` has `room_code: str = ""` set at construction (`lobby.py` L171). `decision_log.py` reads `session.room_code` directly from the `GameRoom` object. Session IDs are populated correctly.
 
 ### C5 · XSS: only one call site uses DOMPurify
 **File:** `static/js/ui/admin.js` `openRulesModal` (L433-437)
 Only this one function runs `DOMPurify.sanitize`. All other rendering relies solely on manual `escapeHtml()`. One missed call on any future user-controlled field is an XSS vector.
 **Fix:** Audit all innerHTML-write sites; apply DOMPurify at render boundaries, not just one call site.
 
-### C6 · `startGame` has no `.catch` — Start button permanently disabled on network error
-**File:** `static/js/ui/setup.js` `startGame` (L409-473)
-A fetch failure throws an uncaught rejection. The Start button is left permanently disabled with no user-visible error or recovery path.
-**Fix:** Add `.catch(err => { /* re-enable button, show error */ })`.
+### ~~C6 · `startGame` has no `.catch` — Start button permanently disabled on network error~~ — FIXED
+Wrapped fetch+json in try/catch in `startGame` (setup.js). Also added catches to `sendCmd`, `honorResolve`, `bankRebuy` (table.js) and `createRoom`/`joinRoom` (lobby.js) which had the same uncaught-rejection pattern.
 
 ---
 
@@ -216,9 +212,9 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] C1 — Error response shape: `/setup` → use `"error"` key
 - [ ] C2 — Sanitize player names in admin.py and polling.py
 - [ ] C3 — Add command string length cap before `.split()`
-- [ ] C4 — Fix `decision_log.py` `room_code` always empty
+- [x] C4 — Fix `decision_log.py` `room_code` always empty — DONE
 - [ ] C5 — Audit XSS: apply DOMPurify at all innerHTML render boundaries
-- [ ] C6 — Add `.catch` to `startGame` fetch; re-enable button on failure
+- [x] C6 — Add `.catch` to `startGame` fetch; re-enable button on failure — DONE
 
 ### High
 - [ ] H1 — `rotate_dealer` ValueError guard / warn on fallback

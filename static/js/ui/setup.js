@@ -439,12 +439,19 @@ async function startGame() {
     body.bet_amount = getStepperValue("bet-dig") || 10;
   }
 
-  const res  = await fetch("/setup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
+  let data;
+  try {
+    const res  = await fetch("/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    data = await res.json();
+  } catch (_) {
+    alert("Could not reach server — check your connection and try again.");
+    btn.disabled = false;
+    return;
+  }
   btn.disabled = false;
 
   if (!data.ok) { alert(data.output || "Setup failed."); return; }
