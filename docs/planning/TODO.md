@@ -6,7 +6,6 @@
   - [ ] Mobile / Standalone PWA
     - Big wasted space in action "play" panel
     - remove other dead space / optimize UI
-    - consider removing Trivia / Stats section (optimize it for mobile UI)
   - [ ] Web UI
     - difficult to see on standard screen size (zoom issue)
     - potentially collapsible stats / trivia section
