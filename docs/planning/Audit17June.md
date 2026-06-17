@@ -88,7 +88,7 @@ Two scripts exist on disk (`scripts/run_all_configs.py`, `scripts/compare_config
 **File:** `docs/Architecture.md`
 Both files are described in the project-structure comment block but have no rows in the File Dependencies table. `tick.py` is a per-poll side-effect driver imported by `polling.py`; `validators.py` provides `sanitize_name` and `get_client_info` used across multiple routes and the serializer.
 
-### N5 · DOM-Hooks.md severely out of date — 20+ new element IDs undocumented
+### ~~N5 · DOM-Hooks.md severely out of date — 20+ new element IDs undocumented~~
 **File:** `docs/DOM-Hooks.md`
 Large batches of DOM elements added since the doc was last updated have no module-ownership entry. Partial list by owner:
 
@@ -108,7 +108,7 @@ Large batches of DOM elements added since the doc was last updated have no modul
 
 **Fix:** Add module-ownership sections for each of these groups and for `admin-settings.js`.
 
-### N6 · `admin-settings.js` has no DOM-Hooks.md ownership entry
+### ~~N6 · `admin-settings.js` has no DOM-Hooks.md ownership entry~~
 **File:** `docs/DOM-Hooks.md`
 `static/js/ui/admin-settings.js` exists and manages the settings panel (wager/hands/decks inputs, easy-mode toggle, bust-vote toggle, strategy-hint toggle, god-mode toggle, etc.) but has **zero** coverage in DOM-Hooks.md. The module and its owned element IDs (`#setting-wager`, `#setting-num-hands`, `#setting-num-decks`, `#bust-vote-toggle-modal`, `#god-mode-toggle-modal`, etc.) should be added to the module-ownership section.
 
@@ -158,7 +158,7 @@ If any reason string changes in `drinking_rules.py`, the Drinks-pane display sil
 - [x] N2 — Document `run_all_configs.py` and `compare_configs.py` in Architecture.md
 - [x] N3 — Add `engine/events.py` row to Architecture.md file-deps table
 - [x] N4 — Add `tick.py` and `validators.py` rows to Architecture.md file-deps table
-- [ ] N5 — Update DOM-Hooks.md with 20+ undocumented element IDs
-- [ ] N6 — Add `admin-settings.js` ownership section to DOM-Hooks.md
+- [x] N5 — Update DOM-Hooks.md with 20+ undocumented element IDs
+- [x] N6 — Add `admin-settings.js` ownership section to DOM-Hooks.md
 - [ ] N7 — Remove stale `# Rule classifier` section header from `drinking_rules.py`
 - [ ] N8 — Replace substring matching in `_record_drinks_detail` with `classify_rule` or typed log entries
