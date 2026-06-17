@@ -212,6 +212,8 @@
   .stat-card-mobile-lb { display: flex; }
 }
 
+#mobile-lb-overlay .stats-table { display: table; }
+
 .stat-card-icon {
   font-size: 18px;
   flex-shrink: 0;

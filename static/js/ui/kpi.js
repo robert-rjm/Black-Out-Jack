@@ -380,7 +380,7 @@ function renderStats(state) {
         ${drinking ? `<span style="text-align:right">${sipStr}</span>` : ""}
       </div>`;
     }).join("");
-    _mobileLbDetailHTML = headerRow + lbLines;
+    _mobileLbDetailHTML = headerRow + lbLines + `<div style="margin-top:14px;overflow-x:auto">${table}</div>`;
     callouts.push(`<div class="stat-card stat-card-primary" style="flex-direction:column;align-items:stretch;gap:0">
       <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
       ${headerRow}${lbLines}
