@@ -8,7 +8,7 @@ Busfahrer feature excluded throughout. Items already fixed in the session are om
 
 ## Medium — Refactor / maintainability
 
-### M1 · `harvest_drink_log` is 225 lines handling 8 responsibilities
+### ~~M1 · `harvest_drink_log` is 225 lines handling 8 responsibilities~~
 **File:** `app/services/drink_tracker.py` (L159-384)
 Single function does: milestone check, streak tracking, sip ticker update, CSV row building, prev-round snapshot, worst-player logic, round-over seq bump, handout log. Untestable as a unit.
 **Fix:** Extract into named private helpers (`_record_sip_csv`, `_update_streaks`, `_snapshot_round`, etc.).
@@ -147,7 +147,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 ### High - DONE
 
 ### Medium
-- [ ] M1 — Split `harvest_drink_log` into named helpers
+- [X] M1 — Split `harvest_drink_log` into named helpers
 - [X] M2 — Extract `require_admin` helper / decorator in admin.py
 - [X] M3 — Extract `tick(session)` from `/state` route
 - [ ] M4 — Split `applyState` into named phase functions
