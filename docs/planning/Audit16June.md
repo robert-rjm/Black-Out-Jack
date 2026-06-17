@@ -43,7 +43,7 @@ Phase strings (`"pre-deal"`, `"playing"`, `"round-over"`, `"dealer-ready"`) and 
 Suited/A+J/both-black multiplier conditions exist in `_bj_multiplier()` (L17-26) and are recomputed inline in `on_blackjack()` (~L202-209).
 **Fix:** Remove the inline recomputation; use `_bj_multiplier()` as the single source.
 
-### M8 · `on_round_end` is a 110-line function with 5 distinct computations
+### ~~M8 · `on_round_end` is a 110-line function with 5 distinct computations~~
 **File:** `engine/drinking_rules.py` (L405-514)
 **Fix:** Extract into named helpers (`_net_loss_drinks`, `_double_loss_drinks`, etc.).
 
@@ -154,7 +154,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] M5 — Centralize phase/role string constants in JS
 - [X] M6 — Single-pass sip total accumulation in serializer
 - [X] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`
-- [ ] M8 — Split `on_round_end` into named helpers
+- [X] M8 — Split `on_round_end` into named helpers
 - [X] M9 — Pass `hard_switch_dealer` in `cmd_result` BJ insurance path
 - [ ] M10 — Share `pollState` helper across lobby/setup/visibility JS
 
