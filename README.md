@@ -11,6 +11,12 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="docs/Rules.md">
+    <img src="https://img.shields.io/badge/📖%20RULES-orange?style=for-the-badge&labelColor=1a1a1a" alt="Rules" height="30">
+  </a>
+</p>
+
 
 ## What is Black(Out)Jack?
 

@@ -140,14 +140,69 @@ function _pollInterval() {
 }
 
 // Fetch a single /state snapshot and pass the parsed response to onResult if ok.
-// Swallows network errors so callers don't need try/catch.
+// Tracks consecutive failures to show/hide the server-disconnected overlay.
 async function fetchState(onResult) {
   try {
     const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
     const res  = await fetch(url);
     const data = await res.json();
-    if (data.ok) onResult(data);
-  } catch (_) {}
+    if (data.ok) {
+      _consecutiveFailures = 0;
+      hideDisconnected();
+      onResult(data);
+    } else {
+      _onPollFailure();
+    }
+  } catch (_) {
+    _onPollFailure();
+  }
+}
+
+function _onPollFailure() {
+  _consecutiveFailures++;
+  if (_consecutiveFailures >= 3) showDisconnected();
+}
+
+// ---------------------------------------------------------------------------
+// Server-disconnected overlay
+// ---------------------------------------------------------------------------
+
+function showDisconnected() {
+  let overlay = document.getElementById("server-disconnect-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "server-disconnect-overlay";
+    overlay.className = "server-disconnect-overlay";
+    overlay.innerHTML =
+      '<div class="server-disconnect-card">' +
+        '<div class="server-disconnect-spinner"></div>' +
+        '<div class="server-disconnect-title">Server disconnected</div>' +
+        '<div class="server-disconnect-msg">Attempting to reconnect…</div>' +
+        '<div class="server-disconnect-note">The server may be waking up — this can take up to 30 sec.</div>' +
+        '<div class="server-disconnect-elapsed" id="server-disconnect-elapsed"></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = "flex";
+  if (!_disconnectedSince) {
+    _disconnectedSince = Date.now();
+    _disconnectedTimer = setInterval(_updateDisconnectElapsed, 1000);
+    _updateDisconnectElapsed();
+  }
+}
+
+function _updateDisconnectElapsed() {
+  const el = document.getElementById("server-disconnect-elapsed");
+  if (!el || !_disconnectedSince) return;
+  const secs = Math.floor((Date.now() - _disconnectedSince) / 1000);
+  el.textContent = secs > 0 ? secs + "s" : "";
+}
+
+function hideDisconnected() {
+  const overlay = document.getElementById("server-disconnect-overlay");
+  if (overlay) overlay.style.display = "none";
+  if (_disconnectedTimer) { clearInterval(_disconnectedTimer); _disconnectedTimer = null; }
+  _disconnectedSince = null;
 }
 
 // Apply a /state response: update UI and header.

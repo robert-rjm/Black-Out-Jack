@@ -23,6 +23,7 @@ from app.services.session_store import (
     mark_waiting_client, get_waiting_clients,
 )
 from app.services.validators import sanitize_name, is_dealer_client
+from app.routes.admin import _require_admin
 from app.services.serializer import (
     serialize_state, round_phase, current_turn, hand_done,
     compute_mandatory_split10,
@@ -216,16 +217,11 @@ def handle_registration():
     """Admin approves or denies a pending player registration.
     Body: { room_code, client_id (admin), target_client_id, approve: bool }"""
     data             = request.json or {}
-    room_code        = (data.get("room_code") or "").strip()
-    client_id        = (data.get("client_id") or "").strip()
     target_client_id = (data.get("target_client_id") or "").strip()
     approve          = bool(data.get("approve", False))
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-    if session._room_clients.get(client_id, {}).get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": err})
 
     pending = next(
         (r for r in session._pending_registrations if r["client_id"] == target_client_id),
@@ -296,15 +292,10 @@ def reset_registration():
     """Admin clears a client's denial count, allowing them to request again.
     Body: { room_code, client_id (admin), target_client_id }"""
     data             = request.json or {}
-    room_code        = (data.get("room_code") or "").strip()
-    client_id        = (data.get("client_id") or "").strip()
     target_client_id = (data.get("target_client_id") or "").strip()
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-    if session._room_clients.get(client_id, {}).get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": err})
 
     target = session._room_clients.get(target_client_id)
     if not target:

@@ -14,10 +14,6 @@ from app.services.utils import classify_rule
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("reason", [
-    "A♣ dealt to Alice => -1 sip credit at round end",
-    "A♣ protected this round",
-    "A♣ protection credit applied",
-    "Alice won the bust vote correct call",
     "Alice's A♣ protects them this round",
     "Alice is exempt from this round's charges",
 ])
@@ -26,8 +22,25 @@ def test_none_returning_reasons(reason):
 
 
 # ---------------------------------------------------------------------------
+# A♣ credits / waived entries
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("reason,expected", [
+    ("A♣ dealt to Alice => -1 sip credit at round end", "A♣ protection credit"),
+    ("A♣ protection credit applied",                    "A♣ protection credit"),
+    ("A♣ protected this round",                         "A♣ waived"),
+])
+def test_ace_club_credit_and_waived(reason, expected):
+    assert classify_rule(reason) == expected
+
+
+# ---------------------------------------------------------------------------
 # Bust vote / insurance
 # ---------------------------------------------------------------------------
+
+def test_bust_vote_correct_credit():
+    assert classify_rule("Alice won the bust vote correct call") == "Bust vote credit"
+
 
 def test_bust_vote_wrong_call():
     assert classify_rule("Bust vote wrong — dealer didn't bust: +1 sip") == "Bust vote wrong call"

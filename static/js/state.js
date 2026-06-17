@@ -29,6 +29,11 @@ let npcPlayers = new Set();   // names of NPC/bot players this session
 // never overwrite a fresher command/preselect/vote response.
 let _requestsInFlight = 0;
 
+// Disconnection tracking — used by showDisconnected / hideDisconnected in lobby.js
+let _consecutiveFailures = 0;   // resets to 0 on any successful /state response
+let _disconnectedSince   = null; // Date.now() timestamp when overlay was first shown
+let _disconnectedTimer   = null; // setInterval handle for the elapsed-seconds counter
+
 // Client identity
 let clientId         = "";    // UUID — persisted in localStorage
 let myRole           = null;  // "admin" | "player" | "spectator" | "kicked" | null
