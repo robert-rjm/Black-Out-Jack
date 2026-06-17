@@ -13,7 +13,7 @@ Busfahrer feature excluded throughout. Items already fixed in the session are om
 Single function does: milestone check, streak tracking, sip ticker update, CSV row building, prev-round snapshot, worst-player logic, round-over seq bump, handout log. Untestable as a unit.
 **Fix:** Extract into named private helpers (`_record_sip_csv`, `_update_streaks`, `_snapshot_round`, etc.).
 
-### M2 · Admin-check boilerplate repeated across ~12 routes
+### ~~M2 · Admin-check boilerplate repeated across ~12 routes~~
 **File:** `app/routes/admin.py`
 Every route replicates the same 3-line admin check with inconsistent error text ("Not authorised." vs "Admin only." vs "Admin only").
 **Fix:** Extract `require_admin(session, client_id) -> tuple[bool, Response]` helper or a `@admin_only` decorator.
@@ -148,7 +148,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 
 ### Medium
 - [ ] M1 — Split `harvest_drink_log` into named helpers
-- [ ] M2 — Extract `require_admin` helper / decorator in admin.py
+- [X] M2 — Extract `require_admin` helper / decorator in admin.py
 - [ ] M3 — Extract `tick(session)` from `/state` route
 - [ ] M4 — Split `applyState` into named phase functions
 - [ ] M5 — Centralize phase/role string constants in JS
