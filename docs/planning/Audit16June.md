@@ -110,7 +110,7 @@ Checks `includes("drink")`, `"win"`, `"bust"` etc. on displayed strings — a pl
 Hardcodes "blackjack = 2 wins" — a drinking-game house rule in a supposedly standalone class.
 **Fix:** Move to `drinking_rules.py` or accept a multiplier argument.
 
-### L12 · `state.js` `currentTurn` appears unused
+### ~~L12 · `state.js` `currentTurn` appears unused~~ False Positive
 **File:** `static/js/state.js` (L21)
 Mirrors `lastState.current_turn` but is not referenced elsewhere.
 **Fix:** Remove if unused.
@@ -170,7 +170,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] L9 — Use structured log-entry types instead of substring matching
 - [ ] L10 — Clarify / fix `Hand.split()` unused shoe param
 - [ ] L11 — Move `Player.net_losses()` drinking rule out of engine
-- [ ] L12 — Remove `state.js` `currentTurn` if unused
+- [X] L12 — Remove `state.js` `currentTurn` if unused
 - [X] L13 — Move `sanitize_name` imports to admin.py module level
 - [ ] L14 — Replace inline CSS strings in JS with toggled classes
 - [ ] L15 — Pick one event-wiring style in admin.js

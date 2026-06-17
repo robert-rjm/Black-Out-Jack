@@ -621,7 +621,9 @@ def claim_milestone():
         return jsonify({"ok": False, "error": "allocations must be an object."})
 
     # Validate: non-negative ints, no self-allocation, real players, sum = handout total
-    valid_names = {p.name.lower() for p in session.all_players}
+    # Build a lowercase→canonical map so allocation keys are always the server-side
+    # canonical name regardless of how the client cased them.
+    canonical_names = {p.name.lower(): p.name for p in session.all_players}
     alloc: dict[str, int] = {}
     for name, sips in raw_alloc.items():
         try:
@@ -632,10 +634,11 @@ def claim_milestone():
             return jsonify({"ok": False, "error": "Sip counts must be non-negative."})
         if name.lower() == caller_name.lower():
             return jsonify({"ok": False, "error": "Cannot assign sips to yourself."})
-        if name.lower() not in valid_names:
+        canonical = canonical_names.get(name.lower())
+        if canonical is None:
             return jsonify({"ok": False, "error": f"Unknown player '{name}'."})
         if s > 0:
-            alloc[name] = s
+            alloc[canonical] = s
 
     handout_cap  = milestone["handout"]
     total = sum(alloc.values())
