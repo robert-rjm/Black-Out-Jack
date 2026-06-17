@@ -206,13 +206,19 @@
 /* ---- MOBILE: swap full table + desktop rankings for compact card ---- */
 .stat-card-mobile-lb { display: none; }
 
+/* ---- MOBILE: compact cards replace banner + table + desktop rankings ---- */
+.stat-card-mobile-kpi { display: none; }
+
 @media (max-width: 640px) {
-  .stats-table        { display: none; }
-  .stat-card-primary  { display: none; }
-  .stat-card-mobile-lb { display: flex; }
+  .stat-session-banner  { display: none; }
+  .stats-table          { display: none; }
+  .stat-card-primary    { display: none; }
+  .stat-card-mobile-lb  { display: flex; }
+  .stat-card-mobile-kpi { display: flex; }
 }
 
-#mobile-lb-overlay .stats-table { display: table; }
+#mobile-lb-overlay .stats-table        { display: table; }
+#mobile-kpi-overlay .stat-session-banner { display: block; }
 
 .stat-card-icon {
   font-size: 18px;
