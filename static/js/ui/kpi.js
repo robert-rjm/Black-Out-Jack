@@ -106,6 +106,31 @@ function _rollingAvg(history, n) {
   return (slice.reduce((a, b) => a + b, 0) / slice.length).toFixed(1);
 }
 
+// ---- Mobile ranking modal ----
+let _mobileLbDetailHTML = "";
+
+function openMobileLbModal() {
+  if (!_mobileLbDetailHTML) return;
+  let overlay = document.getElementById("mobile-lb-overlay");
+  if (overlay) { overlay.remove(); return; }
+  overlay = document.createElement("div");
+  overlay.id = "mobile-lb-overlay";
+  overlay.style.cssText = [
+    "position:fixed;inset:0;z-index:800;background:var(--bg);",
+    "display:flex;flex-direction:column;padding:16px 12px;box-sizing:border-box;overflow-y:auto;",
+    "animation:_lb-slide-up .2s ease"
+  ].join("");
+  overlay.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-shrink:0">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">🏆 Full Rankings</div>
+      <button onclick="document.getElementById('mobile-lb-overlay').remove()"
+        style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div style="overflow-x:auto">${_mobileLbDetailHTML}</div>`;
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
 // ---- Stats renderer ----
 function renderStats(state) {
   const el = document.getElementById("stats-content");
@@ -355,6 +380,7 @@ function renderStats(state) {
         ${drinking ? `<span style="text-align:right">${sipStr}</span>` : ""}
       </div>`;
     }).join("");
+    _mobileLbDetailHTML = headerRow + lbLines;
     callouts.push(`<div class="stat-card stat-card-primary" style="flex-direction:column;align-items:stretch;gap:0">
       <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
       ${headerRow}${lbLines}
@@ -381,8 +407,12 @@ function renderStats(state) {
         ${drinking ? `<span style="text-align:right">${avgStr}</span>` : ""}
       </div>`;
     }).join("");
-    callouts.push(`<div class="stat-card stat-card-mobile-lb" style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box">
-      <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
+    callouts.push(`<div class="stat-card stat-card-mobile-lb" onclick="openMobileLbModal()"
+        style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">🏆 Rankings</div>
+        <div style="font-size:9px;color:var(--muted)">tap for details ›</div>
+      </div>
       ${mHeader}${mLines}
     </div>`);
   }
