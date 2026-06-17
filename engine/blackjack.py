@@ -200,7 +200,7 @@ class Hand:
         return (self.cards[0].rank.blackjack_value == self.cards[1].rank.blackjack_value
                 and self.split_count < self.MAX_SPLITS)
 
-    def split(self, shoe) -> "Hand":
+    def split(self) -> "Hand":
         """
         Remove second card into a new Hand.  Second cards are NOT dealt here —
         _play_hand deals each hand's second card just before that hand is played,
@@ -255,10 +255,8 @@ class Player:
     def round_pushes(self) -> int: return sum(1 for h in self.hands if h.result == "push")
 
     def net_losses(self)   -> int:
-        # Blackjack counts as 2 wins — it offsets two net-loss hands
-        effective_wins = sum(2 if h.is_blackjack() else 1
-                             for h in self.hands if h.result == "win")
-        return max(0, self.round_losses() - effective_wins)
+        """Raw net hand losses: losses minus wins, clamped to zero."""
+        return max(0, self.round_losses() - self.round_wins())
 
     def drinks_owed(self)  -> int: return sum(e[0] for e in self.drink_log if e[0] > 0)
 
@@ -606,7 +604,7 @@ class RoundManager:
                     print("  BUST on double!")
 
             elif action == "sp":
-                new_hand = hand.split(self.shoe)
+                new_hand = hand.split()
                 player.hands.insert(hand_idx + 1, new_hand)
                 print(f"  Split! This hand: {hand}  |  New hand: {new_hand}")
                 is_ace_split = (hand.cards[0].rank == Rank.ACE)

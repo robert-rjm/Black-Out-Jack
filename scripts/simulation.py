@@ -24,7 +24,7 @@ _buf = io.StringIO()
 with contextlib.redirect_stdout(_buf):
     from engine.blackjack import NPC_Player, Shoe, RoundManager
     from engine.drinking_rules import DrinkTracker
-from app.services.utils import classify_rule
+    from app.services.utils import classify_rule
 
 NUM_ROUNDS   = 100000
 NUM_HANDS    = 2

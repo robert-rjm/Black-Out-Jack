@@ -134,9 +134,26 @@ const POLL_INTERVAL_SLOW = 2000;   // ms — used during "pre-deal", "round-over
 
 function _pollInterval() {
   const phase = lastState && lastState.phase;
-  return (phase === "playing" || phase === "dealer-ready")
+  return (phase === PHASE.PLAYING || phase === PHASE.DEALER_READY)
     ? POLL_INTERVAL_FAST
     : POLL_INTERVAL_SLOW;
+}
+
+// Fetch a single /state snapshot and pass the parsed response to onResult if ok.
+// Swallows network errors so callers don't need try/catch.
+async function fetchState(onResult) {
+  try {
+    const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.ok) onResult(data);
+  } catch (_) {}
+}
+
+// Apply a /state response: update UI and header.
+function _applyStateResult(data) {
+  applyState(data);
+  if (data.dealer) updateHeader(data);
 }
 
 function startPolling() {
@@ -145,12 +162,7 @@ function startPolling() {
     // Skip the fetch while a game-action request is in flight — the command
     // response will call applyState with fresher (higher state_seq) data.
     if (roomCode && _requestsInFlight === 0) {
-      try {
-        const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-        const res  = await fetch(url);
-        const data = await res.json();
-        if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
-      } catch (_) {}
+      await fetchState(_applyStateResult);
     }
     // Reschedule — interval adapts automatically to the latest phase.
     pollTimer = setTimeout(tick, _pollInterval());
@@ -167,10 +179,7 @@ function stopPolling() {
 // Skip if a request is already in flight — we'll get fresh state from it.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && roomCode && _requestsInFlight === 0) {
-    fetch(`/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`)
-      .then(r => r.json())
-      .then(data => { if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); } })
-      .catch(() => {});
+    fetchState(_applyStateResult);
   }
 });
 
