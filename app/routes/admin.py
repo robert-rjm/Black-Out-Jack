@@ -21,6 +21,7 @@ POST /take_back_seat   — Admin reclaims a remote seat, moving them to spectato
 import time
 
 from flask import Blueprint, jsonify, request
+from markupsafe import escape
 
 from app.services.session_store import game_sessions
 from app.services.serializer    import serialize_state, round_phase
@@ -40,17 +41,17 @@ def _require_admin(data: dict):
     """Validate room_code + client_id and verify admin role.
 
     Returns (session, client_id, admin_info, None) on success, or
-    (None, None, None, error_response) on failure.  Every admin-only route
+    (None, None, None, error_message) on failure.  Every admin-only route
     calls this instead of repeating the same 6-line block.
     """
     room_code  = (data.get("room_code") or "").strip()
     client_id  = (data.get("client_id") or "").strip()
     session    = game_sessions.get(room_code)
     if not session:
-        return None, None, None, jsonify({"ok": False, "error": "Room not found."})
+        return None, None, None, "Room not found."
     admin_info = session._room_clients.get(client_id, {})
     if admin_info.get("role") != "admin":
-        return None, None, None, jsonify({"ok": False, "error": "Admin only."})
+        return None, None, None, "Admin only."
     return session, client_id, admin_info, None
 
 
@@ -65,7 +66,7 @@ def kick():
     target_name = sanitize_name(data.get("target_name") or "")
     session, client_id, admin_info, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
     clients = session._room_clients
 
     admin_name_lc = (admin_info.get("name") or "").lower()
@@ -78,7 +79,7 @@ def kick():
             info["kicked"] = True
             return jsonify({"ok": True})
 
-    return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+    return jsonify({"ok": False, "error": f"No connected player named '{escape(target_name)}'."})
 
 
 @bp.route("/undo_kick", methods=["POST"])
@@ -89,7 +90,7 @@ def undo_kick():
     target_client_id = (data.get("target_client_id") or "").strip()
     session, client_id, _, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
     clients = session._room_clients
 
     target_info = clients.get(target_client_id)
@@ -117,7 +118,7 @@ def make_bot():
     target_name = sanitize_name(data.get("player_name") or "")
     session, client_id, _, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
     clients = session._room_clients
 
     player = next(
@@ -126,9 +127,9 @@ def make_bot():
         None,
     )
     if not player:
-        return jsonify({"ok": False, "error": f"Player '{target_name}' not found."})
+        return jsonify({"ok": False, "error": f"Player '{escape(target_name)}' not found."})
     if getattr(player, "is_npc", False):
-        return jsonify({"ok": False, "error": f"'{target_name}' is already a bot."})
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is already a bot."})
 
     player.is_npc = True
 
@@ -158,7 +159,7 @@ def make_human():
     target_name = sanitize_name(data.get("player_name") or "")
     session, client_id, admin_info, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
 
     player = next(
         (p for p in session.all_players
@@ -166,9 +167,9 @@ def make_human():
         None,
     )
     if not player:
-        return jsonify({"ok": False, "error": f"Player '{target_name}' not found."})
+        return jsonify({"ok": False, "error": f"Player '{escape(target_name)}' not found."})
     if not getattr(player, "is_npc", False):
-        return jsonify({"ok": False, "error": f"'{target_name}' is not a bot."})
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is not a bot."})
 
     player.is_npc = False
 
@@ -215,7 +216,7 @@ def transfer_admin():
     target_name = sanitize_name(data.get("target_name") or "")
     session, client_id, admin_info, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
     clients = session._room_clients
 
     # Find the target client
@@ -227,7 +228,7 @@ def transfer_admin():
         None,
     )
     if not target_cid:
-        return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+        return jsonify({"ok": False, "error": f"No connected player named '{escape(target_name)}'."})
 
     # Transfer: demote old admin, promote new one.
     # Move local_names to the new admin so they retain control of any local
@@ -307,7 +308,7 @@ def set_anim_pref():
     enabled = bool(data.get("enabled", True))
     session, _, _, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
 
     session._anim_default = enabled
     return jsonify({"ok": True})
@@ -352,7 +353,7 @@ def vote_kick():
         return jsonify({"ok": False, "error": "Cannot vote to kick the admin."})
     target_connected = target_info is not None
     if not target_connected:
-        return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is not in the session."})
 
     key   = target_name.lower()
     votes = session.round._kick_votes.setdefault(key, set())
@@ -427,7 +428,7 @@ def handle_rejoin():
     approve          = bool(data.get("approve", False))
     session, client_id, _, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
     clients = session._room_clients
 
     # Remove from rejoin requests regardless of decision
@@ -453,7 +454,7 @@ def update_settings():
     data = request.json or {}
     session, client_id, admin_info, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
     clients = session._room_clients
 
     admin_name_lc = (admin_info.get("name") or "").lower()
@@ -602,7 +603,7 @@ def claim_milestone():
             return jsonify({"ok": False, "error": "Cannot assign sips to yourself."})
         canonical = canonical_names.get(name.lower())
         if canonical is None:
-            return jsonify({"ok": False, "error": f"Unknown player '{name}'."})
+            return jsonify({"ok": False, "error": f"Unknown player '{escape(name)}'."})
         if s > 0:
             alloc[canonical] = s
 
@@ -705,7 +706,7 @@ def rotate_dealer():
     data = request.json or {}
     session, client_id, _, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
 
     _rotate_dealer(session)
     session.rounds_this_dealer = 1
@@ -725,7 +726,7 @@ def toggle_god_mode():
     data = request.json or {}
     session, client_id, _, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
 
     enabled = bool(data.get("enabled", False))
     session._god_mode = enabled
@@ -741,7 +742,7 @@ def take_back_seat():
     player_name = (data.get("player_name") or "").strip()
     session, client_id, admin_info, err = _require_admin(data)
     if err:
-        return err
+        return jsonify({"ok": False, "error": escape(err)})
     clients = session._room_clients
 
     if not player_name:
@@ -781,3 +782,4 @@ def take_back_seat():
     admin_info["local_names"] = current_locals
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
+
