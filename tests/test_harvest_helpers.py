@@ -65,12 +65,12 @@ def test_record_csv_rows_null_classified_reason_skipped():
 
 
 def test_record_csv_rows_negative_sips_always_recorded():
-    """Negative (credit) sips are always recorded; fallback rule is 'Sip credit'."""
+    """Negative (credit) sips are always recorded with their canonical rule name."""
     room = _make_room()
-    # "bust vote correct" → classify_rule returns None → fallback to "Sip credit"
+    # "bust vote correct" → classify_rule now returns "Bust vote credit"
     room.all_players[0].add_drink(-1, "bust vote correct: -1 sip credit", "player")
     _record_csv_rows(room)
-    assert any(r["player"] == "Alice" and r["sips"] == -1 and r["rule"] == "Sip credit"
+    assert any(r["player"] == "Alice" and r["sips"] == -1 and r["rule"] == "Bust vote credit"
                for r in room._drink_csv_rows)
 
 
