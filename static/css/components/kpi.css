@@ -197,6 +197,12 @@
   border-color: rgba(255,215,0,.45);
 }
 
+/* ---- MOBILE RANKING MODAL ---- */
+@keyframes _lb-slide-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
 /* ---- MOBILE: swap full table + desktop rankings for compact card ---- */
 .stat-card-mobile-lb { display: none; }
 
