@@ -18,7 +18,7 @@ Single function does: milestone check, streak tracking, sip ticker update, CSV r
 Every route replicates the same 3-line admin check with inconsistent error text ("Not authorised." vs "Admin only." vs "Admin only").
 **Fix:** Extract `require_admin(session, client_id) -> tuple[bool, Response]` helper or a `@admin_only` decorator.
 
-### M3 · `/state` route tick logic is 60 lines inline in the route
+### ~~M3 · `/state` route tick logic is 60 lines inline in the route~~
 **File:** `app/routes/polling.py` `/state` (L88-145)
 Sequential side-effectful ticks (insurance auto-resolve, bust-vote pause, milestone pause, handout forfeit) are embedded directly in the route function.
 **Fix:** Extract `tick(session)` service function for testability and separation.
@@ -149,7 +149,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 ### Medium
 - [ ] M1 — Split `harvest_drink_log` into named helpers
 - [X] M2 — Extract `require_admin` helper / decorator in admin.py
-- [ ] M3 — Extract `tick(session)` from `/state` route
+- [X] M3 — Extract `tick(session)` from `/state` route
 - [ ] M4 — Split `applyState` into named phase functions
 - [ ] M5 — Centralize phase/role string constants in JS
 - [X] M6 — Single-pass sip total accumulation in serializer

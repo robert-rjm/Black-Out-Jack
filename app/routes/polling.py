@@ -13,8 +13,6 @@ POST /vote_insurance  — Player casts their insurance vote
 POST /give_bust_sip   — Bust vote winner hands out their 1-sip reward
 """
 
-import contextlib
-import io
 import logging
 import time as _time
 
@@ -29,15 +27,10 @@ from app.services.serializer import (
     serialize_state, round_phase, current_turn, hand_done,
     compute_mandatory_split10,
 )
-from app.services.drink_tracker import (
-    check_and_set_milestone, apply_milestone_forfeit, apply_bust_handout_forfeit,
-)
-from app.services.game_engine import dealer_turn, auto_play_npc_turns
-from app.services.round_pipeline import apply_endround_pipeline
-from app.config import (
-    INSURANCE_VOTE_TIMEOUT, MAX_REG_DENIALS,
-    BUST_HANDOUT_WINDOW_SECONDS, BUST_VOTE_WINDOW_SECONDS,
-)
+from app.services.drink_tracker import check_and_set_milestone
+from app.services.game_engine import auto_play_npc_turns
+from app.services.tick import tick, _run_deferred_dealer_play
+from app.config import MAX_REG_DENIALS
 
 log = logging.getLogger(__name__)
 
@@ -45,24 +38,6 @@ _last_cleanup: float = 0.0
 _CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
 
 bp = Blueprint("polling", __name__)
-
-
-def _run_deferred_dealer_play(session):
-    """Run the dealer sequence when bust vote window has just closed.
-
-    Safe to call speculatively — checks round_phase and window state before acting.
-    """
-    if round_phase(session) != "dealer-ready":
-        return
-    # Don't fire if window is still open
-    if (session.round._bust_vote_expires_at is not None
-            and _time.monotonic() < session.round._bust_vote_expires_at):
-        return
-    log.debug("\n  (Bust vote closed — dealer plays automatically)")
-    dealer_turn(session)
-    with contextlib.redirect_stdout(io.StringIO()):
-        session.cmd_endround()
-    apply_endround_pipeline(session)
 
 
 # ---------------------------------------------------------------------------
@@ -82,67 +57,8 @@ def state():
     if now - _last_cleanup > _CLEANUP_INTERVAL:
         _last_cleanup = now
         cleanup_stale_sessions()
-        # Auto-resolve expired insurance votes (treat as decline)
     if session is not None:
-        _now = _time.monotonic()
-        any_insurance_pending = False
-        for _v in session.round._insurance_votes:
-            if not _v.get("resolved"):
-                bj_player    = _v["player"]
-                votes_needed = sum(
-                    1 for p in session.all_players
-                    if p.name.lower() != bj_player.lower()
-                    and not getattr(p, "is_npc", False)
-                )
-                if _now - _v.get("started_at", _now) >= INSURANCE_VOTE_TIMEOUT:
-                    _v["resolved"] = True   # auto-resolve expired vote as decline
-                elif len(_v["votes"]) >= votes_needed:
-                    _v["resolved"] = True   # everyone eligible has voted — resolve now
-                else:
-                    any_insurance_pending = True
-
-        # Freeze the bust-vote countdown while insurance voting is open.
-        # Keep a full window remaining so players always get the full time
-        # to vote after insurance resolves (not just whatever seconds were left
-        # when the BJ was detected).
-        if any_insurance_pending and session.round._bust_vote_expires_at is not None:
-            session.round._bust_vote_expires_at = max(
-                session.round._bust_vote_expires_at,
-                _now + BUST_VOTE_WINDOW_SECONDS,
-            )
-
-        # Milestone forfeit: if the handout window expired without the winner submitting,
-        # the full handout sip total comes back on them.
-        apply_milestone_forfeit(session)
-
-        # Pause the bust-vote handout countdown while a milestone handout is
-        # pending, so the two allocation popups (and their timers) don't run
-        # concurrently. The bust-handout window gets a fresh full countdown
-        # starting once the milestone prompt clears.
-        if session.round._pending_milestone and session.round._bust_handout_expires_at is not None:
-            ms_expires = session.round._pending_milestone.get("expires_at")
-            if ms_expires is not None:
-                session.round._bust_handout_expires_at = max(
-                    session.round._bust_handout_expires_at,
-                    ms_expires + BUST_HANDOUT_WINDOW_SECONDS,
-                )
-
-        # Bust-vote handout forfeit: if a bust-vote winner didn't assign their
-        # 1-sip reward in time, it comes back on them (server-enforced —
-        # does not rely on the client sending forfeit=true).
-        apply_bust_handout_forfeit(session)
-
-        # When the bust-vote window expires (or all players have voted), unblock
-        # any NPC turns that were held and then let the dealer play if ready.
-        if (session.round._bust_vote_expires_at is not None
-                and _now >= session.round._bust_vote_expires_at):
-            if round_phase(session) == "playing":
-                auto_play_npc_turns(session)   # unblock NPCs held by pending vote
-            _run_deferred_dealer_play(session)
-        # Safety net: dealer stuck at "dealer-ready" with no bust-vote window
-        # (e.g. bust vote disabled, or all-BJ deal where no hit/stand fires).
-        elif round_phase(session) == "dealer-ready" and session.round._bust_vote_expires_at is None:
-            _run_deferred_dealer_play(session)
+        tick(session)
 
     if session is None:
         if room_code in game_sessions:
