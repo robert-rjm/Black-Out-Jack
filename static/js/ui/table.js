@@ -7,8 +7,6 @@ function buildGameUI() {
   document.getElementById("ref-panel").style.display = isDigital ? "none"  : "block";
   document.getElementById("dig-panel").style.display = isDigital ? "block" : "none";
 
-  initLogCollapse();
-
   if (isDigital) {
     buildDigitalUI();
   } else {
@@ -314,16 +312,10 @@ function syncLogFromState(state) {
   const ver     = state.log_version || 0;
   const entries = state.log_entries  || [];
 
-  // Version bump = new game or new round — clear the local log
+  // Version bump = new game or new round — reset log counter
   if (ver !== logVersion) {
     logVersion = ver;
     logCount   = 0;
-    document.getElementById("log").innerHTML = "";
-  }
-
-  // Append only the entries we haven't seen yet
-  for (let i = logCount; i < entries.length; i++) {
-    appendLog(entries[i]);
   }
   logCount = entries.length;
 }

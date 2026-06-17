@@ -12,7 +12,8 @@
     - potentially collapsible stats / trivia section
     - eliminate dead space / optimize UI
 - [ ] Trivia Panel
-  - check if needed
+  - could move into "contextual trivia" instead of tab, show trivia inline between rounds and hide when round is active
+  - check if needed / desired
   - fact check
   - add / edits facts
   - add Black(Out)Jack specific fun facts
