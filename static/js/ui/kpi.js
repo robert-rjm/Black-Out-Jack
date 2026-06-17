@@ -348,7 +348,7 @@ function renderStats(state) {
       return `<div style="display:grid;grid-template-columns:${COL};gap:0 6px;
           align-items:center;padding:2px 0;font-size:11px">
         <span style="text-align:center">${medal}</span>
-        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.name)}</span>
+        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${escapeHtml(r.name)}</span>
         <span style="text-align:right">${wrStr}</span>
         <span style="text-align:center">${wlp}</span>
         <span style="text-align:center">${_streakLabel(r.current)}</span>
@@ -358,6 +358,32 @@ function renderStats(state) {
     callouts.push(`<div class="stat-card stat-card-primary" style="flex-direction:column;align-items:stretch;gap:0">
       <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
       ${headerRow}${lbLines}
+    </div>`);
+
+    // ── Mobile-only ranking card ─────────────────────────────
+    const mCOL = drinking ? "20px 1fr 38px 38px" : "20px 1fr 38px";
+    const mHeader = `<div style="display:grid;grid-template-columns:${mCOL};gap:0 8px;width:100%;
+        font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;
+        letter-spacing:.3px;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:4px">
+      <span></span><span>Player</span>
+      <span style="text-align:right">Win%</span>
+      ${drinking ? `<span style="text-align:right">Avg🍺</span>` : ""}
+    </div>`;
+    const mLines = lbSorted.map((r, i) => {
+      const medal  = i < 3 ? rankEmoji[i] : `<span style="font-size:10px;color:var(--muted)">${i + 1}</span>`;
+      const wrStr  = r.wr !== null ? `<span class="${wrClass(r.wr)}">${r.wr}%</span>` : `<span style="opacity:.4">—</span>`;
+      const avgStr = drinking ? (r.avgSips !== "—" ? `<span>${r.avgSips}</span>` : `<span style="opacity:.35">—</span>`) : "";
+      return `<div style="display:grid;grid-template-columns:${mCOL};gap:0 8px;width:100%;
+          align-items:center;padding:3px 0;font-size:12px">
+        <span style="text-align:center;flex-shrink:0">${medal}</span>
+        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${escapeHtml(r.name)}</span>
+        <span style="text-align:right">${wrStr}</span>
+        ${drinking ? `<span style="text-align:right">${avgStr}</span>` : ""}
+      </div>`;
+    }).join("");
+    callouts.push(`<div class="stat-card stat-card-mobile-lb" style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box">
+      <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
+      ${mHeader}${mLines}
     </div>`);
   }
 
