@@ -33,6 +33,28 @@ bp = Blueprint("admin", __name__)
 
 
 # ---------------------------------------------------------------------------
+# Auth helper
+# ---------------------------------------------------------------------------
+
+def _require_admin(data: dict):
+    """Validate room_code + client_id and verify admin role.
+
+    Returns (session, client_id, admin_info, None) on success, or
+    (None, None, None, error_response) on failure.  Every admin-only route
+    calls this instead of repeating the same 6-line block.
+    """
+    room_code  = (data.get("room_code") or "").strip()
+    client_id  = (data.get("client_id") or "").strip()
+    session    = game_sessions.get(room_code)
+    if not session:
+        return None, None, None, jsonify({"ok": False, "error": "Room not found."})
+    admin_info = session._room_clients.get(client_id, {})
+    if admin_info.get("role") != "admin":
+        return None, None, None, jsonify({"ok": False, "error": "Admin only."})
+    return session, client_id, admin_info, None
+
+
+# ---------------------------------------------------------------------------
 # Kick / undo-kick
 # ---------------------------------------------------------------------------
 
@@ -40,18 +62,11 @@ bp = Blueprint("admin", __name__)
 def kick():
     """Admin removes a client. Body: { room_code, client_id, target_name }"""
     data        = request.json or {}
-    room_code   = (data.get("room_code") or "").strip()
-    client_id   = (data.get("client_id") or "").strip()
     target_name = sanitize_name(data.get("target_name") or "")
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Not authorised."})
+    session, client_id, admin_info, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     admin_name_lc = (admin_info.get("name") or "").lower()
     if target_name.lower() == admin_name_lc:
@@ -71,18 +86,11 @@ def undo_kick():
     """Admin reinstates a previously kicked client as a spectator.
     Body: { room_code, client_id, target_client_id }"""
     data             = request.json or {}
-    room_code        = (data.get("room_code") or "").strip()
-    client_id        = (data.get("client_id") or "").strip()
     target_client_id = (data.get("target_client_id") or "").strip()
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Not authorised."})
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     target_info = clients.get(target_client_id)
     if not target_info:
@@ -106,18 +114,11 @@ def make_bot():
     """Admin converts a seated player to an NPC bot.
     Body: { room_code, client_id, player_name }"""
     data        = request.json or {}
-    room_code   = (data.get("room_code") or "").strip()
-    client_id   = (data.get("client_id") or "").strip()
     target_name = sanitize_name(data.get("player_name") or "")
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Not authorised."})
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     player = next(
         (p for p in session.all_players
@@ -154,18 +155,11 @@ def make_human():
     """Admin converts an NPC bot back to a human-controlled player.
     Body: { room_code, client_id, player_name }"""
     data        = request.json or {}
-    room_code   = (data.get("room_code") or "").strip()
-    client_id   = (data.get("client_id") or "").strip()
     target_name = sanitize_name(data.get("player_name") or "")
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Not authorised."})
+    session, client_id, admin_info, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     player = next(
         (p for p in session.all_players
@@ -219,18 +213,11 @@ def transfer_admin():
     """Admin hands admin role to another connected player.
     Body: { room_code, client_id, target_name }"""
     data        = request.json or {}
-    room_code   = (data.get("room_code") or "").strip()
-    client_id   = (data.get("client_id") or "").strip()
     target_name = sanitize_name(data.get("target_name") or "")
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Not authorised."})
+    session, client_id, admin_info, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     # Find the target client
     target_cid = next(
@@ -317,18 +304,11 @@ def leave_room():
 def set_anim_pref():
     """Admin pushes their animation preference so new joiners inherit it.
     Body: { room_code, client_id, enabled: bool }"""
-    data      = request.json or {}
-    room_code = (data.get("room_code") or "").strip()
-    client_id = (data.get("client_id") or "").strip()
-    enabled   = bool(data.get("enabled", True))
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients = session._room_clients
-    if clients.get(client_id, {}).get("role") != "admin":
-        return jsonify({"ok": False, "error": "Not authorised."})
+    data    = request.json or {}
+    enabled = bool(data.get("enabled", True))
+    session, _, _, err = _require_admin(data)
+    if err:
+        return err
 
     session._anim_default = enabled
     return jsonify({"ok": True})
@@ -444,19 +424,12 @@ def handle_rejoin():
     """Admin approves or denies a rejoin request.
     Body: { room_code, client_id, target_client_id, approve: bool }"""
     data             = request.json or {}
-    room_code        = (data.get("room_code") or "").strip()
-    client_id        = (data.get("client_id") or "").strip()
     target_client_id = (data.get("target_client_id") or "").strip()
     approve          = bool(data.get("approve", False))
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Not authorised."})
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     # Remove from rejoin requests regardless of decision
     session._rejoin_requests = [r for r in session._rejoin_requests
@@ -478,17 +451,11 @@ def handle_rejoin():
 @bp.route("/update_settings", methods=["POST"])
 def update_settings():
     """Queue game settings to apply at the start of the next round (admin only)."""
-    data      = request.json or {}
-    room_code = (data.get("room_code") or "").strip()
-    client_id = (data.get("client_id") or "").strip()
-    session   = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
+    data = request.json or {}
+    session, client_id, admin_info, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     admin_name_lc = (admin_info.get("name") or "").lower()
     queued = session._queued_settings
@@ -736,18 +703,10 @@ def rotate_dealer():
     """Admin immediately rotates the dealer to the next player (lobby/name order).
     Resets rounds_this_dealer to 1. Does not start a new round.
     Body: { room_code, client_id }"""
-    data      = request.json or {}
-    room_code = (data.get("room_code") or "").strip()
-    client_id = (data.get("client_id") or "").strip()
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
+    data = request.json or {}
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return err
 
     _rotate_dealer(session)
     session.rounds_this_dealer = 1
@@ -764,17 +723,10 @@ def toggle_god_mode():
     God Mode grants admin full dealer bypass (execute any turn, deal, endround).
     Without it, admin is subject to the same turn-gate as regular players.
     """
-    data      = request.json or {}
-    room_code = (data.get("room_code") or "").strip()
-    client_id = (data.get("client_id") or "").strip()
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    info = session._room_clients.get(client_id, {})
-    if info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
+    data = request.json or {}
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return err
 
     enabled = bool(data.get("enabled", False))
     session._god_mode = enabled
@@ -787,18 +739,11 @@ def take_back_seat():
     The seat is added back to the admin's local_names.
     Body: { room_code, client_id, player_name }"""
     data        = request.json or {}
-    room_code   = (data.get("room_code") or "").strip()
-    client_id   = (data.get("client_id") or "").strip()
     player_name = (data.get("player_name") or "").strip()
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-
-    clients    = session._room_clients
-    admin_info = clients.get(client_id, {})
-    if admin_info.get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
+    session, client_id, admin_info, err = _require_admin(data)
+    if err:
+        return err
+    clients = session._room_clients
 
     if not player_name:
         return jsonify({"ok": False, "error": "No player name provided."})
