@@ -11,15 +11,28 @@ and may be used by multiple app services.
 def classify_rule(reason: str) -> str | None:
     """
     Normalise a raw drink-reason string to a short canonical rule name.
-    Returns None for bookkeeping entries that should not appear in the CSV.
+
+    Returns:
+      None                 -- skip entirely (no CSV row, no display entry)
+      "A\u2663 waived"      -- positive-sip entry waived by A\u2663; shown in Drinks pane
+                              but excluded from CSV (caller must check)
+      "Hard Switch notice" -- zero-sip notice; goes to round notices, not drinks
+      any other string     -- canonical category name for CSV and display
     """
     r = reason
-    if "A\u2663" in r and "credit" in r:           return None   # A♣ credit
-    if "A\u2663 protected" in r:                   return None   # display-only waived entry
-    if "A\u2663 protection credit" in r:           return None   # display-only waived credit
-    if "bust vote correct" in r:                    return None   # bust vote credit
-    if "protects" in r:                              return None
-    if "exempt" in r:                                return None
+    # --- Skip entirely ---
+    if "protects" in r:                                 return None
+    if "exempt" in r:                                   return None
+    # --- Negative-sip credits ---
+    if "bust vote correct" in r:                        return "Bust vote credit"
+    if "A\u2663" in r and "credit" in r:               return "A\u2663 protection credit"
+    # --- Positive-sip waived entry (shown in pane, excluded from CSV) ---
+    if "A\u2663 protected" in r:                       return "A\u2663 waived"
+    # --- Negative-sip adjustments ---
+    if "Sweep cancels doubled-hand drink" in r:         return "Sweep credit"
+    if "4-player halving" in r or "Easy mode halving" in r: return "Easy mode halving"
+    # --- Zero-sip round notice ---
+    if "Hard Switch triggered" in r:                    return "Hard Switch notice"
     if "Bust vote" in r and "wrong" in r:           return "Bust vote wrong call"
     if "Insurance" in r and "dealer BJ" in r and "own bonus" in r: return "Insurance: BJ holder drinks own bonus"
     if "Insurance" in r and "no dealer BJ" in r:                   return "Insurance: group drinks double BJ bonus"

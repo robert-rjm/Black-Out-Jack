@@ -129,7 +129,7 @@ def test_mixed_votes_dealer_busts():
 
 
 def test_classify_rule_round_trip():
-    assert classify_rule("bust vote correct: -1 sip credit") is None
+    assert classify_rule("bust vote correct: -1 sip credit") == "Bust vote credit"
     assert classify_rule("Bust vote wrong — dealer didn't bust: +1 sip") == "Bust vote wrong call"
 
 

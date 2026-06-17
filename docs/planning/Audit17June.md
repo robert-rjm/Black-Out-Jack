@@ -161,4 +161,4 @@ If any reason string changes in `drinking_rules.py`, the Drinks-pane display sil
 - [x] N5 — Update DOM-Hooks.md with 20+ undocumented element IDs
 - [x] N6 — Add `admin-settings.js` ownership section to DOM-Hooks.md
 - [X] N7 — Remove stale `# Rule classifier` section header from `drinking_rules.py`
-- [ ] N8 — Replace substring matching in `_record_drinks_detail` with `classify_rule` or typed log entries
+- [x] N8 — Replace substring matching in `_record_drinks_detail` with `classify_rule` or typed log entries

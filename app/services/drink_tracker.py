@@ -240,27 +240,33 @@ def _record_drinks_detail(session: GameRoom) -> None:
                 continue
             sips   = entry[0]
             reason = entry[1]
+
+            rule = classify_rule(reason) if reason else None
+
+            if rule is None:
+                continue  # skip entirely (exempt / protects / no reason)
+
+            if rule == "Hard Switch notice":
+                notices.append(reason)
+                continue
+
             if sips and sips > 0:
-                rule = classify_rule(reason)
-                if rule is None:
-                    if reason and "A♣ protected" in reason:
-                        drinks_detail.append({"name": p.name, "sips": sips,
-                                              "reason": f"Hard Dealer Switch — A♣ protected ({sips} sip(s) waived)"})
-                    continue
-                drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
-            elif sips and sips < 0 and reason:
-                if "bust vote correct" in reason:
+                if rule == "A♣ waived":
+                    drinks_detail.append({"name": p.name, "sips": sips,
+                                          "reason": f"Hard Dealer Switch — A♣ protected ({sips} sip(s) waived)"})
+                else:
+                    drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+
+            elif sips and sips < 0:
+                if rule == "Bust vote credit":
                     drinks_detail.append({"name": p.name, "sips": sips,
                                           "reason": "-1 sip credit from dealer bust"})
-                elif "A♣ protection credit" in reason or ("A♣" in reason and "credit" in reason):
-                    drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
-                elif "Sweep cancels doubled-hand drink" in reason:
+                elif rule == "Sweep credit":
                     drinks_detail.append({"name": p.name, "sips": sips,
                                           "reason": "-1 sip: doubled-hand drink waived (covered by sweep)"})
-                elif "4-player halving" in reason or "Easy mode halving" in reason:
+                else:
                     drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
-            elif reason and "Hard Switch triggered" in reason:
-                notices.append(reason)
+
     session._last_round_drinks = drinks_detail
     session._round_notices     = notices
 
