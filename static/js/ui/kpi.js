@@ -110,49 +110,33 @@ function _rollingAvg(history, n) {
 let _mobileLbDetailHTML = "";
 let _mobileKpiDetailHTML = "";
 
-function openMobileLbModal() {
-  if (!_mobileLbDetailHTML) return;
-  let overlay = document.getElementById("mobile-lb-overlay");
+function _mobileSheet(id, title, contentHtml) {
+  let overlay = document.getElementById(id);
   if (overlay) { overlay.remove(); return; }
   overlay = document.createElement("div");
-  overlay.id = "mobile-lb-overlay";
-  overlay.style.cssText = [
-    "position:fixed;inset:0;z-index:800;background:var(--bg);",
-    "display:flex;flex-direction:column;padding:16px 12px;box-sizing:border-box;overflow-y:auto;",
+  overlay.id = id;
+  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box";
+  const sheet = document.createElement("div");
+  sheet.style.cssText = [
+    "background:var(--bg);border-radius:16px;",
+    "padding:16px 12px;box-sizing:border-box;",
+    "width:100%;max-height:85vh;overflow-y:auto;",
     "animation:_lb-slide-up .2s ease"
   ].join("");
-  overlay.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-shrink:0">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">🏆 Full Rankings</div>
-      <button onclick="document.getElementById('mobile-lb-overlay').remove()"
+  sheet.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">${title}</div>
+      <button onclick="document.getElementById('${id}').remove()"
         style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
-    <div style="overflow-x:auto">${_mobileLbDetailHTML}</div>`;
+    <div style="overflow-x:auto">${contentHtml}</div>`;
+  overlay.appendChild(sheet);
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
 
-function openMobileKpiModal() {
-  if (!_mobileKpiDetailHTML) return;
-  let overlay = document.getElementById("mobile-kpi-overlay");
-  if (overlay) { overlay.remove(); return; }
-  overlay = document.createElement("div");
-  overlay.id = "mobile-kpi-overlay";
-  overlay.style.cssText = [
-    "position:fixed;inset:0;z-index:800;background:var(--bg);",
-    "display:flex;flex-direction:column;padding:16px 12px;box-sizing:border-box;overflow-y:auto;",
-    "animation:_lb-slide-up .2s ease"
-  ].join("");
-  overlay.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-shrink:0">
-      <div style="font-size:13px;font-weight:700;color:var(--text)">📊 Session Stats</div>
-      <button onclick="document.getElementById('mobile-kpi-overlay').remove()"
-        style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1">✕</button>
-    </div>
-    ${_mobileKpiDetailHTML}`;
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
-}
+function openMobileLbModal()  { if (_mobileLbDetailHTML)  _mobileSheet("mobile-lb-overlay",  "🏆 Full Rankings",  _mobileLbDetailHTML); }
+function openMobileKpiModal() { if (_mobileKpiDetailHTML) _mobileSheet("mobile-kpi-overlay", "📊 Session Stats", _mobileKpiDetailHTML); }
 
 // ---- Stats renderer ----
 function renderStats(state) {
