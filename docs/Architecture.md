@@ -27,18 +27,23 @@ Black-Out-Jack/
 │   │   ├── lobby.py                        # Room creation, joining, setup
 │   │   ├── polling.py                      # Long-poll state sync; delegates per-poll ticks to services/tick.py
 │   │   ├── game_commands.py                # Referee & digital game commands
-│   │   └── admin.py                        # Dealer rotation, milestone claim, kick
+│   │   ├── admin.py                        # Dealer rotation, milestone claim, kick
+│   │   └── reports.py                      # Per-session drink summary export
 │   └── services/
 │       ├── game_engine.py                  # Digital mode card/turn logic
 │       ├── drink_tracker.py                # Sip harvesting, milestones, bust votes
+│       ├── payout_tracker.py               # End-of-round payout calculations
 │       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play)
 │       ├── utils.py                        # Cross-cutting app-layer utilities (classify_rule)
+│       ├── validators.py                   # sanitize_name, get_client_info; used by routes and serializer
+│       ├── serializer.py                   # Converts room state to JSON payload for polling response
 │       ├── round_pipeline.py               # Shared post-round pipeline (bust votes → harvest → milestone → payouts → backfill)
 │       ├── room_manager.py                 # Tracker patching, dealer rotation helpers
 │       ├── session_store.py                # In-memory room store
 │       └── decision_log.py                 # Per-decision board-state capture (Phase C, player-mimicry bot training)
 ├── data/
-│   └── decisions/                          # Exported decision_log_*.csv files (gitignored, local only)
+│   ├── decisions/                          # Exported decision_log_*.csv files (gitignored, local only)
+│   └── drinks/                             # Per-session drink summary CSVs (gitignored, local only)
 ├── docs/
 │   ├── Rules.md                            # Drinking Rules
 │   ├── Cheat-Sheet.md                      # One-page quick reference for gameplay
@@ -70,28 +75,39 @@ Black-Out-Jack/
 │   └── partials/index/*.html               # Composable UI sections
 │
 ├── engine/                                 # Core game library (START HERE)
-│   ├── __init__.py
 │   ├── blackjack.py                        # Card/hand/deck classes, game loop, NPC logic
 │   ├── strategy.py                         # Basic strategy lookup tables + best_play()
+│   ├── events.py                           # Typed dataclass events dispatched via DrinkingRules.handle()
 │   ├── drinking_rules.py                   # Drinking layer — reacts to game events
 │   └── referee.py                          # RefereeSession class for real-life play
 ├── scripts/                                # Standalone CLI tools
-│   ├── __init__.py
 │   ├── play_terminal.py                    # Interactive terminal play (RoundManager + DrinkTracker)
+│   ├── play_referee.py                     # Interactive CLI for real-life referee mode (RefereeSession)
 │   ├── simulation.py                       # 100,000-round NPC simulation; outputs CSV, txt,
 │   │                                       # benchmarks.json, and static/js/benchmarks.js
 │   ├── snapshot.py                         # Saves simulation output as a labeled regression snapshot
+│   ├── run_all_configs.py                  # Runs simulation across all player/deck configs in one pass
+│   ├── compare_configs.py                  # Diffs two benchmark configs; highlights balance changes
 │   ├── rules_sync.py                       # Rules/code drift check + re-pin (docs/.rules_sync.json)
 │   ├── load_decision_logs.py               # Phase D step 0 — load/concat data/decisions/*.csv, per-player summary
 │   └── snapshots/                          # Saved snapshots (scripts/snapshots/<label>/)
-├── tests/                                  # pytest suite (see docs/planning/Test-Plan.md)
+├── tests/                                  # pytest suite
 │   ├── conftest.py                         # Shared fixtures/builders (make_card, make_hand, make_player...)
-│   ├── test_drinking_rules_*.py            # Unit tests per DrinkingRules method
+│   ├── test_drinking_rules_aces_blackjack.py   # Ace effects, four-aces, blackjack bonus rules
+│   ├── test_drinking_rules_card_dealt.py        # Card-dealt event handler
+│   ├── test_drinking_rules_hand_resolution.py   # Hand resolution (win/loss/push/bust) rules
+│   ├── test_drinking_rules_handle_dispatch.py   # DrinkingRules.handle() event dispatch
+│   ├── test_drinking_rules_hard_switch.py       # Hard/soft dealer switch rule
+│   ├── test_drinking_rules_round_end.py         # End-of-round rule triggers
 │   ├── test_classify_rule.py               # classify_rule unit tests
 │   ├── test_drink_tracker.py               # DrinkTracker unit tests
+│   ├── test_harvest_helpers.py             # Harvest helper function unit tests
+│   ├── test_round_end_helpers.py           # Round-end helper unit tests
+│   ├── test_normal_mode_no_drinking.py     # Verifies no drinks fire outside drinking rules
+│   ├── test_payout_tracker.py              # PayoutTracker unit tests
+│   ├── test_bust_vote.py                   # Bust vote side bet tests (Rules.md §4.4)
 │   ├── test_round_manager_integration.py   # Scripted, seeded full-round integration tests
 │   ├── test_regression_snapshots.py        # Statistical regression vs. scripts/snapshots/
-│   ├── test_bust_vote*.py                  # Bust vote side bet tests (Rules.md §4.4)
 │   ├── test_decision_log.py                # Decision-log capture, visible_cards, backfill, /export_decisions CSV
 │   └── test_rules_doc_sync.py              # Fails if docs/Rules.md / drinking_rules.py drift apart
 ├── server.py                               # Flask entry point
@@ -111,11 +127,17 @@ The main files are intentionally decoupled:
 |---|---|---|
 | `engine/strategy.py` | nothing | Basic strategy lookup tables + `best_play()` resolver |
 | `engine/blackjack.py` | `engine/strategy.py` | Core game logic, card/hand/deck classes, game loop |
-| `engine/drinking_rules.py` | `engine/blackjack.py` | Drinking layer only, no game logic |
+| `engine/events.py` | nothing | Typed dataclass events dispatched to `DrinkingRules.handle()` |
+| `engine/drinking_rules.py` | `engine/blackjack.py`, `engine/events.py` | Drinking layer only, no game logic |
 | `engine/referee.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | RefereeSession for real-life play |
+| `app/services/validators.py` | nothing | `sanitize_name` + `get_client_info`; used by routes and serializer |
+| `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play); imported by `polling.py` |
 | `scripts/play_terminal.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | Interactive terminal play via `RoundManager` + `DrinkTracker` |
+| `scripts/play_referee.py` | `engine/referee.py` | Interactive CLI for real-life referee mode (`RefereeSession`) |
 | `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 100,000-round NPC simulation; outputs CSV, txt, `benchmarks.json`, and `static/js/benchmarks.js` |
 | `scripts/snapshot.py` | `scripts/simulation.py` output | Copies `simulation_results.txt` + `benchmarks.json` into `scripts/snapshots/<label>/` for regression diffing |
+| `scripts/run_all_configs.py` | `scripts/simulation.py` | Runs simulation across all player/deck configs in one pass |
+| `scripts/compare_configs.py` | `scripts/benchmarks.json` | Diffs two benchmark configs; highlights balance changes between runs |
 | `scripts/rules_sync.py` | `docs/Rules.md`, `engine/drinking_rules.py`, `docs/.rules_sync.json` | Hash-based drift check + re-pin helper (see [Rules/Code Sync Check](#rulescode-sync-check)) |
 | `app/services/utils.py` | _(none)_ | Pure helper functions used across app services. Currently: `classify_rule()` — maps raw drink-reason strings to short canonical category names for CSV export and the UI. Moved here from `engine/drinking_rules.py` (refactor 4.2). |
 | `app/services/round_pipeline.py` | `app/services/drink_tracker.py`, `app/services/payout_tracker.py`, `app/services/decision_log.py` | Single authoritative post-round sequence: bust-vote penalties → harvest drink log → milestone check → payouts → backfill. Imported by both `game_commands.py` and `polling.py` so pipeline ordering only needs to change in one place. |
@@ -279,7 +301,6 @@ pytest -m "not slow"             # Fast unit + regression suite (CI default)
 pytest -m slow                   # Full 100k-round snapshot diff (manual/release)
 ```
 
-See [docs/planning/Test-Plan.md](planning/Test-Plan.md) for coverage details.
 
 ### Contributing
 
