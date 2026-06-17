@@ -25,12 +25,13 @@ Black-Out-Jack/
 │   │   └── game_room.py                    # Typed room-state container
 │   ├── routes/
 │   │   ├── lobby.py                        # Room creation, joining, setup
-│   │   ├── polling.py                      # Long-poll state sync + milestone forfeit
+│   │   ├── polling.py                      # Long-poll state sync; delegates per-poll ticks to services/tick.py
 │   │   ├── game_commands.py                # Referee & digital game commands
 │   │   └── admin.py                        # Dealer rotation, milestone claim, kick
 │   └── services/
 │       ├── game_engine.py                  # Digital mode card/turn logic
 │       ├── drink_tracker.py                # Sip harvesting, milestones, bust votes
+│       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play)
 │       ├── utils.py                        # Cross-cutting app-layer utilities (classify_rule)
 │       ├── round_pipeline.py               # Shared post-round pipeline (bust votes → harvest → milestone → payouts → backfill)
 │       ├── room_manager.py                 # Tracker patching, dealer rotation helpers
