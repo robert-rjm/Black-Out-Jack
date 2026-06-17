@@ -215,6 +215,8 @@
   .stat-card-primary    { display: none; }
   .stat-card-mobile-lb  { display: flex; }
   .stat-card-mobile-kpi { display: flex; }
+  .kpi-tab[data-args='["trivia"]'],
+  #pane-kpi-trivia      { display: none; }
 }
 
 #mobile-lb-overlay .stats-table        { display: table; }
