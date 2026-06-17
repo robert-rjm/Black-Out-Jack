@@ -147,4 +147,3 @@ def test_ace_spades_string_with_both_markers_maps_to_dealer_variant():
 
 def test_unmatched_reason_returns_other():
     assert classify_rule("Some completely unrelated reason string") == "Other"
-== "Other"

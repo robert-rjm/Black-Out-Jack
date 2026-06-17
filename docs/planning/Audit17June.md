@@ -122,7 +122,7 @@ Large batches of DOM elements added since the doc was last updated have no modul
 ```
 `classify_rule` was moved to `app/services/utils.py` (refactor 4.2) but this section header was left behind, implying the classifier still lives here. Remove or replace with a redirect comment: `# classify_rule() lives in app/services/utils.py`.
 
-### N8 · `drink_tracker.py` `_record_drinks_detail` uses fragile substring matching
+### ~~N8 · `drink_tracker.py` `_record_drinks_detail` uses fragile substring matching~~
 **File:** `app/services/drink_tracker.py` → `_record_drinks_detail()` (~line 195)
 Like the old L9 pattern (now resolved in the JS log), the Python side still detects special-case drink entries by checking raw reason strings:
 ```python
