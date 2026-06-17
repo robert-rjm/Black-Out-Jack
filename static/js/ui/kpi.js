@@ -106,6 +106,38 @@ function _rollingAvg(history, n) {
   return (slice.reduce((a, b) => a + b, 0) / slice.length).toFixed(1);
 }
 
+// ---- Mobile ranking modal ----
+let _mobileLbDetailHTML = "";
+let _mobileKpiDetailHTML = "";
+
+function _mobileSheet(id, title, contentHtml) {
+  let overlay = document.getElementById(id);
+  if (overlay) { overlay.remove(); return; }
+  overlay = document.createElement("div");
+  overlay.id = id;
+  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box";
+  const sheet = document.createElement("div");
+  sheet.style.cssText = [
+    "background:var(--bg);border-radius:16px;",
+    "padding:16px 12px;box-sizing:border-box;",
+    "width:100%;max-height:85vh;overflow-y:auto;",
+    "animation:_lb-slide-up .2s ease"
+  ].join("");
+  sheet.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">${title}</div>
+      <button onclick="document.getElementById('${id}').remove()"
+        style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div style="overflow-x:auto">${contentHtml}</div>`;
+  overlay.appendChild(sheet);
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function openMobileLbModal()  { if (_mobileLbDetailHTML)  _mobileSheet("mobile-lb-overlay",  "🏆 Full Rankings",  _mobileLbDetailHTML); }
+function openMobileKpiModal() { if (_mobileKpiDetailHTML) _mobileSheet("mobile-kpi-overlay", "📊 Session Stats", _mobileKpiDetailHTML); }
+
 // ---- Stats renderer ----
 function renderStats(state) {
   const el = document.getElementById("stats-content");
@@ -177,6 +209,8 @@ function renderStats(state) {
         ${dealerBustPct !== null ? `<span class="ssb-tag">Dealer bust ${dealerBustPct}%</span>` : ""}
       </div>
     </div>`;
+
+  _mobileKpiDetailHTML = sessionBanner;
 
   // ── Per-player table ─────────────────────────────────────────
   const rows = playOrder.map(name => {
@@ -348,16 +382,62 @@ function renderStats(state) {
       return `<div style="display:grid;grid-template-columns:${COL};gap:0 6px;
           align-items:center;padding:2px 0;font-size:11px">
         <span style="text-align:center">${medal}</span>
-        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(r.name)}</span>
+        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${escapeHtml(r.name)}</span>
         <span style="text-align:right">${wrStr}</span>
         <span style="text-align:center">${wlp}</span>
         <span style="text-align:center">${_streakLabel(r.current)}</span>
         ${drinking ? `<span style="text-align:right">${sipStr}</span>` : ""}
       </div>`;
     }).join("");
+    _mobileLbDetailHTML = headerRow + lbLines + `<div style="margin-top:14px;overflow-x:auto">${table}</div>`;
     callouts.push(`<div class="stat-card stat-card-primary" style="flex-direction:column;align-items:stretch;gap:0">
       <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">🏆 Rankings</div>
       ${headerRow}${lbLines}
+    </div>`);
+
+    // ── Mobile-only ranking card ─────────────────────────────
+    const mCOL = drinking ? "20px 1fr 38px 38px" : "20px 1fr 38px";
+    const mHeader = `<div style="display:grid;grid-template-columns:${mCOL};gap:0 8px;width:100%;
+        font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;
+        letter-spacing:.3px;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:4px">
+      <span></span><span>Player</span>
+      <span style="text-align:right">Win%</span>
+      ${drinking ? `<span style="text-align:right">Avg🍺</span>` : ""}
+    </div>`;
+    const mLines = lbSorted.map((r, i) => {
+      const medal  = i < 3 ? rankEmoji[i] : `<span style="font-size:10px;color:var(--muted)">${i + 1}</span>`;
+      const wrStr  = r.wr !== null ? `<span class="${wrClass(r.wr)}">${r.wr}%</span>` : `<span style="opacity:.4">—</span>`;
+      const avgStr = drinking ? (r.avgSips !== "—" ? `<span>${r.avgSips}</span>` : `<span style="opacity:.35">—</span>`) : "";
+      return `<div style="display:grid;grid-template-columns:${mCOL};gap:0 8px;width:100%;
+          align-items:center;padding:3px 0;font-size:12px">
+        <span style="text-align:center;flex-shrink:0">${medal}</span>
+        <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${escapeHtml(r.name)}</span>
+        <span style="text-align:right">${wrStr}</span>
+        ${drinking ? `<span style="text-align:right">${avgStr}</span>` : ""}
+      </div>`;
+    }).join("");
+    callouts.push(`<div class="stat-card stat-card-mobile-lb" onclick="openMobileLbModal()"
+        style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">🏆 Rankings</div>
+        <div style="font-size:9px;color:var(--muted)">tap for details ›</div>
+      </div>
+      ${mHeader}${mLines}
+    </div>`);
+
+    // ── Mobile-only KPI card ────────────────────────────────────
+    const kpiItems = [
+      avgPerRound !== null ? `<div class="ssb-item"><div class="ssb-val" style="color:${avgRoundCol}">${avgPerRound}</div><div class="ssb-lbl">Avg/round</div></div>` : "",
+      drinking    ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${totalSips}</div><div class="ssb-lbl">Total sips</div></div>` : "",
+      `<div class="ssb-item"><div class="ssb-val">${_fmtDuration(sessionSecs)}</div><div class="ssb-lbl">Duration</div></div>`,
+    ].filter(Boolean).join("");
+    callouts.push(`<div class="stat-card stat-card-mobile-kpi" onclick="openMobileKpiModal()"
+        style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">📊 Session</div>
+        <div style="font-size:9px;color:var(--muted)">tap for details ›</div>
+      </div>
+      <div class="ssb-row">${kpiItems}</div>
     </div>`);
   }
 

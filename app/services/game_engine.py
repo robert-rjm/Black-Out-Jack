@@ -12,7 +12,7 @@ and makes these functions unit-testable without a Flask context.
 import logging
 import time as _time
 
-from engine.blackjack import Hand, HandEvaluator, NPC_Player, get_player_hand
+from engine.blackjack import Hand, HandEvaluator, NPC_Player, get_player_hand  # noqa: F401
 from app.services.decision_log import record_decision
 from engine.drinking_rules import DrinkingRules
 from engine.events import (
@@ -186,7 +186,7 @@ def perform_split(session: GameRoom, player, hand: Hand, hand_idx: int) -> tuple
     Note: referee.py has its own split path that does *not* move card data
     (physical cards are moved by the player), so this helper is digital-only.
     """
-    new_hand = hand.split(session.shoe)          # card pop + chain counter + from_split flags
+    new_hand = hand.split()                      # card pop + chain counter + from_split flags
     player.hands.insert(hand_idx + 1, new_hand)
     deal_card(session, hand, player.name)
     new_label = f"hand{hand_idx + 2}"

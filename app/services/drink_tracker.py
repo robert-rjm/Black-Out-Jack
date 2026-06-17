@@ -157,22 +157,14 @@ def apply_bust_handout_forfeit(session: GameRoom) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Log harvesting
+# Log harvesting — private helpers
 # ---------------------------------------------------------------------------
 
-def harvest_drink_log(session: GameRoom) -> None:
-    """
-    Copy the current round's drink_log entries from every player into the
-    session-wide CSV accumulator. Call this right after cmd_endround() and
-    before start_round() resets drink_log to [].
-    """
-    if session.round._drink_log_harvested:
-        return  # already harvested this round — do not double-count
-
+def _record_csv_rows(session: GameRoom) -> None:
+    """Append this round's drink-log entries to the session CSV accumulator."""
     rows      = session._drink_csv_rows
     round_num = session.round_count
     dealer    = session.dealer_name
-
     for p in session.all_players:
         for entry in p.drink_log:
             sips   = entry[0]
@@ -181,45 +173,29 @@ def harvest_drink_log(session: GameRoom) -> None:
             if sips == 0:
                 continue
             if sips < 0:
-                # Credit entries reduce a player's net total — include them in the
-                # CSV as negative rows so that summing the sips column matches the
-                # sip tracker shown on the WebUI.  classify_rule returns None for
-                # most credits (intentionally omitting them from named-rule stats),
-                # so fall back to a generic "Sip credit" label.
                 credit_rule = classify_rule(reason) or "Sip credit"
-                rows.append({
-                    "round":  round_num,
-                    "dealer": dealer,
-                    "player": p.name,
-                    "role":   role,
-                    "rule":   credit_rule,
-                    "sips":   sips,
-                })
+                rows.append({"round": round_num, "dealer": dealer,
+                             "player": p.name, "role": role,
+                             "rule": credit_rule, "sips": sips})
                 continue
             rule = classify_rule(reason)
             if rule is None:
                 continue
-            rows.append({
-                "round":  round_num,
-                "dealer": dealer,
-                "player": p.name,
-                "role":   role,
-                "rule":   rule,
-                "sips":   sips,
-            })
+            rows.append({"round": round_num, "dealer": dealer,
+                         "player": p.name, "role": role,
+                         "rule": rule, "sips": sips})
     session._drink_csv_rows = rows
 
-    # Live sip ticker — cumulative net totals across all rounds (credits reduce total)
+
+def _update_sip_tickers(session: GameRoom) -> None:
+    """Update cumulative sip ticker and dealer-role ticker from this round's drink log."""
     ticker = session._sip_ticker
     for p in session.all_players:
         net = max(0, sum((e[0] or 0) for e in p.drink_log if e))
         if net > 0:
             ticker[p.name] = ticker.get(p.name, 0) + net
-    session._sip_ticker          = ticker
-    session.round._drink_log_harvested = True
-    session._round_over_seq     += 1   # seq-based trigger so clients never miss the toast
+    session._sip_ticker = ticker
 
-    # Cumulative dealer-role sips (shown in dealer panel)
     d_ticker = session._dealer_role_ticker
     for p in session.all_players:
         for entry in p.drink_log:
@@ -229,38 +205,33 @@ def harvest_drink_log(session: GameRoom) -> None:
                 d_ticker[p.name] = d_ticker.get(p.name, 0) + sips
     session._dealer_role_ticker = d_ticker
 
-    # Shift snapshots before overwriting (enables round-over comparison)
+
+def _snapshot_round(session: GameRoom) -> None:
+    """Shift prev-round snapshots, record last-round sips, rolling history, and rounds-played."""
     session._prev_round_sips   = session._last_round_sips
     session._prev_round_drinks = session._last_round_drinks
 
-    # Per-player sip totals for the "Last Round" panel
     last = {}
     for p in session.all_players:
         # Store raw (unclamped) net so that bust-sip handouts added later via
         # /give_bust_sip are offset correctly against any existing -1 credits.
-        # e.g. -1 credit + 1 assigned = 0 net, not 1.
-        # Callers that display or accumulate sips clamp to 0 themselves.
-        # Always record an entry, even when raw == 0 — the frontend uses
-        # `name in last_round_sips` to detect a "clean" (0-sip) round for
-        # the crown badge. Omitting zero-sip players made them
-        # indistinguishable from players who didn't play last round at all,
-        # so the crown never showed for a perfectly clean round.
+        # Always record an entry even at 0 — the frontend uses
+        # `name in last_round_sips` to detect a clean round for the crown badge.
         raw = sum((e[0] or 0) for e in p.drink_log if e)
         last[p.name] = raw
     session._last_round_sips = last
 
-    # Rolling per-round sip history (total across all players)
     round_total = max(0, sum(last.values()))
     session._round_sip_history = session._round_sip_history + [round_total]
 
-    # Per-player rounds-played counter — used to compute fair averages for
-    # players who joined mid-session (see _apply_worst_player_streak).
     rounds_played = session._player_rounds_played
     for p in session.all_players:
         rounds_played[p.name] = rounds_played.get(p.name, 0) + 1
     session._player_rounds_played = rounds_played
 
-    # Detailed drink entries for the Drinks pane
+
+def _record_drinks_detail(session: GameRoom) -> None:
+    """Build the Drinks-pane detail list and round notices from this round's drink log."""
     drinks_detail = []
     notices       = []
     for p in session.all_players:
@@ -272,15 +243,12 @@ def harvest_drink_log(session: GameRoom) -> None:
             if sips and sips > 0:
                 rule = classify_rule(reason)
                 if rule is None:
-                    # Display-only waived entry (A♣ protected hard switch) — show but skip CSV
                     if reason and "A♣ protected" in reason:
                         drinks_detail.append({"name": p.name, "sips": sips,
                                               "reason": f"Hard Dealer Switch — A♣ protected ({sips} sip(s) waived)"})
                     continue
-                drinks_detail.append({"name": p.name, "sips": sips,
-                                      "reason": reason})
+                drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
             elif sips and sips < 0 and reason:
-                # Credit entries — show green in drinks detail, skip CSV
                 if "bust vote correct" in reason:
                     drinks_detail.append({"name": p.name, "sips": sips,
                                           "reason": "-1 sip credit from dealer bust"})
@@ -293,10 +261,12 @@ def harvest_drink_log(session: GameRoom) -> None:
                     drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
             elif reason and "Hard Switch triggered" in reason:
                 notices.append(reason)
-    session._last_round_drinks  = drinks_detail
-    session._round_notices      = notices
+    session._last_round_drinks = drinks_detail
+    session._round_notices     = notices
 
-    # Hand outcome stats per player
+
+def _update_hand_stats(session: GameRoom) -> None:
+    """Accumulate per-player hand outcome statistics."""
     hand_stats = session._hand_stats
     for p in session.all_players:
         if p.name not in hand_stats:
@@ -305,20 +275,16 @@ def harvest_drink_log(session: GameRoom) -> None:
                 "split_hands": 0, "split_wins": 0,
                 "double_hands": 0, "double_wins": 0,
                 "blackjacks": 0, "busts": 0,
-                "suited_hands": 0,
-                "hit_hands": 0,
-                "stand_sub17": 0,
-                "total_score": 0, "scored_hands": 0,
+                "suited_hands": 0, "hit_hands": 0,
+                "stand_sub17": 0, "total_score": 0, "scored_hands": 0,
             }
         hs = hand_stats[p.name]
-        # Back-fill missing keys for sessions started before these fields were added
         for key, default in (
-            ("blackjacks", 0), ("busts", 0),
-            ("suited_hands", 0), ("hit_hands", 0),
-            ("stand_sub17", 0), ("total_score", 0), ("scored_hands", 0),
+            ("blackjacks", 0), ("busts", 0), ("suited_hands", 0),
+            ("hit_hands", 0), ("stand_sub17", 0),
+            ("total_score", 0), ("scored_hands", 0),
         ):
             hs.setdefault(key, default)
-
         for hand in p.hands:
             result = getattr(hand, "result", None)
             if result not in ("win", "loss", "push"):
@@ -339,20 +305,19 @@ def harvest_drink_log(session: GameRoom) -> None:
                 hs["busts"] += 1
             if hand.is_suited():
                 hs["suited_hands"] += 1
-            # Hit rate: hand has more cards than the initial 2 (player took ≥1 hit)
             if len(hand.cards) > 2:
                 hs["hit_hands"] += 1
-            # Stand on sub-17: player stood (not busted, not BJ) with score < 17
             if (getattr(hand, "stood", False) and not getattr(hand, "bust", False)
                     and not hand.is_blackjack() and hand.score() < 17):
                 hs["stand_sub17"] += 1
-            # Average hand value: final score of non-bust hands
             if not getattr(hand, "bust", False) and not hand.is_bust():
                 hs["total_score"]  += hand.score()
                 hs["scored_hands"] += 1
     session._hand_stats = hand_stats
 
-    # Max single-round sip hit per player
+
+def _update_max_round_sips(session: GameRoom) -> None:
+    """Track the highest single-round sip total per player."""
     mx = session._max_round_sips
     for name, raw in session._last_round_sips.items():
         net = max(0, raw)
@@ -360,14 +325,14 @@ def harvest_drink_log(session: GameRoom) -> None:
             mx[name] = net
     session._max_round_sips = mx
 
-    # Dealer bust counter
+
+def _update_dealer_stats(session: GameRoom) -> None:
+    """Update dealer bust counter and per-dealer win/loss/push stats."""
     dealer_player = next((p for p in session.all_players if p.is_dealer), None)
     if dealer_player and getattr(dealer_player, "dealer_hand", None):
         if dealer_player.dealer_hand.is_bust():
             session._dealer_bust_rounds += 1
 
-    # Dealer hand stats — wins/losses/pushes from the dealer's POV
-    # (player "win" = dealer lost that hand, and vice versa)
     dealer_stats = session._dealer_hand_stats
     dname = session.dealer_name
     if dname not in dealer_stats:
@@ -386,17 +351,21 @@ def harvest_drink_log(session: GameRoom) -> None:
             elif result == "push": ds["pushes"] += 1
     session._dealer_hand_stats = dealer_stats
 
-    # Win/loss streaks per player.
-    # Win round  = net wins  > 0 (won more hands than lost)
-    # Loss round = net losses > 0 (lost more hands than won)
-    # Neutral    = equal → resets current streak to 0
+
+def _update_streaks(session: GameRoom) -> None:
+    """Update win/loss streaks per player.
+
+    Win round  = net wins  > 0 (won more hands than lost).
+    Loss round = net losses > 0 (lost more hands than won).
+    Neutral    = equal -> resets current streak to 0.
+    """
     streaks = session._streaks
     for p in session.all_players:
         round_wins   = sum(1 for h in p.hands if getattr(h, "result", None) == "win")
         round_losses = sum(1 for h in p.hands if getattr(h, "result", None) == "loss")
         net = round_wins - round_losses
         if not any(getattr(h, "result", None) in ("win", "loss", "push") for h in p.hands):
-            continue  # no resolved hands this round — skip
+            continue  # no resolved hands this round
         if p.name not in streaks:
             streaks[p.name] = {"current": 0, "longest_win": 0, "longest_loss": 0}
         s = streaks[p.name]
@@ -407,8 +376,33 @@ def harvest_drink_log(session: GameRoom) -> None:
             s["current"] = s["current"] - 1 if s["current"] < 0 else -1
             s["longest_loss"] = max(s["longest_loss"], abs(s["current"]))
         else:
-            s["current"] = 0   # neutral round breaks streak
+            s["current"] = 0
     session._streaks = streaks
+
+
+def harvest_drink_log(session: GameRoom) -> None:
+    """
+    Copy the current round's drink_log entries from every player into the
+    session-wide accumulators. Call this right after cmd_endround() and
+    before start_round() resets drink_log to [].
+
+    Delegates each concern to a private helper; see each helper's docstring
+    for details.  Idempotent: returns immediately if already harvested.
+    """
+    if session.round._drink_log_harvested:
+        return  # already harvested this round -- do not double-count
+
+    _record_csv_rows(session)
+    _update_sip_tickers(session)
+    _snapshot_round(session)
+    _record_drinks_detail(session)
+    _update_hand_stats(session)
+    _update_max_round_sips(session)
+    _update_dealer_stats(session)
+    _update_streaks(session)
+
+    session.round._drink_log_harvested = True
+    session._round_over_seq += 1   # seq-based trigger so clients never miss the toast
 
 
 # ---------------------------------------------------------------------------

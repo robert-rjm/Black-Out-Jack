@@ -117,7 +117,7 @@ function renderPlayers(state) {
   const byName = {};
   (state.table || []).forEach(s => { byName[s.name] = s; });
 
-  const showTurn = state.mode === "digital" && state.phase === "playing";
+  const showTurn = state.mode === "digital" && state.phase === PHASE.PLAYING;
 
   // Worst round (session record): player(s) holding the all-time peak
   // single-round sip total, matching kpi.js's "worst round — {name}" stat.
@@ -145,7 +145,7 @@ function renderPlayers(state) {
     // Crown: player had 0 net sips last round (after bust vote).
     // Show during the following round only (not during round-over when data is freshly set).
     const lastSips      = state.last_round_sips || {};
-    const roundOver     = state.phase === "round-over";
+    const roundOver     = state.phase === PHASE.ROUND_OVER;
     const hadPrevRound  = state.round > 1;
     const playedLastRound = s.name in lastSips;
     const wasClean        = hadPrevRound && !roundOver && playedLastRound && lastSips[s.name] === 0;
@@ -205,7 +205,7 @@ function renderPlayers(state) {
 
 function applyTurnGate(state) {
   // Only enforce in digital mode + during play phase
-  const gate        = state.mode === "digital" && state.phase === "playing" && state.current_turn;
+  const gate        = state.mode === "digital" && state.phase === PHASE.PLAYING && state.current_turn;
   const currentSeat = (state.table || []).find(s => s.name === state.current_turn);
   const isNpcTurn   = gate && currentSeat && currentSeat.is_npc;
 

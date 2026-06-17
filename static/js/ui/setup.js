@@ -84,11 +84,10 @@ function startWaiting() {
   stopPolling();
   const tick = async () => {
     if (!roomCode) { pollTimer = setTimeout(tick, 2000); return; }
-    try {
-      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      if (data.ok && data.players && data.players.length > 0) {
+    let started = false;
+    await fetchState(data => {
+      if (data.players && data.players.length > 0) {
+        started  = true;
         stopPolling();
         players  = data.players || [];
         numHands = data.num_hands || 2;
@@ -101,13 +100,11 @@ function startWaiting() {
         document.getElementById("app").style.display     = "flex";
         startPolling();
         startIdleWatcher();
-        return;  // don't reschedule — startPolling() takes over
-      }
-      if (data.ok && data.waiting) {
+      } else if (data.waiting) {
         renderWaitingPlayers(data.waiting_count || 1);
       }
-    } catch (_) {}
-    pollTimer = setTimeout(tick, 2000);
+    });
+    if (!started) pollTimer = setTimeout(tick, 2000);
   };
   pollTimer = setTimeout(tick, 2000);
 }
@@ -459,7 +456,7 @@ async function startGame() {
   players          = data.players;
   numHands         = nh;
   gameMode         = data.mode || "referee";
-  myRole           = data.my_role          || "admin";
+  myRole           = data.my_role          || ROLE.ADMIN;
   myName           = data.my_name          || null;
   myNames          = data.my_names         || (myName ? [myName] : []);
   isMyDealerClient = data.is_dealer_client !== false;  // admin always starts as dealer
@@ -567,7 +564,7 @@ function _tickIdleWatcher() {
 
 function startIdleWatcher() {
   // Spectators don't keep the dyno alive and don't need the warning
-  if (typeof myRole !== "undefined" && myRole === "spectator") return;
+  if (typeof myRole !== "undefined" && myRole === ROLE.SPECTATOR) return;
   _lastActivityAt = Date.now();
   _idleSoundState = null;
   if (_idleWatcherID) clearInterval(_idleWatcherID);

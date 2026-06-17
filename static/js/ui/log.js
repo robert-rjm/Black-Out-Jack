@@ -26,49 +26,9 @@ function flushToastQueue() {
   q.forEach((fn, i) => setTimeout(fn, i * 3500));
 }
 
+// Log removed — stub so existing call sites don't throw
 // ============================================================
-// LOG SECTION — collapsible
-// ============================================================
-const _LOG_COLLAPSED_KEY = "boj_log_collapsed";
-
-function toggleLog() {
-  const section = document.getElementById("log-section");
-  if (!section) return;
-  const collapsed = section.classList.toggle("collapsed");
-  try { localStorage.setItem(_LOG_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch (_) {}
-}
-
-function initLogCollapse() {
-  const section = document.getElementById("log-section");
-  if (!section) return;
-  // Default: collapsed (leave space for future KPI panel)
-  const stored = localStorage.getItem(_LOG_COLLAPSED_KEY);
-  const shouldCollapse = stored === null ? true : stored === "1";
-  if (shouldCollapse) section.classList.add("collapsed");
-}
-
-// CHAT LOG
-// ============================================================
-function appendLog(text, clear = false) {
-  const log = document.getElementById("log");
-  if (clear) log.innerHTML = "";
-  if (!text) return;
-
-  text.split("\n").forEach(line => {
-    if (!line.trim()) return;
-    const div = document.createElement("div");
-    div.className = "chat-msg";
-    const l = line.toLowerCase();
-    if (l.includes("drink") || l.includes("sip"))                           div.classList.add("msg-drink");
-    else if (l.includes("blackjack") || l.includes("***"))                  div.classList.add("msg-bj");
-    else if (l.includes("win") || l.includes("dealer") && l.includes("bust")) div.classList.add("msg-ok");
-    else if (l.includes("bust"))                                             div.classList.add("msg-drink");
-    else if (l.includes("===") || l.includes("---") || l.includes("round")) div.classList.add("msg-header");
-    div.textContent = line.trim();
-    log.appendChild(div);
-  });
-  log.scrollTop = log.scrollHeight;
-}
+function appendLog() {}
 
 function updateSipTicker(state) {
   const el = document.getElementById("sip-ticker");
@@ -274,7 +234,7 @@ function processAceDrinkEvents(state) {
   // myName / myRole are module-level vars set in table.js (same bundle scope)
   const _myName   = (typeof myName  !== "undefined") ? myName  : null;
   const _myRole   = (typeof myRole  !== "undefined") ? myRole  : null;
-  const _isDealer = _myRole === "dealer" || _myRole === "admin";
+  const _isDealer = _myRole === ROLE.DEALER || _myRole === ROLE.ADMIN;
 
   // Shown to ALL players — ace drink events are social info everyone should see.
   // Separate into events that affect the current client vs others.
