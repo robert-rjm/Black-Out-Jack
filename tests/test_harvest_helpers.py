@@ -6,8 +6,6 @@ Tests call each helper directly with a minimal GameRoom so every helper is
 testable in isolation without running a full round.
 """
 
-import pytest
-
 from app.services.drink_tracker import (
     _record_csv_rows,
     _update_sip_tickers,

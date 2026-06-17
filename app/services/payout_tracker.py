@@ -95,6 +95,7 @@ def cmd_rebuy(session: GameRoom, player_name: str) -> bool:
         return False
     session._bankrolls[player_name] = session.starting_bankroll
     session._bank_run_players = [n for n in session._bank_run_players if n != player_name]
-    session.round._log_entries.append(f"  💸 {player_name} hits the ATM and re-buys for ${session.starting_bankroll:.2f}\n")
+    msg = f"  💸 {player_name} hits the ATM and re-buys for ${session.starting_bankroll:.2f}\n"
+    session.round._log_entries.append(msg)
     session._log_version += 1
     return True
