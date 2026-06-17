@@ -52,7 +52,7 @@ Suited/A+J/both-black multiplier conditions exist in `_bj_multiplier()` (L17-26)
 The BJ-insurance bonus event fires immediately into `_pending_eor_msgs` without passing `hard_switch_dealer`, unlike the equivalent path in `blackjack.py` (L696). The dealer-switch exemption can be missed for this bonus.
 **Fix:** Pass `hard_switch_dealer` consistently on this event path.
 
-### M10 · Polling/fetch pattern duplicated across three JS files
+### ~~M10 · Polling/fetch pattern duplicated across three JS files~~
 **File:** `static/js/ui/lobby.js` `startPolling`, `static/js/ui/setup.js` `startWaiting`, `visibilitychange` handler
 All reimplement the same fetch-`/state`-then-`applyState` loop.
 **Fix:** Share a `pollState(interval, onResult)` helper.
@@ -156,7 +156,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [X] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`
 - [X] M8 — Split `on_round_end` into named helpers
 - [X] M9 — Pass `hard_switch_dealer` in `cmd_result` BJ insurance path
-- [ ] M10 — Share `pollState` helper across lobby/setup/visibility JS
+- [X] M10 — Share `pollState` helper across lobby/setup/visibility JS
 
 ### Low
 - [ ] L1 — Bottom nav labels on desktop / `title` attributes

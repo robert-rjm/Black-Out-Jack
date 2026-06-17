@@ -84,11 +84,10 @@ function startWaiting() {
   stopPolling();
   const tick = async () => {
     if (!roomCode) { pollTimer = setTimeout(tick, 2000); return; }
-    try {
-      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      if (data.ok && data.players && data.players.length > 0) {
+    let started = false;
+    await fetchState(data => {
+      if (data.players && data.players.length > 0) {
+        started  = true;
         stopPolling();
         players  = data.players || [];
         numHands = data.num_hands || 2;
@@ -101,13 +100,11 @@ function startWaiting() {
         document.getElementById("app").style.display     = "flex";
         startPolling();
         startIdleWatcher();
-        return;  // don't reschedule — startPolling() takes over
-      }
-      if (data.ok && data.waiting) {
+      } else if (data.waiting) {
         renderWaitingPlayers(data.waiting_count || 1);
       }
-    } catch (_) {}
-    pollTimer = setTimeout(tick, 2000);
+    });
+    if (!started) pollTimer = setTimeout(tick, 2000);
   };
   pollTimer = setTimeout(tick, 2000);
 }
