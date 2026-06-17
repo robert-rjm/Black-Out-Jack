@@ -274,7 +274,7 @@ function processAceDrinkEvents(state) {
   // myName / myRole are module-level vars set in table.js (same bundle scope)
   const _myName   = (typeof myName  !== "undefined") ? myName  : null;
   const _myRole   = (typeof myRole  !== "undefined") ? myRole  : null;
-  const _isDealer = _myRole === "dealer" || _myRole === "admin";
+  const _isDealer = _myRole === ROLE.DEALER || _myRole === ROLE.ADMIN;
 
   // Shown to ALL players — ace drink events are social info everyone should see.
   // Separate into events that affect the current client vs others.

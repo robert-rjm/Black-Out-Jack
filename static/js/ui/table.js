@@ -97,7 +97,7 @@ function setPlayerSel(pane, name) {
   // During digital play, silently ignore taps on the wrong player — the
   // turn-gate CSS (pointer-events:none) covers most cases but touch events
   // can slip through on some mobile browsers, so enforce it in JS too.
-  if (pane === "digital" && lastState && lastState.phase === "playing" && lastState.current_turn) {
+  if (pane === "digital" && lastState && lastState.phase === PHASE.PLAYING && lastState.current_turn) {
     if (name.toLowerCase() !== lastState.current_turn.toLowerCase()) return;
   }
   sel[pane].player = name;
@@ -212,9 +212,9 @@ function sendAction(action) {
 
 function sendDigitalPlay(action) {
   // Non-dealer player (or admin with god mode off): pre-select instead of executing
-  if (!isMyDealerClient && (myRole === "player" || myRole === "admin") && (myActiveName || myName)) {
+  if (!isMyDealerClient && (myRole === ROLE.PLAYER || myRole === ROLE.ADMIN) && (myActiveName || myName)) {
     // Only allow voting when it is actually the player's own turn
-    if (!lastState || lastState.phase !== "playing" ||
+    if (!lastState || lastState.phase !== PHASE.PLAYING ||
         !lastState.current_turn ||
         lastState.current_turn.toLowerCase() !== (myActiveName || myName || "").toLowerCase()) {
       return;  // not your turn — ignore the tap
@@ -245,7 +245,7 @@ function sendDigitalPlay(action) {
   const hand   = sel.digital.hand;
   if (!player) { appendLog("  Select a player first.\n"); return; }
   // Belt-and-suspenders: reject if somehow a different player slipped through
-  if (lastState && lastState.phase === "playing" && lastState.current_turn &&
+  if (lastState && lastState.phase === PHASE.PLAYING && lastState.current_turn &&
       player.toLowerCase() !== lastState.current_turn.toLowerCase()) return;
   sendCmd(`${action} ${player} ${hand}`);
 }
@@ -356,9 +356,9 @@ function applyState(state) {
   }
 
   // Handle kicked status first
-  if (state.my_role === "kicked") {
+  if (state.my_role === ROLE.KICKED) {
     // If the user already acknowledged and chose to spectate, skip the popup
-    if (myRole === "spectator") return;
+    if (myRole === ROLE.SPECTATOR) return;
     stopPolling();
     const leave = confirm("You have been removed from this session.\n\nPress OK to return to the lobby, or Cancel to stay and watch as a spectator.");
     if (leave) {
@@ -419,8 +419,8 @@ function applyState(state) {
   const prevPhase = lastState ? lastState.phase : null;
   const isDeal = (
     gameMode === "digital" &&
-    prevPhase === "pre-deal" &&
-    state.phase === "playing" &&
+    prevPhase === PHASE.PRE_DEAL &&
+    state.phase === PHASE.PLAYING &&
     _animToggleOn()
   );
 
@@ -455,7 +455,7 @@ function applyState(state) {
   const isNewRoundOver  = newRoundOverSeq > DrinkUI.lastRoundOverSeq;
   if (isNewRoundOver) {
     // Player drink toast (registered non-spectators only)
-    if (drinkingOn && myNames.length > 0 && myRole !== "spectator") {
+    if (drinkingOn && myNames.length > 0 && myRole !== ROLE.SPECTATOR) {
       myNames.forEach(n => showPlayerDrinkToast(DrinkUI.lastRoundSips[n] || 0, n));
     }
     // Switch toast — hard/soft dealer switch (visible to all)
@@ -510,11 +510,11 @@ function applyState(state) {
   if (kickOv && kickOv.style.display === "flex") {
     if (state.queued_settings) _renderQueuedBanner(state.queued_settings);
     // Refresh pending / denied registration sections on every poll
-    if (myRole === "admin") openKickModal();
+    if (myRole === ROLE.ADMIN) openKickModal();
   }
 
   // Settings button — visible to all registered players (both header and bottom-nav copies)
-  const showSettings = (myRole === "admin" || myRole === "player") ? "block" : "none";
+  const showSettings = (myRole === ROLE.ADMIN || myRole === ROLE.PLAYER) ? "block" : "none";
   const adminBtn = document.getElementById("btn-admin-players");
   if (adminBtn) adminBtn.style.display = showSettings;
   const adminNav = document.getElementById("btn-admin-nav");
@@ -535,7 +535,7 @@ function applyState(state) {
   const rejoinBanner = document.getElementById("spectator-rejoin-banner");
   const rejoinBtn    = document.getElementById("rejoin-req-btn");
   if (rejoinBanner) {
-    if (myRole === "spectator" && state.my_name === null) {
+    if (myRole === ROLE.SPECTATOR && state.my_name === null) {
       rejoinBanner.style.display = "flex";
       if (rejoinBtn) rejoinBtn.disabled = !!state.my_rejoin_pending;
       if (rejoinBtn) rejoinBtn.textContent = state.my_rejoin_pending ? "Request sent ✓" : "Request to rejoin";
@@ -579,7 +579,7 @@ function applyState(state) {
 // Disable SPLIT when the active hand can't be split (limit reached or cards don't match).
 // Disable DOUBLE when the hand already has more than 2 cards or is already doubled.
 function updateActionButtons(state) {
-  if (!state || state.phase !== "playing" || !state.current_turn) return;
+  if (!state || state.phase !== PHASE.PLAYING || !state.current_turn) return;
   const seat = (state.table || []).find(s => s.name === state.current_turn);
   if (!seat) return;
   const activeHand = (seat.hands || []).find(h => !h.done);
@@ -595,7 +595,7 @@ function updateActionButtons(state) {
 }
 
 function updateHandLocks(state) {
-  if (!state || state.phase !== "playing") return;
+  if (!state || state.phase !== PHASE.PLAYING) return;
   const seat = (state.table || []).find(s => s.name === state.current_turn);
   if (!seat || !seat.hands) return;
   const c = document.getElementById("dig-play-hands");
@@ -613,7 +613,7 @@ const BS_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
 function updateBestPlay(state) {
   // Clear any previous highlight
   digActionButtons().forEach(b => b.classList.remove("best"));
-  if (!state || state.phase !== "playing" || !state.best_play) return;
+  if (!state || state.phase !== PHASE.PLAYING || !state.best_play) return;
   const label = BS_LABEL[state.best_play];
   if (!label) return;
   // Find the matching action button and highlight it
@@ -634,7 +634,7 @@ function updateHonorPrompt(state) {
   // Only admins and seated players may resolve the prompt -- spectators
   // see it (for visibility) but their buttons are disabled.
   const role     = state && state.my_role;
-  const canAct   = role === "admin" || role === "player";
+  const canAct   = role === ROLE.ADMIN || role === ROLE.PLAYER;
   overlay.querySelectorAll("#honor-split-modal .btn-row button").forEach(btn => {
     btn.disabled = !canAct;
   });
@@ -767,7 +767,7 @@ function renderDrinksDetail() {
 }
 
 function updateRoundPane(state) {
-  const isOver   = state.phase === "round-over";
+  const isOver   = state.phase === PHASE.ROUND_OVER;
   const panel    = document.getElementById("dig-drinks-panel");
   const agg      = document.getElementById("dig-drinks-agg");
   const detail   = document.getElementById("dig-drinks-detail");
@@ -878,19 +878,19 @@ function autoSwitchDigTab(state) {
   const phase     = state.phase;
   const prevPhase = lastState ? lastState.phase : null;
   // Always unlock the Play tab outside of playing phase
-  if (phase !== "playing") {
+  if (phase !== PHASE.PLAYING) {
     const playTabBtn = document.querySelector("#dig-tabs .tab[data-args*='dig-play']");
     if (playTabBtn) { playTabBtn.disabled = false; playTabBtn.style.opacity = ""; playTabBtn.style.pointerEvents = ""; }
   }
 
-  if (phase === "pre-deal") {
+  if (phase === PHASE.PRE_DEAL) {
     // Only snap to Play tab on the transition into pre-deal, not on every poll —
     // otherwise players get jerked back whenever they browse tabs while waiting
     // for the new dealer to deal.
-    if (prevPhase !== "pre-deal") {
+    if (prevPhase !== PHASE.PRE_DEAL) {
       activateDigTab("dig-play");
     }
-  } else if (phase === "playing") {
+  } else if (phase === PHASE.PLAYING) {
     if (!isMyDealerClient && myNames.length > 0) {
       const allDone = myNames.every(n => {
         const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
@@ -922,7 +922,7 @@ function autoSwitchDigTab(state) {
       if (playTabBtn) { playTabBtn.disabled = false; playTabBtn.style.opacity = ""; playTabBtn.style.pointerEvents = ""; }
       activateDigTab("dig-play");
     }
-  } else if (phase === "round-over") {
+  } else if (phase === PHASE.ROUND_OVER) {
     activateDigTab("dig-round");
   }
 }

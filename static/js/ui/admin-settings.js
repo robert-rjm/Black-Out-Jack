@@ -9,15 +9,15 @@ function openKickModal() {
 
   // GodMode toggle is admin-only — hide it for regular players
   const godRow = document.querySelector("#kick-overlay .kick-toggle-row:has(#god-mode-toggle-modal)");
-  if (godRow) godRow.style.display = (myRole === "admin") ? "flex" : "none";
+  if (godRow) godRow.style.display = (myRole === ROLE.ADMIN) ? "flex" : "none";
 
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
   const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
-  const adminNames   = new Set(clients.filter(c => c.role === "admin").map(c => (c.name || "").toLowerCase()));
+  const adminNames   = new Set(clients.filter(c => c.role === ROLE.ADMIN).map(c => (c.name || "").toLowerCase()));
   const myNameLc   = (myName || "").toLowerCase();
   const kickVotes  = (lastState && lastState.kick_votes) || {};
-  const isAdmin    = myRole === "admin";
+  const isAdmin    = myRole === ROLE.ADMIN;
 
   list.innerHTML = "";
 
@@ -461,7 +461,7 @@ function _populateSettingsUI(state) {
   // Show settings section only for admin
   const section = document.getElementById("game-settings-section");
   if (!section) return;
-  if (myRole !== "admin") { section.style.display = "none"; return; }
+  if (myRole !== ROLE.ADMIN) { section.style.display = "none"; return; }
   section.style.display = "block";
 
   // Populate current values

@@ -28,7 +28,7 @@ Sequential side-effectful ticks (insurance auto-resolve, bust-vote pause, milest
 Handles identity sync, toasts, log sync, tab switching, modal sync, and animation dispatch in one function.
 **Fix:** Split into named phase functions (`_syncIdentity`, `_syncLog`, `_syncModals`, etc.).
 
-### M5 · Phase and role strings are raw literals scattered across JS
+### ~~M5 · Phase and role strings are raw literals scattered across JS~~
 **File:** `static/js/ui/table.js`, `admin.js`, `lobby.js`
 Phase strings (`"pre-deal"`, `"playing"`, `"round-over"`, `"dealer-ready"`) and role strings (`"admin"`, `"player"`, `"spectator"`, `"kicked"`) repeated as raw literals. A typo causes a silent mismatch.
 **Fix:** Centralize in a shared `constants.js` or object at the top of `app.js`.
@@ -151,7 +151,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [X] M2 — Extract `require_admin` helper / decorator in admin.py
 - [X] M3 — Extract `tick(session)` from `/state` route
 - [ ] M4 — Split `applyState` into named phase functions
-- [ ] M5 — Centralize phase/role string constants in JS
+- [X] M5 — Centralize phase/role string constants in JS
 - [X] M6 — Single-pass sip total accumulation in serializer
 - [X] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`
 - [X] M8 — Split `on_round_end` into named helpers

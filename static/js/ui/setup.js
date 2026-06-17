@@ -459,7 +459,7 @@ async function startGame() {
   players          = data.players;
   numHands         = nh;
   gameMode         = data.mode || "referee";
-  myRole           = data.my_role          || "admin";
+  myRole           = data.my_role          || ROLE.ADMIN;
   myName           = data.my_name          || null;
   myNames          = data.my_names         || (myName ? [myName] : []);
   isMyDealerClient = data.is_dealer_client !== false;  // admin always starts as dealer
@@ -567,7 +567,7 @@ function _tickIdleWatcher() {
 
 function startIdleWatcher() {
   // Spectators don't keep the dyno alive and don't need the warning
-  if (typeof myRole !== "undefined" && myRole === "spectator") return;
+  if (typeof myRole !== "undefined" && myRole === ROLE.SPECTATOR) return;
   _lastActivityAt = Date.now();
   _idleSoundState = null;
   if (_idleWatcherID) clearInterval(_idleWatcherID);
