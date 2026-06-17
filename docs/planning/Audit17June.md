@@ -70,21 +70,21 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 
 ## New Issues (found 17 June)
 
-### N1 · Architecture.md references a non-existent `Test-Plan.md`
+### ~~N1 · Architecture.md references a non-existent `Test-Plan.md`~~
 **File:** `docs/Architecture.md` (Development Guide → Running locally section)
 The closing line `See [docs/planning/Test-Plan.md](planning/Test-Plan.md) for coverage details.` points to a file that does not exist in the repository. Either create it or remove the reference.
 
-### N2 · `run_all_configs.py` and `compare_configs.py` missing from Architecture.md
+### ~~N2 · `run_all_configs.py` and `compare_configs.py` missing from Architecture.md~~
 **File:** `docs/Architecture.md` (Project Structure tree and File Dependencies table)
 Two scripts exist on disk (`scripts/run_all_configs.py`, `scripts/compare_configs.py`) but are absent from the documented project structure and file-deps table. Add entries with their purpose.
 
-### N3 · `engine/events.py` absent from Architecture.md file-deps table
+### ~~N3 · `engine/events.py` absent from Architecture.md file-deps table~~
 **File:** `docs/Architecture.md`
 `engine/events.py` is listed in the project-structure tree (implicitly, the tree lists the engine directory) but is **not** in the File Dependencies table. It is now a first-class dependency of both `engine/drinking_rules.py` (via `DrinkingRules.handle(event)`) and `app/services/game_engine.py`. Add a row:
 
 | `engine/events.py` | nothing | Typed dataclass events dispatched to `DrinkingRules.handle()` |
 
-### N4 · `app/services/tick.py` and `app/services/validators.py` absent from file-deps table
+### ~~N4 · `app/services/tick.py` and `app/services/validators.py` absent from file-deps table~~
 **File:** `docs/Architecture.md`
 Both files are described in the project-structure comment block but have no rows in the File Dependencies table. `tick.py` is a per-poll side-effect driver imported by `polling.py`; `validators.py` provides `sanitize_name` and `get_client_info` used across multiple routes and the serializer.
 
@@ -154,10 +154,10 @@ If any reason string changes in `drinking_rules.py`, the Drinks-pane display sil
 - [ ] L16 — Consolidate script CLI utilities into `scripts/_cli.py`
 
 ### New (17 June)
-- [ ] N1 — Remove or create `docs/planning/Test-Plan.md` (broken link in Architecture.md)
-- [ ] N2 — Document `run_all_configs.py` and `compare_configs.py` in Architecture.md
-- [ ] N3 — Add `engine/events.py` row to Architecture.md file-deps table
-- [ ] N4 — Add `tick.py` and `validators.py` rows to Architecture.md file-deps table
+- [x] N1 — Remove or create `docs/planning/Test-Plan.md` (broken link in Architecture.md)
+- [x] N2 — Document `run_all_configs.py` and `compare_configs.py` in Architecture.md
+- [x] N3 — Add `engine/events.py` row to Architecture.md file-deps table
+- [x] N4 — Add `tick.py` and `validators.py` rows to Architecture.md file-deps table
 - [ ] N5 — Update DOM-Hooks.md with 20+ undocumented element IDs
 - [ ] N6 — Add `admin-settings.js` ownership section to DOM-Hooks.md
 - [ ] N7 — Remove stale `# Rule classifier` section header from `drinking_rules.py`
