@@ -21,6 +21,7 @@ POST /take_back_seat   — Admin reclaims a remote seat, moving them to spectato
 import time
 
 from flask import Blueprint, jsonify, request
+from markupsafe import escape
 
 from app.services.session_store import game_sessions
 from app.services.serializer    import serialize_state, round_phase
@@ -78,7 +79,7 @@ def kick():
             info["kicked"] = True
             return jsonify({"ok": True})
 
-    return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+    return jsonify({"ok": False, "error": f"No connected player named '{escape(target_name)}'."})
 
 
 @bp.route("/undo_kick", methods=["POST"])
@@ -126,9 +127,9 @@ def make_bot():
         None,
     )
     if not player:
-        return jsonify({"ok": False, "error": f"Player '{target_name}' not found."})
+        return jsonify({"ok": False, "error": f"Player '{escape(target_name)}' not found."})
     if getattr(player, "is_npc", False):
-        return jsonify({"ok": False, "error": f"'{target_name}' is already a bot."})
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is already a bot."})
 
     player.is_npc = True
 
@@ -166,9 +167,9 @@ def make_human():
         None,
     )
     if not player:
-        return jsonify({"ok": False, "error": f"Player '{target_name}' not found."})
+        return jsonify({"ok": False, "error": f"Player '{escape(target_name)}' not found."})
     if not getattr(player, "is_npc", False):
-        return jsonify({"ok": False, "error": f"'{target_name}' is not a bot."})
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is not a bot."})
 
     player.is_npc = False
 
@@ -227,7 +228,7 @@ def transfer_admin():
         None,
     )
     if not target_cid:
-        return jsonify({"ok": False, "error": f"No connected player named '{target_name}'."})
+        return jsonify({"ok": False, "error": f"No connected player named '{escape(target_name)}'."})
 
     # Transfer: demote old admin, promote new one.
     # Move local_names to the new admin so they retain control of any local
@@ -352,7 +353,7 @@ def vote_kick():
         return jsonify({"ok": False, "error": "Cannot vote to kick the admin."})
     target_connected = target_info is not None
     if not target_connected:
-        return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is not in the session."})
 
     key   = target_name.lower()
     votes = session.round._kick_votes.setdefault(key, set())
@@ -602,7 +603,7 @@ def claim_milestone():
             return jsonify({"ok": False, "error": "Cannot assign sips to yourself."})
         canonical = canonical_names.get(name.lower())
         if canonical is None:
-            return jsonify({"ok": False, "error": f"Unknown player '{name}'."})
+            return jsonify({"ok": False, "error": f"Unknown player '{escape(name)}'."})
         if s > 0:
             alloc[canonical] = s
 
@@ -780,4 +781,4 @@ def take_back_seat():
         current_locals = current_locals[:insert_at] + [player_name] + current_locals[insert_at:]
     admin_info["local_names"] = current_locals
 
-    return jsonify({**serialize_state(session, client_id), "ok": True})
+    return jsonify({**serialize_state(sess
