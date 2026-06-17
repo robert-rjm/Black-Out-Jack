@@ -782,4 +782,4 @@ def take_back_seat():
     admin_info["local_names"] = current_locals
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
-    
+
