@@ -23,7 +23,7 @@ Every route replicates the same 3-line admin check with inconsistent error text 
 Sequential side-effectful ticks (insurance auto-resolve, bust-vote pause, milestone pause, handout forfeit) are embedded directly in the route function.
 **Fix:** Extract `tick(session)` service function for testability and separation.
 
-### M4 · `applyState` in table.js is ~240 lines handling 6 concerns
+### ~~M4 · `applyState` in table.js is ~240 lines handling 6 concerns~~
 **File:** `static/js/ui/table.js` `applyState` (L335-575)
 Handles identity sync, toasts, log sync, tab switching, modal sync, and animation dispatch in one function.
 **Fix:** Split into named phase functions (`_syncIdentity`, `_syncLog`, `_syncModals`, etc.).
@@ -150,7 +150,7 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [X] M1 — Split `harvest_drink_log` into named helpers
 - [X] M2 — Extract `require_admin` helper / decorator in admin.py
 - [X] M3 — Extract `tick(session)` from `/state` route
-- [ ] M4 — Split `applyState` into named phase functions
+- [X] M4 — Split `applyState` into named phase functions
 - [X] M5 — Centralize phase/role string constants in JS
 - [X] M6 — Single-pass sip total accumulation in serializer
 - [X] M7 — Remove inline `_bj_multiplier` recomputation in `on_blackjack`

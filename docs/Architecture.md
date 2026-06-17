@@ -58,7 +58,9 @@ Black-Out-Jack/
 │   │   ├── app.js                          # Init entry point
 │   │   └── ui/                             # config.js (PHASE/ROLE constants, UI_TEXT, DEALER_SENTINEL)
 │   │                                       # lobby.js, setup.js, animation.js, bootstrap.js
-│   │                                       # table.js, table-modals.js, table-render.js
+│   │                                       # table.js (_applyKicked, _syncIdentity, _syncRoundEffects,
+│   │                                       #           _syncLog, _syncModals, _syncDigitalUI, _syncRender,
+│   │                                       #           applyState), table-modals.js, table-render.js
 │   │                                       # log.js, kpi.js, admin.js, admin-settings.js
 │   └── img/
 │       ├── logo.png                        # App logo and home screen icon (iOS & Android)
