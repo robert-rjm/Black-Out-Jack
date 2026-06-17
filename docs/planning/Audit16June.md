@@ -100,12 +100,12 @@ No visual feedback when `/state` poll is slow or fails. Add a pulsing top bar on
 Checks `includes("drink")`, `"win"`, `"bust"` etc. on displayed strings — a player named "win" would mis-tag entries.
 **Fix:** Use structured log-entry types from server.
 
-### L10 · `Hand.split()` shoe parameter is unused
+### ~~L10 · `Hand.split()` shoe parameter is unused~~
 **File:** `engine/blackjack.py` `Hand.split()` (L203-214)
 `shoe` parameter is accepted but never used — docstring implies dealing should happen here.
 **Fix:** Either use the parameter (deal second card here) or remove it and update callers.
 
-### L11 · `Player.net_losses()` bakes a drinking rule into the engine
+### ~~L11 · `Player.net_losses()` bakes a drinking rule into the engine~~
 **File:** `engine/blackjack.py` (L257-261)
 Hardcodes "blackjack = 2 wins" — a drinking-game house rule in a supposedly standalone class.
 **Fix:** Move to `drinking_rules.py` or accept a multiplier argument.
@@ -168,8 +168,8 @@ All duplicate: `sys.path` bootstrap, `raw.capitalize()` normalization, and "prom
 - [ ] L7 — Switch action-button matching to `data-action-code`
 - [ ] L8 — Extract `_fireToast()` in admin.js
 - [ ] L9 — Use structured log-entry types instead of substring matching
-- [ ] L10 — Clarify / fix `Hand.split()` unused shoe param
-- [ ] L11 — Move `Player.net_losses()` drinking rule out of engine
+- [X] L10 — Clarify / fix `Hand.split()` unused shoe param
+- [X] L11 — Move `Player.net_losses()` drinking rule out of engine
 - [X] L12 — Remove `state.js` `currentTurn` if unused
 - [X] L13 — Move `sanitize_name` imports to admin.py module level
 - [ ] L14 — Replace inline CSS strings in JS with toggled classes
