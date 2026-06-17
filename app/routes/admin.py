@@ -159,7 +159,6 @@ def make_human():
     session, client_id, admin_info, err = _require_admin(data)
     if err:
         return err
-    clients = session._room_clients
 
     player = next(
         (p for p in session.all_players
