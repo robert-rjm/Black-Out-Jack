@@ -781,4 +781,5 @@ def take_back_seat():
         current_locals = current_locals[:insert_at] + [player_name] + current_locals[insert_at:]
     admin_info["local_names"] = current_locals
 
-    return jsonify({**serialize_state(sess
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+    
