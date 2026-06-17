@@ -334,58 +334,48 @@ function syncLogFromState(state) {
 const SUIT_SYMBOL = { hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" };
 const SUIT_RED    = { hearts: true, diamonds: true };
 
-function applyState(state) {
-  if (!state || !state.ok) return;
 
-  // Toggle a body-level class so all drink/sip-related UI (sip ticker, drinks
-  // panel/tab, last-round button & modal, milestone toasts, leaderboard sip
-  // columns, drinking trivia, etc.) can be hidden purely via CSS in Normal
-  // mode. Defaults to drinking ON unless the server explicitly says otherwise.
-  const drinkingOn = state.drinking_mode !== false;
+// ============================================================
+// APPLY STATE — helpers
+// ============================================================
+
+// Handle kicked status. Returns true if applyState should stop processing.
+function _applyKicked(state) {
+  if (state.my_role !== ROLE.KICKED) return false;
+  if (myRole === ROLE.SPECTATOR) return true;   // already acknowledged; keep watching
+  stopPolling();
+  const leave = confirm("You have been removed from this session.\n\nPress OK to return to the lobby, or Cancel to stay and watch as a spectator.");
+  if (leave) {
+    roomCode = "";
+    myRole   = null;
+    myName   = null;
+    isMyDealerClient = false;
+    lsRemove("bjRoomCode");
+    document.getElementById("app").style.display    = "none";
+    document.getElementById("setup").style.display  = "none";
+    document.getElementById("lobby").style.display  = "flex";
+    document.getElementById("log").innerHTML = "";
+    document.getElementById("header-room").textContent = "";
+    hideLobbyMsg();
+    players  = [];
+    gameMode = "referee";
+  } else {
+    // Register as spectator server-side so server stops returning "kicked"
+    doSpectate();
+  }
+  return true;
+}
+
+// Toggle drink-mode body class and update the Drinks tab label.
+function _syncDrinkMode(state, drinkingOn) {
   document.body.classList.toggle("no-drinking", !drinkingOn);
   const drinksTab = document.getElementById("dig-drinks-tab");
   if (drinksTab) drinksTab.textContent = drinkingOn ? "🍺 Drinks" : "🃏 Round";
+}
 
-  // Drop stale responses — if the server sent a state_seq and it's older than
-  // what we already applied, discard silently. Prevents a slow poll from
-  // overwriting a fresher command/preselect/vote response.
-  if (state.state_seq !== undefined &&
-      lastState && lastState.state_seq !== undefined &&
-      state.state_seq < lastState.state_seq) {
-    return;
-  }
-
-  // Handle kicked status first
-  if (state.my_role === ROLE.KICKED) {
-    // If the user already acknowledged and chose to spectate, skip the popup
-    if (myRole === ROLE.SPECTATOR) return;
-    stopPolling();
-    const leave = confirm("You have been removed from this session.\n\nPress OK to return to the lobby, or Cancel to stay and watch as a spectator.");
-    if (leave) {
-      roomCode = "";
-      myRole   = null;
-      myName   = null;
-      isMyDealerClient = false;
-      lsRemove("bjRoomCode");
-      document.getElementById("app").style.display    = "none";
-      document.getElementById("setup").style.display  = "none";
-      document.getElementById("lobby").style.display  = "flex";
-      document.getElementById("log").innerHTML = "";
-      document.getElementById("header-room").textContent = "";
-      hideLobbyMsg();
-      players  = [];
-      gameMode = "referee";
-    } else {
-      // Register as spectator server-side so server stops returning "kicked"
-      doSpectate();
-    }
-    return;
-  }
-
-  // Update client identity from server.
-  // Only downgrade to null if we have no role yet — prevents a stale poll from
-  // clearing a valid role that was just set by a fresh /register response.
-  const _prevDealer = isMyDealerClient;
+// Update client identity (role, name, isMyDealerClient) from server state,
+// and show a dealer-rotation toast when this client becomes the dealer.
+function _syncIdentity(state) {
   const _prevDealerName = lastState ? (lastState.dealer || "") : "";
   if (state.my_role !== undefined) {
     if (state.my_role !== null) {
@@ -408,74 +398,41 @@ function applyState(state) {
     }
   }
   // Show toast when dealer role is newly rotated to this client.
-  // Use dealer name change rather than isMyDealerClient, since admin always
-  // has isMyDealerClient=true regardless of who the actual dealer is.
   const newDealerName = state.dealer || "";
   const iAmDealer = myNames.some(n => n.toLowerCase() === newDealerName.toLowerCase());
   const wasDealer = myNames.some(n => n.toLowerCase() === _prevDealerName.toLowerCase());
   if (lastState !== null && iAmDealer && !wasDealer) showDealerToast();
+}
 
-  // Detect a fresh deal: previous state had no cards, new state has cards.
-  const prevPhase = lastState ? lastState.phase : null;
-  const isDeal = (
-    gameMode === "digital" &&
-    prevPhase === PHASE.PRE_DEAL &&
-    state.phase === PHASE.PLAYING &&
-    _animToggleOn()
-  );
-
-  // Keep npcPlayers in sync so bust-vote modal shows correct vote cards after
-  // a player is converted from bot to human (or vice versa) mid-session.
-  if (state.table) {
-    npcPlayers = new Set(state.table.filter(p => p.is_npc).map(p => p.name));
-  }
-
-  // Reset idle timer on any game state change — if the round or phase advanced,
-  // someone is actively playing and the dyno is clearly not idle.
-  if (typeof resetIdleTimer === "function") {
-    const prevRound = lastState ? (lastState.round || 0) : 0;
-    if (state.phase !== prevPhase || (state.round || 0) > prevRound) {
-      resetIdleTimer();
-    }
-  }
-
+// Sync DrinkUI round data and fire all one-shot toasts gated on sequence numbers.
+function _syncRoundEffects(state, drinkingOn) {
   // Always sync last/prev round data from server so both variables stay in lockstep.
-  // Do NOT gate DrinkUI.lastRoundSips on being non-empty — that desynchronises it from
-  // DrinkUI.prevRoundSips and makes the diff compare different rounds.
-  if (state.last_round_sips !== undefined)  DrinkUI.lastRoundSips  = state.last_round_sips  || {};
+  if (state.last_round_sips !== undefined)  DrinkUI.lastRoundSips   = state.last_round_sips  || {};
   if (state.last_round_drinks !== undefined) DrinkUI.lastRoundDrinks = state.last_round_drinks || [];
-  if (state.prev_round_sips !== undefined)  DrinkUI.prevRoundSips  = state.prev_round_sips  || {};
+  if (state.prev_round_sips !== undefined)  DrinkUI.prevRoundSips   = state.prev_round_sips  || {};
   if (state.prev_round_drinks !== undefined) DrinkUI.prevRoundDrinks = state.prev_round_drinks || [];
 
-  // One-shot round-end effects — all gated on round_over_seq so a duplicate
-  // or late poll (backgrounded tab, slow network) can never re-fire them.
-  // prevPhase checks were unreliable: if lastState was stale when applyState
-  // ran, prevPhase could be wrong and toasts would fire twice or not at all.
+  // One-shot round-end effects — gated on round_over_seq so duplicate/late
+  // polls never re-fire them.
   const newRoundOverSeq = state.round_over_seq || 0;
   const isNewRoundOver  = newRoundOverSeq > DrinkUI.lastRoundOverSeq;
   if (isNewRoundOver) {
-    // Player drink toast (registered non-spectators only)
     if (drinkingOn && myNames.length > 0 && myRole !== ROLE.SPECTATOR) {
       myNames.forEach(n => showPlayerDrinkToast(DrinkUI.lastRoundSips[n] || 0, n));
     }
-    // Switch toast — hard/soft dealer switch (visible to all)
     if (state.switch_this_round) {
       showSwitchToast(state.switch_this_round, state.dealer || "Dealer");
     }
-    // Bust vote result toast (visible to all)
     if (state.bust_vote_result) {
       showBustVoteToast(state.bust_vote_result);
     }
-    // Insurance result toast (visible to all)
     if (state.insurance_result && state.insurance_result.length) {
       showInsuranceToast(state.insurance_result);
     }
   }
   DrinkUI.lastRoundOverSeq = Math.max(DrinkUI.lastRoundOverSeq, newRoundOverSeq);
 
-  // Bust-handout reveal — fires once all bust-vote winners have resolved
-  // their handout (gave a sip or forfeited). Gated on bust_handout_seq so
-  // it never re-fires on a duplicate/late poll.
+  // Bust-handout reveal — gated on bust_handout_seq.
   const newBustHandoutSeq = state.bust_handout_seq || 0;
   if (newBustHandoutSeq > DrinkUI.lastBustHandoutSeq) {
     if (state.bust_handout_results && state.bust_handout_results.length) {
@@ -483,82 +440,72 @@ function applyState(state) {
     }
     DrinkUI.lastBustHandoutSeq = newBustHandoutSeq;
   }
+}
 
-  // Detect bust vote window closing — flush any toasts that were queued during it.
-  const _prevBustOpen = lastState && lastState.bust_vote_window_open;
-  lastState   = state;
-  currentTurn = state.current_turn || null;
-  if (_prevBustOpen && !state.bust_vote_window_open && typeof flushToastQueue === "function") {
-    flushToastQueue();
-  }
-  // Auto-switch active seat when turn moves to another local player
-  if (currentTurn && myNames.length > 1) {
-    const turnLow = currentTurn.toLowerCase();
-    const match   = myNames.find(n => n.toLowerCase() === turnLow);
-    if (match) myActiveName = match;
-  }
-  syncLogFromState(state);   // shared log — all players see same entries
-  updateSipTicker(state);    // header strip
-  if (drinkingOn) processAceDrinkEvents(state);  // mid-round ace drink toasts
-  processReshuffleEvents(state);                 // mid-round shoe reshuffle toast (all modes)
-  if (drinkingOn) updateHonorPrompt(state);      // mandatory split-10s house-rule prompt
-  if (!drinkingOn) updateBankRunPrompt(state);   // "Bank Run" modal (Normal mode bankroll = $0)
-  updateKpiPanel(state);     // leaderboard + future KPI panes
+// Sync log, sip ticker, in-round drink events, and KPI panel.
+function _syncLog(state, drinkingOn) {
+  syncLogFromState(state);
+  updateSipTicker(state);
+  if (drinkingOn) processAceDrinkEvents(state);
+  processReshuffleEvents(state);
+  if (drinkingOn) updateHonorPrompt(state);
+  if (!drinkingOn) updateBankRunPrompt(state);
+  updateKpiPanel(state);
+}
 
-  // Keep settings modal in sync while it's open
+// Keep settings modal, settings button, register overlay, kick vote banner,
+// and spectator rejoin banner in sync with server state.
+function _syncModals(state) {
   const kickOv = document.getElementById("kick-overlay");
   if (kickOv && kickOv.style.display === "flex") {
     if (state.queued_settings) _renderQueuedBanner(state.queued_settings);
-    // Refresh pending / denied registration sections on every poll
     if (myRole === ROLE.ADMIN) openKickModal();
   }
 
-  // Settings button — visible to all registered players (both header and bottom-nav copies)
   const showSettings = (myRole === ROLE.ADMIN || myRole === ROLE.PLAYER) ? "block" : "none";
   const adminBtn = document.getElementById("btn-admin-players");
   if (adminBtn) adminBtn.style.display = showSettings;
   const adminNav = document.getElementById("btn-admin-nav");
   if (adminNav) adminNav.style.display = showSettings;
 
-  // Apply admin's animation default for first-time joiners who have no local preference
   if (state.anim_default !== undefined && lsGet("bjDealAnim") === null) {
     setAnimToggle(state.anim_default);
   }
 
-  // Registration overlay — show when not yet registered
   updateRegisterOverlay(state);
-
-  // Kick vote banner
   renderKickVoteBanner(state);
 
-  // Spectator rejoin banner (shown to clients who were kicked and chose to spectate)
   const rejoinBanner = document.getElementById("spectator-rejoin-banner");
   const rejoinBtn    = document.getElementById("rejoin-req-btn");
   if (rejoinBanner) {
     if (myRole === ROLE.SPECTATOR && state.my_name === null) {
       rejoinBanner.style.display = "flex";
-      if (rejoinBtn) rejoinBtn.disabled = !!state.my_rejoin_pending;
+      if (rejoinBtn) rejoinBtn.disabled    = !!state.my_rejoin_pending;
       if (rejoinBtn) rejoinBtn.textContent = state.my_rejoin_pending ? "Request sent ✓" : "Request to rejoin";
     } else {
       rejoinBanner.style.display = "none";
     }
   }
+}
 
-  if (gameMode === "digital") {
-    autoSwitchDigTab(state);
-    updateInsuranceVisibility(state);
-    updateHandLocks(state);
-    updateRoundPane(state);
-    updateBestPlay(state);
-    updateBustVoteUI(state);
-  }
+// Digital-mode only: sync tab selection, insurance, hand locks, round pane,
+// best play hint, and bust vote UI.
+function _syncDigitalUI(state) {
+  autoSwitchDigTab(state);
+  updateInsuranceVisibility(state);
+  updateHandLocks(state);
+  updateRoundPane(state);
+  updateBestPlay(state);
+  updateBustVoteUI(state);
+}
 
+// Dispatch render: deal animation on fresh deal, or full table render otherwise.
+function _syncRender(state, isDeal) {
   if (isDeal) {
     // animateDeal renders state itself card-by-card — don't render twice.
-    // _dealAnimating flag prevents polls from overwriting cards mid-animation.
     animateDeal(state);
   } else if (_dealAnimating) {
-    // Animation is in progress — skip render to avoid interrupting it.
+    // Animation in progress — skip render to avoid interrupting it.
     // (applyState still ran above for log, ticker, buttons, etc.)
   } else {
     renderDealer(state);
@@ -566,15 +513,84 @@ function applyState(state) {
     syncAllHandButtons();
     applyTurnGate(state);
     if (gameMode === "digital") {
-      // Must run AFTER applyTurnGate — both set disabled on action buttons,
-      // and these two have final say (vote lock, hand validity).
-      updateActionButtons(state);  // disable SPLIT/DOUBLE when not valid
-      updateRoleUI(state);         // role hint, vote lock, inactive-player gate
+      // Must run AFTER applyTurnGate — these have final say on action buttons.
+      updateActionButtons(state);
+      updateRoleUI(state);
+    }
+  }
+}
+
+// ============================================================
+// VISIBLE TABLE + TURN ENFORCEMENT
+// ============================================================
+const SUIT_SYMBOL = { hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" };
+const SUIT_RED    = { hearts: true, diamonds: true };
+
+function applyState(state) {
+  if (!state || !state.ok) return;
+
+  const drinkingOn = state.drinking_mode !== false;
+
+  // Drop stale responses — discard if older than what we already applied.
+  if (state.state_seq !== undefined &&
+      lastState && lastState.state_seq !== undefined &&
+      state.state_seq < lastState.state_seq) {
+    return;
+  }
+
+  if (_applyKicked(state)) return;
+
+  _syncDrinkMode(state, drinkingOn);
+  _syncIdentity(state);
+
+  // Capture prevPhase before committing new state (used for deal animation
+  // detection and idle-timer check).
+  const prevPhase = lastState ? lastState.phase : null;
+  const isDeal    = (
+    gameMode === "digital" &&
+    prevPhase === PHASE.PRE_DEAL &&
+    state.phase === PHASE.PLAYING &&
+    _animToggleOn()
+  );
+
+  // Keep npcPlayers in sync with latest table state.
+  if (state.table) {
+    npcPlayers = new Set(state.table.filter(p => p.is_npc).map(p => p.name));
+  }
+
+  // Reset idle timer on any game state change.
+  if (typeof resetIdleTimer === "function") {
+    const prevRound = lastState ? (lastState.round || 0) : 0;
+    if (state.phase !== prevPhase || (state.round || 0) > prevRound) {
+      resetIdleTimer();
     }
   }
 
+  _syncRoundEffects(state, drinkingOn);
+
+  // Commit new state — capture bust-vote open flag first.
+  const _prevBustOpen = lastState && lastState.bust_vote_window_open;
+  lastState   = state;
+  currentTurn = state.current_turn || null;
+  if (_prevBustOpen && !state.bust_vote_window_open && typeof flushToastQueue === "function") {
+    flushToastQueue();
+  }
+  // Auto-switch active seat when turn moves to another local player.
+  if (currentTurn && myNames.length > 1) {
+    const turnLow = currentTurn.toLowerCase();
+    const match   = myNames.find(n => n.toLowerCase() === turnLow);
+    if (match) myActiveName = match;
+  }
+
+  _syncLog(state, drinkingOn);
+  _syncModals(state);
+
+  if (gameMode === "digital") _syncDigitalUI(state);
+  _syncRender(state, isDeal);
+
   renderMilestoneState(state);
 }
+
 
 // Disable SPLIT when the active hand can't be split (limit reached or cards don't match).
 // Disable DOUBLE when the hand already has more than 2 cards or is already doubled.
