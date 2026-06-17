@@ -429,12 +429,19 @@ class DrinkingRules:
 
     @staticmethod
     def _net_loss_drinks(players: list, wager: int, hard_switch_dealer: str) -> list:
-        """Sips for net hand losses (wins offset losses; only net negative costs sips)."""
+        """Sips for net hand losses.
+
+        Wins offset losses; only a net negative total costs sips.
+        Blackjack counts as 2 wins (house rule) -- it can offset two lost hands.
+        """
         msgs = []
         for p in players:
             if bool(hard_switch_dealer) and p.name == hard_switch_dealer:
                 continue
-            net = p.net_losses()
+            # BJ = 2 wins: a natural offsets two net-loss hands (drinking house rule)
+            effective_wins = sum(2 if h.is_blackjack() else 1
+                                 for h in p.hands if h.result == "win")
+            net = max(0, p.round_losses() - effective_wins)
             if net > 0:
                 msgs.append((p.name, net * wager,
                     f"{p.name} net -{net} hand(s) => drinks {net * wager} sip(s) (net loss)"))
