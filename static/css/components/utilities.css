@@ -462,3 +462,61 @@ body.no-drinking .drink-only {
 }
 .seat-switcher-label { color: var(--muted); }
 .seat-switcher-name  { font-weight: 700; color: var(--yellow); flex: 1; }
+
+/* ------------------------------------------------------------------ */
+/* Server-disconnected overlay                                          */
+/* ------------------------------------------------------------------ */
+.server-disconnect-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.server-disconnect-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  width: min(320px, 88vw);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.server-disconnect-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: disconnect-spin 0.8s linear infinite;
+  margin-bottom: 4px;
+}
+@keyframes disconnect-spin {
+  to { transform: rotate(360deg); }
+}
+.server-disconnect-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+.server-disconnect-msg {
+  font-size: 14px;
+  color: var(--muted);
+}
+.server-disconnect-note {
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.server-disconnect-elapsed {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--muted);
+  min-height: 1.2em;
+  letter-spacing: 0.02em;
+}
