@@ -328,12 +328,6 @@ function syncLogFromState(state) {
   logCount = entries.length;
 }
 
-// ============================================================
-// VISIBLE TABLE + TURN ENFORCEMENT
-// ============================================================
-const SUIT_SYMBOL = { hearts: "♥", diamonds: "♦", clubs: "♣", spades: "♠" };
-const SUIT_RED    = { hearts: true, diamonds: true };
-
 
 // ============================================================
 // APPLY STATE — helpers
