@@ -134,7 +134,7 @@ const POLL_INTERVAL_SLOW = 2000;   // ms — used during "pre-deal", "round-over
 
 function _pollInterval() {
   const phase = lastState && lastState.phase;
-  return (phase === "playing" || phase === "dealer-ready")
+  return (phase === PHASE.PLAYING || phase === PHASE.DEALER_READY)
     ? POLL_INTERVAL_FAST
     : POLL_INTERVAL_SLOW;
 }

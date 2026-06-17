@@ -8,7 +8,7 @@ function updateInsuranceVisibility(state) {
     const dealerShowsAce = upCard && upCard.rank === "A";
     let activeHandIsBlackjack = false;
     const activeName = myActiveName || myName;
-    if (state.phase === "playing" && state.current_turn && activeName &&
+    if (state.phase === PHASE.PLAYING && state.current_turn && activeName &&
         state.current_turn.toLowerCase() === activeName.toLowerCase()) {
       const me = (state.table || []).find(p => p.name.toLowerCase() === activeName.toLowerCase());
       if (me) {

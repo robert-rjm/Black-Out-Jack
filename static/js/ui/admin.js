@@ -47,10 +47,10 @@ function updateRoleUI(state) {
   // Drinks tab is visible to all; dealer-only actions inside the pane are toggled separately
   const dealerActions = document.getElementById("dig-drinks-dealer-actions");
   const waitingHint   = document.getElementById("dig-drinks-waiting");
-  const isRoundOver   = state.phase === "round-over";
+  const isRoundOver   = state.phase === PHASE.ROUND_OVER;
   // NEW ROUND is only relevant at round-over; during pre-deal the DEAL button takes over
   if (dealerActions) dealerActions.style.display = (isMyDealerClient && isRoundOver) ? "block" : "none";
-  if (waitingHint)   waitingHint.style.display   = (!isMyDealerClient && myRole !== "spectator" && isRoundOver) ? "block" : "none";
+  if (waitingHint)   waitingHint.style.display   = (!isMyDealerClient && myRole !== ROLE.SPECTATOR && isRoundOver) ? "block" : "none";
 
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
@@ -61,7 +61,7 @@ function updateRoleUI(state) {
   const predealPanel   = document.getElementById("dig-predeal-panel");
   const playContent    = document.getElementById("dig-play-content");
   const phase          = state.phase;
-  const isPreDeal      = phase === "pre-deal";
+  const isPreDeal      = phase === PHASE.PRE_DEAL;
 
   // Waiting-room deal panel: above tabs, dealer only
   if (predealPanel) {
@@ -88,22 +88,22 @@ function updateRoleUI(state) {
   // Local seat switcher
   _updateLocalSeatSwitcher();
   const addLocalRow = document.getElementById("add-local-seat-row");
-  if (addLocalRow) addLocalRow.style.display = (state.can_add_local_seat && myRole !== "spectator") ? "block" : "none";
+  if (addLocalRow) addLocalRow.style.display = (state.can_add_local_seat && myRole !== ROLE.SPECTATOR) ? "block" : "none";
 
   // Role hint
   if (hint) {
-    if (isMyDealerClient)                           hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
-    else if (myRole === "player" || myRole === "admin") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
+    if (isMyDealerClient)                           hint.textContent = phase === PHASE.PLAYING ? "You are the dealer — execute the player's vote." : "";
+    else if (myRole === ROLE.PLAYER || myRole === ROLE.ADMIN) hint.textContent = phase === PHASE.PLAYING ? "Tap to vote your play — dealer carries it out." : "";
     else                                            hint.textContent = "Spectating — watching only.";
   }
 
   // Spectators: disable everything and stop
-  if (myRole === "spectator" || !myRole) {
+  if (myRole === ROLE.SPECTATOR || !myRole) {
     digActionButtons().forEach(b => b.classList.add("disabled"));
     return;
   }
 
-  if (phase !== "playing" || !turn) return;
+  if (phase !== PHASE.PLAYING || !turn) return;
 
   // ── DEALER VIEW ──────────────────────────────────────────────
   if (isMyDealerClient) {
@@ -147,7 +147,7 @@ function updateRoleUI(state) {
     // No vote → all buttons available; split/double still gated by updateActionButtons
 
   // ── PLAYER VIEW ──────────────────────────────────────────────
-  } else if (myRole === "player") {
+  } else if (myRole === ROLE.PLAYER) {
     const activeName = myActiveName || myName;
     const isMyTurn   = activeName && turn.toLowerCase() === activeName.toLowerCase();
 
@@ -471,7 +471,7 @@ function updateBustVoteUI(state) {
   const bustVotes  = state.my_bust_votes || {};
   const anyUnvoted = Object.values(bustVotes).some(v => v === null || v === undefined);
   if (state.bust_vote_window_open && anyUnvoted
-      && myRole !== null && myRole !== "spectator"
+      && myRole !== null && myRole !== ROLE.SPECTATOR
       && !_dealAnimating) {
     _openBustVoteModal(state.bust_vote_seconds_left || 15);
   } else if (!state.bust_vote_window_open) {
@@ -502,8 +502,8 @@ function updateBustVoteUI(state) {
   const phase  = state.phase;
   const myVote = state.my_bust_vote;   // primary player's vote (backward compat)
   const show   = state.bust_vote_enabled
-    && myRole !== null && myRole !== "spectator"
-    && phase !== "pre-deal"
+    && myRole !== null && myRole !== ROLE.SPECTATOR
+    && phase !== PHASE.PRE_DEAL
     && !state.bust_vote_window_open;
 
   statusEl.style.display = show ? "block" : "none";
@@ -514,7 +514,7 @@ function updateBustVoteUI(state) {
   const bustCnt  = Object.values(allVotes).filter(v => v === "bust").length;
   const myBusters = myNames.filter(n => bustVotes[n] === "bust");
 
-  if (phase === "round-over") {
+  if (phase === PHASE.ROUND_OVER) {
     const result = state.bust_vote_result;
     if (!myBusters.length) {
       statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
@@ -783,7 +783,7 @@ function renderPendingRegBanner(state) {
   const banner = document.getElementById("pending-reg-banner");
   if (!banner) return;
   const pending = state.pending_registrations || [];
-  if (!pending.length || myRole !== "admin") {
+  if (!pending.length || myRole !== ROLE.ADMIN) {
     banner.style.display = "none";
     banner.innerHTML = "";
     return;
@@ -895,7 +895,7 @@ async function doSpectate() {
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name: "" }),
     });
     const data = await res.json();
-    myRole = "spectator";
+    myRole = ROLE.SPECTATOR;
     document.getElementById("register-overlay").style.display = "none";
     if (data.ok) applyState(data);
   } catch (_) {
@@ -919,7 +919,7 @@ function setAnimToggle(on) {
     if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
   });
   // Admin pushes preference to server so new joiners inherit it
-  if (myRole === "admin" && roomCode && clientId) {
+  if (myRole === ROLE.ADMIN && roomCode && clientId) {
     fetch("/set_anim_pref", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
