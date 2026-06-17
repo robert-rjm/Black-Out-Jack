@@ -108,6 +108,7 @@ function _rollingAvg(history, n) {
 
 // ---- Mobile ranking modal ----
 let _mobileLbDetailHTML = "";
+let _mobileKpiDetailHTML = "";
 
 function openMobileLbModal() {
   if (!_mobileLbDetailHTML) return;
@@ -127,6 +128,28 @@ function openMobileLbModal() {
         style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div style="overflow-x:auto">${_mobileLbDetailHTML}</div>`;
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function openMobileKpiModal() {
+  if (!_mobileKpiDetailHTML) return;
+  let overlay = document.getElementById("mobile-kpi-overlay");
+  if (overlay) { overlay.remove(); return; }
+  overlay = document.createElement("div");
+  overlay.id = "mobile-kpi-overlay";
+  overlay.style.cssText = [
+    "position:fixed;inset:0;z-index:800;background:var(--bg);",
+    "display:flex;flex-direction:column;padding:16px 12px;box-sizing:border-box;overflow-y:auto;",
+    "animation:_lb-slide-up .2s ease"
+  ].join("");
+  overlay.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-shrink:0">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">📊 Session Stats</div>
+      <button onclick="document.getElementById('mobile-kpi-overlay').remove()"
+        style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    ${_mobileKpiDetailHTML}`;
   overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
@@ -202,6 +225,8 @@ function renderStats(state) {
         ${dealerBustPct !== null ? `<span class="ssb-tag">Dealer bust ${dealerBustPct}%</span>` : ""}
       </div>
     </div>`;
+
+  _mobileKpiDetailHTML = sessionBanner;
 
   // ── Per-player table ─────────────────────────────────────────
   const rows = playOrder.map(name => {
@@ -414,6 +439,21 @@ function renderStats(state) {
         <div style="font-size:9px;color:var(--muted)">tap for details ›</div>
       </div>
       ${mHeader}${mLines}
+    </div>`);
+
+    // ── Mobile-only KPI card ────────────────────────────────────
+    const kpiItems = [
+      avgPerRound !== null ? `<div class="ssb-item"><div class="ssb-val" style="color:${avgRoundCol}">${avgPerRound}</div><div class="ssb-lbl">Avg/round</div></div>` : "",
+      drinking    ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${totalSips}</div><div class="ssb-lbl">Total sips</div></div>` : "",
+      `<div class="ssb-item"><div class="ssb-val">${_fmtDuration(sessionSecs)}</div><div class="ssb-lbl">Duration</div></div>`,
+    ].filter(Boolean).join("");
+    callouts.push(`<div class="stat-card stat-card-mobile-kpi" onclick="openMobileKpiModal()"
+        style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">📊 Session</div>
+        <div style="font-size:9px;color:var(--muted)">tap for details ›</div>
+      </div>
+      <div class="ssb-row">${kpiItems}</div>
     </div>`);
   }
 
