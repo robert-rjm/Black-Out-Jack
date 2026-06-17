@@ -112,7 +112,7 @@ Large batches of DOM elements added since the doc was last updated have no modul
 **File:** `docs/DOM-Hooks.md`
 `static/js/ui/admin-settings.js` exists and manages the settings panel (wager/hands/decks inputs, easy-mode toggle, bust-vote toggle, strategy-hint toggle, god-mode toggle, etc.) but has **zero** coverage in DOM-Hooks.md. The module and its owned element IDs (`#setting-wager`, `#setting-num-hands`, `#setting-num-decks`, `#bust-vote-toggle-modal`, `#god-mode-toggle-modal`, etc.) should be added to the module-ownership section.
 
-### N7 · Stale section-header comment in `drinking_rules.py`
+### ~~N7 · Stale section-header comment in `drinking_rules.py`~~
 **File:** `engine/drinking_rules.py` (between `_bj_multiplier` and `DrinkingRules` class)
 ```python
 # =============================================================================
@@ -160,5 +160,5 @@ If any reason string changes in `drinking_rules.py`, the Drinks-pane display sil
 - [x] N4 — Add `tick.py` and `validators.py` rows to Architecture.md file-deps table
 - [x] N5 — Update DOM-Hooks.md with 20+ undocumented element IDs
 - [x] N6 — Add `admin-settings.js` ownership section to DOM-Hooks.md
-- [ ] N7 — Remove stale `# Rule classifier` section header from `drinking_rules.py`
+- [X] N7 — Remove stale `# Rule classifier` section header from `drinking_rules.py`
 - [ ] N8 — Replace substring matching in `_record_drinks_detail` with `classify_rule` or typed log entries
