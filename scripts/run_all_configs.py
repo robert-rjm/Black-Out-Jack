@@ -35,7 +35,16 @@ def main():
                               "'<label>_<players>p_<decks>d' (default label: 'baseline')")
     args = parser.parse_args()
 
-    configs = [(p, d) for p in args.players for d in args.decks]
+    # 4+ players with 1 deck reshuffles constantly mid-round; results are
+    # meaningless. Enforce a minimum of 2 decks for 4+ players.
+    MIN_DECKS_FOR_PLAYERS = 2  # applies when player count >= 4
+    skipped = [(p, d) for p in args.players for d in args.decks
+               if p >= 4 and d < MIN_DECKS_FOR_PLAYERS]
+    if skipped:
+        print("Skipping thin configs (< 2 decks for 4+ players): "
+              + ", ".join(f"{p}p_{d}d" for p, d in skipped))
+    configs = [(p, d) for p in args.players for d in args.decks
+               if not (p >= 4 and d < MIN_DECKS_FOR_PLAYERS)]
     print(f"Running {len(configs)} configs: "
           + ", ".join(f"{p}p_{d}d" for p, d in configs))
 
