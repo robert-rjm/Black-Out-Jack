@@ -406,7 +406,7 @@ function _syncRoundEffects(state, drinkingOn) {
     if (drinkingOn && myNames.length > 0 && myRole !== ROLE.SPECTATOR) {
       myNames.forEach(n => showPlayerDrinkToast(DrinkUI.lastRoundSips[n] || 0, n));
     }
-    if (state.switch_this_round) {
+    if (drinkingOn && state.switch_this_round) {
       showSwitchToast(state.switch_this_round, state.dealer || "Dealer");
     }
     if (state.bust_vote_result) {

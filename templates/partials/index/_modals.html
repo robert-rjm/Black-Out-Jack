@@ -112,18 +112,20 @@
         <label>Decks in shoe</label>
         <input type="number" id="setting-num-decks" min="1" max="8" value="1" class="w-72">
       </div>
-      <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
-      <div class="settings-row">
-        <label>Rotate every</label>
-        <div class="settings-inline-row">
-          <input type="number" id="setting-rotate-every" min="1" max="20" value="1" class="w-52">
-          <span class="settings-inline-note">rounds</span>
-          {{ action_btn('Save', 'saveRotateEvery', '[]', 'btn btn-sm') }}
+      <div id="setting-rotation-section">
+        <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
+        <div class="settings-row">
+          <label>Rotate every</label>
+          <div class="settings-inline-row">
+            <input type="number" id="setting-rotate-every" min="1" max="20" value="1" class="w-52">
+            <span class="settings-inline-note">rounds</span>
+            {{ action_btn('Save', 'saveRotateEvery', '[]', 'btn btn-sm') }}
+          </div>
         </div>
-      </div>
-      <div class="settings-row settings-row-last">
-        <label>Force rotate now</label>
-        <button class="btn btn-rotate" data-action="rotateDealer">🔄 Rotate Now</button>
+        <div class="settings-row settings-row-last">
+          <label>Force rotate now</label>
+          <button class="btn btn-rotate" data-action="rotateDealer">🔄 Rotate Now</button>
+        </div>
       </div>
 
       <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>

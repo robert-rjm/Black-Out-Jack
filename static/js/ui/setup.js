@@ -188,6 +188,8 @@ function setGameType(type, btn) {
       easyModeField.style.display = "none";
       setEasyModeSetup(false);
     }
+    // Normal mode default: 1 hand per player (players bet against the house)
+    setStepperValue("num-hands-dig", 1);
     setRowCols(handsDecksRow, false);
     setRowCols(togglesRow, true);
     sub.textContent = "Standard Blackjack with No Drinks";

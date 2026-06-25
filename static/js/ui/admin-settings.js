@@ -493,11 +493,16 @@ function _populateSettingsUI(state) {
   if (godLblOn)  godLblOn.style.display  = state.god_mode_enabled ? "inline" : "none";
 
   if (wagerEl)   wagerEl.value    = state.wager            || 1;
-  if (handsEl)   handsEl.value    = state.num_hands         || 2;
+  // Prefer the queued value (if any) so the input reflects what will take
+  // effect next round rather than snapping back to the current active value.
+  const _handsQueued = (state.queued_settings || {}).num_hands;
+  if (handsEl)   handsEl.value    = _handsQueued ?? state.num_hands ?? 1;
   if (decksEl)   decksEl.value    = state.num_decks || 1;
   if (decksRow)  decksRow.style.display = (state.mode === "digital") ? "flex" : "none";
-  const rotateEl = document.getElementById("setting-rotate-every");
-  if (rotateEl)  rotateEl.value  = state.dealer_rotate_every || 1;
+  const rotateEl      = document.getElementById("setting-rotate-every");
+  if (rotateEl) rotateEl.value   = state.dealer_rotate_every || 1;
+  const rotationSection = document.getElementById("setting-rotation-section");
+  if (rotationSection) rotationSection.style.display = (state.drinking_mode !== false) ? "" : "none";
 
   // Populate remove-player dropdown — exclude dealer seat and admin's own seat
   if (removeEl) {
@@ -544,7 +549,8 @@ function _renderQueuedBanner(queued) {
 
 async function queueSettings() {
   const wager    = parseInt(document.getElementById("setting-wager")?.value    || "1");
-  const numHands = parseInt(document.getElementById("setting-num-hands")?.value || "2");
+  const _handsDefault = (lastState?.drinking_mode !== false) ? "2" : "1";
+  const numHands = parseInt(document.getElementById("setting-num-hands")?.value || _handsDefault);
   const numDecks = parseInt(document.getElementById("setting-num-decks")?.value || "1");
   const mode     = lastState?.mode || "referee";
 
