@@ -114,8 +114,6 @@ def apply_payouts(session: GameRoom) -> None:
         if net_display != 0:
             payouts[p.name] = net_display
 
-    session._last_round_payouts = payouts
-
     # Settle bust-vote side bets (normal mode only — drinking mode uses sips instead).
     # Stake = bet_amount / 2.  Casino-standard 2:1 payout on a correct bust call.
     bust_result = session.round._bust_vote_result
@@ -126,12 +124,17 @@ def apply_payouts(session: GameRoom) -> None:
             ret_amt = side_bet * 3
             session._bankrolls[name] = session._bankrolls.get(name, session.starting_bankroll) + ret_amt
             net_profit = side_bet * 2
+            payouts[name] = payouts.get(name, 0.0) + net_profit   # include in badge / stats
             session.round._log_entries.append(f"  {name} bust side bet: won +${net_profit:.2f} (2:1)\n")
             session._log_version += 1
         for name in bust_result.get("losers", []):
-            # Stake already gone — nothing returned, just log the loss
+            # Stake already gone — subtract from display so badge reflects the loss
+            payouts[name] = payouts.get(name, 0.0) - side_bet
             session.round._log_entries.append(f"  {name} bust side bet: lost -${side_bet:.2f}\n")
             session._log_version += 1
+
+    # Snapshot after side bets so badge and stats reflect total round P/L
+    session._last_round_payouts = {k: v for k, v in payouts.items() if v != 0}
 
     # Track each player's best (biggest win) and worst (biggest loss) single round
     for name, net in payouts.items():
