@@ -66,22 +66,34 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         if p.name not in voters:
             continue
         if dealer_busted:
-            p.add_drink(-1, "bust vote correct: -1 sip credit", "player")
             winners.append(p.name)
-            log.debug(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
+            # Sip credit and handout only apply in drinking mode
+            if session.drinking_mode:
+                p.add_drink(-1, "bust vote correct: -1 sip credit", "player")
+                log.debug(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
+            else:
+                log.debug(f"  [bust vote] {p.name} called it (normal mode — no sip reward)")
         else:
-            p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
             losers.append(p.name)
-            log.debug(f"  [bust vote] {p.name} wrong — +1 sip")
+            if session.drinking_mode:
+                p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
+                log.debug(f"  [bust vote] {p.name} wrong — +1 sip")
+            else:
+                log.debug(f"  [bust vote] {p.name} wrong (normal mode — no sip penalty)")
+
+    # In normal mode, attach the side-bet stake so the frontend and
+    # payout_tracker can display / settle the correct dollar amount.
+    side_bet_amount = (session.bet_amount / 2) if not session.drinking_mode else None
 
     session.round._bust_vote_result = {
-        "dealer_busted": dealer_busted,
-        "winners":       winners,
-        "losers":        losers,
+        "dealer_busted":   dealer_busted,
+        "winners":         winners,
+        "losers":          losers,
+        "side_bet_amount": side_bet_amount,   # None in drinking mode
     } if (winners or losers) else None
 
-    # Give winners a window to hand out their sip; auto-assign expires after that
-    if winners:
+    # Handout window only opens in drinking mode — in normal mode there are no sips to give
+    if winners and session.drinking_mode:
         session.round._bust_handout_expires_at = time.monotonic() + BUST_HANDOUT_WINDOW_SECONDS
     else:
         session.round._bust_handout_expires_at = None
