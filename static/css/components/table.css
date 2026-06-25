@@ -49,6 +49,32 @@
 }
 .cards-row { display: flex; gap: 5px; flex-wrap: nowrap; }
 
+/* ---- MOBILE: split hands stack vertically, cards wrap ---- */
+@media (max-width: 639px) {
+  .hands-row {
+    overflow-x: visible;
+    flex-direction: column;  /* H1 above, H2 below, etc. */
+    gap: 8px;
+  }
+  .hand-block {
+    width: 100%;             /* full column width per hand */
+    min-width: 0;
+  }
+  .cards-row {
+    display: grid;
+    grid-template-columns: repeat(3, 44px);  /* exactly 3 per row, 4th wraps */
+    gap: 4px;
+  }
+  .card-vis {
+    width: 44px;
+    height: 62px;
+  }
+  .card-vis .top { font-size: 11px; }
+  .card-vis .mid { font-size: 18px; }
+  .card-vis .bot { font-size: 11px; }
+  .card-vis .card-logo { width: 22px; height: 22px; }
+}
+
 .card-vis {
   width: 58px; height: 82px;
   border-radius: 8px;
