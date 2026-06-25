@@ -36,7 +36,7 @@ from app.services.game_engine import (
     bust_vote_pending, _push_ace_drink_event,
 )
 from app.services.decision_log import record_decision
-from app.services.payout_tracker import cmd_rebuy
+from app.services.payout_tracker import cmd_rebuy, deduct_bets, deduct_split_bet
 from app.services.round_pipeline import apply_endround_pipeline
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
 from app.config import BUST_VOTE_WINDOW_SECONDS
@@ -268,7 +268,13 @@ def _cmd_deal_digital(game_session, parts):
     )
     game_session.round._bust_handouts_given  = set()   # clear any stale handouts
     game_session.round._bust_handout_expires_at = None
+    # Clear the previous round's payout badge so the seat doesn't show a
+    # stale "+$10" delta while the new round's hands are in progress.
+    game_session._last_round_payouts = {}
     initial_deal(game_session)
+    # Deduct each player's stake upfront — bankroll drops immediately so
+    # players can see their money is at risk during the round.
+    deduct_bets(game_session)
     # NPCs always decline the bust side bet — cast their votes immediately
     # so only human players can hold up the start of play.
     if game_session.bust_vote_enabled and game_session.round._bust_vote_expires_at is not None:
@@ -504,6 +510,9 @@ def _cmd_split(game_session, parts):
     game_session.round._honor_acked.discard((player.name, id(hand)))
     idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
     new_hand, new_label = perform_split(game_session, player, hand, idx)
+    # Splitting requires placing an equal bet on the new hand — deduct it now
+    # so the bankroll badge stays accurate during the round.
+    deduct_split_bet(game_session, player.name)
     # Check for instant 21/bust on H1 after the second card is dealt
     if hand.score() == 21:
         hand.stood = True
