@@ -29,6 +29,7 @@ from app.services.serializer import (
     compute_mandatory_split10,
 )
 from app.services.drink_tracker import check_and_set_milestone
+from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
 from app.services.tick import tick, _run_deferred_dealer_play
 from app.config import MAX_REG_DENIALS
@@ -528,7 +529,25 @@ def cast_bust_vote():
             return jsonify({"ok": False, "error": "Player not found."})
         voter_name = player_name
 
+    prev_vote = session.round._bust_votes.get(voter_name)
     session.round._bust_votes[voter_name] = vote
+
+    # Normal mode: side bet is opt-in via the "bust" vote.
+    # Deduct half the main bet when a player commits to the bet, refund it
+    # immediately if they switch back to "pass".  Drinking mode uses sips only.
+    if not session.drinking_mode and session.mode == "digital":
+        side_bet = session.bet_amount / 2
+        init_bankrolls(session)   # safe no-op for players already seeded
+        if vote == "bust" and prev_vote != "bust":
+            # Player is placing the side bet — deduct now
+            session._bankrolls[voter_name] = (
+                session._bankrolls.get(voter_name, session.starting_bankroll) - side_bet
+            )
+        elif vote == "pass" and prev_vote == "bust":
+            # Player withdrew their bet — refund
+            session._bankrolls[voter_name] = (
+                session._bankrolls.get(voter_name, session.starting_bankroll) + side_bet
+            )
 
     # If every human non-dealer player has now voted, unblock NPC auto-play
     # (NPCs were holding off waiting for humans) then let the dealer run if ready.

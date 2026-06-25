@@ -622,13 +622,25 @@ function showBustVoteToast(result) {
   if (!result) return;
   const toast = document.getElementById("player-toast");
   if (!toast) return;
-  const parts = [];
-  const each = result.losers.length > 1 ? " each" : "";
+  const parts  = [];
+  const each   = result.losers.length > 1 ? " each" : "";
+  const normal = result.side_bet_amount != null;   // normal mode: use $ amounts
+  const sb     = normal ? result.side_bet_amount : 0;
+  const fmt    = v => `$${Number(v).toFixed(2)}`;
   if (result.dealer_busted) {
-    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip + give 1)`);
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip${each})`);
+    if (result.winners.length) {
+      const reward = normal ? ` (+${fmt(sb * 2)} @ 2:1)` : " (-1 sip + give 1)";
+      parts.push(`✅ ${result.winners.join(", ")} called it${reward}`);
+    }
+    if (result.losers.length) {
+      const penalty = normal ? ` (-${fmt(sb)}${each})` : ` (+1 sip${each})`;
+      parts.push(`❌ ${result.losers.join(", ")} wrong${penalty}`);
+    }
   } else {
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip${each})`);
+    if (result.losers.length) {
+      const penalty = normal ? ` (-${fmt(sb)}${each})` : ` (+1 sip${each})`;
+      parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong${penalty}`);
+    }
   }
   if (!parts.length) return;
   toast.textContent = parts.join(" · ");
