@@ -292,24 +292,30 @@ def dealer_turn(session: GameRoom) -> None:
             icon = {"win": "WIN", "loss": "LOSS", "push": "PUSH"}[hand.result]
             log.debug(f"  {p.name} Hand {i+1}: {hand}  => {icon}")
 
-    # Detect hard / soft dealer switch
-    all_results = [h.result for p in session.all_players for h in p.hands]
-    hard_switch = bool(all_results) and all(r == "win"  for r in all_results)
-    soft_switch = bool(all_results) and all(r == "loss" for r in all_results)
-    if soft_switch:
-        insured_bj = any(
-            h.insured and h.is_blackjack()
-            for p in session.all_players for h in p.hands
-        )
-        if insured_bj:
-            soft_switch = False
-            log.debug("  Soft Switch suppressed — insurance on blackjack.")
-    if hard_switch:
-        session.round.switch_this_round = "hard"
-        log.debug("  >>> HARD DEALER SWITCH <<<")
-    elif soft_switch:
-        session.round.switch_this_round = "soft"
-        log.debug("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
+    # Detect hard / soft dealer switch (drinking mode only — Normal mode has a
+    # fixed house dealer and never rotates, so switches are irrelevant there)
+    hard_switch = False
+    soft_switch = False
+    if drinking:
+        all_results = [h.result for p in session.all_players for h in p.hands]
+        hard_switch = bool(all_results) and all(r == "win"  for r in all_results)
+        soft_switch = bool(all_results) and all(r == "loss" for r in all_results)
+        if soft_switch:
+            insured_bj = any(
+                h.insured and h.is_blackjack()
+                for p in session.all_players for h in p.hands
+            )
+            if insured_bj:
+                soft_switch = False
+                log.debug("  Soft Switch suppressed — insurance on blackjack.")
+        if hard_switch:
+            session.round.switch_this_round = "hard"
+            log.debug("  >>> HARD DEALER SWITCH <<<")
+        elif soft_switch:
+            session.round.switch_this_round = "soft"
+            log.debug("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
+        else:
+            session.round.switch_this_round = None
     else:
         session.round.switch_this_round = None
 

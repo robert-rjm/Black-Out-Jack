@@ -425,19 +425,26 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                 ),
             }
 
-    # Dealer-rotation suggestion
-    switch         = session.round.switch_this_round
-    rounds_td      = session.rounds_this_dealer
-    num_p          = len(session.all_players)
-    suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= num_p)
-    if switch == "hard":
-        rotate_reason = "Hard switch — dealer lost all hands"
-    elif switch == "soft":
-        rotate_reason = "Soft switch — dealer won all hands"
-    elif suggest_rotate:
-        rotate_reason = f"Round {rounds_td} of {num_p} — every player has been dealer"
+    # Dealer-rotation suggestion (drinking mode only — Normal mode has a fixed
+    # house dealer that never rotates, so all rotation state is suppressed)
+    if session.drinking_mode:
+        switch         = session.round.switch_this_round
+        rounds_td      = session.rounds_this_dealer
+        num_p          = len(session.all_players)
+        suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= num_p)
+        if switch == "hard":
+            rotate_reason = "Hard switch — dealer lost all hands"
+        elif switch == "soft":
+            rotate_reason = "Soft switch — dealer won all hands"
+        elif suggest_rotate:
+            rotate_reason = f"Round {rounds_td} of {num_p} — every player has been dealer"
+        else:
+            rotate_reason = f"Round {rounds_td} of {num_p} as dealer"
     else:
-        rotate_reason = f"Round {rounds_td} of {num_p} as dealer"
+        switch         = None
+        rounds_td      = 0
+        suggest_rotate = False
+        rotate_reason  = ""
 
     sip_totals, _dealer_role_sips = (
         _compute_live_drink_totals(session) if session.drinking_mode else ({}, {})

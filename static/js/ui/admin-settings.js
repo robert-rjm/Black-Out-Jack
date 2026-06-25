@@ -496,8 +496,10 @@ function _populateSettingsUI(state) {
   if (handsEl)   handsEl.value    = state.num_hands         || 2;
   if (decksEl)   decksEl.value    = state.num_decks || 1;
   if (decksRow)  decksRow.style.display = (state.mode === "digital") ? "flex" : "none";
-  const rotateEl = document.getElementById("setting-rotate-every");
-  if (rotateEl)  rotateEl.value  = state.dealer_rotate_every || 1;
+  const rotateEl      = document.getElementById("setting-rotate-every");
+  if (rotateEl) rotateEl.value   = state.dealer_rotate_every || 1;
+  const rotationSection = document.getElementById("setting-rotation-section");
+  if (rotationSection) rotationSection.style.display = (state.drinking_mode !== false) ? "" : "none";
 
   // Populate remove-player dropdown — exclude dealer seat and admin's own seat
   if (removeEl) {
