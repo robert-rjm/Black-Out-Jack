@@ -112,7 +112,7 @@ def wild_card():
         outcome = "self"
         player.add_drink(1, reason, "player")
         text = f"🃏 {action_tmpl.format(name=player_name)}"
-    elif roll < 0.60:
+    elif roll < 0.50:
         # Dud
         outcome = "dud"
         text = f"🃏 {dud_t}"
