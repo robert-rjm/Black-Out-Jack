@@ -18,11 +18,12 @@
 
 ## 🔴 CRITICAL
 
-### C-1 · `_cmd_blackjack` in digital mode double-fires BJ drinks  
-**File:** `app/routes/game_commands.py` — `_cmd_blackjack` (line 577)  
+### ~~C-1~~ → L-8 · `_cmd_blackjack` registered in `DIGITAL_COMMANDS` — dead code, not an active bug  
+**File:** `app/routes/game_commands.py` — `_cmd_blackjack` (line 577); `DIGITAL_COMMANDS` (line 690)  
+**Reclassified from CRITICAL after review.**  
 **Problem:**  
-`_cmd_blackjack` is registered in `DIGITAL_COMMANDS` and applies `BlackjackEvent` drinks immediately via `session.tracker.apply()`. In digital mode, `dealer_turn()` in `game_engine.py` (line 420-424) already buffers and fires the exact same `BlackjackEvent` for every winning blackjack via `eor_msgs`. If anyone calls `blackjack <player>` in digital mode (possible with god_mode on), that player's opponents are charged twice. It also bypasses the 4-player EOR halving because it goes through `tracker.apply()` not the `eor_msgs` buffer.  
-**Fix:** Remove `"blackjack"` from `DIGITAL_COMMANDS`. It is only meaningful in referee mode where natural BJs must be manually declared. In digital mode, blackjacks are detected automatically.
+`_cmd_blackjack` is listed in `DIGITAL_COMMANDS` and appears in the digital `help` output, implying it is a valid digital command. In reality there is no frontend UI path to send it in digital mode — `sendCmd()` is only called from HIT/STAND/DOUBLE/SPLIT/DEAL/DEALER buttons and `doNewRound()`. God mode grants `is_dealer_client = true` but exposes no text command input. The handler can only be triggered via browser console or a direct HTTP POST with a known `client_id`. If triggered that way, it would double-fire BJ drinks (once immediately via `tracker.apply()`, bypassing the EOR buffer; once again when `dealer_turn()` runs the EOR flush) and bypass 4-player halving. But this is not reachable in normal gameplay.  
+**Fix:** Remove `"blackjack"` from `DIGITAL_COMMANDS` and from the digital help text. It is only meaningful in referee mode, where natural BJs must be manually declared.
 
 ---
 
@@ -410,7 +411,6 @@ Work top-to-bottom. Each item references the finding above.
 
 ```
 CRITICAL — fix before next play session
-[ ] C-1  Remove "blackjack" from DIGITAL_COMMANDS in game_commands.py
 [ ] C-2  Fix is_soft_hand() in strategy.py for multi-ace hands
 
 HIGH — fix before next public session
@@ -436,6 +436,7 @@ LOW — cleanup sprint
 [ ] L-4  Move _BLUE/_RESET ANSI codes into the function that uses them
 [ ] L-5  Document RoundState._ace_drink_seq / round_count interaction in a comment
 [ ] L-7  Audit reports.py CSV export for correctness
+[ ] L-8  Remove "blackjack" from DIGITAL_COMMANDS and digital help text (dead code)
 
 Frontend — CRITICAL
 [ ] FC-1 Fix onclick string injection for player names with apostrophes (table-modals.js)
@@ -467,7 +468,7 @@ Frontend — LOW (cleanup)
 
 | ID | File(s) | Severity | Type |
 |---|---|---|---|
-| C-1 | `game_commands.py` | 🔴 CRITICAL | Bug — double drink |
+| L-8 | `game_commands.py` | 🟢 LOW | Dead code — _cmd_blackjack in DIGITAL_COMMANDS |
 | C-2 | `strategy.py` | 🔴 CRITICAL | Bug — wrong strategy |
 | H-1 | `referee.py`, `blackjack.py`, `game_room.py` | 🟠 HIGH | Dead code / confusion |
 | H-2 | `drink_tracker.py`, `referee.py` | 🟠 HIGH | Maintenance hazard |
