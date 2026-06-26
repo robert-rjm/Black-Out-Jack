@@ -411,7 +411,7 @@ Work top-to-bottom. Each item references the finding above.
 
 ```
 CRITICAL — fix before next play session
-[ ] C-2  Fix is_soft_hand() in strategy.py for multi-ace hands
+[x] C-2  Fix is_soft_hand() in strategy.py for multi-ace hands
 
 HIGH — fix before next public session
 [ ] H-5  Add _insurance_result = None to RefereeSession.__init__; remove hasattr guard
@@ -436,7 +436,7 @@ LOW — cleanup sprint
 [ ] L-4  Move _BLUE/_RESET ANSI codes into the function that uses them
 [ ] L-5  Document RoundState._ace_drink_seq / round_count interaction in a comment
 [ ] L-7  Audit reports.py CSV export for correctness
-[ ] L-8  Remove "blackjack" from DIGITAL_COMMANDS and digital help text (dead code)
+[x] L-8  Remove "blackjack" from DIGITAL_COMMANDS and digital help text (dead code)
 
 Frontend — CRITICAL
 [ ] FC-1 Fix onclick string injection for player names with apostrophes (table-modals.js)
