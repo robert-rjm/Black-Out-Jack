@@ -39,14 +39,14 @@ bp = Blueprint("wild_card", __name__)
 # action_template: f-string with {name} for the player who drinks (self or random)
 # dud_text: shown when nothing happens
 _WILD_NAMES = [
-    ("Dealer's Ghost haunts {name} — 1 sip!",          "Dealer's Ghost drifts past harmlessly."),
-    ("The Joker deals {name} an extra sip!",            "The Joker keeps the trick to itself."),
-    ("House Edge catches up with {name} — 1 sip!",     "House Edge favours the table tonight."),
-    ("Blind Bet costs {name} — 1 sip!",                 "Blind Bet folds — nothing happens."),
-    ("Lucky Draw isn't so lucky for {name} — 1 sip!",  "Lucky Draw is actually lucky — nothing happens!"),
-    ("The Pit Boss flags {name} for a sip!",            "The Pit Boss looks the other way."),
-    ("High Roller bets against {name} — 1 sip!",       "High Roller passes on this one."),
-    ("Dead Man's Hand falls to {name} — 1 sip!",       "Dead Man's Hand belongs to nobody tonight."),
+    ("Dealer's Ghost haunts {name} — 1 sip!",          "Dealer's Ghost drifts past harmlessly.",          "Dealer's Ghost"),
+    ("The Joker deals {name} an extra sip!",            "The Joker keeps the trick to itself.",            "The Joker"),
+    ("House Edge catches up with {name} — 1 sip!",     "House Edge favours the table tonight.",           "House Edge"),
+    ("Blind Bet costs {name} — 1 sip!",                 "Blind Bet folds — nothing happens.",              "Blind Bet"),
+    ("Lucky Draw isn't so lucky for {name} — 1 sip!",  "Lucky Draw is actually lucky — nothing happens!", "Lucky Draw"),
+    ("The Pit Boss flags {name} for a sip!",            "The Pit Boss looks the other way.",               "The Pit Boss"),
+    ("High Roller bets against {name} — 1 sip!",       "High Roller passes on this one.",                 "High Roller"),
+    ("Dead Man's Hand falls to {name} — 1 sip!",       "Dead Man's Hand belongs to nobody tonight.",      "Dead Man's Hand"),
 ]
 
 _WILD_CARD_COOLDOWN = 3   # rounds that must pass before the same player can press again
@@ -54,7 +54,7 @@ _WILD_CARD_COOLDOWN = 3   # rounds that must pass before the same player can pre
 
 @bp.route("/wild_card", methods=["POST"])
 def wild_card():
-    """Easter-egg logo press — 40/20/40 drink assignment."""
+    """Easter-egg logo press — 40/10/50 drink assignment."""
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
@@ -110,14 +110,12 @@ def wild_card():
         })
 
     # ── Roll ─────────────────────────────────────────────────────────────────
-    roll               = random.random()
-    action_tmpl, dud_t = random.choice(_WILD_NAMES)
-    reason             = "wild_card"
-
+    roll                       = random.random()
+    action_tmpl, dud_t, label = random.choice(_WILD_NAMES)
     if roll < 0.40:
         # Self drinks
         outcome = "self"
-        player.add_drink(1, reason, "player")
+        player.add_drink(1, f"Wild Card 🃏 — {label}", "player")
         text = f"🃏 {action_tmpl.format(name=player_name)}"
     elif roll < 0.50:
         # Dud
@@ -136,7 +134,7 @@ def wild_card():
         else:
             target  = random.choice(others)
             outcome = "random"
-            target.add_drink(1, reason, "player")
+            target.add_drink(1, f"Wild Card 🃏 — {label}", "player")
             text = f"\U0001f0cf {action_tmpl.format(name=target.name)}"
 
     # ── Record result ─────────────────────────────────────────────────────
