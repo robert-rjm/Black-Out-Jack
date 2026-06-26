@@ -129,6 +129,15 @@ def export_csv():
             w.writerow([f"{boundary} sips", milestones[boundary]])
         w.writerow([])
 
+    # Wild Card press stats
+    wc_presses = session._wild_card_presses
+    if wc_presses:
+        w.writerow(["WILD CARD \U0001f0cf"])
+        w.writerow(["Player", "Total presses", "Self", "Random", "Dud"])
+        for name, s in sorted(wc_presses.items(), key=lambda x: -x[1]["presses"]):
+            w.writerow([name, s["presses"], s["self"], s["random"], s["dud"]])
+        w.writerow([])
+
     # Per-player tables
     for name in players_seen:
         pt = sum(player_sips[name].values())

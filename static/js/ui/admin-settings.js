@@ -256,6 +256,12 @@ function openKickModal() {
     rejoinSection.style.display = "none";
   }
 
+  // Reset the bot toggle button to OFF each time the modal opens
+  const npcCb  = document.getElementById("setting-add-npc");
+  const npcBtn = document.getElementById("setting-add-npc-btn");
+  if (npcCb)  npcCb.checked = false;
+  if (npcBtn) { npcBtn.textContent = "Bot"; npcBtn.classList.remove("npc-toggle-active"); }
+
   // Populate game settings section (admin only)
   if (lastState) _populateSettingsUI(lastState);
 
@@ -477,6 +483,13 @@ function _populateSettingsUI(state) {
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
   const stratCb = document.getElementById("strategy-hint-toggle-modal");
   if (stratCb) stratCb.checked = !!state.strategy_hint_enabled;
+  const wildCb = document.getElementById("wild-card-toggle-modal");
+  if (wildCb) wildCb.checked = state.wild_card_enabled !== false;
+  const wildLblOff = document.getElementById("wild-card-lbl-modal");
+  const wildLblOn  = document.getElementById("wild-card-lbl-modal-on");
+  const wildOn = state.wild_card_enabled !== false;
+  if (wildLblOff) wildLblOff.style.display = wildOn ? "none"   : "inline";
+  if (wildLblOn)  wildLblOn.style.display  = wildOn ? "inline" : "none";
 
   const easyModalCb = document.getElementById("easy-mode-toggle-modal");
   const easyModalOff = document.getElementById("easy-mode-lbl-modal");
@@ -583,6 +596,15 @@ async function takeBackSeat(playerName) {
     if (data.ok) { applyState(data); openKickModal(); }
     else alert(data.error || "Could not take back seat.");
   } catch (_) { alert("Network error."); }
+}
+
+function toggleNpcBtn() {
+  const cb  = document.getElementById("setting-add-npc");
+  const btn = document.getElementById("setting-add-npc-btn");
+  if (!cb || !btn) return;
+  cb.checked = !cb.checked;
+  btn.textContent = cb.checked ? "Bot" : "Bot";
+  btn.classList.toggle("npc-toggle-active", cb.checked);
 }
 
 async function queueAddPlayer() {

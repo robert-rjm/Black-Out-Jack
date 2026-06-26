@@ -65,6 +65,18 @@ class RoundState:
     # Milestone
     _pending_milestone: dict | None = None
 
+    # Wild Card Easter egg (per-round transient)
+    _wild_card_seq: int = 0
+    _wild_card_result: dict | None = None
+
+    # Devil's Hand (666) / Lucky Sevens (777) — digital mode (per-round transient)
+    _six_count: int = 0
+    _seven_count: int = 0
+    _six_curse_fired: bool = False
+    _seven_lucky_fired: bool = False
+    _table_events: list = field(default_factory=list)
+    _table_event_seq: int = 0
+
     # End-of-round message buffer (populated by dealer_turn, drained by cmd_endround)
     _eor_msgs_buffer: list = field(default_factory=list)
 
@@ -142,6 +154,14 @@ class GameRoom:
     # Bust handout sequence counter (session-lifetime; bumped when all
     # handouts for a round resolve — never reset between rounds)
     _bust_handout_seq: int = 0
+
+    # Wild Card Easter egg — cooldown tracker (session-lifetime so it
+    # persists across rounds).  Maps player_name → round_count when last used.
+    _wild_card_last_used: dict = field(default_factory=dict)
+    # Press counter: Maps player_name → {"presses": int, "self": int, "random": int, "dud": int}
+    _wild_card_presses: dict = field(default_factory=dict)
+    # Admin toggle — host can disable the logo Easter egg entirely (live setting)
+    wild_card_enabled: bool = True
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     bet_amount: float = 10

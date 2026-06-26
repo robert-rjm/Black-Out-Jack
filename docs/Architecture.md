@@ -28,6 +28,7 @@ Black-Out-Jack/
 │   │   ├── polling.py                      # Long-poll state sync; delegates per-poll ticks to services/tick.py
 │   │   ├── game_commands.py                # Referee & digital game commands
 │   │   ├── admin.py                        # Dealer rotation, milestone claim, kick
+│   │   ├── wild_card.py                    # Easter egg: POST /wild_card
 │   │   └── reports.py                      # Per-session drink summary export
 │   └── services/
 │       ├── game_engine.py                  # Digital mode card/turn logic
@@ -81,6 +82,7 @@ Black-Out-Jack/
 │   ├── drinking_rules.py                   # Drinking layer — reacts to game events
 │   └── referee.py                          # RefereeSession class for real-life play
 ├── scripts/                                # Standalone CLI tools
+│   ├── _cli.py                             # Shared CLI input helpers (safe_int, yes_no) used by terminal scripts
 │   ├── play_terminal.py                    # Interactive terminal play (RoundManager + DrinkTracker)
 │   ├── play_referee.py                     # Interactive CLI for real-life referee mode (RefereeSession)
 │   ├── simulation.py                       # 100,000-round NPC simulation; outputs CSV, txt,
@@ -111,6 +113,7 @@ Black-Out-Jack/
 │   ├── test_decision_log.py                # Decision-log capture, visible_cards, backfill, /export_decisions CSV
 │   └── test_rules_doc_sync.py              # Fails if docs/Rules.md / drinking_rules.py drift apart
 ├── server.py                               # Flask entry point
+├── manifest.json                           # Web App Manifest (PWA install metadata, icons, display mode)
 ├── requirements.txt                        # Python dependencies for deployment
 ├── requirements-dev.txt                    # Adds pytest for running the test suite
 ├── .gitignore
@@ -132,8 +135,9 @@ The main files are intentionally decoupled:
 | `engine/referee.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | RefereeSession for real-life play |
 | `app/services/validators.py` | nothing | `sanitize_name` + `get_client_info`; used by routes and serializer |
 | `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play); imported by `polling.py` |
-| `scripts/play_terminal.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | Interactive terminal play via `RoundManager` + `DrinkTracker` |
-| `scripts/play_referee.py` | `engine/referee.py` | Interactive CLI for real-life referee mode (`RefereeSession`) |
+| `scripts/_cli.py` | nothing | Shared CLI input helpers (`safe_int`, `yes_no`); imported by terminal scripts |
+| `scripts/play_terminal.py` | `engine/blackjack.py`, `engine/drinking_rules.py`, `scripts/_cli.py` | Interactive terminal play via `RoundManager` + `DrinkTracker` |
+| `scripts/play_referee.py` | `engine/referee.py`, `scripts/_cli.py` | Interactive CLI for real-life referee mode (`RefereeSession`) |
 | `scripts/simulation.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | 100,000-round NPC simulation; outputs CSV, txt, `benchmarks.json`, and `static/js/benchmarks.js` |
 | `scripts/snapshot.py` | `scripts/simulation.py` output | Copies `simulation_results.txt` + `benchmarks.json` into `scripts/snapshots/<label>/` for regression diffing |
 | `scripts/run_all_configs.py` | `scripts/simulation.py` | Runs simulation across all player/deck configs in one pass |

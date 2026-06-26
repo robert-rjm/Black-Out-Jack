@@ -237,6 +237,18 @@ async function setStrategyHintEnabled(on) {
   } catch (_) {}
 }
 
+async function setWildCardEnabled(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, wild_card_enabled: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
 async function setEasyModeAdmin(on) {
   try {
     const res  = await fetch("/update_settings", {
@@ -427,13 +439,13 @@ function _renderBustVoteCards(state) {
       bustBtn.className   = "btn green";
       bustBtn.style.cssText = "flex:1";
       bustBtn.textContent = "💥 Bet Bust";
-      bustBtn.onclick     = () => submitBustVote("bust", multiLocal ? name : undefined);
+      bustBtn.addEventListener("click", () => submitBustVote("bust", multiLocal ? name : undefined));
 
       const passBtn = document.createElement("button");
       passBtn.className   = "btn muted-btn";
       passBtn.style.cssText = "flex:1";
       passBtn.textContent = "Pass";
-      passBtn.onclick     = () => submitBustVote("pass", multiLocal ? name : undefined);
+      passBtn.addEventListener("click", () => submitBustVote("pass", multiLocal ? name : undefined));
 
       btns.appendChild(bustBtn);
       btns.appendChild(passBtn);
@@ -618,10 +630,19 @@ function _renderBustGivePanel(state) {
   }).join(`<hr style="border-color:var(--border);margin:8px 0">`);
 }
 
-function showBustVoteToast(result) {
-  if (!result) return;
+// Shared toast helper — sets content, applies drink/clean class, triggers show animation.
+function _firePlayerToast(text, iDrink, ms) {
   const toast = document.getElementById("player-toast");
   if (!toast) return;
+  toast.textContent = text;
+  toast.className = (iDrink ? "drink" : "clean") + " show";
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), ms);
+}
+
+function showBustVoteToast(result) {
+  if (!result) return;
   const parts  = [];
   const each   = result.losers.length > 1 ? " each" : "";
   const normal = result.side_bet_amount != null;   // normal mode: use $ amounts
@@ -643,44 +664,30 @@ function showBustVoteToast(result) {
     }
   }
   if (!parts.length) return;
-  toast.textContent = parts.join(" · ");
   // Red if I'm one of the players drinking the bust-vote penalty, green if
   // I'm not (someone else drinks / I'm a winner).
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
   const iDrink = _myNames.some(n => result.losers.includes(n));
-  toast.className = (iDrink ? "drink" : "clean") + " show";
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 6000);
+  _firePlayerToast(parts.join(" · "), iDrink, 6000);
 }
 
 function showBustHandoutToast(results) {
   if (!results || !results.length) return;
-  const toast = document.getElementById("player-toast");
-  if (!toast) return;
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
   const parts = results.map(r => {
-    if (r.forfeited) {
-      return `⏱️ ${r.winner} didn't choose in time — drinks it themselves`;
-    }
+    if (r.forfeited) return `⏱️ ${r.winner} didn't choose in time — drinks it themselves`;
     return `🎁 ${r.winner} gave 1 sip to ${r.recipient}`;
   });
-  toast.textContent = parts.join(" · ");
   // Red if I gave away a sip or forfeited (drink), green otherwise.
   const iDrink = results.some(r =>
     (r.forfeited && _myNames.includes(r.winner)) ||
     (!r.forfeited && _myNames.includes(r.recipient))
   );
-  toast.className = (iDrink ? "drink" : "clean") + " show";
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 6000);
+  _firePlayerToast(parts.join(" · "), iDrink, 6000);
 }
 
 function showInsuranceToast(results) {
   if (!results || !results.length) return;
-  const toast = document.getElementById("player-toast");
-  if (!toast) return;
   const parts = results.map(r => {
     const bj    = r.player;
     const voted = r.insured ? "Insure" : "Decline";
@@ -688,21 +695,18 @@ function showInsuranceToast(results) {
     let outcome, icon;
     if (r.group_won) {
       icon = "✅";
-      if (r.insured && dBJ)       outcome = `dealer had BJ — BJ holder drinks own bonus, group safe`;
+      if (r.insured && dBJ)        outcome = `dealer had BJ — BJ holder drinks own bonus, group safe`;
       else if (!r.insured && !dBJ) outcome = `no dealer BJ — normal BJ bonus`;
       else                         outcome = `correct call`;
     } else {
       icon = "❌";
       if (r.insured && !dBJ)      outcome = `no dealer BJ — group drinks double bonus`;
       else if (!r.insured && dBJ) outcome = `dealer had BJ — auto-insurance applies`;
-      else                         outcome = `wrong call`;
+      else                        outcome = `wrong call`;
     }
     return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
   });
-  toast.textContent = parts.join(" · ");
-
-  // Red if any insurance outcome means I personally drink, green otherwise
-  // (someone else drinks / I don't).
+  // Red if any insurance outcome means I personally drink, green otherwise.
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
   const iDrink = results.some(r => {
     const amHolder = _myNames.includes(r.player);
@@ -713,10 +717,7 @@ function showInsuranceToast(results) {
     // Rest of the group drinks double when the group's insurance call lost.
     return !r.group_won;
   });
-  toast.className = (iDrink ? "drink" : "clean") + " show";
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 8000);
+  _firePlayerToast(parts.join(" · "), iDrink, 8000);
 }
 
 // ============================================================
@@ -841,7 +842,7 @@ function showRegisterOverlay(state) {
       btn.className    = "btn-big accent";
       btn.style.height = "52px";
       btn.textContent  = `I am ${name}`;
-      btn.onclick      = () => doRegister(name);
+      btn.addEventListener("click", () => doRegister(name));
       seatsEl.appendChild(btn);
     });
   }
@@ -939,4 +940,3 @@ function setAnimToggle(on) {
     }).catch(() => {});
   }
 }
-

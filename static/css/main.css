@@ -68,11 +68,29 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   width: auto;
   aspect-ratio: 1;
   border-radius: 50%;
-  pointer-events: none;
+  cursor: pointer;
+  transition: opacity .15s;
 
   /* Mobile: right-aligned */
   right: 16px;
 }
+#header-logo:active { opacity: .7; }
+
+/* Wild Card: spin on click (presser only), flash on result (all clients).
+   Uses `rotate` (CSS Motion Level 1) rather than `transform` so it
+   composes safely with the desktop transform: translateX(-50%) centering. */
+@keyframes wild-card-spin {
+  from { rotate: 0deg; }
+  to   { rotate: 360deg; }
+}
+@keyframes wild-card-flash {
+  0%   { filter: drop-shadow(0 0 0px  rgba(245,200,66,0)); }
+  30%  { filter: drop-shadow(0 0 14px rgba(245,200,66,.9)); }
+  70%  { filter: drop-shadow(0 0 8px  rgba(245,200,66,.6)); }
+  100% { filter: drop-shadow(0 0 0px  rgba(245,200,66,0)); }
+}
+#header-logo.wild-card-spin  { animation: wild-card-spin  .5s ease-in-out; }
+#header-logo.wild-card-flash { animation: wild-card-flash .9s ease-in-out; }
 
 /* ─── Desktop ─── */
 @media (min-width: 640px) {
@@ -140,6 +158,19 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 #dealer-panel .dp-name  { color: var(--text); }
 #dealer-panel .dp-role  { font-size: 10px; color: var(--muted); margin-left: 4px; }
 #dealer-panel .dp-cards { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+
+@media (max-width: 639px) {
+  #dealer-panel .dp-cards {
+    gap: 0;
+    overflow-x: auto;
+  }
+  #dealer-panel .dp-cards .card-vis {
+    margin-right: -6px;   /* slight overlap matching player cards */
+  }
+  #dealer-panel .dp-cards .card-vis:last-child {
+    margin-right: 0;
+  }
+}
 
 /* ---- SIP TICKER ---- */
 #sip-ticker {
@@ -218,7 +249,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   background: rgba(255,255,255,.05);
   border-radius: 16px;
 }
-#btn-admin-nav .bnav-icon { transform: translateY(12px); }
+#btn-admin-nav .bnav-icon { transform: translateY(12px); } /* admin icon is taller than others; nudge down to keep it vertically centered in the nav bar */
 .bnav-label { display: none; }
 .bnav-home { color: var(--red); }
 
