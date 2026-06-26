@@ -158,6 +158,8 @@ class GameRoom:
     # Wild Card Easter egg — cooldown tracker (session-lifetime so it
     # persists across rounds).  Maps player_name → round_count when last used.
     _wild_card_last_used: dict = field(default_factory=dict)
+    # Press counter: Maps player_name → {"presses": int, "self": int, "random": int, "dud": int}
+    _wild_card_presses: dict = field(default_factory=dict)
     # Admin toggle — host can disable the logo Easter egg entirely (live setting)
     wild_card_enabled: bool = True
 

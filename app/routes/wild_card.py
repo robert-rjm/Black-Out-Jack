@@ -138,6 +138,9 @@ def wild_card():
             text = f"\U0001f0cf {action_tmpl.format(name=target.name)}"
 
     # ── Record result ─────────────────────────────────────────────────────
+    wc = session._wild_card_presses.setdefault(player_name, {"presses": 0, "self": 0, "random": 0, "dud": 0})
+    wc["presses"] += 1
+    wc[outcome]   += 1
     session._wild_card_last_used[player_name] = session.round_count
     session.round._wild_card_seq    += 1
     session.round._wild_card_result  = {"text": text, "outcome": outcome}
