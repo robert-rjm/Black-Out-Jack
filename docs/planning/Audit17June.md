@@ -27,7 +27,7 @@ Note: `.hand-block.done { opacity: .65; }` (line 43) is also present and was add
 **File:** `static/css/components/kpi.css`, `static/js/ui/log.js`
 Header strip renders per-player sip counts inline. No overflow guard on the ticker row for 5+ players on narrow screens.
 
-### L5 · No loading / reconnection state in UI
+### ~~L5 · No loading / reconnection state in UI~~
 **File:** `static/js/state.js`, `static/js/app.js`
 No visual feedback when `/state` poll is slow or fails — `_requestsInFlight` tracks in-flight requests but nothing renders a spinner or top-bar indicator. Add a pulsing indicator on in-flight fetches.
 
@@ -77,7 +77,7 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 - [X] L2 — `overflow-x: auto` on `.cards-row` (lower risk; parent handles it)
 - [X] L3 — Soften `.seat.done` opacity to `.80`; also `.hand-block.done`
 - [ ] L4 — Fix sip ticker clip on 4+ players
-- [ ] L5 — Add loading / reconnection indicator
+- [X] L5 — Add loading / reconnection indicator
 - [X] L6 — Comment magic `translateY(12px)` offset
 - [ ] L7 — Switch action-button matching to `data-action-code`
 - [X] L8 — Extract `_firePlayerToast()` helper in admin.js
