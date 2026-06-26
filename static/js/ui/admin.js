@@ -427,13 +427,13 @@ function _renderBustVoteCards(state) {
       bustBtn.className   = "btn green";
       bustBtn.style.cssText = "flex:1";
       bustBtn.textContent = "💥 Bet Bust";
-      bustBtn.onclick     = () => submitBustVote("bust", multiLocal ? name : undefined);
+      bustBtn.addEventListener("click", () => submitBustVote("bust", multiLocal ? name : undefined));
 
       const passBtn = document.createElement("button");
       passBtn.className   = "btn muted-btn";
       passBtn.style.cssText = "flex:1";
       passBtn.textContent = "Pass";
-      passBtn.onclick     = () => submitBustVote("pass", multiLocal ? name : undefined);
+      passBtn.addEventListener("click", () => submitBustVote("pass", multiLocal ? name : undefined));
 
       btns.appendChild(bustBtn);
       btns.appendChild(passBtn);
@@ -830,7 +830,7 @@ function showRegisterOverlay(state) {
       btn.className    = "btn-big accent";
       btn.style.height = "52px";
       btn.textContent  = `I am ${name}`;
-      btn.onclick      = () => doRegister(name);
+      btn.addEventListener("click", () => doRegister(name));
       seatsEl.appendChild(btn);
     });
   }
