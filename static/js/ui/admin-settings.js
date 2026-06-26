@@ -256,6 +256,12 @@ function openKickModal() {
     rejoinSection.style.display = "none";
   }
 
+  // Reset the bot toggle button to OFF each time the modal opens
+  const npcCb  = document.getElementById("setting-add-npc");
+  const npcBtn = document.getElementById("setting-add-npc-btn");
+  if (npcCb)  npcCb.checked = false;
+  if (npcBtn) { npcBtn.textContent = "Bot"; npcBtn.classList.remove("npc-toggle-active"); }
+
   // Populate game settings section (admin only)
   if (lastState) _populateSettingsUI(lastState);
 
@@ -583,6 +589,15 @@ async function takeBackSeat(playerName) {
     if (data.ok) { applyState(data); openKickModal(); }
     else alert(data.error || "Could not take back seat.");
   } catch (_) { alert("Network error."); }
+}
+
+function toggleNpcBtn() {
+  const cb  = document.getElementById("setting-add-npc");
+  const btn = document.getElementById("setting-add-npc-btn");
+  if (!cb || !btn) return;
+  cb.checked = !cb.checked;
+  btn.textContent = cb.checked ? "Bot" : "Bot";
+  btn.classList.toggle("npc-toggle-active", cb.checked);
 }
 
 async function queueAddPlayer() {

@@ -358,12 +358,23 @@ body.no-drinking .drink-only {
   color: var(--accent);
   border-color: rgba(79,142,247,.3);
 }
+.npc-toggle-btn { white-space: nowrap; flex-shrink: 0; }
+.npc-toggle-btn.npc-toggle-active { background: rgba(79,142,247,.2); color: var(--accent); border-color: rgba(79,142,247,.5); }
 .npc-label {
   font-size: 12px;
   white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;         /* prevent the label from being squeezed by flex: 1 on the text input */
+  min-height: 36px;       /* ensure tappable touch target */
+  padding: 0 4px;
+  cursor: pointer;
+}
+.npc-label input[type=checkbox] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 .settings-select {
   flex: 1;

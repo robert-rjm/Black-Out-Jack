@@ -131,7 +131,8 @@
       <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>
       <div class="settings-add-row">
         <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
-        <label class="npc-label"><input type="checkbox" id="setting-add-npc"> Bot</label>
+        <button type="button" id="setting-add-npc-btn" class="btn btn-sm npc-toggle-btn" data-action="toggleNpcBtn">Bot</button>
+        <input type="checkbox" id="setting-add-npc" hidden>
         {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
       </div>
 
