@@ -478,6 +478,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "ace_drink_seq":          session.round._ace_drink_seq,
         "reshuffle_events":       session.round._reshuffle_events,
         "reshuffle_seq":          session.round._reshuffle_seq,
+        # Wild Card Easter egg
+        "wild_card_seq":          session.round._wild_card_seq,
+        "wild_card_text":         (session.round._wild_card_result or {}).get("text"),
+        "wild_card_outcome":      (session.round._wild_card_result or {}).get("outcome"),
     }
 
     # ---- Bust-vote data ----

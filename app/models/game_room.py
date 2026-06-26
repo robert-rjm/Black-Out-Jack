@@ -65,6 +65,10 @@ class RoundState:
     # Milestone
     _pending_milestone: dict | None = None
 
+    # Wild Card Easter egg (per-round transient)
+    _wild_card_seq: int = 0
+    _wild_card_result: dict | None = None
+
     # End-of-round message buffer (populated by dealer_turn, drained by cmd_endround)
     _eor_msgs_buffer: list = field(default_factory=list)
 
@@ -142,6 +146,10 @@ class GameRoom:
     # Bust handout sequence counter (session-lifetime; bumped when all
     # handouts for a round resolve — never reset between rounds)
     _bust_handout_seq: int = 0
+
+    # Wild Card Easter egg — cooldown tracker (session-lifetime so it
+    # persists across rounds).  Maps player_name → round_count when last used.
+    _wild_card_last_used: dict = field(default_factory=dict)
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     bet_amount: float = 10
