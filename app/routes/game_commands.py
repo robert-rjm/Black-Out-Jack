@@ -76,9 +76,6 @@ def _print_digital_help():
   insurance <player> [hand<n>]
       Mark the hand as insured (when dealer shows Ace).
 
-  blackjack <player> [hand<n>]
-      Confirm a natural blackjack and fire drinking rules.
-
   dealer
       Reveal the hole card, hit until 17+, then auto-evaluate all hands.
 
@@ -687,7 +684,6 @@ DIGITAL_COMMANDS = {
     "double":    _cmd_double,
     "split":     _cmd_split,
     "insurance": _cmd_insurance,
-    "blackjack": _cmd_blackjack,
     "peek":      _cmd_peek,
     "dealer":    _cmd_dealer_digital,
     "endround":  lambda gs, parts: _resolve_endround(gs),
@@ -767,7 +763,7 @@ def command():
 
     # Dealer-gate: only dealer or admin may execute game-changing commands
     DEALER_GATED_CMDS = {
-        "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
+        "deal", "hit", "stand", "double", "split", "insurance",
         "dealer", "endround", "newround", "peek", "action", "result", "fouraces",
     }
     if (cmd in DEALER_GATED_CMDS
