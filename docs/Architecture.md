@@ -28,6 +28,7 @@ Black-Out-Jack/
 │   │   ├── polling.py                      # Long-poll state sync; delegates per-poll ticks to services/tick.py
 │   │   ├── game_commands.py                # Referee & digital game commands
 │   │   ├── admin.py                        # Dealer rotation, milestone claim, kick
+│   │   ├── wild_card.py                    # Easter egg: POST /wild_card
 │   │   └── reports.py                      # Per-session drink summary export
 │   └── services/
 │       ├── game_engine.py                  # Digital mode card/turn logic

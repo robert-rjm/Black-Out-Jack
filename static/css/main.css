@@ -68,11 +68,29 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   width: auto;
   aspect-ratio: 1;
   border-radius: 50%;
-  pointer-events: none;
+  cursor: pointer;
+  transition: opacity .15s;
 
   /* Mobile: right-aligned */
   right: 16px;
 }
+#header-logo:active { opacity: .7; }
+
+/* Wild Card: spin on click (presser only), flash on result (all clients).
+   Uses `rotate` (CSS Motion Level 1) rather than `transform` so it
+   composes safely with the desktop transform: translateX(-50%) centering. */
+@keyframes wild-card-spin {
+  from { rotate: 0deg; }
+  to   { rotate: 360deg; }
+}
+@keyframes wild-card-flash {
+  0%   { filter: drop-shadow(0 0 0px  rgba(245,200,66,0)); }
+  30%  { filter: drop-shadow(0 0 14px rgba(245,200,66,.9)); }
+  70%  { filter: drop-shadow(0 0 8px  rgba(245,200,66,.6)); }
+  100% { filter: drop-shadow(0 0 0px  rgba(245,200,66,0)); }
+}
+#header-logo.wild-card-spin  { animation: wild-card-spin  .5s ease-in-out; }
+#header-logo.wild-card-flash { animation: wild-card-flash .9s ease-in-out; }
 
 /* ─── Desktop ─── */
 @media (min-width: 640px) {
