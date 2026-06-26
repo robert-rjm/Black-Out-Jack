@@ -8,7 +8,8 @@ Carries forward all still-open L-items from 16 June and adds new N-items found i
 
 ## Carried-Forward Issues (still open from 16 June)
 
-### L1 · Bottom nav labels always hidden (accessibility)
+### ~~L1 · Bottom nav labels always hidden (accessibility)~~
+Already implicitly done on browser when howevering
 **File:** `static/css/main.css` (line 222)
 `.bnav-label { display: none }` applies on all breakpoints. Add visible labels at ≥640px or `title` attributes at minimum.
 
@@ -16,7 +17,8 @@ Carries forward all still-open L-items from 16 June and adds new N-items found i
 **File:** `static/css/components/table.css` (lines 35, 50)
 `.cards-row` has `flex-wrap: nowrap` and no explicit `overflow-x`. The *parent* `.hand-block` already has `overflow-x: auto` (line 35), so cards do scroll in practice. Original bug was correct but severity is lower — the overflow is handled one level up. Still worth adding `overflow-x: auto` directly on `.cards-row` for explicit intent.
 
-### L3 · Done-seat dimming too aggressive
+### ~~L3 · Done-seat dimming too aggressive~~
+consider to ignore, dimming seems fine as of rn
 **File:** `static/css/components/table.css` (line 15)
 `.seat.done { opacity: .55 }` — still `.55`. Reduce to `.80` or switch to an active-seat accent.
 Note: `.hand-block.done { opacity: .65; }` (line 43) is also present and was added since the June 16 audit. Same concern applies there.
@@ -71,9 +73,9 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 ## Checklist
 
 ### Carried forward from 16 June
-- [ ] L1 — Bottom nav labels on desktop / `title` attributes
+- [X] L1 — Bottom nav labels on desktop / `title` attributes
 - [X] L2 — `overflow-x: auto` on `.cards-row` (lower risk; parent handles it)
-- [ ] L3 — Soften `.seat.done` opacity to `.80`; also `.hand-block.done`
+- [X] L3 — Soften `.seat.done` opacity to `.80`; also `.hand-block.done`
 - [ ] L4 — Fix sip ticker clip on 4+ players
 - [ ] L5 — Add loading / reconnection indicator
 - [X] L6 — Comment magic `translateY(12px)` offset
