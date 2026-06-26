@@ -111,6 +111,7 @@ Black-Out-Jack/
 │   ├── test_decision_log.py                # Decision-log capture, visible_cards, backfill, /export_decisions CSV
 │   └── test_rules_doc_sync.py              # Fails if docs/Rules.md / drinking_rules.py drift apart
 ├── server.py                               # Flask entry point
+├── manifest.json                           # Web App Manifest (PWA install metadata, icons, display mode)
 ├── requirements.txt                        # Python dependencies for deployment
 ├── requirements-dev.txt                    # Adds pytest for running the test suite
 ├── .gitignore
