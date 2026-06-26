@@ -12,7 +12,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
 1. [Game Setup](#1-game-setup)
 2. [Dealer Rotation](#2-dealer-rotation)
 3. [Rule Modifications](#3-rule-modifications-from-standard-blackjack)
-4. [Drinking Rules (Instant Effect)](#4-drinking-rules-instant-effect)
+4. [Drinking Rules (Instant Effect)](#4-drinking-rules-instant-effect) _(4.1 Ace Effects, 4.2 Dealer Suited Hand, 4.3 Four Aces, 4.4 Side Bet Dealer Bust, 4.5 Devil's Hand, 4.6 Lucky Sevens)_
 5. [Drinking Rules (End of Round)](#5-drinking-rules-end-of-round)
 6. [Relaxed Drinking Rules](#6-relaxed-drinking-rules)
 7. [Potential Future Rules](#7-potential-future-rules)
@@ -156,6 +156,22 @@ This feature can be toggled on or off by the host at any time
 
 - The sip credit and handout are separate, credit offsets own drinks while handout goes to someone else.
 - Unassigned sips within handout timer return to you as penalty
+
+### 4.5 Devil's Hand
+
+If the **3rd six** of the round is dealt to any player (or the dealer), that player drinks **1 sip** immediately.
+
+- Counts all visible cards across all hands and the dealer's up-card.
+- The dealer's hole card is counted at the moment it is revealed, not when it was dealt.
+- Fires at most once per round.
+
+### 4.6 Lucky Sevens
+
+If the **3rd seven** of the round is dealt to any player (or the dealer), that player receives a **−1 sip credit** (reduces their end-of-round net total by 1, minimum 0).
+
+- Same counting rules as Devil's Hand above.
+- Fires at most once per round.
+- Both Devil's Hand and Lucky Sevens can fire in the same round if the table is unlucky and lucky enough.
 
 
 ## 5. Drinking Rules (End of Round)

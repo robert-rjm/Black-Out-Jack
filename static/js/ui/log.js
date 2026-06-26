@@ -331,6 +331,40 @@ function processReshuffleEvents(state) {
 }
 
 // ============================================================
+// DEVIL'S HAND (666) / LUCKY SEVENS (777) TABLE EVENTS
+// ============================================================
+let _lastTableEventSeq = 0;
+
+function processTableEvents(state) {
+  const events = state.table_events || [];
+  const seq    = state.table_event_seq || 0;
+  if (seq < _lastTableEventSeq) _lastTableEventSeq = 0;
+  if (seq <= _lastTableEventSeq || !events.length) return;
+
+  const newEvents = events.filter(e => e.seq > _lastTableEventSeq);
+  _lastTableEventSeq = seq;
+  if (!newEvents.length) return;
+
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+
+  newEvents.forEach(ev => {
+    const _show = () => {
+      el.textContent = ev.text;
+      // curse = red (drink), lucky = green (credit)
+      el.className = (ev.outcome === "lucky" ? "clean" : "drink") + " show";
+      if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
+      ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
+    };
+    if (_bustVoteOpen()) {
+      ToastUI.queue.push(_show);
+    } else {
+      _show();
+    }
+  });
+}
+
+// ============================================================
 // WILD CARD EASTER EGG  (logo press → 40/20/40 drink event)
 // ============================================================
 let _lastWildCardSeq = 0;
