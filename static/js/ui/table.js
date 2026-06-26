@@ -463,10 +463,11 @@ function _syncModals(state) {
   updateRegisterOverlay(state);
   renderKickVoteBanner(state);
 
-  // Wild Card logo: pointer cursor only when Easter egg is enabled
+  // Wild Card logo: pointer cursor only when Easter egg is enabled AND round is active
   const logo = document.getElementById("header-logo");
   if (logo) {
-    const wcEnabled = state.wild_card_enabled !== false && state.drinking_mode !== false;
+    const activePhase = state.phase === "playing" || state.phase === "dealer-ready";
+    const wcEnabled   = state.wild_card_enabled !== false && state.drinking_mode !== false && activePhase;
     logo.style.cursor        = wcEnabled ? "pointer" : "default";
     logo.style.pointerEvents = wcEnabled ? "auto"    : "none";
     logo.title               = wcEnabled ? "🃏" : "";
