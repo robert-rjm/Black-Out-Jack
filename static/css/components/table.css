@@ -47,7 +47,7 @@
   text-transform: uppercase; letter-spacing: .5px;
   font-weight: 700;
 }
-.cards-row { display: flex; gap: 5px; flex-wrap: nowrap; }
+.cards-row { display: flex; gap: 5px; flex-wrap: nowrap; overflow-x: auto; }
 
 /* ---- MOBILE: split hands stack vertically, cards wrap ---- */
 @media (max-width: 639px) {

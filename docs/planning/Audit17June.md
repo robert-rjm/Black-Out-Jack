@@ -12,7 +12,7 @@ Carries forward all still-open L-items from 16 June and adds new N-items found i
 **File:** `static/css/main.css` (line 222)
 `.bnav-label { display: none }` applies on all breakpoints. Add visible labels at ≥640px or `title` attributes at minimum.
 
-### L2 · Card overflow on long hands — lower risk than originally rated
+### ~~L2 · Card overflow on long hands — lower risk than originally rated~~
 **File:** `static/css/components/table.css` (lines 35, 50)
 `.cards-row` has `flex-wrap: nowrap` and no explicit `overflow-x`. The *parent* `.hand-block` already has `overflow-x: auto` (line 35), so cards do scroll in practice. Original bug was correct but severity is lower — the overflow is handled one level up. Still worth adding `overflow-x: auto` directly on `.cards-row` for explicit intent.
 
@@ -72,7 +72,7 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 
 ### Carried forward from 16 June
 - [ ] L1 — Bottom nav labels on desktop / `title` attributes
-- [ ] L2 — `overflow-x: auto` on `.cards-row` (lower risk; parent handles it)
+- [X] L2 — `overflow-x: auto` on `.cards-row` (lower risk; parent handles it)
 - [ ] L3 — Soften `.seat.done` opacity to `.80`; also `.hand-block.done`
 - [ ] L4 — Fix sip ticker clip on 4+ players
 - [ ] L5 — Add loading / reconnection indicator
