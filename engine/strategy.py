@@ -58,11 +58,23 @@ _BS_PAIR = {
 # =============================================================================
 
 def is_soft_hand(hand) -> bool:
-    """True when the hand contains a live Ace counted as 11."""
-    total = sum(c.rank.blackjack_value for c in hand.cards)
-    # An ace is soft when it's still counted as 11 (blackjack_value == 11)
-    aces  = sum(1 for c in hand.cards if c.rank.blackjack_value == 11)
-    return aces > 0 and total <= 21
+    """True when the hand contains at least one Ace counted as 11.
+
+    The naive approach (sum all aces as 11, check <= 21) fails for hands with
+    multiple aces: A+A sums to 22 > 21 so it would return False, but
+    Hand.score() = 12 — the hand IS soft (one ace is 11, the other is 1).
+    Correct test: compare hand.score() against the all-aces-as-1 total; if
+    score is higher, at least one ace is still counting as 11.
+    """
+    has_ace = any(c.rank.blackjack_value == 11 for c in hand.cards)
+    if not has_ace:
+        return False
+    # Hard total: every ace counted as 1, every other card at face value
+    hard_total = sum(
+        1 if c.rank.blackjack_value == 11 else c.rank.blackjack_value
+        for c in hand.cards
+    )
+    return hand.score() > hard_total
 
 
 # =============================================================================
