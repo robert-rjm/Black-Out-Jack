@@ -13,36 +13,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 
 from engine.blackjack import Player, NPC_Player, Shoe, Hand, RoundManager  # noqa: E402
 from engine.drinking_rules import DrinkTracker  # noqa: E402
-
-
-def _safe_int(prompt: str, default: int, lo: int = 1, hi: int = 999) -> int:
-    """Input helper -- accepts integers, ignores trailing punctuation, loops on bad input."""
-    while True:
-        try:
-            raw = input(prompt).strip().rstrip(".,:;")
-        except EOFError:
-            return default
-        if not raw:
-            return default
-        try:
-            val = int(raw)
-        except ValueError:
-            print("  Please enter a number.")
-            continue
-        if lo <= val <= hi:
-            return val
-        print(f"  Please enter a number between {lo} and {hi}.")
-
-
-def _yes_no(prompt: str, default: bool = False) -> bool:
-    suffix = " [Y/n]: " if default else " [y/n]: "
-    try:
-        raw = input(prompt + suffix).strip().lower()
-    except EOFError:
-        return default
-    if not raw:
-        return default
-    return raw.startswith("y")
+from scripts._cli import safe_int as _safe_int, yes_no as _yes_no  # noqa: E402
 
 
 def setup_session():

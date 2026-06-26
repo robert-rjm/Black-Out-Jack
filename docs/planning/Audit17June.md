@@ -64,7 +64,7 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 **File:** `static/js/ui/admin.js`
 `el.onclick = () => ...` and `addEventListener("click", ...)` still mixed. E.g. `bustBtn.onclick`, `passBtn.onclick`, `btn.onclick` set directly while `requestLocalSeat` wires via `addEventListener`. Pick one convention.
 
-### L16 · Script CLI utilities duplicated
+### ~~L16 · Script CLI utilities duplicated~~
 **File:** `scripts/play_terminal.py`, `scripts/play_referee.py`, `scripts/simulation.py`
 `play_terminal.py` has `_safe_int()` and `_yes_no()` helpers; `play_referee.py` has its own integer-prompt loop. Consolidate into `scripts/_cli.py`.
 
@@ -84,4 +84,4 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 - [x] L9 — `log.js` substring classification — RESOLVED (appendLog is a stub)
 - [ ] L14 — Replace inline CSS strings in JS with toggled classes
 - [X] L15 — Pick one event-wiring style in admin.js
-- [ ] L16 — Consolidate script CLI utilities into `scripts/_cli.py`
+- [X] L16 — Consolidate script CLI utilities into `scripts/_cli.py`
