@@ -27,7 +27,7 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from app.services.session_store import game_sessions
-from app.services.serializer    import serialize_state, compute_sip_totals
+from app.services.serializer    import serialize_state, compute_sip_totals, round_phase
 from app.config                 import MILESTONE_STEP
 
 log = logging.getLogger(__name__)
@@ -68,6 +68,10 @@ def wild_card():
 
     if not session.wild_card_enabled:
         return jsonify({"ok": False, "output": "Wild Card is disabled."})
+
+    phase = round_phase(session)
+    if phase not in ("playing", "dealer-ready"):
+        return jsonify({"ok": False, "output": "Wild Card only works during an active round."})
 
     # ── Identify the presser ─────────────────────────────────────────────────
     client_info = session._room_clients.get(client_id, {})
