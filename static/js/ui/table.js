@@ -463,6 +463,15 @@ function _syncModals(state) {
   updateRegisterOverlay(state);
   renderKickVoteBanner(state);
 
+  // Wild Card logo: pointer cursor only when Easter egg is enabled
+  const logo = document.getElementById("header-logo");
+  if (logo) {
+    const wcEnabled = state.wild_card_enabled !== false && state.drinking_mode !== false;
+    logo.style.cursor        = wcEnabled ? "pointer" : "default";
+    logo.style.pointerEvents = wcEnabled ? "auto"    : "none";
+    logo.title               = wcEnabled ? "🃏" : "";
+  }
+
   const rejoinBanner = document.getElementById("spectator-rejoin-banner");
   const rejoinBtn    = document.getElementById("rejoin-req-btn");
   if (rejoinBanner) {
@@ -936,8 +945,7 @@ function activateDigTab(name) {
     const args = t.getAttribute("data-args") || t.getAttribute("onclick") || "";
     t.classList.toggle("active", args.includes(`"${name}"`) || args.includes(`'${name}'`));
   });
-  document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"));
-  const pane = document.getElementById(`pane-${name}`);
+  document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"))
+  const pane = document.getElementById("pane-" + name);
   if (pane) pane.classList.add("active");
 }
-

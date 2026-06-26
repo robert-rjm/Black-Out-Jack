@@ -66,6 +66,9 @@ def wild_card():
     if not session.drinking_mode:
         return jsonify({"ok": False, "output": "Wild Card only works in drinking mode."})
 
+    if not session.wild_card_enabled:
+        return jsonify({"ok": False, "output": "Wild Card is disabled."})
+
     # ── Identify the presser ─────────────────────────────────────────────────
     client_info = session._room_clients.get(client_id, {})
     player_name = client_info.get("name", "")
@@ -125,19 +128,18 @@ def wild_card():
         if not others:
             # No valid targets → fall back to dud
             outcome = "dud"
-            text = f"🃏 {dud_t}"
+            text = f"\U0001f0cf {dud_t}"
         else:
             target  = random.choice(others)
             outcome = "random"
             target.add_drink(1, reason, "player")
-            text = f"🃏 {action_tmpl.format(name=target.name)}"
+            text = f"\U0001f0cf {action_tmpl.format(name=target.name)}"
 
-    # ── Record cooldown + store result for polling ────────────────────────────
+    # ── Record result ─────────────────────────────────────────────────────
     session._wild_card_last_used[player_name] = session.round_count
-    session.round._wild_card_seq   += 1
-    session.round._wild_card_result = {"text": text, "outcome": outcome}
+    session.round._wild_card_seq    += 1
+    session.round._wild_card_result  = {"text": text, "outcome": outcome}
 
-    log.info("Wild Card: room=%s presser=%s outcome=%s text=%r",
-             room_code, player_name, outcome, text)
-
-    return jsonify({"ok": True, **serialize_state(session, client_id)})
+    state = serialize_state(session, client_id)
+    state["output"] = ""
+    return jsonify(state)

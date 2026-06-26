@@ -44,8 +44,16 @@
   white-space: nowrap;
   letter-spacing: .2px;
 }
-#player-toast.drink { background: var(--red);   color: #fff; }
-#player-toast.clean { background: var(--green); color: #000; }
+#player-toast.drink      { background: var(--red);   color: #fff; }
+#player-toast.clean      { background: var(--green); color: #000; }
+#player-toast.wild-card  {
+  background: linear-gradient(135deg, #3d2b00, #5c3e00);
+  color: var(--yellow);
+  border: 2px solid var(--yellow);
+  box-shadow: 0 4px 28px rgba(245,200,66,.55), 0 0 0 1px rgba(245,200,66,.2);
+  font-size: 16px;
+  letter-spacing: .4px;
+}
 #player-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---- SWITCH TOAST (hard/soft dealer switch — everyone sees it) ---- */
