@@ -178,8 +178,9 @@ function showDisconnected() {
         '<div class="server-disconnect-spinner"></div>' +
         '<div class="server-disconnect-title">Server disconnected</div>' +
         '<div class="server-disconnect-msg">Attempting to reconnect…</div>' +
-        '<div class="server-disconnect-note">The server may be waking up — this can take up to 30 sec.</div>' +
+        '<div class="server-disconnect-note">The server may be waking up or is disconnected. Please wait or try again later.</div>' +
         '<div class="server-disconnect-elapsed" id="server-disconnect-elapsed"></div>' +
+        '<button class="btn server-disconnect-giveup" onclick="showGiveUpScreen()">Give up</button>' +
       '</div>';
     document.body.appendChild(overlay);
   }
@@ -189,6 +190,47 @@ function showDisconnected() {
     _disconnectedTimer = setInterval(_updateDisconnectElapsed, 1000);
     _updateDisconnectElapsed();
   }
+}
+
+function showGiveUpScreen() {
+  if (_disconnectedTimer) { clearInterval(_disconnectedTimer); _disconnectedTimer = null; }
+  const card = document.querySelector("#server-disconnect-overlay .server-disconnect-card");
+  if (!card) return;
+  card.innerHTML =
+    '<img src="/static/img/logo-transparent.png" alt="Black(Out)Jack Logo" class="server-disconnect-logo">' +
+    '<div class="server-disconnect-title" style="font-size:20px">Thanks for playing BlackOutJack!</div>' +
+    '<div class="server-disconnect-msg">Come back when the server is ready.</div>' +
+    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" onclick="tryAgainFromGiveUp()">Try again</button>' +
+    '<a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener" class="server-disconnect-github">🔗 github.com/robert-rjm/Black-Out-Jack</a>';
+}
+
+async function tryAgainFromGiveUp() {
+  const btn = document.getElementById("server-disconnect-tryagain-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+  try {
+    const url = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+    if (data.ok) {
+      hideDisconnected();
+      resetToSetup();
+      return;
+    }
+  } catch (_) {}
+  // Still unreachable
+  if (btn) { btn.disabled = false; btn.textContent = "Try again"; }
+  const card = document.querySelector("#server-disconnect-overlay .server-disconnect-card");
+  if (!card) return;
+  let note = card.querySelector(".tryagain-note");
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "tryagain-note";
+    card.appendChild(note);
+  }
+  note.textContent = "Still unreachable.";
+  note.style.opacity = "1";
+  clearTimeout(note._hideTimer);
+  note._hideTimer = setTimeout(() => { note.style.opacity = "0"; }, 2500);
 }
 
 function _updateDisconnectElapsed() {
@@ -237,5 +279,3 @@ document.addEventListener("visibilitychange", () => {
     fetchState(_applyStateResult);
   }
 });
-
-// =====================================

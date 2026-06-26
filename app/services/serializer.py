@@ -478,6 +478,14 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "ace_drink_seq":          session.round._ace_drink_seq,
         "reshuffle_events":       session.round._reshuffle_events,
         "reshuffle_seq":          session.round._reshuffle_seq,
+        # Wild Card Easter egg
+        "wild_card_enabled":      session.wild_card_enabled,
+        "wild_card_seq":          session.round._wild_card_seq,
+        "wild_card_text":         (session.round._wild_card_result or {}).get("text"),
+        "wild_card_outcome":      (session.round._wild_card_result or {}).get("outcome"),
+        # Devil's Hand (666) / Lucky Sevens (777)
+        "table_events":           session.round._table_events,
+        "table_event_seq":        session.round._table_event_seq,
     }
 
     # ---- Bust-vote data ----
@@ -627,5 +635,5 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         # The frontend drops any applyState() call whose state_seq is older
         # than the last one it applied — prevents stale poll responses from
         # overwriting fresher command/preselect responses.
-        "state_seq":              int(time.monotonic() * 1_000_000),
+        "state_seq":            int(time.monotonic() * 1_000_000),
     }

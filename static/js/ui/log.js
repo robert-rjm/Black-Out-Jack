@@ -329,3 +329,101 @@ function processReshuffleEvents(state) {
     _showReshuffleToast();
   }
 }
+
+// ============================================================
+// DEVIL'S HAND (666) / LUCKY SEVENS (777) TABLE EVENTS
+// ============================================================
+let _lastTableEventSeq = 0;
+
+function processTableEvents(state) {
+  const events = state.table_events || [];
+  const seq    = state.table_event_seq || 0;
+  if (seq < _lastTableEventSeq) _lastTableEventSeq = 0;
+  if (seq <= _lastTableEventSeq || !events.length) return;
+
+  const newEvents = events.filter(e => e.seq > _lastTableEventSeq);
+  _lastTableEventSeq = seq;
+  if (!newEvents.length) return;
+
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+
+  newEvents.forEach(ev => {
+    const _show = () => {
+      el.textContent = ev.text;
+      // curse = red (drink), lucky = green (credit)
+      el.className = (ev.outcome === "lucky" ? "clean" : "drink") + " show";
+      if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
+      ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
+    };
+    if (_bustVoteOpen()) { ToastUI.queue.push(_show); } else { _show(); }
+  });
+}
+
+// ============================================================
+// WILD CARD EASTER EGG  (logo press -> 40 % self / 10 % dud / 50 % random)
+// ============================================================
+let _lastWildCardSeq = 0;
+
+function processWildCardEvent(state) {
+  const seq = state.wild_card_seq || 0;
+  if (seq < _lastWildCardSeq) _lastWildCardSeq = 0;
+  if (seq <= _lastWildCardSeq) return;
+  _lastWildCardSeq = seq;
+
+  const text    = state.wild_card_text;
+  const outcome = state.wild_card_outcome; // "self" | "random" | "dud"
+  if (!text) return;
+
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+  const dt = document.getElementById("dealer-toast");
+  if (dt) dt.classList.remove("show");
+
+  const _showWildToast = () => {
+    el.textContent = text;
+    // gold for drink outcomes, clean (green) for dud
+    el.className = (outcome === "dud" ? "clean" : "wild-card") + " show";
+    if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
+    ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
+  };
+
+  const logo = document.getElementById("header-logo");
+  if (logo) {
+    logo.classList.add("wild-card-flash");
+    setTimeout(() => logo.classList.remove("wild-card-flash"), 900);
+  }
+
+  if (_bustVoteOpen()) { ToastUI.queue.push(_showWildToast); } else { _showWildToast(); }
+}
+
+async function triggerWildCard() {
+  if (typeof roomCode === "undefined" || typeof clientId === "undefined") return;
+
+  const logo = document.getElementById("header-logo");
+  if (logo) logo.classList.add("wild-card-spin");
+
+  try {
+    const res  = await fetch("/wild_card", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (logo) logo.classList.remove("wild-card-spin");
+
+    if (data.ok) {
+      if (typeof applyState === "function") applyState(data);
+    } else {
+      const el = document.getElementById("player-toast");
+      if (el) {
+        el.textContent = "\u{1F0CF} " + (data.output || "Wild Card unavailable right now.");
+        el.className   = "clean show";
+        if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
+        ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 4500);
+      }
+    }
+  } catch (_) {
+    if (logo) logo.classList.remove("wild-card-spin");
+  }
+}

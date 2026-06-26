@@ -47,7 +47,20 @@
   text-transform: uppercase; letter-spacing: .5px;
   font-weight: 700;
 }
-.cards-row { display: flex; gap: 5px; flex-wrap: nowrap; }
+.cards-row { display: flex; gap: 5px; flex-wrap: nowrap; overflow-x: auto; }
+
+/* ---- DESKTOP: cards fan/overlap before resorting to horizontal scroll ---- */
+@media (min-width: 640px) {
+  .cards-row {
+    gap: 0;
+  }
+  .cards-row .card-vis {
+    position: relative; /* DOM order determines stacking — later cards paint on top */
+  }
+  .cards-row .card-vis + .card-vis {
+    margin-left: -10px; /* ~17% overlap on a 58px card; scroll kicks in only beyond this */
+  }
+}
 
 /* ---- MOBILE: split hands stack vertically, cards wrap ---- */
 @media (max-width: 639px) {

@@ -13,6 +13,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 
 from engine.blackjack import Player, Hand  # noqa: E402
 from engine.referee import RefereeSession  # noqa: E402
+from scripts._cli import safe_int, yes_no  # noqa: E402
 
 
 COMMAND_MAP = {
@@ -58,30 +59,9 @@ def _setup_session() -> "RefereeSession":
             break
         print(f"  Unknown player. Choose from: {', '.join(names)}")
 
-    while True:
-        raw = input("  Wager (sips per hand) [1]: ").strip()
-        if not raw:
-            wager = 1
-            break
-        try:
-            wager = max(1, int(raw))
-            break
-        except ValueError:
-            print("  Enter a whole number.")
-
-    while True:
-        raw = input("  Hands per player [2]: ").strip()
-        if not raw:
-            num_hands = 2
-            break
-        try:
-            num_hands = max(1, int(raw))
-            break
-        except ValueError:
-            print("  Enter a whole number.")
-
-    raw = input("  Enable dealer-bust side bet? (y/N): ").strip().lower()
-    bust_vote_enabled = raw in ("y", "yes")
+    wager     = safe_int("  Wager (sips per hand) [1]: ", default=1, lo=1)
+    num_hands = safe_int("  Hands per player [2]: ", default=2, lo=1)
+    bust_vote_enabled = yes_no("  Enable dealer-bust side bet?", default=False)
 
     players = [Player(n) for n in names]
     for p in players:

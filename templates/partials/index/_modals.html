@@ -63,6 +63,18 @@
     </div>
 
     <div class="kick-toggle-row drink-only" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+      <label class="kick-toggle-label" style="font-size:13px">Wild Card <span style="font-size:10px;color:var(--muted)">(logo Easter egg)</span></label>
+      <div class="pill-toggle-wrap">
+        <label class="pill-toggle">
+          <input type="checkbox" id="wild-card-toggle-modal" data-change-action="setWildCardEnabled">
+          <span class="pill-slider"></span>
+        </label>
+        <span class="pill-label-off" id="wild-card-lbl-modal">OFF</span>
+        <span class="pill-label-on" id="wild-card-lbl-modal-on">ON</span>
+      </div>
+    </div>
+
+    <div class="kick-toggle-row drink-only" style="padding:8px 0;border-bottom:none;margin-bottom:0">
       <label class="kick-toggle-label" style="font-size:13px">Easy Mode <span style="font-size:10px;color:var(--muted)">(halve drinks every round)</span></label>
       <div class="pill-toggle-wrap">
         <label class="pill-toggle" id="easy-mode-toggle-wrap-modal">
@@ -131,7 +143,8 @@
       <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>
       <div class="settings-add-row">
         <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
-        <label class="npc-label"><input type="checkbox" id="setting-add-npc"> Bot</label>
+        <button type="button" id="setting-add-npc-btn" class="btn btn-sm npc-toggle-btn" data-action="toggleNpcBtn">Bot</button>
+        <input type="checkbox" id="setting-add-npc" hidden>
         {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
       </div>
 

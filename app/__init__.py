@@ -64,11 +64,13 @@ def create_app() -> Flask:
     from app.routes.lobby         import bp as lobby_bp
     from app.routes.admin         import bp as admin_bp
     from app.routes.game_commands import bp as game_commands_bp
+    from app.routes.wild_card     import bp as wild_card_bp
 
     app.register_blueprint(reports_bp)
     app.register_blueprint(polling_bp)
     app.register_blueprint(lobby_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(game_commands_bp)
+    app.register_blueprint(wild_card_bp)
 
     return app
