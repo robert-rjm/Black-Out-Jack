@@ -60,7 +60,7 @@ Extract `_firePlayerToast(html, iDrink, ms)` helper.
 **File:** `static/js/ui/admin.js`, `static/js/ui/table.js`, `static/js/ui/log.js`
 Extensive use of `element.style.cssText = "..."` and template-literal inline styles throughout dynamically constructed markup (`_renderBustVoteCards`, `_renderBustGivePanel`, `showLocalSeatPicker`, `renderDrinksDetail`, `updateRoundPane`, `showPeekedCard`, and more). These were already flagged in June; the pattern has spread further as new features were added. Convert hot-path elements to toggled CSS classes.
 
-### L15 · Mixed event-wiring style in admin.js
+### ~~L15 · Mixed event-wiring style in admin.js~~
 **File:** `static/js/ui/admin.js`
 `el.onclick = () => ...` and `addEventListener("click", ...)` still mixed. E.g. `bustBtn.onclick`, `passBtn.onclick`, `btn.onclick` set directly while `requestLocalSeat` wires via `addEventListener`. Pick one convention.
 
@@ -83,5 +83,5 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 - [X] L8 — Extract `_firePlayerToast()` helper in admin.js
 - [x] L9 — `log.js` substring classification — RESOLVED (appendLog is a stub)
 - [ ] L14 — Replace inline CSS strings in JS with toggled classes
-- [ ] L15 — Pick one event-wiring style in admin.js
+- [X] L15 — Pick one event-wiring style in admin.js
 - [ ] L16 — Consolidate script CLI utilities into `scripts/_cli.py`
