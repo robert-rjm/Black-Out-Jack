@@ -141,6 +141,19 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 #dealer-panel .dp-role  { font-size: 10px; color: var(--muted); margin-left: 4px; }
 #dealer-panel .dp-cards { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
 
+@media (max-width: 639px) {
+  #dealer-panel .dp-cards {
+    gap: 0;
+    overflow-x: auto;
+  }
+  #dealer-panel .dp-cards .card-vis {
+    margin-right: -6px;   /* slight overlap matching player cards */
+  }
+  #dealer-panel .dp-cards .card-vis:last-child {
+    margin-right: 0;
+  }
+}
+
 /* ---- SIP TICKER ---- */
 #sip-ticker {
   flex-shrink: 0;
