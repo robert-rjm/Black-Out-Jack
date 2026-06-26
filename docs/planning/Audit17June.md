@@ -39,7 +39,7 @@ No visual feedback when `/state` poll is slow or fails — `_requestsInFlight` t
 **File:** `static/js/ui/table.js`, `static/js/ui/admin.js`
 `updateActionButtons`, `updateBestPlay`, `updateRoleUI`, and `updateHonorPrompt` all match buttons by checking `b.textContent.trim() === "SPLIT"` / `"HIT"` / etc. A copy-change would silently break logic. Use `data-action-code` attributes instead.
 
-### L8 · Toast boilerplate duplicated across admin.js
+### ~~L8 · Toast boilerplate duplicated across admin.js~~
 **File:** `static/js/ui/admin.js`
 `showBustVoteToast`, `showBustHandoutToast`, and `showInsuranceToast` each repeat the same 5-line pattern:
 ```js
@@ -80,7 +80,7 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 - [ ] L5 — Add loading / reconnection indicator
 - [X] L6 — Comment magic `translateY(12px)` offset
 - [ ] L7 — Switch action-button matching to `data-action-code`
-- [ ] L8 — Extract `_firePlayerToast()` helper in admin.js
+- [X] L8 — Extract `_firePlayerToast()` helper in admin.js
 - [x] L9 — `log.js` substring classification — RESOLVED (appendLog is a stub)
 - [ ] L14 — Replace inline CSS strings in JS with toggled classes
 - [ ] L15 — Pick one event-wiring style in admin.js
