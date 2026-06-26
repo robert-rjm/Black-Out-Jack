@@ -46,6 +46,53 @@ def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
     })
 
 
+def _push_table_event(session: GameRoom, text: str, outcome: str) -> None:
+    """Push a Devil's Hand (666) or Lucky Sevens (777) event to the toast queue."""
+    session.round._table_event_seq += 1
+    session.round._table_events.append({
+        "seq":     session.round._table_event_seq,
+        "text":    text,
+        "outcome": outcome,   # "curse" | "lucky"
+    })
+
+
+def _check_table_number(session: GameRoom, card, recipient_name: str) -> None:
+    """Check if a newly-visible card triggers Devil's Hand (666) or Lucky Sevens (777).
+
+    Called after every non-hole-card deal, and separately for the dealer hole
+    card at reveal time.  Each effect fires at most once per round.
+    """
+    if not session.drinking_mode:
+        return
+    val = card.rank.value   # integer: 6 for Six, 7 for Seven
+
+    if val == 6 and not session.round._six_curse_fired:
+        session.round._six_count += 1
+        if session.round._six_count >= 3:
+            session.round._six_curse_fired = True
+            player = session._get_player(recipient_name)
+            if player:
+                player.add_drink(1, "six_curse", "player")
+            _push_table_event(
+                session,
+                f"\U0001f3b0 Devil's Hand — three 6s on the table! {recipient_name} drinks 1 sip!",
+                "curse",
+            )
+
+    elif val == 7 and not session.round._seven_lucky_fired:
+        session.round._seven_count += 1
+        if session.round._seven_count >= 3:
+            session.round._seven_lucky_fired = True
+            player = session._get_player(recipient_name)
+            if player:
+                player.add_drink(-1, "seven_lucky", "player")
+            _push_table_event(
+                session,
+                f"\U0001f3b0 Lucky Sevens — three 7s on the table! {recipient_name} gets a sip credit!",
+                "lucky",
+            )
+
+
 def _push_reshuffle_event(session: GameRoom) -> None:
     """Push a mid-round shoe-reshuffle event to the toast queue."""
     session.round._reshuffle_seq += 1
@@ -104,6 +151,11 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                 session.tracker.apply([msg])
                 if s and s > 0:
                     _push_ace_drink_event(session, msg)
+
+        # ── Devil's Hand (666) / Lucky Sevens (777) ──────────────────────────
+        # Count every visible card — hole card is deferred to dealer_turn reveal.
+        if not is_hole_card:
+            _check_table_number(session, card, recipient_name)
 
     return card
 
@@ -256,6 +308,11 @@ def dealer_turn(session: GameRoom) -> None:
             if len(msg) >= 2 and msg[1] and msg[1] > 0:
                 _push_ace_drink_event(session, msg)
         session.round._deferred_hole_card_msgs = []
+
+    # ── Hole card reveal: check for 666 / 777 ────────────────────────────────
+    # The dealer's 2nd card was excluded from deal_card counting; process it now.
+    if session.drinking_mode and len(d_hand.cards) >= 2:
+        _check_table_number(session, d_hand.cards[1], dealer.name)
 
     log.debug(f"\n--- Dealer ({dealer.name}) reveals ---")
     log.debug(f"  Full hand: {d_hand}")
@@ -444,7 +501,7 @@ def auto_play_npc_turns(session: GameRoom) -> None:
     or the phase leaves 'playing'. Safety-capped at 100 steps.
     """
     # Don't play NPC hands until all human players have voted on the bust side
-    # bet — NPCs auto-vote "pass" at deal time, so only human votes can block.
+    # bet -- NPCs auto-vote "pass" at deal time, so only human votes can block.
     if bust_vote_pending(session):
         return
 
@@ -457,7 +514,7 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             break
         player = session._get_player(turn)
         if not player or not getattr(player, "is_npc", False):
-            break   # human's turn — stop
+            break   # human's turn -- stop
 
         hand = next((h for h in player.hands if not hand_done(h)), None)
         if not hand:
@@ -505,7 +562,7 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             hand.doubled = True
             deal_card(session, hand, player.name)
             hand.stood = True
-            log.debug(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
+            log.debug(f"  {player.name} {hand_label}: doubles -- card dealt face-down.")
             if hand.is_bust():
                 hand.bust = True
                 hand.result = "loss"

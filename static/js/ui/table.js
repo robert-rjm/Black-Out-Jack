@@ -435,6 +435,7 @@ function _syncLog(state, drinkingOn) {
   if (drinkingOn) processAceDrinkEvents(state);
   processReshuffleEvents(state);
   if (drinkingOn) processWildCardEvent(state);
+  if (drinkingOn) processTableEvents(state);
   if (drinkingOn) updateHonorPrompt(state);
   if (!drinkingOn) updateBankRunPrompt(state);
   updateKpiPanel(state);

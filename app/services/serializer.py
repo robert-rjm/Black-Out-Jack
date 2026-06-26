@@ -482,6 +482,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "wild_card_seq":          session.round._wild_card_seq,
         "wild_card_text":         (session.round._wild_card_result or {}).get("text"),
         "wild_card_outcome":      (session.round._wild_card_result or {}).get("outcome"),
+        # Devil's Hand (666) / Lucky Sevens (777)
+        "table_events":           session.round._table_events,
+        "table_event_seq":        session.round._table_event_seq,
     }
 
     # ---- Bust-vote data ----

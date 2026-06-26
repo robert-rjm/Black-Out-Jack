@@ -69,6 +69,14 @@ class RoundState:
     _wild_card_seq: int = 0
     _wild_card_result: dict | None = None
 
+    # Devil's Hand (666) / Lucky Sevens (777) — digital mode (per-round transient)
+    _six_count: int = 0
+    _seven_count: int = 0
+    _six_curse_fired: bool = False
+    _seven_lucky_fired: bool = False
+    _table_events: list = field(default_factory=list)
+    _table_event_seq: int = 0
+
     # End-of-round message buffer (populated by dealer_turn, drained by cmd_endround)
     _eor_msgs_buffer: list = field(default_factory=list)
 

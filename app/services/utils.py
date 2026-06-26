@@ -55,6 +55,8 @@ def classify_rule(reason: str) -> str | None:
     if "handed" in r and "bust vote" in r:          return "Bust vote handout received"
     if "Bust vote forfeited" in r:                  return "Bust vote handout forfeited"
     if "wild_card" in r:                             return "Wild Card"
+    if "six_curse" in r:                             return "Devil's Hand"
+    if "seven_lucky" in r:                           return "Lucky Sevens"
     if "won with" in r and "cards" in r:            return "5+ card win"
     if "A\u2660" in r and "to dealer" in r:        return "Ace dealt: Ace of Spades (dealer hand)"
     if "A\u2665" in r and "dealer" in r:           return "Ace dealt: Ace of Hearts (dealer hand)"
