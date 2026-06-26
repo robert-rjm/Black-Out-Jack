@@ -29,7 +29,7 @@ Header strip renders per-player sip counts inline. No overflow guard on the tick
 **File:** `static/js/state.js`, `static/js/app.js`
 No visual feedback when `/state` poll is slow or fails — `_requestsInFlight` tracks in-flight requests but nothing renders a spinner or top-bar indicator. Add a pulsing indicator on in-flight fetches.
 
-### L6 · Magic number in admin nav icon offset
+### ~~L6 · Magic number in admin nav icon offset~~
 **File:** `static/css/main.css` (line 221)
 `#btn-admin-nav .bnav-icon { transform: translateY(12px); }` — add a comment explaining why the offset exists.
 
@@ -76,7 +76,7 @@ Extensive use of `element.style.cssText = "..."` and template-literal inline sty
 - [ ] L3 — Soften `.seat.done` opacity to `.80`; also `.hand-block.done`
 - [ ] L4 — Fix sip ticker clip on 4+ players
 - [ ] L5 — Add loading / reconnection indicator
-- [ ] L6 — Comment magic `translateY(12px)` offset
+- [X] L6 — Comment magic `translateY(12px)` offset
 - [ ] L7 — Switch action-button matching to `data-action-code`
 - [ ] L8 — Extract `_firePlayerToast()` helper in admin.js
 - [x] L9 — `log.js` substring classification — RESOLVED (appendLog is a stub)
