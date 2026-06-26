@@ -5,11 +5,11 @@ Easter egg: the Wild Card button (logo press).
 
 POST /wild_card
     A player presses the logo to activate the Wild Card.  The server rolls
-    a 40 / 20 / 40 split:
+    a 45 / 5 / 50 split:
 
-      40 % → presser drinks 1 sip  ("self")
-      20 % → nothing happens       ("dud")
-      40 % → a random other player drinks 1 sip  ("random")
+      45 % → presser drinks 1 sip  ("self")
+       5 % → nothing happens       ("dud")
+      50 % → a random other player drinks 1 sip  ("random")
 
     Guards (returning ok=False on failure):
       - Only connected players (not spectators/admins-without-seat) may trigger.
@@ -54,7 +54,7 @@ _WILD_CARD_COOLDOWN = 3   # rounds that must pass before the same player can pre
 
 @bp.route("/wild_card", methods=["POST"])
 def wild_card():
-    """Easter-egg logo press — 40/10/50 drink assignment."""
+    """Easter-egg logo press — 45/5/50 drink assignment."""
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
@@ -112,7 +112,7 @@ def wild_card():
     # ── Roll ─────────────────────────────────────────────────────────────────
     roll                       = random.random()
     action_tmpl, dud_t, label = random.choice(_WILD_NAMES)
-    if roll < 0.40:
+    if roll < 0.45:
         # Self drinks
         outcome = "self"
         player.add_drink(1, f"Wild Card 🃏 — {label}", "player")
