@@ -232,6 +232,29 @@ def is_dealer_client(session, client_id: str) -> bool:
 
 ---
 
+## 🟢 LOW — Carried Forward from Audit17June (Frontend)
+
+### LF-1 · Sip ticker clips on 4+ players  *(was Audit17 L4)*
+**File:** `static/css/components/kpi.css`, `static/js/ui/log.js`  
+Header strip renders per-player sip counts inline with no overflow guard. On narrow screens with 5+ players the ticker row overflows/clips.  
+**Fix:** Add `overflow-x: auto; white-space: nowrap;` on the ticker container, or switch to a wrapping flex layout with a `min-width` per sip chip.
+
+---
+
+### LF-2 · Action buttons matched by `textContent` — fragile  *(was Audit17 L7)*
+**File:** `static/js/ui/table.js`, `static/js/ui/admin.js`  
+`updateActionButtons`, `updateBestPlay`, `updateRoleUI`, and `updateHonorPrompt` all match buttons by `b.textContent.trim() === "SPLIT"` / `"HIT"` etc. A copy-change or i18n attempt would silently break the logic.  
+**Fix:** Add `data-action-code="split"` / `data-action-code="hit"` attributes on each button element and match by `b.dataset.actionCode` instead.
+
+---
+
+### LF-3 · Inline CSS strings in JS — widespread  *(was Audit17 L14)*
+**File:** `static/js/ui/admin.js`, `static/js/ui/table.js`, `static/js/ui/log.js`  
+`element.style.cssText = "..."` and template-literal inline styles appear throughout dynamically constructed markup (`_renderBustVoteCards`, `_renderBustGivePanel`, `showLocalSeatPicker`, `renderDrinksDetail`, `updateRoundPane`, `showPeekedCard`, and others). Pattern has grown since June 16 audit.  
+**Fix:** Extract each inline style block into a named CSS class and toggle with `classList.add/remove`. Start with the hot-path elements (bust vote cards, drinks detail panel).
+
+---
+
 ## Implementation Checklist (Priority Order)
 
 Work top-to-bottom. Each item references the finding above.
@@ -264,6 +287,11 @@ LOW — cleanup sprint
 [ ] L-4  Move _BLUE/_RESET ANSI codes into the function that uses them
 [ ] L-5  Document RoundState._ace_drink_seq / round_count interaction in a comment
 [ ] L-7  Audit reports.py CSV export for correctness
+
+Frontend (carried from Audit17June)
+[ ] LF-3 Replace inline CSS strings in JS with toggled CSS classes (admin.js, table.js, log.js)
+[ ] LF-2 Switch action-button matching to data-action-code attributes (table.js, admin.js)
+[ ] LF-1 Add overflow guard on sip ticker row for 4+ players (kpi.css / log.js)
 ```
 
 ---
@@ -293,3 +321,6 @@ LOW — cleanup sprint
 | L-5 | `game_room.py` | 🟢 LOW | Missing comment |
 | L-6 | `blackjack.py`, `room_manager.py` | 🟢 LOW | Stdout leak |
 | L-7 | `reports.py` | 🟢 LOW | Not yet audited |
+| LF-1 | `kpi.css`, `log.js` | 🟢 LOW | UI overflow (carry-fwd) |
+| LF-2 | `table.js`, `admin.js` | 🟢 LOW | Fragile button matching (carry-fwd) |
+| LF-3 | `admin.js`, `table.js`, `log.js` | 🟢 LOW | Inline CSS in JS (carry-fwd) |
