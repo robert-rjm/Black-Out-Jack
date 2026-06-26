@@ -483,6 +483,13 @@ function _populateSettingsUI(state) {
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
   const stratCb = document.getElementById("strategy-hint-toggle-modal");
   if (stratCb) stratCb.checked = !!state.strategy_hint_enabled;
+  const wildCb = document.getElementById("wild-card-toggle-modal");
+  if (wildCb) wildCb.checked = state.wild_card_enabled !== false;
+  const wildLblOff = document.getElementById("wild-card-lbl-modal");
+  const wildLblOn  = document.getElementById("wild-card-lbl-modal-on");
+  const wildOn = state.wild_card_enabled !== false;
+  if (wildLblOff) wildLblOff.style.display = wildOn ? "none"   : "inline";
+  if (wildLblOn)  wildLblOn.style.display  = wildOn ? "inline" : "none";
 
   const easyModalCb = document.getElementById("easy-mode-toggle-modal");
   const easyModalOff = document.getElementById("easy-mode-lbl-modal");

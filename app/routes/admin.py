@@ -529,6 +529,10 @@ def update_settings():
     if "strategy_hint_enabled" in data:
         session.strategy_hint_enabled = bool(data["strategy_hint_enabled"])
 
+    # wild_card_enabled — admin can disable the logo Easter egg (live setting)
+    if "wild_card_enabled" in data:
+        session.wild_card_enabled = bool(data["wild_card_enabled"])
+
     # local_names — update which seats this admin client controls directly (live)
     if "local_names" in data:
         raw_names = data["local_names"]

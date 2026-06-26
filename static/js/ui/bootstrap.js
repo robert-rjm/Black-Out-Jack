@@ -27,6 +27,9 @@
     if (action === "setStrategyHintEnabled") {
       return window.setStrategyHintEnabled(!!el.checked);
     }
+    if (action === "setWildCardEnabled") {
+      return window.setWildCardEnabled(!!el.checked);
+    }
     if (action === "setEasyModeSetup") {
       return window.setEasyModeSetup(!!el.checked);
     }

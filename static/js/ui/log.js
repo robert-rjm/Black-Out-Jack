@@ -356,22 +356,17 @@ function processTableEvents(state) {
       if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
       ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
     };
-    if (_bustVoteOpen()) {
-      ToastUI.queue.push(_show);
-    } else {
-      _show();
-    }
+    if (_bustVoteOpen()) { ToastUI.queue.push(_show); } else { _show(); }
   });
 }
 
 // ============================================================
-// WILD CARD EASTER EGG  (logo press → 40/20/40 drink event)
+// WILD CARD EASTER EGG  (logo press -> 40 % self / 10 % dud / 50 % random)
 // ============================================================
 let _lastWildCardSeq = 0;
 
 function processWildCardEvent(state) {
   const seq = state.wild_card_seq || 0;
-  // seq resets each round (RoundState) — reset our tracker too
   if (seq < _lastWildCardSeq) _lastWildCardSeq = 0;
   if (seq <= _lastWildCardSeq) return;
   _lastWildCardSeq = seq;
@@ -387,30 +382,24 @@ function processWildCardEvent(state) {
 
   const _showWildToast = () => {
     el.textContent = text;
-    // "drink" class (red) for self/random, "clean" (green) for dud
-    el.className = (outcome === "dud" ? "clean" : "drink") + " show";
+    // gold for drink outcomes, clean (green) for dud
+    el.className = (outcome === "dud" ? "clean" : "wild-card") + " show";
     if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
     ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
   };
 
-  // Flash logo with spin animation
   const logo = document.getElementById("header-logo");
   if (logo) {
     logo.classList.add("wild-card-flash");
     setTimeout(() => logo.classList.remove("wild-card-flash"), 900);
   }
 
-  if (_bustVoteOpen()) {
-    ToastUI.queue.push(_showWildToast);
-  } else {
-    _showWildToast();
-  }
+  if (_bustVoteOpen()) { ToastUI.queue.push(_showWildToast); } else { _showWildToast(); }
 }
 
 async function triggerWildCard() {
   if (typeof roomCode === "undefined" || typeof clientId === "undefined") return;
 
-  // Optimistic spin on the logo
   const logo = document.getElementById("header-logo");
   if (logo) logo.classList.add("wild-card-spin");
 
@@ -426,10 +415,9 @@ async function triggerWildCard() {
     if (data.ok) {
       if (typeof applyState === "function") applyState(data);
     } else {
-      // Show brief error in the player-toast (no attribution reveals the attempt)
       const el = document.getElementById("player-toast");
       if (el) {
-        el.textContent = "🃏 " + (data.output || "Wild Card unavailable right now.");
+        el.textContent = "\u{1F0CF} " + (data.output || "Wild Card unavailable right now.");
         el.className   = "clean show";
         if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
         ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 4500);
