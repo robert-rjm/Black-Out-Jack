@@ -186,6 +186,13 @@ class RefereeSession:
         self._ace_credits     = []
         self._initial_dealt   = False
         self._pending_resolved  = []
+        if self._pending_bj_hands:
+            # Operator called `action blackjack` after `endround` already fired —
+            # these BJ bonuses were never processed and are now silently dropped.
+            self._log(
+                f"  ⚠️  WARNING: {len(self._pending_bj_hands)} pending BJ hand(s) "
+                "discarded at round start. Was 'action blackjack' called after endround?"
+            )
         self._pending_bj_hands  = []
         self._pending_eor_msgs  = []
         self._bust_votes        = {}

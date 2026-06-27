@@ -15,9 +15,15 @@ import random
 from enum import Enum
 from tabulate import tabulate
 
-# ANSI colour helpers (terminal only — harmless on web)
+# ANSI colour helpers (terminal-only — harmless on web)
 _BLUE  = "\033[94m"
 _RESET = "\033[0m"
+
+# NOTE: DrinkingRules and all engine.events imports are intentionally deferred
+# to the call sites (lazy imports inside methods) to avoid a circular import:
+#   blackjack.py → drinking_rules.py → blackjack.py (Rank, Suit, Hand, Player)
+# Python caches modules after the first import so the per-call overhead is
+# just a dict lookup — there is no re-execution penalty.
 
 
 # =============================================================================

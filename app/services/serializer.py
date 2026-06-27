@@ -280,6 +280,8 @@ def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | 
         valid.append("d")
     if active_hand.can_split():
         valid.append("sp")
+    # drinking_mode=False in Normal mode → pure basic strategy (no mandatory 10-split).
+    # This is intentional: the hint matches the rules the players are actually playing.
     return NPC_Player.best_play(active_hand, dealer_up, valid, drinking_mode=session.drinking_mode)
 
 

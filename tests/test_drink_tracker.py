@@ -143,8 +143,8 @@ def test_apply_end_of_round_easy_mode_under_4_players():
 def test_apply_end_of_round_combines_multiple_msg_lists():
     players = [make_player(n) for n in ["Alice", "Bob", "Carol", "Dave"]]
     t = _tracker(players)
-    # Two separate lists, each granting Alice +1 -> combined gained = 2 -> halved once
-    t.apply_end_of_round([("Alice", 1, "reason1")], [("Alice", 1, "reason2")])
+    # Combined list: Alice +1 twice -> gained = 2 -> halved once
+    t.apply_end_of_round([("Alice", 1, "reason1"), ("Alice", 1, "reason2")])
     net = sum(e[0] for e in players[0].drink_log)
     assert net == 1  # ceil(2/2) = 1, halved once not twice
     halving_entries = [e for e in players[0].drink_log if "halving" in e[1]]

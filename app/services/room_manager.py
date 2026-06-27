@@ -33,7 +33,7 @@ class NullTracker:
     easy_mode: bool = False  # mirrors DrinkTracker.easy_mode; written by apply_queued_settings
 
     def apply(self, msgs):                    pass
-    def apply_end_of_round(self, *msg_lists): pass
+    def apply_end_of_round(self, msgs: list): pass
     def apply_ace_clubs_credit(self, player): pass
     def print_round_summary(self):            pass
 

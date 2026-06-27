@@ -422,11 +422,11 @@ HIGH — fix before next public session
 
 MEDIUM — address in next refactor pass
 [X] M-2  Collapse three consecutive `if self.verbose` prints in print_round_summary
-[ ] M-4  Change apply_end_of_round(*msg_lists) to apply_end_of_round(msgs: list)
-[ ] M-1  Move lazy imports in _deal_card_to to module top level
-[ ] M-3  Skip shoe.reset() in _cmd_newround when apply_queued_settings created a new shoe
-[ ] M-5  Log warning in cmd_endround if _pending_bj_hands is non-empty unexpectedly
-[ ] M-6  Add explicit None-return guard for A♣ informational message in classify_rule
+[x] M-4  Change apply_end_of_round(*msg_lists) to apply_end_of_round(msgs: list)
+[x] M-1  Move lazy imports in _deal_card_to to module top level
+[x] M-3  Skip shoe.reset() in _cmd_newround when apply_queued_settings created a new shoe
+[x] M-5  Log warning in cmd_endround if _pending_bj_hands is non-empty unexpectedly
+[x] M-6  Add explicit None-return guard for A♣ informational message in classify_rule
 
 LOW — cleanup sprint
 [ ] L-1  Simplify is_dealer_client to return get_client_info(...)["is_dealer"]
