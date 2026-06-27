@@ -453,6 +453,23 @@ def compute_kpi_stats(session: GameRoom) -> dict:
 # Insurance vote serializer helper
 # ---------------------------------------------------------------------------
 
+def _insurance_outcome_text(r: dict) -> str:
+    """Return the canonical human-readable outcome string for one insurance result entry.
+
+    Centralised here so both the toast (admin.js) and the banner
+    (table-modals.js) display identical wording without duplicating logic.
+    """
+    insured   = r.get("insured")
+    dealer_bj = r.get("dealer_bj")
+    if insured and dealer_bj:
+        return "dealer had BJ — BJ holder drinks own bonus, group safe"
+    if insured and not dealer_bj:
+        return "no dealer BJ — group drinks double"
+    if not insured and not dealer_bj:
+        return "no dealer BJ — normal BJ bonus"
+    return "dealer had BJ — auto-insurance applies"
+
+
 def _serialize_insurance_vote(v: dict, session: GameRoom, client_info: dict) -> dict:
     """Serialize one insurance vote entry.
 
@@ -631,7 +648,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
 
     # ---- Insurance data ----
     _insurance_data = {
-        "insurance_result":       session._insurance_result,
+        "insurance_result":       [
+            {**r, "outcome_text": _insurance_outcome_text(r)}
+            for r in (session._insurance_result or [])
+        ],
         "insurance_votes":        [
             _serialize_insurance_vote(v, session, _ci)
             for v in session.round._insurance_votes

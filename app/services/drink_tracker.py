@@ -92,12 +92,41 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
     # In normal mode, attach the side-bet stake so the frontend and
     # payout_tracker can display / settle the correct dollar amount.
     side_bet_amount = (session.bet_amount / 2) if not session.drinking_mode else None
+    normal = side_bet_amount is not None
+
+    # Pre-build outcome strings so the frontend is a pure renderer.
+    def _fmt(v):
+        return f"${float(v):.2f}"
+
+    each = " each" if len(losers) > 1 else ""
+    outcome_lines = []
+    if dealer_busted:
+        if winners:
+            reward = f" (+{_fmt(side_bet_amount * 2)} @ 2:1)" if normal else " (-1 sip + give 1)"
+            outcome_lines.append(f"✅ {', '.join(winners)} called it{reward}")
+        if losers:
+            penalty = f" (-{_fmt(side_bet_amount)}{each})" if normal else f" (+1 sip{each})"
+            outcome_lines.append(f"❌ {', '.join(losers)} wrong{penalty}")
+    else:
+        if losers:
+            penalty = f" (-{_fmt(side_bet_amount)}{each})" if normal else f" (+1 sip{each})"
+            outcome_lines.append(f"❌ {', '.join(losers)} bet bust — wrong{penalty}")
+
+    if normal:
+        winner_label = f"called it (+{_fmt(side_bet_amount * 2)} @ 2:1)"
+        loser_label  = f"wrong (−{_fmt(side_bet_amount)})"
+    else:
+        winner_label = "called it — -1 sip + give 1!"
+        loser_label  = "wrong — +1 sip each"
 
     session.round._bust_vote_result = {
         "dealer_busted":   dealer_busted,
         "winners":         winners,
         "losers":          losers,
         "side_bet_amount": side_bet_amount,   # None in drinking mode
+        "outcome_lines":   outcome_lines,
+        "winner_label":    winner_label,
+        "loser_label":     loser_label,
     } if (winners or losers) else None
 
     # Handout window only opens in drinking mode — in normal mode there are no sips to give
