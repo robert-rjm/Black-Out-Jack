@@ -599,12 +599,11 @@ function updateActionButtons(state) {
   const activeHand = (seat.hands || []).find(h => !h.done);
   if (!activeHand) return;
 
-  const canDouble = (activeHand.cards || []).length === 2 && !activeHand.doubled;
-
+  // can_double is computed server-side in serialize_hand() — 2-card hand, not yet doubled
   digActionButtons().forEach(b => {
     const lbl = b.textContent.trim();
     if (lbl === "SPLIT")  b.classList.toggle("disabled", !activeHand.can_split);
-    if (lbl === "DOUBLE") b.classList.toggle("disabled", !canDouble);
+    if (lbl === "DOUBLE") b.classList.toggle("disabled", !activeHand.can_double);
   });
 }
 

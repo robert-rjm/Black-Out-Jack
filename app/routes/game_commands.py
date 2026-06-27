@@ -614,7 +614,18 @@ def _cmd_dealer_digital(game_session, parts):
 
 def _cmd_newround(game_session, parts, *, digital):
     # newround [rotate]
-    rotate = len(parts) > 1 and parts[1].lower() == "rotate"
+    # Explicit "rotate" arg is still accepted for manual override.
+    # In drinking mode the backend auto-decides: rotate when a hard/soft switch
+    # fired this round, or when the rotation interval is reached — so the
+    # frontend just sends bare "newround" and never makes this call itself.
+    explicit_rotate = len(parts) > 1 and parts[1].lower() == "rotate"
+    auto_rotate = (
+        game_session.drinking_mode and bool(
+            game_session.round.switch_this_round in ("hard", "soft") or
+            game_session.rounds_this_dealer >= game_session._dealer_rotate_every
+        )
+    )
+    rotate = explicit_rotate or auto_rotate
     # Apply queued settings before the round starts
     setting_changes = apply_queued_settings(game_session)
     for msg in setting_changes:

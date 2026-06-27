@@ -442,9 +442,9 @@ Frontend — CRITICAL
 [x] FC-1 Fix onclick string injection for player names with apostrophes (table-modals.js)
 
 Frontend — HIGH (logic belongs in backend)
-[ ] FH-1 Move dealer-rotation decision out of doNewRound() into _cmd_newround backend
-[ ] FH-2 Serialize can_double on each hand; remove frontend recomputation
-[ ] FH-3 Move kpi stat derivation to backend; frontend renderStats() becomes a pure renderer
+[x] FH-1 Move dealer-rotation decision out of doNewRound() into _cmd_newround backend
+[x] FH-2 Serialize can_double on each hand; remove frontend recomputation
+[x] FH-3 Move kpi stat derivation to backend; frontend renderStats() becomes a pure renderer
 
 Frontend — MEDIUM
 [ ] FM-3 Reconcile age gate handlers — remove direct addEventListener from app.js
@@ -458,7 +458,7 @@ Frontend — LOW (cleanup)
 [ ] LF-5 Add .mobile-sheet CSS class; remove inline style.cssText from _mobileSheet()
 [ ] LF-6 Add user feedback when sendCmd() drops a command (request in flight)
 [ ] LF-4 Move RANKS and SUITS from setup.js to config.js
-[ ] LF-7 Split renderStats() into _computeKpiData() + _renderKpi() (prerequisite for FH-3)
+[x] LF-7 Split renderStats() into _computeKpiData() + _renderKpi() (prerequisite for FH-3)
 [ ] LF-1 Add overflow guard on sip ticker row for 4+ players (kpi.css / log.js)
 ```
 
