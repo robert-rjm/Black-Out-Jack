@@ -9,6 +9,7 @@ import time
 
 import pytest
 
+flask = pytest.importorskip("flask", reason="Flask not installed — skipping app-layer tests")
 from app import create_app
 from app.models.game_room import GameRoom
 from app.services.session_store import game_sessions, set_session
