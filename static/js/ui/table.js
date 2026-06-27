@@ -221,11 +221,12 @@ function sendDigitalPlay(action) {
 
     // Immediate optimistic feedback — highlight button + update vote display NOW
     // (will be confirmed/corrected once the server responds)
-    const ACT_LBL = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
+    const ACT_LBL  = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
+    const ACT_CODE = { hit: "h",   stand: "s",     double: "d",      split: "sp" };
+    const _code = ACT_CODE[action] || action;
     digActionButtons().forEach(b => b.classList.remove("voted"));
     digActionButtons().forEach(b => {
-      if (b.textContent.trim() === (ACT_LBL[action] || action.toUpperCase()))
-        b.classList.add("voted");
+      if (b.dataset.actionCode === _code) b.classList.add("voted");
     });
     const _vd = document.getElementById("player-vote-display");
     if (_vd) {
@@ -601,9 +602,9 @@ function updateActionButtons(state) {
 
   // can_double is computed server-side in serialize_hand() — 2-card hand, not yet doubled
   digActionButtons().forEach(b => {
-    const lbl = b.textContent.trim();
-    if (lbl === "SPLIT")  b.classList.toggle("disabled", !activeHand.can_split);
-    if (lbl === "DOUBLE") b.classList.toggle("disabled", !activeHand.can_double);
+    const code = b.dataset.actionCode;
+    if (code === "sp") b.classList.toggle("disabled", !activeHand.can_split);
+    if (code === "d")  b.classList.toggle("disabled", !activeHand.can_double);
   });
 }
 
@@ -620,18 +621,13 @@ function updateHandLocks(state) {
   });
 }
 
-// Map backend action codes to the button label text in the Play pane
-const BS_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
-
 function updateBestPlay(state) {
   // Clear any previous highlight
   digActionButtons().forEach(b => b.classList.remove("best"));
   if (!state || state.phase !== PHASE.PLAYING || !state.best_play) return;
-  const label = BS_LABEL[state.best_play];
-  if (!label) return;
-  // Find the matching action button and highlight it
+  // state.best_play is the backend code (h/s/d/sp) — matches data-action-code directly
   digActionButtons().forEach(b => {
-    if (b.textContent.trim() === label) b.classList.add("best");
+    if (b.dataset.actionCode === state.best_play) b.classList.add("best");
   });
 }
 

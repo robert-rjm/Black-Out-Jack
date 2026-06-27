@@ -131,12 +131,13 @@ function updateRoleUI(state) {
 
     if (vote) {
       // Lock dealer to voted action; highlight it yellow
+      // vote is the backend code (h/s/d/sp) matching data-action-code
       digActionButtons().forEach(b => {
-        const lbl = b.textContent.trim();
-        if (lbl === VOTE_LABEL[vote]) {
+        const code = b.dataset.actionCode;
+        if (code === vote) {
           b.classList.add("voted-dealer");
           b.classList.remove("disabled");
-        } else if (["HIT","STAND","DOUBLE","SPLIT"].includes(lbl)) {
+        } else if (code) {   // any action button (has data-action-code)
           b.classList.add("disabled");
         }
       });
@@ -169,14 +170,14 @@ function updateRoleUI(state) {
         suggestBanner.style.display = "block";
       }
       digActionButtons().forEach(b => {
-        if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
+        if (b.dataset.actionCode === suggestion) b.classList.add("voted-dealer");
       });
     }
 
     if (voteDisp) {
       if (vote) {
         digActionButtons().forEach(b => {
-          if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+          if (b.dataset.actionCode === vote) b.classList.add("voted");
         });
         voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
       } else {
