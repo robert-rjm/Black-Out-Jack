@@ -643,7 +643,7 @@ def _cmd_newround(game_session, parts, *, digital):
         if game_session.shoe is not shoe_before:
             log.debug("  Shoe already fresh from settings change — skipping reshuffle.")
         else:
-            game_session.shoe.reset()
+            game_session.shoe.reset(quiet=True)
             log.debug("  Shoe reshuffled.")
     game_session.start_round()
     patch_tracker(game_session)
