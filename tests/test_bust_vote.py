@@ -8,18 +8,18 @@ Tests for the Bust Vote side bet (Test-Plan §9):
 import time
 
 import pytest
+from engine.referee import RefereeSession
+from tests.conftest import make_player, make_hand
 
-flask = pytest.importorskip("flask", reason="Flask not installed — skipping app-layer tests")
-from app import create_app
-from app.models.game_room import GameRoom
-from app.services.session_store import game_sessions, set_session
-from app.services.drink_tracker import (
+pytest.importorskip("flask", reason="Flask not installed — skipping app-layer tests")
+from app import create_app  # noqa: E402
+from app.models.game_room import GameRoom  # noqa: E402
+from app.services.session_store import game_sessions, set_session  # noqa: E402
+from app.services.drink_tracker import (  # noqa: E402
     apply_bust_vote_penalties,
     apply_bust_handout_forfeit,
 )
-from engine.referee import RefereeSession
-from app.services.utils import classify_rule
-from tests.conftest import make_player, make_hand
+from app.services.utils import classify_rule  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
