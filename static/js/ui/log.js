@@ -63,7 +63,7 @@ function showPeekedCard(card) {
   display.appendChild(cardEl(card));
   // Also add a text label next to the card
   const lbl = document.createElement("span");
-  lbl.style.cssText = "font-size:13px;font-weight:700;color:var(--text);align-self:center";
+  lbl.classList.add("peeked-card-label");
   lbl.textContent = `${card.rank}${card.symbol || ""}`;
   display.appendChild(lbl);
   wrap.style.display = "block";
@@ -137,10 +137,7 @@ function showSwitchToast(switchType, dealerName) {
   const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
   const tmpl = pool[Math.floor(Math.random() * pool.length)];
   el.textContent = tmpl;
-  // Dealer switches are purely informational — always yellow, regardless of
-  // hard/soft type.
-  el.style.background = "var(--yellow)";
-  el.style.color      = "#000";
+  // Dealer switches are purely informational — always yellow (set in log.css).
   el.classList.add("show");
   ToastUI.switchTimer = setTimeout(() => {
     el.classList.remove("show");
@@ -299,9 +296,8 @@ function processReshuffleEvents(state) {
 
   const _showReshuffleToast = () => {
     if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
-    el.textContent      = "🔀 Shoe ran low — reshuffled mid-round!";
-    el.style.background = "var(--yellow)";
-    el.style.color      = "#000";
+    el.textContent = "🔀 Shoe ran low — reshuffled mid-round!";
+    // Colour set in log.css (#switch-toast always yellow).
     el.classList.remove("show");
     void el.offsetWidth;
     el.classList.add("show");
