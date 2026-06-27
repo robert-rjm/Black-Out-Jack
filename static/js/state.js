@@ -28,6 +28,10 @@ let npcPlayers = new Set();   // names of NPC/bot players this session
 // handler skip their fetch while this is > 0, ensuring a slow poll can
 // never overwrite a fresher command/preselect/vote response.
 let _requestsInFlight = 0;
+// One-slot queue: if sendCmd() is called while _requestsInFlight > 0 the
+// command is saved here (last intent wins) and replayed when the in-flight
+// request completes.  null means nothing is waiting.
+let _pendingCmd = null;
 
 // Disconnection tracking — used by showDisconnected / hideDisconnected in lobby.js
 let _consecutiveFailures = 0;   // resets to 0 on any successful /state response
