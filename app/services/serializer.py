@@ -692,6 +692,11 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             for info in session._room_clients.values()
             if not info.get("kicked")
         ],
+        "pending_seat_transfers": [
+            {"requester_name": t["requester_name"], "target": t["target"]}
+            for t in session._pending_seat_transfers
+            if t["controller_cid"] == client_id
+        ],
         "kicked_clients":         [
             {"client_id": cid, "name": info.get("name") or ""}
             for cid, info in session._room_clients.items()
@@ -710,11 +715,14 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "my_name":                _ci.get("name"),
         "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
         "can_add_local_seat":     (
-            _ci.get("role") == "admin" and
+            _ci.get("role") in ("admin", "player") and
             any(
                 p.name not in {(info.get("name") or "").capitalize()
                                for info in session._room_clients.values()
                                if not info.get("kicked")}
+                and p.name not in {n for info in session._room_clients.values()
+                                   if not info.get("kicked")
+                                   for n in (info.get("local_names") or [])}
                 and p.name not in (_ci.get("local_names") or [])
                 for p in session.all_players
             )

@@ -722,6 +722,9 @@ function updateRegisterOverlay(state) {
 
   // Admin: render pending registration approvals banner
   renderPendingRegBanner(state);
+
+  // Seat transfer requests (current controller must approve/deny)
+  _syncSeatTransfers(state.pending_seat_transfers || []);
 }
 
 function _showRegisterPending() {
@@ -850,6 +853,64 @@ async function doRegister(name) {
   } catch (_) {
     if (errEl) { errEl.textContent = "Network error."; errEl.style.display = "block"; }
   }
+}
+
+// ── Seat-transfer modal ─────────────────────────────────────────────────────
+let _seatTransferQueue = [];
+
+function _processSeatTransferQueue() {
+  const overlay = document.getElementById("seat-transfer-overlay");
+  if (!overlay) return;
+  if (_seatTransferQueue.length === 0) {
+    overlay.style.display = "none";
+    return;
+  }
+  const req = _seatTransferQueue[0];
+  const msg = document.getElementById("seat-transfer-msg");
+  if (msg) msg.textContent = `${req.requester_name} wants to take control of ${req.target}. Give it up?`;
+  overlay.style.display = "flex";
+
+  const acceptBtn = document.getElementById("seat-transfer-accept");
+  const denyBtn   = document.getElementById("seat-transfer-deny");
+  // Rebind (clone to clear old listeners)
+  const newAccept = acceptBtn.cloneNode(true);
+  const newDeny   = denyBtn.cloneNode(true);
+  acceptBtn.replaceWith(newAccept);
+  denyBtn.replaceWith(newDeny);
+  newAccept.onclick = () => _handleSeatTransfer(req.target, true);
+  newDeny.onclick   = () => _handleSeatTransfer(req.target, false);
+}
+
+async function _handleSeatTransfer(target, approve) {
+  const overlay = document.getElementById("seat-transfer-overlay");
+  if (overlay) overlay.style.display = "none";
+  _seatTransferQueue = _seatTransferQueue.filter(r => r.target !== target);
+  try {
+    const res  = await fetch("/handle_seat_transfer", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target, approve }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+  _processSeatTransferQueue();
+}
+
+function _syncSeatTransfers(transfers) {
+  // Merge incoming server list into queue (add new, remove resolved)
+  const incomingTargets = new Set((transfers || []).map(r => r.target));
+  // Remove resolved
+  _seatTransferQueue = _seatTransferQueue.filter(r => incomingTargets.has(r.target));
+  // Add new
+  for (const t of (transfers || [])) {
+    if (!_seatTransferQueue.find(r => r.target === t.target)) {
+      _seatTransferQueue.push(t);
+    }
+  }
+  // Show modal only if not currently displaying one
+  const overlay = document.getElementById("seat-transfer-overlay");
+  if (overlay && overlay.style.display !== "flex") _processSeatTransferQueue();
 }
 
 async function handleRegistration(targetClientId, approve) {
