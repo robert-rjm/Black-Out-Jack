@@ -829,9 +829,7 @@ class DrinkTracker:
     def print_round_summary(self):
         if self.verbose:
             print("\n" + "="*52)
-        if self.verbose:
             print("  DRINK SUMMARY")
-        if self.verbose:
             print("="*52)
         for p in self.players:
             if p.name == "House": continue
