@@ -35,13 +35,21 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def apply_bust_vote_penalties(session: GameRoom) -> None:
-    """Resolve dealer-bust confidence votes.
+    """Resolve dealer-bust confidence votes (web path).
 
     Only players who voted 'bust' are affected:
       - dealer busted  → correct: -1 sip credit + 1 sip to hand out (via /give_bust_sip)
       - dealer stood   → wrong:   +1 sip penalty
     Players who abstained are unaffected.
     Builds session.round._bust_vote_result for the toast.
+
+    NOTE: There is a parallel implementation for the interactive CLI path:
+    ``RefereeSession._resolve_bust_votes()`` in ``engine/referee.py``.
+    The two functions must stay in sync whenever bust-vote rules change.
+    The CLI version uses interactive handout prompts; this web version opens
+    a timed /give_bust_sip window instead.  In web sessions bust_vote_enabled
+    is always False on RefereeSession, so _resolve_bust_votes() is dead code
+    for web play — but it is kept for the standalone CLI referee mode.
     """
     if not session.bust_vote_enabled:
         session.round._bust_vote_result = None
