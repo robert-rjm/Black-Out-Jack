@@ -431,13 +431,13 @@ once they live in `tests/app/`.
 
 ## Summary table
 
-| # | Improvement | Effort | Blocked? | Do before Busfahrer? |
-|---|---|---|---|---|
-| 1 | `award_sips()` helper | Small (2–3h) | No | **Yes** |
-| 2 | SSE instead of polling | Medium (1 week) | Yes — needs off Render | No |
-| 3 | Backend-first API | Done | — | — |
-| 4 | Pydantic serialization | Medium (1 day) | No | No |
-| 5 | Unified game engine | Large (2–3 weeks) | No | Ideal |
-| 6 | Decompose `GameRoom` | Medium per phase | No — do Phase A with #1 | Phase A yes |
-| 7 | Frontend components | Large (ongoing) | No | No |
-| 8 | Test directory split | Small (30 min) | No | **Yes** |
+| # | | Improvement | Effort | Blocked? | Do before Busfahrer? |
+|---|---|---|---|---|---|
+| 1 | [X] | `award_sips()` helper | Small (2–3h) | No | **Yes** |
+| 2 | [ ] | SSE instead of polling | Medium (1 week) | Yes — needs off Render | No |
+| 3 | [X] | Backend-first API | Done | — | — |
+| 4 | [ ] | Pydantic serialization | Medium (1 day) | No | No |
+| 5 | [ ] | Unified game engine | Large (2–3 weeks) | No | Ideal |
+| 6 | [ ] | Decompose `GameRoom` | Medium per phase | No — do Phase A with #1 | Phase A yes |
+| 7 | [ ] | Frontend components | Large (ongoing) | No | No |
+| 8 | [ ] | Test directory split | Small (30 min) | No | **Yes** |
