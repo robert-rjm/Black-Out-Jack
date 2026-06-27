@@ -231,31 +231,14 @@ def _compute_live_drink_totals(session: GameRoom) -> tuple[dict, dict]:
 
 
 def compute_sip_totals(session: GameRoom) -> dict:
-    """Return cumulative sip counts per player: past rounds + current round."""
+    """Return cumulative sip counts per player: past rounds + current round.
+
+    Delegates to _compute_live_drink_totals so the drink_log is only walked
+    once even when both sip_totals and dealer_role_sips are needed.
+    """
     if not session.drinking_mode:
         return {}
-    ticker = dict(session._sip_ticker)
-    if not session.round._drink_log_harvested:
-        for p in session.all_players:
-            net = max(0, sum((e[0] or 0) for e in p.drink_log if e))
-            if net > 0:
-                ticker[p.name] = ticker.get(p.name, 0) + net
-    return ticker
-
-
-def compute_dealer_role_sips(session: GameRoom) -> dict:
-    """Return cumulative dealer-role sip counts: past rounds + current round."""
-    if not session.drinking_mode:
-        return {}
-    ticker = dict(session._dealer_role_ticker)
-    if not session.round._drink_log_harvested:
-        for p in session.all_players:
-            for entry in p.drink_log:
-                sips = entry[0] if entry else 0
-                role = entry[2] if len(entry) > 2 else "player"
-                if sips > 0 and role == "dealer":
-                    ticker[p.name] = ticker.get(p.name, 0) + sips
-    return ticker
+    return _compute_live_drink_totals(session)[0]
 
 
 def compute_payout_data(session: GameRoom) -> dict:
