@@ -15,10 +15,6 @@ import random
 from enum import Enum
 from tabulate import tabulate
 
-# ANSI colour helpers (terminal-only — harmless on web)
-_BLUE  = "\033[94m"
-_RESET = "\033[0m"
-
 # NOTE: DrinkingRules and all engine.events imports are intentionally deferred
 # to the call sites (lazy imports inside methods) to avoid a circular import:
 #   blackjack.py → drinking_rules.py → blackjack.py (Rank, Suit, Hand, Player)
@@ -524,6 +520,8 @@ class RoundManager:
                 idx += 1
 
     def _play_hand(self, player, hand, hand_idx):
+        _BLUE  = "\033[94m"   # terminal-only colour helpers
+        _RESET = "\033[0m"
         # Split hands start with 1 card; deal their second card now (after H1 is fully played)
         if hand.from_split and len(hand.cards) == 1:
             card = self._deal_card_to(hand, player.name)

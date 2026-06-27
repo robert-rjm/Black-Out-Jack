@@ -50,7 +50,10 @@ class RoundState:
     _bust_handouts_given: set = field(default_factory=set)
     _bust_handout_log: list = field(default_factory=list)
 
-    # Ace drink events (digital only)
+    # Ace drink events (digital only).
+    # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
+    # The frontend resets its local pointer when it detects a new round via
+    # round_count, so seq=1 in round N+1 is always treated as a new event.
     _ace_drink_events: list = field(default_factory=list)
     _ace_drink_seq: int = 0
 
