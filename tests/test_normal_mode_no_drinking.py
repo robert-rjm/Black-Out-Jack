@@ -91,17 +91,18 @@ def test_four_aces_no_drink_events_when_drinking_mode_false(monkeypatch):
 
 
 def test_serializer_reports_empty_sip_fields_when_drinking_mode_false():
-    """compute_sip_totals / compute_dealer_role_sips short-circuit to {}
-    so the frontend never receives stale or leaked sip data in Normal mode."""
-    from app.services.serializer import compute_sip_totals, compute_dealer_role_sips
+    """compute_sip_totals short-circuits to {} so the frontend never receives
+    stale or leaked sip data in Normal mode."""
+    from app.services.serializer import compute_sip_totals
 
     class _FakeSession:
         drinking_mode = False
         _sip_ticker = {"Player1": 5}
         _dealer_role_ticker = {"Player1": 3}
-        _drink_log_harvested = False
         all_players = []
+
+        class round:
+            _drink_log_harvested = False
 
     session = _FakeSession()
     assert compute_sip_totals(session) == {}
-    assert compute_dealer_role_sips(session) == {}

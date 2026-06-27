@@ -69,6 +69,9 @@
   z-index: 898; opacity: 0; pointer-events: none;
   transition: opacity .25s ease, transform .25s ease;
   white-space: nowrap; letter-spacing: .2px;
+  /* Switch and reshuffle toasts are always informational yellow */
+  background: var(--yellow);
+  color: #000;
 }
 #switch-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 

@@ -69,6 +69,4 @@ def get_client_info(session, client_id: str) -> dict:
 
 def is_dealer_client(session, client_id: str) -> bool:
     """True if this client is the admin or is registered as the current dealer."""
-    info = get_client_info(session, client_id)
-    god_mode = session._god_mode
-    return info["is_dealer"] or (info.get("role") == "admin" and god_mode)
+    return get_client_info(session, client_id)["is_dealer"]

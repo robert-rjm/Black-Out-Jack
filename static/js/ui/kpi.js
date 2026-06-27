@@ -115,14 +115,9 @@ function _mobileSheet(id, title, contentHtml) {
   if (overlay) { overlay.remove(); return; }
   overlay = document.createElement("div");
   overlay.id = id;
-  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box";
+  overlay.classList.add("mobile-sheet-overlay");
   const sheet = document.createElement("div");
-  sheet.style.cssText = [
-    "background:var(--bg);border-radius:16px;",
-    "padding:16px 12px;box-sizing:border-box;",
-    "width:100%;max-height:85vh;overflow-y:auto;",
-    "animation:_lb-slide-up .2s ease"
-  ].join("");
+  sheet.classList.add("mobile-sheet");
   sheet.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:13px;font-weight:700;color:var(--text)">${title}</div>
@@ -138,185 +133,114 @@ function _mobileSheet(id, title, contentHtml) {
 function openMobileLbModal()  { if (_mobileLbDetailHTML)  _mobileSheet("mobile-lb-overlay",  "🏆 Full Rankings",  _mobileLbDetailHTML); }
 function openMobileKpiModal() { if (_mobileKpiDetailHTML) _mobileSheet("mobile-kpi-overlay", "📊 Session Stats", _mobileKpiDetailHTML); }
 
-// ---- Stats renderer ----
+// ---- Stats renderer — pure HTML generation, no arithmetic ----
+// All derived metrics are pre-computed by compute_kpi_stats() in serializer.py
+// and delivered as state.kpi_stats. Only benchmark z-score coloring stays here
+// because it depends on BENCHMARKS_BY_CONFIG (a static JS-only file).
 function renderStats(state) {
   const el = document.getElementById("stats-content");
   if (!el) return;
 
-  const drinking           = state.drinking_mode        !== false;
-  const handStats         = state.hand_stats           || {};
-  const sipTotals         = state.sip_totals           || {};
-  const maxRoundSips      = state.max_round_sips       || {};
-  const streaks           = state.streaks              || {};
-  const strategyDecisions = state.strategy_decisions   || {};
-  const dealerBustRnds    = state.dealer_bust_rounds   || 0;
-  const round             = state.round                || 0;
-  const history           = state.round_sip_history    || [];
-  const sessionSecs       = state.session_seconds      || 0;
-  const playOrder         = state.play_order           || state.players || [];
-  const dealer            = (state.dealer              || "").toLowerCase();
+  const ks = state.kpi_stats;
+  if (!ks) return;
+
+  const drinking = state.drinking_mode !== false;
+  const ss       = ks.session;
+  const players  = ks.players || [];
+  const ranked   = ks.ranked  || [];
+  const round    = state.round || 0;
+  const dealer   = (state.dealer || "").toLowerCase();
 
   // ── Session-wide callout banner ──────────────────────────────
-  const totalSips    = Object.values(sipTotals).reduce((a, b) => a + b, 0);
-  const avgPerRound  = (drinking && round > 0) ? (totalSips / round).toFixed(1) : null;
-  const avg3         = drinking ? _rollingAvg(history, 3)  : null;
-  const avg5         = drinking ? _rollingAvg(history, 5)  : null;
-  const avg10        = drinking ? _rollingAvg(history, 10) : null;
-  const sipm         = (drinking && sessionSecs > 0) ? (totalSips / (sessionSecs / 60)).toFixed(2) : null;
-  const totalHands   = Object.values(handStats).reduce((a, h) => a + (h.hands || 0), 0);
-  const totalBJ      = Object.values(handStats).reduce((a, h) => a + (h.blackjacks || 0), 0);
-  const totalBusts   = Object.values(handStats).reduce((a, h) => a + (h.busts || 0), 0);
-  const totalWins    = Object.values(handStats).reduce((a, h) => a + (h.wins || 0), 0);
-  const totalPushes  = Object.values(handStats).reduce((a, h) => a + (h.pushes || 0), 0);
-  const bustRatePct  = totalHands > 0 ? Math.round((totalBusts / totalHands) * 100) : null;
-  const winRatePct   = totalHands > 0 ? Math.round((totalWins  / totalHands) * 100) : null;
-  const pushRatePct  = totalHands > 0 ? Math.round((totalPushes / totalHands) * 100) : null;
-  const dealerBustPct = round > 0 ? Math.round((dealerBustRnds / round) * 100) : null;
-
-  // Avg/round trend colour: compare overall avg to last-3
-  // Green = last 3 rounds lighter than session avg; red = heavier; neutral = no data yet
   let avgRoundCol = "var(--text)";
-  if (avgPerRound !== null && avg3 !== null) {
-    avgRoundCol = parseFloat(avg3) < parseFloat(avgPerRound) ? "var(--green)" : "var(--red)";
+  if (ss.avg_per_round !== null && ss.avg3 !== null) {
+    avgRoundCol = ss.avg3 < ss.avg_per_round ? "var(--green)" : "var(--red)";
   }
-
-  // Rolling sub-labels shown only when enough rounds exist
   const rollingTags = [
-    avg3  ? `L3: <b>${avg3}</b>`   : "",
-    avg5  ? `L5: <b>${avg5}</b>`   : "",
-    avg10 ? `L10: <b>${avg10}</b>` : "",
+    ss.avg3  ? `L3: <b>${ss.avg3}</b>`   : "",
+    ss.avg5  ? `L5: <b>${ss.avg5}</b>`   : "",
+    ss.avg10 ? `L10: <b>${ss.avg10}</b>` : "",
   ].filter(Boolean).join(" · ");
 
   const sessionBanner = `
     <div class="stat-session-banner">
       <div class="ssb-row">
-        ${avgPerRound !== null ? `
+        ${ss.avg_per_round !== null ? `
         <div class="ssb-item">
-          <div class="ssb-val" style="color:${avgRoundCol}">${avgPerRound}</div>
+          <div class="ssb-val" style="color:${avgRoundCol}">${ss.avg_per_round}</div>
           <div class="ssb-lbl">Avg/round</div>
           ${rollingTags ? `<div class="ssb-rolling">${rollingTags}</div>` : ""}
         </div>` : ""}
-        ${drinking ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${totalSips}</div><div class="ssb-lbl">Total sips</div></div>` : ""}
-        ${sipm !== null ? `<div class="ssb-item"><div class="ssb-val">${sipm}</div><div class="ssb-lbl">Sips/min</div></div>` : ""}
-        <div class="ssb-item"><div class="ssb-val">${_fmtDuration(sessionSecs)}</div><div class="ssb-lbl">Duration</div></div>
+        ${drinking ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${ss.total_sips}</div><div class="ssb-lbl">Total sips</div></div>` : ""}
+        ${ss.sipm !== null ? `<div class="ssb-item"><div class="ssb-val">${ss.sipm}</div><div class="ssb-lbl">Sips/min</div></div>` : ""}
+        <div class="ssb-item"><div class="ssb-val">${_fmtDuration(ss.session_seconds)}</div><div class="ssb-lbl">Duration</div></div>
       </div>
       <div class="ssb-row ssb-row-sm">
-        <span class="ssb-tag">${totalHands} hands</span>
-        ${winRatePct !== null ? `<span class="ssb-tag">Win ${winRatePct}%</span>` : ""}
-        ${bustRatePct !== null ? `<span class="ssb-tag">Bust ${bustRatePct}%</span>` : ""}
-        ${pushRatePct !== null ? `<span class="ssb-tag">Push ${pushRatePct}%</span>` : ""}
-        ${totalBJ ? `<span class="ssb-tag">🃏 ${totalBJ} BJ${totalBJ !== 1 ? "s" : ""}</span>` : ""}
-        ${dealerBustPct !== null ? `<span class="ssb-tag">Dealer bust ${dealerBustPct}%</span>` : ""}
+        <span class="ssb-tag">${ss.total_hands} hands</span>
+        ${ss.win_rate_pct  !== null ? `<span class="ssb-tag">Win ${ss.win_rate_pct}%</span>`  : ""}
+        ${ss.bust_rate_pct !== null ? `<span class="ssb-tag">Bust ${ss.bust_rate_pct}%</span>` : ""}
+        ${ss.push_rate_pct !== null ? `<span class="ssb-tag">Push ${ss.push_rate_pct}%</span>` : ""}
+        ${ss.total_bj ? `<span class="ssb-tag">🃏 ${ss.total_bj} BJ${ss.total_bj !== 1 ? "s" : ""}</span>` : ""}
+        ${ss.dealer_bust_pct !== null ? `<span class="ssb-tag">Dealer bust ${ss.dealer_bust_pct}%</span>` : ""}
       </div>
     </div>`;
 
   _mobileKpiDetailHTML = sessionBanner;
 
   // ── Per-player table ─────────────────────────────────────────
-  const rows = playOrder.map(name => {
-    const hs          = handStats[name] || {};
-    const sk          = streaks[name]   || {};
-    const hands       = hs.hands        || 0;
-    const wins        = hs.wins         || 0;
-    const losses      = hs.losses       || 0;
-    const pushes      = hs.pushes       || 0;
-    const wr          = hands > 0 ? Math.round((wins / hands) * 100) : null;
-    const dh          = hs.double_hands || 0;
-    const dw          = hs.double_wins  || 0;
-    const sh          = hs.split_hands  || 0;
-    const sw          = hs.split_wins   || 0;
-    const bj          = hs.blackjacks   || 0;
-    const busts       = hs.busts        || 0;
-    const suited      = hs.suited_hands || 0;
-    const hitH        = hs.hit_hands    || 0;
-    const sub17       = hs.stand_sub17  || 0;
-    const sub17Pct    = hands > 0 ? Math.round((sub17 / hands) * 100) : null;
-    const bustPct     = hands > 0 ? Math.round((busts / hands) * 100) : null;
-    const suitedPct   = hands > 0 ? Math.round((suited / hands) * 100) : null;
-    const totalScore  = hs.total_score  || 0;
-    const scoredH     = hs.scored_hands || 0;
-    const totalSipsP  = sipTotals[name] || 0;
-    const maxSips     = maxRoundSips[name] || 0;
-    const avgSips     = round > 0 ? (totalSipsP / round).toFixed(1) : "—";
-    const dblPct      = dh > 0 ? Math.round((dw / dh) * 100) + "%" : "—";
-    const spPct       = sh > 0 ? Math.round((sw / sh) * 100) + "%" : "—";
-    const hitRate     = hands > 0 ? Math.round((hitH / hands) * 100) + "%" : "—";
-    const avgHV       = scoredH > 0 ? (totalScore / scoredH).toFixed(1) : "—";
-    const lw          = sk.longest_win  || 0;
-    const ll          = sk.longest_loss || 0;
-    const current     = sk.current      || 0;
-    const sd          = strategyDecisions[name] || {};
-    const sdTotal     = sd.total   || 0;
-    const sdCorrect   = sd.correct || 0;
-    const sdPct       = sdTotal >= 3 ? Math.round((sdCorrect / sdTotal) * 100) : null;
-    const balance     = (state.balances || {})[name];
-    const startBank   = state.starting_bankroll || 100;
-    const netPL       = balance !== undefined ? balance - startBank : null;
-    const big         = (state.biggest_round_payouts || {})[name] || {};
-    return { name, hands, wins, losses, pushes, wr, current, bj, busts, bustPct, suited, suitedPct, hitRate, sub17, sub17Pct, avgHV, dblPct, spPct, avgSips, maxSips, totalSipsP, lw, ll, sdPct, sdCorrect, sdTotal, balance, netPL, bigWin: big.best || 0, bigLoss: big.worst || 0 };
-  }).filter(r => r.hands > 0 || r.totalSipsP > 0 || r.balance !== undefined);
+  const rows = players.filter(r => r.hands > 0 || r.total_sips > 0 || r.balance !== undefined);
 
   if (rows.length === 0) {
     el.innerHTML = sessionBanner + '<div class="lb-empty">No data yet — play a round first</div>';
     return;
   }
 
-  const isDlr      = name => name.toLowerCase() === dealer;
-  const _myNameL   = (typeof myName !== "undefined" && myName) ? myName.toLowerCase() : null;
-  const _npcSetSt  = typeof npcPlayers !== "undefined" ? npcPlayers : new Set();
-  const isMe       = name => !!_myNameL && name.toLowerCase() === _myNameL && !_npcSetSt.has(name);
+  const _myNameL  = (typeof myName !== "undefined" && myName) ? myName.toLowerCase() : null;
+  const _npcSetSt = typeof npcPlayers !== "undefined" ? npcPlayers : new Set();
+  const isDlr     = name => name.toLowerCase() === dealer;
+  const isMe      = name => !!_myNameL && name.toLowerCase() === _myNameL && !_npcSetSt.has(name);
 
-  // Per-player baseline for avg sips/round: BENCHMARKS.avg_sips_per_round is
-  // the simulated total across all seats per round, split evenly as a rough
-  // per-player expectation (drinking rules don't land perfectly evenly, but
-  // this is enough for a wide-band "lucky/unlucky" signal).
-  const _benchTable = _benchmarkTable(playOrder.length, state.num_decks || 1);
-  const _totalSipBenchmark    = _benchmark(_benchTable, "avg_sips_per_round");
-  const _perPlayerSipBenchmark = (_totalSipBenchmark && playOrder.length)
-    ? _totalSipBenchmark / playOrder.length
-    : null;
-  const _stdTotal = _benchmark(_benchTable, "std_sips_per_round");
-  const _perPlayerSipStd = (_stdTotal && playOrder.length)
-    ? _stdTotal / Math.sqrt(playOrder.length)
-    : null;
+  // Benchmark table for z-score coloring — stays JS-side (static BENCHMARKS_BY_CONFIG file)
+  const _benchTable          = _benchmarkTable(players.length, state.num_decks || 1);
+  const _totalSipBenchmark   = _benchmark(_benchTable, "avg_sips_per_round");
+  const _perPlayerSipBench   = (_totalSipBenchmark && players.length) ? _totalSipBenchmark / players.length : null;
+  const _stdTotal            = _benchmark(_benchTable, "std_sips_per_round");
+  const _perPlayerSipStd     = (_stdTotal && players.length) ? _stdTotal / Math.sqrt(players.length) : null;
+
+  const _pct = v => v !== null && v !== undefined ? `${v}%` : "—";
 
   const tbody = rows.map(r => {
     const rc       = (isDlr(r.name) ? " lb-row-dealer" : "") + (isMe(r.name) ? " lb-row-me" : "");
     const nameCell = `${escapeHtml(r.name)}${isDlr(r.name) ? ' <span style="font-size:9px;color:var(--accent);opacity:.7">🎰</span>' : ''}`;
     const bjCell   = r.bj    > 0 ? `<span style="color:var(--yellow);font-weight:700">🃏${r.bj}</span>`  : `<span style="opacity:.35">—</span>`;
-    const bstCell  = r.busts > 0 ? `<span style="color:var(--red)">${r.bustPct}%</span>` : `<span style="opacity:.35">0%</span>`;
-    const maxCell  = r.maxSips > 0 ? `<span style="color:var(--red)">🍺${r.maxSips}</span>` : `<span style="opacity:.35">—</span>`;
-    const lwCell   = r.lw > 0 ? `<span style="color:var(--green)">🔥${r.lw}</span>` : `<span style="opacity:.35">—</span>`;
-    const llCell   = r.ll > 0 ? `<span style="color:var(--red)">💀${r.ll}</span>`   : `<span style="opacity:.35">—</span>`;
-    const stCell   = r.suited > 0 ? `<span style="color:var(--accent)">${r.suitedPct}%</span>` : `<span style="opacity:.35">0%</span>`;
-    const bankrollCell = r.balance !== undefined
+    const bstCell  = r.busts > 0 ? `<span style="color:var(--red)">${_pct(r.bust_pct)}</span>` : `<span style="opacity:.35">0%</span>`;
+    const maxCell  = r.max_sips > 0 ? `<span style="color:var(--red)">🍺${r.max_sips}</span>` : `<span style="opacity:.35">—</span>`;
+    const lwCell   = r.longest_win  > 0 ? `<span style="color:var(--green)">🔥${r.longest_win}</span>`  : `<span style="opacity:.35">—</span>`;
+    const llCell   = r.longest_loss > 0 ? `<span style="color:var(--red)">💀${r.longest_loss}</span>`   : `<span style="opacity:.35">—</span>`;
+    const stCell   = r.suited > 0 ? `<span style="color:var(--accent)">${_pct(r.suited_pct)}</span>` : `<span style="opacity:.35">0%</span>`;
+    const bankrollCell = r.balance !== undefined && r.balance !== null
       ? `<span>$${r.balance.toFixed(2)}</span>` : `<span style="opacity:.35">—</span>`;
-    const netPLCell = r.netPL !== null
-      ? (r.netPL > 0.001 ? `<span style="color:var(--green)">+$${r.netPL.toFixed(2)}</span>`
-        : r.netPL < -0.001 ? `<span style="color:var(--red)">-$${Math.abs(r.netPL).toFixed(2)}</span>`
+    const netPLCell = r.net_pl !== null && r.net_pl !== undefined
+      ? (r.net_pl > 0.001 ? `<span style="color:var(--green)">+$${r.net_pl.toFixed(2)}</span>`
+        : r.net_pl < -0.001 ? `<span style="color:var(--red)">-$${Math.abs(r.net_pl).toFixed(2)}</span>`
         : `<span>$0.00</span>`)
       : `<span style="opacity:.35">—</span>`;
-    const bigWinCell  = r.bigWin  > 0 ? `<span style="color:var(--green)">+$${r.bigWin.toFixed(2)}</span>`  : `<span style="opacity:.35">—</span>`;
-    const bigLossCell = r.bigLoss < 0 ? `<span style="color:var(--red)">-$${Math.abs(r.bigLoss).toFixed(2)}</span>` : `<span style="opacity:.35">—</span>`;
-    const avgSipsCell = r.avgSips !== "—" && _perPlayerSipStd
-      ? `<span style="${benchmarkColor(parseFloat(r.avgSips), _perPlayerSipBenchmark, round, { lowerIsBetter: true, std: _perPlayerSipStd })}">${r.avgSips}</span>`
-      : r.avgSips;
-    const s17Cell  = r.sub17  > 0 ? `<span>${r.sub17Pct}%</span>`  : `<span style="opacity:.35">0%</span>`;
-    const avgHVCell = r.avgHV !== "—" ? `<span style="color:var(--yellow)">${r.avgHV}</span>` : `<span style="opacity:.35">—</span>`;
-    let sdCell;
-    if (r.sdPct === null) {
-      sdCell = `<span style="opacity:.35">—</span>`;
-    } else {
-      sdCell = `<span style="font-weight:700">${r.sdPct}%</span>`;
-    }
+    const bigWinCell  = r.big_win  > 0 ? `<span style="color:var(--green)">+$${r.big_win.toFixed(2)}</span>`  : `<span style="opacity:.35">—</span>`;
+    const bigLossCell = r.big_loss < 0 ? `<span style="color:var(--red)">-$${Math.abs(r.big_loss).toFixed(2)}</span>` : `<span style="opacity:.35">—</span>`;
+    const avgSipsCell = r.avg_sips !== null && _perPlayerSipStd
+      ? `<span style="${benchmarkColor(r.avg_sips, _perPlayerSipBench, round, { lowerIsBetter: true, std: _perPlayerSipStd })}">${r.avg_sips}</span>`
+      : (r.avg_sips !== null ? `${r.avg_sips}` : "—");
+    const s17Cell   = r.sub17  > 0 ? `<span>${_pct(r.sub17_pct)}</span>`  : `<span style="opacity:.35">0%</span>`;
+    const avgHVCell = r.avg_hv !== null ? `<span style="color:var(--yellow)">${r.avg_hv}</span>` : `<span style="opacity:.35">—</span>`;
+    const sdCell    = r.sd_pct === null ? `<span style="opacity:.35">—</span>` : `<span style="font-weight:700">${r.sd_pct}%</span>`;
     return `<tr class="${rc}">
       <td class="lb-name">${nameCell}</td>
       <td class="col-sep">${bjCell}</td>
       <td>${avgHVCell}</td>
       <td>${bstCell}</td>
-      <td>${r.hitRate}</td>
-      <td>${r.dblPct}</td>
-      <td>${r.spPct}</td>
+      <td>${_pct(r.hit_rate)}</td>
+      <td>${_pct(r.dbl_pct)}</td>
+      <td>${_pct(r.sp_pct)}</td>
       <td class="col-sep">${stCell}</td>
       <td>${s17Cell}</td>
       <td>${sdCell}</td>
@@ -349,26 +273,15 @@ function renderStats(state) {
 
   // ── Callout cards ────────────────────────────────────────────
   const callouts = [];
-
-  // Leaderboard tile — ranked W/L/P per player
   const rankEmoji = ["🥇", "🥈", "🥉"];
-  const lbSorted = [...rows]
-    .filter(r => r.hands > 0)
-    .sort((a, b) => {
-      if (a.wr === null && b.wr === null) return drinking ? a.totalSipsP - b.totalSipsP : 0;
-      if (a.wr === null) return 1;
-      if (b.wr === null) return -1;
-      if (b.wr !== a.wr) return b.wr - a.wr;
-      return drinking ? a.totalSipsP - b.totalSipsP : 0;
-    });
-  // medal · name · win% · W/L/P · streak [· sips]
+  // ranked list is pre-sorted by the backend
+  const lbSorted = ranked;
   const COL = drinking ? "20px 1fr 36px 64px 30px 36px" : "20px 1fr 36px 64px 30px";
   if (lbSorted.length > 0) {
     const headerRow = `<div style="display:grid;grid-template-columns:${COL};gap:0 6px;
         font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;
         letter-spacing:.3px;padding-bottom:3px;border-bottom:1px solid var(--border);margin-bottom:3px">
-      <span></span>
-      <span>Player</span>
+      <span></span><span>Player</span>
       <span style="text-align:right">Win%</span>
       <span style="text-align:center">W / L / P</span>
       <span style="text-align:center">Str</span>
@@ -378,14 +291,14 @@ function renderStats(state) {
       const medal  = i < 3 ? rankEmoji[i] : `<span style="font-size:10px;color:var(--muted)">${i + 1}</span>`;
       const wrStr  = r.wr !== null ? `<span class="${wrClass(r.wr)}">${r.wr}%</span>` : `<span style="opacity:.4">—</span>`;
       const wlp    = `<span style="color:var(--green)">${r.wins}</span><span style="color:var(--muted)">/</span><span style="color:var(--red)">${r.losses}</span><span style="color:var(--muted)">/</span><span style="color:var(--muted)">${r.pushes}</span>`;
-      const sipStr = r.totalSipsP > 0 ? `<span style="color:var(--red)">🍺${r.totalSipsP}</span>` : `<span style="opacity:.35">—</span>`;
+      const sipStr = r.total_sips > 0 ? `<span style="color:var(--red)">🍺${r.total_sips}</span>` : `<span style="opacity:.35">—</span>`;
       return `<div style="display:grid;grid-template-columns:${COL};gap:0 6px;
           align-items:center;padding:2px 0;font-size:11px">
         <span style="text-align:center">${medal}</span>
         <span style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${escapeHtml(r.name)}</span>
         <span style="text-align:right">${wrStr}</span>
         <span style="text-align:center">${wlp}</span>
-        <span style="text-align:center">${_streakLabel(r.current)}</span>
+        <span style="text-align:center">${_streakLabel(r.current_streak)}</span>
         ${drinking ? `<span style="text-align:right">${sipStr}</span>` : ""}
       </div>`;
     }).join("");
@@ -395,7 +308,6 @@ function renderStats(state) {
       ${headerRow}${lbLines}
     </div>`);
 
-    // ── Mobile-only ranking card ─────────────────────────────
     const mCOL = drinking ? "20px 1fr 38px 38px" : "20px 1fr 38px";
     const mHeader = `<div style="display:grid;grid-template-columns:${mCOL};gap:0 8px;width:100%;
         font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;
@@ -407,7 +319,7 @@ function renderStats(state) {
     const mLines = lbSorted.map((r, i) => {
       const medal  = i < 3 ? rankEmoji[i] : `<span style="font-size:10px;color:var(--muted)">${i + 1}</span>`;
       const wrStr  = r.wr !== null ? `<span class="${wrClass(r.wr)}">${r.wr}%</span>` : `<span style="opacity:.4">—</span>`;
-      const avgStr = drinking ? (r.avgSips !== "—" ? `<span>${r.avgSips}</span>` : `<span style="opacity:.35">—</span>`) : "";
+      const avgStr = drinking ? (r.avg_sips !== null ? `<span>${r.avg_sips}</span>` : `<span style="opacity:.35">—</span>`) : "";
       return `<div style="display:grid;grid-template-columns:${mCOL};gap:0 8px;width:100%;
           align-items:center;padding:3px 0;font-size:12px">
         <span style="text-align:center;flex-shrink:0">${medal}</span>
@@ -425,11 +337,10 @@ function renderStats(state) {
       ${mHeader}${mLines}
     </div>`);
 
-    // ── Mobile-only KPI card ────────────────────────────────────
     const kpiItems = [
-      avgPerRound !== null ? `<div class="ssb-item"><div class="ssb-val" style="color:${avgRoundCol}">${avgPerRound}</div><div class="ssb-lbl">Avg/round</div></div>` : "",
-      drinking    ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${totalSips}</div><div class="ssb-lbl">Total sips</div></div>` : "",
-      `<div class="ssb-item"><div class="ssb-val">${_fmtDuration(sessionSecs)}</div><div class="ssb-lbl">Duration</div></div>`,
+      ss.avg_per_round !== null ? `<div class="ssb-item"><div class="ssb-val" style="color:${avgRoundCol}">${ss.avg_per_round}</div><div class="ssb-lbl">Avg/round</div></div>` : "",
+      drinking ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${ss.total_sips}</div><div class="ssb-lbl">Total sips</div></div>` : "",
+      `<div class="ssb-item"><div class="ssb-val">${_fmtDuration(ss.session_seconds)}</div><div class="ssb-lbl">Duration</div></div>`,
     ].filter(Boolean).join("");
     callouts.push(`<div class="stat-card stat-card-mobile-kpi" onclick="openMobileKpiModal()"
         style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">
@@ -441,45 +352,43 @@ function renderStats(state) {
     </div>`);
   }
 
-  const peakRow = [...rows].sort((a, b) => b.maxSips - a.maxSips)[0];
-  const bestWin = [...rows].sort((a, b) => b.lw - a.lw)[0];
-  const bestLoss = [...rows].sort((a, b) => b.ll - a.ll)[0];
+  const peakRow  = [...rows].sort((a, b) => b.max_sips  - a.max_sips)[0];
+  const bestWin  = [...rows].sort((a, b) => b.longest_win  - a.longest_win)[0];
+  const bestLoss = [...rows].sort((a, b) => b.longest_loss - a.longest_loss)[0];
 
-  if (totalBJ > 0) {
-    const bjRate    = totalHands > 0 ? ((totalBJ / totalHands) * 100) : null;
-    const bjBench   = _benchmark(_benchTable, "blackjack_rate_pct");
-    const bjCol     = bjRate !== null ? benchmarkColor(bjRate, bjBench, round) : "";
+  if (ss.total_bj > 0) {
+    const bjBench    = _benchmark(_benchTable, "blackjack_rate_pct");
+    const bjCol      = ss.bj_rate_pct !== null ? benchmarkColor(ss.bj_rate_pct, bjBench, round) : "";
     const bjBenchTxt = bjBench !== null ? ` · expected ~${bjBench}%` : "";
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">🃏</div><div class="stat-card-body">
-      <div class="stat-card-value">${totalBJ} blackjack${totalBJ !== 1 ? "s" : ""}</div>
-      <div class="stat-card-label" style="${bjCol}">${bjRate !== null ? `${bjRate.toFixed(1)}% rate${bjBenchTxt}` : "this session"}</div>
+      <div class="stat-card-value">${ss.total_bj} blackjack${ss.total_bj !== 1 ? "s" : ""}</div>
+      <div class="stat-card-label" style="${bjCol}">${ss.bj_rate_pct !== null ? `${ss.bj_rate_pct.toFixed(1)}% rate${bjBenchTxt}` : "this session"}</div>
     </div></div>`);
   }
-  if (drinking && peakRow && peakRow.maxSips > 0) {
+  if (drinking && peakRow && peakRow.max_sips > 0) {
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">💀</div><div class="stat-card-body">
-      <div class="stat-card-value">${peakRow.maxSips} sips</div>
+      <div class="stat-card-value">${peakRow.max_sips} sips</div>
       <div class="stat-card-label">worst round — ${escapeHtml(peakRow.name)}</div>
     </div></div>`);
   }
-  if (dealerBustPct !== null) {
-    const dbBench  = _benchmark(_benchTable, "dealer_bust_pct");
-    const col      = dealerBustRnds === 0 ? "" : benchmarkColor(dealerBustPct, dbBench, round);
+  if (ss.dealer_bust_pct !== null) {
+    const dbBench    = _benchmark(_benchTable, "dealer_bust_pct");
+    const col        = ss.dealer_bust_rounds === 0 ? "" : benchmarkColor(ss.dealer_bust_pct, dbBench, round);
     const dbBenchTxt = dbBench !== null ? ` · expected ~${dbBench}%` : "";
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">🎰</div><div class="stat-card-body">
-      <div class="stat-card-value" style="${col}">${dealerBustPct}% dealer busts</div>
-      <div class="stat-card-label">${dealerBustRnds} of ${round} rounds${dbBenchTxt}</div>
+      <div class="stat-card-value" style="${col}">${ss.dealer_bust_pct}% dealer busts</div>
+      <div class="stat-card-label">${ss.dealer_bust_rounds} of ${round} rounds${dbBenchTxt}</div>
     </div></div>`);
   }
-
-  if (bestWin && bestWin.lw >= 2) {
+  if (bestWin && bestWin.longest_win >= 2) {
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">🔥</div><div class="stat-card-body">
-      <div class="stat-card-value" style="color:var(--green)">${bestWin.lw}-round win streak</div>
+      <div class="stat-card-value" style="color:var(--green)">${bestWin.longest_win}-round win streak</div>
       <div class="stat-card-label">${escapeHtml(bestWin.name)} — session record</div>
     </div></div>`);
   }
-  if (bestLoss && bestLoss.ll >= 2) {
+  if (bestLoss && bestLoss.longest_loss >= 2) {
     callouts.push(`<div class="stat-card"><div class="stat-card-icon">📉</div><div class="stat-card-body">
-      <div class="stat-card-value" style="color:var(--red)">${bestLoss.ll}-round losing streak</div>
+      <div class="stat-card-value" style="color:var(--red)">${bestLoss.longest_loss}-round losing streak</div>
       <div class="stat-card-label">${escapeHtml(bestLoss.name)} — session record</div>
     </div></div>`);
   }

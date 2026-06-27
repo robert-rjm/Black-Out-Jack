@@ -221,11 +221,12 @@ function sendDigitalPlay(action) {
 
     // Immediate optimistic feedback — highlight button + update vote display NOW
     // (will be confirmed/corrected once the server responds)
-    const ACT_LBL = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
+    const ACT_LBL  = { hit: "HIT", stand: "STAND", double: "DOUBLE", split: "SPLIT" };
+    const ACT_CODE = { hit: "h",   stand: "s",     double: "d",      split: "sp" };
+    const _code = ACT_CODE[action] || action;
     digActionButtons().forEach(b => b.classList.remove("voted"));
     digActionButtons().forEach(b => {
-      if (b.textContent.trim() === (ACT_LBL[action] || action.toUpperCase()))
-        b.classList.add("voted");
+      if (b.dataset.actionCode === _code) b.classList.add("voted");
     });
     const _vd = document.getElementById("player-vote-display");
     if (_vd) {
@@ -280,7 +281,13 @@ async function sendPreselect(action, hand) {
 // SEND COMMAND
 // ============================================================
 async function sendCmd(cmd) {
-  if (_requestsInFlight > 0) return;
+  if (_requestsInFlight > 0) {
+    // Queue for replay once the in-flight request settles; last intent wins.
+    _pendingCmd = cmd;
+    console.warn("[sendCmd] request in flight — queued:", cmd);
+    return;
+  }
+  _pendingCmd = null;
   _requestsInFlight++;
   if (typeof resetIdleTimer === "function") resetIdleTimer();
   // Visually lock all action buttons while the request is in flight
@@ -301,6 +308,13 @@ async function sendCmd(cmd) {
   } finally {
     _requestsInFlight--;
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
+    // Drain the one-slot queue: fire any command that was deferred while we
+    // were in flight.  This handles rapid taps and sendCmd-while-sendCmd races.
+    if (_pendingCmd !== null) {
+      const queued = _pendingCmd;
+      _pendingCmd = null;
+      sendCmd(queued);
+    }
   }
 }
 
@@ -599,12 +613,11 @@ function updateActionButtons(state) {
   const activeHand = (seat.hands || []).find(h => !h.done);
   if (!activeHand) return;
 
-  const canDouble = (activeHand.cards || []).length === 2 && !activeHand.doubled;
-
+  // can_double is computed server-side in serialize_hand() — 2-card hand, not yet doubled
   digActionButtons().forEach(b => {
-    const lbl = b.textContent.trim();
-    if (lbl === "SPLIT")  b.classList.toggle("disabled", !activeHand.can_split);
-    if (lbl === "DOUBLE") b.classList.toggle("disabled", !canDouble);
+    const code = b.dataset.actionCode;
+    if (code === "sp") b.classList.toggle("disabled", !activeHand.can_split);
+    if (code === "d")  b.classList.toggle("disabled", !activeHand.can_double);
   });
 }
 
@@ -621,18 +634,13 @@ function updateHandLocks(state) {
   });
 }
 
-// Map backend action codes to the button label text in the Play pane
-const BS_LABEL = { h: "HIT", s: "STAND", d: "DOUBLE", sp: "SPLIT" };
-
 function updateBestPlay(state) {
   // Clear any previous highlight
   digActionButtons().forEach(b => b.classList.remove("best"));
   if (!state || state.phase !== PHASE.PLAYING || !state.best_play) return;
-  const label = BS_LABEL[state.best_play];
-  if (!label) return;
-  // Find the matching action button and highlight it
+  // state.best_play is the backend code (h/s/d/sp) — matches data-action-code directly
   digActionButtons().forEach(b => {
-    if (b.textContent.trim() === label) b.classList.add("best");
+    if (b.dataset.actionCode === state.best_play) b.classList.add("best");
   });
 }
 
@@ -742,10 +750,9 @@ function selectDrinksPlayer(name) {
   // Toggle: tap same card again to deselect
   DrinkUI.drinksPaneSelected = (DrinkUI.drinksPaneSelected === name) ? null : name;
   renderDrinksDetail();
-  // Re-highlight cards
+  // Re-highlight cards via CSS class (outline defined in utilities.css)
   document.querySelectorAll(".drinks-card").forEach(el => {
-    el.style.outline = el.dataset.name === DrinkUI.drinksPaneSelected
-      ? "2px solid var(--accent)" : "none";
+    el.classList.toggle("selected", el.dataset.name === DrinkUI.drinksPaneSelected);
   });
 }
 
@@ -753,29 +760,26 @@ function renderDrinksDetail() {
   const detail = document.getElementById("dig-drinks-detail");
   if (!detail) return;
   if (!DrinkUI.drinksPaneSelected) {
-    detail.innerHTML = `<div style="color:var(--muted);font-size:12px;text-align:center;
-      padding:20px 8px;opacity:.55;line-height:1.5">← tap a name<br>to see details</div>`;
+    detail.innerHTML = `<div class="drinks-detail-empty">← tap a name<br>to see details</div>`;
     return;
   }
   const entries = DrinkUI.lastRoundDrinks.filter(d => d.name === DrinkUI.drinksPaneSelected);
   const total   = DrinkUI.lastRoundSips[DrinkUI.drinksPaneSelected] || 0;
   if (!entries.length) {
-    detail.innerHTML = `<div style="color:var(--green);font-size:12px;text-align:center;padding:10px 4px">
-      ${escapeHtml(DrinkUI.drinksPaneSelected)} — no drinks 🎉</div>`;
+    detail.innerHTML = `<div class="drinks-detail-clean">${escapeHtml(DrinkUI.drinksPaneSelected)} — no drinks 🎉</div>`;
     return;
   }
   detail.innerHTML =
-    `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
-                 letter-spacing:.5px;margin-bottom:5px">${escapeHtml(DrinkUI.drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
+    `<div class="drinks-detail-header">${escapeHtml(DrinkUI.drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
     entries.map(d => {
       const isCredit = d.sips < 0;
-      const col   = isCredit ? "var(--green)"              : "var(--red)";
-      const bg    = isCredit ? "rgba(62,207,110,.08)"      : "rgba(224,92,92,.08)";
-      const label = isCredit ? `${d.sips}`                 : `+${d.sips}`;
-      return `<div style="font-size:11px;line-height:1.45;padding:4px 6px;border-radius:6px;margin-bottom:3px;
-                   color:${col};border-left:2px solid ${col};background:${bg}">
-        <span style="font-weight:700">${label}</span>
-        <span style="color:var(--muted)"> ${escapeHtml(d.reason)}</span>
+      const col   = isCredit ? "var(--green)"         : "var(--red)";
+      const bg    = isCredit ? "rgba(62,207,110,.08)" : "rgba(224,92,92,.08)";
+      const label = isCredit ? `${d.sips}`            : `+${d.sips}`;
+      // Static layout via .drinks-entry; dynamic color/border/bg stay inline
+      return `<div class="drinks-entry" style="color:${col};border-left:2px solid ${col};background:${bg}">
+        <span class="drinks-entry-label">${label}</span>
+        <span class="drinks-entry-reason"> ${escapeHtml(d.reason)}</span>
       </div>`;
     }).join("");
 }
@@ -813,10 +817,9 @@ function updateRoundPane(state) {
         const sips       = DrinkUI.lastRoundSips[name] || 0;
         const hot        = sips > 0;
         const isSelected = DrinkUI.drinksPaneSelected === name;
-        const bg         = hot ? "rgba(224,92,92,.18)"  : "rgba(62,207,110,.14)";
-        const border     = hot ? "rgba(224,92,92,.4)"   : "rgba(62,207,110,.4)";
-        const color      = hot ? "var(--red)"           : "var(--green)";
-        const outline    = isSelected ? "outline:2px solid var(--accent);outline-offset:1px;" : "";
+        const bg         = hot ? "rgba(224,92,92,.18)" : "rgba(62,207,110,.14)";
+        const border     = hot ? "rgba(224,92,92,.4)"  : "rgba(62,207,110,.4)";
+        const color      = hot ? "var(--red)"          : "var(--green)";
         // Treat missing prev as 0 when at least one round has completed —
         // absent from DrinkUI.prevRoundSips means the player had 0 sips that round.
         const hasPrev = (state.round || 0) > 1;
@@ -824,20 +827,17 @@ function updateRoundPane(state) {
         const diff    = hasPrev ? sips - prev : 0;
         const diffColor = diff > 0 ? "var(--red)" : "var(--green)";
         const diffStr = hasPrev
-          ? `<div style="font-size:9px;color:${diff === 0 ? "var(--muted)" : diffColor};line-height:1.3">
+          ? `<div class="dc-diff" style="color:${diff === 0 ? "var(--muted)" : diffColor}">
                ${diff > 0 ? "▲" : diff < 0 ? "▼" : "="}&thinsp;${Math.abs(diff)} prev
              </div>`
           : "";
-        return `<button class="drinks-card" data-name="${escapeHtml(name)}"
+        // Static layout on .drinks-card (utilities.css); dynamic bg/border stay inline
+        return `<button class="drinks-card${isSelected ? " selected" : ""}" data-name="${escapeHtml(name)}"
           onclick="selectDrinksPlayer(this.dataset.name)"
-          style="padding:7px 4px;border-radius:9px;text-align:center;cursor:pointer;
-                 background:${bg};border:1.5px solid ${border};${outline}
-                 transition:outline .1s;-webkit-tap-highlight-color:transparent">
-          <div style="font-size:10px;color:var(--muted);font-weight:700;
-                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-                      max-width:100%;padding:0 2px">${escapeHtml(name)}</div>
-          <div style="font-size:21px;font-weight:800;line-height:1.2;color:${color}">${sips}</div>
-          <div style="font-size:10px;color:${color};opacity:.85">sip${sips !== 1 ? "s" : ""}</div>
+          style="background:${bg};border:1.5px solid ${border}">
+          <div class="dc-name">${escapeHtml(name)}</div>
+          <div class="dc-count" style="color:${color}">${sips}</div>
+          <div class="dc-unit" style="color:${color}">sip${sips !== 1 ? "s" : ""}</div>
           ${diffStr}
         </button>`;
       }).join("");

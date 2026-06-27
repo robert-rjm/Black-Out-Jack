@@ -292,7 +292,23 @@ body.no-drinking .drink-only {
 .drinks-card {
   flex-shrink: 0;
   width: 96px;
+  /* layout / interaction — replaces inline style on each generated button */
+  padding: 7px 4px;
+  border-radius: 9px;
+  text-align: center;
+  cursor: pointer;
+  transition: outline .1s;
+  -webkit-tap-highlight-color: transparent;
 }
+/* Selected state — toggled by selectDrinksPlayer(); replaces inline style.outline */
+.drinks-card.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Inner elements of a drinks card (background/border/color remain inline — dynamic) */
+.dc-name  { font-size: 10px; color: var(--muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0 2px; }
+.dc-count { font-size: 21px; font-weight: 800; line-height: 1.2; }
+.dc-unit  { font-size: 10px; opacity: .85; }
+.dc-diff  { font-size: 9px;  line-height: 1.3; }
+
 .drinks-divider {
   width: 1px;
   background: var(--border);
@@ -306,9 +322,20 @@ body.no-drinking .drink-only {
   max-height: 160px;
 }
 
+/* Drinks detail panel states (renderDrinksDetail) */
+.drinks-detail-empty  { color: var(--muted); font-size: 12px; text-align: center; padding: 20px 8px; opacity: .55; line-height: 1.5; }
+.drinks-detail-clean  { color: var(--green); font-size: 12px; text-align: center; padding: 10px 4px; }
+.drinks-detail-header { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+/* Static layout per drink entry (color/border-left/bg stay inline — dynamic per credit/debit) */
+.drinks-entry        { font-size: 11px; line-height: 1.45; padding: 4px 6px; border-radius: 6px; margin-bottom: 3px; }
+.drinks-entry-label  { font-weight: 700; }
+.drinks-entry-reason { color: var(--muted); }
+
 .peeked-wrap { margin-bottom: 8px; }
 .peeked-label { margin-bottom: 6px; }
 .peeked-display { display: flex; gap: 6px; align-items: center; }
+/* Label element next to the peeked card chip */
+.peeked-card-label { font-size: 13px; font-weight: 700; color: var(--text); align-self: center; }
 
 .register-error {
   color: var(--red);

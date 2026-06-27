@@ -70,7 +70,9 @@ def is_join_rate_limited(ip: str) -> bool:
     cutoff = now - JOIN_RATE_WINDOW
     prev   = _join_attempts[ip]
     _join_attempts[ip] = [t for t in prev if t > cutoff]   # drop expired
-    if len(_join_attempts[ip]) >= JOIN_RATE_LIMIT:
+    if not _join_attempts[ip]:
+        del _join_attempts[ip]
+    if len(_join_attempts.get(ip, [])) >= JOIN_RATE_LIMIT:
         return True
     _join_attempts[ip].append(now)
     return False
@@ -136,6 +138,8 @@ def get_waiting_clients(room_code: str) -> list[str]:
     stale = [cid for cid, seen in clients.items() if now - seen > WAITING_CLIENT_TTL]
     for cid in stale:
         del clients[cid]
+    if not clients:
+        del _waiting_clients[room_code]
     return list(clients.keys())
 
 

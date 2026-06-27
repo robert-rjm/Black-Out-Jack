@@ -6,8 +6,8 @@ function confirmAge() {
 }
 
 function declineAge() {
-  document.getElementById("age-gate-msg").textContent =
-    "Sorry — this game is for adults (18+) only.";
+  document.getElementById("age-gate-card").classList.remove("active");
+  document.querySelector(".underage-screen").classList.add("active");
 }
 
 // ============================================================

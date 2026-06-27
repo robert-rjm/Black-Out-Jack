@@ -25,6 +25,7 @@ def classify_rule(reason: str) -> str | None:
     if "exempt" in r:                                   return None
     # --- Negative-sip credits ---
     if "bust vote correct" in r:                        return "Bust vote credit"
+    if "applies only if no hard switch" in r:            return None   # informational log, not a drink entry
     if "A\u2663" in r and "credit" in r:               return "A\u2663 protection credit"
     # --- Positive-sip waived entry (shown in pane, excluded from CSV) ---
     if "A\u2663 protected" in r:                       return "A\u2663 waived"

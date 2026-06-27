@@ -33,7 +33,7 @@ class NullTracker:
     easy_mode: bool = False  # mirrors DrinkTracker.easy_mode; written by apply_queued_settings
 
     def apply(self, msgs):                    pass
-    def apply_end_of_round(self, *msg_lists): pass
+    def apply_end_of_round(self, msgs: list): pass
     def apply_ace_clubs_credit(self, player): pass
     def print_round_summary(self):            pass
 
@@ -126,7 +126,7 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
 
     if "num_decks" in queued and session.mode == "digital":
         session.shoe = Shoe(queued["num_decks"])
-        session.shoe.shuffle()
+        session.shoe.shuffle(quiet=True)
         changes.append(f"Deck count set to {queued['num_decks']}")
 
     for entry in queued.get("add_players", []):
@@ -157,7 +157,7 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
             and len(session.all_players) >= 4
             and getattr(session.shoe, "num_decks", 1) < 2):
         session.shoe = Shoe(2)
-        session.shoe.shuffle()
+        session.shoe.shuffle(quiet=True)
         changes.append("Deck count auto-bumped to 2 (4+ players)")
 
     for name in queued.get("remove_players", []):
