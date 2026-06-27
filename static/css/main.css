@@ -191,7 +191,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 }
 #sip-ticker .st-div { width: 1px; height: 13px; background: var(--border); flex-shrink: 0; }
 #sip-ticker .st-player { display: flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
-#sip-ticker .st-name  { font-size: 11px; color: var(--muted); }
+#sip-ticker .st-name  { font-size: 11px; color: var(--muted); max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
 #sip-ticker .st-count { font-size: 11px; font-weight: 700; color: var(--text); }
 
 /* ---- SECTION LABELS ---- */

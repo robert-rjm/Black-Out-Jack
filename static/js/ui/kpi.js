@@ -115,14 +115,9 @@ function _mobileSheet(id, title, contentHtml) {
   if (overlay) { overlay.remove(); return; }
   overlay = document.createElement("div");
   overlay.id = id;
-  overlay.style.cssText = "position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box";
+  overlay.classList.add("mobile-sheet-overlay");
   const sheet = document.createElement("div");
-  sheet.style.cssText = [
-    "background:var(--bg);border-radius:16px;",
-    "padding:16px 12px;box-sizing:border-box;",
-    "width:100%;max-height:85vh;overflow-y:auto;",
-    "animation:_lb-slide-up .2s ease"
-  ].join("");
+  sheet.classList.add("mobile-sheet");
   sheet.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:13px;font-weight:700;color:var(--text)">${title}</div>
