@@ -245,7 +245,8 @@ only, and the CLI path is left behind.
 
 ## 6 · Decompose `GameRoom`
 
-**Status:** Phase A DONE. Phases B–C pending.
+**Status:** Phase A DONE (DrinkLedger extracted, all 13 call sites migrated to
+`session.drinks.*`, property shims removed). Phases B–C pending.
 
 **Problem today:**
 `GameRoom` has ~40 fields across 5 unrelated concerns. Any file that imports

@@ -85,7 +85,7 @@ def export_csv():
     if not session:
         return Response("No active session.", status=404, mimetype="text/plain")
 
-    rows = session._drink_csv_rows
+    rows = session.drinks.csv_rows
 
     # Aggregate: player_sips[player][rule] and dealer_sips[player][rule]
     player_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
@@ -107,7 +107,7 @@ def export_csv():
     w   = csv.writer(buf)
 
     hand_stats  = session._hand_stats
-    milestones  = session._milestones_claimed
+    milestones  = session.drinks.milestones_claimed
 
     def _pct(n, d):
         return f"{n/d*100:.1f}%" if d else "—"
@@ -130,7 +130,7 @@ def export_csv():
         w.writerow([])
 
     # Wild Card press stats
-    wc_presses = session._wild_card_presses
+    wc_presses = session.drinks.wild_card_presses
     if wc_presses:
         w.writerow(["WILD CARD \U0001f0cf"])
         w.writerow(["Player", "Total presses", "Self", "Random", "Dud"])
@@ -293,7 +293,7 @@ def summary_json():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    rows       = session._drink_csv_rows
+    rows       = session.drinks.csv_rows
     num_rounds = max((r["round"] for r in rows), default=0)
 
     player_sips: dict[str, int] = defaultdict(int)

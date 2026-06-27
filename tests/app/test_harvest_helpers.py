@@ -45,14 +45,14 @@ def test_record_csv_rows_positive_sip_recorded():
     alice = room.all_players[0]
     alice.add_drink(2, "net loss", "player")           # classify_rule → "Net hand losses"
     _record_csv_rows(room)
-    assert any(r["player"] == "Alice" and r["sips"] == 2 for r in room._drink_csv_rows)
+    assert any(r["player"] == "Alice" and r["sips"] == 2 for r in room.drinks.csv_rows)
 
 
 def test_record_csv_rows_zero_sips_skipped():
     room = _make_room()
     room.all_players[0].add_drink(0, "net loss", "player")
     _record_csv_rows(room)
-    assert room._drink_csv_rows == []
+    assert room.drinks.csv_rows == []
 
 
 def test_record_csv_rows_null_classified_reason_skipped():
@@ -61,7 +61,7 @@ def test_record_csv_rows_null_classified_reason_skipped():
     # "exempt" → classify_rule returns None → skip
     room.all_players[0].add_drink(1, "exempt from drinks", "player")
     _record_csv_rows(room)
-    assert room._drink_csv_rows == []
+    assert room.drinks.csv_rows == []
 
 
 def test_record_csv_rows_negative_sips_always_recorded():
@@ -71,14 +71,14 @@ def test_record_csv_rows_negative_sips_always_recorded():
     room.all_players[0].add_drink(-1, "bust vote correct: -1 sip credit", "player")
     _record_csv_rows(room)
     assert any(r["player"] == "Alice" and r["sips"] == -1 and r["rule"] == "Bust vote credit"
-               for r in room._drink_csv_rows)
+               for r in room.drinks.csv_rows)
 
 
 def test_record_csv_rows_includes_round_and_dealer():
     room = _make_room()
     room.all_players[0].add_drink(1, "net loss", "player")
     _record_csv_rows(room)
-    row = room._drink_csv_rows[-1]
+    row = room.drinks.csv_rows[-1]
     assert "round" in row and "dealer" in row
 
 
@@ -86,7 +86,7 @@ def test_record_csv_rows_records_correct_dealer():
     room = _make_room()
     room.all_players[0].add_drink(1, "net loss", "player")
     _record_csv_rows(room)
-    assert room._drink_csv_rows[-1]["dealer"] == "Alice"   # Alice is dealer (idx 0)
+    assert room.drinks.csv_rows[-1]["dealer"] == "Alice"   # Alice is dealer (idx 0)
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def test_update_sip_tickers_net_positive():
     alice.add_drink(3, "net loss", "player")
     alice.add_drink(-1, "bust vote correct: -1 sip credit", "player")  # net = 2
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice") == 2
+    assert room.drinks.sip_ticker.get("Alice") == 2
 
 
 def test_update_sip_tickers_zero_net_not_stored():
@@ -108,7 +108,7 @@ def test_update_sip_tickers_zero_net_not_stored():
     alice.add_drink(1, "net loss", "player")
     alice.add_drink(-1, "bust vote correct: -1 sip credit", "player")  # net = 0
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice", 0) == 0
+    assert room.drinks.sip_ticker.get("Alice", 0) == 0
 
 
 def test_update_sip_tickers_dealer_role_tracked_separately():
@@ -116,7 +116,7 @@ def test_update_sip_tickers_dealer_role_tracked_separately():
     alice = room.all_players[0]
     alice.add_drink(2, "Hard Dealer Switch", "dealer")
     _update_sip_tickers(room)
-    assert room._dealer_role_ticker.get("Alice") == 2
+    assert room.drinks.dealer_role_ticker.get("Alice") == 2
 
 
 def test_update_sip_tickers_accumulates_across_calls():
@@ -127,7 +127,7 @@ def test_update_sip_tickers_accumulates_across_calls():
     alice.drink_log.clear()
     alice.add_drink(3, "net loss", "player")
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice") == 5
+    assert room.drinks.sip_ticker.get("Alice") == 5
 
 
 def test_update_sip_tickers_multiple_players_independent():
@@ -136,8 +136,8 @@ def test_update_sip_tickers_multiple_players_independent():
     alice.add_drink(3, "net loss", "player")
     bob.add_drink(1, "net loss", "player")
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice") == 3
-    assert room._sip_ticker.get("Bob") == 1
+    assert room.drinks.sip_ticker.get("Alice") == 3
+    assert room.drinks.sip_ticker.get("Bob") == 1
 
 
 # ---------------------------------------------------------------------------
@@ -146,19 +146,19 @@ def test_update_sip_tickers_multiple_players_independent():
 
 def test_snapshot_round_shifts_prev_sips():
     room = _make_room()
-    room._last_round_sips = {"Alice": 2}
+    room.drinks.last_round_sips = {"Alice": 2}
     room.all_players[0].add_drink(5, "net loss", "player")
     _snapshot_round(room)
-    assert room._prev_round_sips == {"Alice": 2}
-    assert room._last_round_sips.get("Alice") == 5
+    assert room.drinks.prev_round_sips == {"Alice": 2}
+    assert room.drinks.last_round_sips.get("Alice") == 5
 
 
 def test_snapshot_round_zero_sip_player_still_recorded():
     """Players with no drinks must appear in _last_round_sips (crown-badge logic)."""
     room = _make_room()
     _snapshot_round(room)
-    assert "Alice" in room._last_round_sips
-    assert room._last_round_sips["Alice"] == 0
+    assert "Alice" in room.drinks.last_round_sips
+    assert room.drinks.last_round_sips["Alice"] == 0
 
 
 def test_snapshot_round_increments_rounds_played():
@@ -188,7 +188,7 @@ def test_snapshot_round_history_clamps_negative():
 
 def test_update_max_sips_records_first_round():
     room = _make_room()
-    room._last_round_sips = {"Alice": 5}
+    room.drinks.last_round_sips = {"Alice": 5}
     _update_max_round_sips(room)
     assert room._max_round_sips["Alice"] == 5
 
@@ -196,7 +196,7 @@ def test_update_max_sips_records_first_round():
 def test_update_max_sips_keeps_previous_higher():
     room = _make_room()
     room._max_round_sips    = {"Alice": 10}
-    room._last_round_sips   = {"Alice": 3}
+    room.drinks.last_round_sips   = {"Alice": 3}
     _update_max_round_sips(room)
     assert room._max_round_sips["Alice"] == 10
 
@@ -204,14 +204,14 @@ def test_update_max_sips_keeps_previous_higher():
 def test_update_max_sips_replaces_previous_lower():
     room = _make_room()
     room._max_round_sips    = {"Alice": 2}
-    room._last_round_sips   = {"Alice": 7}
+    room.drinks.last_round_sips   = {"Alice": 7}
     _update_max_round_sips(room)
     assert room._max_round_sips["Alice"] == 7
 
 
 def test_update_max_sips_clamps_negative():
     room = _make_room()
-    room._last_round_sips = {"Alice": -2}
+    room.drinks.last_round_sips = {"Alice": -2}
     _update_max_round_sips(room)
     assert room._max_round_sips.get("Alice", 0) == 0
 
@@ -376,22 +376,22 @@ def test_record_drinks_detail_positive_sip_in_last_round_drinks():
     room = _make_room()
     room.all_players[0].add_drink(2, "net loss", "player")
     _record_drinks_detail(room)
-    assert any(d["name"] == "Alice" and d["sips"] == 2 for d in room._last_round_drinks)
+    assert any(d["name"] == "Alice" and d["sips"] == 2 for d in room.drinks.last_round_drinks)
 
 
 def test_record_drinks_detail_credit_in_last_round_drinks():
     room = _make_room()
     room.all_players[0].add_drink(-1, "bust vote correct: -1 sip credit", "player")
     _record_drinks_detail(room)
-    assert any(d["name"] == "Alice" and d["sips"] == -1 for d in room._last_round_drinks)
+    assert any(d["name"] == "Alice" and d["sips"] == -1 for d in room.drinks.last_round_drinks)
 
 
 def test_record_drinks_detail_replaces_previous_detail():
     """Each call to _record_drinks_detail overwrites _last_round_drinks."""
     room = _make_room()
-    room._last_round_drinks = [{"name": "Bob", "sips": 9, "reason": "stale"}]
+    room.drinks.last_round_drinks = [{"name": "Bob", "sips": 9, "reason": "stale"}]
     room.all_players[0].add_drink(1, "net loss", "player")
     _record_drinks_detail(room)
     # stale entry replaced; only Alice's drink remains
-    names = [d["name"] for d in room._last_round_drinks]
-    assert "Bob" not in names or all(d["sips"] != 9 for d in room._last_round_drinks)
+    names = [d["name"] for d in room.drinks.last_round_drinks]
+    assert "Bob" not in names or all(d["sips"] != 9 for d in room.drinks.last_round_drinks)
