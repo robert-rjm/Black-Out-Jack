@@ -211,8 +211,8 @@ def _compute_live_drink_totals(session: GameRoom) -> tuple[dict, dict]:
     Only meaningful when drinking_mode is on and the log has not yet been
     harvested; callers should short-circuit on !drinking_mode themselves.
     """
-    sip_ticker    = dict(session._sip_ticker)
-    dealer_ticker = dict(session._dealer_role_ticker)
+    sip_ticker    = dict(session.drinks.sip_ticker)
+    dealer_ticker = dict(session.drinks.dealer_role_ticker)
     if not session.round._drink_log_harvested:
         for p in session.all_players:
             net = 0
@@ -329,15 +329,15 @@ def compute_kpi_stats(session: GameRoom) -> dict:
     HTML generation and benchmark z-score coloring (which depends on the static
     BENCHMARKS_BY_CONFIG JS file that has no backend equivalent).
     """
-    hand_stats         = session._hand_stats
+    hand_stats         = session.stats.hand_stats
     sip_ticker         = compute_sip_totals(session)   # reuses existing helper
-    max_round_sips     = session._max_round_sips
-    streaks            = session._streaks
-    strategy_decisions = session._strategy_decisions
-    dealer_bust_rounds = session._dealer_bust_rounds
+    max_round_sips     = session.stats.max_round_sips
+    streaks            = session.stats.streaks
+    strategy_decisions = session.stats.strategy_decisions
+    dealer_bust_rounds = session.stats.dealer_bust_rounds
     n_rounds           = session.round_count
-    history            = session._round_sip_history
-    session_secs       = max(0, int(time.monotonic() - session._session_started_at))
+    history            = session.stats.round_sip_history
+    session_secs       = max(0, int(time.monotonic() - session.stats.session_started_at))
     drinking           = session.drinking_mode
 
     # ── Session-wide aggregates ──────────────────────────────────────────────
@@ -599,12 +599,12 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     _drink_summary_data = {
         "sip_totals":             sip_totals,
         "sip_grand_total":        sum(sip_totals.values()),
-        "round_over_seq":         session._round_over_seq,
-        "last_round_sips":        {k: max(0, v) for k, v in session._last_round_sips.items()},
-        "last_round_drinks":      session._last_round_drinks,
-        "round_notices":          session._round_notices,
-        "prev_round_sips":        {k: max(0, v) for k, v in session._prev_round_sips.items()},
-        "prev_round_drinks":      session._prev_round_drinks,
+        "round_over_seq":         session.drinks.round_over_seq,
+        "last_round_sips":        {k: max(0, v) for k, v in session.drinks.last_round_sips.items()},
+        "last_round_drinks":      session.drinks.last_round_drinks,
+        "round_notices":          session.drinks.round_notices,
+        "prev_round_sips":        {k: max(0, v) for k, v in session.drinks.prev_round_sips.items()},
+        "prev_round_drinks":      session.drinks.prev_round_drinks,
         "dealer_role_sips":       _dealer_role_sips,
         "ace_drink_events":       session.round._ace_drink_events,
         "ace_drink_seq":          session.round._ace_drink_seq,
@@ -642,7 +642,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ],
         # max_round_sips kept here (not inside kpi_stats) because table-render.js
         # reads it directly for the "worst rond" badge on the score panel.
-        "max_round_sips":         dict(session._max_round_sips),
+        "max_round_sips":         dict(session.stats.max_round_sips),
         "bust_handout_seq":       session._bust_handout_seq,
         "bust_handout_results":   list(session.round._bust_handout_log),
         **_bust_vote_window(session),
@@ -662,7 +662,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
 
     # ---- Milestone data ----
     _milestone_data = {
-        "last_milestone_result": _serialize_last_milestone(session._last_milestone_result),
+        "last_milestone_result": _serialize_last_milestone(session.drinks.last_milestone_result),
         "pending_milestone":     _serialize_pending_milestone(session.round._pending_milestone, _ci),
     }
 

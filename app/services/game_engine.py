@@ -56,26 +56,46 @@ def _push_table_event(session: GameRoom, text: str, outcome: str) -> None:
     })
 
 
-def _check_table_number(session: GameRoom, card, recipient_name: str) -> None:
+def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: int) -> None:
     """Check if a newly-visible card triggers Devil's Hand (666) or Lucky Sevens (777).
 
-    Called after every non-hole-card deal, and separately for the dealer hole
-    card at reveal time.  Each effect fires at most once per round.
+    Called after every face-up card deal (hole card and doubled cards are
+    deferred to ``dealer_turn``).  Each effect fires at most once per round.
+
+    The drinker is chosen by advancing ``card_pos`` seats clockwise from the
+    recipient of the triggering card — ``all_player_names[(recipient_idx +
+    card_pos) % n]``.  So a card dealt as the 1st in its hand targets the
+    next player (+1), the 2nd card targets the player after that (+2), etc.
+    The dealer is included in the pool (they rotate in this game and are a
+    full participant).
+
+    Conflict rule: hole card is checked before doubled cards in dealer_turn,
+    so if both would hit the 3rd count simultaneously the hole card fires and
+    the doubled card check is a no-op (``_fired`` flag prevents double-firing).
     """
     if not session.drinking_mode:
         return
     val = card.rank.value   # integer: 6 for Six, 7 for Seven
 
+    all_player_names = [p.name for p in session.all_players]
+    if not all_player_names:
+        return
+
+    def _pick_target() -> str:
+        base = all_player_names.index(recipient_name) if recipient_name in all_player_names else 0
+        return all_player_names[(base + card_pos) % len(all_player_names)]
+
     if val == 6 and not session.round._six_curse_fired:
         session.round._six_count += 1
         if session.round._six_count >= 3:
             session.round._six_curse_fired = True
-            player = session._get_player(recipient_name)
+            target = _pick_target()
+            player = session._get_player(target)
             if player:
-                player.add_drink(1, "six_curse", "player")
+                player.add_drink(1, "Devil's Hand — three 6s on the table!", "player")
             _push_table_event(
                 session,
-                f"\U0001f3b0 Devil's Hand — three 6s on the table! {recipient_name} drinks 1 sip!",
+                f"\U0001f3b0 Devil's Hand — three 6s on the table! {target} drinks 1 sip!",
                 "curse",
             )
 
@@ -83,12 +103,13 @@ def _check_table_number(session: GameRoom, card, recipient_name: str) -> None:
         session.round._seven_count += 1
         if session.round._seven_count >= 3:
             session.round._seven_lucky_fired = True
-            player = session._get_player(recipient_name)
+            target = _pick_target()
+            player = session._get_player(target)
             if player:
-                player.add_drink(-1, "seven_lucky", "player")
+                player.add_drink(-1, "Lucky Sevens — three 7s on the table!", "player")
             _push_table_event(
                 session,
-                f"\U0001f3b0 Lucky Sevens — three 7s on the table! {recipient_name} gets a sip credit!",
+                f"\U0001f3b0 Lucky Sevens — three 7s on the table! {target} gets a sip credit!",
                 "lucky",
             )
 
@@ -153,9 +174,10 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                     _push_ace_drink_event(session, msg)
 
         # ── Devil's Hand (666) / Lucky Sevens (777) ──────────────────────────
-        # Count every visible card — hole card is deferred to dealer_turn reveal.
-        if not is_hole_card:
-            _check_table_number(session, card, recipient_name)
+        # Only count face-up visible cards.  Hole card is checked in
+        # dealer_turn; doubled card is also deferred there.
+        if not is_hole_card and not is_double_card:
+            _check_table_number(session, card, recipient_name, card_pos)
 
     return card
 
@@ -309,10 +331,18 @@ def dealer_turn(session: GameRoom) -> None:
                 _push_ace_drink_event(session, msg)
         session.round._deferred_hole_card_msgs = []
 
-    # ── Hole card reveal: check for 666 / 777 ────────────────────────────────
-    # The dealer's 2nd card was excluded from deal_card counting; process it now.
-    if session.drinking_mode and len(d_hand.cards) >= 2:
-        _check_table_number(session, d_hand.cards[1], dealer.name)
+    # ── Hole card + doubled cards reveal: check for 666 / 777 ───────────────
+    # Both were excluded from deal_card counting; process them now that
+    # they are face-up.  Doubled card is always the last card in a doubled hand.
+    if session.drinking_mode:
+        if len(d_hand.cards) >= 2:
+            _check_table_number(session, d_hand.cards[1], dealer.name, 2)
+        for p in session.all_players:
+            if p.is_dealer:
+                continue
+            for hand in p.hands:
+                if hand.doubled and hand.cards:
+                    _check_table_number(session, hand.cards[-1], p.name, len(hand.cards))
 
     log.debug(f"\n--- Dealer ({dealer.name}) reveals ---")
     log.debug(f"  Full hand: {d_hand}")

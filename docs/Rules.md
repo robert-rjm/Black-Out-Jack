@@ -12,9 +12,26 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
 1. [Game Setup](#1-game-setup)
 2. [Dealer Rotation](#2-dealer-rotation)
 3. [Rule Modifications](#3-rule-modifications-from-standard-blackjack)
-4. [Drinking Rules (Instant Effect)](#4-drinking-rules-instant-effect) _(4.1 Ace Effects, 4.2 Dealer Suited Hand, 4.3 Four Aces, 4.4 Side Bet Dealer Bust, 4.5 Devil's Hand, 4.6 Lucky Sevens)_
+    - 3.1 [Splitting Aces](#31-splitting-aces)
+    - 3.2 [Insurance](#32-insurance)
+4. [Drinking Rules (Instant Effect)](#4-drinking-rules-instant-effect)
+    - 4.1 [Ace Effects](#41-ace-effects)
+    - 4.2 [Dealer Suited Hand](#42-dealer-suited-hand)
+    - 4.3 [Four Aces](#43-four-aces-on-first-deal)
+    - 4.4 [Side Bet Dealer Bust](#44-side-bet-dealer-bust)
+    - 4.5 [Devil's Hand and Lucky Sevens](#45-devils-hand--46-lucky-sevens)
 5. [Drinking Rules (End of Round)](#5-drinking-rules-end-of-round)
+    - 5.1 [Net Hand Losses](#51-net-hand-losses)
+    - 5.2 [Other Player's Results](#52-other-players-results)
+    - 5.3 [Blackjack Bonus](#53-blackjack-bonus)
+    - 5.4 [5+ Cards (Handouts)](#54-5-cards-handouts)
+    - 5.5 [Player All-Hand Bonus](#55-player-all-hand-bonus)
+    - 5.6 [Four Aces at End of Round](#56-four-aces-at-end-of-round)
+    - 5.7 [Hard Dealer Switch Penalty](#57-hard-dealer-switch-penalty)
+    - 5.8 [Milestone Handouts](#58-milestone-handouts)
 6. [Relaxed Drinking Rules](#6-relaxed-drinking-rules)
+    - 6.1 [Large Group Rules](#61-large-group-rules-4-players)
+    - 6.2 [Easy Mode](#62-easy-mode)
 7. [Potential Future Rules](#7-potential-future-rules)
 8. [Glossary](#8-glossary)
 
@@ -35,6 +52,7 @@ Every player must have a drink ready.
 | Net result | Only net negative scores result in sips |
 
 *For fairness, all players must play with the same number of hands and wager.*
+
 
 
 ## 2. Dealer Rotation
@@ -59,6 +77,7 @@ Being Dealer carries higher drinking risk.
 - _Play with Honor:_ intentionally sabotaging your own hand to avoid a Hard Switch is not allowed.
 
 
+
 ## 3. Rule Modifications (from standard BlackJack)
 
 _Unless stated otherwise within these rules, traditional rules of BlackJack apply._
@@ -70,6 +89,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 | Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)). Deviating on an unsuited 10-pair instead ("without honor") costs 1 sip. Splitting a **suited** 10-pair (a 20) is **not** mandatory, choosing to split it anyway costs 1 sip. |
 | Splitting | Maximum 5 splits per starting hand |
 
+
 ### 3.1 Splitting Aces:
 
 | Rule | Details |
@@ -78,6 +98,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 | Wager | Counted per resulting hand |
 | Blackjack on split Aces | Counts as Blackjack (not just 21) |
 | After splitting | Player may hit, double, or split again |
+
 
 ### 3.2 Insurance
 
@@ -110,9 +131,11 @@ When a Hard Switch is active and the vote result is Insure + no dealer BJ, the d
 | Dealer is the BJ holder | Dealer drinks nothing from insurance resolution. Their Blackjack hand is excluded from the Hard Switch penalty calculation. Rest of group drinks 2×. |
 
 
+
 ## 4. Drinking Rules (Instant Effect)
 
 These effects fire **immediately** when they occur. They are **never halved** by the Large Group Rule or Easy Mode (see [Relaxed Drinking Rules](#6-relaxed-drinking-rules)).
+
 
 ### 4.1 Ace Effects
 
@@ -134,15 +157,18 @@ These effects fire **immediately** when they occur. They are **never halved** by
 | ♥ Ace of Hearts | All Players treat themselves to a sip (everyone drinks 1 sip) |
 | ♦ Ace of Diamonds | All Players except Dealer drink 1 sip |
 
+
 ### 4.2 Dealer Suited Hand
 
 If the Dealer's final hand is entirely one suit, all Players drink 2 sips (regardless of Dealer win/loss/bust).
+
 
 ### 4.3 Four Aces on First Deal
 
 If all 4 Aces are visible after the first deal (before any hits), everyone drinks 2 sips. This includes all Player hands and the Dealer's face-up card.
 
-### 4.4  Side Bet Dealer Bust
+
+### 4.4 Side Bet Dealer Bust
 
 Before the first deal (before any hits), each Player can place a side bet on Dealer bust.
 
@@ -157,26 +183,25 @@ This feature can be toggled on or off by the host at any time
 - The sip credit and handout are separate, credit offsets own drinks while handout goes to someone else.
 - Unassigned sips within handout timer return to you as penalty
 
-### 4.5 Devil's Hand
 
-If the **3rd six** of the round is dealt to any player (or the dealer), that player drinks **1 sip** immediately.
+### 4.5 Devil's Hand and Lucky Sevens
 
-- Counts all visible cards across all hands and the dealer's up-card.
-- The dealer's hole card is counted at the moment it is revealed, not when it was dealt.
-- Fires at most once per round.
+**Shared mechanics** — apply to both rules:
 
-### 4.6 Lucky Sevens
+- Only face-up cards count. The dealer's hole card and any doubled card are counted at the moment they are revealed, not when dealt.
+- Target is chosen by the triggering card's **position within its hand**: the circle advances that many seats clockwise from the recipient — `(recipient_index + card_position) % number_of_players`. If the 3rd six/seven was the 1st card in its hand (+1), the next player is the target; if it was the 2nd card (+2), the player two seats clockwise is the target; and so on.
+- Each rule fires at most once per round. Both can fire in the same round.
 
-If the **3rd seven** of the round is dealt to any player (or the dealer), that player receives a **−1 sip credit** (reduces their end-of-round net total by 1, minimum 0).
+**Devil's Hand** — when the **3rd six** becomes visible, the target drinks **1 sip** immediately.
 
-- Same counting rules as Devil's Hand above.
-- Fires at most once per round.
-- Both Devil's Hand and Lucky Sevens can fire in the same round if the table is unlucky and lucky enough.
+**Lucky Sevens** — when the **3rd seven** becomes visible, the target receives a **−1 sip credit** (reduces end-of-round net total by 1, minimum 0).
+
 
 
 ## 5. Drinking Rules (End of Round)
 
 These effects resolve after all hands are played (These can be halved by Easy Mode, see [Relaxed Drinking Rules](#6-relaxed-drinking-rules)).
+
 
 ### 5.1 Net Hand Losses
 
@@ -203,6 +228,7 @@ Only **net negative** scores result in drinking. Positives are disregarded.
 | --------- | ---------- |
 | Lost hand was doubled | +1 sip |
 | Lost hand was suited | +1 sip |
+
 
 ### 5.2 Other Player's Results
 
@@ -240,6 +266,7 @@ Even if you won all your hands, you still drink if another Player wins with:
 > [!NOTE]
 > Blackjack bonus ([Blackjack Bonus](#53-blackjack-bonus)) also applies
 
+
 ### 5.3 Blackjack Bonus
 
 When any Player gets a Blackjack, **all other Players** drinks 1 sip (regardless of own result).
@@ -259,6 +286,7 @@ The base 1 sip is **doubled cumulatively** for:
 > A♥ + J♥ → suited + A&J: 1×2×2 = **4 sips**
 > A♠ + J♠ → suited + A&J + black: 1×2×2×2 = **8 sips**
 
+
 ### 5.4 5+ Cards (Handouts)
 
 These rules trigger when a Player or Dealer holds 5 or more cards in a single hand.
@@ -275,6 +303,7 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 - Rule 2 does not trigger on a push.
 - Rule 3 does not include Blackjack bonus or Ace effects.
 
+
 ### 5.5 Player All-Hand Bonus
 
 If every card across all of a Player's final hands shares **entirely the same suit**, or every hand totals **exactly 21**, other Players drink:
@@ -287,11 +316,13 @@ If every card across all of a Player's final hands shares **entirely the same su
 
 > Triggers regardless of win, push, or loss.
 
+
 ### 5.6 Four Aces at End of Round
 
 If all 4 Aces are visible at end of round (but were **not** all visible on first deal), everyone drinks 1 sip.
 
 > Cannot stack with [Four Aces on First Deal](#43-four-aces-on-first-deal) (first-deal rule takes precedence).
+
 
 ### 5.7 Hard Dealer Switch Penalty
 
@@ -323,7 +354,21 @@ On a Hard Switch, the Dealer's player-role drinking is **replaced entirely** by 
 | Dealer's **dealer hand** | Switch still occurs, but Dealer drinks **halved sips**. Other players drink normally. |
 | Dealer's **player hand** | Dealer's own player hands excluded from penalty calculation. −1 sip credit only applies if no hard switch fires. |
 
+
+### 5.8 Milestone Handouts
+
+Every time a Player's cumulative sip total crosses a multiple of 50, they earn bonus sips to hand out to other Players (5 sips at 50, 6 at 100, 7 at 150, +1 per additional milestone). The winner has 60 seconds to distribute the sips; unassigned sips return to them. Only one milestone can be active at a time.
+
+### "Worst Average" Penalty
+
+At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."
+
+If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (rounded, minimum 1). The streak then resets.
+
+
+
 ## 6. Relaxed Drinking Rules
+
 
 ### 6.1 Large Group Rules (4+ Players)
 
@@ -339,6 +384,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | Four aces at end of round | |
 | RoundEndEvent drinks (wins-all, immunity breakers) | |
 
+
 ### 6.2 Easy Mode
 
 Any group can opt into the same halving rule regardless of player count.
@@ -350,21 +396,12 @@ Any group can opt into the same halving rule regardless of player count.
 | **4+ players** | Always on (toggle locked) |
 
 
-### 6.3 Milestone Handouts
-
-Every time a Player's cumulative sip total crosses a multiple of 50, they earn bonus sips to hand out to other Players (5 sips at 50, 6 at 100, 7 at 150, +1 per additional milestone). The winner has 60 seconds to distribute the sips; unassigned sips return to them. Only one milestone can be active at a time.
-
-### "Worst Average" Penalty
-
-At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."
-
-If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (rounded, minimum 1). The streak then resets.
-
 
 ## 7. Potential Future Rules
 
 _Have a rule idea? Open an issue or suggest it mid-game!
 The best rules often come from the chaos of gameplay._ 🍻
+
 
 
 ## 8. Glossary
@@ -379,6 +416,6 @@ The best rules often come from the chaos of gameplay._ 🍻
 | **Soft Switch** | Dealer wins all hands → normal drinking, role passes |
 | **Auto-insurance** | Passive cap on penalty when Dealer has Blackjack (wager × hands) |
 
----
+----
 
 For full round walkthroughs showing how multiple rules interact, see [`ComprehensiveExample.md`](ComprehensiveExample.md).

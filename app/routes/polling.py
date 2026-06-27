@@ -28,7 +28,7 @@ from app.services.serializer import (
     serialize_state, round_phase, current_turn, hand_done,
     compute_mandatory_split10,
 )
-from app.services.drink_tracker import check_and_set_milestone
+from app.services.drink_tracker import award_sips
 from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
 from app.services.tick import tick, _run_deferred_dealer_play
@@ -625,27 +625,8 @@ def give_bust_sip():
     # harvest_drink_log already ran — patch the round snapshots directly so
     # the sip shows up in the drinks panel and cumulative ticker without waiting
     # for the next round.
-    reason_label = f"Bust bet handout (from {winner_name}): +1 sip"
-    session._last_round_drinks.append({
-        "name":   recipient_name,
-        "sips":   1,
-        "reason": reason_label,
-    })
-    session._last_round_sips[recipient_name] = (
-        session._last_round_sips.get(recipient_name, 0) + 1
-    )
-    session._sip_ticker[recipient_name] = (
-        session._sip_ticker.get(recipient_name, 0) + 1
-    )
-    check_and_set_milestone(session)
-    session._drink_csv_rows.append({
-        "round":  session.round_count,
-        "dealer": session.dealer_name,
-        "player": recipient_name,
-        "role":   "player",
-        "rule":   "Bust vote handout",
-        "sips":   1,
-    })
+    award_sips(session, recipient_name, 1, "Bust vote handout",
+               reason=f"Bust bet handout (from {winner_name}): +1 sip")
 
     # Log entry visible to all players
     log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
