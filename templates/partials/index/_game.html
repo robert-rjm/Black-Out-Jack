@@ -165,12 +165,12 @@
 
         {{ section_label('Action') }}
         <div id="dig-action-row1" class="btn-row">
-          {{ action_btn('HIT', 'sendDigitalPlay', '["hit"]', 'btn green wide') }}
-          {{ action_btn('STAND', 'sendDigitalPlay', '["stand"]', 'btn wide') }}
+          {{ action_btn('HIT',   'sendDigitalPlay', '["hit"]',   'btn green wide', 'data-action-code="h"') }}
+          {{ action_btn('STAND', 'sendDigitalPlay', '["stand"]', 'btn wide',       'data-action-code="s"') }}
         </div>
         <div id="dig-action-row2" class="btn-row">
-          {{ action_btn('DOUBLE', 'sendDigitalPlay', '["double"]', 'btn wide') }}
-          {{ action_btn('SPLIT', 'sendDigitalPlay', '["split"]', 'btn wide') }}
+          {{ action_btn('DOUBLE', 'sendDigitalPlay', '["double"]', 'btn wide', 'data-action-code="d"') }}
+          {{ action_btn('SPLIT',  'sendDigitalPlay', '["split"]',  'btn wide', 'data-action-code="sp"') }}
         </div>
 
         <div id="suggest-picker" class="suggest-picker">

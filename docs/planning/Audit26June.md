@@ -454,7 +454,7 @@ Frontend — MEDIUM
 
 Frontend — LOW (cleanup)
 [x] LF-3 Replace inline CSS strings in JS with toggled CSS classes (admin.js, table.js, log.js)
-[ ] LF-2 Switch action-button matching to data-action-code attributes (table.js, admin.js)
+[x] LF-2 Switch action-button matching to data-action-code attributes (table.js, admin.js)
 [x] LF-5 Add .mobile-sheet CSS class; remove inline style.cssText from _mobileSheet()
 [ ] LF-6 Add user feedback when sendCmd() drops a command (request in flight)
 [x] LF-4 Move RANKS and SUITS from setup.js to config.js
