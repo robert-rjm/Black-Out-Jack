@@ -166,6 +166,7 @@ def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
         "bj_mult":    _bj_multiplier(hand),
         "done":       hand_done(hand),
         "can_split":  hand.can_split(),
+        "can_double": len(hand.cards) == 2 and not hand.doubled,
     }
 
 
@@ -326,6 +327,146 @@ def compute_mandatory_split10(session: GameRoom, turn: str | None, phase: str) -
 
 
 # ---------------------------------------------------------------------------
+# KPI stats — pre-computed server-side so kpi.js is a pure renderer
+# ---------------------------------------------------------------------------
+
+def _rolling_avg(history: list, n: int):
+    """Rolling average of last n items, or None if fewer than n items exist."""
+    if not history or len(history) < n:
+        return None
+    return round(sum(history[-n:]) / n, 1)
+
+
+def compute_kpi_stats(session: GameRoom) -> dict:
+    """Pre-compute all KPI panel metrics server-side.
+
+    All arithmetic lives here; kpi.js becomes a pure renderer that only does
+    HTML generation and benchmark z-score coloring (which depends on the static
+    BENCHMARKS_BY_CONFIG JS file that has no backend equivalent).
+    """
+    hand_stats         = session._hand_stats
+    sip_ticker         = compute_sip_totals(session)   # reuses existing helper
+    max_round_sips     = session._max_round_sips
+    streaks            = session._streaks
+    strategy_decisions = session._strategy_decisions
+    dealer_bust_rounds = session._dealer_bust_rounds
+    n_rounds           = session.round_count
+    history            = session._round_sip_history
+    session_secs       = max(0, int(time.monotonic() - session._session_started_at))
+    drinking           = session.drinking_mode
+
+    # ── Session-wide aggregates ──────────────────────────────────────────────
+    total_sips   = sum(sip_ticker.values())
+    total_hands  = sum(h.get("hands",      0) for h in hand_stats.values())
+    total_bj     = sum(h.get("blackjacks", 0) for h in hand_stats.values())
+    total_busts  = sum(h.get("busts",      0) for h in hand_stats.values())
+    total_wins   = sum(h.get("wins",       0) for h in hand_stats.values())
+    total_pushes = sum(h.get("pushes",     0) for h in hand_stats.values())
+
+    def _pct(num, den, decimals=0):
+        if den <= 0:
+            return None
+        v = (num / den) * 100
+        return round(v, decimals) if decimals else round(v)
+
+    session_stats = {
+        "total_sips":         total_sips,
+        "avg_per_round":      round(total_sips / n_rounds, 1) if (drinking and n_rounds > 0) else None,
+        "avg3":               _rolling_avg(history, 3)  if drinking else None,
+        "avg5":               _rolling_avg(history, 5)  if drinking else None,
+        "avg10":              _rolling_avg(history, 10) if drinking else None,
+        "sipm":               round(total_sips / (session_secs / 60), 2) if (drinking and session_secs > 0) else None,
+        "total_hands":        total_hands,
+        "total_bj":           total_bj,
+        "total_busts":        total_busts,
+        "total_wins":         total_wins,
+        "total_pushes":       total_pushes,
+        "bust_rate_pct":      _pct(total_busts,  total_hands),
+        "win_rate_pct":       _pct(total_wins,   total_hands),
+        "push_rate_pct":      _pct(total_pushes, total_hands),
+        "dealer_bust_pct":    _pct(dealer_bust_rounds, n_rounds),
+        "dealer_bust_rounds": dealer_bust_rounds,
+        "bj_rate_pct":        _pct(total_bj, total_hands, decimals=1),
+        "session_seconds":    session_secs,
+    }
+
+    # ── Per-player rows (in play order) ─────────────────────────────────────
+    player_rows = []
+    for name in play_order(session):
+        hs  = hand_stats.get(name, {})
+        sk  = streaks.get(name, {})
+        sd  = strategy_decisions.get(name, {})
+        big = session._biggest_round_payouts.get(name, {})
+
+        hands    = hs.get("hands",        0)
+        wins     = hs.get("wins",         0)
+        losses   = hs.get("losses",       0)
+        pushes_p = hs.get("pushes",       0)
+        bj_p     = hs.get("blackjacks",   0)
+        busts    = hs.get("busts",        0)
+        suited   = hs.get("suited_hands", 0)
+        hit_h    = hs.get("hit_hands",    0)
+        sub17    = hs.get("stand_sub17",  0)
+        dh       = hs.get("double_hands", 0)
+        dw       = hs.get("double_wins",  0)
+        sh       = hs.get("split_hands",  0)
+        sw       = hs.get("split_wins",   0)
+        tot_score = hs.get("total_score", 0)
+        scored_h  = hs.get("scored_hands",0)
+
+        sips_p   = sip_ticker.get(name, 0)
+        balance  = None if drinking else session._bankrolls.get(name)
+
+        sd_total   = sd.get("total",   0)
+        sd_correct = sd.get("correct", 0)
+
+        player_rows.append({
+            "name":           name,
+            "hands":          hands,
+            "wins":           wins,
+            "losses":         losses,
+            "pushes":         pushes_p,
+            "wr":             _pct(wins,   hands),
+            "bj":             bj_p,
+            "busts":          busts,
+            "bust_pct":       _pct(busts,  hands),
+            "suited":         suited,
+            "suited_pct":     _pct(suited, hands),
+            "hit_rate":       _pct(hit_h,  hands),
+            "sub17":          sub17,
+            "sub17_pct":      _pct(sub17,  hands),
+            "avg_hv":         round(tot_score / scored_h, 1) if scored_h > 0 else None,
+            "dbl_pct":        _pct(dw, dh),
+            "sp_pct":         _pct(sw, sh),
+            "avg_sips":       round(sips_p / n_rounds, 1) if (drinking and n_rounds > 0) else None,
+            "max_sips":       max_round_sips.get(name, 0),
+            "total_sips":     sips_p,
+            "longest_win":    sk.get("longest_win",  0),
+            "longest_loss":   sk.get("longest_loss", 0),
+            "current_streak": sk.get("current",      0),
+            "sd_pct":         _pct(sd_correct, sd_total) if sd_total >= 3 else None,
+            "sd_total":       sd_total,
+            "balance":        balance,
+            "net_pl":         None if (balance is None) else balance - session.starting_bankroll,
+            "big_win":        big.get("best",  0),
+            "big_loss":       big.get("worst", 0),
+        })
+
+    # ── Leaderboard ranking ──────────────────────────────────────────────────
+    # Descending win rate (None last), then ascending total sips as tie-breaker
+    # in drinking mode — matches the sort the frontend previously applied.
+    ranked = sorted(
+        [p for p in player_rows if p["hands"] > 0],
+        key=lambda p: (
+            -(p["wr"] if p["wr"] is not None else -1),
+            p["total_sips"] if drinking else 0,
+        ),
+    )
+
+    return {"session": session_stats, "players": player_rows, "ranked": ranked}
+
+
+# ---------------------------------------------------------------------------
 # Insurance vote serializer helper
 # ---------------------------------------------------------------------------
 
@@ -450,17 +591,6 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         _compute_live_drink_totals(session) if session.drinking_mode else ({}, {})
     )
 
-    # ---- KPI panel data — cumulative per-player hand outcomes + session stats ----
-    _kpi_data = {
-        "hand_stats":             dict(session._hand_stats),
-        "strategy_decisions":     dict(session._strategy_decisions),
-        "streaks":                dict(session._streaks),
-        "max_round_sips":         dict(session._max_round_sips),
-        "dealer_bust_rounds":     session._dealer_bust_rounds,
-        "round_sip_history":      list(session._round_sip_history),
-        "session_seconds":        max(0, round(time.monotonic() - session._session_started_at)),
-    }
-
     _payout_data = compute_payout_data(session)
 
     # ---- This-round / last-round drink summaries ----
@@ -508,6 +638,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             and n in (session.round._bust_vote_result or {}).get("winners", [])
             and n not in session.round._bust_handouts_given
         ],
+        # max_round_sips kept here (not inside kpi_stats) because table-render.js
+        # reads it directly for the "worst rond" badge on the score panel.
+        "max_round_sips":         dict(session._max_round_sips),
         "bust_handout_seq":       session._bust_handout_seq,
         "bust_handout_results":   list(session.round._bust_handout_log),
         **_bust_vote_window(session),
@@ -543,8 +676,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                    if _ci.get("role") == "admin"],
         "my_registration_pending": any(r["client_id"] == client_id
                                        for r in session._pending_registrations),
-        "my_registration_rejected": _ci.get("role") == "denied",         # any denial
-        "my_registration_denied":   (                                     # permanent block
+        "my_registration_rejected": _ci.get("role") == "denied",
+        "my_registration_denied":   (
             _ci.get("role") == "denied" and
             _ci.get("reg_denials", 0) >= 2
         ),
@@ -623,7 +756,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "god_mode_enabled":       session._god_mode,
         "queued_settings":        session._queued_settings,
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
-        **_kpi_data,
+        "kpi_stats":              compute_kpi_stats(session),
         **_payout_data,
         **_drink_summary_data,
         **_bust_vote_data,
@@ -631,6 +764,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         **_milestone_data,
         **_connection_data,
         **_client_identity_data,
+        "state_seq":            int(time.monotonic() * 1_000_000),
+    }
+a,
         # Monotonically increasing token (µs since process start).
         # The frontend drops any applyState() call whose state_seq is older
         # than the last one it applied — prevents stale poll responses from

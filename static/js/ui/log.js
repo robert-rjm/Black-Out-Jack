@@ -195,16 +195,11 @@ function clearPeekedCard() {
 }
 
 async function doNewRound() {
-  const state       = lastState || {};
-  const drinking    = state.drinking_mode !== false;
-  const switchType  = state.switch_this_round;        // "hard" | "soft" | null
-  const roundsTD    = state.rounds_this_dealer || 1;
-  const rotateEvery = state.dealer_rotate_every || 1;
-  // Normal mode: fixed house dealer — never rotate.
-  // Drinking mode: auto-rotate when hard/soft switch fired, or rotation interval reached.
-  const rotate = drinking && !!(switchType || roundsTD >= rotateEvery);
+  // Rotation is decided server-side: in drinking mode the backend auto-rotates
+  // when a hard/soft switch fired or the interval is reached. Always send bare
+  // "newround" — the frontend no longer makes this game-logic decision.
   clearPeekedCard();
-  await sendCmd(rotate ? "newround rotate" : "newround");
+  await sendCmd("newround");
   buildGameUI();
   if (gameMode === "digital") {
     await sendCmd("deal");
