@@ -534,9 +534,11 @@ function updateBustVoteUI(state) {
       const winners    = result.winners || [];
       const myWinners  = myBusters.filter(n => winners.includes(n));
       const myLosers   = myBusters.filter(n => !winners.includes(n));
+      const wLabel     = result.winner_label || "called it";
+      const lLabel     = result.loser_label  || "wrong";
       const parts = [];
-      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} called it — -1 sip + give 1!</span>`);
-      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} wrong — +1 sip each</span>`);
+      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} ${escapeHtml(wLabel)}</span>`);
+      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} ${escapeHtml(lLabel)}</span>`);
       statusEl.innerHTML = parts.join("<br>");
     } else {
       // Result not yet available — re-render from current state to avoid stale text
@@ -643,32 +645,11 @@ function _firePlayerToast(text, iDrink, ms) {
 
 function showBustVoteToast(result) {
   if (!result) return;
-  const parts  = [];
-  const each   = result.losers.length > 1 ? " each" : "";
-  const normal = result.side_bet_amount != null;   // normal mode: use $ amounts
-  const sb     = normal ? result.side_bet_amount : 0;
-  const fmt    = v => `$${Number(v).toFixed(2)}`;
-  if (result.dealer_busted) {
-    if (result.winners.length) {
-      const reward = normal ? ` (+${fmt(sb * 2)} @ 2:1)` : " (-1 sip + give 1)";
-      parts.push(`✅ ${result.winners.join(", ")} called it${reward}`);
-    }
-    if (result.losers.length) {
-      const penalty = normal ? ` (-${fmt(sb)}${each})` : ` (+1 sip${each})`;
-      parts.push(`❌ ${result.losers.join(", ")} wrong${penalty}`);
-    }
-  } else {
-    if (result.losers.length) {
-      const penalty = normal ? ` (-${fmt(sb)}${each})` : ` (+1 sip${each})`;
-      parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong${penalty}`);
-    }
-  }
-  if (!parts.length) return;
-  // Red if I'm one of the players drinking the bust-vote penalty, green if
-  // I'm not (someone else drinks / I'm a winner).
+  const lines = result.outcome_lines || [];
+  if (!lines.length) return;
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
-  const iDrink = _myNames.some(n => result.losers.includes(n));
-  _firePlayerToast(parts.join(" · "), iDrink, 6000);
+  const iDrink = _myNames.some(n => (result.losers || []).includes(n));
+  _firePlayerToast(lines.join(" · "), iDrink, 6000);
 }
 
 function showBustHandoutToast(results) {
@@ -689,22 +670,10 @@ function showBustHandoutToast(results) {
 function showInsuranceToast(results) {
   if (!results || !results.length) return;
   const parts = results.map(r => {
-    const bj    = r.player;
-    const voted = r.insured ? "Insure" : "Decline";
-    const dBJ   = r.dealer_bj;
-    let outcome, icon;
-    if (r.group_won) {
-      icon = "✅";
-      if (r.insured && dBJ)        outcome = `dealer had BJ — BJ holder drinks own bonus, group safe`;
-      else if (!r.insured && !dBJ) outcome = `no dealer BJ — normal BJ bonus`;
-      else                         outcome = `correct call`;
-    } else {
-      icon = "❌";
-      if (r.insured && !dBJ)      outcome = `no dealer BJ — group drinks double bonus`;
-      else if (!r.insured && dBJ) outcome = `dealer had BJ — auto-insurance applies`;
-      else                        outcome = `wrong call`;
-    }
-    return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
+    const icon    = r.group_won ? "✅" : "❌";
+    const voted   = r.insured ? "Insure" : "Decline";
+    const outcome = r.outcome_text || (r.group_won ? "correct call" : "wrong call");
+    return `${icon} Insurance (${r.player}): voted ${voted} — ${outcome}`;
   });
   // Red if any insurance outcome means I personally drink, green otherwise.
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];

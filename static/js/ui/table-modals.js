@@ -255,14 +255,10 @@ function _renderInsuranceBannerOutcome(results) {
   if (!banner || !content) return;
   banner.classList.remove("minimised");
   const parts = results.map(r => {
-    const voted = r.insured ? "INSURE" : "DECLINE";
-    const icon  = r.group_won ? "✅" : "❌";
-    const color = r.group_won ? "var(--green)" : "var(--red)";
-    let outcome;
-    if (r.insured && r.dealer_bj)    outcome = "dealer had BJ — BJ holder drinks own bonus, group safe";
-    else if (r.insured && !r.dealer_bj) outcome = "no dealer BJ — group drinks double";
-    else if (!r.insured && !r.dealer_bj) outcome = "no dealer BJ — normal BJ bonus";
-    else                                  outcome = "dealer had BJ — auto-insurance applies";
+    const icon    = r.group_won ? "✅" : "❌";
+    const color   = r.group_won ? "var(--green)" : "var(--red)";
+    const voted   = r.insured ? "INSURE" : "DECLINE";
+    const outcome = r.outcome_text || (r.group_won ? "correct call" : "wrong call");
     return `${icon} <strong style="color:${color}">${escapeHtml(r.player)}: ${voted}</strong> — ${outcome}`;
   });
   content.innerHTML = `🃏 Insurance result — ${parts.join(" &nbsp;·&nbsp; ")}`;

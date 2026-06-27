@@ -89,6 +89,9 @@ def test_dealer_busts_credits_winners():
         "winners": ["Bob", "Carol"],
         "losers": [],
         "side_bet_amount": None,   # None in drinking mode
+        "outcome_lines":  ["✅ Bob, Carol called it (-1 sip + give 1)"],
+        "winner_label":   "called it — -1 sip + give 1!",
+        "loser_label":    "wrong — +1 sip each",
     }
     assert room.round._bust_handouts_given == set()
     assert room.round._bust_handout_expires_at is not None
@@ -110,6 +113,9 @@ def test_dealer_does_not_bust_penalizes_voters():
         "winners": [],
         "losers": ["Bob", "Carol"],
         "side_bet_amount": None,   # None in drinking mode
+        "outcome_lines":  ["❌ Bob, Carol bet bust — wrong (+1 sip each)"],
+        "winner_label":   "called it — -1 sip + give 1!",
+        "loser_label":    "wrong — +1 sip each",
     }
     assert room.round._bust_handout_expires_at is None
 

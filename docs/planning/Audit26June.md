@@ -448,9 +448,9 @@ Frontend — HIGH (logic belongs in backend)
 
 Frontend — MEDIUM
 [ ] FM-3 Reconcile age gate handlers — remove direct addEventListener from app.js
-[ ] FM-1 Extract _insuranceOutcomeText(); backend sends outcome_text on insurance results
+[x] FM-1 Extract _insuranceOutcomeText(); backend sends outcome_text on insurance results
 [ ] FM-2 Merge switchRefTab() / switchDigTab() into single switchTab(tabsId, panelId, name, el)
-[ ] FM-4 Backend sends outcome_summary on bust_vote_result; remove JS text construction
+[x] FM-4 Backend sends outcome_summary on bust_vote_result; remove JS text construction
 
 Frontend — LOW (cleanup)
 [ ] LF-3 Replace inline CSS strings in JS with toggled CSS classes (admin.js, table.js, log.js)
