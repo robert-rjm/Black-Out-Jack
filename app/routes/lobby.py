@@ -13,7 +13,7 @@ from flask import Blueprint, jsonify, request
 from engine.blackjack import Player, Hand, Shoe, NPC_Player
 from engine.referee import RefereeSession
 
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, GameConfig
 from app.services.session_store import (
     game_sessions,
     reserve_room, set_session, find_room_code,
@@ -167,15 +167,17 @@ def setup():
     raw_session = RefereeSession(players, dealer_name, wager, num_hands)
     room = GameRoom(
         session=raw_session,
-        mode=mode,
         room_code=room_code,
-        drinking_mode=drinking,
         rounds_this_dealer=1,
-        _dealer_rotate_every=len(players),
-        bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
-        easy_mode=bool(data.get("easy_mode", False)),
-        bet_amount=bet_amount,
-        starting_bankroll=starting_bankroll,
+        config=GameConfig(
+            mode=mode,
+            drinking_mode=drinking,
+            dealer_rotate_every=len(players),
+            bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
+            easy_mode=bool(data.get("easy_mode", False)),
+            bet_amount=bet_amount,
+            starting_bankroll=starting_bankroll,
+        ),
     )
     if client_id:
         # All non-NPC seats start as local — a seat moves to remote only when

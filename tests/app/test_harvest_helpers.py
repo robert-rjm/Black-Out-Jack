@@ -17,7 +17,7 @@ from app.services.drink_tracker import (
     _update_streaks,
 )
 from engine.referee import RefereeSession
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, GameConfig
 from tests.conftest import make_hand, make_player
 
 
@@ -33,7 +33,7 @@ def _make_room(names=None, dealer_idx=0):
     players[dealer_idx].is_dealer = True
     players[dealer_idx].dealer_hand = make_hand()   # empty, non-bust
     raw = RefereeSession(players, players[dealer_idx].name, wager=1, num_hands=2)
-    return GameRoom(session=raw, mode="referee")
+    return GameRoom(session=raw, config=GameConfig(mode="referee"))
 
 
 # ---------------------------------------------------------------------------

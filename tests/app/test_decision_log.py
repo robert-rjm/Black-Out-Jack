@@ -22,7 +22,7 @@ import pytest
 
 from engine.blackjack import Player, Shoe
 from engine.referee import RefereeSession
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, GameConfig
 from app.services.decision_log import (
     record_decision,
     backfill_hand_results,
@@ -49,8 +49,10 @@ def _make_room(drinking_mode: bool = True) -> GameRoom:
 
     room = GameRoom(
         session=session,
-        mode="digital",
-        drinking_mode=drinking_mode,
+        config=GameConfig(
+            mode="digital",
+            drinking_mode=drinking_mode,
+        ),
     )
     return room
 
