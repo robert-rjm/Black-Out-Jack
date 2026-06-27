@@ -191,16 +191,48 @@ function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = nu
     const votedNames  = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
     const canVote     = !isBJHolder && activeVoter && !votedNames.includes(activeVoter.toLowerCase());
 
-    content.innerHTML = `
-      <span class="ins-banner-label">🃏 Insurance${voterStr}</span>
-      <span class="ins-banner-timer" style="color:${timerColor}">⏱ ${s}s</span>
-      ${canVote ? `<span class="ins-banner-btns">
-        <button style="background:var(--green);color:#000"
-          onclick="castInsuranceVote('${escapeHtml(v.bj_player)}',${v.hand_idx},true,'${escapeHtml(activeVoter)}')">INSURE</button>
-        <button style="background:var(--red);color:#fff"
-          onclick="castInsuranceVote('${escapeHtml(v.bj_player)}',${v.hand_idx},false,'${escapeHtml(activeVoter)}')">DECLINE</button>
-      </span>` : `<span style="font-size:11px;color:var(--muted)">${v.votes_cast ?? 0}/${v.votes_needed ?? "?"} voted</span>`}
-      <span class="ins-banner-expand" onclick="_expandInsuranceModal()">expand</span>`;
+    // Build with DOM nodes — onclick string interpolation breaks for names
+    // containing apostrophes (browsers decode &#39; → ' before JS eval).
+    content.innerHTML = "";
+
+    const _labelSpan = document.createElement("span");
+    _labelSpan.className = "ins-banner-label";
+    _labelSpan.innerHTML = `🃏 Insurance${voterStr}`;
+    content.appendChild(_labelSpan);
+
+    const _timerSpan = document.createElement("span");
+    _timerSpan.className = "ins-banner-timer";
+    _timerSpan.style.color = timerColor;
+    _timerSpan.textContent = `⏱ ${s}s`;
+    content.appendChild(_timerSpan);
+
+    if (canVote) {
+      const _btnsSpan = document.createElement("span");
+      _btnsSpan.className = "ins-banner-btns";
+      const _insBtn = document.createElement("button");
+      _insBtn.style.cssText = "background:var(--green);color:#000";
+      _insBtn.textContent = "INSURE";
+      _insBtn.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, true, activeVoter));
+      const _decBtn = document.createElement("button");
+      _decBtn.style.cssText = "background:var(--red);color:#fff";
+      _decBtn.textContent = "DECLINE";
+      _decBtn.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, false, activeVoter));
+      _btnsSpan.appendChild(_insBtn);
+      _btnsSpan.appendChild(_decBtn);
+      content.appendChild(_btnsSpan);
+    } else {
+      const _votedSpan = document.createElement("span");
+      _votedSpan.style.cssText = "font-size:11px;color:var(--muted)";
+      _votedSpan.textContent = `${v.votes_cast ?? 0}/${v.votes_needed ?? "?"} voted`;
+      content.appendChild(_votedSpan);
+    }
+
+    const _expandSpan = document.createElement("span");
+    _expandSpan.className = "ins-banner-expand";
+    _expandSpan.textContent = "expand";
+    _expandSpan.addEventListener("click", _expandInsuranceModal);
+    content.appendChild(_expandSpan);
+
     banner.style.display = "";
     return;
   }
@@ -444,11 +476,32 @@ function _renderMilestoneSteppers(players, total) {
     const row = document.createElement("div");
     row.className = "ms-stepper";
     const val = DrinkUI.milestoneAllocations[name] || 0;
-    row.innerHTML = `
-      <span class="ms-name">${escapeHtml(name)}</span>
-      <button onclick="milestoneAdjust('${escapeHtml(name)}', -1)">−</button>
-      <span class="ms-count" id="ms-count-${escapeHtml(name)}">${val}</span>
-      <button onclick="milestoneAdjust('${escapeHtml(name)}', +1)">+</button>`;
+
+    // Build with DOM nodes — onclick string interpolation breaks for names
+    // containing apostrophes (browsers decode &#39; → ' before JS eval).
+    // Count span uses data-ms-player instead of id so the name never lands
+    // in a CSS selector or HTML attribute raw.
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "ms-name";
+    nameSpan.textContent = name;
+
+    const decBtn = document.createElement("button");
+    decBtn.textContent = "−";
+    decBtn.addEventListener("click", () => milestoneAdjust(name, -1));
+
+    const countSpan = document.createElement("span");
+    countSpan.className = "ms-count";
+    countSpan.dataset.msPlayer = name;
+    countSpan.textContent = val;
+
+    const incBtn = document.createElement("button");
+    incBtn.textContent = "+";
+    incBtn.addEventListener("click", () => milestoneAdjust(name, +1));
+
+    row.appendChild(nameSpan);
+    row.appendChild(decBtn);
+    row.appendChild(countSpan);
+    row.appendChild(incBtn);
     container.appendChild(row);
   });
   _updateMilestoneRemaining(total);
@@ -464,7 +517,7 @@ function milestoneAdjust(name, delta) {
   if (delta > 0 && used >= total) return;  // budget exhausted
 
   DrinkUI.milestoneAllocations[name] = Math.max(0, cur + delta);
-  const el = document.getElementById(`ms-count-${name}`);
+  const el = document.querySelector(`[data-ms-player="${CSS.escape(name)}"]`);
   if (el) el.textContent = DrinkUI.milestoneAllocations[name];
   _updateMilestoneRemaining(total);
 }

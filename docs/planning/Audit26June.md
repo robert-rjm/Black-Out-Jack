@@ -439,7 +439,7 @@ LOW — cleanup sprint
 [x] L-8  Remove "blackjack" from DIGITAL_COMMANDS and digital help text (dead code)
 
 Frontend — CRITICAL
-[ ] FC-1 Fix onclick string injection for player names with apostrophes (table-modals.js)
+[x] FC-1 Fix onclick string injection for player names with apostrophes (table-modals.js)
 
 Frontend — HIGH (logic belongs in backend)
 [ ] FH-1 Move dealer-rotation decision out of doNewRound() into _cmd_newround backend
