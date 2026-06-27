@@ -358,9 +358,12 @@ class GameRoom:
 
     def cmd_status(self):
         return self.session.cmd_status()
+
     # ------------------------------------------------------------------
     # GameConfig shims — backward-compat aliases for session.config.*
-    # Remove once all call sites use session.config.* directly.
+    # These cover all app call sites that use session.mode,
+    # session.drinking_mode, etc. directly.  Remove each shim once its
+    # call sites are migrated to session.config.*.
     # ------------------------------------------------------------------
 
     @property
@@ -412,53 +415,3 @@ class GameRoom:
     def wild_card_enabled(self): return self.config.wild_card_enabled
     @wild_card_enabled.setter
     def wild_card_enabled(self, v): self.config.wild_card_enabled = v
-
-    # ------------------------------------------------------------------
-    # SessionStats shims — backward-compat aliases for session.stats.*
-    # Remove once all call sites (including tests) use session.stats.*
-    # ------------------------------------------------------------------
-
-    @property
-    def _hand_stats(self): return self.stats.hand_stats
-    @_hand_stats.setter
-    def _hand_stats(self, v): self.stats.hand_stats = v
-
-    @property
-    def _dealer_hand_stats(self): return self.stats.dealer_hand_stats
-    @_dealer_hand_stats.setter
-    def _dealer_hand_stats(self, v): self.stats.dealer_hand_stats = v
-
-    @property
-    def _strategy_decisions(self): return self.stats.strategy_decisions
-    @_strategy_decisions.setter
-    def _strategy_decisions(self, v): self.stats.strategy_decisions = v
-
-    @property
-    def _max_round_sips(self): return self.stats.max_round_sips
-    @_max_round_sips.setter
-    def _max_round_sips(self, v): self.stats.max_round_sips = v
-
-    @property
-    def _dealer_bust_rounds(self): return self.stats.dealer_bust_rounds
-    @_dealer_bust_rounds.setter
-    def _dealer_bust_rounds(self, v): self.stats.dealer_bust_rounds = v
-
-    @property
-    def _streaks(self): return self.stats.streaks
-    @_streaks.setter
-    def _streaks(self, v): self.stats.streaks = v
-
-    @property
-    def _round_sip_history(self): return self.stats.round_sip_history
-    @_round_sip_history.setter
-    def _round_sip_history(self, v): self.stats.round_sip_history = v
-
-    @property
-    def _player_rounds_played(self): return self.stats.player_rounds_played
-    @_player_rounds_played.setter
-    def _player_rounds_played(self, v): self.stats.player_rounds_played = v
-
-    @property
-    def _session_started_at(self): return self.stats.session_started_at
-    @_session_started_at.setter
-    def _session_started_at(self, v): self.stats.session_started_at = v
