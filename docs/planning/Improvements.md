@@ -7,7 +7,7 @@
 
 ## 1 · `award_sips()` helper — centralise drink writes
 
-**Status:** Not yet done. Should be done before Busfahrer.
+**Status:** DONE
 
 **Problem today:**
 Sip events are written to four parallel accumulators in at least six different

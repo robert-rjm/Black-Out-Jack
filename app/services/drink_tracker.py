@@ -29,6 +29,59 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Central sip-award helper
+# ---------------------------------------------------------------------------
+
+def award_sips(
+    session: GameRoom,
+    player_name: str,
+    sips: int,
+    rule: str,
+    *,
+    role: str = "player",
+    reason: str | None = None,
+) -> None:
+    """Write a post-harvest sip event to all four session-level accumulators.
+
+    Use this for every out-of-band drink award that happens after
+    ``harvest_drink_log`` has already run (bust-vote forfeits, milestone
+    handouts/forfeits, give-sip routes).  Callers that also need to update the
+    player's own ``drink_log`` (pre-harvest) should call ``player.add_drink()``
+    separately before or after.
+
+    Updates:
+      • ``_drink_csv_rows``    — CSV export row
+      • ``_sip_ticker``        — cumulative session sip count per player
+      • ``_last_round_sips``   — per-player sip count for the current round
+      • ``_last_round_drinks`` — ordered list shown in the Drinks panel
+
+    If *sips* > 0, calls ``check_and_set_milestone`` so a freshly crossed
+    milestone boundary is detected immediately.
+    """
+    session._drink_csv_rows.append({
+        "round":  session.round_count,
+        "dealer": session.dealer_name,
+        "player": player_name,
+        "role":   role,
+        "rule":   rule,
+        "sips":   sips,
+    })
+    if sips != 0:
+        session._sip_ticker[player_name] = (
+            session._sip_ticker.get(player_name, 0) + sips
+        )
+        session._last_round_sips[player_name] = (
+            session._last_round_sips.get(player_name, 0) + sips
+        )
+        session._last_round_drinks.append({
+            "name":   player_name,
+            "sips":   sips,
+            "reason": reason if reason is not None else rule,
+        })
+    if sips > 0:
+        check_and_set_milestone(session)
+
 
 # ---------------------------------------------------------------------------
 # Bust vote penalties
@@ -164,26 +217,7 @@ def apply_bust_handout_forfeit(session: GameRoom) -> None:
         if winner_p:
             reason = f"Bust vote forfeited — {winner_name} didn't assign in time: +1 sip"
             winner_p.add_drink(1, reason, "player")
-            session._sip_ticker[winner_name] = (
-                session._sip_ticker.get(winner_name, 0) + 1
-            )
-            session._last_round_sips[winner_name] = (
-                session._last_round_sips.get(winner_name, 0) + 1
-            )
-            session._last_round_drinks.append({
-                "name":   winner_name,
-                "sips":   1,
-                "reason": reason,
-            })
-            session._drink_csv_rows.append({
-                "round":  session.round_count,
-                "dealer": session.dealer_name,
-                "player": winner_name,
-                "role":   "player",
-                "rule":   "Bust vote handout",
-                "sips":   1,
-            })
-            check_and_set_milestone(session)
+            award_sips(session, winner_name, 1, "Bust vote handout", reason=reason)
             log_line = (
                 f"  ⏱ {winner_name} didn't assign their bust-vote sip in time — "
                 f"drinks 1 sip\n"
@@ -499,21 +533,8 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
                 f"(matching {winner}'s avg)"
             )
             worst_p.add_drink(penalty, reason, "player")
-            session._sip_ticker[worst_name] = session._sip_ticker.get(worst_name, 0) + penalty
-            session._last_round_sips[worst_name] = session._last_round_sips.get(worst_name, 0) + penalty
-            session._last_round_drinks.append({
-                "name":   worst_name,
-                "sips":   penalty,
-                "reason": reason,
-            })
-            session._drink_csv_rows.append({
-                "round":  session.round_count,
-                "dealer": session.dealer_name,
-                "player": worst_name,
-                "role":   "player",
-                "rule":   "Worst average for 2 milestones",
-                "sips":   penalty,
-            })
+            award_sips(session, worst_name, penalty,
+                       "Worst average for 2 milestones", reason=reason)
             session.round._log_entries.append(
                 f"  📉 {worst_name} was the worst average for 2 milestones running — "
                 f"drinks {penalty} sip{'s' if penalty != 1 else ''}\n"
@@ -606,48 +627,22 @@ def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: 
     if not others:
         winner_p = session._get_player(winner)
         if winner_p:
-            winner_p.add_drink(
-                handout,
-                f"Milestone handout ({boundary} sips) — no other players to give to: you drink {handout} sips",
-                "player",
+            _solo_reason = (
+                f"Milestone ({boundary} sips) — no other players to give to: "
+                f"you drink {handout} sips"
             )
-            session._sip_ticker[winner] = session._sip_ticker.get(winner, 0) + handout
-            session._last_round_sips[winner] = session._last_round_sips.get(winner, 0) + handout
-            session._last_round_drinks.append({
-                "name":   winner,
-                "sips":   handout,
-                "reason": f"Milestone ({boundary} sips) — no other players to give to: you drink {handout} sips",
-            })
-            session._drink_csv_rows.append({
-                "round":  session.round_count,
-                "dealer": session.dealer_name,
-                "player": winner,
-                "role":   "player",
-                "rule":   "Milestone handout (no other players)",
-                "sips":   handout,
-            })
+            winner_p.add_drink(handout, _solo_reason, "player")
+            award_sips(session, winner, handout,
+                       "Milestone handout (no other players)", reason=_solo_reason)
         log.debug(f"  [milestone] {winner} hit {boundary} sips — no other players, drinks {handout} sips")
         return
 
     log.debug(f"  [milestone] {winner} hit {boundary} sips — auto-distributes {handout} sip(s) round-robin")
     for i in range(handout):
         t = others[i % len(others)]
-        t.add_drink(1, f"{winner} hit the {boundary}-sip milestone and handed you 1 sip (auto)", "player")
-        session._sip_ticker[t.name] = session._sip_ticker.get(t.name, 0) + 1
-        session._last_round_sips[t.name] = session._last_round_sips.get(t.name, 0) + 1
-        session._last_round_drinks.append({
-            "name":   t.name,
-            "sips":   1,
-            "reason": f"{winner} hit the {boundary}-sip milestone — you drink 1 sip (auto)",
-        })
-        session._drink_csv_rows.append({
-            "round":  session.round_count,
-            "dealer": session.dealer_name,
-            "player": t.name,
-            "role":   "player",
-            "rule":   "Milestone handout (round-robin)",
-            "sips":   1,
-        })
+        _rr_reason = f"{winner} hit the {boundary}-sip milestone — you drink 1 sip (auto)"
+        t.add_drink(1, _rr_reason, "player")
+        award_sips(session, t.name, 1, "Milestone handout (round-robin)", reason=_rr_reason)
         log.debug(f"    -> {t.name} +1 sip")
 
     session.round._log_entries.append(
@@ -683,25 +678,10 @@ def apply_milestone_forfeit(session: GameRoom) -> None:
             f"Milestone handout forfeited — {winner_name} didn't assign in time: +{handout} sips",
             "player",
         )
-        session._sip_ticker[winner_name] = (
-            session._sip_ticker.get(winner_name, 0) + handout
+        award_sips(
+            session, winner_name, handout, "Milestone handout forfeit",
+            reason=f"Milestone forfeited ({ms['boundary']} sip milestone) — you drink {handout} sips",
         )
-        session._last_round_sips[winner_name] = (
-            session._last_round_sips.get(winner_name, 0) + handout
-        )
-        session._last_round_drinks.append({
-            "name":   winner_name,
-            "sips":   handout,
-            "reason": f"Milestone forfeited ({ms['boundary']} sip milestone) — you drink {handout} sips",
-        })
-        session._drink_csv_rows.append({
-            "round":  session.round_count,
-            "dealer": session.dealer_name,
-            "player": winner_name,
-            "role":   "player",
-            "rule":   "Milestone handout forfeit",
-            "sips":   handout,
-        })
         log_line = (
             f"  ⏱ {winner_name} didn't assign the {ms['boundary']}-sip milestone handout "
             f"in time — drinks {handout} sips\n"
