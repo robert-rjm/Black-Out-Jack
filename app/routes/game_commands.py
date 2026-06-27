@@ -97,7 +97,7 @@ def _print_digital_help():
 def _record_strategy_decision(session, player, hand, chosen_action: str) -> None:
     """
     Compare the player's chosen action against basic strategy and record the
-    result in session._strategy_decisions.
+    result in session.stats.strategy_decisions.
 
     Skipped for:
       - NPC players (always optimal by definition)
