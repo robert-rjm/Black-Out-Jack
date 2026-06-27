@@ -245,7 +245,7 @@ only, and the CLI path is left behind.
 
 ## 6 · Decompose `GameRoom`
 
-**Status:** Actionable in phases. Medium effort per phase.
+**Status:** Phase A DONE. Phases B–C pending.
 
 **Problem today:**
 `GameRoom` has ~40 fields across 5 unrelated concerns. Any file that imports
@@ -437,6 +437,6 @@ where only the engine is being tested. The `importorskip` lines in
 | 3 | [X] | Backend-first API | Done | — | — |
 | 4 | [ ] | Pydantic serialization | Medium (1 day) | No | No |
 | 5 | [ ] | Unified game engine | Large (2–3 weeks) | No | Ideal |
-| 6 | [ ] | Decompose `GameRoom` | Medium per phase | No — do Phase A with #1 | Phase A yes |
+| 6 | [~] | Decompose `GameRoom` | Medium per phase | No — do Phase A with #1 | Phase A yes |
 | 7 | [ ] | Frontend components | Large (ongoing) | No | No |
 | 8 | [X] | Test directory split | Small (30 min) | No | **Yes** |

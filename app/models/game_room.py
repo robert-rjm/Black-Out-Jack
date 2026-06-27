@@ -4,15 +4,22 @@ app/models/game_room.py — typed container for all per-room state.
 All RefereeSession attributes used by app/ code are exposed as explicit
 properties or method wrappers below — no __getattr__ magic.
 
-State is divided into two layers:
+State is divided into three layers:
 
-  RoundState  — per-round transient fields. Replaced wholesale by
-                reset_round_state() so it's impossible to forget
-                to clear a field on newround.
+  RoundState   — per-round transient fields. Replaced wholesale by
+                 reset_round_state() so it's impossible to forget
+                 to clear a field on newround.
 
-  GameRoom    — session-lifetime fields that survive across rounds,
-                plus a ``round: RoundState`` slot and delegation
-                properties that proxy into RefereeSession.
+  DrinkLedger  — session-lifetime drink accounting: all four sip
+                 accumulators, milestone tracking, and wild-card stats.
+                 Accessed via ``session.drinks.*``.  Property shims on
+                 GameRoom keep the old ``session._*`` names working while
+                 call sites are migrated.
+
+  GameRoom     — session-lifetime fields that survive across rounds,
+                 plus a ``round: RoundState`` slot, a ``drinks:
+                 DrinkLedger`` slot, and delegation properties that
+                 proxy into RefereeSession.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -85,6 +92,31 @@ class RoundState:
 
 
 @dataclass
+class DrinkLedger:
+    """Session-lifetime drink accounting.
+
+    All four sip accumulators, milestone tracking, and wild-card stats live
+    here.  Accessed via ``session.drinks.*``.
+
+    Old ``session._*`` names remain available through property shims on
+    GameRoom during migration.
+    """
+    csv_rows: list             = field(default_factory=list)
+    sip_ticker: dict           = field(default_factory=dict)
+    last_round_sips: dict      = field(default_factory=dict)
+    last_round_drinks: list    = field(default_factory=list)
+    round_notices: list        = field(default_factory=list)
+    prev_round_sips: dict      = field(default_factory=dict)
+    prev_round_drinks: list    = field(default_factory=list)
+    dealer_role_ticker: dict   = field(default_factory=dict)
+    round_over_seq: int        = 0
+    milestones_claimed: dict   = field(default_factory=dict)
+    last_milestone_result: dict | None = None
+    last_milestone_worst: str | None   = None
+    wild_card_presses: dict    = field(default_factory=dict)
+
+
+@dataclass
 class GameRoom:
     # Core session
     session: RefereeSession
@@ -101,6 +133,9 @@ class GameRoom:
     # Per-round transient state — replaced wholesale on each newround
     round: RoundState = field(default_factory=RoundState)
 
+    # Drink accounting + milestone tracking (session-lifetime)
+    drinks: DrinkLedger = field(default_factory=DrinkLedger)
+
     # Dealer rotation
     rounds_this_dealer: int = 1
     _dealer_rotate_every: int = 1
@@ -111,17 +146,6 @@ class GameRoom:
     # Decision log (Phase C — per-decision board-state capture for
     # per-player bot training; see docs/planning/DecisionLog-Plan.md)
     _decision_log: list = field(default_factory=list)
-
-    # Drink accounting (session-lifetime accumulators)
-    _drink_csv_rows: list = field(default_factory=list)
-    _sip_ticker: dict = field(default_factory=dict)
-    _last_round_sips: dict = field(default_factory=dict)
-    _last_round_drinks: list = field(default_factory=list)
-    _round_notices: list = field(default_factory=list)
-    _prev_round_sips: dict = field(default_factory=dict)
-    _prev_round_drinks: list = field(default_factory=list)
-    _dealer_role_ticker: dict = field(default_factory=dict)
-    _round_over_seq: int = 0   # increments each harvest so clients never miss the toast
 
     # Client registry
     _room_clients: dict = field(default_factory=dict)
@@ -142,9 +166,6 @@ class GameRoom:
     _round_sip_history: list = field(default_factory=list)   # total sips (all players) per completed round
     _player_rounds_played: dict = field(default_factory=dict)
     _session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
-    _milestones_claimed: dict = field(default_factory=dict)
-    _last_milestone_result: dict | None = None
-    _last_milestone_worst: str | None = None
 
     # Easy mode (halve drinks every round)
     easy_mode: bool = False
@@ -161,8 +182,6 @@ class GameRoom:
     # Wild Card Easter egg — cooldown tracker (session-lifetime so it
     # persists across rounds).  Maps player_name → round_count when last used.
     _wild_card_last_used: dict = field(default_factory=dict)
-    # Press counter: Maps player_name → {"presses": int, "self": int, "random": int, "dud": int}
-    _wild_card_presses: dict = field(default_factory=dict)
     # Admin toggle — host can disable the logo Easter egg entirely (live setting)
     wild_card_enabled: bool = True
 
@@ -173,6 +192,77 @@ class GameRoom:
     _last_round_payouts: dict = field(default_factory=dict)
     _bank_run_players: list = field(default_factory=list)
     _biggest_round_payouts: dict = field(default_factory=dict)
+
+    # ------------------------------------------------------------------
+    # DrinkLedger shims — keep old ``session._*`` names working while
+    # call sites are migrated to ``session.drinks.*``.
+    # Remove each shim once all its call sites use the new name.
+    # ------------------------------------------------------------------
+
+    @property
+    def _drink_csv_rows(self):              return self.drinks.csv_rows
+    @_drink_csv_rows.setter
+    def _drink_csv_rows(self, v):           self.drinks.csv_rows = v
+
+    @property
+    def _sip_ticker(self):                  return self.drinks.sip_ticker
+    @_sip_ticker.setter
+    def _sip_ticker(self, v):               self.drinks.sip_ticker = v
+
+    @property
+    def _last_round_sips(self):             return self.drinks.last_round_sips
+    @_last_round_sips.setter
+    def _last_round_sips(self, v):          self.drinks.last_round_sips = v
+
+    @property
+    def _last_round_drinks(self):           return self.drinks.last_round_drinks
+    @_last_round_drinks.setter
+    def _last_round_drinks(self, v):        self.drinks.last_round_drinks = v
+
+    @property
+    def _round_notices(self):               return self.drinks.round_notices
+    @_round_notices.setter
+    def _round_notices(self, v):            self.drinks.round_notices = v
+
+    @property
+    def _prev_round_sips(self):             return self.drinks.prev_round_sips
+    @_prev_round_sips.setter
+    def _prev_round_sips(self, v):          self.drinks.prev_round_sips = v
+
+    @property
+    def _prev_round_drinks(self):           return self.drinks.prev_round_drinks
+    @_prev_round_drinks.setter
+    def _prev_round_drinks(self, v):        self.drinks.prev_round_drinks = v
+
+    @property
+    def _dealer_role_ticker(self):          return self.drinks.dealer_role_ticker
+    @_dealer_role_ticker.setter
+    def _dealer_role_ticker(self, v):       self.drinks.dealer_role_ticker = v
+
+    @property
+    def _round_over_seq(self):              return self.drinks.round_over_seq
+    @_round_over_seq.setter
+    def _round_over_seq(self, v):           self.drinks.round_over_seq = v
+
+    @property
+    def _milestones_claimed(self):          return self.drinks.milestones_claimed
+    @_milestones_claimed.setter
+    def _milestones_claimed(self, v):       self.drinks.milestones_claimed = v
+
+    @property
+    def _last_milestone_result(self):       return self.drinks.last_milestone_result
+    @_last_milestone_result.setter
+    def _last_milestone_result(self, v):    self.drinks.last_milestone_result = v
+
+    @property
+    def _last_milestone_worst(self):        return self.drinks.last_milestone_worst
+    @_last_milestone_worst.setter
+    def _last_milestone_worst(self, v):     self.drinks.last_milestone_worst = v
+
+    @property
+    def _wild_card_presses(self):           return self.drinks.wild_card_presses
+    @_wild_card_presses.setter
+    def _wild_card_presses(self, v):        self.drinks.wild_card_presses = v
 
     # ------------------------------------------------------------------
     # Explicit properties delegating to RefereeSession
