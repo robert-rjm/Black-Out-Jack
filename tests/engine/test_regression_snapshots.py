@@ -22,7 +22,7 @@ import pytest
 from scripts.simulation import run_simulation, classify_rule  # noqa: F401  (re-export check)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SNAPSHOTS = os.path.join(HERE, "..", "scripts", "snapshots")
+SNAPSHOTS = os.path.join(HERE, "..", "..", "scripts", "snapshots")
 
 # (num_players, num_decks, seed) -- one config sampled per player count to
 # keep runtime reasonable while still covering 2p/3p/4p tables.
