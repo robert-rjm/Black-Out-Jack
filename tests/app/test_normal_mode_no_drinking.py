@@ -95,10 +95,13 @@ def test_serializer_reports_empty_sip_fields_when_drinking_mode_false():
     stale or leaked sip data in Normal mode."""
     from app.services.serializer import compute_sip_totals
 
+    class _FakeDrinks:
+        sip_ticker = {"Player1": 5}
+        dealer_role_ticker = {"Player1": 3}
+
     class _FakeSession:
         drinking_mode = False
-        _sip_ticker = {"Player1": 5}
-        _dealer_role_ticker = {"Player1": 3}
+        drinks = _FakeDrinks()
         all_players = []
 
         class round:

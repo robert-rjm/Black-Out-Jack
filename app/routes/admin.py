@@ -645,7 +645,7 @@ def claim_milestone():
     session._log_version = session._log_version + 1
 
     session.round._pending_milestone     = None
-    session._last_milestone_result = {
+    session.drinks.last_milestone_result = {
         "winner":      winner,
         "boundary":    boundary,
         "allocations": alloc,         # {name: sips} — only non-zero entries

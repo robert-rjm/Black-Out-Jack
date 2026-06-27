@@ -468,11 +468,11 @@ def test_give_sip_valid_handout(client, room_setup):
     carol = room._get_player("Carol")
     assert carol.drink_log[-1] == (1, "Bust vote handout from Bob: +1 sip", "player")
     assert "Bob" in room.round._bust_handouts_given
-    assert room._last_round_sips["Carol"] >= 1
-    assert room._sip_ticker["Carol"] >= 1
+    assert room.drinks.last_round_sips["Carol"] >= 1
+    assert room.drinks.sip_ticker["Carol"] >= 1
     assert any(
         row["player"] == "Carol" and row["rule"] == "Bust vote handout"
-        for row in room._drink_csv_rows
+        for row in room.drinks.csv_rows
     )
 
 

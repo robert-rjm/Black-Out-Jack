@@ -12,9 +12,7 @@ State is divided into three layers:
 
   DrinkLedger  — session-lifetime drink accounting: all four sip
                  accumulators, milestone tracking, and wild-card stats.
-                 Accessed via ``session.drinks.*``.  Property shims on
-                 GameRoom keep the old ``session._*`` names working while
-                 call sites are migrated.
+                 Accessed via ``session.drinks.*``.
 
   GameRoom     — session-lifetime fields that survive across rounds,
                  plus a ``round: RoundState`` slot, a ``drinks:
@@ -95,11 +93,8 @@ class RoundState:
 class DrinkLedger:
     """Session-lifetime drink accounting.
 
-    All four sip accumulators, milestone tracking, and wild-card stats live
-    here.  Accessed via ``session.drinks.*``.
-
-    Old ``session._*`` names remain available through property shims on
-    GameRoom during migration.
+    All four sip accumulators, milestone tracking, and wild-card stats.
+    Accessed via ``session.drinks.*``.
     """
     csv_rows: list             = field(default_factory=list)
     sip_ticker: dict           = field(default_factory=dict)
@@ -192,77 +187,6 @@ class GameRoom:
     _last_round_payouts: dict = field(default_factory=dict)
     _bank_run_players: list = field(default_factory=list)
     _biggest_round_payouts: dict = field(default_factory=dict)
-
-    # ------------------------------------------------------------------
-    # DrinkLedger shims — keep old ``session._*`` names working while
-    # call sites are migrated to ``session.drinks.*``.
-    # Remove each shim once all its call sites use the new name.
-    # ------------------------------------------------------------------
-
-    @property
-    def _drink_csv_rows(self):              return self.drinks.csv_rows
-    @_drink_csv_rows.setter
-    def _drink_csv_rows(self, v):           self.drinks.csv_rows = v
-
-    @property
-    def _sip_ticker(self):                  return self.drinks.sip_ticker
-    @_sip_ticker.setter
-    def _sip_ticker(self, v):               self.drinks.sip_ticker = v
-
-    @property
-    def _last_round_sips(self):             return self.drinks.last_round_sips
-    @_last_round_sips.setter
-    def _last_round_sips(self, v):          self.drinks.last_round_sips = v
-
-    @property
-    def _last_round_drinks(self):           return self.drinks.last_round_drinks
-    @_last_round_drinks.setter
-    def _last_round_drinks(self, v):        self.drinks.last_round_drinks = v
-
-    @property
-    def _round_notices(self):               return self.drinks.round_notices
-    @_round_notices.setter
-    def _round_notices(self, v):            self.drinks.round_notices = v
-
-    @property
-    def _prev_round_sips(self):             return self.drinks.prev_round_sips
-    @_prev_round_sips.setter
-    def _prev_round_sips(self, v):          self.drinks.prev_round_sips = v
-
-    @property
-    def _prev_round_drinks(self):           return self.drinks.prev_round_drinks
-    @_prev_round_drinks.setter
-    def _prev_round_drinks(self, v):        self.drinks.prev_round_drinks = v
-
-    @property
-    def _dealer_role_ticker(self):          return self.drinks.dealer_role_ticker
-    @_dealer_role_ticker.setter
-    def _dealer_role_ticker(self, v):       self.drinks.dealer_role_ticker = v
-
-    @property
-    def _round_over_seq(self):              return self.drinks.round_over_seq
-    @_round_over_seq.setter
-    def _round_over_seq(self, v):           self.drinks.round_over_seq = v
-
-    @property
-    def _milestones_claimed(self):          return self.drinks.milestones_claimed
-    @_milestones_claimed.setter
-    def _milestones_claimed(self, v):       self.drinks.milestones_claimed = v
-
-    @property
-    def _last_milestone_result(self):       return self.drinks.last_milestone_result
-    @_last_milestone_result.setter
-    def _last_milestone_result(self, v):    self.drinks.last_milestone_result = v
-
-    @property
-    def _last_milestone_worst(self):        return self.drinks.last_milestone_worst
-    @_last_milestone_worst.setter
-    def _last_milestone_worst(self, v):     self.drinks.last_milestone_worst = v
-
-    @property
-    def _wild_card_presses(self):           return self.drinks.wild_card_presses
-    @_wild_card_presses.setter
-    def _wild_card_presses(self, v):        self.drinks.wild_card_presses = v
 
     # ------------------------------------------------------------------
     # Explicit properties delegating to RefereeSession
