@@ -142,15 +142,26 @@ function renderPlayers(state) {
     const sipBadge = (state.drinking_mode !== false && sips > 0)
       ? `<span class="seat-sip-badge">🍺 ${sips}</span>` : "";
 
-    // Crown: player had 0 net sips last round (after bust vote).
-    // Show during the following round only (not during round-over when data is freshly set).
-    const lastSips      = state.last_round_sips || {};
-    const roundOver     = state.phase === PHASE.ROUND_OVER;
-    const hadPrevRound  = state.round > 1;
+    // Crown / Diamond / Trophy badges (drinking mode only).
+    // Crown 👑 : 0 net sips last round (streak = 1)
+    // Diamond 💎: 2+ consecutive clean rounds (replaces crown)
+    // Trophy 🏆 : session leader in total clean rounds (dynamic threshold ≥3, unique)
+    const lastSips        = state.last_round_sips || {};
+    const cleanStreaks     = state.clean_streaks   || {};
+    const roundOver       = state.phase === PHASE.ROUND_OVER;
+    const hadPrevRound    = state.round > 1;
     const playedLastRound = s.name in lastSips;
     const wasClean        = hadPrevRound && !roundOver && playedLastRound && lastSips[s.name] === 0;
-    const crownBadge    = (wasClean && state.drinking_mode !== false)
-      ? `<span class="seat-crown" title="Clean last round">👑</span>` : "";
+    const streak          = cleanStreaks[s.name] || 0;
+    const isDrinking      = state.drinking_mode !== false;
+    const crownBadge = isDrinking && wasClean
+      ? (streak >= 2
+          ? `<span class="seat-crown" title="Clean ${streak} rounds in a row">💎</span>`
+          : `<span class="seat-crown" title="Clean last round">👑</span>`)
+      : "";
+    const trophyBadge = isDrinking && state.trophy_holder === s.name
+      ? `<span class="seat-crown" title="Most clean rounds this session">🏆</span>`
+      : "";
 
     // Beer jug: player holds the session record for worst single round
     // (matches the "worst round — {name}" stat card).
@@ -174,7 +185,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${jugBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
