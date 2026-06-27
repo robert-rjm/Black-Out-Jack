@@ -157,21 +157,17 @@ This feature can be toggled on or off by the host at any time
 - The sip credit and handout are separate, credit offsets own drinks while handout goes to someone else.
 - Unassigned sips within handout timer return to you as penalty
 
-### 4.5 Devil's Hand
+### 4.5 Devil's Hand / 4.6 Lucky Sevens
 
-If the **3rd six** of the round is dealt to any player (or the dealer), that player drinks **1 sip** immediately.
+**Shared mechanics** — apply to both rules:
 
-- Counts all visible cards across all hands and the dealer's up-card.
-- The dealer's hole card is counted at the moment it is revealed, not when it was dealt.
-- Fires at most once per round.
+- Only face-up cards count. The dealer's hole card and any doubled card are counted at the moment they are revealed, not when dealt.
+- Target is chosen by rotation: starting from the player who received the triggering card, the seat `(their index + 3) % number_of_players` is selected — the same circle logic as the Ace of Spades rule.
+- Each rule fires at most once per round. Both can fire in the same round.
 
-### 4.6 Lucky Sevens
+**Devil's Hand** — when the **3rd six** becomes visible, the target drinks **1 sip** immediately.
 
-If the **3rd seven** of the round is dealt to any player (or the dealer), that player receives a **−1 sip credit** (reduces their end-of-round net total by 1, minimum 0).
-
-- Same counting rules as Devil's Hand above.
-- Fires at most once per round.
-- Both Devil's Hand and Lucky Sevens can fire in the same round if the table is unlucky and lucky enough.
+**Lucky Sevens** — when the **3rd seven** becomes visible, the target receives a **−1 sip credit** (reduces end-of-round net total by 1, minimum 0).
 
 
 ## 5. Drinking Rules (End of Round)
