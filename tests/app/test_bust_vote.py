@@ -11,7 +11,7 @@ import pytest
 from engine.referee import RefereeSession
 from tests.conftest import make_player, make_hand
 from app import create_app
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, GameConfig
 from app.services.session_store import game_sessions, set_session
 from app.services.drink_tracker import (
     apply_bust_vote_penalties,
@@ -34,8 +34,10 @@ def _make_room(num_players=3, bust_vote_enabled=True, dealer_hand=None):
     raw_session = RefereeSession(players, "Alice", wager=1, num_hands=2)
     room = GameRoom(
         session=raw_session,
-        mode="referee",
-        bust_vote_enabled=bust_vote_enabled,
+        config=GameConfig(
+            mode="referee",
+            bust_vote_enabled=bust_vote_enabled,
+        ),
     )
     return room
 
