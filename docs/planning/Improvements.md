@@ -394,6 +394,7 @@ tests/
   conftest.py           ← shared fixtures (make_player, make_hand, etc.)
   engine/
     conftest.py         ← engine-only fixtures
+    test_drink_tracker.py
     test_drinking_rules_aces_blackjack.py
     test_drinking_rules_card_dealt.py
     test_drinking_rules_hand_resolution.py
@@ -403,16 +404,15 @@ tests/
     test_regression_snapshots.py
     test_round_manager_integration.py
     test_round_end_helpers.py
-    test_classify_rule.py
-    test_harvest_helpers.py
     test_rules_doc_sync.py
   app/
     conftest.py         ← Flask app fixture
     test_bust_vote.py
+    test_classify_rule.py
     test_decision_log.py
-    test_payout_tracker.py
+    test_harvest_helpers.py
     test_normal_mode_no_drinking.py
-    test_drink_tracker.py
+    test_payout_tracker.py
 ```
 
 **`pyproject.toml` change:**
@@ -424,8 +424,7 @@ testpaths = ["tests"]   # unchanged — pytest discovers subdirectories automati
 **CI benefit:** Can run `pytest tests/engine/` without Flask installed.
 `pytest tests/app/` requires Flask but can be skipped in environments
 where only the engine is being tested. The `importorskip` lines in
-`test_bust_vote.py` and `test_decision_log.py` can be removed entirely
-once they live in `tests/app/`.
+`test_bust_vote.py` and `test_decision_log.py` have been removed.
 
 ---
 
@@ -440,4 +439,4 @@ once they live in `tests/app/`.
 | 5 | [ ] | Unified game engine | Large (2–3 weeks) | No | Ideal |
 | 6 | [ ] | Decompose `GameRoom` | Medium per phase | No — do Phase A with #1 | Phase A yes |
 | 7 | [ ] | Frontend components | Large (ongoing) | No | No |
-| 8 | [ ] | Test directory split | Small (30 min) | No | **Yes** |
+| 8 | [X] | Test directory split | Small (30 min) | No | **Yes** |
