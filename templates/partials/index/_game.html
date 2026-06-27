@@ -54,10 +54,10 @@
   <div id="panel">
     <div id="ref-panel">
       <div class="tabs-bar" id="ref-tabs">
-        <button class="tab active" data-action="switchRefTab" data-args='["deal"]'>Deal</button>
-        <button class="tab" data-action="switchRefTab" data-args='["result"]'>Result</button>
-        <button class="tab" data-action="switchRefTab" data-args='["action"]'>Action</button>
-        <button class="tab" data-action="switchRefTab" data-args='["round"]'>Round</button>
+        <button class="tab active" data-action="switchTab" data-args='["ref-tabs","ref-panel","deal"]'>Deal</button>
+        <button class="tab" data-action="switchTab" data-args='["ref-tabs","ref-panel","result"]'>Result</button>
+        <button class="tab" data-action="switchTab" data-args='["ref-tabs","ref-panel","action"]'>Action</button>
+        <button class="tab" data-action="switchTab" data-args='["ref-tabs","ref-panel","round"]'>Round</button>
       </div>
 
       <div id="pane-deal" class="pane active">
@@ -137,8 +137,8 @@
         {{ action_btn('🃏 DEAL', 'sendCmd', '["deal"]', 'btn-big green') }}
       </div>
       <div class="tabs-bar" id="dig-tabs">
-        <button class="tab active" data-action="switchDigTab" data-args='["dig-play"]'>Play</button>
-        <button class="tab" id="dig-drinks-tab" data-action="switchDigTab" data-args='["dig-round"]'>🍺 Drinks</button>
+        <button class="tab active" data-action="switchTab" data-args='["dig-tabs","dig-panel","dig-play"]'>Play</button>
+        <button class="tab" id="dig-drinks-tab" data-action="switchTab" data-args='["dig-tabs","dig-panel","dig-round"]'>🍺 Drinks</button>
       </div>
 
       <div id="pane-dig-play" class="pane">
@@ -165,12 +165,12 @@
 
         {{ section_label('Action') }}
         <div id="dig-action-row1" class="btn-row">
-          {{ action_btn('HIT', 'sendDigitalPlay', '["hit"]', 'btn green wide') }}
-          {{ action_btn('STAND', 'sendDigitalPlay', '["stand"]', 'btn wide') }}
+          {{ action_btn('HIT',   'sendDigitalPlay', '["hit"]',   'btn green wide', 'data-action-code="h"') }}
+          {{ action_btn('STAND', 'sendDigitalPlay', '["stand"]', 'btn wide',       'data-action-code="s"') }}
         </div>
         <div id="dig-action-row2" class="btn-row">
-          {{ action_btn('DOUBLE', 'sendDigitalPlay', '["double"]', 'btn wide') }}
-          {{ action_btn('SPLIT', 'sendDigitalPlay', '["split"]', 'btn wide') }}
+          {{ action_btn('DOUBLE', 'sendDigitalPlay', '["double"]', 'btn wide', 'data-action-code="d"') }}
+          {{ action_btn('SPLIT',  'sendDigitalPlay', '["split"]',  'btn wide', 'data-action-code="sp"') }}
         </div>
 
         <div id="suggest-picker" class="suggest-picker">

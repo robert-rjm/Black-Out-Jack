@@ -114,8 +114,9 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
+        # Active keys: "partial_protected", "half_protected", "dealer_player_pending_credit"
         self._ace_clubs_flag  = {
-            "protected": False, "partial_protected": False,
+            "partial_protected": False,
             "half_protected": False, "dealer_player_pending_credit": None,
         }
         self._four_aces_fd    = False
@@ -127,6 +128,7 @@ class RefereeSession:
 
         # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
         self.bust_vote_enabled = bust_vote_enabled
+        self._insurance_result = None
         self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
         self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
 
@@ -177,13 +179,20 @@ class RefereeSession:
                 p.drink_log = []
 
         self._ace_clubs_flag  = {
-            "protected": False, "partial_protected": False,
+            "partial_protected": False,
             "half_protected": False, "dealer_player_pending_credit": None,
         }
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
         self._pending_resolved  = []
+        if self._pending_bj_hands:
+            # Operator called `action blackjack` after `endround` already fired —
+            # these BJ bonuses were never processed and are now silently dropped.
+            self._log(
+                f"  ⚠️  WARNING: {len(self._pending_bj_hands)} pending BJ hand(s) "
+                "discarded at round start. Was 'action blackjack' called after endround?"
+            )
         self._pending_bj_hands  = []
         self._pending_eor_msgs  = []
         self._bust_votes        = {}
@@ -465,12 +474,21 @@ class RefereeSession:
     def _resolve_bust_votes(self):
         """
         Resolve Rules.md §4.4 — fires once per round, called from cmd_endround
-        after the dealer's final hand is known.
+        after the dealer's final hand is known (CLI/interactive path).
 
         Correct 'bust' voters: -1 sip credit, then hand out 1 sip to another
         player (interactive for humans, round-robin for NPCs).
         Incorrect 'bust' voters: +1 sip penalty.
         Never halved (Instant Effect rule — see Rules.md §6.1).
+
+        NOTE: There is a parallel implementation for the web path:
+        ``apply_bust_vote_penalties()`` in ``app/services/drink_tracker.py``.
+        The two functions must stay in sync whenever bust-vote rules change.
+        This CLI version uses interactive handout prompts; the web version
+        opens a timed /give_bust_sip window instead.  In web sessions
+        ``bust_vote_enabled`` is always False on RefereeSession, so this
+        function is dead code for web play — it exists for the standalone
+        CLI referee mode only.
         """
         self._bust_vote_result = None
         if not self.bust_vote_enabled or not self._bust_votes:
@@ -598,7 +616,7 @@ class RefereeSession:
         w = self.wager
 
         # Insurance resolution — for hands marked insured via the INSURANCE button
-        if not hasattr(self, "_insurance_result") or self._insurance_result is None:
+        if self._insurance_result is None:
             self._insurance_result = []
         for p in players:
             if p.is_dealer:

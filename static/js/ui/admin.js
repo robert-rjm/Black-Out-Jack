@@ -131,12 +131,13 @@ function updateRoleUI(state) {
 
     if (vote) {
       // Lock dealer to voted action; highlight it yellow
+      // vote is the backend code (h/s/d/sp) matching data-action-code
       digActionButtons().forEach(b => {
-        const lbl = b.textContent.trim();
-        if (lbl === VOTE_LABEL[vote]) {
+        const code = b.dataset.actionCode;
+        if (code === vote) {
           b.classList.add("voted-dealer");
           b.classList.remove("disabled");
-        } else if (["HIT","STAND","DOUBLE","SPLIT"].includes(lbl)) {
+        } else if (code) {   // any action button (has data-action-code)
           b.classList.add("disabled");
         }
       });
@@ -169,14 +170,14 @@ function updateRoleUI(state) {
         suggestBanner.style.display = "block";
       }
       digActionButtons().forEach(b => {
-        if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
+        if (b.dataset.actionCode === suggestion) b.classList.add("voted-dealer");
       });
     }
 
     if (voteDisp) {
       if (vote) {
         digActionButtons().forEach(b => {
-          if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+          if (b.dataset.actionCode === vote) b.classList.add("voted");
         });
         voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
       } else {
@@ -316,8 +317,7 @@ function showLocalSeatPicker() {
   picker.innerHTML = "";
   available.forEach(name => {
     const btn = document.createElement("button");
-    btn.className   = "btn wide";
-    btn.style.cssText = "font-size:12px;margin-bottom:4px";
+    btn.className = "btn wide seat-pick-btn";
     btn.textContent = name;
     btn.addEventListener("click", () => requestLocalSeat(name));
     picker.appendChild(btn);
@@ -415,11 +415,11 @@ function _renderBustVoteCards(state) {
   locals.forEach(name => {
     const voted = bustVotes[name];
     const card  = document.createElement("div");
-    card.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)";
+    card.classList.add("bv-vote-card");
 
     if (multiLocal) {
       const nameLbl = document.createElement("span");
-      nameLbl.style.cssText = "font-size:14px;font-weight:700;min-width:60px;color:var(--text)";
+      nameLbl.classList.add("bv-name-lbl");
       nameLbl.textContent = name;
       card.appendChild(nameLbl);
     }
@@ -427,23 +427,21 @@ function _renderBustVoteCards(state) {
     if (voted) {
       // Already voted — show status
       const statusEl = document.createElement("span");
-      statusEl.style.cssText = `font-size:13px;color:${voted === "bust" ? "var(--red)" : "var(--muted)"};font-weight:600`;
-      statusEl.textContent   = voted === "bust" ? "💥 Bet Bust" : "Passed";
+      statusEl.classList.add("bv-status", voted === "bust" ? "bv-status--bust" : "bv-status--pass");
+      statusEl.textContent = voted === "bust" ? "💥 Bet Bust" : "Passed";
       card.appendChild(statusEl);
     } else {
       // Buttons
       const btns = document.createElement("div");
-      btns.style.cssText = "display:flex;gap:8px;flex:1";
+      btns.classList.add("bv-btn-row");
 
       const bustBtn = document.createElement("button");
-      bustBtn.className   = "btn green";
-      bustBtn.style.cssText = "flex:1";
+      bustBtn.className = "btn green bv-vote-btn";
       bustBtn.textContent = "💥 Bet Bust";
       bustBtn.addEventListener("click", () => submitBustVote("bust", multiLocal ? name : undefined));
 
       const passBtn = document.createElement("button");
-      passBtn.className   = "btn muted-btn";
-      passBtn.style.cssText = "flex:1";
+      passBtn.className = "btn muted-btn bv-vote-btn";
       passBtn.textContent = "Pass";
       passBtn.addEventListener("click", () => submitBustVote("pass", multiLocal ? name : undefined));
 
@@ -534,9 +532,11 @@ function updateBustVoteUI(state) {
       const winners    = result.winners || [];
       const myWinners  = myBusters.filter(n => winners.includes(n));
       const myLosers   = myBusters.filter(n => !winners.includes(n));
+      const wLabel     = result.winner_label || "called it";
+      const lLabel     = result.loser_label  || "wrong";
       const parts = [];
-      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} called it — -1 sip + give 1!</span>`);
-      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} wrong — +1 sip each</span>`);
+      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} ${escapeHtml(wLabel)}</span>`);
+      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} ${escapeHtml(lLabel)}</span>`);
       statusEl.innerHTML = parts.join("<br>");
     } else {
       // Result not yet available — re-render from current state to avoid stale text
@@ -550,7 +550,7 @@ function updateBustVoteUI(state) {
       const label = allBusters.length === 1
         ? `💥 ${escapeHtml(allBusters[0])} bet dealer busts`
         : `💥 ${allBusters.map(escapeHtml).join(" & ")} bet dealer busts`;
-      statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">${label}</span>`;
+      statusEl.innerHTML = `<span class="bust-label">${label}</span>`;
     } else if (myVote === "pass") {
       statusEl.textContent = "You passed the bust bet.";
     } else {
@@ -611,23 +611,24 @@ function _renderBustGivePanel(state) {
     ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
     : "";
 
-  body.innerHTML = pending.map(winnerName => {
+  body.innerHTML = pending.map((winnerName, idx) => {
     const label = pending.length > 1
       ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
       : "🎉 You called it! Give 1 sip to:";
     const btns = allPlayers
       .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
-      .map(n => `<button class="btn wide" style="margin-bottom:8px"
+      .map(n => `<button class="btn wide bgp-give-btn"
           data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
           onclick="giveBustSip(this.dataset.winner, this.dataset.recipient)"
           >${escapeHtml(n)}</button>`)
       .join("");
-    return `<div style="margin-bottom:${pending.length > 1 ? 16 : 0}px">
-      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:10px;text-align:center">${label}</div>
+    const mb = pending.length > 1 ? " bgp-multi-entry" : "";
+    return `<div class="bgp-entry${mb}">
+      <div class="bgp-winner-label">${label}</div>
       ${timerStr}
-      <div style="display:flex;flex-direction:column">${btns}</div>
+      <div class="bgp-btns-col">${btns}</div>
     </div>`;
-  }).join(`<hr style="border-color:var(--border);margin:8px 0">`);
+  }).join(`<hr class="bgp-divider">`);
 }
 
 // Shared toast helper — sets content, applies drink/clean class, triggers show animation.
@@ -643,32 +644,11 @@ function _firePlayerToast(text, iDrink, ms) {
 
 function showBustVoteToast(result) {
   if (!result) return;
-  const parts  = [];
-  const each   = result.losers.length > 1 ? " each" : "";
-  const normal = result.side_bet_amount != null;   // normal mode: use $ amounts
-  const sb     = normal ? result.side_bet_amount : 0;
-  const fmt    = v => `$${Number(v).toFixed(2)}`;
-  if (result.dealer_busted) {
-    if (result.winners.length) {
-      const reward = normal ? ` (+${fmt(sb * 2)} @ 2:1)` : " (-1 sip + give 1)";
-      parts.push(`✅ ${result.winners.join(", ")} called it${reward}`);
-    }
-    if (result.losers.length) {
-      const penalty = normal ? ` (-${fmt(sb)}${each})` : ` (+1 sip${each})`;
-      parts.push(`❌ ${result.losers.join(", ")} wrong${penalty}`);
-    }
-  } else {
-    if (result.losers.length) {
-      const penalty = normal ? ` (-${fmt(sb)}${each})` : ` (+1 sip${each})`;
-      parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong${penalty}`);
-    }
-  }
-  if (!parts.length) return;
-  // Red if I'm one of the players drinking the bust-vote penalty, green if
-  // I'm not (someone else drinks / I'm a winner).
+  const lines = result.outcome_lines || [];
+  if (!lines.length) return;
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
-  const iDrink = _myNames.some(n => result.losers.includes(n));
-  _firePlayerToast(parts.join(" · "), iDrink, 6000);
+  const iDrink = _myNames.some(n => (result.losers || []).includes(n));
+  _firePlayerToast(lines.join(" · "), iDrink, 6000);
 }
 
 function showBustHandoutToast(results) {
@@ -689,22 +669,10 @@ function showBustHandoutToast(results) {
 function showInsuranceToast(results) {
   if (!results || !results.length) return;
   const parts = results.map(r => {
-    const bj    = r.player;
-    const voted = r.insured ? "Insure" : "Decline";
-    const dBJ   = r.dealer_bj;
-    let outcome, icon;
-    if (r.group_won) {
-      icon = "✅";
-      if (r.insured && dBJ)        outcome = `dealer had BJ — BJ holder drinks own bonus, group safe`;
-      else if (!r.insured && !dBJ) outcome = `no dealer BJ — normal BJ bonus`;
-      else                         outcome = `correct call`;
-    } else {
-      icon = "❌";
-      if (r.insured && !dBJ)      outcome = `no dealer BJ — group drinks double bonus`;
-      else if (!r.insured && dBJ) outcome = `dealer had BJ — auto-insurance applies`;
-      else                        outcome = `wrong call`;
-    }
-    return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
+    const icon    = r.group_won ? "✅" : "❌";
+    const voted   = r.insured ? "Insure" : "Decline";
+    const outcome = r.outcome_text || (r.group_won ? "correct call" : "wrong call");
+    return `${icon} Insurance (${r.player}): voted ${voted} — ${outcome}`;
   });
   // Red if any insurance outcome means I personally drink, green otherwise.
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
@@ -835,13 +803,12 @@ function showRegisterOverlay(state) {
 
   seatsEl.innerHTML = "";
   if (available.length === 0) {
-    seatsEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:4px 0">All seats are taken — you can watch as spectator.</p>`;
+    seatsEl.innerHTML = `<p class="reg-no-seats">All seats are taken — you can watch as spectator.</p>`;
   } else {
     available.forEach(name => {
-      const btn        = document.createElement("button");
-      btn.className    = "btn-big accent";
-      btn.style.height = "52px";
-      btn.textContent  = `I am ${name}`;
+      const btn     = document.createElement("button");
+      btn.className = "btn-big accent reg-seat-btn";
+      btn.textContent = `I am ${name}`;
       btn.addEventListener("click", () => doRegister(name));
       seatsEl.appendChild(btn);
     });

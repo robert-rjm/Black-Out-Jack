@@ -15,9 +15,11 @@ import random
 from enum import Enum
 from tabulate import tabulate
 
-# ANSI colour helpers (terminal only — harmless on web)
-_BLUE  = "\033[94m"
-_RESET = "\033[0m"
+# NOTE: DrinkingRules and all engine.events imports are intentionally deferred
+# to the call sites (lazy imports inside methods) to avoid a circular import:
+#   blackjack.py → drinking_rules.py → blackjack.py (Rank, Suit, Hand, Player)
+# Python caches modules after the first import so the per-call overhead is
+# just a dict lookup — there is no re-execution penalty.
 
 
 # =============================================================================
@@ -360,7 +362,7 @@ class RoundManager:
         self.drinking_mode  = drinking_mode
         self._all_names     = [p.name for p in players]
         self._ace_credits   = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag = {"partial_protected": False, "half_protected": False}
         self._four_aces_fd  = False
         # List of (player, hand, insured:bool) — populated after deal, resolved in _evaluate
         self._insurance_votes: list = []
@@ -401,7 +403,7 @@ class RoundManager:
             self.dealer_player.reset_round(0)
             self.dealer_player.dealer_hand = Hand()
         self._ace_credits    = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag = {"partial_protected": False, "half_protected": False}
         self._four_aces_fd   = False
         self._insurance_votes = []
 
@@ -518,6 +520,8 @@ class RoundManager:
                 idx += 1
 
     def _play_hand(self, player, hand, hand_idx):
+        _BLUE  = "\033[94m"   # terminal-only colour helpers
+        _RESET = "\033[0m"
         # Split hands start with 1 card; deal their second card now (after H1 is fully played)
         if hand.from_split and len(hand.cards) == 1:
             card = self._deal_card_to(hand, player.name)

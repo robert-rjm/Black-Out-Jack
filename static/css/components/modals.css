@@ -155,6 +155,32 @@
   margin: 16px;
 }
 
+/* ---- BUST VOTE CARDS (_renderBustVoteCards in admin.js) ---- */
+.bv-vote-card    { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.bv-name-lbl     { font-size: 14px; font-weight: 700; min-width: 60px; color: var(--text); }
+.bv-status       { font-size: 13px; font-weight: 600; }
+.bv-status--bust { color: var(--red); }
+.bv-status--pass { color: var(--muted); }
+.bv-btn-row      { display: flex; gap: 8px; flex: 1; }
+.bv-vote-btn     { flex: 1; }
+
+/* ---- BUST GIVE PANEL (_renderBustGivePanel in admin.js) ---- */
+.bgp-winner-label { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 10px; text-align: center; }
+.bgp-btns-col     { display: flex; flex-direction: column; }
+.bgp-give-btn     { margin-bottom: 8px; }
+.bgp-multi-entry  { margin-bottom: 16px; }
+.bgp-divider      { border-color: var(--border); margin: 8px 0; }
+
+/* ---- REGISTER OVERLAY (showRegisterOverlay in admin.js) ---- */
+.reg-no-seats { color: var(--muted); font-size: 13px; padding: 4px 0; }
+.reg-seat-btn { height: 52px; }
+
+/* ---- LOCAL SEAT PICKER (showLocalSeatPicker in admin.js) ---- */
+.seat-pick-btn { font-size: 12px; margin-bottom: 4px; }
+
+/* ---- BUST VOTE STATUS LABEL (updateBustVoteUI inline span) ---- */
+.bust-label { color: var(--red); font-weight: 700; }
+
 /* ---- MILESTONE MODAL ---- */
 #milestone-modal-overlay {
   display: none;

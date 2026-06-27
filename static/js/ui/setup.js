@@ -209,13 +209,7 @@ function setGameType(type, btn) {
 // ============================================================
 // SETUP — players (dynamic list)
 // ============================================================
-const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-const SUITS = [
-  { label: "♥", code: "h", cls: "hearts" },
-  { label: "♦", code: "d", cls: "diamonds" },
-  { label: "♣", code: "c", cls: "clubs" },
-  { label: "♠", code: "s", cls: "spades" },
-];
+// RANKS and SUITS are defined in config.js (loaded first).
 
 let playerRows = [];   // [{ id, name, isBot }]
 let _rowIdCtr  = 0;

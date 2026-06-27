@@ -63,7 +63,7 @@ function showPeekedCard(card) {
   display.appendChild(cardEl(card));
   // Also add a text label next to the card
   const lbl = document.createElement("span");
-  lbl.style.cssText = "font-size:13px;font-weight:700;color:var(--text);align-self:center";
+  lbl.classList.add("peeked-card-label");
   lbl.textContent = `${card.rank}${card.symbol || ""}`;
   display.appendChild(lbl);
   wrap.style.display = "block";
@@ -137,10 +137,7 @@ function showSwitchToast(switchType, dealerName) {
   const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
   const tmpl = pool[Math.floor(Math.random() * pool.length)];
   el.textContent = tmpl;
-  // Dealer switches are purely informational — always yellow, regardless of
-  // hard/soft type.
-  el.style.background = "var(--yellow)";
-  el.style.color      = "#000";
+  // Dealer switches are purely informational — always yellow (set in log.css).
   el.classList.add("show");
   ToastUI.switchTimer = setTimeout(() => {
     el.classList.remove("show");
@@ -170,16 +167,9 @@ function updateHeader(data) {
 // ============================================================
 // TABS
 // ============================================================
-function switchRefTab(name, el) {
-  document.querySelectorAll("#ref-tabs .tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("#ref-panel .pane").forEach(p => p.classList.remove("active"));
-  el.classList.add("active");
-  document.getElementById(`pane-${name}`).classList.add("active");
-}
-
-function switchDigTab(name, el) {
-  document.querySelectorAll("#dig-tabs .tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"));
+function switchTab(tabsId, panelId, name, el) {
+  document.querySelectorAll(`#${tabsId} .tab`).forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(`#${panelId} .pane`).forEach(p => p.classList.remove("active"));
   el.classList.add("active");
   document.getElementById(`pane-${name}`).classList.add("active");
 }
@@ -195,22 +185,17 @@ function clearPeekedCard() {
 }
 
 async function doNewRound() {
-  const state       = lastState || {};
-  const drinking    = state.drinking_mode !== false;
-  const switchType  = state.switch_this_round;        // "hard" | "soft" | null
-  const roundsTD    = state.rounds_this_dealer || 1;
-  const rotateEvery = state.dealer_rotate_every || 1;
-  // Normal mode: fixed house dealer — never rotate.
-  // Drinking mode: auto-rotate when hard/soft switch fired, or rotation interval reached.
-  const rotate = drinking && !!(switchType || roundsTD >= rotateEvery);
+  // Rotation is decided server-side: in drinking mode the backend auto-rotates
+  // when a hard/soft switch fired or the interval is reached. Always send bare
+  // "newround" — the frontend no longer makes this game-logic decision.
   clearPeekedCard();
-  await sendCmd(rotate ? "newround rotate" : "newround");
+  await sendCmd("newround");
   buildGameUI();
   if (gameMode === "digital") {
     await sendCmd("deal");
   } else {
     const firstTab = document.querySelector("#ref-tabs .tab");
-    if (firstTab) switchRefTab("deal", firstTab);
+    if (firstTab) switchTab("ref-tabs", "ref-panel", "deal", firstTab);
   }
 }
 
@@ -311,9 +296,8 @@ function processReshuffleEvents(state) {
 
   const _showReshuffleToast = () => {
     if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
-    el.textContent      = "🔀 Shoe ran low — reshuffled mid-round!";
-    el.style.background = "var(--yellow)";
-    el.style.color      = "#000";
+    el.textContent = "🔀 Shoe ran low — reshuffled mid-round!";
+    // Colour set in log.css (#switch-toast always yellow).
     el.classList.remove("show");
     void el.offsetWidth;
     el.classList.add("show");

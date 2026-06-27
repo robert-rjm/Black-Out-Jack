@@ -154,6 +154,8 @@ def test_backfill_hand_results():
 # 4. /export_decisions CSV shape
 # ---------------------------------------------------------------------------
 
+pytest.importorskip("flask", reason="Flask not installed — skipping app-layer tests")
+
 @pytest.fixture
 def app_client():
     from app import create_app

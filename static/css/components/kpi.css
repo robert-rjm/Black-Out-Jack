@@ -197,6 +197,30 @@
   border-color: rgba(255,215,0,.45);
 }
 
+/* ---- MOBILE SHEET OVERLAY (_mobileSheet in kpi.js) ---- */
+.mobile-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(0,0,0,.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.mobile-sheet {
+  background: var(--bg);
+  border-radius: 16px;
+  padding: 16px 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: _lb-slide-up .2s ease;
+}
+
 /* ---- MOBILE RANKING MODAL ---- */
 @keyframes _lb-slide-up {
   from { transform: translateY(40px); opacity: 0; }

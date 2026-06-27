@@ -76,9 +76,6 @@ def _print_digital_help():
   insurance <player> [hand<n>]
       Mark the hand as insured (when dealer shows Ace).
 
-  blackjack <player> [hand<n>]
-      Confirm a natural blackjack and fire drinking rules.
-
   dealer
       Reveal the hole card, hit until 17+, then auto-evaluate all hands.
 
@@ -617,8 +614,22 @@ def _cmd_dealer_digital(game_session, parts):
 
 def _cmd_newround(game_session, parts, *, digital):
     # newround [rotate]
-    rotate = len(parts) > 1 and parts[1].lower() == "rotate"
-    # Apply queued settings before the round starts
+    # Explicit "rotate" arg is still accepted for manual override.
+    # In drinking mode the backend auto-decides: rotate when a hard/soft switch
+    # fired this round, or when the rotation interval is reached — so the
+    # frontend just sends bare "newround" and never makes this call itself.
+    explicit_rotate = len(parts) > 1 and parts[1].lower() == "rotate"
+    auto_rotate = (
+        game_session.drinking_mode and bool(
+            game_session.round.switch_this_round in ("hard", "soft") or
+            game_session.rounds_this_dealer >= game_session._dealer_rotate_every
+        )
+    )
+    rotate = explicit_rotate or auto_rotate
+    # Apply queued settings before the round starts.
+    # Capture shoe reference first — if apply_queued_settings creates a fresh
+    # Shoe (num_decks change), we must not reshuffle it immediately after.
+    shoe_before = game_session.shoe
     setting_changes = apply_queued_settings(game_session)
     for msg in setting_changes:
         log.debug(f"  ⚙️  {msg}")
@@ -629,8 +640,11 @@ def _cmd_newround(game_session, parts, *, digital):
         game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
     reset_round_state(game_session, digital=digital)
     if digital and (game_session.drinking_mode or game_session.shoe.needs_reshuffle()):
-        game_session.shoe.reset()
-        log.debug("  Shoe reshuffled.")
+        if game_session.shoe is not shoe_before:
+            log.debug("  Shoe already fresh from settings change — skipping reshuffle.")
+        else:
+            game_session.shoe.reset(quiet=True)
+            log.debug("  Shoe reshuffled.")
     game_session.start_round()
     patch_tracker(game_session)
     game_session.session.tracker.easy_mode = game_session.easy_mode
@@ -687,7 +701,6 @@ DIGITAL_COMMANDS = {
     "double":    _cmd_double,
     "split":     _cmd_split,
     "insurance": _cmd_insurance,
-    "blackjack": _cmd_blackjack,
     "peek":      _cmd_peek,
     "dealer":    _cmd_dealer_digital,
     "endround":  lambda gs, parts: _resolve_endround(gs),
@@ -767,7 +780,7 @@ def command():
 
     # Dealer-gate: only dealer or admin may execute game-changing commands
     DEALER_GATED_CMDS = {
-        "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
+        "deal", "hit", "stand", "double", "split", "insurance",
         "dealer", "endround", "newround", "peek", "action", "result", "fouraces",
     }
     if (cmd in DEALER_GATED_CMDS

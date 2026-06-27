@@ -14,7 +14,7 @@ Covers:
 
 from engine.referee import RefereeSession
 from app.models.game_room import GameRoom
-from app.services.payout_tracker import init_bankrolls, apply_payouts, cmd_rebuy
+from app.services.payout_tracker import init_bankrolls, apply_payouts, deduct_bets, cmd_rebuy
 from tests.conftest import make_player, make_hand
 
 
@@ -48,6 +48,9 @@ def test_apply_payouts_win_loss_push_blackjack():
     p4 = make_player("Dana",  hands=[make_hand(("A", "S"), ("K", "H"), result="win")])  # blackjack
     room = _make_room([p1, p2, p3, p4], bet_amount=10, starting_bankroll=100)
 
+    # apply_payouts uses a "deduct-then-return" model: bets are taken upfront at
+    # deal time by deduct_bets(), and apply_payouts returns stake+profit at endround.
+    deduct_bets(room)
     apply_payouts(room)
 
     assert room._bankrolls["Alice"] == 110     # +10 (1:1 win)
@@ -62,16 +65,19 @@ def test_apply_payouts_persists_across_rounds():
     p1 = make_player("Alice", hands=[make_hand(("10", "S"), ("9", "H"), result="win")])
     room = _make_room([p1], bet_amount=10, starting_bankroll=100)
 
+    deduct_bets(room)
     apply_payouts(room)
     assert room._bankrolls["Alice"] == 110
 
     # Round 2: another win
     p1.hands = [make_hand(("10", "S"), ("9", "H"), result="win")]
+    deduct_bets(room)
     apply_payouts(room)
     assert room._bankrolls["Alice"] == 120
 
     # Round 3: a loss
     p1.hands = [make_hand(("10", "C"), ("8", "D"), result="loss")]
+    deduct_bets(room)
     apply_payouts(room)
     assert room._bankrolls["Alice"] == 110
 
@@ -79,9 +85,11 @@ def test_apply_payouts_persists_across_rounds():
 def test_biggest_round_payouts_tracked():
     p1 = make_player("Alice", hands=[make_hand(("A", "S"), ("K", "H"), result="win")])  # +15
     room = _make_room([p1], bet_amount=10, starting_bankroll=100)
+    deduct_bets(room)
     apply_payouts(room)
 
     p1.hands = [make_hand(("10", "C"), ("8", "D"), result="loss")]  # -10
+    deduct_bets(room)
     apply_payouts(room)
 
     assert room._biggest_round_payouts["Alice"]["best"] == 15
@@ -92,6 +100,7 @@ def test_bank_run_detected_and_rebuy_resets():
     p1 = make_player("Alice", hands=[make_hand(("10", "C"), ("8", "D"), result="loss")])
     room = _make_room([p1], bet_amount=10, starting_bankroll=10)
 
+    deduct_bets(room)
     apply_payouts(room)
     assert room._bankrolls["Alice"] == 0
     assert "Alice" in room._bank_run_players

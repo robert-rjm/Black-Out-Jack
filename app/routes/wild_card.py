@@ -39,14 +39,23 @@ bp = Blueprint("wild_card", __name__)
 # action_template: f-string with {name} for the player who drinks (self or random)
 # dud_text: shown when nothing happens
 _WILD_NAMES = [
-    ("Dealer's Ghost haunts {name} — 1 sip!",          "Dealer's Ghost drifts past harmlessly.",          "Dealer's Ghost"),
-    ("The Joker deals {name} an extra sip!",            "The Joker keeps the trick to itself.",            "The Joker"),
-    ("House Edge catches up with {name} — 1 sip!",     "House Edge favours the table tonight.",           "House Edge"),
-    ("Blind Bet costs {name} — 1 sip!",                 "Blind Bet folds — nothing happens.",              "Blind Bet"),
-    ("Lucky Draw isn't so lucky for {name} — 1 sip!",  "Lucky Draw is actually lucky — nothing happens!", "Lucky Draw"),
-    ("The Pit Boss flags {name} for a sip!",            "The Pit Boss looks the other way.",               "The Pit Boss"),
-    ("High Roller bets against {name} — 1 sip!",       "High Roller passes on this one.",                 "High Roller"),
-    ("Dead Man's Hand falls to {name} — 1 sip!",       "Dead Man's Hand belongs to nobody tonight.",      "Dead Man's Hand"),
+    # (action_template, dud_text, name)
+    ("Dealer's Ghost haunts {name} — 1 sip!",           "Dealer's Ghost drifts past harmlessly.",
+     "Dealer's Ghost"),
+    ("The Joker deals {name} an extra sip!",            "The Joker keeps the trick to itself.",
+     "The Joker"),
+    ("House Edge catches up with {name} — 1 sip!",      "House Edge favours the table tonight.",
+     "House Edge"),
+    ("Blind Bet costs {name} — 1 sip!",                 "Blind Bet folds — nothing happens.",
+     "Blind Bet"),
+    ("Lucky Draw isn't so lucky for {name} — 1 sip!",   "Lucky Draw is actually lucky — nothing happens!",
+     "Lucky Draw"),
+    ("The Pit Boss flags {name} for a sip!",            "The Pit Boss looks the other way.",
+     "The Pit Boss"),
+    ("High Roller bets against {name} — 1 sip!",        "High Roller passes on this one.",
+     "High Roller"),
+    ("Dead Man's Hand falls to {name} — 1 sip!",        "Dead Man's Hand belongs to nobody tonight.",
+     "Dead Man's Hand"),
 ]
 
 _WILD_CARD_COOLDOWN = 3   # rounds that must pass before the same player can press again
