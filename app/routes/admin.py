@@ -25,7 +25,7 @@ from markupsafe import escape
 
 from app.services.session_store import game_sessions
 from app.services.serializer    import serialize_state, round_phase
-from app.services.drink_tracker import check_and_set_milestone
+from app.services.drink_tracker import award_sips
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
 from app.services.validators    import sanitize_name
@@ -621,61 +621,17 @@ def claim_milestone():
     winner_name  = milestone["winner"]
     boundary_val = milestone["boundary"]
 
-    # Apply to sip ticker — distributed sips go to recipients; residual goes to winner
-    ticker = session._sip_ticker
-    for name, s in alloc.items():
-        ticker[name] = ticker.get(name, 0) + s
-    if residual > 0:
-        ticker[winner_name] = ticker.get(winner_name, 0) + residual
-    session._sip_ticker = ticker
-
-    # Mirror into last_round_sips and last_round_drinks so the Drinks pane
-    # shows the milestone handout alongside other round drinks.
-    last_sips   = dict(session._last_round_sips)
-    last_drinks = list(session._last_round_drinks)
-    for name, s in alloc.items():
-        last_sips[name] = last_sips.get(name, 0) + s
-        last_drinks.append({
-            "name":   name,
-            "sips":   s,
-            "reason": f"Milestone handout from {winner_name} ({boundary_val} sip milestone)",
-        })
-    if residual > 0:
-        last_sips[winner_name] = last_sips.get(winner_name, 0) + residual
-        last_drinks.append({
-            "name":   winner_name,
-            "sips":   residual,
-            "reason": f"Milestone residual — {winner_name} kept {residual} sip(s) ({boundary_val} sip milestone)",
-        })
-    session._last_round_sips   = last_sips
-    session._last_round_drinks = last_drinks
-
-    # Write milestone handout into the CSV accumulator so it appears in exports
+    # Award sips to each recipient and the winner's residual — award_sips
+    # updates all four accumulators and triggers a milestone check after each.
     winner   = milestone["winner"]
     boundary = milestone["boundary"]
-    csv_rows = session._drink_csv_rows
     for name, s in alloc.items():
-        csv_rows.append({
-            "round":  session.round_count,
-            "dealer": session.dealer_name,
-            "player": name,
-            "role":   "player",
-            "rule":   "Milestone handout",
-            "sips":   s,
-        })
+        award_sips(session, name, s, "Milestone handout",
+                   reason=f"Milestone handout from {winner_name} ({boundary_val} sip milestone)")
     if residual > 0:
-        csv_rows.append({
-            "round":  session.round_count,
-            "dealer": session.dealer_name,
-            "player": winner,
-            "role":   "player",
-            "rule":   "Milestone residual",
-            "sips":   residual,
-        })
-    session._drink_csv_rows = csv_rows
-
-    # Check if recipients (or winner via residual) crossed a new milestone
-    check_and_set_milestone(session)
+        award_sips(session, winner_name, residual, "Milestone residual",
+                   reason=(f"Milestone residual — {winner_name} kept {residual} "
+                           f"sip(s) ({boundary_val} sip milestone)"))
 
     # Log the handout
     log_lines = [f"🎉 {winner} reached {boundary} sips — milestone handout!"]
@@ -689,7 +645,7 @@ def claim_milestone():
     session._log_version = session._log_version + 1
 
     session.round._pending_milestone     = None
-    session._last_milestone_result = {
+    session.drinks.last_milestone_result = {
         "winner":      winner,
         "boundary":    boundary,
         "allocations": alloc,         # {name: sips} — only non-zero entries

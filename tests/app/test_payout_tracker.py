@@ -13,7 +13,7 @@ Covers:
 """
 
 from engine.referee import RefereeSession
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, GameConfig
 from app.services.payout_tracker import init_bankrolls, apply_payouts, deduct_bets, cmd_rebuy
 from tests.conftest import make_player, make_hand
 
@@ -23,10 +23,12 @@ def _make_room(players, bet_amount=10, starting_bankroll=100,
     session = RefereeSession(players, players[0].name, wager=1, num_hands=1)
     room = GameRoom(
         session=session,
-        mode=mode,
-        drinking_mode=drinking_mode,
-        bet_amount=bet_amount,
-        starting_bankroll=starting_bankroll,
+        config=GameConfig(
+            mode=mode,
+            drinking_mode=drinking_mode,
+            bet_amount=bet_amount,
+            starting_bankroll=starting_bankroll,
+        ),
     )
     return room
 

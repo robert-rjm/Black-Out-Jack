@@ -111,7 +111,7 @@ def wild_card():
     player_total   = sip_totals.get(player_name, 0)
     next_boundary  = ((player_total // MILESTONE_STEP) + 1) * MILESTONE_STEP
     sips_to_ms     = next_boundary - player_total
-    ms_not_claimed = next_boundary not in session._milestones_claimed
+    ms_not_claimed = next_boundary not in session.drinks.milestones_claimed
     if sips_to_ms <= 10 and ms_not_claimed:
         return jsonify({
             "ok":     False,
@@ -147,7 +147,7 @@ def wild_card():
             text = f"\U0001f0cf {action_tmpl.format(name=target.name)}"
 
     # ── Record result ─────────────────────────────────────────────────────
-    wc = session._wild_card_presses.setdefault(player_name, {"presses": 0, "self": 0, "random": 0, "dud": 0})
+    wc = session.drinks.wild_card_presses.setdefault(player_name, {"presses": 0, "self": 0, "random": 0, "dud": 0})
     wc["presses"] += 1
     wc[outcome]   += 1
     session._wild_card_last_used[player_name] = session.round_count

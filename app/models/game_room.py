@@ -4,15 +4,27 @@ app/models/game_room.py — typed container for all per-room state.
 All RefereeSession attributes used by app/ code are exposed as explicit
 properties or method wrappers below — no __getattr__ magic.
 
-State is divided into two layers:
+State is divided into five layers:
 
-  RoundState  — per-round transient fields. Replaced wholesale by
-                reset_round_state() so it's impossible to forget
-                to clear a field on newround.
+  RoundState   — per-round transient fields. Replaced wholesale by
+                 reset_round_state() so it's impossible to forget
+                 to clear a field on newround.
 
-  GameRoom    — session-lifetime fields that survive across rounds,
-                plus a ``round: RoundState`` slot and delegation
-                properties that proxy into RefereeSession.
+  DrinkLedger  — session-lifetime drink accounting: all four sip
+                 accumulators, milestone tracking, and wild-card stats.
+                 Accessed via ``session.drinks.*``.
+
+  SessionStats — session-lifetime statistics: hand outcomes, streaks,
+                 sip history, strategy tracking, dealer bust counter.
+                 Accessed via ``session.stats.*``.
+
+  GameConfig   — game configuration: mode, feature flags, and bankroll
+                 settings.  Accessed via ``session.config.*``.
+
+  GameRoom     — session-lifetime fields that survive across rounds,
+                 plus ``round``, ``drinks``, ``stats``, and ``config``
+                 slots, and delegation properties that proxy into
+                 RefereeSession.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -85,13 +97,71 @@ class RoundState:
 
 
 @dataclass
+class SessionStats:
+    """Session-lifetime statistics.
+
+    Hand outcomes, streaks, sip history, strategy tracking, and dealer
+    bust counter.  Accessed via ``session.stats.*``.
+    """
+    hand_stats: dict          = field(default_factory=dict)   # player -> outcome counters
+    dealer_hand_stats: dict   = field(default_factory=dict)   # dealer_name -> outcome counters
+    strategy_decisions: dict  = field(default_factory=dict)   # player -> {correct: N, total: N}
+    max_round_sips: dict      = field(default_factory=dict)   # player -> highest single-round total
+    dealer_bust_rounds: int   = 0                             # rounds where dealer busted
+    streaks: dict             = field(default_factory=dict)   # player -> {current, longest_win, longest_loss}
+    round_sip_history: list   = field(default_factory=list)   # total sips (all players) per round
+    player_rounds_played: dict = field(default_factory=dict)  # player -> rounds participated
+    session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
+
+
+@dataclass
+class GameConfig:
+    """Game configuration — mode, feature flags, and bankroll settings.
+
+    Accessed via ``session.config.*``.  Passed as a single object at
+    ``GameRoom`` construction time so all config is in one place.
+    """
+    mode: str              = "referee"  # "referee" | "digital"
+    drinking_mode: bool    = True
+    easy_mode: bool        = False
+    bust_vote_enabled: bool     = False
+    strategy_hint_enabled: bool = False
+    god_mode: bool         = True
+    dealer_rotate_every: int    = 1
+    bet_amount: float      = 10
+    starting_bankroll: float    = 100
+    wild_card_enabled: bool     = True
+
+
+@dataclass
+class DrinkLedger:
+    """Session-lifetime drink accounting.
+
+    All four sip accumulators, milestone tracking, and wild-card stats.
+    Accessed via ``session.drinks.*``.
+    """
+    csv_rows: list             = field(default_factory=list)
+    sip_ticker: dict           = field(default_factory=dict)
+    last_round_sips: dict      = field(default_factory=dict)
+    last_round_drinks: list    = field(default_factory=list)
+    round_notices: list        = field(default_factory=list)
+    prev_round_sips: dict      = field(default_factory=dict)
+    prev_round_drinks: list    = field(default_factory=list)
+    dealer_role_ticker: dict   = field(default_factory=dict)
+    round_over_seq: int        = 0
+    milestones_claimed: dict   = field(default_factory=dict)
+    last_milestone_result: dict | None = None
+    last_milestone_worst: str | None   = None
+    wild_card_presses: dict    = field(default_factory=dict)
+
+
+@dataclass
 class GameRoom:
     # Core session
     session: RefereeSession
 
-    # Game config
-    mode: str = "referee"
-    drinking_mode: bool = True
+    # Game configuration (mode, flags, bankroll settings)
+    config: GameConfig = field(default_factory=GameConfig)
 
     # Room code this session is stored under in app.services.session_store
     # (set at creation time in app/routes/lobby.py:setup). Used for
@@ -101,9 +171,14 @@ class GameRoom:
     # Per-round transient state — replaced wholesale on each newround
     round: RoundState = field(default_factory=RoundState)
 
+    # Drink accounting + milestone tracking (session-lifetime)
+    drinks: DrinkLedger = field(default_factory=DrinkLedger)
+
+    # Session-lifetime statistics
+    stats: SessionStats = field(default_factory=SessionStats)
+
     # Dealer rotation
     rounds_this_dealer: int = 1
-    _dealer_rotate_every: int = 1
 
     # Log version — increments each round so clients detect log changes
     _log_version: int = 0
@@ -111,17 +186,6 @@ class GameRoom:
     # Decision log (Phase C — per-decision board-state capture for
     # per-player bot training; see docs/planning/DecisionLog-Plan.md)
     _decision_log: list = field(default_factory=list)
-
-    # Drink accounting (session-lifetime accumulators)
-    _drink_csv_rows: list = field(default_factory=list)
-    _sip_ticker: dict = field(default_factory=dict)
-    _last_round_sips: dict = field(default_factory=dict)
-    _last_round_drinks: list = field(default_factory=list)
-    _round_notices: list = field(default_factory=list)
-    _prev_round_sips: dict = field(default_factory=dict)
-    _prev_round_drinks: list = field(default_factory=list)
-    _dealer_role_ticker: dict = field(default_factory=dict)
-    _round_over_seq: int = 0   # increments each harvest so clients never miss the toast
 
     # Client registry
     _room_clients: dict = field(default_factory=dict)
@@ -132,28 +196,6 @@ class GameRoom:
     # Queued settings (applied at newround)
     _queued_settings: dict = field(default_factory=dict)
 
-    # Stats and milestones (session-lifetime)
-    _hand_stats: dict = field(default_factory=dict)
-    _dealer_hand_stats: dict = field(default_factory=dict)
-    _strategy_decisions: dict = field(default_factory=dict)  # player -> {correct: N, total: N}
-    _max_round_sips: dict = field(default_factory=dict)      # player -> highest single-round sip total
-    _dealer_bust_rounds: int = 0                             # rounds where dealer hand busted
-    _streaks: dict = field(default_factory=dict)             # player -> {current, longest_win, longest_loss}
-    _round_sip_history: list = field(default_factory=list)   # total sips (all players) per completed round
-    _player_rounds_played: dict = field(default_factory=dict)
-    _session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
-    _milestones_claimed: dict = field(default_factory=dict)
-    _last_milestone_result: dict | None = None
-    _last_milestone_worst: str | None = None
-
-    # Easy mode (halve drinks every round)
-    easy_mode: bool = False
-
-    # Feature flags
-    bust_vote_enabled: bool = False
-    strategy_hint_enabled: bool = False
-    _god_mode: bool = True
-
     # Bust handout sequence counter (session-lifetime; bumped when all
     # handouts for a round resolve — never reset between rounds)
     _bust_handout_seq: int = 0
@@ -161,14 +203,8 @@ class GameRoom:
     # Wild Card Easter egg — cooldown tracker (session-lifetime so it
     # persists across rounds).  Maps player_name → round_count when last used.
     _wild_card_last_used: dict = field(default_factory=dict)
-    # Press counter: Maps player_name → {"presses": int, "self": int, "random": int, "dud": int}
-    _wild_card_presses: dict = field(default_factory=dict)
-    # Admin toggle — host can disable the logo Easter egg entirely (live setting)
-    wild_card_enabled: bool = True
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
-    bet_amount: float = 10
-    starting_bankroll: float = 100
     _bankrolls: dict = field(default_factory=dict)
     _last_round_payouts: dict = field(default_factory=dict)
     _bank_run_players: list = field(default_factory=list)
@@ -322,3 +358,60 @@ class GameRoom:
 
     def cmd_status(self):
         return self.session.cmd_status()
+
+    # ------------------------------------------------------------------
+    # GameConfig shims — backward-compat aliases for session.config.*
+    # These cover all app call sites that use session.mode,
+    # session.drinking_mode, etc. directly.  Remove each shim once its
+    # call sites are migrated to session.config.*.
+    # ------------------------------------------------------------------
+
+    @property
+    def mode(self): return self.config.mode
+    @mode.setter
+    def mode(self, v): self.config.mode = v
+
+    @property
+    def drinking_mode(self): return self.config.drinking_mode
+    @drinking_mode.setter
+    def drinking_mode(self, v): self.config.drinking_mode = v
+
+    @property
+    def easy_mode(self): return self.config.easy_mode
+    @easy_mode.setter
+    def easy_mode(self, v): self.config.easy_mode = v
+
+    @property
+    def bust_vote_enabled(self): return self.config.bust_vote_enabled
+    @bust_vote_enabled.setter
+    def bust_vote_enabled(self, v): self.config.bust_vote_enabled = v
+
+    @property
+    def strategy_hint_enabled(self): return self.config.strategy_hint_enabled
+    @strategy_hint_enabled.setter
+    def strategy_hint_enabled(self, v): self.config.strategy_hint_enabled = v
+
+    @property
+    def _god_mode(self): return self.config.god_mode
+    @_god_mode.setter
+    def _god_mode(self, v): self.config.god_mode = v
+
+    @property
+    def _dealer_rotate_every(self): return self.config.dealer_rotate_every
+    @_dealer_rotate_every.setter
+    def _dealer_rotate_every(self, v): self.config.dealer_rotate_every = v
+
+    @property
+    def bet_amount(self): return self.config.bet_amount
+    @bet_amount.setter
+    def bet_amount(self, v): self.config.bet_amount = v
+
+    @property
+    def starting_bankroll(self): return self.config.starting_bankroll
+    @starting_bankroll.setter
+    def starting_bankroll(self, v): self.config.starting_bankroll = v
+
+    @property
+    def wild_card_enabled(self): return self.config.wild_card_enabled
+    @wild_card_enabled.setter
+    def wild_card_enabled(self, v): self.config.wild_card_enabled = v

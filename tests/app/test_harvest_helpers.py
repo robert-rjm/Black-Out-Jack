@@ -17,7 +17,7 @@ from app.services.drink_tracker import (
     _update_streaks,
 )
 from engine.referee import RefereeSession
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, GameConfig
 from tests.conftest import make_hand, make_player
 
 
@@ -33,7 +33,7 @@ def _make_room(names=None, dealer_idx=0):
     players[dealer_idx].is_dealer = True
     players[dealer_idx].dealer_hand = make_hand()   # empty, non-bust
     raw = RefereeSession(players, players[dealer_idx].name, wager=1, num_hands=2)
-    return GameRoom(session=raw, mode="referee")
+    return GameRoom(session=raw, config=GameConfig(mode="referee"))
 
 
 # ---------------------------------------------------------------------------
@@ -45,14 +45,14 @@ def test_record_csv_rows_positive_sip_recorded():
     alice = room.all_players[0]
     alice.add_drink(2, "net loss", "player")           # classify_rule → "Net hand losses"
     _record_csv_rows(room)
-    assert any(r["player"] == "Alice" and r["sips"] == 2 for r in room._drink_csv_rows)
+    assert any(r["player"] == "Alice" and r["sips"] == 2 for r in room.drinks.csv_rows)
 
 
 def test_record_csv_rows_zero_sips_skipped():
     room = _make_room()
     room.all_players[0].add_drink(0, "net loss", "player")
     _record_csv_rows(room)
-    assert room._drink_csv_rows == []
+    assert room.drinks.csv_rows == []
 
 
 def test_record_csv_rows_null_classified_reason_skipped():
@@ -61,7 +61,7 @@ def test_record_csv_rows_null_classified_reason_skipped():
     # "exempt" → classify_rule returns None → skip
     room.all_players[0].add_drink(1, "exempt from drinks", "player")
     _record_csv_rows(room)
-    assert room._drink_csv_rows == []
+    assert room.drinks.csv_rows == []
 
 
 def test_record_csv_rows_negative_sips_always_recorded():
@@ -71,14 +71,14 @@ def test_record_csv_rows_negative_sips_always_recorded():
     room.all_players[0].add_drink(-1, "bust vote correct: -1 sip credit", "player")
     _record_csv_rows(room)
     assert any(r["player"] == "Alice" and r["sips"] == -1 and r["rule"] == "Bust vote credit"
-               for r in room._drink_csv_rows)
+               for r in room.drinks.csv_rows)
 
 
 def test_record_csv_rows_includes_round_and_dealer():
     room = _make_room()
     room.all_players[0].add_drink(1, "net loss", "player")
     _record_csv_rows(room)
-    row = room._drink_csv_rows[-1]
+    row = room.drinks.csv_rows[-1]
     assert "round" in row and "dealer" in row
 
 
@@ -86,7 +86,7 @@ def test_record_csv_rows_records_correct_dealer():
     room = _make_room()
     room.all_players[0].add_drink(1, "net loss", "player")
     _record_csv_rows(room)
-    assert room._drink_csv_rows[-1]["dealer"] == "Alice"   # Alice is dealer (idx 0)
+    assert room.drinks.csv_rows[-1]["dealer"] == "Alice"   # Alice is dealer (idx 0)
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def test_update_sip_tickers_net_positive():
     alice.add_drink(3, "net loss", "player")
     alice.add_drink(-1, "bust vote correct: -1 sip credit", "player")  # net = 2
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice") == 2
+    assert room.drinks.sip_ticker.get("Alice") == 2
 
 
 def test_update_sip_tickers_zero_net_not_stored():
@@ -108,7 +108,7 @@ def test_update_sip_tickers_zero_net_not_stored():
     alice.add_drink(1, "net loss", "player")
     alice.add_drink(-1, "bust vote correct: -1 sip credit", "player")  # net = 0
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice", 0) == 0
+    assert room.drinks.sip_ticker.get("Alice", 0) == 0
 
 
 def test_update_sip_tickers_dealer_role_tracked_separately():
@@ -116,7 +116,7 @@ def test_update_sip_tickers_dealer_role_tracked_separately():
     alice = room.all_players[0]
     alice.add_drink(2, "Hard Dealer Switch", "dealer")
     _update_sip_tickers(room)
-    assert room._dealer_role_ticker.get("Alice") == 2
+    assert room.drinks.dealer_role_ticker.get("Alice") == 2
 
 
 def test_update_sip_tickers_accumulates_across_calls():
@@ -127,7 +127,7 @@ def test_update_sip_tickers_accumulates_across_calls():
     alice.drink_log.clear()
     alice.add_drink(3, "net loss", "player")
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice") == 5
+    assert room.drinks.sip_ticker.get("Alice") == 5
 
 
 def test_update_sip_tickers_multiple_players_independent():
@@ -136,8 +136,8 @@ def test_update_sip_tickers_multiple_players_independent():
     alice.add_drink(3, "net loss", "player")
     bob.add_drink(1, "net loss", "player")
     _update_sip_tickers(room)
-    assert room._sip_ticker.get("Alice") == 3
-    assert room._sip_ticker.get("Bob") == 1
+    assert room.drinks.sip_ticker.get("Alice") == 3
+    assert room.drinks.sip_ticker.get("Bob") == 1
 
 
 # ---------------------------------------------------------------------------
@@ -146,40 +146,40 @@ def test_update_sip_tickers_multiple_players_independent():
 
 def test_snapshot_round_shifts_prev_sips():
     room = _make_room()
-    room._last_round_sips = {"Alice": 2}
+    room.drinks.last_round_sips = {"Alice": 2}
     room.all_players[0].add_drink(5, "net loss", "player")
     _snapshot_round(room)
-    assert room._prev_round_sips == {"Alice": 2}
-    assert room._last_round_sips.get("Alice") == 5
+    assert room.drinks.prev_round_sips == {"Alice": 2}
+    assert room.drinks.last_round_sips.get("Alice") == 5
 
 
 def test_snapshot_round_zero_sip_player_still_recorded():
     """Players with no drinks must appear in _last_round_sips (crown-badge logic)."""
     room = _make_room()
     _snapshot_round(room)
-    assert "Alice" in room._last_round_sips
-    assert room._last_round_sips["Alice"] == 0
+    assert "Alice" in room.drinks.last_round_sips
+    assert room.drinks.last_round_sips["Alice"] == 0
 
 
 def test_snapshot_round_increments_rounds_played():
     room = _make_room()
     _snapshot_round(room)
-    assert room._player_rounds_played.get("Alice") == 1
+    assert room.stats.player_rounds_played.get("Alice") == 1
 
 
 def test_snapshot_round_appends_to_sip_history():
     room = _make_room()
     room.all_players[0].add_drink(3, "net loss", "player")
     _snapshot_round(room)
-    assert len(room._round_sip_history) == 1
-    assert room._round_sip_history[0] == 3
+    assert len(room.stats.round_sip_history) == 1
+    assert room.stats.round_sip_history[0] == 3
 
 
 def test_snapshot_round_history_clamps_negative():
     room = _make_room()
     room.all_players[0].add_drink(-5, "bust vote correct: -1 sip credit", "player")
     _snapshot_round(room)
-    assert room._round_sip_history[0] == 0   # max(0, -5) = 0
+    assert room.stats.round_sip_history[0] == 0   # max(0, -5) = 0
 
 
 # ---------------------------------------------------------------------------
@@ -188,32 +188,32 @@ def test_snapshot_round_history_clamps_negative():
 
 def test_update_max_sips_records_first_round():
     room = _make_room()
-    room._last_round_sips = {"Alice": 5}
+    room.drinks.last_round_sips = {"Alice": 5}
     _update_max_round_sips(room)
-    assert room._max_round_sips["Alice"] == 5
+    assert room.stats.max_round_sips["Alice"] == 5
 
 
 def test_update_max_sips_keeps_previous_higher():
     room = _make_room()
-    room._max_round_sips    = {"Alice": 10}
-    room._last_round_sips   = {"Alice": 3}
+    room.stats.max_round_sips    = {"Alice": 10}
+    room.drinks.last_round_sips   = {"Alice": 3}
     _update_max_round_sips(room)
-    assert room._max_round_sips["Alice"] == 10
+    assert room.stats.max_round_sips["Alice"] == 10
 
 
 def test_update_max_sips_replaces_previous_lower():
     room = _make_room()
-    room._max_round_sips    = {"Alice": 2}
-    room._last_round_sips   = {"Alice": 7}
+    room.stats.max_round_sips    = {"Alice": 2}
+    room.drinks.last_round_sips   = {"Alice": 7}
     _update_max_round_sips(room)
-    assert room._max_round_sips["Alice"] == 7
+    assert room.stats.max_round_sips["Alice"] == 7
 
 
 def test_update_max_sips_clamps_negative():
     room = _make_room()
-    room._last_round_sips = {"Alice": -2}
+    room.drinks.last_round_sips = {"Alice": -2}
     _update_max_round_sips(room)
-    assert room._max_round_sips.get("Alice", 0) == 0
+    assert room.stats.max_round_sips.get("Alice", 0) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -224,14 +224,14 @@ def test_streaks_win_round_increments():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
     _update_streaks(room)
-    assert room._streaks["Alice"]["current"] == 1
+    assert room.stats.streaks["Alice"]["current"] == 1
 
 
 def test_streaks_loss_round_decrements():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
     _update_streaks(room)
-    assert room._streaks["Alice"]["current"] == -1
+    assert room.stats.streaks["Alice"]["current"] == -1
 
 
 def test_streaks_neutral_resets_to_zero():
@@ -241,25 +241,25 @@ def test_streaks_neutral_resets_to_zero():
         make_hand(("A", "H"), ("K", "D"), result="win"),
         make_hand(("5", "S"), ("6", "H"), result="loss"),
     ]
-    room._streaks["Alice"] = {"current": 3, "longest_win": 3, "longest_loss": 0}
+    room.stats.streaks["Alice"] = {"current": 3, "longest_win": 3, "longest_loss": 0}
     _update_streaks(room)
-    assert room._streaks["Alice"]["current"] == 0
+    assert room.stats.streaks["Alice"]["current"] == 0
 
 
 def test_streaks_tracks_longest_win():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
-    room._streaks["Alice"] = {"current": 2, "longest_win": 2, "longest_loss": 0}
+    room.stats.streaks["Alice"] = {"current": 2, "longest_win": 2, "longest_loss": 0}
     _update_streaks(room)
-    assert room._streaks["Alice"]["longest_win"] == 3
+    assert room.stats.streaks["Alice"]["longest_win"] == 3
 
 
 def test_streaks_tracks_longest_loss():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
-    room._streaks["Alice"] = {"current": -2, "longest_win": 0, "longest_loss": 2}
+    room.stats.streaks["Alice"] = {"current": -2, "longest_win": 0, "longest_loss": 2}
     _update_streaks(room)
-    assert room._streaks["Alice"]["longest_loss"] == 3
+    assert room.stats.streaks["Alice"]["longest_loss"] == 3
 
 
 def test_streaks_unresolved_hands_player_skipped():
@@ -267,7 +267,7 @@ def test_streaks_unresolved_hands_player_skipped():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result=None)]
     _update_streaks(room)
-    assert "Alice" not in room._streaks
+    assert "Alice" not in room.stats.streaks
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +278,7 @@ def test_hand_stats_win_and_blackjack_counted():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
     _update_hand_stats(room)
-    hs = room._hand_stats["Alice"]
+    hs = room.stats.hand_stats["Alice"]
     assert hs["hands"] == 1
     assert hs["wins"] == 1
     assert hs["blackjacks"] == 1
@@ -288,7 +288,7 @@ def test_hand_stats_loss_counted():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
     _update_hand_stats(room)
-    assert room._hand_stats["Alice"]["losses"] == 1
+    assert room.stats.hand_stats["Alice"]["losses"] == 1
 
 
 def test_hand_stats_bust_counted():
@@ -297,14 +297,14 @@ def test_hand_stats_bust_counted():
         make_hand(("K", "S"), ("Q", "H"), ("5", "D"), result="loss", bust=True)
     ]
     _update_hand_stats(room)
-    assert room._hand_stats["Alice"]["busts"] == 1
+    assert room.stats.hand_stats["Alice"]["busts"] == 1
 
 
 def test_hand_stats_unresolved_hand_skipped():
     room = _make_room()
     room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result=None)]
     _update_hand_stats(room)
-    assert room._hand_stats.get("Alice", {}).get("hands", 0) == 0
+    assert room.stats.hand_stats.get("Alice", {}).get("hands", 0) == 0
 
 
 def test_hand_stats_split_hand_tracked():
@@ -313,7 +313,7 @@ def test_hand_stats_split_hand_tracked():
         make_hand(("7", "H"), ("8", "D"), result="win", from_split=True)
     ]
     _update_hand_stats(room)
-    hs = room._hand_stats["Alice"]
+    hs = room.stats.hand_stats["Alice"]
     assert hs["split_hands"] == 1
     assert hs["split_wins"] == 1
 
@@ -325,7 +325,7 @@ def test_hand_stats_accumulates_across_rounds():
     _update_hand_stats(room)
     alice.hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
     _update_hand_stats(room)
-    hs = room._hand_stats["Alice"]
+    hs = room.stats.hand_stats["Alice"]
     assert hs["hands"] == 2
     assert hs["wins"] == 1
     assert hs["losses"] == 1
@@ -340,7 +340,7 @@ def test_dealer_stats_player_win_is_dealer_loss():
     room = _make_room(["Alice", "Bob"])
     room.all_players[1].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
     _update_dealer_stats(room)
-    ds = room._dealer_hand_stats["Alice"]
+    ds = room.stats.dealer_hand_stats["Alice"]
     assert ds["losses"] == 1
 
 
@@ -348,7 +348,7 @@ def test_dealer_stats_player_loss_is_dealer_win():
     room = _make_room(["Alice", "Bob"])
     room.all_players[1].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
     _update_dealer_stats(room)
-    assert room._dealer_hand_stats["Alice"]["wins"] == 1
+    assert room.stats.dealer_hand_stats["Alice"]["wins"] == 1
 
 
 def test_dealer_stats_bust_hand_counted():
@@ -356,7 +356,7 @@ def test_dealer_stats_bust_hand_counted():
     # Give the dealer player a bust hand
     room.all_players[0].dealer_hand = make_hand(("K", "S"), ("Q", "H"), ("5", "D"))
     _update_dealer_stats(room)
-    assert room._dealer_bust_rounds == 1
+    assert room.stats.dealer_bust_rounds == 1
 
 
 def test_dealer_stats_dealer_own_hands_excluded():
@@ -365,7 +365,7 @@ def test_dealer_stats_dealer_own_hands_excluded():
     # Give the dealer (Alice) a player hand — shouldn't be counted
     room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
     _update_dealer_stats(room)
-    assert room._dealer_hand_stats.get("Alice", {}).get("wins", 0) == 0
+    assert room.stats.dealer_hand_stats.get("Alice", {}).get("wins", 0) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -376,22 +376,22 @@ def test_record_drinks_detail_positive_sip_in_last_round_drinks():
     room = _make_room()
     room.all_players[0].add_drink(2, "net loss", "player")
     _record_drinks_detail(room)
-    assert any(d["name"] == "Alice" and d["sips"] == 2 for d in room._last_round_drinks)
+    assert any(d["name"] == "Alice" and d["sips"] == 2 for d in room.drinks.last_round_drinks)
 
 
 def test_record_drinks_detail_credit_in_last_round_drinks():
     room = _make_room()
     room.all_players[0].add_drink(-1, "bust vote correct: -1 sip credit", "player")
     _record_drinks_detail(room)
-    assert any(d["name"] == "Alice" and d["sips"] == -1 for d in room._last_round_drinks)
+    assert any(d["name"] == "Alice" and d["sips"] == -1 for d in room.drinks.last_round_drinks)
 
 
 def test_record_drinks_detail_replaces_previous_detail():
     """Each call to _record_drinks_detail overwrites _last_round_drinks."""
     room = _make_room()
-    room._last_round_drinks = [{"name": "Bob", "sips": 9, "reason": "stale"}]
+    room.drinks.last_round_drinks = [{"name": "Bob", "sips": 9, "reason": "stale"}]
     room.all_players[0].add_drink(1, "net loss", "player")
     _record_drinks_detail(room)
     # stale entry replaced; only Alice's drink remains
-    names = [d["name"] for d in room._last_round_drinks]
-    assert "Bob" not in names or all(d["sips"] != 9 for d in room._last_round_drinks)
+    names = [d["name"] for d in room.drinks.last_round_drinks]
+    assert "Bob" not in names or all(d["sips"] != 9 for d in room.drinks.last_round_drinks)

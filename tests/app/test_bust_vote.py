@@ -10,16 +10,14 @@ import time
 import pytest
 from engine.referee import RefereeSession
 from tests.conftest import make_player, make_hand
-
-pytest.importorskip("flask", reason="Flask not installed — skipping app-layer tests")
-from app import create_app  # noqa: E402
-from app.models.game_room import GameRoom  # noqa: E402
-from app.services.session_store import game_sessions, set_session  # noqa: E402
-from app.services.drink_tracker import (  # noqa: E402
+from app import create_app
+from app.models.game_room import GameRoom, GameConfig
+from app.services.session_store import game_sessions, set_session
+from app.services.drink_tracker import (
     apply_bust_vote_penalties,
     apply_bust_handout_forfeit,
 )
-from app.services.utils import classify_rule  # noqa: E402
+from app.services.utils import classify_rule
 
 
 # ---------------------------------------------------------------------------
@@ -36,8 +34,10 @@ def _make_room(num_players=3, bust_vote_enabled=True, dealer_hand=None):
     raw_session = RefereeSession(players, "Alice", wager=1, num_hands=2)
     room = GameRoom(
         session=raw_session,
-        mode="referee",
-        bust_vote_enabled=bust_vote_enabled,
+        config=GameConfig(
+            mode="referee",
+            bust_vote_enabled=bust_vote_enabled,
+        ),
     )
     return room
 
@@ -470,11 +470,11 @@ def test_give_sip_valid_handout(client, room_setup):
     carol = room._get_player("Carol")
     assert carol.drink_log[-1] == (1, "Bust vote handout from Bob: +1 sip", "player")
     assert "Bob" in room.round._bust_handouts_given
-    assert room._last_round_sips["Carol"] >= 1
-    assert room._sip_ticker["Carol"] >= 1
+    assert room.drinks.last_round_sips["Carol"] >= 1
+    assert room.drinks.sip_ticker["Carol"] >= 1
     assert any(
         row["player"] == "Carol" and row["rule"] == "Bust vote handout"
-        for row in room._drink_csv_rows
+        for row in room.drinks.csv_rows
     )
 
 
