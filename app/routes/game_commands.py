@@ -626,7 +626,10 @@ def _cmd_newround(game_session, parts, *, digital):
         )
     )
     rotate = explicit_rotate or auto_rotate
-    # Apply queued settings before the round starts
+    # Apply queued settings before the round starts.
+    # Capture shoe reference first — if apply_queued_settings creates a fresh
+    # Shoe (num_decks change), we must not reshuffle it immediately after.
+    shoe_before = game_session.shoe
     setting_changes = apply_queued_settings(game_session)
     for msg in setting_changes:
         log.debug(f"  ⚙️  {msg}")
@@ -637,8 +640,11 @@ def _cmd_newround(game_session, parts, *, digital):
         game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
     reset_round_state(game_session, digital=digital)
     if digital and (game_session.drinking_mode or game_session.shoe.needs_reshuffle()):
-        game_session.shoe.reset()
-        log.debug("  Shoe reshuffled.")
+        if game_session.shoe is not shoe_before:
+            log.debug("  Shoe already fresh from settings change — skipping reshuffle.")
+        else:
+            game_session.shoe.reset()
+            log.debug("  Shoe reshuffled.")
     game_session.start_round()
     patch_tracker(game_session)
     game_session.session.tracker.easy_mode = game_session.easy_mode

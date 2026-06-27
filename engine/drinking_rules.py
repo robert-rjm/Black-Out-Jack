@@ -714,12 +714,12 @@ class DrinkTracker:
             if self.verbose:
                 print(f"    [drink] {reason}")
 
-    def apply_end_of_round(self, *msg_lists):
+    def apply_end_of_round(self, msgs: list):
         """Apply all end-of-round drink messages.
         4-player rule (4+ players): sum positive sips per player across the
         entire round, then apply a halving credit so net = ceil(total/2).
         Mid-round events (aces, first-deal four-aces) use apply() -- NOT halved."""
-        all_msgs = [msg for msgs in msg_lists for msg in msgs]
+        all_msgs = list(msgs)
         halving_active = self.easy_mode or len(self.players) >= 4
 
         if not halving_active:
