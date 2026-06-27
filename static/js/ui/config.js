@@ -25,3 +25,13 @@ const ROLE = Object.freeze({
 // represent "the dealer's hand" as opposed to a named player. Must match
 // the literal the referee dispatch logic checks for in table.js.
 const DEALER_SENTINEL = "Dealer";
+
+// Card rank and suit constants — used by table.js (card picker) and
+// any other module that needs to enumerate a standard deck.
+const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+const SUITS = [
+  { label: "♥", code: "h", cls: "hearts" },
+  { label: "♦", code: "d", cls: "diamonds" },
+  { label: "♣", code: "c", cls: "clubs" },
+  { label: "♠", code: "s", cls: "spades" },
+];
