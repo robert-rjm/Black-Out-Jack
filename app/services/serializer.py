@@ -687,7 +687,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             _ci.get("reg_denials", 0) >= 2
         ),
         "connected_clients":      [
-            {"name": info.get("name"), "role": info.get("role")}
+            {"name": info.get("name"), "role": info.get("role"),
+             "local_names": info.get("local_names") or []}
             for info in session._room_clients.values()
             if not info.get("kicked")
         ],
