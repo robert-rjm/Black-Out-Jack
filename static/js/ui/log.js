@@ -170,16 +170,9 @@ function updateHeader(data) {
 // ============================================================
 // TABS
 // ============================================================
-function switchRefTab(name, el) {
-  document.querySelectorAll("#ref-tabs .tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("#ref-panel .pane").forEach(p => p.classList.remove("active"));
-  el.classList.add("active");
-  document.getElementById(`pane-${name}`).classList.add("active");
-}
-
-function switchDigTab(name, el) {
-  document.querySelectorAll("#dig-tabs .tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"));
+function switchTab(tabsId, panelId, name, el) {
+  document.querySelectorAll(`#${tabsId} .tab`).forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(`#${panelId} .pane`).forEach(p => p.classList.remove("active"));
   el.classList.add("active");
   document.getElementById(`pane-${name}`).classList.add("active");
 }
@@ -205,7 +198,7 @@ async function doNewRound() {
     await sendCmd("deal");
   } else {
     const firstTab = document.querySelector("#ref-tabs .tab");
-    if (firstTab) switchRefTab("deal", firstTab);
+    if (firstTab) switchTab("ref-tabs", "ref-panel", "deal", firstTab);
   }
 }
 

@@ -447,9 +447,9 @@ Frontend — HIGH (logic belongs in backend)
 [x] FH-3 Move kpi stat derivation to backend; frontend renderStats() becomes a pure renderer
 
 Frontend — MEDIUM
-[ ] FM-3 Reconcile age gate handlers — remove direct addEventListener from app.js
+[x] FM-3 Reconcile age gate handlers — remove direct addEventListener from app.js
 [x] FM-1 Extract _insuranceOutcomeText(); backend sends outcome_text on insurance results
-[ ] FM-2 Merge switchRefTab() / switchDigTab() into single switchTab(tabsId, panelId, name, el)
+[x] FM-2 Merge switchRefTab() / switchDigTab() into single switchTab(tabsId, panelId, name, el)
 [x] FM-4 Backend sends outcome_summary on bust_vote_result; remove JS text construction
 
 Frontend — LOW (cleanup)
