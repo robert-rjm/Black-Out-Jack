@@ -779,4 +779,3 @@ class RefereeSession:
       Exit the referee session.
 """
         print(help_text)
-)
