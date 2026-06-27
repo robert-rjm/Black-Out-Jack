@@ -28,7 +28,7 @@ from app.services.session_store import game_sessions
 from app.services.validators import is_dealer_client
 from app.services.serializer import (
     serialize_state, serialize_card,
-    round_phase, current_turn, compute_mandatory_split10,
+    round_phase, current_turn, compute_mandatory_split10, compute_mandatory_split_aces,
 )
 from app.services.game_engine import (
     deal_card, deal_pending_split_cards, perform_split,
@@ -135,10 +135,9 @@ def _check_honor_house_rule(game_session, player, hand, action) -> bool:
 
     If `hand` is an unsuited 10-value pair, split is still legal, and this
     hand hasn't been resolved yet, block the attempted action (hit, stand,
-    or double) by recording it — along with which action was attempted — in
-    session.round._honor_pending and return True. The frontend shows the
-    "Play with honor / <action> (1 sip)" prompt purely by reading
-    state.honor_pending — the choice is later applied via /honor_resolve.
+    or double) by recording it in session.round._honor_pending and return
+    True. The frontend shows the "Play with honor / <action> (1 sip)" prompt
+    via state.honor_pending; the choice is applied via /honor_resolve.
     Always returns False (no-op) in Normal mode.
     """
     if not game_session.drinking_mode:
@@ -153,8 +152,32 @@ def _check_honor_house_rule(game_session, player, hand, action) -> bool:
         "player":  player.name,
         "hand_id": id(hand),
         "action":  action,
+        "reason":  "tens",
     }
     return True
+
+
+def _penalize_unsplit_aces(game_session, player, hand) -> None:
+    """Drinking-mode auto-penalty: player takes any action other than split
+    on a pair of Aces.  1 sip fires immediately — no modal, no choice.
+    Only triggers when the hand is still the original 2-card A-A (before
+    the action modifies it) and hasn't been acked yet.
+    """
+    if not game_session.drinking_mode:
+        return
+    turn  = current_turn(game_session)
+    phase = round_phase(game_session)
+    if not compute_mandatory_split_aces(game_session, turn, phase):
+        return
+    if not turn or turn.lower() != player.name.lower():
+        return
+    # Mark acked so the penalty fires at most once per hand
+    game_session.round._honor_acked.add((player.name, id(hand)))
+    game_session.tracker.apply([
+        (player.name, 1, f"{player.name} didn't split Aces — drinks 1 sip"),
+    ])
+    _push_ace_drink_event(game_session, (player.name, 1,
+        f"⚠️ Didn't split Aces => {player.name} drinks 1 sip"))
 
 
 def _perform_action_without_honor(game_session, player, hand, action) -> None:
@@ -191,12 +214,14 @@ def _perform_action_without_honor(game_session, player, hand, action) -> None:
         hand.stood = True
         log.debug(f"  {player.name} {hand_label}: stands without honor at {hand.score()}.")
 
+    reason     = (game_session.round._honor_pending or {}).get("reason", "tens")
+    rule_label = "mandatory ace-split" if reason == "aces" else "mandatory 10-split"
     log.debug(f"  {player.name}: {action} without honor "
-              f"(declined mandatory 10-split, +1 sip penalty).")
+              f"(declined {rule_label}, +1 sip penalty).")
 
     # 1-sip "without honor" penalty via the existing ace-drink toast pipeline.
     game_session.tracker.apply([
-        (player.name, 1, f"{player.name} played without honor ({action}, declined mandatory 10-split)"),
+        (player.name, 1, f"{player.name} played without honor ({action}, declined {rule_label})"),
     ])
     _push_ace_drink_event(game_session, (player.name, 1,
         f"Played without honor ({action}) => {player.name} drinks 1 sip"))
@@ -307,6 +332,7 @@ def _cmd_hit(game_session, parts):
         log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
                   f"this unsuited 10-pair — awaiting choice.")
         return
+    _penalize_unsplit_aces(game_session, player, hand)
     _record_strategy_decision(game_session, player, hand, "h")
     record_decision(game_session, player, hand, "h")
     card = deal_card(game_session, hand, player.name)
@@ -338,6 +364,7 @@ def _cmd_stand(game_session, parts):
         log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
                   f"this unsuited 10-pair — awaiting choice.")
         return
+    _penalize_unsplit_aces(game_session, player, hand)
     _record_strategy_decision(game_session, player, hand, "s")
     record_decision(game_session, player, hand, "s")
     hand.stood = True
@@ -452,6 +479,7 @@ def _cmd_double(game_session, parts):
         log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
                   f"this unsuited 10-pair — awaiting choice.")
         return
+    _penalize_unsplit_aces(game_session, player, hand)
     _record_strategy_decision(game_session, player, hand, "d")
     record_decision(game_session, player, hand, "d")
     hand.doubled = True
