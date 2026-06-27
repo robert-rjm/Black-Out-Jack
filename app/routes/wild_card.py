@@ -131,17 +131,17 @@ def wild_card():
         outcome = "dud"
         text = f"🃏 {dud_t}"
     else:
-        # Random other player drinks
-        others = [
+        # Random player drinks (including the presser)
+        candidates = [
             p for p in session.all_players
-            if p.name != player_name and not getattr(p, "is_npc", False)
+            if not getattr(p, "is_npc", False)
         ]
-        if not others:
+        if not candidates:
             # No valid targets → fall back to dud
             outcome = "dud"
             text = f"\U0001f0cf {dud_t}"
         else:
-            target  = random.choice(others)
+            target  = random.choice(candidates)
             outcome = "random"
             target.add_drink(1, f"Wild Card 🃏 — {label}", "player")
             text = f"\U0001f0cf {action_tmpl.format(name=target.name)}"
