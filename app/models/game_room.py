@@ -190,6 +190,7 @@ class GameRoom:
     # Client registry
     _room_clients: dict = field(default_factory=dict)
     _pending_registrations: list = field(default_factory=list)
+    _pending_seat_transfers: list = field(default_factory=list)
     _rejoin_requests: list = field(default_factory=list)
     _anim_default: bool = True
 

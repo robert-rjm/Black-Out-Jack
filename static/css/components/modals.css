@@ -434,3 +434,24 @@
   font-size: 11px; color: var(--muted); cursor: pointer;
   text-decoration: underline; white-space: nowrap;
 }
+
+/* ── Seat Transfer modal ── */
+#seat-transfer-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 960;
+  align-items: center; justify-content: center;
+}
+#seat-transfer-card {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  width: min(340px, 90vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+#seat-transfer-card h3 { margin: 0 0 .6rem; }
+#seat-transfer-card p  { margin: 0 0 .4rem; color: var(--text-muted); font-size:.95rem; }
