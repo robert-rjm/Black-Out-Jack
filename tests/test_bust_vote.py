@@ -88,6 +88,7 @@ def test_dealer_busts_credits_winners():
         "dealer_busted": True,
         "winners": ["Bob", "Carol"],
         "losers": [],
+        "side_bet_amount": None,   # None in drinking mode
     }
     assert room.round._bust_handouts_given == set()
     assert room.round._bust_handout_expires_at is not None
@@ -108,6 +109,7 @@ def test_dealer_does_not_bust_penalizes_voters():
         "dealer_busted": False,
         "winners": [],
         "losers": ["Bob", "Carol"],
+        "side_bet_amount": None,   # None in drinking mode
     }
     assert room.round._bust_handout_expires_at is None
 
