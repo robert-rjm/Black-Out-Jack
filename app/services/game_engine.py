@@ -46,13 +46,14 @@ def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
     })
 
 
-def _push_table_event(session: GameRoom, text: str, outcome: str) -> None:
+def _push_table_event(session: GameRoom, text: str, outcome: str, target: str = "") -> None:
     """Push a Devil's Hand (666) or Lucky Sevens (777) event to the toast queue."""
     session.round._table_event_seq += 1
     session.round._table_events.append({
         "seq":     session.round._table_event_seq,
         "text":    text,
         "outcome": outcome,   # "curse" | "lucky"
+        "target":  target,    # name of player who drinks/gets credit
     })
 
 
@@ -97,6 +98,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
                 session,
                 f"\U0001f3b0 Devil's Hand — three 6s on the table! {target} drinks 1 sip!",
                 "curse",
+                target,
             )
 
     elif val == 7 and not session.round._seven_lucky_fired:
@@ -111,6 +113,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
                 session,
                 f"\U0001f3b0 Lucky Sevens — three 7s on the table! {target} gets a sip credit!",
                 "lucky",
+                target,
             )
 
 
