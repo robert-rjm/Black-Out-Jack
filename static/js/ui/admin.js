@@ -316,8 +316,7 @@ function showLocalSeatPicker() {
   picker.innerHTML = "";
   available.forEach(name => {
     const btn = document.createElement("button");
-    btn.className   = "btn wide";
-    btn.style.cssText = "font-size:12px;margin-bottom:4px";
+    btn.className = "btn wide seat-pick-btn";
     btn.textContent = name;
     btn.addEventListener("click", () => requestLocalSeat(name));
     picker.appendChild(btn);
@@ -415,11 +414,11 @@ function _renderBustVoteCards(state) {
   locals.forEach(name => {
     const voted = bustVotes[name];
     const card  = document.createElement("div");
-    card.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)";
+    card.classList.add("bv-vote-card");
 
     if (multiLocal) {
       const nameLbl = document.createElement("span");
-      nameLbl.style.cssText = "font-size:14px;font-weight:700;min-width:60px;color:var(--text)";
+      nameLbl.classList.add("bv-name-lbl");
       nameLbl.textContent = name;
       card.appendChild(nameLbl);
     }
@@ -427,23 +426,21 @@ function _renderBustVoteCards(state) {
     if (voted) {
       // Already voted — show status
       const statusEl = document.createElement("span");
-      statusEl.style.cssText = `font-size:13px;color:${voted === "bust" ? "var(--red)" : "var(--muted)"};font-weight:600`;
-      statusEl.textContent   = voted === "bust" ? "💥 Bet Bust" : "Passed";
+      statusEl.classList.add("bv-status", voted === "bust" ? "bv-status--bust" : "bv-status--pass");
+      statusEl.textContent = voted === "bust" ? "💥 Bet Bust" : "Passed";
       card.appendChild(statusEl);
     } else {
       // Buttons
       const btns = document.createElement("div");
-      btns.style.cssText = "display:flex;gap:8px;flex:1";
+      btns.classList.add("bv-btn-row");
 
       const bustBtn = document.createElement("button");
-      bustBtn.className   = "btn green";
-      bustBtn.style.cssText = "flex:1";
+      bustBtn.className = "btn green bv-vote-btn";
       bustBtn.textContent = "💥 Bet Bust";
       bustBtn.addEventListener("click", () => submitBustVote("bust", multiLocal ? name : undefined));
 
       const passBtn = document.createElement("button");
-      passBtn.className   = "btn muted-btn";
-      passBtn.style.cssText = "flex:1";
+      passBtn.className = "btn muted-btn bv-vote-btn";
       passBtn.textContent = "Pass";
       passBtn.addEventListener("click", () => submitBustVote("pass", multiLocal ? name : undefined));
 
@@ -552,7 +549,7 @@ function updateBustVoteUI(state) {
       const label = allBusters.length === 1
         ? `💥 ${escapeHtml(allBusters[0])} bet dealer busts`
         : `💥 ${allBusters.map(escapeHtml).join(" & ")} bet dealer busts`;
-      statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">${label}</span>`;
+      statusEl.innerHTML = `<span class="bust-label">${label}</span>`;
     } else if (myVote === "pass") {
       statusEl.textContent = "You passed the bust bet.";
     } else {
@@ -613,23 +610,24 @@ function _renderBustGivePanel(state) {
     ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
     : "";
 
-  body.innerHTML = pending.map(winnerName => {
+  body.innerHTML = pending.map((winnerName, idx) => {
     const label = pending.length > 1
       ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
       : "🎉 You called it! Give 1 sip to:";
     const btns = allPlayers
       .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
-      .map(n => `<button class="btn wide" style="margin-bottom:8px"
+      .map(n => `<button class="btn wide bgp-give-btn"
           data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
           onclick="giveBustSip(this.dataset.winner, this.dataset.recipient)"
           >${escapeHtml(n)}</button>`)
       .join("");
-    return `<div style="margin-bottom:${pending.length > 1 ? 16 : 0}px">
-      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:10px;text-align:center">${label}</div>
+    const mb = pending.length > 1 ? " bgp-multi-entry" : "";
+    return `<div class="bgp-entry${mb}">
+      <div class="bgp-winner-label">${label}</div>
       ${timerStr}
-      <div style="display:flex;flex-direction:column">${btns}</div>
+      <div class="bgp-btns-col">${btns}</div>
     </div>`;
-  }).join(`<hr style="border-color:var(--border);margin:8px 0">`);
+  }).join(`<hr class="bgp-divider">`);
 }
 
 // Shared toast helper — sets content, applies drink/clean class, triggers show animation.
@@ -804,13 +802,12 @@ function showRegisterOverlay(state) {
 
   seatsEl.innerHTML = "";
   if (available.length === 0) {
-    seatsEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:4px 0">All seats are taken — you can watch as spectator.</p>`;
+    seatsEl.innerHTML = `<p class="reg-no-seats">All seats are taken — you can watch as spectator.</p>`;
   } else {
     available.forEach(name => {
-      const btn        = document.createElement("button");
-      btn.className    = "btn-big accent";
-      btn.style.height = "52px";
-      btn.textContent  = `I am ${name}`;
+      const btn     = document.createElement("button");
+      btn.className = "btn-big accent reg-seat-btn";
+      btn.textContent = `I am ${name}`;
       btn.addEventListener("click", () => doRegister(name));
       seatsEl.appendChild(btn);
     });
