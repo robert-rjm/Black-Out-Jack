@@ -114,8 +114,9 @@ class RefereeSession:
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
+        # Active keys: "partial_protected", "half_protected", "dealer_player_pending_credit"
         self._ace_clubs_flag  = {
-            "protected": False, "partial_protected": False,
+            "partial_protected": False,
             "half_protected": False, "dealer_player_pending_credit": None,
         }
         self._four_aces_fd    = False
@@ -127,6 +128,7 @@ class RefereeSession:
 
         # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
         self.bust_vote_enabled = bust_vote_enabled
+        self._insurance_result = None
         self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
         self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
 
@@ -177,7 +179,7 @@ class RefereeSession:
                 p.drink_log = []
 
         self._ace_clubs_flag  = {
-            "protected": False, "partial_protected": False,
+            "partial_protected": False,
             "half_protected": False, "dealer_player_pending_credit": None,
         }
         self._four_aces_fd    = False
@@ -598,7 +600,7 @@ class RefereeSession:
         w = self.wager
 
         # Insurance resolution — for hands marked insured via the INSURANCE button
-        if not hasattr(self, "_insurance_result") or self._insurance_result is None:
+        if self._insurance_result is None:
             self._insurance_result = []
         for p in players:
             if p.is_dealer:
@@ -777,3 +779,4 @@ class RefereeSession:
       Exit the referee session.
 """
         print(help_text)
+)
