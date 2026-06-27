@@ -764,7 +764,7 @@ function closeSummaryModal() {
 // ============================================================
 function exportDrinkCSV() {
   if (!roomCode) { alert("No active session."); return; }
-  window.location.href = "/export_csv?room_code=" + encodeURIComponent(roomCode);
+  window.location.href = "/export_xlsx?room_code=" + encodeURIComponent(roomCode);
 }
 
 function exportDecisionLog() {
