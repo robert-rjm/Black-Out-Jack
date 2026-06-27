@@ -414,10 +414,10 @@ CRITICAL — fix before next play session
 [x] C-2  Fix is_soft_hand() in strategy.py for multi-ace hands
 
 HIGH — fix before next public session
-[ ] H-5  Add _insurance_result = None to RefereeSession.__init__; remove hasattr guard
-[ ] H-1  Remove dead "protected" key from _ace_clubs_flag everywhere
-[ ] H-4  Delete empty _join_attempts keys after pruning in session_store.py
-[ ] H-3  Remove compute_dealer_role_sips (unused); simplify compute_sip_totals
+[X] H-5  Add _insurance_result = None to RefereeSession.__init__; remove hasattr guard
+[X] H-1  Remove dead "protected" key from _ace_clubs_flag everywhere
+[X] H-4  Delete empty _join_attempts keys after pruning in session_store.py
+[x] H-3  Remove compute_dealer_role_sips (unused); simplify compute_sip_totals
 [ ] H-2  Add cross-reference comments to both bust-vote resolution functions
 
 MEDIUM — address in next refactor pass
