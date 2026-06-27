@@ -56,15 +56,16 @@ def _push_table_event(session: GameRoom, text: str, outcome: str) -> None:
     })
 
 
-def _check_table_number(session: GameRoom, card, recipient_name: str) -> None:
+def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: int) -> None:
     """Check if a newly-visible card triggers Devil's Hand (666) or Lucky Sevens (777).
 
     Called after every face-up card deal (hole card and doubled cards are
     deferred to ``dealer_turn``).  Each effect fires at most once per round.
 
-    The drinker is chosen with the same rotation as the Ace of Spades rule —
-    ``all_player_names[(recipient_idx + count) % n]`` — so the player who
-    happens to receive the triggering card is not systematically favoured.
+    The drinker is chosen by advancing ``card_pos`` seats clockwise from the
+    recipient of the triggering card — ``all_player_names[(recipient_idx +
+    card_pos) % n]``.  So a card dealt as the 1st in its hand targets the
+    next player (+1), the 2nd card targets the player after that (+2), etc.
     The dealer is included in the pool (they rotate in this game and are a
     full participant).
 
@@ -80,15 +81,15 @@ def _check_table_number(session: GameRoom, card, recipient_name: str) -> None:
     if not all_player_names:
         return
 
-    def _pick_target(count: int) -> str:
+    def _pick_target() -> str:
         base = all_player_names.index(recipient_name) if recipient_name in all_player_names else 0
-        return all_player_names[(base + count) % len(all_player_names)]
+        return all_player_names[(base + card_pos) % len(all_player_names)]
 
     if val == 6 and not session.round._six_curse_fired:
         session.round._six_count += 1
         if session.round._six_count >= 3:
             session.round._six_curse_fired = True
-            target = _pick_target(session.round._six_count)
+            target = _pick_target()
             player = session._get_player(target)
             if player:
                 player.add_drink(1, "Devil's Hand — three 6s on the table!", "player")
@@ -102,7 +103,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str) -> None:
         session.round._seven_count += 1
         if session.round._seven_count >= 3:
             session.round._seven_lucky_fired = True
-            target = _pick_target(session.round._seven_count)
+            target = _pick_target()
             player = session._get_player(target)
             if player:
                 player.add_drink(-1, "Lucky Sevens — three 7s on the table!", "player")
@@ -176,7 +177,7 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
         # Only count face-up visible cards.  Hole card is checked in
         # dealer_turn; doubled card is also deferred there.
         if not is_hole_card and not is_double_card:
-            _check_table_number(session, card, recipient_name)
+            _check_table_number(session, card, recipient_name, card_pos)
 
     return card
 
