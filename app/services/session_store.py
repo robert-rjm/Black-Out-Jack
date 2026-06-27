@@ -138,6 +138,8 @@ def get_waiting_clients(room_code: str) -> list[str]:
     stale = [cid for cid, seen in clients.items() if now - seen > WAITING_CLIENT_TTL]
     for cid in stale:
         del clients[cid]
+    if not clients:
+        del _waiting_clients[room_code]
     return list(clients.keys())
 
 

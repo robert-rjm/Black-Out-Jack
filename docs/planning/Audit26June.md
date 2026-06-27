@@ -429,12 +429,12 @@ MEDIUM — address in next refactor pass
 [x] M-6  Add explicit None-return guard for A♣ informational message in classify_rule
 
 LOW — cleanup sprint
-[ ] L-1  Simplify is_dealer_client to return get_client_info(...)["is_dealer"]
+[x] L-1  Simplify is_dealer_client to return get_client_info(...)["is_dealer"]
 [ ] L-6  Use quiet=True in apply_queued_settings and _cmd_newround shoe shuffles
-[ ] L-3  Delete empty _waiting_clients[room_code] after all clients prune out
+[x] L-3  Delete empty _waiting_clients[room_code] after all clients prune out
 [ ] L-2  Add pytest.importorskip("flask") to Flask-dependent test files
-[ ] L-4  Move _BLUE/_RESET ANSI codes into the function that uses them
-[ ] L-5  Document RoundState._ace_drink_seq / round_count interaction in a comment
+[x] L-4  Move _BLUE/_RESET ANSI codes into the function that uses them
+[x] L-5  Document RoundState._ace_drink_seq / round_count interaction in a comment
 [ ] L-7  Audit reports.py CSV export for correctness
 [x] L-8  Remove "blackjack" from DIGITAL_COMMANDS and digital help text (dead code)
 
