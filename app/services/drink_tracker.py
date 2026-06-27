@@ -305,12 +305,12 @@ def _snapshot_round(session: GameRoom) -> None:
     session.drinks.last_round_sips = last
 
     round_total = max(0, sum(last.values()))
-    session._round_sip_history = session._round_sip_history + [round_total]
+    session.stats.round_sip_history = session.stats.round_sip_history + [round_total]
 
-    rounds_played = session._player_rounds_played
+    rounds_played = session.stats.player_rounds_played
     for p in session.all_players:
         rounds_played[p.name] = rounds_played.get(p.name, 0) + 1
-    session._player_rounds_played = rounds_played
+    session.stats.player_rounds_played = rounds_played
 
 
 def _record_drinks_detail(session: GameRoom) -> None:
@@ -356,7 +356,7 @@ def _record_drinks_detail(session: GameRoom) -> None:
 
 def _update_hand_stats(session: GameRoom) -> None:
     """Accumulate per-player hand outcome statistics."""
-    hand_stats = session._hand_stats
+    hand_stats = session.stats.hand_stats
     for p in session.all_players:
         if p.name not in hand_stats:
             hand_stats[p.name] = {
@@ -402,17 +402,17 @@ def _update_hand_stats(session: GameRoom) -> None:
             if not getattr(hand, "bust", False) and not hand.is_bust():
                 hs["total_score"]  += hand.score()
                 hs["scored_hands"] += 1
-    session._hand_stats = hand_stats
+    session.stats.hand_stats = hand_stats
 
 
 def _update_max_round_sips(session: GameRoom) -> None:
     """Track the highest single-round sip total per player."""
-    mx = session._max_round_sips
+    mx = session.stats.max_round_sips
     for name, raw in session.drinks.last_round_sips.items():
         net = max(0, raw)
         if net > mx.get(name, 0):
             mx[name] = net
-    session._max_round_sips = mx
+    session.stats.max_round_sips = mx
 
 
 def _update_dealer_stats(session: GameRoom) -> None:
@@ -420,9 +420,9 @@ def _update_dealer_stats(session: GameRoom) -> None:
     dealer_player = next((p for p in session.all_players if p.is_dealer), None)
     if dealer_player and getattr(dealer_player, "dealer_hand", None):
         if dealer_player.dealer_hand.is_bust():
-            session._dealer_bust_rounds += 1
+            session.stats.dealer_bust_rounds += 1
 
-    dealer_stats = session._dealer_hand_stats
+    dealer_stats = session.stats.dealer_hand_stats
     dname = session.dealer_name
     if dname not in dealer_stats:
         dealer_stats[dname] = {"hands": 0, "wins": 0, "losses": 0, "pushes": 0}
@@ -438,7 +438,7 @@ def _update_dealer_stats(session: GameRoom) -> None:
             if result == "win":    ds["losses"] += 1   # player wins = dealer lost
             elif result == "loss": ds["wins"]   += 1   # player loses = dealer won
             elif result == "push": ds["pushes"] += 1
-    session._dealer_hand_stats = dealer_stats
+    session.stats.dealer_hand_stats = dealer_stats
 
 
 def _update_streaks(session: GameRoom) -> None:
@@ -448,7 +448,7 @@ def _update_streaks(session: GameRoom) -> None:
     Loss round = net losses > 0 (lost more hands than won).
     Neutral    = equal -> resets current streak to 0.
     """
-    streaks = session._streaks
+    streaks = session.stats.streaks
     for p in session.all_players:
         round_wins   = sum(1 for h in p.hands if getattr(h, "result", None) == "win")
         round_losses = sum(1 for h in p.hands if getattr(h, "result", None) == "loss")
@@ -466,7 +466,7 @@ def _update_streaks(session: GameRoom) -> None:
             s["longest_loss"] = max(s["longest_loss"], abs(s["current"]))
         else:
             s["current"] = 0
-    session._streaks = streaks
+    session.stats.streaks = streaks
 
 
 def harvest_drink_log(session: GameRoom) -> None:
@@ -506,7 +506,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     drinking a number of sips equal to the milestone winner's avg sips/round
     (rounded to the nearest whole sip, minimum 1).
     """
-    rounds_played = session._player_rounds_played
+    rounds_played = session.stats.player_rounds_played
 
     candidates = [
         (ticker.get(p.name, 0) / max(1, rounds_played.get(p.name, 0)), p.name.lower(), p.name)
