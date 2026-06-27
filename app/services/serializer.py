@@ -336,6 +336,27 @@ def compute_mandatory_split_aces(session: GameRoom, turn: str | None, phase: str
     return True
 
 
+
+def compute_trophy_holder(session: GameRoom) -> str | None:
+    """Return the name of the sole player who uniquely leads in total clean
+    rounds, subject to a dynamic threshold that starts at 3 and escalates
+    by 2 whenever two or more players are tied at or above it.
+
+    Returns None if no player meets the threshold, or if the leader is tied.
+    """
+    totals = session.stats.total_clean_rounds
+    if not totals:
+        return None
+    threshold = 3
+    while True:
+        qualifiers = [name for name, n in totals.items() if n >= threshold]
+        if len(qualifiers) < 2:
+            break          # 0 or 1 player at this level — stop escalating
+        threshold += 2     # tie at current level — raise the bar
+    leaders = [name for name, n in totals.items() if n >= threshold]
+    return leaders[0] if len(leaders) == 1 else None
+
+
 # ---------------------------------------------------------------------------
 # KPI stats — pre-computed server-side so kpi.js is a pure renderer
 # ---------------------------------------------------------------------------
@@ -626,6 +647,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "sip_grand_total":        sum(sip_totals.values()),
         "round_over_seq":         session.drinks.round_over_seq,
         "last_round_sips":        {k: max(0, v) for k, v in session.drinks.last_round_sips.items()},
+        "clean_streaks":          dict(session.stats.clean_streak),
+        "total_clean_rounds":     dict(session.stats.total_clean_rounds),
+        "trophy_holder":          compute_trophy_holder(session),
         "last_round_drinks":      session.drinks.last_round_drinks,
         "round_notices":          session.drinks.round_notices,
         "prev_round_sips":        {k: max(0, v) for k, v in session.drinks.prev_round_sips.items()},

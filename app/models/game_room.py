@@ -112,6 +112,8 @@ class SessionStats:
     round_sip_history: list   = field(default_factory=list)   # total sips (all players) per round
     player_rounds_played: dict = field(default_factory=dict)  # player -> rounds participated
     session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
+    clean_streak: dict       = field(default_factory=dict)   # player -> current consecutive clean rounds
+    total_clean_rounds: dict = field(default_factory=dict)   # player -> total clean rounds this session
 
 
 @dataclass
