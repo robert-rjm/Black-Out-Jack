@@ -426,6 +426,7 @@ def preselect():
                 "player":  player.name,
                 "hand_id": id(active_hand),
                 "action":  _ACTION_NAMES[action],
+                "reason":  "tens",
             }
             return jsonify({**serialize_state(session, client_id), "ok": True})
 

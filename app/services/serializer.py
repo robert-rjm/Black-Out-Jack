@@ -311,6 +311,31 @@ def compute_mandatory_split10(session: GameRoom, turn: str | None, phase: str) -
     return True
 
 
+
+def compute_mandatory_split_aces(session: GameRoom, turn: str | None, phase: str) -> bool:
+    """Drinking-mode house rule: a pair of Aces must be split.
+
+    Returns True when the current human turn's active hand is exactly an
+    Ace pair, splitting is still valid, and the player hasn't yet been
+    prompted/acknowledged this hand. Always False in Normal mode.
+    """
+    if not session.drinking_mode or phase != "playing" or not turn:
+        return False
+    player = session._get_player(turn)
+    if not player or getattr(player, "is_npc", False):
+        return False
+    active_hand = next((h for h in player.hands if not hand_done(h)), None)
+    if not active_hand or len(active_hand.cards) != 2:
+        return False
+    if not active_hand.can_split():
+        return False
+    if not all(c.rank.blackjack_value == 11 for c in active_hand.cards):
+        return False
+    if (player.name, id(active_hand)) in session.round._honor_acked:
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # KPI stats — pre-computed server-side so kpi.js is a pure renderer
 # ---------------------------------------------------------------------------
@@ -754,6 +779,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "strategy_hint_enabled":  session.strategy_hint_enabled,
         "honor_pending":          bool(session.drinking_mode and session.round._honor_pending),
         "honor_pending_action":   (session.round._honor_pending or {}).get("action") if session.drinking_mode else None,
+        "honor_pending_reason":   (session.round._honor_pending or {}).get("reason") if session.drinking_mode else None,
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,
         "rounds_this_dealer":     rounds_td,
