@@ -456,7 +456,7 @@ Frontend — LOW (cleanup)
 [x] LF-3 Replace inline CSS strings in JS with toggled CSS classes (admin.js, table.js, log.js)
 [x] LF-2 Switch action-button matching to data-action-code attributes (table.js, admin.js)
 [x] LF-5 Add .mobile-sheet CSS class; remove inline style.cssText from _mobileSheet()
-[ ] LF-6 Add user feedback when sendCmd() drops a command (request in flight)
+[x] LF-6 Add user feedback when sendCmd() drops a command (request in flight)
 [x] LF-4 Move RANKS and SUITS from setup.js to config.js
 [x] LF-7 Split renderStats() into _computeKpiData() + _renderKpi() (prerequisite for FH-3)
 [x] LF-1 Add overflow guard on sip ticker row for 4+ players (kpi.css / log.js)

@@ -281,7 +281,13 @@ async function sendPreselect(action, hand) {
 // SEND COMMAND
 // ============================================================
 async function sendCmd(cmd) {
-  if (_requestsInFlight > 0) return;
+  if (_requestsInFlight > 0) {
+    // Queue for replay once the in-flight request settles; last intent wins.
+    _pendingCmd = cmd;
+    console.warn("[sendCmd] request in flight — queued:", cmd);
+    return;
+  }
+  _pendingCmd = null;
   _requestsInFlight++;
   if (typeof resetIdleTimer === "function") resetIdleTimer();
   // Visually lock all action buttons while the request is in flight
@@ -302,6 +308,13 @@ async function sendCmd(cmd) {
   } finally {
     _requestsInFlight--;
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
+    // Drain the one-slot queue: fire any command that was deferred while we
+    // were in flight.  This handles rapid taps and sendCmd-while-sendCmd races.
+    if (_pendingCmd !== null) {
+      const queued = _pendingCmd;
+      _pendingCmd = null;
+      sendCmd(queued);
+    }
   }
 }
 
