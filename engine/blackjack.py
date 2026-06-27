@@ -360,7 +360,7 @@ class RoundManager:
         self.drinking_mode  = drinking_mode
         self._all_names     = [p.name for p in players]
         self._ace_credits   = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag = {"partial_protected": False, "half_protected": False}
         self._four_aces_fd  = False
         # List of (player, hand, insured:bool) — populated after deal, resolved in _evaluate
         self._insurance_votes: list = []
@@ -401,7 +401,7 @@ class RoundManager:
             self.dealer_player.reset_round(0)
             self.dealer_player.dealer_hand = Hand()
         self._ace_credits    = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag = {"partial_protected": False, "half_protected": False}
         self._four_aces_fd   = False
         self._insurance_votes = []
 

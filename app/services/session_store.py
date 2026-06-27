@@ -70,7 +70,9 @@ def is_join_rate_limited(ip: str) -> bool:
     cutoff = now - JOIN_RATE_WINDOW
     prev   = _join_attempts[ip]
     _join_attempts[ip] = [t for t in prev if t > cutoff]   # drop expired
-    if len(_join_attempts[ip]) >= JOIN_RATE_LIMIT:
+    if not _join_attempts[ip]:
+        del _join_attempts[ip]
+    if len(_join_attempts.get(ip, [])) >= JOIN_RATE_LIMIT:
         return True
     _join_attempts[ip].append(now)
     return False
