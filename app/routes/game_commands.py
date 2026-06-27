@@ -123,7 +123,7 @@ def _record_strategy_decision(session, player, hand, chosen_action: str) -> None
     optimal = _best_play(hand, dealer_up, valid,
                          drinking_mode=session.drinking_mode)
 
-    sd = session._strategy_decisions
+    sd = session.stats.strategy_decisions
     if player.name not in sd:
         sd[player.name] = {"correct": 0, "total": 0}
     sd[player.name]["total"]   += 1

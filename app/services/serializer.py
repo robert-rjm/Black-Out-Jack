@@ -329,15 +329,15 @@ def compute_kpi_stats(session: GameRoom) -> dict:
     HTML generation and benchmark z-score coloring (which depends on the static
     BENCHMARKS_BY_CONFIG JS file that has no backend equivalent).
     """
-    hand_stats         = session._hand_stats
+    hand_stats         = session.stats.hand_stats
     sip_ticker         = compute_sip_totals(session)   # reuses existing helper
-    max_round_sips     = session._max_round_sips
-    streaks            = session._streaks
-    strategy_decisions = session._strategy_decisions
-    dealer_bust_rounds = session._dealer_bust_rounds
+    max_round_sips     = session.stats.max_round_sips
+    streaks            = session.stats.streaks
+    strategy_decisions = session.stats.strategy_decisions
+    dealer_bust_rounds = session.stats.dealer_bust_rounds
     n_rounds           = session.round_count
-    history            = session._round_sip_history
-    session_secs       = max(0, int(time.monotonic() - session._session_started_at))
+    history            = session.stats.round_sip_history
+    session_secs       = max(0, int(time.monotonic() - session.stats.session_started_at))
     drinking           = session.drinking_mode
 
     # ── Session-wide aggregates ──────────────────────────────────────────────
@@ -642,7 +642,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ],
         # max_round_sips kept here (not inside kpi_stats) because table-render.js
         # reads it directly for the "worst rond" badge on the score panel.
-        "max_round_sips":         dict(session._max_round_sips),
+        "max_round_sips":         dict(session.stats.max_round_sips),
         "bust_handout_seq":       session._bust_handout_seq,
         "bust_handout_results":   list(session.round._bust_handout_log),
         **_bust_vote_window(session),

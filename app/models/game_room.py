@@ -4,7 +4,7 @@ app/models/game_room.py — typed container for all per-room state.
 All RefereeSession attributes used by app/ code are exposed as explicit
 properties or method wrappers below — no __getattr__ magic.
 
-State is divided into three layers:
+State is divided into four layers:
 
   RoundState   — per-round transient fields. Replaced wholesale by
                  reset_round_state() so it's impossible to forget
@@ -14,10 +14,13 @@ State is divided into three layers:
                  accumulators, milestone tracking, and wild-card stats.
                  Accessed via ``session.drinks.*``.
 
+  SessionStats — session-lifetime statistics: hand outcomes, streaks,
+                 sip history, strategy tracking, dealer bust counter.
+                 Accessed via ``session.stats.*``.
+
   GameRoom     — session-lifetime fields that survive across rounds,
-                 plus a ``round: RoundState`` slot, a ``drinks:
-                 DrinkLedger`` slot, and delegation properties that
-                 proxy into RefereeSession.
+                 plus ``round``, ``drinks``, and ``stats`` slots, and
+                 delegation properties that proxy into RefereeSession.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -90,6 +93,24 @@ class RoundState:
 
 
 @dataclass
+class SessionStats:
+    """Session-lifetime statistics.
+
+    Hand outcomes, streaks, sip history, strategy tracking, and dealer
+    bust counter.  Accessed via ``session.stats.*``.
+    """
+    hand_stats: dict          = field(default_factory=dict)   # player -> outcome counters
+    dealer_hand_stats: dict   = field(default_factory=dict)   # dealer_name -> outcome counters
+    strategy_decisions: dict  = field(default_factory=dict)   # player -> {correct: N, total: N}
+    max_round_sips: dict      = field(default_factory=dict)   # player -> highest single-round total
+    dealer_bust_rounds: int   = 0                             # rounds where dealer busted
+    streaks: dict             = field(default_factory=dict)   # player -> {current, longest_win, longest_loss}
+    round_sip_history: list   = field(default_factory=list)   # total sips (all players) per round
+    player_rounds_played: dict = field(default_factory=dict)  # player -> rounds participated
+    session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
+
+
+@dataclass
 class DrinkLedger:
     """Session-lifetime drink accounting.
 
@@ -131,6 +152,9 @@ class GameRoom:
     # Drink accounting + milestone tracking (session-lifetime)
     drinks: DrinkLedger = field(default_factory=DrinkLedger)
 
+    # Session-lifetime statistics
+    stats: SessionStats = field(default_factory=SessionStats)
+
     # Dealer rotation
     rounds_this_dealer: int = 1
     _dealer_rotate_every: int = 1
@@ -150,17 +174,6 @@ class GameRoom:
 
     # Queued settings (applied at newround)
     _queued_settings: dict = field(default_factory=dict)
-
-    # Stats and milestones (session-lifetime)
-    _hand_stats: dict = field(default_factory=dict)
-    _dealer_hand_stats: dict = field(default_factory=dict)
-    _strategy_decisions: dict = field(default_factory=dict)  # player -> {correct: N, total: N}
-    _max_round_sips: dict = field(default_factory=dict)      # player -> highest single-round sip total
-    _dealer_bust_rounds: int = 0                             # rounds where dealer hand busted
-    _streaks: dict = field(default_factory=dict)             # player -> {current, longest_win, longest_loss}
-    _round_sip_history: list = field(default_factory=list)   # total sips (all players) per completed round
-    _player_rounds_played: dict = field(default_factory=dict)
-    _session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
 
     # Easy mode (halve drinks every round)
     easy_mode: bool = False
@@ -336,3 +349,52 @@ class GameRoom:
 
     def cmd_status(self):
         return self.session.cmd_status()
+    # ------------------------------------------------------------------
+    # SessionStats shims — backward-compat aliases for session.stats.*
+    # Remove once all call sites (including tests) use session.stats.*
+    # ------------------------------------------------------------------
+
+    @property
+    def _hand_stats(self): return self.stats.hand_stats
+    @_hand_stats.setter
+    def _hand_stats(self, v): self.stats.hand_stats = v
+
+    @property
+    def _dealer_hand_stats(self): return self.stats.dealer_hand_stats
+    @_dealer_hand_stats.setter
+    def _dealer_hand_stats(self, v): self.stats.dealer_hand_stats = v
+
+    @property
+    def _strategy_decisions(self): return self.stats.strategy_decisions
+    @_strategy_decisions.setter
+    def _strategy_decisions(self, v): self.stats.strategy_decisions = v
+
+    @property
+    def _max_round_sips(self): return self.stats.max_round_sips
+    @_max_round_sips.setter
+    def _max_round_sips(self, v): self.stats.max_round_sips = v
+
+    @property
+    def _dealer_bust_rounds(self): return self.stats.dealer_bust_rounds
+    @_dealer_bust_rounds.setter
+    def _dealer_bust_rounds(self, v): self.stats.dealer_bust_rounds = v
+
+    @property
+    def _streaks(self): return self.stats.streaks
+    @_streaks.setter
+    def _streaks(self, v): self.stats.streaks = v
+
+    @property
+    def _round_sip_history(self): return self.stats.round_sip_history
+    @_round_sip_history.setter
+    def _round_sip_history(self, v): self.stats.round_sip_history = v
+
+    @property
+    def _player_rounds_played(self): return self.stats.player_rounds_played
+    @_player_rounds_played.setter
+    def _player_rounds_played(self, v): self.stats.player_rounds_played = v
+
+    @property
+    def _session_started_at(self): return self.stats.session_started_at
+    @_session_started_at.setter
+    def _session_started_at(self, v): self.stats.session_started_at = v

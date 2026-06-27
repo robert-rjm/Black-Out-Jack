@@ -106,7 +106,7 @@ def export_csv():
     buf = io.StringIO()
     w   = csv.writer(buf)
 
-    hand_stats  = session._hand_stats
+    hand_stats  = session.stats.hand_stats
     milestones  = session.drinks.milestones_claimed
 
     def _pct(n, d):
@@ -213,7 +213,7 @@ def export_csv():
         ])
 
     # Dealer stats
-    dealer_stats = session._dealer_hand_stats
+    dealer_stats = session.stats.dealer_hand_stats
     if dealer_stats:
         w.writerow([])
         w.writerow(["DEALER STATS (per dealing stint)"])
