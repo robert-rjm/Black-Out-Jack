@@ -302,7 +302,12 @@ function showLocalSeatPicker() {
   if (picker.style.display !== "none") { picker.style.display = "none"; return; }
 
   const clients      = lastState.connected_clients || [];
-  const claimedLower = new Set(clients.map(c => (c.name || "").toLowerCase()).filter(Boolean));
+  // A seat is "claimed" if any connected client lists it as their primary name
+  // OR in their local_names (multi-seat control).
+  const claimedLower = new Set(
+    clients.flatMap(c => [(c.name || ""), ...(c.local_names || [])]
+      .map(n => n.toLowerCase()).filter(Boolean))
+  );
   const myNamesLower = new Set((myNames || []).map(n => n.toLowerCase()));
   const available    = (lastState.players || []).filter(
     n => !claimedLower.has(n.toLowerCase()) && !myNamesLower.has(n.toLowerCase())
