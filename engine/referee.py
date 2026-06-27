@@ -467,12 +467,21 @@ class RefereeSession:
     def _resolve_bust_votes(self):
         """
         Resolve Rules.md §4.4 — fires once per round, called from cmd_endround
-        after the dealer's final hand is known.
+        after the dealer's final hand is known (CLI/interactive path).
 
         Correct 'bust' voters: -1 sip credit, then hand out 1 sip to another
         player (interactive for humans, round-robin for NPCs).
         Incorrect 'bust' voters: +1 sip penalty.
         Never halved (Instant Effect rule — see Rules.md §6.1).
+
+        NOTE: There is a parallel implementation for the web path:
+        ``apply_bust_vote_penalties()`` in ``app/services/drink_tracker.py``.
+        The two functions must stay in sync whenever bust-vote rules change.
+        This CLI version uses interactive handout prompts; the web version
+        opens a timed /give_bust_sip window instead.  In web sessions
+        ``bust_vote_enabled`` is always False on RefereeSession, so this
+        function is dead code for web play — it exists for the standalone
+        CLI referee mode only.
         """
         self._bust_vote_result = None
         if not self.bust_vote_enabled or not self._bust_votes:

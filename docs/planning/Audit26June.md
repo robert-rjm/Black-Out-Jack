@@ -418,7 +418,7 @@ HIGH — fix before next public session
 [X] H-1  Remove dead "protected" key from _ace_clubs_flag everywhere
 [X] H-4  Delete empty _join_attempts keys after pruning in session_store.py
 [x] H-3  Remove compute_dealer_role_sips (unused); simplify compute_sip_totals
-[ ] H-2  Add cross-reference comments to both bust-vote resolution functions
+[x] H-2  Add cross-reference comments to both bust-vote resolution functions
 
 MEDIUM — address in next refactor pass
 [X] M-2  Collapse three consecutive `if self.verbose` prints in print_round_summary
