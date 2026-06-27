@@ -234,11 +234,16 @@ def transfer_admin():
     # Move local_names to the new admin so they retain control of any local
     # multiplayer seats.  The old admin only keeps their own single seat name.
     old_local_names = admin_info.get("local_names") or []
+    old_admin_name  = (admin_info.get("name") or "").lower()
+    # Exclude the old admin's own primary seat — they keep it; the new admin
+    # should NOT receive control of it (would let them cast votes on the old
+    # admin's behalf).
+    seats_to_transfer = [n for n in old_local_names if n.lower() != old_admin_name]
     admin_info["role"]          = "player"
     admin_info["local_names"]   = []   # old admin loses multi-seat control
     new_admin_info              = clients[target_cid]
     new_admin_info["role"]      = "admin"
-    _transfer_local_names(old_local_names, new_admin_info)
+    _transfer_local_names(seats_to_transfer, new_admin_info)
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -262,7 +267,9 @@ def _auto_transfer_admin(session, leaving_client_id: str) -> None:
     if not candidate:
         return
     leaving_info   = clients[leaving_client_id]
-    old_local      = leaving_info.get("local_names") or []
+    leaving_name   = (leaving_info.get("name") or "").lower()
+    old_local      = [n for n in (leaving_info.get("local_names") or [])
+                      if n.lower() != leaving_name]
     new_info       = clients[candidate]
     new_info["role"] = "admin"
     _transfer_local_names(old_local, new_info)

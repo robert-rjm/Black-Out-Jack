@@ -10,6 +10,7 @@ GET /export_xlsx    — Full drink-log XLSX download for the session
 GET /summary_json   — Drink summary as JSON for on-screen display
 """
 
+import csv
 import io
 import os
 from collections import defaultdict

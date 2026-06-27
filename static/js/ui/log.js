@@ -335,8 +335,13 @@ function processTableEvents(state) {
   newEvents.forEach(ev => {
     const _show = () => {
       el.textContent = ev.text;
-      // curse = red (drink), lucky = green (credit)
-      el.className = (ev.outcome === "lucky" ? "clean" : "drink") + " show";
+      // curse: red if you're the target, green if someone else drinks
+      // lucky: green always (credit is good news for everyone)
+      const _isMine = ev.target && myNames.includes(ev.target);
+      const _cls = ev.outcome === "lucky"
+        ? "clean"
+        : (_isMine ? "drink" : "clean");
+      el.className = _cls + " show";
       if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
       ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
     };
