@@ -311,6 +311,52 @@ def compute_mandatory_split10(session: GameRoom, turn: str | None, phase: str) -
     return True
 
 
+
+def compute_mandatory_split_aces(session: GameRoom, turn: str | None, phase: str) -> bool:
+    """Drinking-mode house rule: a pair of Aces must be split.
+
+    Returns True when the current human turn's active hand is exactly an
+    Ace pair, splitting is still valid, and the player hasn't yet been
+    prompted/acknowledged this hand. Always False in Normal mode.
+    """
+    if not session.drinking_mode or phase != "playing" or not turn:
+        return False
+    player = session._get_player(turn)
+    if not player or getattr(player, "is_npc", False):
+        return False
+    active_hand = next((h for h in player.hands if not hand_done(h)), None)
+    if not active_hand or len(active_hand.cards) != 2:
+        return False
+    if not active_hand.can_split():
+        return False
+    if not all(c.rank.blackjack_value == 11 for c in active_hand.cards):
+        return False
+    if (player.name, id(active_hand)) in session.round._honor_acked:
+        return False
+    return True
+
+
+
+def compute_trophy_holder(session: GameRoom) -> str | None:
+    """Return the name of the sole player who uniquely leads in total clean
+    rounds, subject to a dynamic threshold that starts at 3 and escalates
+    by 2 whenever two or more players are tied at or above it.
+
+    Returns None if no player meets the threshold, or if the leader is tied.
+    """
+    totals = session.stats.total_clean_rounds
+    if not totals:
+        return None
+    threshold = 3
+    while True:
+        qualifiers = [name for name, n in totals.items() if n >= threshold]
+        if len(qualifiers) < 2:
+            break          # 0 or 1 player at this level — stop escalating
+        threshold += 2     # tie at current level — raise the bar
+    leaders = [name for name, n in totals.items() if n >= threshold]
+    return leaders[0] if len(leaders) == 1 else None
+
+
 # ---------------------------------------------------------------------------
 # KPI stats — pre-computed server-side so kpi.js is a pure renderer
 # ---------------------------------------------------------------------------
@@ -601,6 +647,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "sip_grand_total":        sum(sip_totals.values()),
         "round_over_seq":         session.drinks.round_over_seq,
         "last_round_sips":        {k: max(0, v) for k, v in session.drinks.last_round_sips.items()},
+        "clean_streaks":          dict(session.stats.clean_streak),
+        "total_clean_rounds":     dict(session.stats.total_clean_rounds),
+        "trophy_holder":          compute_trophy_holder(session),
         "last_round_drinks":      session.drinks.last_round_drinks,
         "round_notices":          session.drinks.round_notices,
         "prev_round_sips":        {k: max(0, v) for k, v in session.drinks.prev_round_sips.items()},
@@ -687,9 +736,15 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             _ci.get("reg_denials", 0) >= 2
         ),
         "connected_clients":      [
-            {"name": info.get("name"), "role": info.get("role")}
+            {"name": info.get("name"), "role": info.get("role"),
+             "local_names": info.get("local_names") or []}
             for info in session._room_clients.values()
             if not info.get("kicked")
+        ],
+        "pending_seat_transfers": [
+            {"requester_name": t["requester_name"], "target": t["target"]}
+            for t in session._pending_seat_transfers
+            if t["controller_cid"] == client_id
         ],
         "kicked_clients":         [
             {"client_id": cid, "name": info.get("name") or ""}
@@ -709,11 +764,14 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "my_name":                _ci.get("name"),
         "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
         "can_add_local_seat":     (
-            _ci.get("role") == "admin" and
+            _ci.get("role") in ("admin", "player") and
             any(
                 p.name not in {(info.get("name") or "").capitalize()
                                for info in session._room_clients.values()
                                if not info.get("kicked")}
+                and p.name not in {n for info in session._room_clients.values()
+                                   if not info.get("kicked")
+                                   for n in (info.get("local_names") or [])}
                 and p.name not in (_ci.get("local_names") or [])
                 for p in session.all_players
             )
@@ -745,6 +803,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "strategy_hint_enabled":  session.strategy_hint_enabled,
         "honor_pending":          bool(session.drinking_mode and session.round._honor_pending),
         "honor_pending_action":   (session.round._honor_pending or {}).get("action") if session.drinking_mode else None,
+        "honor_pending_reason":   (session.round._honor_pending or {}).get("reason") if session.drinking_mode else None,
         "suggest_rotate":         suggest_rotate,
         "rotate_reason":          rotate_reason,
         "rounds_this_dealer":     rounds_td,

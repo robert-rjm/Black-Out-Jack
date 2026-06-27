@@ -190,11 +190,27 @@ def request_local_seat():
     if name not in valid_names:
         return jsonify({"ok": False, "error": f"'{name}' is not a seat in this game."})
 
-    # Seat must be unclaimed
+    # Check if seat is claimed by another client's primary registration or local_names
+    name_lower = name.lower()
     for cid, info in session._room_clients.items():
-        if (cid != client_id and not info.get("kicked")
-                and (info.get("name") or "").lower() == name.lower()):
+        if cid == client_id or info.get("kicked"):
+            continue
+        if (info.get("name") or "").lower() == name_lower:
             return jsonify({"ok": False, "error": f"'{name}' is already taken."})
+        if any(n.lower() == name_lower for n in (info.get("local_names") or [])):
+            # Seat is locally controlled by someone else — queue a transfer request
+            # (remove any previous request for this same seat first)
+            session._pending_seat_transfers = [
+                t for t in session._pending_seat_transfers if t["target"].lower() != name_lower
+            ]
+            requester_display = existing.get("name") or "Someone"
+            session._pending_seat_transfers.append({
+                "requester_cid":  client_id,
+                "requester_name": requester_display,
+                "target":         name,
+                "controller_cid": cid,
+            })
+            return jsonify({**serialize_state(session, client_id), "ok": True, "transfer_pending": True})
 
     # Already a local name for this client
     local_names = existing.get("local_names") or []
@@ -211,6 +227,62 @@ def request_local_seat():
         "add_to_local": True,
     })
     return jsonify({**serialize_state(session, client_id), "ok": True, "pending": True})
+
+
+
+@bp.route("/handle_seat_transfer", methods=["POST"])
+def handle_seat_transfer():
+    """Current local-seat controller approves or denies a seat transfer request.
+    Body: { room_code, client_id (controller), target, approve: bool }
+    On approval: removes seat from controller's local_names, adds to requester's.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    target    = sanitize_name((data.get("target") or "").strip())
+    approve   = bool(data.get("approve"))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    existing = session._room_clients.get(client_id, {})
+    if existing.get("role") not in ("player", "admin"):
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    target_lower = target.lower()
+
+    # Find the matching pending transfer (this client must be the controller)
+    transfer = next(
+        (t for t in session._pending_seat_transfers
+         if t["target"].lower() == target_lower and t["controller_cid"] == client_id),
+        None,
+    )
+    if not transfer:
+        return jsonify({"ok": False, "error": "No pending transfer found."})
+
+    # Remove the request regardless of outcome
+    session._pending_seat_transfers = [
+        t for t in session._pending_seat_transfers
+        if not (t["target"].lower() == target_lower and t["controller_cid"] == client_id)
+    ]
+
+    if approve:
+        # Remove seat from controller's local_names
+        ctrl_locals = existing.get("local_names") or []
+        existing["local_names"] = [n for n in ctrl_locals if n.lower() != target_lower]
+        session._room_clients[client_id] = existing
+
+        # Add seat to requester's local_names
+        req_cid  = transfer["requester_cid"]
+        req_info = session._room_clients.get(req_cid, {})
+        req_locals = req_info.get("local_names") or []
+        if target not in req_locals:
+            req_locals.append(target)
+        req_info["local_names"] = req_locals
+        session._room_clients[req_cid] = req_info
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @bp.route("/handle_registration", methods=["POST"])
@@ -354,6 +426,7 @@ def preselect():
                 "player":  player.name,
                 "hand_id": id(active_hand),
                 "action":  _ACTION_NAMES[action],
+                "reason":  "tens",
             }
             return jsonify({**serialize_state(session, client_id), "ok": True})
 

@@ -68,9 +68,11 @@ def award_sips(
         "sips":   sips,
     })
     if sips != 0:
-        session.drinks.sip_ticker[player_name] = (
-            session.drinks.sip_ticker.get(player_name, 0) + sips
-        )
+        # Session total never decreases — credits offset within the round only.
+        if sips > 0:
+            session.drinks.sip_ticker[player_name] = (
+                session.drinks.sip_ticker.get(player_name, 0) + sips
+            )
         session.drinks.last_round_sips[player_name] = (
             session.drinks.last_round_sips.get(player_name, 0) + sips
         )
@@ -303,6 +305,18 @@ def _snapshot_round(session: GameRoom) -> None:
         raw = sum((e[0] or 0) for e in p.drink_log if e)
         last[p.name] = raw
     session.drinks.last_round_sips = last
+
+    # Update clean-round streak and session total for each player
+    clean_streak       = session.stats.clean_streak
+    total_clean_rounds = session.stats.total_clean_rounds
+    for p in session.all_players:
+        if last.get(p.name, 1) <= 0:   # 0 or negative net sips → clean round (negative = bust-vote credit)
+            clean_streak[p.name]       = clean_streak.get(p.name, 0) + 1
+            total_clean_rounds[p.name] = total_clean_rounds.get(p.name, 0) + 1
+        else:
+            clean_streak[p.name] = 0   # reset streak on any sip
+    session.stats.clean_streak       = clean_streak
+    session.stats.total_clean_rounds = total_clean_rounds
 
     round_total = max(0, sum(last.values()))
     session.stats.round_sip_history = session.stats.round_sip_history + [round_total]
