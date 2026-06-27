@@ -336,13 +336,13 @@ def dealer_turn(session: GameRoom) -> None:
     # they are face-up.  Doubled card is always the last card in a doubled hand.
     if session.drinking_mode:
         if len(d_hand.cards) >= 2:
-            _check_table_number(session, d_hand.cards[1], dealer.name)
+            _check_table_number(session, d_hand.cards[1], dealer.name, 2)
         for p in session.all_players:
             if p.is_dealer:
                 continue
             for hand in p.hands:
                 if hand.doubled and hand.cards:
-                    _check_table_number(session, hand.cards[-1], p.name)
+                    _check_table_number(session, hand.cards[-1], p.name, len(hand.cards))
 
     log.debug(f"\n--- Dealer ({dealer.name}) reveals ---")
     log.debug(f"  Full hand: {d_hand}")
