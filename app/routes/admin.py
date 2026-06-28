@@ -750,3 +750,30 @@ def take_back_seat():
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
+
+@bp.route("/set_bot_personality", methods=["POST"])
+def set_bot_personality():
+    """Admin changes the personality of an NPC bot mid-round.
+    Body: { room_code, client_id, player_name, personality }"""
+    data        = request.json or {}
+    target_name = sanitize_name(data.get("player_name") or "")
+    personality = (data.get("personality") or "basic").strip().lower()
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": escape(err)})
+
+    player = next(
+        (p for p in session.all_players
+         if p.name.lower() == target_name.lower()),
+        None,
+    )
+    if not player:
+        return jsonify({"ok": False, "error": f"Player '{escape(target_name)}' not found."})
+    if not getattr(player, "is_npc", False):
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is not a bot."})
+
+    player.personality    = personality
+    player._style_profile = None   # clear cached profile so next decide() reloads it
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+

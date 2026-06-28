@@ -1,3 +1,60 @@
+// ---------------------------------------------------------------------------
+// Bot personality pill — fetch once, used in renderPlayers
+// ---------------------------------------------------------------------------
+let _availablePersonalities = null;  // null = not yet fetched
+
+async function _fetchPersonalities() {
+  if (_availablePersonalities !== null) return;
+  try {
+    const res = await fetch("/player_personalities");
+    const data = await res.json();
+    _availablePersonalities = ["basic", ...(data.personalities || [])];
+  } catch (_) {
+    _availablePersonalities = ["basic"];
+  }
+}
+_fetchPersonalities();
+
+function _nextPersonality(current) {
+  const list = _availablePersonalities || ["basic"];
+  const idx  = list.indexOf((current || "basic").toLowerCase());
+  return list[(idx + 1) % list.length];
+}
+
+async function _setBotPersonality(playerName, personality) {
+  const body = { room_code: roomCode, client_id: clientId, player_name: playerName, personality };
+  await fetch("/set_bot_personality", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  // State will update on the next poll — no manual re-render needed
+}
+
+// Wire up click delegation on #left-col once (idempotent guard via dataset flag)
+function _ensurePersonalityClickDelegate() {
+  const root = document.getElementById("left-col");
+  if (!root || root.dataset.personalityDelegate) return;
+  root.dataset.personalityDelegate = "1";
+  root.addEventListener("click", e => {
+    const pill = e.target.closest(".bot-personality-pill");
+    if (!pill) return;
+    if (myRole !== ROLE.ADMIN) return;
+    e.stopPropagation();
+    const playerName  = pill.dataset.player;
+    const current     = pill.dataset.personality;
+    const next        = _nextPersonality(current);
+    pill.dataset.personality = next;  // optimistic update
+    pill.textContent = _personalityLabel(next);
+    _setBotPersonality(playerName, next);
+  });
+}
+
+function _personalityLabel(personality) {
+  if (!personality || personality === "basic") return "BOT";
+  return personality.charAt(0).toUpperCase() + personality.slice(1) + "-bot";
+}
+
 function cardEl(card) {
   const div = document.createElement("div");
   div.className = "card-vis card-el";
@@ -100,6 +157,7 @@ function renderDealer(state) {
 function renderPlayers(state) {
   const root = document.getElementById("left-col");
   if (!root) return;
+  _ensurePersonalityClickDelegate();
   const savedScroll = root.scrollTop;
 
   // Save each player's horizontal hand scroll before wiping DOM
@@ -136,7 +194,13 @@ function renderPlayers(state) {
     const hdr = document.createElement("div");
     hdr.className = "seat-header";
     const role     = s.is_dealer ? `<span class="role">also dealer</span>` : "";
-    const botTag   = s.is_npc    ? `<span class="role" style="color:var(--accent)">BOT</span>` : "";
+    const botTag   = s.is_npc
+      ? `<span class="role bot-personality-pill${myRole === ROLE.ADMIN ? " admin-clickable" : ""}"
+              data-player="${escapeHtml(s.name)}"
+              data-personality="${escapeHtml(s.personality || "basic")}"
+              title="${myRole === ROLE.ADMIN ? "Click to change bot style" : ""}"
+            >${_personalityLabel(s.personality)}</span>`
+      : "";
     const tag      = (showTurn && s.is_turn) ? `<div class="turn-tag">${s.is_npc ? "BOT playing…" : "Turn"}</div>` : "";
     const sips     = (state.sip_totals || {})[s.name] || 0;
     const sipBadge = (state.drinking_mode !== false && sips > 0)
