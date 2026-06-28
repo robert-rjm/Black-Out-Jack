@@ -23,6 +23,16 @@
   font-size: 10px; font-weight: 700; color: var(--muted);
   margin-left: 6px; text-transform: uppercase; letter-spacing: .5px;
 }
+.seat-name .bot-personality-pill {
+  color: var(--accent);
+  transition: opacity .15s;
+}
+.seat-name .bot-personality-pill.admin-clickable {
+  cursor: pointer;
+}
+.seat-name .bot-personality-pill.admin-clickable:hover {
+  opacity: .7;
+}
 .turn-tag {
   background: var(--accent); color: #fff;
   font-size: 10px; font-weight: 800; letter-spacing: .5px;

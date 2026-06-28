@@ -578,7 +578,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         table.append({
             "name":      p.name,
             "is_dealer": p.is_dealer,
-            "is_npc":    getattr(p, "is_npc", False),
+            "is_npc":      getattr(p, "is_npc", False),
+            "personality": getattr(p, "personality", "basic") if getattr(p, "is_npc", False) else None,
             "hands":     [serialize_hand(h, hide_double=hide_double) for h in p.hands],
             "done":      player_done(p),
             "is_turn":   (p.name == turn),

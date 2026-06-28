@@ -211,20 +211,8 @@ function setGameType(type, btn) {
 // ============================================================
 // RANKS and SUITS are defined in config.js (loaded first).
 
-let playerRows          = [];   // [{ id, name, isBot, personality }]
-let _rowIdCtr           = 0;
-let availablePersonalities = [];  // fetched from /player_personalities on load
-
-async function fetchPersonalities() {
-  try {
-    const res = await fetch("/player_personalities");
-    const data = await res.json();
-    availablePersonalities = data.personalities || [];
-  } catch (_) {
-    availablePersonalities = [];
-  }
-}
-fetchPersonalities();
+let playerRows = [];   // [{ id, name, isBot }]
+let _rowIdCtr  = 0;
 
 // Read current input/toggle values from DOM back into playerRows state
 function syncPlayerRowsFromDOM() {
@@ -234,10 +222,8 @@ function syncPlayerRowsFromDOM() {
     if (!row) return;
     const inp = el.querySelector(".player-name-input");
     const chk = el.querySelector(".bot-chk");
-    const sel = el.querySelector(".bot-personality-select");
-    if (inp) row.name        = inp.value;
-    if (chk) row.isBot       = chk.checked;
-    if (sel) row.personality = sel.value;
+    if (inp) row.name  = inp.value;
+    if (chk) row.isBot = chk.checked;
   });
 }
 
@@ -282,7 +268,6 @@ function renderPlayerRows() {
       if (r) {
         r.isBot         = chk.checked;
         inp.placeholder = r.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
-        renderPlayerRows();  // re-render to show/hide personality dropdown
       }
     });
 
@@ -308,54 +293,24 @@ function renderPlayerRows() {
       syncDecksToPlayerCount();
     });
 
-    // Personality dropdown — only when bot is checked and profiles exist
-    if (row.isBot && availablePersonalities.length > 0) {
-      const sel = document.createElement("select");
-      sel.className = "bot-personality-select";
-      sel.title     = "Bot personality";
-
-      const basicOpt = document.createElement("option");
-      basicOpt.value       = "basic";
-      basicOpt.textContent = "Basic strategy";
-      sel.appendChild(basicOpt);
-
-      availablePersonalities.forEach(name => {
-        const opt = document.createElement("option");
-        opt.value       = name;
-        opt.textContent = name.charAt(0).toUpperCase() + name.slice(1) + "-bot";
-        sel.appendChild(opt);
-      });
-
-      sel.value = row.personality || "basic";
-      sel.addEventListener("change", () => {
-        const r = playerRows.find(r => r.id === row.id);
-        if (r) r.personality = sel.value;
-      });
-
-      rowEl.appendChild(inp);
-      rowEl.appendChild(toggleWrap);
-      rowEl.appendChild(sel);
-      rowEl.appendChild(removeBtn);
-    } else {
-      rowEl.appendChild(inp);
-      rowEl.appendChild(toggleWrap);
-      rowEl.appendChild(removeBtn);
-    }
+    rowEl.appendChild(inp);
+    rowEl.appendChild(toggleWrap);
+    rowEl.appendChild(removeBtn);
     c.appendChild(rowEl);
   });
 }
 
 function addPlayerRow() {
   syncPlayerRowsFromDOM();
-  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false, personality: "basic" });
+  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false });
   renderPlayerRows();
   syncDecksToPlayerCount();
 }
 
 // Start with 2 players
 playerRows = [
-  { id: _rowIdCtr++, name: "", isBot: false, personality: "basic" },
-  { id: _rowIdCtr++, name: "", isBot: false, personality: "basic" },
+  { id: _rowIdCtr++, name: "", isBot: false },
+  { id: _rowIdCtr++, name: "", isBot: false },
 ];
 renderPlayerRows();
 
@@ -451,18 +406,12 @@ async function startGame() {
 
   syncPlayerRowsFromDOM();
   const names = [];
-  const npcs          = [];
-  const personalities = {};  // { botName: personalityKey }
+  const npcs  = [];
   playerRows.forEach((row, i) => {
     const isBot = row.isBot;
     const name  = (row.name || "").trim() || (isBot ? `Bot${i + 1}` : `Player${i + 1}`);
     names.push(name);
-    if (isBot) {
-      npcs.push(name);
-      if (row.personality && row.personality !== "basic") {
-        personalities[name] = row.personality;
-      }
-    }
+    if (isBot) npcs.push(name);
   });
   npcPlayers = new Set(npcs);
 
@@ -477,7 +426,7 @@ async function startGame() {
   const easyMode        = !!(document.getElementById("easy-mode-setup-toggle")?.checked);
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, personalities, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
   if (isDigital) body.num_decks = numDecks;
   if (!setupDrinking) {
     body.bet_amount = getStepperValue("bet-dig") || 10;
