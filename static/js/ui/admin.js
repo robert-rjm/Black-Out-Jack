@@ -226,16 +226,14 @@ async function setBustVoteEnabled(on) {
   } catch (_) {}
 }
 
-async function setStrategyHintEnabled(on) {
-  try {
-    const res  = await fetch("/update_settings", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, strategy_hint_enabled: on }),
-    });
-    const data = await res.json();
-    if (data.ok) applyState(data);
-  } catch (_) {}
+function setStrategyHintEnabled(on) {
+  // Per-player preference — stored server-side so badge and blue border are state-driven
+  fetch("/set_hint", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
+  }).then(r => r.json()).then(data => { if (data.ok) applyState(data); })
+    .catch(() => { if (lastState) applyState(lastState); });
 }
 
 async function setWildCardEnabled(on) {

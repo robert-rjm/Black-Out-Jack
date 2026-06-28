@@ -638,6 +638,10 @@ function updateBestPlay(state) {
   // Clear any previous highlight
   digActionButtons().forEach(b => b.classList.remove("best"));
   if (!state || state.phase !== PHASE.PLAYING || !state.best_play) return;
+  // Only highlight if the current player has hints enabled (server-side per-seat flag)
+  const myNames = state.my_names || (state.my_name ? [state.my_name] : []);
+  const hintsOn = (state.table || []).some(s => myNames.includes(s.name) && s.strategy_hint_enabled);
+  if (!hintsOn) return;
   // state.best_play is the backend code (h/s/d/sp) — matches data-action-code directly
   digActionButtons().forEach(b => {
     if (b.dataset.actionCode === state.best_play) b.classList.add("best");

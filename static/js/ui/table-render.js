@@ -233,6 +233,11 @@ function renderPlayers(state) {
     const jugBadge      = (wasWorst && state.drinking_mode !== false)
       ? `<span class="seat-jug" title="Worst round (session record)">🍻</span>` : "";
 
+    // Strategy-hint badge: visible to all players when that seat has hints on
+    const hintBadge = s.strategy_hint_enabled
+      ? `<span class="seat-hint-badge" title="${s.name} is playing with basic strategy hints">📘</span>`
+      : "";
+
     // Normal mode: show bankroll + this round's payout near each seat
     let bankrollBadge = "";
     if (state.drinking_mode === false && state.balances) {
@@ -249,7 +254,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");

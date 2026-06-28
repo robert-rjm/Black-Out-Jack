@@ -163,6 +163,11 @@
   font-size: 11px;
   line-height: 1;
 }
+.seat-hint-badge {
+  font-size: 11px;
+  line-height: 1;
+  opacity: .75;
+}
 
 .seat-sip-badge {
   display: inline-flex; align-items: center; gap: 3px;
