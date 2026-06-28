@@ -217,7 +217,22 @@ def request_local_seat():
     if name.lower() in {(n or "").lower() for n in local_names}:
         return jsonify({"ok": False, "error": f"'{name}' is already a local seat."})
 
-    # Queue as pending with add_to_local flag
+    # Admin requesting an unclaimed seat: auto-approve immediately (no popup needed —
+    # the admin IS the approver, so routing their own request through the queue just
+    # blocks the game with the register overlay).
+    if existing.get("role") == "admin":
+        local_names = list(existing.get("local_names") or [])
+        if not any(n.lower() == name.lower() for n in local_names):
+            local_names.append(name)
+        existing["local_names"] = local_names
+        session._room_clients[client_id] = existing
+        # If the seat was NPC, convert to human
+        claimed = next((p for p in session.all_players if p.name.lower() == name.lower()), None)
+        if claimed and getattr(claimed, "is_npc", False):
+            claimed.is_npc = False
+        return jsonify({**serialize_state(session, client_id), "ok": True})
+
+    # Non-admin: queue as pending with add_to_local flag, await admin approval
     session._pending_registrations = [
         r for r in session._pending_registrations if r["client_id"] != client_id
     ]
@@ -273,11 +288,15 @@ def handle_seat_transfer():
         existing["local_names"] = [n for n in ctrl_locals if n.lower() != target_lower]
         session._room_clients[client_id] = existing
 
-        # Add seat to requester's local_names
+        # Add seat to requester's local_names.
+        # Seed list with their primary name first so my_names always includes
+        # their own seat (serializer uses local_names when non-empty).
         req_cid  = transfer["requester_cid"]
         req_info = session._room_clients.get(req_cid, {})
-        req_locals = req_info.get("local_names") or []
-        if target not in req_locals:
+        req_locals = list(req_info.get("local_names") or [])
+        if not req_locals and req_info.get("name"):
+            req_locals = [req_info["name"]]
+        if not any(n.lower() == target_lower for n in req_locals):
             req_locals.append(target)
         req_info["local_names"] = req_locals
         session._room_clients[req_cid] = req_info
@@ -323,9 +342,12 @@ def handle_registration():
                 }
                 return jsonify({**serialize_state(session, client_id), "ok": True})
         if pending.get("add_to_local"):
-            # Append to requester local_names without changing primary name/role
+            # Append to requester local_names without changing primary name/role.
+            # Seed with primary name first so my_names always includes own seat.
             existing_local = list(target_existing.get("local_names") or [])
-            if name not in existing_local:
+            if not existing_local and target_existing.get("name"):
+                existing_local = [target_existing["name"]]
+            if not any(n.lower() == name.lower() for n in existing_local):
                 existing_local.append(name)
             session._room_clients[target_client_id] = {
                 **target_existing, "local_names": existing_local, "kicked": False

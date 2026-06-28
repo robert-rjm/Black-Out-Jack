@@ -17,9 +17,14 @@ function openKickModal() {
   // Add-local-player row — show when a free seat exists (non-spectator only)
   const addLocalRow = document.getElementById("add-local-seat-row");
   if (addLocalRow) {
-    addLocalRow.style.display = (lastState.can_add_local_seat && myRole !== ROLE.SPECTATOR) ? "block" : "none";
-    const localPicker = document.getElementById("local-seat-picker");
-    if (localPicker) localPicker.style.display = "none";
+    const showRow = lastState.can_add_local_seat && myRole !== ROLE.SPECTATOR;
+    addLocalRow.style.display = showRow ? "block" : "none";
+    // Only hide the picker when the button itself is being hidden — do NOT
+    // reset it on every poll or the user can never click a seat button.
+    if (!showRow) {
+      const localPicker = document.getElementById("local-seat-picker");
+      if (localPicker) localPicker.style.display = "none";
+    }
   }
 
   const clients      = lastState.connected_clients || [];
