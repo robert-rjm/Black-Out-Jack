@@ -188,8 +188,9 @@ function renderPlayers(state) {
     const seat = document.createElement("div");
     seat.className = "seat";
     seat.dataset.player = s.name;
-    if (showTurn && s.is_turn) seat.classList.add("turn");
-    if (s.done)                seat.classList.add("done");
+    if (showTurn && s.is_turn)  seat.classList.add("turn");
+    if (s.done)                 seat.classList.add("done");
+    if (s.strategy_hint_enabled) seat.classList.add("has-hint");
 
     const hdr = document.createElement("div");
     hdr.className = "seat-header";

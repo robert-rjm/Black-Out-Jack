@@ -468,7 +468,20 @@ def set_hint():
     info = session._room_clients.get(client_id)
     if not info:
         return jsonify({"ok": False, "error": "Client not found."})
-    info["strategy_hint"] = enabled
+    # Collect all seat names controlled by this client (primary + all local seats)
+    primary     = (info.get("name") or "").lower()
+    local_names = [n.lower() for n in (info.get("local_names") or []) if n]
+    all_names   = list({primary} | set(local_names)) if primary else local_names
+    if not all_names:
+        return jsonify({"ok": False, "error": "No seat claimed."})
+    # Store on the session object so it's shared across all clients' polls
+    if not hasattr(session, "_hint_seats"):
+        session._hint_seats = set()
+    for name in all_names:
+        if enabled:
+            session._hint_seats.add(name)
+        else:
+            session._hint_seats.discard(name)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
@@ -796,4 +809,3 @@ def set_bot_personality():
     player._style_profile = None   # clear cached profile so next decide() reloads it
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
-

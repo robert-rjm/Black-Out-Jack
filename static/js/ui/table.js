@@ -461,7 +461,7 @@ function _syncModals(state) {
   const kickOv = document.getElementById("kick-overlay");
   if (kickOv && kickOv.style.display === "flex") {
     if (state.queued_settings) _renderQueuedBanner(state.queued_settings);
-    if (myRole === ROLE.ADMIN) openKickModal();
+    if (myRole === ROLE.ADMIN || myRole === ROLE.PLAYER) openKickModal();
   }
 
   const showSettings = (myRole === ROLE.ADMIN || myRole === ROLE.PLAYER) ? "block" : "none";
@@ -583,6 +583,15 @@ function applyState(state) {
   // Commit new state — capture bust-vote open flag first.
   const _prevBustOpen = lastState && lastState.bust_vote_window_open;
   lastState   = state;
+  // Optimistic hint override: prevent stale polls (same state_seq) from flipping
+  // strategy_hint_enabled back to false between the /set_hint response and the next poll.
+  if (window._myHintEnabled !== null && window._myHintEnabled !== undefined && lastState.table) {
+    const _myNamesLc = (lastState.my_names || (lastState.my_name ? [lastState.my_name] : []))
+      .map(n => n.toLowerCase());
+    lastState.table.forEach(s => {
+      if (_myNamesLc.includes(s.name.toLowerCase())) s.strategy_hint_enabled = window._myHintEnabled;
+    });
+  }
   currentTurn = state.current_turn || null;
   if (_prevBustOpen && !state.bust_vote_window_open && typeof flushToastQueue === "function") {
     flushToastQueue();
