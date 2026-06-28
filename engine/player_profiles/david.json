@@ -1,0 +1,25 @@
+{
+  "player": "David",
+  "generated": "2026-06-27",
+  "source_decisions": 121,
+  "thresholds": {
+    "min_samples": 3,
+    "min_majority": 0.6
+  },
+  "deviations": [
+    {
+      "hand_total": 16,
+      "is_soft": false,
+      "dealer_upcard_rank": "10",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 3,
+      "majority": 1.0,
+      "action_counts": {
+        "s": 3
+      }
+    }
+  ]
+}
