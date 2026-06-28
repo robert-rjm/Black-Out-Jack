@@ -294,15 +294,27 @@ def get_player_hand(player: Player, hand_label: str) -> "Hand":
 
 class NPC_Player(Player):
     """
-    Computer-controlled seat using standard basic strategy.
-    Participates fully in drinking rules when drinking mode is active.
-    Can hold the dealer role like any human seat.
-    """
-    def __init__(self, name: str = "Bot"):
-        super().__init__(name)
-        self.is_npc = True
+    Computer-controlled seat using standard basic strategy, or a player-style
+    profile when ``personality`` is set.
 
-    def __repr__(self): return f"NPC_Player({self.name})"
+    personality: "basic" (default) | any name with a profile in
+                 engine/player_profiles/<name>.json (e.g. "rob", "marko", "david").
+    """
+    def __init__(self, name: str = "Bot", personality: str = "basic"):
+        super().__init__(name)
+        self.is_npc      = True
+        self.personality = personality.lower()
+        self._style_profile: dict | None = None  # loaded lazily on first decide()
+
+    def _get_profile(self) -> dict | None:
+        if self.personality == "basic":
+            return None
+        if self._style_profile is None:
+            from engine.style_strategy import load_profile
+            self._style_profile = load_profile(self.personality)
+        return self._style_profile
+
+    def __repr__(self): return f"NPC_Player({self.name}, personality={self.personality!r})"
 
     @staticmethod
     def best_play(hand, dealer_up_card, valid_actions: list,
@@ -312,6 +324,11 @@ class NPC_Player(Player):
 
     def decide(self, hand, dealer_up_card, valid_actions: list,
                drinking_mode: bool = False) -> str:
+        profile = self._get_profile()
+        if profile is not None:
+            from engine.style_strategy import best_play_for
+            return best_play_for(profile, hand, dealer_up_card,
+                                 valid_actions, drinking_mode)
         return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
 
 

@@ -452,6 +452,39 @@ def handle_rejoin():
 
 
 # ---------------------------------------------------------------------------
+# Per-player strategy hint flag (any player, no admin required)
+# ---------------------------------------------------------------------------
+
+@bp.route("/set_hint", methods=["POST"])
+def set_hint():
+    """Store strategy-hint preference for the calling client. Body: { room_code, client_id, enabled }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    enabled   = bool(data.get("enabled", False))
+    session   = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    info = session._room_clients.get(client_id)
+    if not info:
+        return jsonify({"ok": False, "error": "Client not found."})
+    # Collect all seat names controlled by this client (primary + all local seats)
+    primary     = (info.get("name") or "").lower()
+    local_names = [n.lower() for n in (info.get("local_names") or []) if n]
+    all_names   = list({primary} | set(local_names)) if primary else local_names
+    if not all_names:
+        return jsonify({"ok": False, "error": "No seat claimed."})
+    # Store on the session object so it's shared across all clients' polls
+    if not hasattr(session, "_hint_seats"):
+        session._hint_seats = set()
+    for name in all_names:
+        if enabled:
+            session._hint_seats.add(name)
+        else:
+            session._hint_seats.discard(name)
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
 # Update settings
 # ---------------------------------------------------------------------------
 
@@ -750,3 +783,29 @@ def take_back_seat():
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
+
+@bp.route("/set_bot_personality", methods=["POST"])
+def set_bot_personality():
+    """Admin changes the personality of an NPC bot mid-round.
+    Body: { room_code, client_id, player_name, personality }"""
+    data        = request.json or {}
+    target_name = sanitize_name(data.get("player_name") or "")
+    personality = (data.get("personality") or "basic").strip().lower()
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": escape(err)})
+
+    player = next(
+        (p for p in session.all_players
+         if p.name.lower() == target_name.lower()),
+        None,
+    )
+    if not player:
+        return jsonify({"ok": False, "error": f"Player '{escape(target_name)}' not found."})
+    if not getattr(player, "is_npc", False):
+        return jsonify({"ok": False, "error": f"'{escape(target_name)}' is not a bot."})
+
+    player.personality    = personality
+    player._style_profile = None   # clear cached profile so next decide() reloads it
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})

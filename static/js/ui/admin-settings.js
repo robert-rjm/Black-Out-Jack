@@ -1,3 +1,5 @@
+window._myHintEnabled = null; // tracks last explicit hint toggle; null = read from server
+
 function openKickModal() {
   const overlay = document.getElementById("kick-overlay");
   const list    = document.getElementById("kick-list");
@@ -7,13 +9,30 @@ function openKickModal() {
   const cb = document.getElementById("anim-toggle-modal");
   if (cb) cb.checked = lsGet("bjDealAnim") !== "0";
 
-  // GodMode toggle is admin-only — hide it for regular players
-  const godRow = document.querySelector("#kick-overlay .kick-toggle-row:has(#god-mode-toggle-modal)");
-  if (godRow) godRow.style.display = (myRole === ROLE.ADMIN) ? "flex" : "none";
+  // Admin-only rows: bust vote, wild card, easy mode, god mode
+  document.querySelectorAll("#kick-overlay .admin-only-row").forEach(row => {
+    row.style.display = (myRole === ROLE.ADMIN) ? "flex" : "none";
+  });
+
+  // Add-local-player row — show when a free seat exists (non-spectator only)
+  const addLocalRow = document.getElementById("add-local-seat-row");
+  if (addLocalRow) {
+    const showRow = lastState.can_add_local_seat && myRole !== ROLE.SPECTATOR;
+    addLocalRow.style.display = showRow ? "block" : "none";
+    // Only hide the picker when the button itself is being hidden — do NOT
+    // reset it on every poll or the user can never click a seat button.
+    if (!showRow) {
+      const localPicker = document.getElementById("local-seat-picker");
+      if (localPicker) localPicker.style.display = "none";
+    }
+  }
 
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
-  const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
+  const connectedSet = new Set(
+    clients.flatMap(c => [(c.name || ""), ...(c.local_names || [])])
+           .map(n => n.toLowerCase()).filter(Boolean)
+  );
   const adminNames   = new Set(clients.filter(c => c.role === ROLE.ADMIN).map(c => (c.name || "").toLowerCase()));
   const myNameLc   = (myName || "").toLowerCase();
   const kickVotes  = (lastState && lastState.kick_votes) || {};
@@ -28,6 +47,7 @@ function openKickModal() {
   tablePlayers.forEach(seat => {
     if (seat.name.toLowerCase() === myNameLc) return;
     rows.push({ name: seat.name, isBot: !!seat.is_npc,
+                personality: seat.personality || "basic",
                 connected: connectedSet.has(seat.name.toLowerCase()), seated: true });
   });
 
@@ -84,6 +104,25 @@ function openKickModal() {
           humanBtn.title       = "Convert bot back to human-controlled";
           humanBtn.onclick     = () => doMakeHuman(r.name);
           btns.appendChild(humanBtn);
+
+          // Personality selector — only when profiles are available
+          const profiles = (typeof _availablePersonalities !== "undefined" && _availablePersonalities)
+            ? _availablePersonalities : ["basic"];
+          if (profiles.length > 1) {
+            const sel = document.createElement("select");
+            sel.className = "bot-personality-select";
+            sel.title     = "Bot style";
+            sel.style.cssText = "font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer";
+            profiles.forEach(p => {
+              const opt = document.createElement("option");
+              opt.value       = p;
+              opt.textContent = p === "basic" ? "Basic strategy" : p.charAt(0).toUpperCase() + p.slice(1) + "-bot";
+              if (p === (r.personality || "basic")) opt.selected = true;
+              sel.appendChild(opt);
+            });
+            sel.onchange = () => doSetPersonality(r.name, sel.value);
+            btns.appendChild(sel);
+          }
         }
         if (r.connected && !r.isBot && !isSelf) {
           const kickBtn       = document.createElement("button");
@@ -329,6 +368,19 @@ async function doMakeBot(targetName) {
   } catch (_) { alert("Network error."); }
 }
 
+async function doSetPersonality(targetName, personality) {
+  try {
+    const res  = await fetch("/set_bot_personality", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: targetName, personality }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); openKickModal(); }
+    else         { alert(data.error || "Could not update bot personality."); }
+  } catch (_) { alert("Network error."); }
+}
+
 async function doKick(targetName) {
   if (!confirm(`Remove ${targetName} from the session?`)) return;
   try {
@@ -464,6 +516,15 @@ function handleRulesBackdropClick(e) {
 // ADMIN GAME SETTINGS
 // ============================================================
 function _populateSettingsUI(state) {
+  // Strategy hint toggle — sync for all roles, using optimistic local value if set
+  // (_myHintEnabled tracks the last explicit user toggle to prevent poll interference)
+  const stratCb = document.getElementById("strategy-hint-toggle-modal");
+  if (stratCb) {
+    const myNames  = state.my_names || (state.my_name ? [state.my_name] : []);
+    const serverOn = (state.table || []).some(s => myNames.includes(s.name) && s.strategy_hint_enabled);
+    stratCb.checked = (window._myHintEnabled !== null) ? window._myHintEnabled : serverOn;
+  }
+
   // Show settings section only for admin
   const section = document.getElementById("game-settings-section");
   if (!section) return;
@@ -481,8 +542,6 @@ function _populateSettingsUI(state) {
   // Bust vote pill toggle sync is handled by updateBustVoteUI — just sync checkbox here
   const bustCb2 = document.getElementById("bust-vote-toggle-modal");
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
-  const stratCb = document.getElementById("strategy-hint-toggle-modal");
-  if (stratCb) stratCb.checked = !!state.strategy_hint_enabled;
   const wildCb = document.getElementById("wild-card-toggle-modal");
   if (wildCb) wildCb.checked = state.wild_card_enabled !== false;
   const wildLblOff = document.getElementById("wild-card-lbl-modal");

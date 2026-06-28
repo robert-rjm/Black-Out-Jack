@@ -85,10 +85,8 @@ function updateRoleUI(state) {
   if (suggestToggle) suggestToggle.style.display  = "none";
   if (voteDisp)      voteDisp.style.display       = "none";
 
-  // Local seat switcher
+  // Local seat switcher (play panel)
   _updateLocalSeatSwitcher();
-  const addLocalRow = document.getElementById("add-local-seat-row");
-  if (addLocalRow) addLocalRow.style.display = (state.can_add_local_seat && myRole !== ROLE.SPECTATOR) ? "block" : "none";
 
   // Role hint
   if (hint) {
@@ -226,16 +224,15 @@ async function setBustVoteEnabled(on) {
   } catch (_) {}
 }
 
-async function setStrategyHintEnabled(on) {
-  try {
-    const res  = await fetch("/update_settings", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, strategy_hint_enabled: on }),
-    });
-    const data = await res.json();
-    if (data.ok) applyState(data);
-  } catch (_) {}
+function setStrategyHintEnabled(on) {
+  // Per-player preference — stored server-side so badge and blue border are state-driven
+  window._myHintEnabled = on; // optimistic: prevent next poll from flipping the checkbox back
+  fetch("/set_hint", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
+  }).then(r => r.json()).then(data => { if (data.ok) applyState(data); })
+    .catch(() => { if (lastState) applyState(lastState); });
 }
 
 async function setWildCardEnabled(on) {
@@ -297,24 +294,30 @@ function _updateLocalSeatSwitcher() {
 
 function showLocalSeatPicker() {
   const picker = document.getElementById("local-seat-picker");
-  const row    = document.getElementById("add-local-seat-row");
   if (!picker || !lastState) return;
   if (picker.style.display !== "none") { picker.style.display = "none"; return; }
 
   const clients      = lastState.connected_clients || [];
-  // A seat is "claimed" if any connected client lists it as their primary name
-  // OR in their local_names (multi-seat control).
-  const claimedLower = new Set(
-    clients.flatMap(c => [(c.name || ""), ...(c.local_names || [])]
-      .map(n => n.toLowerCase()).filter(Boolean))
+  // Seats registered as another client's PRIMARY name are remote-owned — not requestable.
+  const remotePrimary = new Set(
+    clients.filter(c => c.name && c.role !== myRole || c.name)
+           .map(c => (c.name || "").toLowerCase()).filter(Boolean)
   );
   const myNamesLower = new Set((myNames || []).map(n => n.toLowerCase()));
-  const available    = (lastState.players || []).filter(
-    n => !claimedLower.has(n.toLowerCase()) && !myNamesLower.has(n.toLowerCase())
+  // All seats controlled locally by OTHER clients (in their local_names but not their primary)
+  const otherLocalNames = new Set(
+    clients.flatMap(c => (c.local_names || []).filter(n => (c.name || "").toLowerCase() !== n.toLowerCase()))
+           .map(n => n.toLowerCase()).filter(Boolean)
   );
 
+  // Available = not one of my own seats AND not a remote player's primary registration
+  const available = (lastState.players || []).filter(n => {
+    const lc = n.toLowerCase();
+    return !myNamesLower.has(lc) && !remotePrimary.has(lc);
+  });
+
   if (!available.length) {
-    picker.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">No unclaimed seats available.</div>';
+    picker.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">No seats available to claim.</div>';
     picker.style.display = "block";
     return;
   }
@@ -323,8 +326,9 @@ function showLocalSeatPicker() {
   available.forEach(name => {
     const btn = document.createElement("button");
     btn.className = "btn wide seat-pick-btn";
-    btn.textContent = name;
-    btn.addEventListener("click", () => requestLocalSeat(name));
+    const needsTransfer = otherLocalNames.has(name.toLowerCase());
+    btn.textContent = name + (needsTransfer ? " (request transfer)" : "");
+    btn.addEventListener("click", (e) => { e.stopPropagation(); requestLocalSeat(name); });
     picker.appendChild(btn);
   });
   picker.style.display = "block";
@@ -340,8 +344,13 @@ async function requestLocalSeat(name) {
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name }),
     });
     const data = await res.json();
-    if (data.ok) applyState(data);
-    else alert(data.error || "Could not request seat.");
+    if (data.ok) {
+      applyState(data);
+      if (data.transfer_pending) alert(`Seat transfer requested for "${name}" — waiting for the current controller to approve.`);
+      else if (data.pending)     alert(`Seat request for "${name}" sent — waiting for admin approval.`);
+    } else {
+      alert(data.error || "Could not request seat.");
+    }
   } catch (_) { alert("Network error."); }
 }
 

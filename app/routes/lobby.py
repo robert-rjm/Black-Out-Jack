@@ -11,6 +11,7 @@ POST /setup       — Admin configures and starts the game session
 from flask import Blueprint, jsonify, request
 
 from engine.blackjack import Player, Hand, Shoe, NPC_Player
+from engine.style_strategy import available_profiles
 from engine.referee import RefereeSession
 
 from app.models.game_room import GameRoom, GameConfig
@@ -27,6 +28,16 @@ from app.services.payout_tracker import init_bankrolls
 from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
 
 bp = Blueprint("lobby", __name__)
+
+
+# ---------------------------------------------------------------------------
+# Player personalities
+# ---------------------------------------------------------------------------
+
+@bp.route("/player_personalities", methods=["GET"])
+def player_personalities():
+    """Return a list of available player personality names (profile files present)."""
+    return jsonify({"personalities": available_profiles()})
 
 
 # ---------------------------------------------------------------------------
@@ -153,10 +164,18 @@ def setup():
     dealer_name = names[dealer_idx]
 
     npc_names = {sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
+    # personalities: {"BotName": "rob"} — optional, defaults to "basic"
+    raw_personalities = data.get("personalities", {})
+    npc_personalities = {sanitize_name(k): v.strip().lower()
+                         for k, v in raw_personalities.items() if v}
 
     players = []
     for name in names:
-        p           = NPC_Player(name) if name in npc_names else Player(name)
+        if name in npc_names:
+            personality = npc_personalities.get(name, "basic")
+            p           = NPC_Player(name, personality=personality)
+        else:
+            p           = Player(name)
         p.is_dealer = (name == dealer_name)
         if p.is_dealer:
             p.dealer_hand = Hand()
