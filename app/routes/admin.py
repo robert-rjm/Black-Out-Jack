@@ -459,7 +459,7 @@ def handle_rejoin():
 def set_hint():
     """Store strategy-hint preference for the calling client. Body: { room_code, client_id, enabled }"""
     data      = request.json or {}
-    room_code = (data.get("room_code") or "").strip().upper()
+    room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
     enabled   = bool(data.get("enabled", False))
     session   = game_sessions.get(room_code)
