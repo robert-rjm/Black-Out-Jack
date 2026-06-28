@@ -573,12 +573,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     turn        = current_turn(session)
     hide_double = (phase != "round-over")   # reveal doubled card once round is over
 
-    # Build a name→hint lookup from connected clients
-    _hint_names = {
-        (info.get("name") or "").lower()
-        for info in session._room_clients.values()
-        if info.get("strategy_hint")
-    }
+    # Build a name→hint lookup from the session-level hint set
+    # (stored on session._hint_seats to survive client reconnections)
+    _hint_names = getattr(session, "_hint_seats", set())
 
     table = []
     for p in session.all_players:
@@ -775,13 +772,17 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "can_add_local_seat":     (
             _ci.get("role") in ("admin", "player") and
             any(
-                p.name not in {(info.get("name") or "").capitalize()
-                               for info in session._room_clients.values()
-                               if not info.get("kicked")}
-                and p.name not in {n for info in session._room_clients.values()
-                                   if not info.get("kicked")
-                                   for n in (info.get("local_names") or [])}
-                and p.name not in (_ci.get("local_names") or [])
+                # Not already one of this client's own seats
+                p.name.lower() not in {(n or "").lower()
+                               for n in (_ci.get("local_names") or []) + (
+                                   [_ci.get("name")] if _ci.get("name") else [])}
+                # Not claimed as another client's primary (remote) registration
+                and p.name.lower() not in {(info.get("name") or "").lower()
+                               for cid, info in session._room_clients.items()
+                               if cid != client_id and not info.get("kicked")
+                               and info.get("name")}
+                # Not an NPC
+                and not getattr(p, "is_npc", False)
                 for p in session.all_players
             )
         ),

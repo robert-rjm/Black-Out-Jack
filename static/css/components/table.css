@@ -164,9 +164,14 @@
   line-height: 1;
 }
 .seat-hint-badge {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1;
-  opacity: .75;
+  opacity: .9;
+  cursor: default;
+}
+.seat.has-hint {
+  box-shadow: inset 0 0 0 1px rgba(91,156,246,.4);
+  background: rgba(91,156,246,.04);
 }
 
 .seat-sip-badge {
@@ -228,12 +233,4 @@
   margin-top: 8px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(255,255,255,.06);
-  font-size: 13px;
-}
-#last-round-panel .lrp-row {
-  display: flex; justify-content: space-between;
-  padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.07);
-}
-#last-round-panel .lrp-row:last-child { border-bottom: none; }
-#last-round-panel .lrp-sips { font-weight: 700; color: var(--yellow); }
+  background: rgba(255,255,255

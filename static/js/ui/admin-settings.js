@@ -1,3 +1,5 @@
+window._myHintEnabled = null; // tracks last explicit hint toggle; null = read from server
+
 function openKickModal() {
   const overlay = document.getElementById("kick-overlay");
   const list    = document.getElementById("kick-list");
@@ -12,9 +14,20 @@ function openKickModal() {
     row.style.display = (myRole === ROLE.ADMIN) ? "flex" : "none";
   });
 
+  // Add-local-player row — show when a free seat exists (non-spectator only)
+  const addLocalRow = document.getElementById("add-local-seat-row");
+  if (addLocalRow) {
+    addLocalRow.style.display = (lastState.can_add_local_seat && myRole !== ROLE.SPECTATOR) ? "block" : "none";
+    const localPicker = document.getElementById("local-seat-picker");
+    if (localPicker) localPicker.style.display = "none";
+  }
+
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
-  const connectedSet = new Set(clients.map(c => (c.name || "").toLowerCase()));
+  const connectedSet = new Set(
+    clients.flatMap(c => [(c.name || ""), ...(c.local_names || [])])
+           .map(n => n.toLowerCase()).filter(Boolean)
+  );
   const adminNames   = new Set(clients.filter(c => c.role === ROLE.ADMIN).map(c => (c.name || "").toLowerCase()));
   const myNameLc   = (myName || "").toLowerCase();
   const kickVotes  = (lastState && lastState.kick_votes) || {};
@@ -498,6 +511,15 @@ function handleRulesBackdropClick(e) {
 // ADMIN GAME SETTINGS
 // ============================================================
 function _populateSettingsUI(state) {
+  // Strategy hint toggle — sync for all roles, using optimistic local value if set
+  // (_myHintEnabled tracks the last explicit user toggle to prevent poll interference)
+  const stratCb = document.getElementById("strategy-hint-toggle-modal");
+  if (stratCb) {
+    const myNames  = state.my_names || (state.my_name ? [state.my_name] : []);
+    const serverOn = (state.table || []).some(s => myNames.includes(s.name) && s.strategy_hint_enabled);
+    stratCb.checked = (window._myHintEnabled !== null) ? window._myHintEnabled : serverOn;
+  }
+
   // Show settings section only for admin
   const section = document.getElementById("game-settings-section");
   if (!section) return;
@@ -515,12 +537,6 @@ function _populateSettingsUI(state) {
   // Bust vote pill toggle sync is handled by updateBustVoteUI — just sync checkbox here
   const bustCb2 = document.getElementById("bust-vote-toggle-modal");
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
-  const stratCb = document.getElementById("strategy-hint-toggle-modal");
-  if (stratCb) {
-    const myNames = state.my_names || (state.my_name ? [state.my_name] : []);
-    const myHintOn = (state.table || []).some(s => myNames.includes(s.name) && s.strategy_hint_enabled);
-    stratCb.checked = myHintOn;
-  }
   const wildCb = document.getElementById("wild-card-toggle-modal");
   if (wildCb) wildCb.checked = state.wild_card_enabled !== false;
   const wildLblOff = document.getElementById("wild-card-lbl-modal");
