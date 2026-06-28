@@ -452,6 +452,26 @@ def handle_rejoin():
 
 
 # ---------------------------------------------------------------------------
+# Per-player strategy hint flag (any player, no admin required)
+# ---------------------------------------------------------------------------
+
+@bp.route("/set_hint", methods=["POST"])
+def set_hint():
+    """Store strategy-hint preference for the calling client. Body: { room_code, client_id, enabled }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip().upper()
+    client_id = (data.get("client_id") or "").strip()
+    enabled   = bool(data.get("enabled", False))
+    session   = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    info = session._room_clients.get(client_id)
+    if not info:
+        return jsonify({"ok": False, "error": "Client not found."})
+    info["strategy_hint"] = enabled
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
 # Update settings
 # ---------------------------------------------------------------------------
 

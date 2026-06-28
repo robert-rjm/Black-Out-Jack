@@ -7,9 +7,10 @@ function openKickModal() {
   const cb = document.getElementById("anim-toggle-modal");
   if (cb) cb.checked = lsGet("bjDealAnim") !== "0";
 
-  // GodMode toggle is admin-only — hide it for regular players
-  const godRow = document.querySelector("#kick-overlay .kick-toggle-row:has(#god-mode-toggle-modal)");
-  if (godRow) godRow.style.display = (myRole === ROLE.ADMIN) ? "flex" : "none";
+  // Admin-only rows: bust vote, wild card, easy mode, god mode
+  document.querySelectorAll("#kick-overlay .admin-only-row").forEach(row => {
+    row.style.display = (myRole === ROLE.ADMIN) ? "flex" : "none";
+  });
 
   const clients      = lastState.connected_clients || [];
   const tablePlayers = lastState.table || [];
@@ -515,7 +516,11 @@ function _populateSettingsUI(state) {
   const bustCb2 = document.getElementById("bust-vote-toggle-modal");
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
   const stratCb = document.getElementById("strategy-hint-toggle-modal");
-  if (stratCb) stratCb.checked = !!state.strategy_hint_enabled;
+  if (stratCb) {
+    const myNames = state.my_names || (state.my_name ? [state.my_name] : []);
+    const myHintOn = (state.table || []).some(s => myNames.includes(s.name) && s.strategy_hint_enabled);
+    stratCb.checked = myHintOn;
+  }
   const wildCb = document.getElementById("wild-card-toggle-modal");
   if (wildCb) wildCb.checked = state.wild_card_enabled !== false;
   const wildLblOff = document.getElementById("wild-card-lbl-modal");
