@@ -28,6 +28,7 @@ function openKickModal() {
   tablePlayers.forEach(seat => {
     if (seat.name.toLowerCase() === myNameLc) return;
     rows.push({ name: seat.name, isBot: !!seat.is_npc,
+                personality: seat.personality || "basic",
                 connected: connectedSet.has(seat.name.toLowerCase()), seated: true });
   });
 
@@ -84,6 +85,25 @@ function openKickModal() {
           humanBtn.title       = "Convert bot back to human-controlled";
           humanBtn.onclick     = () => doMakeHuman(r.name);
           btns.appendChild(humanBtn);
+
+          // Personality selector — only when profiles are available
+          const profiles = (typeof _availablePersonalities !== "undefined" && _availablePersonalities)
+            ? _availablePersonalities : ["basic"];
+          if (profiles.length > 1) {
+            const sel = document.createElement("select");
+            sel.className = "bot-personality-select";
+            sel.title     = "Bot style";
+            sel.style.cssText = "font-size:11px;padding:2px 4px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer";
+            profiles.forEach(p => {
+              const opt = document.createElement("option");
+              opt.value       = p;
+              opt.textContent = p === "basic" ? "Basic strategy" : p.charAt(0).toUpperCase() + p.slice(1) + "-bot";
+              if (p === (r.personality || "basic")) opt.selected = true;
+              sel.appendChild(opt);
+            });
+            sel.onchange = () => doSetPersonality(r.name, sel.value);
+            btns.appendChild(sel);
+          }
         }
         if (r.connected && !r.isBot && !isSelf) {
           const kickBtn       = document.createElement("button");
@@ -326,6 +346,19 @@ async function doMakeBot(targetName) {
     const data = await res.json();
     if (data.ok) { closeKickModal(); applyState(data); }
     else         { alert(data.error || "Could not convert player to bot."); }
+  } catch (_) { alert("Network error."); }
+}
+
+async function doSetPersonality(targetName, personality) {
+  try {
+    const res  = await fetch("/set_bot_personality", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: targetName, personality }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); openKickModal(); }
+    else         { alert(data.error || "Could not update bot personality."); }
   } catch (_) { alert("Network error."); }
 }
 
