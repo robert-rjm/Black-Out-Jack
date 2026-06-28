@@ -1,0 +1,10 @@
+{
+  "player": "Marko",
+  "generated": "2026-06-27",
+  "source_decisions": 126,
+  "thresholds": {
+    "min_samples": 3,
+    "min_majority": 0.6
+  },
+  "deviations": []
+}

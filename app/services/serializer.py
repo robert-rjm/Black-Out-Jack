@@ -573,15 +573,21 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     turn        = current_turn(session)
     hide_double = (phase != "round-over")   # reveal doubled card once round is over
 
+    # Build a name→hint lookup from the session-level hint set
+    # (stored on session._hint_seats to survive client reconnections)
+    _hint_names = getattr(session, "_hint_seats", set())
+
     table = []
     for p in session.all_players:
         table.append({
-            "name":      p.name,
-            "is_dealer": p.is_dealer,
-            "is_npc":    getattr(p, "is_npc", False),
-            "hands":     [serialize_hand(h, hide_double=hide_double) for h in p.hands],
-            "done":      player_done(p),
-            "is_turn":   (p.name == turn),
+            "name":                   p.name,
+            "is_dealer":              p.is_dealer,
+            "is_npc":                 getattr(p, "is_npc", False),
+            "personality":            getattr(p, "personality", "basic") if getattr(p, "is_npc", False) else None,
+            "hands":                  [serialize_hand(h, hide_double=hide_double) for h in p.hands],
+            "done":                   player_done(p),
+            "is_turn":                (p.name == turn),
+            "strategy_hint_enabled":  p.name.lower() in _hint_names,
         })
 
     # Dealer hand — hide hole card while players are still acting (digital only)
@@ -766,13 +772,17 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "can_add_local_seat":     (
             _ci.get("role") in ("admin", "player") and
             any(
-                p.name not in {(info.get("name") or "").capitalize()
-                               for info in session._room_clients.values()
-                               if not info.get("kicked")}
-                and p.name not in {n for info in session._room_clients.values()
-                                   if not info.get("kicked")
-                                   for n in (info.get("local_names") or [])}
-                and p.name not in (_ci.get("local_names") or [])
+                # Not already one of this client's own seats
+                p.name.lower() not in {(n or "").lower()
+                               for n in (_ci.get("local_names") or []) + (
+                                   [_ci.get("name")] if _ci.get("name") else [])}
+                # Not claimed as another client's primary (remote) registration
+                and p.name.lower() not in {(info.get("name") or "").lower()
+                               for cid, info in session._room_clients.items()
+                               if cid != client_id and not info.get("kicked")
+                               and info.get("name")}
+                # Not an NPC
+                and not getattr(p, "is_npc", False)
                 for p in session.all_players
             )
         ),
@@ -799,8 +809,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "play_order":      play_order(session),
         "phase":           phase,
         "drinking_mode":          session.drinking_mode,
-        "best_play":              compute_best_play(session, turn, phase) if session.strategy_hint_enabled else None,
-        "strategy_hint_enabled":  session.strategy_hint_enabled,
+        "best_play":              compute_best_play(session, turn, phase),
         "honor_pending":          bool(session.drinking_mode and session.round._honor_pending),
         "honor_pending_action":   (session.round._honor_pending or {}).get("action") if session.drinking_mode else None,
         "honor_pending_reason":   (session.round._honor_pending or {}).get("reason") if session.drinking_mode else None,

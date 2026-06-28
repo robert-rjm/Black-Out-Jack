@@ -40,7 +40,7 @@ if __name__ == "__main__":
     except Exception:
         local_ip = "unknown"
 
-    print("\n  Drinking Blackjack Referee -- Web Mode")
+    print("\n  Drinking Blackjack")
     print("  Local:   http://localhost:5000")
     print(f"  iPhone:  http://{local_ip}:5000  (same WiFi)")
     print("  (Ctrl+C to stop)\n")
