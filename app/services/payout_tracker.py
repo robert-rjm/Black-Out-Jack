@@ -36,8 +36,9 @@ def deduct_bets(session: GameRoom) -> None:
     if session.drinking_mode or session.mode != "digital":
         return
     init_bankrolls(session)
-    stake = session.bet_amount * max(1, session.num_hands)
+    _pbets = getattr(session, "_player_bets", {})
     for p in session.all_players:
+        stake = _pbets.get(p.name, session.bet_amount) * max(1, session.num_hands)
         session._bankrolls[p.name] = (
             session._bankrolls.get(p.name, session.starting_bankroll) - stake
         )
@@ -53,9 +54,11 @@ def deduct_split_bet(session: GameRoom, player_name: str) -> None:
     """
     if session.drinking_mode or session.mode != "digital":
         return
+    _pbets = getattr(session, "_player_bets", {})
+    pbet   = _pbets.get(player_name, session.bet_amount)
     session._bankrolls[player_name] = (
         session._bankrolls.get(player_name, session.starting_bankroll)
-        - session.bet_amount
+        - pbet
     )
 
 
@@ -93,10 +96,11 @@ def apply_payouts(session: GameRoom) -> None:
 
     init_bankrolls(session)
 
-    bet = session.bet_amount
+    _pbets  = getattr(session, "_player_bets", {})
     payouts: dict[str, float] = {}   # net P/L per player (for display / stats)
 
     for p in session.all_players:
+        bet          = _pbets.get(p.name, session.bet_amount)
         total_return = 0.0
         net_display  = 0.0
         for hand in p.hands:
