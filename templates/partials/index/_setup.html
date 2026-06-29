@@ -5,7 +5,13 @@
 
   <div id="setup-room-code-wrap">
     <p class="setup-room-hint">Room Code — share with friends to let them join</p>
-    <div id="setup-room-code" class="room-code-badge"></div>
+    <div style="display:inline-block;position:relative">
+      <div id="setup-room-code" class="room-code-badge"></div>
+      <button data-action="shuffleRoomCode" title="New code"
+              style="position:absolute;top:50%;left:calc(100% + 6px);transform:translateY(-50%);
+                     background:none;border:none;cursor:pointer;font-size:13px;
+                     opacity:0.55;padding:2px 4px;line-height:1">🔀</button>
+    </div>
   </div>
 
   <div class="field">
