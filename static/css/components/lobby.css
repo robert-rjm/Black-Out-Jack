@@ -106,6 +106,7 @@
 
 .two-col   { display: grid; grid-template-columns: 1fr 1fr;     gap: 10px; width: 100%; max-width: 420px; }
 .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; width: 100%; max-width: 420px; }
+.two-col > *, .three-col > * { min-width: 0; }  /* prevent content from blowing out 1fr columns */
 
 #start-btn {
   width: 100%; max-width: 420px;
