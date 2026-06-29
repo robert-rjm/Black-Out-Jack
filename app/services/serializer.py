@@ -588,6 +588,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "done":                   player_done(p),
             "is_turn":                (p.name == turn),
             "strategy_hint_enabled":  p.name.lower() in _hint_names,
+            "player_bet":             getattr(session, "_player_bets", {}).get(p.name, session.bet_amount),
         })
 
     # Dealer hand — hide hole card while players are still acting (digital only)

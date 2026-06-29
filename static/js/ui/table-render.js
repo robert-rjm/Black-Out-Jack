@@ -260,8 +260,9 @@ function renderPlayers(state) {
 
     const hands = document.createElement("div");
     hands.className = "hands-row";
-    const betSuffix = (state.drinking_mode === false && state.bet_amount)
-      ? ` ($${Number(state.bet_amount).toFixed(2)})` : "";
+    const perBet    = (s.player_bet !== undefined ? s.player_bet : state.bet_amount);
+    const betSuffix = (state.drinking_mode === false && perBet)
+      ? ` ($${Number(perBet).toFixed(2)})` : "";
     (s.hands || []).forEach((h, i) => hands.appendChild(handBlock(h, `Hand ${i+1}${betSuffix}`)));
     if (!s.hands || s.hands.length === 0) {
       const empty = document.createElement("div");
