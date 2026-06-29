@@ -23,6 +23,21 @@ function hideLobbyMsg() {
   document.getElementById("lobby-msg").style.display = "none";
 }
 
+
+async function shuffleRoomCode() {
+  // Delete the current reserved room and create a fresh one
+  if (roomCode) {
+    try {
+      await fetch("/delete_room", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+      });
+    } catch (_) {}
+  }
+  await createRoom();
+}
+
 async function createRoom() {
   hideLobbyMsg();
   let data;
