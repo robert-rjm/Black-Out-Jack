@@ -22,7 +22,9 @@
 ## Features
 
 - [ ] trained "custom" BOTs, selectable and reflect actual player behavior deviation from basic strategy
-- [ ] simplified rule set for beginners
+- [ ] simplified ruleset
+  - [ ] reduced ruleset for beginners / introduction into the game (remove complex rules for simplicity)
+  - [ ] improved comprehensive example for more clarity (link rules explicitly to which rule in `docs/Rules.md`)
 - [ ] csv addition
   - potentially .pdf file output with graphs
   - show in Dealer who drank most for each ace

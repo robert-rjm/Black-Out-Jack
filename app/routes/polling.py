@@ -729,3 +729,49 @@ def give_bust_sip():
     session._log_version = session._log_version + 1
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
+
+@bp.route("/set_player_bet", methods=["POST"])
+def set_player_bet():
+    """Let a player change their own bet before the round is dealt.
+
+    Only allowed during the pre-deal phase.  Each client may only set bets
+    for seats they own (primary or local names).  The amount is stored in
+    session._player_bets[player_name] and read by deduct_bets() at deal time.
+    """
+    data       = request.json or {}
+    room_code  = (data.get("room_code")   or "").strip()
+    client_id  = data.get("client_id")
+    player_name = (data.get("player_name") or "").strip()
+    raw_bet    = data.get("bet")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "room not found"})
+
+    if round_phase(session) not in ("pre-deal", "round-over"):
+        return jsonify({"ok": False, "error": "betting phase is over"})
+
+    info = session._room_clients.get(client_id, {})
+    my_names = {
+        n.lower() for n in
+        (info.get("local_names") or []) + ([info.get("name")] if info.get("name") else [])
+        if n
+    }
+    if player_name.lower() not in my_names:
+        return jsonify({"ok": False, "error": "not your seat"})
+
+    # Validate and clamp: multiples of 2.5, min 2.5, max 10× default
+    try:
+        bet = float(raw_bet)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid bet"})
+
+    step = 2.5
+    bet  = round(round(bet / step) * step, 2)   # snap to nearest step
+    bet  = max(2.5, min(bet, session.bet_amount * 20))
+
+    if not hasattr(session, "_player_bets"):
+        session._player_bets = {}
+    session._player_bets[player_name] = bet
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})

@@ -155,7 +155,7 @@ def setup():
         dealer_idx = int(data.get("dealer_index", 0))
         wager      = max(1, int(data.get("wager", DEFAULT_WAGER)))
         num_hands  = max(1, int(data.get("num_hands", DEFAULT_NUM_HANDS)))
-        bet_amount = max(2.5, float(data.get("bet_amount", 10)))
+        bet_amount = max(2.5, float(data.get("bet_amount", 5)))
         starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
     except (ValueError, TypeError):
         return jsonify({"ok": False, "error": "Invalid numeric field."})
