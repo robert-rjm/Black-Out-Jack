@@ -368,15 +368,21 @@ def _rolling_avg(history: list, n: int):
     return round(sum(history[-n:]) / n, 1)
 
 
-def compute_kpi_stats(session: GameRoom) -> dict:
+def compute_kpi_stats(session: GameRoom, sip_ticker: dict | None = None) -> dict:
     """Pre-compute all KPI panel metrics server-side.
 
     All arithmetic lives here; kpi.js becomes a pure renderer that only does
     HTML generation and benchmark z-score coloring (which depends on the static
     BENCHMARKS_BY_CONFIG JS file that has no backend equivalent).
+
+    `sip_ticker` may be passed in by a caller that already computed it (e.g.
+    serialize_state, which needs the same totals for its drink-summary
+    fields) to avoid walking every player's drink_log a second time. Falls
+    back to computing it here for any other caller.
     """
     hand_stats         = session.stats.hand_stats
-    sip_ticker         = compute_sip_totals(session)   # reuses existing helper
+    if sip_ticker is None:
+        sip_ticker = compute_sip_totals(session)
     max_round_sips     = session.stats.max_round_sips
     streaks            = session.stats.streaks
     strategy_decisions = session.stats.strategy_decisions
@@ -830,7 +836,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "god_mode_enabled":       session._god_mode,
         "queued_settings":        session._queued_settings,
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
-        "kpi_stats":              compute_kpi_stats(session),
+        "kpi_stats":              compute_kpi_stats(session, sip_ticker=sip_totals),
         **_payout_data,
         **_drink_summary_data,
         **_bust_vote_data,

@@ -72,15 +72,24 @@ Drinking-mode-only feature (the docstring literally says so). See full
 writeup below — any seated player can currently resolve another player's
 mandatory-split prompt, choosing their sip penalty for them.
 
-### DM4 · Bust-vote side bet ignores per-player custom bet (= B4 below)
-Bust vote is the drinking-mode "bet bust" mechanic. See full writeup below —
-the side bet always settles against the table default, not the player's
-actual bet.
+### ~~DM4~~ · Correction: B4 is Normal-mode money logic, not Drinking Mode
+Originally listed here, but re-checked: `polling.py:634`'s side-bet code is
+gated behind `if not session.drinking_mode and session.mode == "digital"`,
+with an explicit comment — "Normal mode: side bet is opt-in via the 'bust'
+vote... Drinking mode uses sips only." Bust *voting* itself is shared
+infrastructure (`apply_bust_vote_penalties` handles the sip side for
+drinking mode separately, in `drink_tracker.py`), but the specific bug in
+B4 only ever fires in Normal mode. Moved to the general backlog below —
+not a Drinking Mode item.
 
 ### DM5 · Drink log double-scanned every poll (= I1 below)
-Directly drinking-mode: `_compute_live_drink_totals` runs twice per
-`/state` tick despite its own docstring claiming it's deduplicated. See
-full writeup below.
+**Status:** FIXED. Directly drinking-mode: `_compute_live_drink_totals` ran
+twice per `/state` tick despite its own docstring claiming it was
+deduplicated. `compute_kpi_stats` now accepts an optional pre-computed
+`sip_ticker` so `serialize_state` only walks the drink log once and passes
+the result through. Verified by instrumenting the call count directly
+(1 call instead of 2) and confirming `sip_totals`/`kpi_stats.session.total_sips`
+still agree.
 
 ### DM6 · Frontend command-queue drop affects 3 drinking-mode actions (= B7 below)
 Of the six call sites sharing the broken queue-drain (see B7 below), three
@@ -278,6 +287,7 @@ after the handout loop clears `_pending_milestone`.
 ## Inefficiencies
 
 ### I1 · Drink log is walked twice per `/state` poll — contradicts its own docstring
+**Status:** FIXED (`compute_kpi_stats` now takes an optional pre-computed `sip_ticker`; `serialize_state` passes through the one it already computed instead of triggering a second scan)
 **File:** `app/services/serializer.py:206-212, 233-241, 645-647`
 
 `_compute_live_drink_totals`'s docstring says it exists specifically "so the
@@ -379,12 +389,12 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 - [x] **B8** — fix milestone re-entrancy clobbering a second milestone (`drink_tracker.py:562-630`) — highest severity: sips silently vanish from the economy
 - [x] **B9** — re-check for a newly-crossed milestone boundary after a handout finishes distributing (`admin.py:655-687`, and the same gap in the forfeit path, `drink_tracker.py:718`) — compounds with B8
 - [x] **B2** — add seat-ownership check to `/honor_resolve` (`game_commands.py:398`)
-- [ ] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`)
-- [ ] **I1** — stop double-computing drink totals per poll; compute once in `serialize_state`
+- [x] **I1** — stop double-computing drink totals per poll; compute once in `serialize_state`
 - [ ] **B7 (partial)** — extract `_requestDone()` helper so queued commands aren't dropped during `honorResolve`/`submitBustVote`/`giveBustSip`
 
 ### Everything else
 
+- [ ] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`) — Normal-mode money logic, not Drinking Mode (see correction in the Drinking Mode section above)
 - [ ] **B1** — add seat-ownership check to `/rebuy` (`game_commands.py:374`)
 - [ ] **B3** — clamp `num_decks` in `/setup` the same way `/update_settings` does (`lobby.py:218`)
 - [ ] **B6** — wrap `_cmd_split`'s hand-label parsing in try/except (`game_commands.py:536`, `blackjack.py:287`, `referee.py:310`)
