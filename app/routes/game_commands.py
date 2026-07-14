@@ -556,7 +556,10 @@ def _cmd_split(game_session, parts):
     # brand-new 2-card hand and may need the house-rule prompt again (e.g.
     # re-splitting into another unsuited 10-10).
     game_session.round._honor_acked.discard((player.name, id(hand)))
-    idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+    try:
+        idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+    except (ValueError, AttributeError):
+        idx = 0
     new_hand, new_label = perform_split(game_session, player, hand, idx)
     # Splitting requires placing an equal bet on the new hand — deduct it now
     # so the bankroll badge stays accurate during the round.
