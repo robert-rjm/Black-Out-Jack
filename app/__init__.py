@@ -27,6 +27,12 @@ def create_app() -> Flask:
         static_folder="static",
     )
 
+    # Regenerate the JS/CSS bundles from source on every startup (this app's
+    # only "deploy" step is a process restart, so there's no separate build
+    # phase to run this from -- see app/services/asset_bundler.py).
+    from app.services.asset_bundler import build_bundles
+    build_bundles(_ROOT)
+
     # -- Global after_request ------------------------------------------
     @app.after_request
     def no_cache(response):

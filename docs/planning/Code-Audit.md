@@ -341,6 +341,21 @@ and thread the values through instead of recomputing. Small.
 ---
 
 ### I3 · 26 unbundled static asset requests, no HTTP/2, on a dev server
+**Status:** FIXED — `app/services/asset_bundler.py` concatenates the 17 JS
+files into `static/js/bundle.js` and the 9 CSS files into
+`static/css/bundle.css`, in their original order, regenerated fresh on every
+`create_app()` call (this app's only "deploy" step is a process restart, so
+there's no separate build phase to hang a build step off of — see the
+module docstring). Templates now reference one `<script>`/`<link>` each.
+Total CSS+JS requests per page load: 26 → 2 (the two vendor scripts,
+`purify.min.js`/`marked.min.js`, stay separate and deferred, unchanged).
+Verified in-browser: network panel shows exactly `bundle.css`, `bundle.js`,
+plus the 2 vendor scripts; played a full round (deal, bot auto-play, drink
+toasts, KPI leaderboard, drinks panel) with zero console errors, confirming
+the merge didn't change behavior. Bundle files are gitignored (regenerated,
+not source) and the bundling logic is a no-op risk — classic `<script>`
+tags already share one global scope and execute in document order, so
+concatenation is semantically identical to loading them separately.
 **Files:** `templates/partials/index/_head.html` (9 CSS `<link>` tags),
 `templates/partials/index/_scripts.html` (17 `<script>` tags)
 
@@ -421,7 +436,7 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 - [ ] **I2** — compute `phase`/`turn`/`play_order` once per poll instead of up to 6 times
 - [ ] **D1** — delete `engine/busfahrer.py` or fix its import and pick the work back up (deferred — not built yet)
 - [ ] **B5** — add a lock around room-code check+reserve (do before any move to a threaded/multi-worker server — see `Improvements.md` item 2)
-- [ ] **I3** — bundle the 17 JS files and 9 CSS files into one request each
+- [x] **I3** — bundle the 17 JS files and 9 CSS files into one request each
 
 Within Drinking Mode: B8 and B9 first since they compound (a milestone lost
 to B8 is unrecoverable — actual sips silently disappear from the game, not

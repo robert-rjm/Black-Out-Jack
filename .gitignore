@@ -16,3 +16,8 @@ data/drinks/
 
 # Claude Code local settings — machine-specific, not shared.
 .claude/
+
+# Regenerated from source on every app startup (app/services/asset_bundler.py)
+# — not source, not tracked.
+static/js/bundle.js
+static/css/bundle.css
