@@ -306,15 +306,8 @@ async function sendCmd(cmd) {
   } catch (_) {
     appendLog("  Command failed — server unreachable.\n");
   } finally {
-    _requestsInFlight--;
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
-    // Drain the one-slot queue: fire any command that was deferred while we
-    // were in flight.  This handles rapid taps and sendCmd-while-sendCmd races.
-    if (_pendingCmd !== null) {
-      const queued = _pendingCmd;
-      _pendingCmd = null;
-      sendCmd(queued);
-    }
+    _requestDone();
   }
 }
 
@@ -711,7 +704,7 @@ async function honorResolve(choice) {
   } catch (_) {
     appendLog("  Honor resolve failed — server unreachable.\n");
   } finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 window.honorResolve = honorResolve;

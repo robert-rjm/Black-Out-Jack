@@ -210,7 +210,7 @@ async function submitBustVote(choice, playerName) {
     const data = await res.json();
     if (data.ok) applyState(data);
   } catch (_) {} finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 
@@ -592,7 +592,7 @@ async function giveBustSip(winnerName, recipientName) {
     if (data.ok) applyState(data);
     else appendLog(`  Bust handout failed: ${data.error || "unknown"}\n`);
   } catch (_) {} finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 
