@@ -401,7 +401,8 @@ function _syncIdentity(state) {
   const newDealerName = state.dealer || "";
   const iAmDealer = myNames.some(n => n.toLowerCase() === newDealerName.toLowerCase());
   const wasDealer = myNames.some(n => n.toLowerCase() === _prevDealerName.toLowerCase());
-  if (lastState !== null && iAmDealer && !wasDealer) showDealerToast();
+  // No "you are dealer" toast in normal (non-drinking) mode — dealer is the house
+  if (lastState !== null && iAmDealer && !wasDealer && state.drinking_mode) showDealerToast();
 }
 
 // Sync DrinkUI round data and fire all one-shot toasts gated on sequence numbers.

@@ -209,6 +209,7 @@ class GameRoom:
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     _bankrolls: dict = field(default_factory=dict)
+    _player_bets: dict = field(default_factory=dict)   # name -> per-round bet override
     _last_round_payouts: dict = field(default_factory=dict)
     _bank_run_players: list = field(default_factory=list)
     _biggest_round_payouts: dict = field(default_factory=dict)

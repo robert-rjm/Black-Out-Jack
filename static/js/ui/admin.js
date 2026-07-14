@@ -67,6 +67,8 @@ function updateRoleUI(state) {
   if (predealPanel) {
     predealPanel.style.display = (isPreDeal && isMyDealerClient) ? "block" : "none";
   }
+  // Per-player bet panel: shown to non-dealer players in pre-deal (normal/digital mode only)
+  _updateBetPanel(state, isPreDeal);
   // Hide all play actions until cards are on the table
   if (playContent) {
     playContent.style.display = isPreDeal ? "none" : "block";
@@ -981,4 +983,123 @@ function setAnimToggle(on) {
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
     }).catch(() => {});
   }
+}
+
+// ---------------------------------------------------------------------------
+// Per-player bet panel (pre-deal, normal/digital mode only)
+// ---------------------------------------------------------------------------
+
+function _updateBetPanel(state, isPreDeal) {
+  const panel     = document.getElementById("dig-bet-panel");
+  const container = document.getElementById("dig-bet-steppers");
+  if (!panel || !container) return;
+
+  const isDrinking = state.drinking_mode;
+  const isDigital  = state.mode === "digital";
+
+  // Only show in digital (normal-money) mode during pre-deal, for players who have seats
+  const isRoundOver = state.phase === PHASE.ROUND_OVER;
+  const show = (isPreDeal || isRoundOver) && isDigital && !isDrinking && myNames.length > 0;
+  panel.style.display = show ? "block" : "none";
+  if (!show) return;
+
+  // Build one stepper per seat this client controls
+  const tableMap = {};
+  (state.table || []).forEach(p => { tableMap[p.name.toLowerCase()] = p; });
+
+  const defaultBet = state.bet_amount || 5;
+
+  // Only rebuild if seats or bets changed (avoid clobbering in-progress steppers)
+  const existing = container.querySelectorAll(".player-bet-stepper");
+  const needsRebuild = existing.length !== myNames.length ||
+    myNames.some((n, i) => {
+      const el = existing[i];
+      return !el || el.dataset.seatName !== n;
+    });
+
+  if (!needsRebuild) {
+    // Still sync displayed value from server state (another client could have polled)
+    myNames.forEach(n => {
+      const p   = tableMap[n.toLowerCase()];
+      const val = p ? (p.player_bet || defaultBet) : defaultBet;
+      const row = container.querySelector(`.player-bet-stepper[data-seat-name='${n}']`);
+      if (!row) return;
+      // Only update if the stepper isn't actively being changed (no pending fetch)
+      if (!row.dataset.pending) {
+        row.dataset.value = val;
+        const disp = row.querySelector(".bet-stepper-display");
+        if (disp) disp.textContent = "$" + val.toFixed(2);
+        _syncBetStepperLimits(row, val, defaultBet);
+      }
+    });
+    return;
+  }
+
+  container.innerHTML = "";
+  myNames.forEach(name => {
+    const p   = tableMap[name.toLowerCase()];
+    const val = p ? (p.player_bet || defaultBet) : defaultBet;
+    const min = 2.5;
+    const max = defaultBet * 20;
+    const step = 2.5;
+
+    const row = document.createElement("div");
+    row.className = "player-bet-stepper";
+    row.dataset.seatName = name;
+    row.dataset.value    = val;
+    row.style.cssText    = "display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px";
+
+    row.innerHTML = `
+      <span style="font-size:13px;font-weight:600;min-width:60px">${escapeHtml(name)}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn btn-sm bet-stepper-dec" style="width:32px;height:32px;padding:0;font-size:16px">−</button>
+        <span class="bet-stepper-display" style="min-width:60px;text-align:center;font-size:14px;font-weight:600">$${val.toFixed(2)}</span>
+        <button class="btn btn-sm bet-stepper-inc" style="width:32px;height:32px;padding:0;font-size:16px">+</button>
+      </div>
+    `;
+
+    _syncBetStepperLimits(row, val, defaultBet);
+
+    row.querySelector(".bet-stepper-dec").addEventListener("click", () => _changeBet(row, -step, min, max, step, name));
+    row.querySelector(".bet-stepper-inc").addEventListener("click", () => _changeBet(row, +step, min, max, step, name));
+    container.appendChild(row);
+  });
+}
+
+function _syncBetStepperLimits(row, val, defaultBet) {
+  const min = 2.5;
+  const max = defaultBet * 20;
+  const dec = row.querySelector(".bet-stepper-dec");
+  const inc = row.querySelector(".bet-stepper-inc");
+  if (dec) dec.disabled = val <= min;
+  if (inc) inc.disabled = val >= max;
+}
+
+function _changeBet(row, delta, min, max, step, playerName) {
+  let val = parseFloat(row.dataset.value) || 0;
+  val = Math.round((val + delta) / step) * step;
+  val = Math.max(min, Math.min(max, val));
+  val = Math.round(val * 100) / 100;
+
+  row.dataset.value = val;
+  const disp = row.querySelector(".bet-stepper-display");
+  if (disp) disp.textContent = "$" + val.toFixed(2);
+  _syncBetStepperLimits(row, val, (lastState ? lastState.bet_amount : 5) * 20 / 20);
+
+  // Mark pending so poll doesn't overwrite mid-flight
+  row.dataset.pending = "1";
+  setPlayerBet(playerName, val).finally(() => { delete row.dataset.pending; });
+}
+
+async function setPlayerBet(playerName, bet) {
+  if (!roomCode || !clientId) return;
+  try {
+    const res = await fetch("/set_player_bet", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: playerName, bet }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
 }
