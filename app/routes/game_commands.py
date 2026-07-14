@@ -431,6 +431,18 @@ def honor_resolve():
         # Nothing pending (stale request / already resolved elsewhere) -- no-op.
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
+    # Only the seat this prompt belongs to may resolve it (admin/dealer is
+    # exempt, matching the dealer-gate on /command -- the dealer client is
+    # allowed to act on behalf of any seat).
+    if info.get("role") != "admin":
+        my_names = {
+            n.lower() for n in
+            (info.get("local_names") or []) + ([info.get("name")] if info.get("name") else [])
+            if n
+        }
+        if session.round._honor_pending["player"].lower() not in my_names:
+            return jsonify({"ok": False, "error": "Not your prompt to resolve."})
+
     if choice not in ("split", "no"):
         return jsonify({"ok": False, "error": f"Invalid choice '{choice}'."})
 

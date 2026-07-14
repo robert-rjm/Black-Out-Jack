@@ -123,6 +123,7 @@ re-buy any busted player's bankroll back to the starting amount.
 ---
 
 ### B2 · `/honor_resolve` has no seat-ownership check — security
+**Status:** FIXED (non-admin callers now restricted to their own seat(s); admin/dealer still exempt, matching the dealer-gate model on `/command`)
 **File:** `app/routes/game_commands.py:398-458`
 
 Requires the caller's role to be `admin` or `player`, but never checks that
@@ -377,7 +378,7 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 
 - [x] **B8** — fix milestone re-entrancy clobbering a second milestone (`drink_tracker.py:562-630`) — highest severity: sips silently vanish from the economy
 - [x] **B9** — re-check for a newly-crossed milestone boundary after a handout finishes distributing (`admin.py:655-687`, and the same gap in the forfeit path, `drink_tracker.py:718`) — compounds with B8
-- [ ] **B2** — add seat-ownership check to `/honor_resolve` (`game_commands.py:398`)
+- [x] **B2** — add seat-ownership check to `/honor_resolve` (`game_commands.py:398`)
 - [ ] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`)
 - [ ] **I1** — stop double-computing drink totals per poll; compute once in `serialize_state`
 - [ ] **B7 (partial)** — extract `_requestDone()` helper so queued commands aren't dropped during `honorResolve`/`submitBustVote`/`giveBustSip`
