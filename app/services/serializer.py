@@ -59,6 +59,9 @@ def _serialize_pending_milestone(milestone: dict | None, client_info: dict) -> d
 # Turn / phase helpers
 # ---------------------------------------------------------------------------
 
+_UNSET = object()   # sentinel — None is a valid current_turn() value, so it can't mean "not provided"
+
+
 def play_order(session: GameRoom) -> list[str]:
     """
     Turn order: dealer's left clockwise, dealer-player goes last.
@@ -90,34 +93,45 @@ def player_done(player) -> bool:
     return all(hand_done(h) for h in player.hands)
 
 
-def current_turn(session: GameRoom) -> str | None:
+def current_turn(session: GameRoom, order: list[str] | None = None) -> str | None:
     """
     Whose turn is it right now?
     Returns the player name, or None if no one is up (pre-deal or dealer phase).
     Only meaningful when the initial deal has happened.
+
+    `order` may be a pre-computed play_order(session) value, for callers
+    that need both and would otherwise trigger a redundant recompute.
     """
     has_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
     if not has_cards:
         return None
-    for name in play_order(session):
+    if order is None:
+        order = play_order(session)
+    for name in order:
         p = session._get_player(name)
         if p and not player_done(p):
             return name
     return None   # all player hands done → dealer phase
 
 
-def round_phase(session: GameRoom) -> str:
+def round_phase(session: GameRoom, turn=_UNSET) -> str:
     """
     'pre-deal'     → waiting for initial deal
     'playing'      → at least one player still has an active hand
     'dealer-ready' → all player hands done, results not yet assigned
     'round-over'   → every hand has a result (dealer has resolved the round)
+
+    `turn` may be a pre-computed current_turn(session) value, for callers
+    (e.g. serialize_state) that need both and would otherwise trigger two
+    full play_order() scans back to back. Leave unset to compute it here.
     """
     has_player_cards = any(len(h.cards) > 0 for p in session.all_players for h in p.hands)
     if not has_player_cards:
         return "pre-deal"
 
-    if current_turn(session) is not None:
+    if turn is _UNSET:
+        turn = current_turn(session)
+    if turn is not None:
         return "playing"
 
     # `result` is only ever set by the resolution step (after the dealer
@@ -368,15 +382,24 @@ def _rolling_avg(history: list, n: int):
     return round(sum(history[-n:]) / n, 1)
 
 
-def compute_kpi_stats(session: GameRoom) -> dict:
+def compute_kpi_stats(session: GameRoom, sip_ticker: dict | None = None,
+                       order: list[str] | None = None) -> dict:
     """Pre-compute all KPI panel metrics server-side.
 
     All arithmetic lives here; kpi.js becomes a pure renderer that only does
     HTML generation and benchmark z-score coloring (which depends on the static
     BENCHMARKS_BY_CONFIG JS file that has no backend equivalent).
+
+    `sip_ticker` and `order` may be passed in by a caller that already
+    computed them (e.g. serialize_state, which needs both for its own
+    fields) to avoid walking the drink log / recomputing play_order() a
+    second time. Both fall back to computing here for any other caller.
     """
     hand_stats         = session.stats.hand_stats
-    sip_ticker         = compute_sip_totals(session)   # reuses existing helper
+    if sip_ticker is None:
+        sip_ticker = compute_sip_totals(session)
+    if order is None:
+        order = play_order(session)
     max_round_sips     = session.stats.max_round_sips
     streaks            = session.stats.streaks
     strategy_decisions = session.stats.strategy_decisions
@@ -423,7 +446,7 @@ def compute_kpi_stats(session: GameRoom) -> dict:
 
     # ── Per-player rows (in play order) ─────────────────────────────────────
     player_rows = []
-    for name in play_order(session):
+    for name in order:
         hs  = hand_stats.get(name, {})
         sk  = streaks.get(name, {})
         sd  = strategy_decisions.get(name, {})
@@ -569,8 +592,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     _ci = get_client_info(session, client_id) if client_id else {}
 
     dealer      = session._get_dealer()
-    phase       = round_phase(session)
-    turn        = current_turn(session)
+    order       = play_order(session)
+    turn        = current_turn(session, order=order)
+    phase       = round_phase(session, turn=turn)
     hide_double = (phase != "round-over")   # reveal doubled card once round is over
 
     # Build a name→hint lookup from the session-level hint set
@@ -807,7 +831,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "table":           table,
         "dealer_hand":     d_hand_state,
         "current_turn":    turn,
-        "play_order":      play_order(session),
+        "play_order":      order,
         "phase":           phase,
         "drinking_mode":          session.drinking_mode,
         "best_play":              compute_best_play(session, turn, phase),
@@ -830,7 +854,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "god_mode_enabled":       session._god_mode,
         "queued_settings":        session._queued_settings,
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
-        "kpi_stats":              compute_kpi_stats(session),
+        "kpi_stats":              compute_kpi_stats(session, sip_ticker=sip_totals, order=order),
         **_payout_data,
         **_drink_summary_data,
         **_bust_vote_data,

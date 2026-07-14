@@ -50,7 +50,7 @@
   background: linear-gradient(135deg, #3d2b00, #5c3e00);
   color: var(--yellow);
   border: 2px solid var(--yellow);
-  box-shadow: 0 4px 28px rgba(245,200,66,.55), 0 0 0 1px rgba(245,200,66,.2);
+  box-shadow: 0 4px 28px color-mix(in srgb, var(--yellow) 55%, transparent), 0 0 0 1px color-mix(in srgb, var(--yellow) 20%, transparent);
   font-size: 16px;
   letter-spacing: .4px;
 }
@@ -94,7 +94,7 @@
   padding: 12px 22px; border-radius: 16px;
   font-size: 15px; font-weight: 800;
   text-align: center;
-  box-shadow: 0 4px 28px rgba(245,200,66,.35);
+  box-shadow: 0 4px 28px color-mix(in srgb, var(--yellow) 35%, transparent);
   z-index: 901; opacity: 0; pointer-events: none;
   transition: opacity .2s, transform .2s;
   white-space: nowrap;
@@ -109,8 +109,8 @@
   display: none;
   position: fixed; left: 50%; bottom: 90px;
   transform: translateX(-50%);
-  background: rgba(245,200,66,.12);
-  border: 1.5px solid rgba(245,200,66,.4);
+  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--yellow) 40%, transparent);
   color: var(--yellow);
   padding: 9px 18px; border-radius: 14px;
   font-size: 13px; font-weight: 700;
@@ -130,7 +130,7 @@
   padding: 12px 22px; border-radius: 16px;
   font-size: 15px; font-weight: 800;
   text-align: center;
-  box-shadow: 0 4px 28px rgba(224,92,92,.35);
+  box-shadow: 0 4px 28px color-mix(in srgb, var(--red) 35%, transparent);
   z-index: 902; opacity: 0; pointer-events: none;
   transition: opacity .2s, transform .2s;
   white-space: nowrap;

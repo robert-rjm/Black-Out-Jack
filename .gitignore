@@ -1,4 +1,4 @@
-﻿__pycache__/
+__pycache__/
 .pytest_cache/
 pytest-cache-files-*/
 
@@ -13,3 +13,11 @@ scripts/benchmarks.json
 # not code. Save exports here locally; not tracked/published.
 data/decisions/
 data/drinks/
+
+# Claude Code local settings — machine-specific, not shared.
+.claude/
+
+# Regenerated from source on every app startup (app/services/asset_bundler.py)
+# — not source, not tracked.
+static/js/bundle.js
+static/css/bundle.css

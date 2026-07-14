@@ -25,7 +25,7 @@ from markupsafe import escape
 
 from app.services.session_store import game_sessions
 from app.services.serializer    import serialize_state, round_phase
-from app.services.drink_tracker import award_sips
+from app.services.drink_tracker import award_sips, check_and_set_milestone
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
 from app.services.validators    import sanitize_name
@@ -661,8 +661,11 @@ def claim_milestone():
     winner_name  = milestone["winner"]
     boundary_val = milestone["boundary"]
 
-    # Award sips to each recipient and the winner's residual — award_sips
-    # updates all four accumulators and triggers a milestone check after each.
+    # Award sips to each recipient and the winner's residual. award_sips()
+    # calls check_and_set_milestone() internally, but it's a guaranteed
+    # no-op for all of these — _pending_milestone is still set to *this*
+    # milestone until we clear it below, so the re-check has to happen
+    # explicitly afterward (see the call after _pending_milestone = None).
     winner   = milestone["winner"]
     boundary = milestone["boundary"]
     for name, s in alloc.items():
@@ -691,6 +694,11 @@ def claim_milestone():
         "allocations": alloc,         # {name: sips} — only non-zero entries
         "set_at":      time.monotonic(),
     }
+
+    # A handout allocation can itself push a recipient past the next
+    # boundary. _pending_milestone is clear now, so this can fire.
+    check_and_set_milestone(session)
+
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 

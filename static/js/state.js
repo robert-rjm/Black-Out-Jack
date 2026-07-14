@@ -33,6 +33,20 @@ let _requestsInFlight = 0;
 // request completes.  null means nothing is waiting.
 let _pendingCmd = null;
 
+// Call this instead of a bare `_requestsInFlight--` in every action
+// function's `finally` block. Decrements the counter *and* drains
+// _pendingCmd — every _requestsInFlight++ site must pair with this (not a
+// bare decrement), otherwise a command queued while THAT request was in
+// flight is silently dropped instead of replayed.
+function _requestDone() {
+  _requestsInFlight--;
+  if (_pendingCmd !== null) {
+    const queued = _pendingCmd;
+    _pendingCmd = null;
+    sendCmd(queued);
+  }
+}
+
 // Disconnection tracking — used by showDisconnected / hideDisconnected in lobby.js
 let _consecutiveFailures = 0;   // resets to 0 on any successful /state response
 let _disconnectedSince   = null; // Date.now() timestamp when overlay was first shown

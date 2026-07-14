@@ -42,7 +42,7 @@
 .kpi-tab:not(.active):active                  { background: rgba(255,255,255,.08); }
 .kpi-tab.active,
 .kpi-tab.active:active,
-.kpi-tab.active:focus                 { color: var(--accent); background: rgba(79,142,247,.14); box-shadow: inset 0 0 0 1.5px rgba(79,142,247,.35); }
+.kpi-tab.active:focus                 { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent); }
 .kpi-tab.kpi-tab-disabled             { opacity: .35; cursor: default; }
 
 /* ---- PANES ---- */
@@ -158,11 +158,11 @@
 .lb-table tbody tr:last-child td { border-bottom: none; }
 
 /* Dealer row */
-.lb-row-dealer td { background: rgba(155,100,255,.07); }
+.lb-row-dealer td { background: color-mix(in srgb, var(--purple) 7%, transparent); }
 .lb-row-dealer .lb-name { color: var(--accent); }
 
 /* "You" row — faint yellow wash */
-.lb-row-me td { background: rgba(255,220,50,.06); }
+.lb-row-me td { background: color-mix(in srgb, var(--yellow) 6%, transparent); }
 
 /* Column group separators */
 .lb-table .col-sep { border-left: 1px solid var(--border); }
@@ -194,7 +194,7 @@
   padding: 8px 10px;
 }
 .stat-card-primary {
-  border-color: rgba(255,215,0,.45);
+  border-color: color-mix(in srgb, var(--yellow) 45%, transparent);
 }
 
 /* ---- MOBILE SHEET OVERLAY (_mobileSheet in kpi.js) ---- */

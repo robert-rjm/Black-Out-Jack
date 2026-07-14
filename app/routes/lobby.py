@@ -157,6 +157,11 @@ def setup():
         num_hands  = max(1, int(data.get("num_hands", DEFAULT_NUM_HANDS)))
         bet_amount = max(2.5, float(data.get("bet_amount", 5)))
         starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
+        # Same 1-8 clamp as /update_settings — an unbounded value can crash
+        # the shoe (0 decks: deal_card() pops from an empty list) or exhaust
+        # memory (a huge value allocates that many Deck() objects).
+        default_decks = 2 if len(names) >= 4 else 1
+        num_decks     = max(1, min(8, int(data.get("num_decks", default_decks))))
     except (ValueError, TypeError):
         return jsonify({"ok": False, "error": "Invalid numeric field."})
     if not (0 <= dealer_idx < len(names)):
@@ -214,8 +219,6 @@ def setup():
     set_session(room_code, room)
 
     if mode == "digital":
-        default_decks    = 2 if len(players) >= 4 else 1
-        num_decks        = int(data.get("num_decks", default_decks))
         raw_session.shoe = Shoe(num_decks)
         raw_session.shoe.shuffle(quiet=True)
 

@@ -631,7 +631,8 @@ def cast_bust_vote():
     # Deduct half the main bet when a player commits to the bet, refund it
     # immediately if they switch back to "pass".  Drinking mode uses sips only.
     if not session.drinking_mode and session.mode == "digital":
-        side_bet = session.bet_amount / 2
+        _pbets   = getattr(session, "_player_bets", {})
+        side_bet = _pbets.get(voter_name, session.bet_amount) / 2
         init_bankrolls(session)   # safe no-op for players already seeded
         if vote == "bust" and prev_vote != "bust":
             # Player is placing the side bet — deduct now

@@ -12,6 +12,8 @@
   --yellow:  #f5c842;
   --text:    #e8eaf0;
   --muted:   #7a7f96;
+  --hint:    #5b9cf6;   /* basic-strategy "best play" highlight — distinct from --accent */
+  --purple:  #a78bfa;   /* dealer-row / trivia "history" category accent */
   --radius:  12px;
   --tap:     48px;
 }
@@ -84,10 +86,10 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   to   { rotate: 360deg; }
 }
 @keyframes wild-card-flash {
-  0%   { filter: drop-shadow(0 0 0px  rgba(245,200,66,0)); }
-  30%  { filter: drop-shadow(0 0 14px rgba(245,200,66,.9)); }
-  70%  { filter: drop-shadow(0 0 8px  rgba(245,200,66,.6)); }
-  100% { filter: drop-shadow(0 0 0px  rgba(245,200,66,0)); }
+  0%   { filter: drop-shadow(0 0 0px  transparent); }
+  30%  { filter: drop-shadow(0 0 14px color-mix(in srgb, var(--yellow) 90%, transparent)); }
+  70%  { filter: drop-shadow(0 0 8px  color-mix(in srgb, var(--yellow) 60%, transparent)); }
+  100% { filter: drop-shadow(0 0 0px  transparent); }
 }
 #header-logo.wild-card-spin  { animation: wild-card-spin  .5s ease-in-out; }
 #header-logo.wild-card-flash { animation: wild-card-flash .9s ease-in-out; }
@@ -115,7 +117,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   padding: 2px 6px; border-radius: 4px;
   margin-left: 6px; vertical-align: middle;
 }
-.mode-badge.referee { background: #2e3247; color: var(--muted); }
+.mode-badge.referee { background: var(--border); color: var(--muted); }
 .mode-badge.digital { background: #1a3a2a; color: var(--green); }
 .mode-badge.normal  { background: #1a2a3a; color: var(--accent); }
 

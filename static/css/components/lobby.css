@@ -99,7 +99,6 @@
 }
 .player-remove-btn:active { opacity: 1; }
 .player-remove-btn:disabled {
-  color: #555;
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -147,17 +146,17 @@
   padding: 8px 14px; border-radius: 8px; font-size: 13px;
   width: 100%; max-width: 420px; text-align: center; display: none;
 }
-#lobby-msg.error { background: rgba(224,92,92,.12); color: var(--red);    border: 1px solid rgba(224,92,92,.3); }
-#lobby-msg.info  { background: rgba(79,142,247,.12); color: var(--accent); border: 1px solid rgba(79,142,247,.3); }
+#lobby-msg.error { background: color-mix(in srgb, var(--red) 12%, transparent);    color: var(--red);    border: 1px solid color-mix(in srgb, var(--red) 30%, transparent); }
+#lobby-msg.info  { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
 .room-code-badge {
   font-family: monospace; font-size: 20px; font-weight: 800;
   letter-spacing: 3px; color: var(--accent);
-  background: rgba(79,142,247,.1); border: 1.5px solid rgba(79,142,247,.3);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
   padding: 6px 18px; border-radius: 10px; display: inline-block;
 }
 #setup-room-code-wrap {
   width: 100%; max-width: 420px; text-align: center;
-  background: rgba(79,142,247,.06); border: 1px solid rgba(79,142,247,.2);
+  background: color-mix(in srgb, var(--accent) 6%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: var(--radius); padding: 10px 16px;
 }
 
@@ -175,7 +174,7 @@
   position: relative;
   z-index: 1;
   animation: waitingFloat 3s ease-in-out infinite;
-  filter: drop-shadow(0 2px 10px rgba(79, 142, 247, 0.3));
+  filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--accent) 30%, transparent));
 }
 
 .waiting-pulse-ring {
@@ -183,7 +182,7 @@
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: rgba(79, 142, 247, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   animation: waitingPulse 2s ease-in-out infinite;
 }
 
@@ -226,7 +225,7 @@
 
 .copy-btn:hover {
   color: var(--accent);
-  background: rgba(79, 142, 247, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 /* ---- WAITING: Players ---- */
@@ -248,8 +247,8 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: rgba(79, 142, 247, 0.1);
-  border: 2px solid rgba(79, 142, 247, 0.3);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -293,7 +292,7 @@
 /* ---- DRINK NOTICE ---- */
 .drink-notice {
   width: 100%; max-width: 420px;
-  background: rgba(245,200,66,.06); border: 1px solid rgba(245,200,66,.16);
+  background: color-mix(in srgb, var(--yellow) 6%, transparent); border: 1px solid color-mix(in srgb, var(--yellow) 16%, transparent);
   border-radius: 10px; padding: 10px 14px;
   font-size: 12px; color: var(--muted); line-height: 1.55; text-align: center;
 }
@@ -329,7 +328,7 @@
 .gate-sub { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 320px; }
 .gate-legal {
   font-size: 13px; color: var(--muted); line-height: 1.55;
-  background: rgba(245,200,66,.07); border: 1px solid rgba(245,200,66,.18);
+  background: color-mix(in srgb, var(--yellow) 7%, transparent); border: 1px solid color-mix(in srgb, var(--yellow) 18%, transparent);
   border-radius: 10px; padding: 16px 20px;
   width: 100%; max-width: 400px; text-align: center;
 }
