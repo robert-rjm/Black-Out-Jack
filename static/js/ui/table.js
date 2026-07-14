@@ -273,7 +273,7 @@ async function sendPreselect(action, hand) {
     digActionButtons().forEach(b => b.classList.remove("voted"));
     if (vd) { vd.textContent = "Vote failed: network error"; vd.style.display = "block"; }
   } finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 
@@ -748,7 +748,7 @@ async function bankRebuy() {
   } catch (_) {
     appendLog("  Rebuy failed — server unreachable.\n");
   } finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 window.bankRebuy = bankRebuy;
