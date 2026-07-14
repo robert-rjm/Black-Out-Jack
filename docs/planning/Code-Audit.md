@@ -129,6 +129,7 @@ and are left for the general backlog (see B7 below).
 ## Bugs
 
 ### B1 · `/rebuy` has no seat-ownership check — security
+**Status:** FIXED (same pattern as B2: non-admin callers restricted to their own seat(s); admin exempt). Verified with 3 cases against the real Flask route: unrelated player rejected, own seat succeeds, admin override succeeds.
 **File:** `app/routes/game_commands.py:374-395`
 
 The route checks that the caller is *some* registered, non-kicked client —
@@ -428,7 +429,7 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 ### Everything else
 
 - [ ] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`) — Normal-mode money logic, not Drinking Mode (see correction in the Drinking Mode section above)
-- [ ] **B1** — add seat-ownership check to `/rebuy` (`game_commands.py:374`)
+- [x] **B1** — add seat-ownership check to `/rebuy` (`game_commands.py:374`)
 - [ ] **B3** — clamp `num_decks` in `/setup` the same way `/update_settings` does (`lobby.py:218`)
 - [ ] **B6** — wrap `_cmd_split`'s hand-label parsing in try/except (`game_commands.py:536`, `blackjack.py:287`, `referee.py:310`)
 - [ ] **B7 (rest)** — apply the same `_requestDone()` fix to `sendPreselect` and `bankRebuy`
