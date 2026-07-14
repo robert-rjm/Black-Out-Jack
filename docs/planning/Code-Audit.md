@@ -176,6 +176,7 @@ Consequences, traced through `engine/blackjack.py`:
 ---
 
 ### B4 · Bust-vote side bet ignores per-player custom bet — money bug
+**Status:** FIXED — now reads `session._player_bets.get(voter_name, session.bet_amount)`, matching the exact idiom `deduct_bets()` already uses in `payout_tracker.py`. Verified: a player with a $50 custom bet (table default $10) now stakes/refunds $25 on the bust side bet, not $5.
 **File:** `app/routes/polling.py:634`, settled in `app/services/payout_tracker.py:122-138`
 
 ```python
@@ -443,7 +444,7 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 
 ### Everything else
 
-- [ ] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`) — Normal-mode money logic, not Drinking Mode (see correction in the Drinking Mode section above)
+- [x] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`) — Normal-mode money logic, not Drinking Mode (see correction in the Drinking Mode section above)
 - [x] **B1** — add seat-ownership check to `/rebuy` (`game_commands.py:374`)
 - [x] **B3** — clamp `num_decks` in `/setup` the same way `/update_settings` does (`lobby.py:218`)
 - [x] **B6** — wrap `_cmd_split`'s hand-label parsing in try/except (`game_commands.py:559`, `referee.py:310`; `blackjack.py:287` was already guarded)
