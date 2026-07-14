@@ -290,7 +290,7 @@ async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
   } catch (_) {
     appendLog("  Insurance vote failed: network error\n");
   } finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 

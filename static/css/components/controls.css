@@ -48,7 +48,7 @@
 .btn.wide    { flex: 1; }
 /* basic-strategy best-play highlight */
 .btn.best    { border-color: var(--accent); color: var(--accent);
-               box-shadow: 0 0 0 2px rgba(91,156,246,.25); }
+               box-shadow: 0 0 0 2px color-mix(in srgb, var(--hint) 25%, transparent); }
 /* command in-flight: block all interaction until response arrives */
 .cmd-pending {
   opacity: .55;
@@ -62,13 +62,13 @@
 }
 /* Player's own voted button — blue */
 .btn.voted {
-  background: rgba(79,142,247,.22);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
   border-color: var(--accent);
   color: var(--accent);
 }
 /* Dealer view: player's voted button — yellow hint */
 .btn.voted-dealer {
-  background: rgba(245,200,66,.18);
+  background: color-mix(in srgb, var(--yellow) 18%, transparent);
   border-color: var(--yellow);
   color: var(--yellow);
 }
@@ -136,13 +136,13 @@
   height:24px; width:24px; left:3px; bottom:3px;
   background:#fff; border-radius:50%; transition:transform .2s;
 }
-.pill-toggle input:checked + .pill-slider { background: var(--green, #4caf50); }
+.pill-toggle input:checked + .pill-slider { background: var(--green); }
 .pill-toggle input:checked + .pill-slider:before { transform: translateX(32px); }
 .pill-label-off,.pill-label-on {
   font-size:13px; font-weight:700; letter-spacing:.04em; pointer-events:none;
 }
 .pill-label-off { color: var(--muted); }
-.pill-label-on  { color: var(--green, #4caf50); display:none; }
+.pill-label-on  { color: var(--green); display:none; }
 .pill-toggle input:checked ~ .pill-label-off { display:none; }
 .pill-toggle input:checked ~ .pill-label-on  { display:inline; }
 
@@ -151,8 +151,8 @@
   margin-top: 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgba(79,142,247,.1);
-  border: 1px solid rgba(79,142,247,.25);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   font-size: 13px;
   color: var(--accent);
   display: none;
@@ -241,8 +241,8 @@
 .round-notice {
   font-size: 12px;
   color: var(--yellow);
-  background: rgba(245,200,66,.1);
-  border: 1px solid rgba(245,200,66,.3);
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
   border-radius: 8px;
   padding: 7px 10px;
   margin-bottom: 6px;

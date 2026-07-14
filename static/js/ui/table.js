@@ -273,7 +273,7 @@ async function sendPreselect(action, hand) {
     digActionButtons().forEach(b => b.classList.remove("voted"));
     if (vd) { vd.textContent = "Vote failed: network error"; vd.style.display = "block"; }
   } finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 
@@ -306,15 +306,8 @@ async function sendCmd(cmd) {
   } catch (_) {
     appendLog("  Command failed — server unreachable.\n");
   } finally {
-    _requestsInFlight--;
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
-    // Drain the one-slot queue: fire any command that was deferred while we
-    // were in flight.  This handles rapid taps and sendCmd-while-sendCmd races.
-    if (_pendingCmd !== null) {
-      const queued = _pendingCmd;
-      _pendingCmd = null;
-      sendCmd(queued);
-    }
+    _requestDone();
   }
 }
 
@@ -711,7 +704,7 @@ async function honorResolve(choice) {
   } catch (_) {
     appendLog("  Honor resolve failed — server unreachable.\n");
   } finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 window.honorResolve = honorResolve;
@@ -755,7 +748,7 @@ async function bankRebuy() {
   } catch (_) {
     appendLog("  Rebuy failed — server unreachable.\n");
   } finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 window.bankRebuy = bankRebuy;
@@ -799,8 +792,8 @@ function renderDrinksDetail() {
     `<div class="drinks-detail-header">${escapeHtml(DrinkUI.drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
     entries.map(d => {
       const isCredit = d.sips < 0;
-      const col   = isCredit ? "var(--green)"         : "var(--red)";
-      const bg    = isCredit ? "rgba(62,207,110,.08)" : "rgba(224,92,92,.08)";
+      const col   = isCredit ? "var(--green)" : "var(--red)";
+      const bg    = `color-mix(in srgb, ${col} 8%, transparent)`;
       const label = isCredit ? `${d.sips}`            : `+${d.sips}`;
       // Static layout via .drinks-entry; dynamic color/border/bg stay inline
       return `<div class="drinks-entry" style="color:${col};border-left:2px solid ${col};background:${bg}">
@@ -843,9 +836,9 @@ function updateRoundPane(state) {
         const sips       = DrinkUI.lastRoundSips[name] || 0;
         const hot        = sips > 0;
         const isSelected = DrinkUI.drinksPaneSelected === name;
-        const bg         = hot ? "rgba(224,92,92,.18)" : "rgba(62,207,110,.14)";
-        const border     = hot ? "rgba(224,92,92,.4)"  : "rgba(62,207,110,.4)";
-        const color      = hot ? "var(--red)"          : "var(--green)";
+        const color      = hot ? "var(--red)" : "var(--green)";
+        const bg         = `color-mix(in srgb, ${color} ${hot ? 18 : 14}%, transparent)`;
+        const border     = `color-mix(in srgb, ${color} 40%, transparent)`;
         // Treat missing prev as 0 when at least one round has completed —
         // absent from DrinkUI.prevRoundSips means the player had 0 sips that round.
         const hasPrev = (state.round || 0) > 1;

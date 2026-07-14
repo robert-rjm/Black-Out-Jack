@@ -68,7 +68,9 @@
 .kick-row:last-child { border-bottom: none; }
 .kick-name     { font-size: 14px; font-weight: 600; }
 .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
-.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: rgba(224,92,92,.15); color: var(--red); border-color: rgba(224,92,92,.3); }
+.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); }
+/* Shared "approve" styling — accept/undo-kick/allow-back/rejoin buttons in admin-settings.js */
+.btn-approve   { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
 
 /* ---- SETTINGS IN KICK CARD ---- */
 .settings-row {
@@ -93,7 +95,7 @@
 #queued-settings-banner {
   display: none; margin-top: 12px; padding: 10px 12px;
   border-radius: 8px; font-size: 12px;
-  background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   color: var(--accent);
 }
 #queued-settings-banner ul { padding-left: 16px; margin: 4px 0 0; }
@@ -311,7 +313,7 @@
 #bank-run-overlay.open { display: flex; }
 #bank-run-modal {
   background: var(--surface);
-  border: 2px solid var(--green, #4caf50);
+  border: 2px solid var(--green);
   border-radius: 18px;
   padding: 28px 24px 22px;
   width: min(320px, 88vw);
@@ -391,8 +393,8 @@
   margin: 6px 0 4px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgba(245,200,66,.1);
-  border: 1px solid rgba(245,200,66,.3);
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
   font-size: 12px; color: var(--muted);
 }
 

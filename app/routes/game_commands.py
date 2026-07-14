@@ -391,6 +391,17 @@ def rebuy():
     if session.drinking_mode or session.mode != "digital":
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
+    # Only the seat itself may re-buy (admin/dealer exempt, matching the
+    # dealer-gate model on /command and the same check on /honor_resolve).
+    if info.get("role") != "admin":
+        my_names = {
+            n.lower() for n in
+            (info.get("local_names") or []) + ([info.get("name")] if info.get("name") else [])
+            if n
+        }
+        if player_name.lower() not in my_names:
+            return jsonify({"ok": False, "error": "Not your seat to re-buy."})
+
     cmd_rebuy(session, player_name)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -430,6 +441,18 @@ def honor_resolve():
     if not session.drinking_mode or not session.round._honor_pending:
         # Nothing pending (stale request / already resolved elsewhere) -- no-op.
         return jsonify({**serialize_state(session, client_id), "ok": True})
+
+    # Only the seat this prompt belongs to may resolve it (admin/dealer is
+    # exempt, matching the dealer-gate on /command -- the dealer client is
+    # allowed to act on behalf of any seat).
+    if info.get("role") != "admin":
+        my_names = {
+            n.lower() for n in
+            (info.get("local_names") or []) + ([info.get("name")] if info.get("name") else [])
+            if n
+        }
+        if session.round._honor_pending["player"].lower() not in my_names:
+            return jsonify({"ok": False, "error": "Not your prompt to resolve."})
 
     if choice not in ("split", "no"):
         return jsonify({"ok": False, "error": f"Invalid choice '{choice}'."})
@@ -533,7 +556,10 @@ def _cmd_split(game_session, parts):
     # brand-new 2-card hand and may need the house-rule prompt again (e.g.
     # re-splitting into another unsuited 10-10).
     game_session.round._honor_acked.discard((player.name, id(hand)))
-    idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+    try:
+        idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+    except (ValueError, AttributeError):
+        idx = 0
     new_hand, new_label = perform_split(game_session, player, hand, idx)
     # Splitting requires placing an equal bet on the new hand — deduct it now
     # so the bankroll badge stays accurate during the round.

@@ -187,9 +187,8 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(r.name)}</span><span class="kick-role"> (waiting)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const acceptBtn = document.createElement("button");
-      acceptBtn.className   = "btn";
+      acceptBtn.className   = "btn btn-approve";
       acceptBtn.textContent = "✓ Accept";
-      acceptBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
       acceptBtn.onclick = () => { handleRegistration(r.client_id, true); closeKickModal(); };
       const denyBtn = document.createElement("button");
       denyBtn.className   = "btn kick-btn";
@@ -221,9 +220,8 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(kc.name)}</span><span class="kick-role"> (kicked)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const undoBtn = document.createElement("button");
-      undoBtn.className   = "btn";
+      undoBtn.className   = "btn btn-approve";
       undoBtn.textContent = "↩ Undo Kick";
-      undoBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
       undoBtn.onclick = () => doUndoKick(kc.client_id);
       btns.appendChild(undoBtn);
       kickedSection.appendChild(row);
@@ -250,9 +248,8 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name" style="color:var(--muted)">Unknown client</span><span class="kick-role"> (denied)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const allowBtn = document.createElement("button");
-      allowBtn.className   = "btn";
+      allowBtn.className   = "btn btn-approve";
       allowBtn.textContent = "↩ Allow back";
-      allowBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
       allowBtn.onclick = () => doResetRegistration(dc.client_id);
       btns.appendChild(allowBtn);
       deniedSection.appendChild(row);
@@ -279,9 +276,8 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(req.display_name)}</span><span class="kick-role"> wants to rejoin</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const approveBtn = document.createElement("button");
-      approveBtn.className   = "btn";
+      approveBtn.className   = "btn btn-approve";
       approveBtn.textContent = "✓ Allow";
-      approveBtn.style.cssText = "background:rgba(62,207,110,.15);color:var(--green);border-color:rgba(62,207,110,.3)";
       approveBtn.onclick = () => doHandleRejoin(req.client_id, true);
       const denyBtn = document.createElement("button");
       denyBtn.className   = "btn kick-btn";
