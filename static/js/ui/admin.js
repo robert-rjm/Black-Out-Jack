@@ -1084,7 +1084,7 @@ function _changeBet(row, delta, min, max, step, playerName) {
   row.dataset.value = val;
   const disp = row.querySelector(".bet-stepper-display");
   if (disp) disp.textContent = "$" + val.toFixed(2);
-  _syncBetStepperLimits(row, val, (lastState ? lastState.bet_amount : 5) * 20 / 20);
+  _syncBetStepperLimits(row, val, lastState ? lastState.bet_amount : 5);
 
   // Mark pending so poll doesn't overwrite mid-flight
   row.dataset.pending = "1";
