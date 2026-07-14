@@ -61,7 +61,7 @@ var TRIVIA_CATS = [
 ];
 
 var CAT_LABELS = { strategy:"Strategy", probability:"Odds", history:"History", drinking:"Drinking", game:"This game" };
-var CAT_COLORS = { strategy:"var(--accent)", probability:"var(--yellow)", history:"#a78bfa", drinking:"var(--red)", game:"var(--green)" };
+var CAT_COLORS = { strategy:"var(--accent)", probability:"var(--yellow)", history:"var(--purple)", drinking:"var(--red)", game:"var(--green)" };
 
 // Trivia panel state, consolidated under one namespaced object (was 5
 // separate module-level globals). Same values, same mutation patterns —

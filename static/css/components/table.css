@@ -11,7 +11,7 @@
   transition: border-color .15s, opacity .15s;
 }
 .seat.dealer  { background: #251c2c; }
-.seat.turn    { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,142,247,.2); }
+.seat.turn    { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
 .seat.done    { opacity: .55; }
 
 .seat-header {
@@ -170,14 +170,14 @@
   cursor: default;
 }
 .seat.has-hint {
-  box-shadow: inset 0 0 0 1px rgba(91,156,246,.4);
-  background: rgba(91,156,246,.04);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hint) 40%, transparent);
+  background: color-mix(in srgb, var(--hint) 4%, transparent);
 }
 
 .seat-sip-badge {
   display: inline-flex; align-items: center; gap: 3px;
-  background: rgba(245,200,66,.12);
-  border: 1px solid rgba(245,200,66,.22);
+  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 22%, transparent);
   border-radius: 6px;
   padding: 2px 7px;
   font-size: 11px; font-weight: 700; color: var(--yellow);
@@ -186,11 +186,11 @@
 
 .seat-bankroll-badge {
   display: inline-flex; align-items: center; gap: 3px;
-  background: rgba(80,200,120,.12);
-  border: 1px solid rgba(80,200,120,.22);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--green) 22%, transparent);
   border-radius: 6px;
   padding: 2px 7px;
-  font-size: 11px; font-weight: 700; color: var(--green, #4caf50);
+  font-size: 11px; font-weight: 700; color: var(--green);
   flex-shrink: 0;
 }
 
@@ -198,8 +198,8 @@
   font-size: 11px; font-weight: 700;
   flex-shrink: 0;
 }
-.seat-payout.win  { color: var(--green, #4caf50); }
-.seat-payout.loss { color: var(--red, #e05c5c); }
+.seat-payout.win  { color: var(--green); }
+.seat-payout.loss { color: var(--red); }
 .seat-payout.push { color: var(--muted); }
 
 /* ---- CARD PICKER ---- */
@@ -223,14 +223,10 @@
 #suit-grid .card-btn { font-size: 24px; }
 .card-btn:active  { transform: scale(.93); }
 .card-btn.sel     { background: var(--accent); border-color: var(--accent); color: #fff; }
-.card-btn.hearts, .card-btn.diamonds { color: #e05c5c; }
+.card-btn.hearts, .card-btn.diamonds { color: var(--red); }
 .card-btn.clubs,  .card-btn.spades   { color: #d0d6f0; }
-.card-btn.hearts.sel, .card-btn.diamonds.sel { background: #b03030; border-color: #b03030; color: #fff; }
-
-/* ---- LAST ROUND DRINK SUMMARY ---- */
-#last-round-panel {
-  display: none;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(255,255,255
+.card-btn.hearts.sel, .card-btn.diamonds.sel {
+  background: color-mix(in srgb, var(--red) 78%, black);
+  border-color: color-mix(in srgb, var(--red) 78%, black);
+  color: #fff;
+}
