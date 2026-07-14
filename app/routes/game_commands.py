@@ -391,6 +391,17 @@ def rebuy():
     if session.drinking_mode or session.mode != "digital":
         return jsonify({**serialize_state(session, client_id), "ok": True})
 
+    # Only the seat itself may re-buy (admin/dealer exempt, matching the
+    # dealer-gate model on /command and the same check on /honor_resolve).
+    if info.get("role") != "admin":
+        my_names = {
+            n.lower() for n in
+            (info.get("local_names") or []) + ([info.get("name")] if info.get("name") else [])
+            if n
+        }
+        if player_name.lower() not in my_names:
+            return jsonify({"ok": False, "error": "Not your seat to re-buy."})
+
     cmd_rebuy(session, player_name)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
