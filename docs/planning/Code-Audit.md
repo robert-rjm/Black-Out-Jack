@@ -157,6 +157,7 @@ choosing their action and whether they take the 1-sip penalty.
 ---
 
 ### B3 · `num_decks` is unvalidated on room setup — crash / memory DoS
+**Status:** FIXED — folded into `/setup`'s existing numeric-validation `try/except` block, clamped `1 <= num_decks <= 8` (same bounds as `/update_settings`). Verified all three failure modes no longer crash: `num_decks=0` clamps to 1 and deals a card cleanly, `num_decks=999999` clamps to 8, and a non-numeric value gets a clean `"Invalid numeric field."` response instead of an uncaught `ValueError`.
 **File:** `app/routes/lobby.py:218` vs. the clamp that already exists in
 `app/routes/admin.py:515-518`
 
@@ -430,7 +431,7 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 
 - [ ] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`) — Normal-mode money logic, not Drinking Mode (see correction in the Drinking Mode section above)
 - [x] **B1** — add seat-ownership check to `/rebuy` (`game_commands.py:374`)
-- [ ] **B3** — clamp `num_decks` in `/setup` the same way `/update_settings` does (`lobby.py:218`)
+- [x] **B3** — clamp `num_decks` in `/setup` the same way `/update_settings` does (`lobby.py:218`)
 - [ ] **B6** — wrap `_cmd_split`'s hand-label parsing in try/except (`game_commands.py:536`, `blackjack.py:287`, `referee.py:310`)
 - [ ] **B7 (rest)** — apply the same `_requestDone()` fix to `sendPreselect` and `bankRebuy`
 - [ ] **D2** — delete the dead `* 20 / 20` in `admin.js:1087`
