@@ -247,10 +247,7 @@ called directly.
 ---
 
 ### B7 · Frontend command queue silently drops actions under overlap
-**Status:** FIXED for the 4 drinking-mode call sites (`honorResolve`,
-`castInsuranceVote`, `submitBustVote`, `giveBustSip`) plus `sendCmd` itself.
-`sendPreselect` and `bankRebuy` are confirmed not drinking-mode-specific and
-are still open (general backlog).
+**Status:** FIXED — all 6 call sites now use `_requestDone()`.
 **Files:** `static/js/state.js:31-34` (the queue), drained only in
 `static/js/ui/table.js:283-319` (`sendCmd`'s `finally` block)
 
@@ -259,12 +256,16 @@ inside `sendCmd`'s own `finally`. But six other functions increment the same
 `_requestsInFlight` counter and never drained the queue when *they*
 finished:
 
-- `sendPreselect` — `table.js:257-276` — **open**, not drinking-mode-specific
+- `sendPreselect` — `table.js:257-276` — **fixed**
 - `castInsuranceVote` — `table-modals.js:276-293` — **fixed** (insurance is drinking-mode-only, `game_engine.py`'s first-deal setup)
 - `honorResolve` — `table.js:702-716` — **fixed**
-- `bankRebuy` — `table.js:746-759` — **open**, Normal-mode-only ("Bank Run" modal)
+- `bankRebuy` — `table.js:746-759` — **fixed**
 - `submitBustVote` — `admin.js:198-214` — **fixed**
 - `giveBustSip` — `admin.js:580-597` — **fixed**
+
+Verified in the browser after each batch of fixes: staged an in-flight
+request, queued a command, called `_requestDone()`, confirmed the queued
+command replayed and both counters reset correctly.
 
 **Failure scenario:** a player taps "Insure" on the insurance modal (slow
 network, request takes 500ms) and then taps "Hit" before it resolves.
@@ -277,10 +278,9 @@ claim that "last intent wins" was only true when the in-flight request
 happened to be a `sendCmd` call.
 
 **Fix:** extracted a shared `_requestDone()` helper (`state.js`) that
-decrements the counter *and* drains `_pendingCmd`. Applied to `sendCmd`,
-`honorResolve`, `castInsuranceVote`, `submitBustVote`, and `giveBustSip`.
-Remaining: `sendPreselect` and `bankRebuy` — same one-line fix, left for the
-general backlog since neither is drinking-mode-specific.
+decrements the counter *and* drains `_pendingCmd`. Applied to all 7 finally
+blocks: `sendCmd`, `honorResolve`, `castInsuranceVote`, `submitBustVote`,
+`giveBustSip`, `sendPreselect`, `bankRebuy`.
 
 ---
 
@@ -339,6 +339,9 @@ defeating the optimization the comment claims exists.
 ---
 
 ### I2 · `play_order` / `current_turn` / `round_phase` recomputed repeatedly per poll
+**Status:** FIXED within `serialize_state`/`compute_kpi_stats` — the concrete,
+verified part of this finding. `tick.py`'s separate calls were deliberately
+left alone (see below).
 **File:** `app/services/serializer.py` (`play_order` :62, `current_turn` :93,
 `round_phase` :109) and `app/services/tick.py:37,108,112`
 
@@ -351,6 +354,28 @@ defeating the optimization the comment claims exists.
 on top of that. None of these are individually O(n²), but a single poll
 (fired every 1-3s per connected client) ends up doing 6+ redundant O(players)
 passes over the same data.
+
+**Fix applied:** `play_order()` is now computed once at the top of
+`serialize_state` and threaded through — `current_turn()` and `round_phase()`
+both accept an optional pre-computed value (`order=`/`turn=`, defaulting to
+`None`/a sentinel so every other caller across the codebase is unaffected),
+and `compute_kpi_stats()` accepts the same `order` the way it already
+accepts `sip_ticker` (I1). Verified by instrumenting all three functions:
+each now runs exactly once per `serialize_state()` call, down from
+`play_order` ×4 / `current_turn` ×2 / `round_phase` ×1 — and confirmed
+correct output (`phase`, `play_order`, `current_turn`, `kpi_stats.session.total_sips`)
+through a full deal-to-round-over cycle in the browser.
+
+**Deliberately not touched:** the `tick.py`/`game_commands.py`/`polling.py`/
+`wild_card.py`/`game_engine.py` call sites. Those run at genuinely different
+points in the request lifecycle, often with state-mutating code (NPC
+auto-play, forfeit resolution, dealer turns) between one call and the next
+— caching a value computed at the start of a request and reusing it there
+would risk returning a stale phase/turn after the mutation, which is a
+correctness bug waiting to happen for a marginal, request-scoped perf gain.
+The `serialize_state` fix is the safe, high-confidence part of this finding;
+a broader cross-module cache would need a per-call audit of what mutates
+what, which is out of scope for this pass.
 
 **Fix:** compute `phase`/`turn`/`order` once at the top of `serialize_state`
 and thread the values through instead of recomputing. Small.
@@ -419,6 +444,7 @@ Busfahrer work begins. Trivial either way.
 ---
 
 ### D2 · Dead no-op arithmetic (minor)
+**Status:** FIXED.
 **File:** `static/js/ui/admin.js:1087`
 
 ```js
@@ -448,9 +474,9 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 - [x] **B1** — add seat-ownership check to `/rebuy` (`game_commands.py:374`)
 - [x] **B3** — clamp `num_decks` in `/setup` the same way `/update_settings` does (`lobby.py:218`)
 - [x] **B6** — wrap `_cmd_split`'s hand-label parsing in try/except (`game_commands.py:559`, `referee.py:310`; `blackjack.py:287` was already guarded)
-- [ ] **B7 (rest)** — apply the same `_requestDone()` fix to `sendPreselect` and `bankRebuy`
-- [ ] **D2** — delete the dead `* 20 / 20` in `admin.js:1087`
-- [ ] **I2** — compute `phase`/`turn`/`play_order` once per poll instead of up to 6 times
+- [x] **B7 (rest)** — apply the same `_requestDone()` fix to `sendPreselect` and `bankRebuy`
+- [x] **D2** — delete the dead `* 20 / 20` in `admin.js:1087`
+- [x] **I2** — compute `phase`/`turn`/`play_order` once per poll instead of up to 6 times (within `serialize_state`; `tick.py` and other cross-module call sites deliberately left as-is, see writeup)
 - [ ] **D1** — delete `engine/busfahrer.py` or fix its import and pick the work back up (deferred — not built yet)
 - [ ] **B5** — add a lock around room-code check+reserve (do before any move to a threaded/multi-worker server — see `Improvements.md` item 2)
 - [x] **I3** — bundle the 17 JS files and 9 CSS files into one request each
