@@ -216,16 +216,30 @@ before that migration, not urgent before it.
 ---
 
 ### B6 · Unhandled `ValueError` from a malformed hand label
-**File:** `app/routes/game_commands.py:536` (`_cmd_split`), duplicated at
-`engine/blackjack.py:287` and `engine/referee.py:310`
+**Status:** FIXED — for the two locations that actually had the bug.
+**Correction:** `engine/blackjack.py:287` (`get_player_hand`, called earlier
+in both call sites to resolve the actual hand) already had its own
+`try/except (ValueError, AttributeError): idx = 0` guard — it was never
+actually vulnerable, despite being listed as a duplicate originally. The
+real bug was two *separate, redundant* re-parses of the same label done
+later in each call site, with no guard:
+**File:** `app/routes/game_commands.py:559` (`_cmd_split`) and
+`engine/referee.py:310` (`cmd_action`, split branch)
 
 ```python
 idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
 ```
 
-Any `hand_label` that doesn't reduce to a digit raises an uncaught
-`ValueError` → generic 500 instead of a graceful "Cannot split this hand"
-response.
+Any `hand_label` that doesn't reduce to a digit raised an uncaught
+`ValueError` from this second parse — in the web path (`game_commands.py`)
+Flask's global exception handler turned this into a generic 500 instead of
+a graceful response; in the CLI/referee path (`referee.py`) it crashed the
+terminal session outright. Fixed by wrapping both in the same
+`try/except (ValueError, AttributeError): idx = 0` pattern
+`get_player_hand` already uses, for consistency. Verified directly: a
+`hand_label` of `"garbage!!"` no longer raises in either path — confirmed
+via `RefereeSession.cmd_action` (CLI path) and `_cmd_split` (web path)
+called directly.
 
 **Fix:** wrap in try/except, reject with a normal error response. Trivial.
 
@@ -432,7 +446,7 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 - [ ] **B4** — settle bust-vote side bet against the player's actual bet, not the table default (`polling.py:634`) — Normal-mode money logic, not Drinking Mode (see correction in the Drinking Mode section above)
 - [x] **B1** — add seat-ownership check to `/rebuy` (`game_commands.py:374`)
 - [x] **B3** — clamp `num_decks` in `/setup` the same way `/update_settings` does (`lobby.py:218`)
-- [ ] **B6** — wrap `_cmd_split`'s hand-label parsing in try/except (`game_commands.py:536`, `blackjack.py:287`, `referee.py:310`)
+- [x] **B6** — wrap `_cmd_split`'s hand-label parsing in try/except (`game_commands.py:559`, `referee.py:310`; `blackjack.py:287` was already guarded)
 - [ ] **B7 (rest)** — apply the same `_requestDone()` fix to `sendPreselect` and `bankRebuy`
 - [ ] **D2** — delete the dead `* 20 / 20` in `admin.js:1087`
 - [ ] **I2** — compute `phase`/`turn`/`play_order` once per poll instead of up to 6 times

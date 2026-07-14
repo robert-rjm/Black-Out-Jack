@@ -307,7 +307,10 @@ class RefereeSession:
             hand.from_split   = True
             new_hand._split_chain = hand._split_chain  # share counter across the whole chain
             hand.split_count += 1
-            idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+            try:
+                idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+            except (ValueError, AttributeError):
+                idx = 0
             player.hands.insert(idx + 1, new_hand)
             new_label = f"hand{idx + 2}"
             self._log(f"  {player.name} splits {hand_label} -> {hand_label} + {new_label}")
