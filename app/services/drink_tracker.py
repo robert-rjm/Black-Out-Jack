@@ -608,26 +608,37 @@ def check_and_set_milestone(session: GameRoom) -> None:
     claimed[boundary] = winner
     session.drinks.milestones_claimed = claimed
 
-    # "Worst player" streak check — lowest avg sips/round overall, excluding
-    # the milestone winner. If the same player is worst for 2 consecutive
-    # milestones, they take a one-time penalty equal to the winner's avg
-    # sips/round (rounded, min 1).
-    _apply_worst_player_streak(session, winner, ticker)
-
     # NPC winners can't drive the handout-allocation UI, so resolve their
     # milestone immediately via round-robin distribution to the other
     # players rather than leaving it pending (and eventually self-forfeiting).
     winner_p = session._get_player(winner)
     if winner_p and getattr(winner_p, "is_npc", False):
         _distribute_milestone_round_robin(session, winner, boundary, handout_sips)
-        return
+    else:
+        session.round._pending_milestone = {
+            "boundary":   boundary,
+            "winner":     winner,
+            "handout":    handout_sips,
+            "expires_at": time.monotonic() + MILESTONE_TTL,
+        }
 
-    session.round._pending_milestone  = {
-        "boundary":   boundary,
-        "winner":     winner,
-        "handout":    handout_sips,
-        "expires_at": time.monotonic() + MILESTONE_TTL,
-    }
+    # "Worst player" streak check — lowest avg sips/round overall, excluding
+    # the milestone winner. If the same player is worst for 2 consecutive
+    # milestones, they take a one-time penalty equal to the winner's avg
+    # sips/round (rounded, min 1).
+    #
+    # Called last, after this milestone's own state is already committed
+    # above — the penalty this awards can itself cross another boundary and
+    # recurse into this function via award_sips(). Calling it before the
+    # commit let that nested call detect-and-claim a second boundary that
+    # then got silently overwritten when this call reached the commit step.
+    # Now: a human winner already has _pending_milestone set, so a nested
+    # detection here correctly defers instead of clobbering (it gets picked
+    # up by the re-check after handout resolution — see admin.py's
+    # milestone-claim handler). An NPC winner's round-robin distribution
+    # already fully resolved with nothing left pending, so a nested
+    # detection here is free to fire immediately for the next boundary.
+    _apply_worst_player_streak(session, winner, ticker)
 
 
 def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: int, handout: int) -> None:
@@ -705,3 +716,8 @@ def apply_milestone_forfeit(session: GameRoom) -> None:
         log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
 
     session.round._pending_milestone = None
+
+    # The forfeit penalty above can itself push the winner past the next
+    # boundary. award_sips()'s internal check was a no-op while _pending_milestone
+    # was still set to the milestone just forfeited — re-check now that it's clear.
+    check_and_set_milestone(session)
