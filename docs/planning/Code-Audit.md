@@ -91,11 +91,22 @@ the result through. Verified by instrumenting the call count directly
 (1 call instead of 2) and confirming `sip_totals`/`kpi_stats.session.total_sips`
 still agree.
 
-### DM6 · Frontend command-queue drop affects 3 drinking-mode actions (= B7 below)
-Of the six call sites sharing the broken queue-drain (see B7 below), three
-are drinking-mode actions: `honorResolve`, `submitBustVote`, `giveBustSip`.
-A player's queued Hit/Stand can be silently dropped if it lands while one of
-these is in flight.
+### DM6 · Frontend command-queue drop affects 4 drinking-mode actions (= B7 below)
+**Status:** FIXED for the drinking-mode call sites.
+Of the six call sites sharing the broken queue-drain (see B7 below), four
+are drinking-mode actions: `honorResolve`, `submitBustVote`, `giveBustSip`,
+and `castInsuranceVote` — originally undercounted as 3; re-checked and
+`/vote_insurance` turns out to be drinking-mode-only too (insurance slots
+are only created `if ... and session.drinking_mode`, `game_engine.py`
+first-deal setup). A player's queued Hit/Stand could be silently dropped if
+it landed while one of these four was in flight. Fixed by extracting a
+shared `_requestDone()` helper (`state.js`) that decrements
+`_requestsInFlight` *and* drains `_pendingCmd`, used in all four instead of
+a bare decrement. Verified live in the browser: staged an in-flight request,
+queued a command, called `_requestDone()`, confirmed the queued command
+replayed and both counters reset correctly. The other two call sites
+(`sendPreselect`, `bankRebuy`) are confirmed **not** drinking-mode-specific
+and are left for the general backlog (see B7 below).
 
 ### Checked, no action needed
 - Sip-rule math in `engine/drinking_rules.py` (aces, blackjack multipliers,
@@ -219,33 +230,40 @@ response.
 ---
 
 ### B7 · Frontend command queue silently drops actions under overlap
+**Status:** FIXED for the 4 drinking-mode call sites (`honorResolve`,
+`castInsuranceVote`, `submitBustVote`, `giveBustSip`) plus `sendCmd` itself.
+`sendPreselect` and `bankRebuy` are confirmed not drinking-mode-specific and
+are still open (general backlog).
 **Files:** `static/js/state.js:31-34` (the queue), drained only in
 `static/js/ui/table.js:283-319` (`sendCmd`'s `finally` block)
 
-The one-slot "last intent wins" queue (`_pendingCmd`) is only ever drained
+The one-slot "last intent wins" queue (`_pendingCmd`) was only ever drained
 inside `sendCmd`'s own `finally`. But six other functions increment the same
-`_requestsInFlight` counter and never drain the queue when *they* finish:
+`_requestsInFlight` counter and never drained the queue when *they*
+finished:
 
-- `sendPreselect` — `table.js:257-276`
-- `castInsuranceVote` — `table-modals.js:276-293`
-- `honorResolve` — `table.js:702-716`
-- `bankRebuy` — `table.js:746-759`
-- `submitBustVote` — `admin.js:198-214`
-- `giveBustSip` — `admin.js:580-597`
+- `sendPreselect` — `table.js:257-276` — **open**, not drinking-mode-specific
+- `castInsuranceVote` — `table-modals.js:276-293` — **fixed** (insurance is drinking-mode-only, `game_engine.py`'s first-deal setup)
+- `honorResolve` — `table.js:702-716` — **fixed**
+- `bankRebuy` — `table.js:746-759` — **open**, Normal-mode-only ("Bank Run" modal)
+- `submitBustVote` — `admin.js:198-214` — **fixed**
+- `giveBustSip` — `admin.js:580-597` — **fixed**
 
 **Failure scenario:** a player taps "Insure" on the insurance modal (slow
 network, request takes 500ms) and then taps "Hit" before it resolves.
 `sendCmd("hit ...")` sees `_requestsInFlight > 0`, queues itself into
 `_pendingCmd`, and returns — no visual lock is even applied since it bailed
 before `cmdLockButtons()`. When `castInsuranceVote`'s fetch resolves, its
-`finally` block only does `_requestsInFlight--`; it never checks
-`_pendingCmd`. The queued Hit is silently dropped — the state.js comment's
-claim that "last intent wins" is only true when the in-flight request
-happens to be a `sendCmd` call.
+`finally` block only did `_requestsInFlight--`; it never checked
+`_pendingCmd`. The queued Hit was silently dropped — the state.js comment's
+claim that "last intent wins" was only true when the in-flight request
+happened to be a `sendCmd` call.
 
-**Fix:** extract a shared `_requestDone()` helper that decrements the
-counter *and* drains `_pendingCmd`, and call it from all seven `finally`
-blocks instead of a bare `_requestsInFlight--`. Small (~30 min, mechanical).
+**Fix:** extracted a shared `_requestDone()` helper (`state.js`) that
+decrements the counter *and* drains `_pendingCmd`. Applied to `sendCmd`,
+`honorResolve`, `castInsuranceVote`, `submitBustVote`, and `giveBustSip`.
+Remaining: `sendPreselect` and `bankRebuy` — same one-line fix, left for the
+general backlog since neither is drinking-mode-specific.
 
 ---
 
@@ -390,7 +408,7 @@ The `* 20 / 20` is a no-op — almost certainly a copy-paste artifact from the
 - [x] **B9** — re-check for a newly-crossed milestone boundary after a handout finishes distributing (`admin.py:655-687`, and the same gap in the forfeit path, `drink_tracker.py:718`) — compounds with B8
 - [x] **B2** — add seat-ownership check to `/honor_resolve` (`game_commands.py:398`)
 - [x] **I1** — stop double-computing drink totals per poll; compute once in `serialize_state`
-- [ ] **B7 (partial)** — extract `_requestDone()` helper so queued commands aren't dropped during `honorResolve`/`submitBustVote`/`giveBustSip`
+- [x] **B7 (drinking-mode sites)** — `_requestDone()` helper now used by `sendCmd`, `honorResolve`, `castInsuranceVote`, `submitBustVote`, `giveBustSip`
 
 ### Everything else
 
