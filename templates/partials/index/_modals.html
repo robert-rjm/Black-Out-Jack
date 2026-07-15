@@ -26,146 +26,163 @@
   <div id="kick-card" data-stop-propagation="true">
     <h3>⚙️ Settings</h3>
 
-    <div class="kick-toggle-row" style="border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label">Deal animation</label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="anim-toggle-modal" data-change-action="setAnimToggle">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="anim-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="anim-lbl-modal-on">ON</span>
+    <div id="settings-main-view">
+      <div class="kick-toggle-row" style="border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label">Deal animation</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="anim-toggle-modal" data-change-action="setAnimToggle">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="anim-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="anim-lbl-modal-on">ON</span>
+        </div>
       </div>
-    </div>
 
-    <div class="kick-toggle-row admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
+      <div class="kick-toggle-row admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
+        </div>
       </div>
-    </div>
 
-    <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">Strategy Hints <span style="font-size:10px;color:var(--muted)">(blue border on best play)</span></label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="strategy-hint-toggle-modal" data-change-action="setStrategyHintEnabled">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="strategy-hint-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="strategy-hint-lbl-modal-on">ON</span>
+      <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Strategy Hints <span style="font-size:10px;color:var(--muted)">(blue border on best play)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="strategy-hint-toggle-modal" data-change-action="setStrategyHintEnabled">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="strategy-hint-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="strategy-hint-lbl-modal-on">ON</span>
+        </div>
       </div>
-    </div>
 
-    <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">Wild Card <span style="font-size:10px;color:var(--muted)">(logo Easter egg)</span></label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="wild-card-toggle-modal" data-change-action="setWildCardEnabled">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="wild-card-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="wild-card-lbl-modal-on">ON</span>
+      <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Wild Card <span style="font-size:10px;color:var(--muted)">(logo Easter egg)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="wild-card-toggle-modal" data-change-action="setWildCardEnabled">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="wild-card-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="wild-card-lbl-modal-on">ON</span>
+        </div>
       </div>
-    </div>
 
-    <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">Easy Mode <span style="font-size:10px;color:var(--muted)">(halve drinks every round)</span></label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle" id="easy-mode-toggle-wrap-modal">
-          <input type="checkbox" id="easy-mode-toggle-modal" data-change-action="setEasyModeAdmin">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="easy-mode-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="easy-mode-lbl-modal-on">ON</span>
+      <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Easy Mode <span style="font-size:10px;color:var(--muted)">(halve drinks every round)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle" id="easy-mode-toggle-wrap-modal">
+            <input type="checkbox" id="easy-mode-toggle-modal" data-change-action="setEasyModeAdmin">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="easy-mode-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="easy-mode-lbl-modal-on">ON</span>
+        </div>
       </div>
-    </div>
 
-    <div class="kick-toggle-row admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">God Mode <span style="font-size:10px;color:var(--muted)">(admin bypasses turn gate)</span></label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="god-mode-toggle-modal" data-change-action="setGodMode">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="god-mode-lbl-off">OFF</span>
-        <span class="pill-label-on" id="god-mode-lbl-on">ON</span>
+      <div class="kick-toggle-row admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">God Mode <span style="font-size:10px;color:var(--muted)">(admin bypasses turn gate)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="god-mode-toggle-modal" data-change-action="setGodMode">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="god-mode-lbl-off">OFF</span>
+          <span class="pill-label-on" id="god-mode-lbl-on">ON</span>
+        </div>
       </div>
-    </div>
 
-    <div id="add-local-seat-row" style="display:none;padding:6px 0">
-      <button class="btn wide" style="font-size:12px" data-action="showLocalSeatPicker">👤 Add local player</button>
-      <div id="local-seat-picker" style="display:none;margin-top:6px"></div>
-    </div>
+      <div style="border-bottom:1px solid rgba(255,255,255,.1);margin:10px 0 12px"></div>
 
-    <div style="border-bottom:1px solid rgba(255,255,255,.1);margin:10px 0 12px"></div>
+      <button class="btn wide settings-players-nav-btn" data-action="showSettingsSubview" data-args='["players"]'>
+        👥 Players <span id="settings-players-badge" class="settings-players-badge" style="display:none"></span>
+      </button>
 
-    <div class="modal-section-title">PLAYERS IN SESSION</div>
-    <div id="kick-list"></div>
+      <div id="game-settings-section">
+        <div class="modal-section-title modal-gap-lg">GAME SETTINGS</div>
+        <div class="modal-note">Changes queue for next round — never applied mid-round.</div>
 
-    <div id="transfer-admin-section">
-      <div class="modal-section-title modal-gap-top">TRANSFER ADMIN</div>
-      <div id="transfer-admin-list"></div>
-    </div>
-
-    <div id="game-settings-section">
-      <div class="modal-section-title modal-gap-lg">GAME SETTINGS</div>
-      <div class="modal-note">Changes queue for next round — never applied mid-round.</div>
-
-      <div class="settings-row drink-only">
-        <label>Sips / hand</label>
-        <input type="number" id="setting-wager" min="1" max="20" value="1" class="w-72">
-      </div>
-      <div class="settings-row">
-        <label>Hands / player</label>
-        <input type="number" id="setting-num-hands" min="1" max="10" value="2" class="w-72">
-      </div>
-      <div id="setting-decks-row" class="settings-row">
-        <label>Decks in shoe</label>
-        <input type="number" id="setting-num-decks" min="1" max="8" value="1" class="w-72">
-      </div>
-      <div id="setting-rotation-section">
-        <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
+        <div class="settings-row drink-only">
+          <label>Sips / hand</label>
+          <input type="number" id="setting-wager" min="1" max="20" value="1" class="w-72">
+        </div>
         <div class="settings-row">
-          <label>Rotate every</label>
-          <div class="settings-inline-row">
-            <input type="number" id="setting-rotate-every" min="1" max="20" value="1" class="w-52">
-            <span class="settings-inline-note">rounds</span>
-            {{ action_btn('Save', 'saveRotateEvery', '[]', 'btn btn-sm') }}
+          <label>Hands / player</label>
+          <input type="number" id="setting-num-hands" min="1" max="10" value="2" class="w-72">
+        </div>
+        <div id="setting-decks-row" class="settings-row">
+          <label>Decks in shoe</label>
+          <input type="number" id="setting-num-decks" min="1" max="8" value="1" class="w-72">
+        </div>
+        <div id="setting-rotation-section">
+          <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
+          <div class="settings-row">
+            <label>Rotate every</label>
+            <div class="settings-inline-row">
+              <input type="number" id="setting-rotate-every" min="1" max="20" value="1" class="w-52">
+              <span class="settings-inline-note">rounds</span>
+              {{ action_btn('Save', 'saveRotateEvery', '[]', 'btn btn-sm') }}
+            </div>
+          </div>
+          <div class="settings-row settings-row-last">
+            <label>Force rotate now</label>
+            <button class="btn btn-rotate" data-action="rotateDealer">🔄 Rotate Now</button>
           </div>
         </div>
-        <div class="settings-row settings-row-last">
-          <label>Force rotate now</label>
-          <button class="btn btn-rotate" data-action="rotateDealer">🔄 Rotate Now</button>
+
+        {{ action_btn('Queue for next round', 'queueSettings', '[]', 'btn wide queue-btn') }}
+      </div>
+    </div>
+
+    <div id="settings-players-view" style="display:none">
+      <div class="settings-subview-header">
+        {{ action_btn('← Back', 'showSettingsSubview', '["main"]', 'btn settings-back-btn') }}
+        <span class="settings-subview-title">👥 Players</span>
+      </div>
+
+      <div id="add-local-seat-row" style="display:none;padding:6px 0">
+        <button class="btn wide" style="font-size:12px" data-action="showLocalSeatPicker">👤 Add local player</button>
+        <div id="local-seat-picker" style="display:none;margin-top:6px"></div>
+      </div>
+
+      <div class="modal-section-title">PLAYERS IN SESSION</div>
+      <div id="kick-list"></div>
+
+      <div id="transfer-admin-section">
+        <div class="modal-section-title modal-gap-top">TRANSFER ADMIN</div>
+        <div id="transfer-admin-list"></div>
+      </div>
+
+      <div id="add-remove-seat-section">
+        <div class="modal-note">Seat changes queue for next round too.</div>
+
+        <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>
+        <div class="settings-add-row">
+          <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
+          <button type="button" id="setting-add-npc-btn" class="btn btn-sm npc-toggle-btn" data-action="toggleNpcBtn">Bot</button>
+          <input type="checkbox" id="setting-add-npc" hidden>
+          {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
+        </div>
+
+        <div class="modal-section-title modal-gap-top">REMOVE PLAYER SEAT</div>
+        <div class="settings-add-row">
+          <select id="setting-remove-name" class="settings-select"></select>
+          {{ action_btn('Remove', 'queueRemovePlayer', '[]', 'btn red btn-sm') }}
         </div>
       </div>
+    </div>
 
-      <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>
-      <div class="settings-add-row">
-        <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
-        <button type="button" id="setting-add-npc-btn" class="btn btn-sm npc-toggle-btn" data-action="toggleNpcBtn">Bot</button>
-        <input type="checkbox" id="setting-add-npc" hidden>
-        {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
-      </div>
-
-      <div class="modal-section-title modal-gap-top">REMOVE PLAYER SEAT</div>
-      <div class="settings-add-row">
-        <select id="setting-remove-name" class="settings-select"></select>
-        {{ action_btn('Remove', 'queueRemovePlayer', '[]', 'btn red btn-sm') }}
-      </div>
-
-      {{ action_btn('Queue for next round', 'queueSettings', '[]', 'btn wide queue-btn') }}
-
-      <div id="queued-settings-banner">
-        <strong class="queued-title">⏳ Queued for next round:</strong>
-        <ul id="queued-settings-list"></ul>
-        {{ action_btn('Clear queue', 'clearQueuedSettings', '[]', 'btn btn-clear-queue') }}
-      </div>
+    <div id="queued-settings-banner">
+      <strong class="queued-title">⏳ Queued for next round:</strong>
+      <ul id="queued-settings-list"></ul>
+      {{ action_btn('Clear queue', 'clearQueuedSettings', '[]', 'btn btn-clear-queue') }}
     </div>
 
     {{ action_btn('Close', 'closeKickModal', '[]', 'btn wide modal-close-btn') }}
