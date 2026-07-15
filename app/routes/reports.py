@@ -338,6 +338,46 @@ def export_decisions():
 
 
 # ---------------------------------------------------------------------------
+# Dealer Lottery entry log export -- a separate decision stream from the
+# hand-action decision log above (a stake amount, not h/s/d/sp), mined into
+# player_profiles/<name>.json's lottery_stakes by build_player_profiles.py.
+# ---------------------------------------------------------------------------
+
+_DEALER_LOTTERY_DECISION_COLUMNS = [
+    "session_id", "timestamp", "round", "player", "is_npc",
+    "x_entered", "current_owed", "num_players", "drinking_mode",
+]
+
+
+@bp.route("/export_dealer_lottery_decisions")
+def export_dealer_lottery_decisions():
+    """
+    Return a CSV of recorded Dealer Lottery entries for this session.
+    Usage: GET /export_dealer_lottery_decisions?room_code=Jack-21
+    """
+    room_code = request.args.get("room_code", "")
+    session   = game_sessions.get(room_code)
+    if not session:
+        return Response("No active session.", status=404, mimetype="text/plain")
+
+    rows = session._dealer_lottery_decision_log
+
+    buf = io.StringIO()
+    w   = csv.writer(buf)
+    w.writerow(_DEALER_LOTTERY_DECISION_COLUMNS)
+    for row in rows:
+        w.writerow([row.get(col, "") for col in _DEALER_LOTTERY_DECISION_COLUMNS])
+
+    _date_str = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
+    return Response(
+        b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
+        status=200,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="dealer_lottery_decisions_{_date_str}.csv"'},
+    )
+
+
+# ---------------------------------------------------------------------------
 # JSON summary
 # ---------------------------------------------------------------------------
 

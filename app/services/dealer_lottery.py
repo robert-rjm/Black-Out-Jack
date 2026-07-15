@@ -24,6 +24,7 @@ import time
 from engine.blackjack import Deck, Hand
 from app.models.game_room import GameRoom
 from app.config import DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
+from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card
 
@@ -78,12 +79,22 @@ def maybe_start_dealer_lottery(session: GameRoom) -> None:
     if session.round._pending_milestone is not None:
         return
 
+    entries: dict[str, int | None] = {}
+    for p in session.all_players:
+        if not getattr(p, "is_npc", False):
+            entries[p.name] = None
+            continue
+        # NPC entry is a real per-personality decision (mirrors NPC hand
+        # decisions in game_engine.py) -- "basic" personality or a bot with
+        # no profile just opts out (0), same as before this was a decision.
+        current_owed = max(0, session.drinks.last_round_sips.get(p.name, 0))
+        x = p.decide_dealer_lottery_stake(current_owed) if hasattr(p, "decide_dealer_lottery_stake") else 0
+        entries[p.name] = x
+        record_dealer_lottery_entry(session, p.name, x, is_npc=True)
+
     session.round._pending_dealer_lottery = {
         "expires_at": time.monotonic() + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS,
-        "entries": {
-            p.name: (0 if getattr(p, "is_npc", False) else None)
-            for p in session.all_players
-        },
+        "entries": entries,
     }
 
 
@@ -93,7 +104,9 @@ def submit_dealer_lottery_entry(session: GameRoom, player_name: str, x: int) -> 
     pending = session.round._pending_dealer_lottery
     if not pending or player_name not in pending["entries"]:
         return False
-    pending["entries"][player_name] = max(0, min(5, int(x)))
+    clamped = max(0, min(5, int(x)))
+    pending["entries"][player_name] = clamped
+    record_dealer_lottery_entry(session, player_name, clamped, is_npc=False)
     return True
 
 
