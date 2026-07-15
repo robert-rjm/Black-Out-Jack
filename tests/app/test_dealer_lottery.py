@@ -12,7 +12,7 @@ import pytest
 from engine.referee import RefereeSession
 from tests.conftest import make_player, make_hand, make_card
 from app import create_app
-from app.models.game_room import GameRoom, GameConfig
+from app.models.game_room import GameRoom, GameConfig, RoundState
 from app.services.session_store import game_sessions, set_session
 from app.services.dealer_lottery import (
     _dealer_pair_trigger,
@@ -241,6 +241,40 @@ def _nine_pair_room(**kwargs):
     room.round._dealer_lottery_eligible = True
     maybe_start_dealer_lottery(room)
     return room
+
+
+def test_result_seq_keeps_incrementing_across_rounds(monkeypatch):
+    """Regression: _dealer_lottery_result_seq must survive a new round's
+    RoundState replacement (it lives on DrinkLedger, not RoundState) --
+    otherwise it resets to 0 every round, the frontend's already-advanced
+    local pointer never sees a "new" value again, and the reveal modal only
+    ever fires once per session no matter how many times the lottery
+    triggers afterward."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+    assert room.drinks._dealer_lottery_result_seq == 1
+
+    # Simulate a new round: RoundState is replaced wholesale, same as
+    # app/services/room_manager.py's newround handler does.
+    room.round = RoundState()
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+    assert room.drinks._dealer_lottery_result_seq == 2  # not reset back to 1
 
 
 def test_resolve_all_zero_skips_draw(monkeypatch):
