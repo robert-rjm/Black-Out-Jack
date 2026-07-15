@@ -25,8 +25,16 @@ same format as `Busfahrer-Plan.md`.
   strictly before players "cash in" and drink for the round. Doesn't touch
   the round's own recorded result/stats in any way — a pure bolt-on.
 - **Entry** — every human player (dealer included) is prompted to pick
-  X = 0-5. Bots auto-submit 0. If everyone (who responds) picks 0, the
-  lottery is skipped entirely — no draw happens, nothing is logged.
+  X = 0-5, with a **20-second entry window** (new `DEALER_LOTTERY_ENTRY_
+  WINDOW_SECONDS` config constant — between `BUST_VOTE_WINDOW_SECONDS`
+  (15.5s, a simpler binary choice) and `MILESTONE_TTL` (60s, a multi-player
+  allocation decision); picking one of 6 values warrants a bit more than
+  the bust-vote's window but nowhere near the milestone's). A player who
+  hasn't responded when the window closes defaults to `X = 0` — same
+  "non-responder abstains" behavior as the bust vote, no new forfeit
+  concept needed. Bots auto-submit 0 immediately. If everyone (who
+  responds, plus every timed-out default) ends up at 0, the lottery is
+  skipped entirely — no draw happens, nothing is logged.
 - **The draw** — the dealer's pair is split into two fresh hands for this
   event only: each keeps one of the original two cards and is dealt one new
   card, then plays out under the normal dealer-hits-to-17 rule (whatever
@@ -39,11 +47,23 @@ same format as `Busfahrer-Plan.md`.
     this is not N independent per-player draws.
   - No re-splitting even if one of the two new hands itself draws a
     matching pair — always exactly two hands, one draw, done.
-- **Payout** (`N = 2`, fixed, since there's no re-splitting):
-  - Both new hands bust → reduce your own sips owed by `X`, and hand out
-    `X` to another player (via the existing bust-vote-handout-style
-    picker — see §4.3).
-  - Otherwise → drink `(2 − busted) × X` (0 busted → `2X`, 1 busted → `X`).
+- **Payout** (`N = 2`, fixed, since there's no re-splitting). Let
+  `halving_active = easy_mode or len(players) >= 4` — the *exact* existing
+  flag from `DrinkTracker.apply_end_of_round` (`engine/drinking_rules.py:723`),
+  reused verbatim, not reinvented:
+  - Both new hands bust → **credit** yourself `min(X, your current
+    last_round_sips)` — floored at 0, you can never end a round owing
+    negative sips from this — and **hand out** `ceil(X/2)` if
+    `halving_active` else `X` to another player (picker: see §3's
+    "Handout recipient picker" bullet). The self-credit is never halved
+    (halving softens drinking, not credits); the handout *is* halved,
+    since it's sips the recipient will actually drink.
+  - Otherwise → drink `ceil(((2 − busted) × X) / 2)` if `halving_active`
+    else `(2 − busted) × X` (0 busted → `2X` before halving, 1 busted →
+    `X` before halving).
+  - Rounding is always **up** (`math.ceil`), matching every other halving
+    in the codebase (4-player/Easy Mode batching, the A♣ hard-switch
+    half-protection) — never introduce a different rounding rule here.
 - Applies to **Drinking mode only** (Normal mode has no sip economy for
   this to plug into).
 
@@ -65,6 +85,19 @@ direct precedent and should be reused, not reinvented:
   the same way `apply_bust_vote_penalties` does today. Negative values
   (the credit case) are already supported and correctly skip milestone
   triggering per its docstring.
+  - **Checked, no issue: can a lottery credit un-cross an already-claimed
+    milestone?** No — `award_sips()` only adds a negative (credit) delta to
+    `session.drinks.last_round_sips` (this round's owed total); the
+    cumulative `session.drinks.sip_ticker` that `check_and_set_milestone()`
+    actually checks against is only ever *increased* (`if sips > 0:` gate
+    around the ticker update) — "Session total never decreases — credits
+    offset within the round only" per the comment right above it. A
+    milestone is also a permanent one-way claim (`milestones_claimed[boundary]`
+    is never unset once written) regardless. Both mechanisms independently
+    guarantee a lottery credit can never retroactively invalidate an
+    already-distributed milestone handout — as long as the lottery's sip
+    effects go through `award_sips()` rather than mutating the ticker
+    directly, this is already handled, no new guard needed.
 
 `Hand.can_split()`'s definition of "pair" (`cards[0].rank.blackjack_value
 == cards[1].rank.blackjack_value`) is the existing, already-consistent way
@@ -87,36 +120,68 @@ same-rank check.
 - **Trigger is pair-only** — a non-paired 19 (e.g. K+9) never qualifies.
   (It couldn't anyway — see §1's note that only these two pairs can leave
   the dealer standing on exactly two cards.)
+- **Entry window is 20 seconds, non-responders default to `X = 0`** —
+  same "abstain" behavior as the bust vote's timeout, no new forfeit
+  concept. Resolves what happens on disconnect mid-entry for free (same
+  answer as every other timed window in this pipeline).
+- **A lottery credit can never un-cross an already-claimed milestone** —
+  confirmed safe by existing code, not something to guard against
+  separately. See §2's `award_sips()` bullet for the exact mechanism
+  (`sip_ticker` only increases; `milestones_claimed` is a permanent
+  one-way ledger).
+- **Dealer is eligible** — "acting as player" for the purposes of this
+  event, same as the existing Dealer Bust vote (4.4) doesn't exclude the
+  dealer either.
+- **Nobody drinks negatively from this event** — a player may enter with
+  `X = 5` even if their own `last_round_sips` for the round is only, say,
+  3; the self-credit in the both-bust case is capped at
+  `min(X, current last_round_sips)` so their own total floors at 0. This
+  cap applies **only to the self-credit** — the handout to the recipient
+  is always the full (possibly-halved) `X`, uncapped by whatever the
+  giver personally owed. Entry itself isn't validated against current
+  owed sips at all — `X` is a free choice 0-5 regardless.
+- **Handout recipient picker reuses `/give_bust_sip`'s exact pattern** —
+  timed picker, forfeit-to-self on timeout, same shape, new pending-list
+  target. No second parallel UI pattern for "pick who gets my sip."
+- **Easy Mode / 4-player halving applies**, via the *same* `halving_active`
+  flag `apply_end_of_round` already uses (`easy_mode or players >= 4`) —
+  see §1's payout formula for exactly which amounts get halved (the drink
+  penalty and the handout; never the self-credit) and the round-up
+  (`math.ceil`) convention, matching every other halving in the codebase.
 
-## 4. Open questions (need decisions before/while building)
+## 4. Open question: card source for the draw
 
-- **Dealer's own eligibility** — can the player who dealt this round also
-  enter the lottery against their own hand's pair? Recommend yes, matching
-  how the existing Dealer Bust vote (4.4) doesn't exclude the dealer
-  either — but confirm.
-- **Card source for the draw** — draw the two lottery cards from the live
-  `session.shoe`, or from an isolated one-off mini-deck that doesn't touch
-  shoe/penetration tracking? Recommend the isolated mini-deck, mirroring
-  `Busfahrer-Plan.md` §4.1's identical call ("a fresh deck scoped to the
-  [event] so it doesn't interact with the main game's shoe/penetration
-  tracking") — this event shouldn't skew the real shoe's card economy for
-  the next round.
-- **Easy Mode / 4-player halving interaction** — should lottery sips be
-  subject to the existing "halve all end-of-round sip totals" halving
-  (Easy Mode toggle, or automatic at 4+ players)? Recommend yes, for
-  consistency with every other end-of-round sip source — needs confirming
-  where exactly that halving is applied today so the lottery's
-  `award_sips()` calls land on the correct side of it.
-- **Handout recipient picker** — reuse the existing bust-vote-handout flow
-  verbatim (winner picks a recipient via a timed `/give_bust_sip`-style
-  window, forfeits to self after timeout) or build a lighter-weight
-  variant? Recommend reusing the existing flow's shape exactly, just
-  pointed at a new pending-handout list, to avoid a second parallel UI
-  pattern for the same "pick who gets my credited sip" interaction.
-- **What if a player disconnects mid-entry** — same question the bust-vote
-  window already answers (non-responders default to their existing
-  behavior at timeout). Recommend the same default-to-0-on-timeout used
-  everywhere else in this pipeline, no new special case.
+Only one question remains genuinely open — the others above are locked
+in. Two options, weighed out:
+
+- **Option A — draw from the live `session.shoe`.** Thematically "more
+  real" (the same shared shoe everyone's been playing from), and
+  mechanically simplest — one deck concept for the whole game, no new
+  deck-management code. But it consumes 2 extra cards from the shared
+  shoe on every trigger (rare, but non-zero over a session), and risks an
+  awkward mid-lottery reshuffle if the shoe is already low — a "just for
+  fun" bonus event forcing a real reshuffle, possibly confusing players
+  about why the shoe reset without a real deal happening. Also makes the
+  trigger/resolution harder to unit-test deterministically (needs
+  control over the live shoe's exact remaining cards).
+- **Option B — isolated one-off mini-deck, scoped only to this draw.**
+  Zero interaction with the real shoe — no reshuffle-timing edge cases,
+  no card-economy skew for the next real round. Directly precedented in
+  this exact codebase: `Busfahrer-Plan.md` §4.1 makes the identical call
+  for the identical reason ("a fresh deck scoped to the [event] so it
+  doesn't interact with the main game's shoe/penetration tracking").
+  Trivially unit-testable (inject a seeded deck). Slightly less
+  "immersive" — a sharp-eyed player might ask whether these are really
+  from the same shoe — but this is an explicitly bolt-on bonus event, not
+  the canonical game, so that's a minor and acceptable tradeoff.
+
+**Recommendation: Option B.** The reshuffle-timing risk in Option A is a
+real correctness headache (what happens if the lottery's draw is what
+tips the shoe under its penetration threshold right as the *next* round
+is about to deal?), and Option B has direct, working precedent in this
+same codebase for exactly this scenario. Reuse whatever `Deck`/`Shoe`
+construction `engine/busfahrer.py` already uses rather than inventing a
+second pattern.
 
 ## 5. Integration with the live app
 
@@ -124,7 +189,12 @@ same-rank check.
 - Add `session.round._pending_dealer_lottery: dict | None` — set once the
   trigger condition is confirmed *and* no milestone is pending, cleared
   when everyone has submitted X (or the entry window times out). Shape:
-  `{"expires_at": float, "entries": {name: int | None}}`.
+  `{"expires_at": float, "entries": {name: int | None}}`, where
+  `expires_at = time.monotonic() + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS`
+  (new constant in `app/config.py`, value `20`, alongside
+  `BUST_VOTE_WINDOW_SECONDS`/`MILESTONE_TTL`). A per-poll tick function
+  (mirrors `apply_milestone_forfeit`) resolves any entry still `None` to
+  `0` once `expires_at` passes.
 - Add `session.round._dealer_lottery_result: dict | None` — set once the
   draw resolves, mirrors `_bust_vote_result`'s "last result, shown once,
   expires after ~90s" pattern (`_serialize_last_milestone` is the model to
@@ -140,7 +210,8 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
 - `resolve_dealer_lottery(session)` — called once every entry is in (or the
   window times out). No-ops (skips the draw, clears pending state) if every
   submitted entry is 0. Otherwise: deals the two split hands from an
-  isolated mini-deck (see open question above), plays each out via the
+  isolated mini-deck (per §4 — mirrors `engine/busfahrer.py`'s deck),
+  plays each out via the
   same dealer-hits-to-17 logic the real dealer uses, computes
   `busted ∈ {0, 1, 2}`, then for each participant with `X > 0` calls
   `award_sips()` with the signed delta per §1's payout table (negative for
@@ -157,7 +228,8 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
   records this client's local player(s)' entry, mirrors `/cast_bust_vote`'s
   local-player-override handling for shared-device seats.
 - Reuse `/give_bust_sip`'s exact pattern for the handout-recipient step
-  (per §4's open question) rather than adding a new route shape.
+  (per §3's "Handout recipient picker" bullet) rather than adding a new
+  route shape.
 
 ### 5.4 NPC participation
 - Bots auto-submit `X = 0` the moment the pending state is created —
@@ -210,5 +282,5 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
 - `docs/Rules.md` — new subsection under §4 (Side Bets), likely 4.6.
 - `docs/Comprehensive-Example.md` — add per `Ruleset-Improvement.md`'s
   existing checklist format.
-- `docs/planning/TODO.md` — replace the two old draft bullets (lines
-  33-45) with a pointer to this plan doc once built.
+- `docs/planning/TODO.md` — already updated to point at this plan doc;
+  check it back off entirely (remove the bullet) once this ships.
