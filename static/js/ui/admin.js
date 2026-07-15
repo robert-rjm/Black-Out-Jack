@@ -746,34 +746,46 @@ function _renderDealerLotteryCards(state) {
     const card = document.createElement("div");
     card.classList.add("dl-entry-card");
 
+    const top = document.createElement("div");
+    top.classList.add("dl-entry-top");
+
     if (multiLocal) {
       const nameLbl = document.createElement("span");
       nameLbl.classList.add("dl-name-lbl");
       nameLbl.textContent = name;
-      card.appendChild(nameLbl);
+      top.appendChild(nameLbl);
     }
 
     if (answered !== null && answered !== undefined) {
       const statusEl = document.createElement("span");
       statusEl.classList.add("dl-status");
       statusEl.textContent = `Entered: ${answered}`;
-      card.appendChild(statusEl);
+      top.appendChild(statusEl);
+      card.appendChild(top);
     } else {
+      const valueLbl = document.createElement("span");
+      valueLbl.classList.add("dl-x-value");
+      valueLbl.textContent = "0";
+      top.appendChild(valueLbl);
+      card.appendChild(top);
+
       const row = document.createElement("div");
       row.classList.add("dl-entry-row");
 
-      const select = document.createElement("select");
-      select.classList.add("dl-x-select");
-      for (let i = 0; i <= 5; i++) select.appendChild(new Option(String(i), String(i)));
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = "0"; slider.max = "5"; slider.step = "1"; slider.value = "0";
+      slider.classList.add("dl-x-slider");
+      slider.addEventListener("input", () => { valueLbl.textContent = slider.value; });
 
       const enterBtn = document.createElement("button");
       enterBtn.className = "btn dl-enter-btn";
       enterBtn.textContent = "Enter";
       enterBtn.addEventListener("click", () => {
-        submitDealerLotteryX(parseInt(select.value, 10) || 0, multiLocal ? name : undefined);
+        submitDealerLotteryX(parseInt(slider.value, 10) || 0, multiLocal ? name : undefined);
       });
 
-      row.appendChild(select);
+      row.appendChild(slider);
       row.appendChild(enterBtn);
       card.appendChild(row);
     }
@@ -781,6 +793,8 @@ function _renderDealerLotteryCards(state) {
     wrap.appendChild(card);
   });
 }
+
+let _dealerLotteryRevealOpen = false;
 
 function updateDealerLotteryUI(state) {
   const dl = state.dealer_lottery || {};
@@ -801,6 +815,54 @@ function updateDealerLotteryUI(state) {
   }
 
   _renderDealerLotteryGivePanel(state);
+}
+
+// Visual reveal: the dealer's pair splitting into two fresh hands, shown as
+// real card visuals (reuses handBlock()/cardEl() from table-render.js —
+// the same rendering the main table uses) rather than a plain text toast.
+function _showDealerLotteryRevealModal(result) {
+  if (!result) return;
+  const hands  = document.getElementById("dealer-lottery-reveal-hands");
+  const payout = document.getElementById("dealer-lottery-reveal-payout");
+  const sub    = document.getElementById("dealer-lottery-reveal-sub");
+  if (!hands) return;
+
+  if (sub) sub.textContent = "The dealer's pair splits into two fresh hands:";
+
+  hands.innerHTML = "";
+  hands.appendChild(handBlock({
+    cards: result.hand_a, score: result.hand_a_score,
+    bust: result.hand_a_bust, stood: !result.hand_a_bust, done: true,
+  }, "Split Hand A"));
+  hands.appendChild(handBlock({
+    cards: result.hand_b, score: result.hand_b_score,
+    bust: result.hand_b_bust, stood: !result.hand_b_bust, done: true,
+  }, "Split Hand B"));
+
+  if (payout) {
+    const _myNames  = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+    const myEntries = _myNames.filter(n => (result.entries || {})[n] > 0);
+    if (result.busted === 2) {
+      const creditVerb = myEntries.length === 1 ? "credits" : "credit";
+      payout.innerHTML = myEntries.length
+        ? `<strong>Both hands busted!</strong> ${myEntries.map(escapeHtml).join(", ")} ${creditVerb} sips off this round and hand some out.`
+        : `<strong>Both hands busted!</strong> Nobody entered, so nothing happens.`;
+    } else {
+      const mult = 2 - result.busted;
+      const verb = myEntries.length === 1 ? "drinks" : "drink";
+      payout.innerHTML = myEntries.length
+        ? `${result.busted === 1 ? "One hand busted" : "Neither hand busted"} — ${myEntries.map(escapeHtml).join(", ")} ${verb} <strong>${mult}×</strong> their stake.`
+        : `${result.busted === 1 ? "One hand busted" : "Neither hand busted"} — nobody entered, so nothing happens.`;
+    }
+  }
+
+  _dealerLotteryRevealOpen = true;
+  openModal("dealer-lottery-reveal-overlay", { useClass: true });
+}
+
+function closeDealerLotteryRevealModal() {
+  _dealerLotteryRevealOpen = false;
+  closeModal("dealer-lottery-reveal-overlay", { useClass: true });
 }
 
 async function giveDealerLotterySip(giverName, recipientName) {
@@ -836,9 +898,11 @@ function _renderDealerLotteryGivePanel(state) {
     return;
   }
 
-  // Defer behind the milestone and bust-vote handout prompts so allocation
-  // popups appear one after another, never stacked.
-  if (state.pending_milestone || (state.my_bust_handout_pending || []).length) {
+  // Defer behind the milestone prompt, the bust-vote handout prompt, and
+  // this event's own reveal modal, so popups appear one after another,
+  // never stacked.
+  if (state.pending_milestone || (state.my_bust_handout_pending || []).length
+      || _dealerLotteryRevealOpen) {
     overlay.style.display = "none";
     body.innerHTML = "";
     return;
@@ -874,21 +938,6 @@ function _renderDealerLotteryGivePanel(state) {
   }).join(`<hr class="bgp-divider">`);
 }
 
-function _cardStr(c) { return `${c.rank}${c.symbol}`; }
-
-function showDealerLotteryToast(result) {
-  if (!result) return;
-  const a = (result.hand_a || []).map(_cardStr).join(" ");
-  const b = (result.hand_b || []).map(_cardStr).join(" ");
-  const aOutcome = result.hand_a_bust ? "BUST" : "stands";
-  const bOutcome = result.hand_b_bust ? "BUST" : "stands";
-  const text = `🎰 Dealer Lottery split: ${a} (${aOutcome}) / ${b} (${bOutcome})`;
-  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
-  const myX = _myNames.some(n => (result.entries || {})[n] > 0);
-  // Green if both busted (a win for anyone who entered), red otherwise.
-  const iDrink = myX && result.busted < 2;
-  _firePlayerToast(text, iDrink, 7000);
-}
 
 // Shared toast helper — sets content, applies drink/clean class, triggers show animation.
 function _firePlayerToast(text, iDrink, ms) {

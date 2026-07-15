@@ -187,13 +187,27 @@
 .bv-vote-btn     { flex: 1; }
 
 /* ---- DEALER LOTTERY ENTRY CARDS (_renderDealerLotteryCards in admin.js) ---- */
-.dl-entry-card    { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
-.dl-name-lbl      { font-size: 14px; font-weight: 700; min-width: 60px; color: var(--text); }
+.dl-entry-card    { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.dl-entry-card:last-child { border-bottom: none; }
+.dl-entry-top     { display: flex; align-items: center; justify-content: space-between; }
+.dl-name-lbl      { font-size: 14px; font-weight: 700; color: var(--text); }
 .dl-status        { font-size: 13px; font-weight: 600; color: var(--accent); }
-.dl-entry-row     { display: flex; gap: 8px; flex: 1; align-items: center; justify-content: flex-end; }
-.dl-x-select      {
-  width: 56px; height: 34px; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 6px; color: var(--text); font-size: 14px; text-align: center;
+.dl-x-value       { font-size: 15px; font-weight: 800; color: var(--accent); min-width: 20px; text-align: right; }
+.dl-entry-row     { display: flex; gap: 10px; align-items: center; }
+.dl-x-slider {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 6px; border-radius: 3px; background: var(--border); outline: none;
+}
+.dl-x-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: 2px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.dl-x-slider::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; border: 2px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
 .dl-enter-btn     { flex-shrink: 0; }
 .dl-answered      { font-size: 11px; color: var(--muted); min-height: 16px; margin-top: 4px; }
@@ -233,6 +247,34 @@
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
+
+/* ---- DEALER LOTTERY REVEAL MODAL (shares the milestone modal's shell) ---- */
+#dealer-lottery-reveal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 910;
+  align-items: center; justify-content: center;
+}
+#dealer-lottery-reveal-overlay.open { display: flex; }
+#dealer-lottery-reveal-modal {
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  width: min(360px, 92vw);
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+  text-align: center;
+}
+.dl-reveal-hands {
+  display: flex; gap: 14px; justify-content: center;
+  margin: 14px 0 10px; flex-wrap: wrap;
+}
+.dl-reveal-payout {
+  font-size: 13px; color: var(--text); margin-bottom: 14px; line-height: 1.5;
+}
+.dl-reveal-payout strong { color: var(--accent); }
 .ms-stepper {
   display: flex; align-items: center; gap: 10px;
   margin: 7px 0;

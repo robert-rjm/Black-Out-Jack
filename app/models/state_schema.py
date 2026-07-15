@@ -264,13 +264,15 @@ class DealerLotteryPendingOut(_StrictModel):
 
 
 class DealerLotteryResultOut(_StrictModel):
-    hand_a:      list[CardOut]
-    hand_b:      list[CardOut]
-    hand_a_bust: bool
-    hand_b_bust: bool
-    busted:      int
-    entries:     dict[str, int]
-    seconds_ago: int
+    hand_a:       list[CardOut]
+    hand_b:       list[CardOut]
+    hand_a_score: int
+    hand_b_score: int
+    hand_a_bust:  bool
+    hand_b_bust:  bool
+    busted:       int
+    entries:      dict[str, int]
+    seconds_ago:  int
 
 
 class DealerLotteryOut(_StrictModel):

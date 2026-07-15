@@ -439,7 +439,7 @@ function _syncRoundEffects(state, drinkingOn) {
   const dl = state.dealer_lottery || {};
   const newDealerLotterySeq = dl.result_seq || 0;
   if (newDealerLotterySeq > DrinkUI.lastDealerLotteryResultSeq) {
-    if (dl.last_result) showDealerLotteryToast(dl.last_result);
+    if (dl.last_result) _showDealerLotteryRevealModal(dl.last_result);
     DrinkUI.lastDealerLotteryResultSeq = newDealerLotterySeq;
   }
 }

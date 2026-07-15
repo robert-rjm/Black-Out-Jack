@@ -282,13 +282,21 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
 6. [x] NPC auto-entry — NPCs auto-submit `X = 0` the moment
    `maybe_start_dealer_lottery()` creates the pending window.
 7. [x] Frontend: entry modal (`#dealer-lottery-modal-overlay`, per-local-player
-   stake select + Enter button, countdown synced against the server the
-   same way `_openBustVoteModal` does), handout picker
-   (`#dealer-lottery-give-overlay`, reuses `#bust-give-card`'s CSS), and a
-   text toast reveal (`showDealerLotteryToast`, gated on `result_seq`,
-   styled red/green by whether the viewer actually drinks). All wired
-   into `_syncDigitalUI` / `_syncRoundEffects` in `table.js`, alongside
-   the equivalent bust-vote hooks.
+   stake **slider** (0-5, live value display) + Enter button, countdown
+   synced against the server the same way `_openBustVoteModal` does),
+   handout picker (`#dealer-lottery-give-overlay`, reuses
+   `#bust-give-card`'s CSS), and a **visual reveal modal**
+   (`#dealer-lottery-reveal-overlay`, gated on `result_seq`) showing the
+   dealer's pair actually splitting into two real hands via `handBlock()`/
+   `cardEl()` — the exact same card-rendering functions the main table
+   uses — with score/BUST/STAND tags and a payout summary line. Replaced
+   an earlier plain-text toast (`showDealerLotteryToast`) once real card
+   visuals were requested; the give-panel now also waits for the reveal
+   modal to close (`_dealerLotteryRevealOpen`) so the two popups never
+   stack. All wired into `_syncDigitalUI` / `_syncRoundEffects` in
+   `table.js`, alongside the equivalent bust-vote hooks. Backend gained
+   `hand_a_score`/`hand_b_score` on the result (added once the visual
+   needed real totals, not just bust/stand booleans).
 8. [x] Manual playtest: two layers now. (a) Live in-browser: ~20 real
    rounds played without the ~9.5%-per-round pair hitting naturally
    (see the probability note below — not a bug, just variance), so the

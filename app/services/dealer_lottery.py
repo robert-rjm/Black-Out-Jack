@@ -206,6 +206,8 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     session.drinks.last_dealer_lottery_result = {
         "hand_a": [serialize_card(c) for c in hand_a.cards],
         "hand_b": [serialize_card(c) for c in hand_b.cards],
+        "hand_a_score": hand_a.score(),
+        "hand_b_score": hand_b.score(),
         "hand_a_bust": hand_a.is_bust(),
         "hand_b_bust": hand_b.is_bust(),
         "busted": busted,
