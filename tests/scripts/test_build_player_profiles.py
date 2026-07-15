@@ -2,10 +2,10 @@
 tests/scripts/test_build_player_profiles.py
 =============================================
 Covers scripts/build_player_profiles.py's build_lottery_stakes: mining a
-per-player Dealer Lottery staking tendency from dealer_lottery_decisions_*.csv
-rows (written by app.services.decision_log.record_dealer_lottery_entry) into
-the lottery_stakes list consumed by engine/style_strategy.py's
-decide_dealer_lottery_stake.
+per-player Dealer Lottery staking tendency from "Dealer Lottery Entries"
+sheet rows (written by app.services.decision_log.record_dealer_lottery_entry,
+exported via GET /export_decisions) into the lottery_stakes list consumed by
+engine/style_strategy.py's decide_dealer_lottery_stake.
 """
 
 from scripts.build_player_profiles import build_lottery_stakes

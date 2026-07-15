@@ -11,11 +11,11 @@ Covers:
   3. backfill_hand_results fills hand_result for the current round once
      hand.result is set, and leaves other rounds / already-filled rows
      alone.
-  4. /export_decisions returns well-formed CSV with the documented
-     columns, for both Normal mode (bet_amount) and Drinking mode (wager).
+  4. /export_decisions returns a well-formed XLSX workbook with the
+     documented columns across its two sheets, for both Normal mode
+     (bet_amount) and Drinking mode (wager).
 """
 
-import csv
 import io
 
 import pytest
@@ -154,7 +154,7 @@ def test_backfill_hand_results():
 
 
 # ---------------------------------------------------------------------------
-# 4. /export_decisions CSV shape
+# 4. /export_decisions XLSX shape -- one workbook, two sheets
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -165,7 +165,16 @@ def app_client():
     return app.test_client()
 
 
+def _sheet_rows(worksheet):
+    """Read an openpyxl worksheet into (header, [row_dict, ...])."""
+    it = worksheet.iter_rows(values_only=True)
+    header = list(next(it))
+    return header, [dict(zip(header, row)) for row in it]
+
+
 def _populate_and_export(app_client, drinking_mode: bool, room_code: str):
+    import openpyxl
+
     room = _make_room(drinking_mode=drinking_mode)
     rob   = room._get_player("Rob")
     marco = room._get_player("Marco")
@@ -174,45 +183,46 @@ def _populate_and_export(app_client, drinking_mode: bool, room_code: str):
     marco.dealer_hand.cards.extend([make_card("6", "C"), make_card("2", "D")])
 
     record_decision(room, rob, rob.hands[0], "sp")
+    room.drinks.last_round_sips["Rob"] = 2
+    record_dealer_lottery_entry(room, "Rob", 3, is_npc=False)
 
     game_sessions[room_code] = room
     try:
         resp = app_client.get(f"/export_decisions?room_code={room_code}")
         assert resp.status_code == 200
-        assert resp.mimetype == "text/csv"
+        assert resp.mimetype == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-        body = resp.data.decode("utf-8-sig")  # strip BOM
-        reader = csv.reader(io.StringIO(body))
-        rows = list(reader)
-        return rows
+        wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+        assert wb.sheetnames == ["Hand Decisions", "Dealer Lottery Entries"]
+        return wb
     finally:
         game_sessions.pop(room_code, None)
 
 
 def test_export_decisions_normal_mode(app_client):
-    rows = _populate_and_export(app_client, drinking_mode=False, room_code="TestNormal1")
-    header, data_row = rows[0], rows[1]
+    wb = _populate_and_export(app_client, drinking_mode=False, room_code="TestNormal1")
+    header, rows = _sheet_rows(wb["Hand Decisions"])
 
     assert "_hand_id" not in header
     assert "bet_amount" in header
     assert "wager" in header
 
-    as_dict = dict(zip(header, data_row))
-    assert as_dict["player"] == "Rob"
-    assert as_dict["action_taken"] == "sp"
-    assert as_dict["drinking_mode"] == "False"
-    assert as_dict["bet_amount"] != ""   # normal mode -> bet_amount populated
-    assert as_dict["wager"] == ""        # ... and wager empty
+    row = rows[0]
+    assert row["player"] == "Rob"
+    assert row["action_taken"] == "sp"
+    assert row["drinking_mode"] is False
+    assert row["bet_amount"] is not None   # normal mode -> bet_amount populated
+    assert row["wager"] is None            # ... and wager empty
 
 
 def test_export_decisions_drinking_mode(app_client):
-    rows = _populate_and_export(app_client, drinking_mode=True, room_code="TestDrink1")
-    header, data_row = rows[0], rows[1]
+    wb = _populate_and_export(app_client, drinking_mode=True, room_code="TestDrink1")
+    _, rows = _sheet_rows(wb["Hand Decisions"])
 
-    as_dict = dict(zip(header, data_row))
-    assert as_dict["drinking_mode"] == "True"
-    assert as_dict["wager"] != ""        # drinking mode -> wager populated
-    assert as_dict["bet_amount"] == ""   # ... and bet_amount empty
+    row = rows[0]
+    assert row["drinking_mode"] is True
+    assert row["wager"] is not None        # drinking mode -> wager populated
+    assert row["bet_amount"] is None       # ... and bet_amount empty
 
 
 def test_export_decisions_no_session_returns_404(app_client):
@@ -221,7 +231,7 @@ def test_export_decisions_no_session_returns_404(app_client):
 
 
 # ---------------------------------------------------------------------------
-# 5. Dealer Lottery entry capture + export
+# 5. Dealer Lottery entry capture + export (second sheet of the same workbook)
 # ---------------------------------------------------------------------------
 
 def test_record_dealer_lottery_entry_captures_owed_and_context():
@@ -249,35 +259,12 @@ def test_record_dealer_lottery_entry_clamps_negative_owed_to_zero():
     assert room._dealer_lottery_decision_log[-1]["current_owed"] == 0
 
 
-def _populate_and_export_lottery(app_client, room_code: str):
-    room = _make_room(drinking_mode=True)
-    room.drinks.last_round_sips["Rob"] = 2
-    record_dealer_lottery_entry(room, "Rob", 3, is_npc=False)
+def test_export_decisions_includes_dealer_lottery_sheet(app_client):
+    wb = _populate_and_export(app_client, drinking_mode=True, room_code="TestLottery1")
+    _, rows = _sheet_rows(wb["Dealer Lottery Entries"])
 
-    game_sessions[room_code] = room
-    try:
-        resp = app_client.get(f"/export_dealer_lottery_decisions?room_code={room_code}")
-        assert resp.status_code == 200
-        assert resp.mimetype == "text/csv"
-
-        body = resp.data.decode("utf-8-sig")
-        reader = csv.reader(io.StringIO(body))
-        return list(reader)
-    finally:
-        game_sessions.pop(room_code, None)
-
-
-def test_export_dealer_lottery_decisions_csv_shape(app_client):
-    rows = _populate_and_export_lottery(app_client, room_code="TestLottery1")
-    header, data_row = rows[0], rows[1]
-    as_dict = dict(zip(header, data_row))
-
-    assert as_dict["player"] == "Rob"
-    assert as_dict["x_entered"] == "3"
-    assert as_dict["current_owed"] == "2"
-    assert as_dict["is_npc"] == "False"
-
-
-def test_export_dealer_lottery_decisions_no_session_returns_404(app_client):
-    resp = app_client.get("/export_dealer_lottery_decisions?room_code=NoSuchRoom")
-    assert resp.status_code == 404
+    row = rows[0]
+    assert row["player"] == "Rob"
+    assert row["x_entered"] == 3
+    assert row["current_owed"] == 2
+    assert row["is_npc"] is False

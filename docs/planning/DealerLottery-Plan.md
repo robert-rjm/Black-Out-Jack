@@ -238,17 +238,18 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
   that bucket, falls back to `0` — identical to the old behavior.
 - Every entry (human or NPC) is recorded via
   `app.services.decision_log.record_dealer_lottery_entry` into
-  `session._dealer_lottery_decision_log`, exported as CSV via
-  `/export_dealer_lottery_decisions` (mirrors `/export_decisions`, but for a
-  stake amount instead of a hand action — a separate file since the row
-  shape doesn't fit `_DECISION_COLUMNS`). Auto-forfeited (timed-out, unset →
+  `session._dealer_lottery_decision_log`, exported via `/export_decisions`
+  as a second sheet ("Dealer Lottery Entries") in the same XLSX workbook as
+  the hand-decision log ("Hand Decisions") — one download, not two (the row
+  shape still doesn't fit `_DECISION_COLUMNS`, so it's a separate sheet
+  rather than mixed into the same one). Auto-forfeited (timed-out, unset →
   0) entries are deliberately NOT logged — that's a non-choice, not a real
   decision, and would pollute the mined tendency.
-- `scripts/build_player_profiles.py`'s `build_lottery_stakes()` mines
-  `dealer_lottery_decisions_*.csv` the same way hand decisions are mined:
-  human-only rows, grouped by owed-bucket, kept only when a bucket clears
-  `--min-samples`. Written into the profile JSON as a new `lottery_stakes`
-  key alongside `deviations`.
+- `scripts/build_player_profiles.py`'s `build_lottery_stakes()` mines the
+  "Dealer Lottery Entries" sheet the same way hand decisions are mined from
+  "Hand Decisions": human-only rows, grouped by owed-bucket, kept only when
+  a bucket clears `--min-samples`. Written into the profile JSON as a new
+  `lottery_stakes` key alongside `deviations`.
 
 ### 5.5 Polling / serializer
 - Add a `dealer_lottery` block to `AppState`
