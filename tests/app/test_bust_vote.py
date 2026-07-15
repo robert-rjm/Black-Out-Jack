@@ -382,10 +382,18 @@ def test_cast_vote_all_humans_voted_triggers_deferred_play(client, room_setup, m
 # ---------------------------------------------------------------------------
 
 def _set_winner(room, winner="Bob", dealer_busted=True, winners=None):
+    # Full shape matching apply_bust_vote_penalties' real output (drinking
+    # mode -- side_bet_amount stays None) -- these tests go through the real
+    # /give_bust_sip route into serialize_state(), which now validates the
+    # response against AppState's BustVoteResultOut schema.
     room.round._bust_vote_result = {
-        "dealer_busted": dealer_busted,
-        "winners": winners if winners is not None else [winner],
-        "losers": [],
+        "dealer_busted":   dealer_busted,
+        "winners":         winners if winners is not None else [winner],
+        "losers":          [],
+        "side_bet_amount": None,
+        "outcome_lines":   [],
+        "winner_label":    "called it — -1 sip + give 1!",
+        "loser_label":     "wrong — +1 sip each",
     }
     room.round._bust_handouts_given = set()
 

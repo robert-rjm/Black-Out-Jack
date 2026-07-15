@@ -1,9 +1,34 @@
 window._myHintEnabled = null; // tracks last explicit hint toggle; null = read from server
 
+// ============================================================
+// SETTINGS MODAL -- main view / players sub-view
+// ============================================================
+// The settings modal has two "screens" sharing one overlay: the main
+// toggles/game-settings view, and a Players screen (kick list, transfer
+// admin, add/remove seat) reached via the "👥 Players" button. Kept as a
+// single modal (no second overlay) so it doesn't add another thing
+// stacking on top of the game -- just an internal view swap.
+let _settingsView = "main";
+
+function showSettingsSubview(view) {
+  const main    = document.getElementById("settings-main-view");
+  const players = document.getElementById("settings-players-view");
+  if (!main || !players) return;
+  _settingsView = (view === "players") ? "players" : "main";
+  main.style.display    = (_settingsView === "players") ? "none" : "block";
+  players.style.display = (_settingsView === "players") ? "block" : "none";
+}
+
 function openKickModal() {
   const overlay = document.getElementById("kick-overlay");
   const list    = document.getElementById("kick-list");
   if (!overlay || !list || !lastState) return;
+
+  // openKickModal() doubles as a "refresh contents while open" call (see
+  // admin.js's poll handler), so only reset to the main view on a genuine
+  // fresh open -- otherwise every poll tick would yank the admin back out
+  // of the Players screen mid-use.
+  if (overlay.style.display !== "flex") _settingsView = "main";
 
   // Sync animation toggle to current setting
   const cb = document.getElementById("anim-toggle-modal");
@@ -174,8 +199,8 @@ function openKickModal() {
   if (!pendingRegSection) {
     pendingRegSection = document.createElement("div");
     pendingRegSection.id = "pending-reg-modal-section";
-    const kickCard = document.getElementById("kick-card");
-    if (kickCard) kickCard.insertBefore(pendingRegSection, document.getElementById("game-settings-section").nextSibling || null);
+    const playersView = document.getElementById("settings-players-view");
+    if (playersView) playersView.insertBefore(pendingRegSection, document.getElementById("add-remove-seat-section"));
   }
   const pendingRegs = (isAdmin && lastState.pending_registrations) || [];
   if (isAdmin && pendingRegs.length > 0) {
@@ -207,8 +232,8 @@ function openKickModal() {
   if (!kickedSection) {
     kickedSection = document.createElement("div");
     kickedSection.id = "kicked-players-section";
-    const kickCard = document.getElementById("kick-card");
-    if (kickCard) kickCard.insertBefore(kickedSection, document.getElementById("game-settings-section").nextSibling || null);
+    const playersView = document.getElementById("settings-players-view");
+    if (playersView) playersView.insertBefore(kickedSection, document.getElementById("add-remove-seat-section"));
   }
   const kickedClients = (isAdmin && lastState.kicked_clients) || [];
   if (isAdmin && kickedClients.length > 0) {
@@ -235,8 +260,8 @@ function openKickModal() {
   if (!deniedSection) {
     deniedSection = document.createElement("div");
     deniedSection.id = "denied-reg-section";
-    const kickCard = document.getElementById("kick-card");
-    if (kickCard) kickCard.insertBefore(deniedSection, document.getElementById("game-settings-section").nextSibling || null);
+    const playersView = document.getElementById("settings-players-view");
+    if (playersView) playersView.insertBefore(deniedSection, document.getElementById("add-remove-seat-section"));
   }
   const deniedClients = (isAdmin && lastState.denied_clients) || [];
   if (isAdmin && deniedClients.length > 0) {
@@ -263,8 +288,8 @@ function openKickModal() {
   if (!rejoinSection) {
     rejoinSection = document.createElement("div");
     rejoinSection.id = "rejoin-requests-section";
-    const kickCard = document.getElementById("kick-card");
-    if (kickCard) kickCard.insertBefore(rejoinSection, document.getElementById("game-settings-section").nextSibling || null);
+    const playersView = document.getElementById("settings-players-view");
+    if (playersView) playersView.insertBefore(rejoinSection, document.getElementById("add-remove-seat-section"));
   }
   const rejoinReqs = (isAdmin && lastState.rejoin_requests) || [];
   if (isAdmin && rejoinReqs.length > 0) {
@@ -300,6 +325,17 @@ function openKickModal() {
   // Populate game settings section (admin only)
   if (lastState) _populateSettingsUI(lastState);
 
+  // Badge on the "👥 Players" button so items needing action (join
+  // requests, rejoin requests) aren't invisible just because they now
+  // live behind a tap instead of always on screen.
+  const badge = document.getElementById("settings-players-badge");
+  if (badge) {
+    const needsAction = isAdmin ? (pendingRegs.length + rejoinReqs.length) : 0;
+    badge.style.display = needsAction > 0 ? "inline-block" : "none";
+    badge.textContent    = needsAction;
+  }
+
+  showSettingsSubview(_settingsView);
   openModal("kick-overlay");
 }
 
@@ -521,11 +557,18 @@ function _populateSettingsUI(state) {
     stratCb.checked = (window._myHintEnabled !== null) ? window._myHintEnabled : serverOn;
   }
 
-  // Show settings section only for admin
-  const section = document.getElementById("game-settings-section");
+  // Show settings section (and the add/remove-seat rows in the Players
+  // view) only for admin
+  const section         = document.getElementById("game-settings-section");
+  const addRemoveSection = document.getElementById("add-remove-seat-section");
   if (!section) return;
-  if (myRole !== ROLE.ADMIN) { section.style.display = "none"; return; }
+  if (myRole !== ROLE.ADMIN) {
+    section.style.display = "none";
+    if (addRemoveSection) addRemoveSection.style.display = "none";
+    return;
+  }
   section.style.display = "block";
+  if (addRemoveSection) addRemoveSection.style.display = "";
 
   // Populate current values
   const wagerEl    = document.getElementById("setting-wager");

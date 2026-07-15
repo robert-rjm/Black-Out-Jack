@@ -323,12 +323,15 @@ class NPC_Player(Player):
         return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
 
     def decide(self, hand, dealer_up_card, valid_actions: list,
-               drinking_mode: bool = False) -> str:
+               drinking_mode: bool = False, visible_cards: list | None = None,
+               sibling_hands: list | None = None) -> str:
         profile = self._get_profile()
         if profile is not None:
             from engine.style_strategy import best_play_for
             return best_play_for(profile, hand, dealer_up_card,
-                                 valid_actions, drinking_mode)
+                                 valid_actions, drinking_mode,
+                                 visible_cards=visible_cards,
+                                 sibling_hands=sibling_hands)
         return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
 
 
