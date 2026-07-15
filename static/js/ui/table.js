@@ -434,6 +434,14 @@ function _syncRoundEffects(state, drinkingOn) {
     }
     DrinkUI.lastBustHandoutSeq = newBustHandoutSeq;
   }
+
+  // Dealer Lottery draw reveal — gated on dealer_lottery.result_seq.
+  const dl = state.dealer_lottery || {};
+  const newDealerLotterySeq = dl.result_seq || 0;
+  if (newDealerLotterySeq > DrinkUI.lastDealerLotteryResultSeq) {
+    if (dl.last_result) showDealerLotteryToast(dl.last_result);
+    DrinkUI.lastDealerLotteryResultSeq = newDealerLotterySeq;
+  }
 }
 
 // Sync log, sip ticker, in-round drink events, and KPI panel.
@@ -503,6 +511,7 @@ function _syncDigitalUI(state) {
   updateRoundPane(state);
   updateBestPlay(state);
   updateBustVoteUI(state);
+  updateDealerLotteryUI(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.

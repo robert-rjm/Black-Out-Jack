@@ -159,14 +159,16 @@
 #rules-body th, #rules-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 #rules-body th { background: rgba(255,255,255,.06); font-weight: 700; }
 
-/* ---- BUST GIVE OVERLAY ---- */
-#bust-give-overlay {
+/* ---- BUST GIVE OVERLAY (also used by the Dealer Lottery handout picker) ---- */
+#bust-give-overlay,
+#dealer-lottery-give-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,.72);
   z-index: 910;
   align-items: center; justify-content: center;
 }
-#bust-give-card {
+#bust-give-card,
+#dealer-lottery-give-card {
   background: var(--surface);
   border: 1.5px solid var(--green);
   border-radius: 18px;
@@ -183,6 +185,18 @@
 .bv-status--pass { color: var(--muted); }
 .bv-btn-row      { display: flex; gap: 8px; flex: 1; }
 .bv-vote-btn     { flex: 1; }
+
+/* ---- DEALER LOTTERY ENTRY CARDS (_renderDealerLotteryCards in admin.js) ---- */
+.dl-entry-card    { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.dl-name-lbl      { font-size: 14px; font-weight: 700; min-width: 60px; color: var(--text); }
+.dl-status        { font-size: 13px; font-weight: 600; color: var(--accent); }
+.dl-entry-row     { display: flex; gap: 8px; flex: 1; align-items: center; justify-content: flex-end; }
+.dl-x-select      {
+  width: 56px; height: 34px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 14px; text-align: center;
+}
+.dl-enter-btn     { flex-shrink: 0; }
+.dl-answered      { font-size: 11px; color: var(--muted); min-height: 16px; margin-top: 4px; }
 
 /* ---- BUST GIVE PANEL (_renderBustGivePanel in admin.js) ---- */
 .bgp-winner-label { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 10px; text-align: center; }

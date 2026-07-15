@@ -647,6 +647,249 @@ function _renderBustGivePanel(state) {
   }).join(`<hr class="bgp-divider">`);
 }
 
+// ============================================================
+// DEALER LOTTERY (docs/planning/DealerLottery-Plan.md)
+// ============================================================
+
+let _dealerLotteryModalOpen   = false;
+let _dealerLotteryTimerHandle = null;
+
+async function submitDealerLotteryX(x, playerName) {
+  const body = { room_code: roomCode, client_id: clientId, x };
+  if (playerName) body.player_name = playerName;
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/dealer_lottery/enter", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+function _openDealerLotteryModal(secondsLeft) {
+  if (_dealerLotteryModalOpen) return;
+  const overlay = openModal("dealer-lottery-modal-overlay");
+  if (!overlay) return;
+  _dealerLotteryModalOpen = true;
+
+  const bar      = document.getElementById("dealer-lottery-timer-bar");
+  const label    = document.getElementById("dealer-lottery-timer-label");
+  const duration = secondsLeft || 20;
+
+  let secs = duration;
+  function tick() {
+    if (!_dealerLotteryModalOpen) return;
+
+    let resynced = false;
+    if (lastState && lastState.dealer_lottery) {
+      const pending = lastState.dealer_lottery.pending;
+      if (pending && typeof pending.seconds_left === "number") {
+        secs = pending.seconds_left;
+        resynced = true;
+      } else if (!pending) {
+        // Server says the window already closed (resolved or expired).
+        _closeDealerLotteryModal();
+        return;
+      }
+    }
+
+    const display = Math.min(secs, 20);
+    if (bar)   bar.style.width   = `${(display / 20) * 100}%`;
+    if (label) label.textContent = `${display}s`;
+    if (secs <= 0) {
+      // Auto-submit 0 for any unanswered local players
+      const myEntries = (lastState && lastState.dealer_lottery && lastState.dealer_lottery.pending)
+        ? lastState.dealer_lottery.pending.my_entries : {};
+      const unanswered = myNames.filter(n => (myEntries || {})[n] == null);
+      if (unanswered.length) {
+        (async () => {
+          for (const name of unanswered) await submitDealerLotteryX(0, name);
+          _closeDealerLotteryModal();
+        })();
+      } else {
+        _closeDealerLotteryModal();
+      }
+      return;
+    }
+    if (!resynced) secs--;
+    _dealerLotteryTimerHandle = setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+function _closeDealerLotteryModal() {
+  if (!_dealerLotteryModalOpen) return;
+  _dealerLotteryModalOpen = false;
+  if (_dealerLotteryTimerHandle) { clearTimeout(_dealerLotteryTimerHandle); _dealerLotteryTimerHandle = null; }
+  closeModal("dealer-lottery-modal-overlay");
+}
+
+// Render per-player entry rows (stake select 0-5 + Enter button) inside the modal.
+function _renderDealerLotteryCards(state) {
+  const wrap = document.getElementById("dealer-lottery-players-wrap");
+  if (!wrap) return;
+
+  const pending   = (state.dealer_lottery && state.dealer_lottery.pending) || {};
+  const myEntries = pending.my_entries || {};
+  const npcSet    = new Set([...(npcPlayers || [])]);
+  const locals    = myNames.filter(n => !npcSet.has(n));
+  const multiLocal = locals.length > 1;
+
+  wrap.innerHTML = "";
+  locals.forEach(name => {
+    const answered = myEntries[name];
+    const card = document.createElement("div");
+    card.classList.add("dl-entry-card");
+
+    if (multiLocal) {
+      const nameLbl = document.createElement("span");
+      nameLbl.classList.add("dl-name-lbl");
+      nameLbl.textContent = name;
+      card.appendChild(nameLbl);
+    }
+
+    if (answered !== null && answered !== undefined) {
+      const statusEl = document.createElement("span");
+      statusEl.classList.add("dl-status");
+      statusEl.textContent = `Entered: ${answered}`;
+      card.appendChild(statusEl);
+    } else {
+      const row = document.createElement("div");
+      row.classList.add("dl-entry-row");
+
+      const select = document.createElement("select");
+      select.classList.add("dl-x-select");
+      for (let i = 0; i <= 5; i++) select.appendChild(new Option(String(i), String(i)));
+
+      const enterBtn = document.createElement("button");
+      enterBtn.className = "btn dl-enter-btn";
+      enterBtn.textContent = "Enter";
+      enterBtn.addEventListener("click", () => {
+        submitDealerLotteryX(parseInt(select.value, 10) || 0, multiLocal ? name : undefined);
+      });
+
+      row.appendChild(select);
+      row.appendChild(enterBtn);
+      card.appendChild(row);
+    }
+
+    wrap.appendChild(card);
+  });
+}
+
+function updateDealerLotteryUI(state) {
+  const dl = state.dealer_lottery || {};
+  const pending = dl.pending;
+
+  if (pending && myRole !== null && myRole !== ROLE.SPECTATOR && !_dealAnimating) {
+    _openDealerLotteryModal(pending.seconds_left || 20);
+  } else if (!pending) {
+    _closeDealerLotteryModal();
+  }
+
+  if (_dealerLotteryModalOpen) {
+    _renderDealerLotteryCards(state);
+    const answered = document.getElementById("dealer-lottery-answered");
+    if (answered && pending) {
+      answered.textContent = `${pending.answered_count}/${pending.total_count} answered`;
+    }
+  }
+
+  _renderDealerLotteryGivePanel(state);
+}
+
+async function giveDealerLotterySip(giverName, recipientName) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/dealer_lottery/give_sip", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        giver_name: giverName, recipient_name: recipientName,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else appendLog(`  Dealer Lottery handout failed: ${data.error || "unknown"}\n`);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+function _renderDealerLotteryGivePanel(state) {
+  const overlay = document.getElementById("dealer-lottery-give-overlay");
+  const body    = document.getElementById("dealer-lottery-give-body");
+  if (!overlay || !body) return;
+
+  const dl      = state.dealer_lottery || {};
+  const pending = dl.my_pending_handouts || {};
+  const givers  = Object.keys(pending);
+  if (!givers.length) {
+    overlay.style.display = "none";
+    body.innerHTML = "";
+    return;
+  }
+
+  // Defer behind the milestone and bust-vote handout prompts so allocation
+  // popups appear one after another, never stacked.
+  if (state.pending_milestone || (state.my_bust_handout_pending || []).length) {
+    overlay.style.display = "none";
+    body.innerHTML = "";
+    return;
+  }
+
+  const allPlayers = state.players || [];
+  const secsLeft    = dl.handout_seconds_left || 0;
+  overlay.style.display = "flex";
+
+  const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+  const timerStr = secsLeft > 0
+    ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+    : "";
+
+  body.innerHTML = givers.map(giverName => {
+    const amount = pending[giverName];
+    const label = givers.length > 1
+      ? `🎰 <strong>${escapeHtml(giverName)}</strong>'s split hands both busted! Give ${amount} sip(s) to:`
+      : `🎰 Both split hands busted! Give ${amount} sip(s) to:`;
+    const btns = allPlayers
+      .filter(n => n.toLowerCase() !== giverName.toLowerCase())
+      .map(n => `<button class="btn wide bgp-give-btn"
+          data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
+          onclick="giveDealerLotterySip(this.dataset.giver, this.dataset.recipient)"
+          >${escapeHtml(n)}</button>`)
+      .join("");
+    const mb = givers.length > 1 ? " bgp-multi-entry" : "";
+    return `<div class="bgp-entry${mb}">
+      <div class="bgp-winner-label">${label}</div>
+      ${timerStr}
+      <div class="bgp-btns-col">${btns}</div>
+    </div>`;
+  }).join(`<hr class="bgp-divider">`);
+}
+
+function _cardStr(c) { return `${c.rank}${c.symbol}`; }
+
+function showDealerLotteryToast(result) {
+  if (!result) return;
+  const a = (result.hand_a || []).map(_cardStr).join(" ");
+  const b = (result.hand_b || []).map(_cardStr).join(" ");
+  const aOutcome = result.hand_a_bust ? "BUST" : "stands";
+  const bOutcome = result.hand_b_bust ? "BUST" : "stands";
+  const text = `🎰 Dealer Lottery split: ${a} (${aOutcome}) / ${b} (${bOutcome})`;
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const myX = _myNames.some(n => (result.entries || {})[n] > 0);
+  // Green if both busted (a win for anyone who entered), red otherwise.
+  const iDrink = myX && result.busted < 2;
+  _firePlayerToast(text, iDrink, 7000);
+}
+
 // Shared toast helper — sets content, applies drink/clean class, triggers show animation.
 function _firePlayerToast(text, iDrink, ms) {
   const toast = document.getElementById("player-toast");

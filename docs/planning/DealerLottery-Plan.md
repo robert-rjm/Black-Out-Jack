@@ -267,19 +267,49 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
 3. [x] `award_sips()` hookup — turned out to need **no** `classify_rule()`
    changes (see §5.2's note: out-of-band `award_sips()` callers pass their
    own literal rule string, they don't route through `classify_rule`).
-4. [ ] Player route(s) + reuse of the bust-vote-handout recipient flow —
-   `submit_dealer_lottery_entry()` / `give_dealer_lottery_sip()` exist as
-   pure functions; still need the Flask routes calling them
-   (`POST /dealer_lottery/enter`, handout picker per §5.3).
-5. [ ] `AppState` schema fields + `serialize_state()` block (§5.5).
+4. [x] Player routes in `app/routes/polling.py`: `POST /dealer_lottery/enter`
+   (mirrors `/cast_bust_vote`'s local-player-override handling; resolves
+   immediately once every entrant has answered rather than waiting out
+   the full window) and `POST /dealer_lottery/give_sip` (mirrors
+   `/give_bust_sip` exactly). 9 route-level tests added.
+5. [x] `AppState` schema fields (`DealerLotteryOut` / `DealerLotteryPendingOut`
+   / `DealerLotteryResultOut` in `app/models/state_schema.py`) + the
+   `dealer_lottery` block in `serialize_state()`. Also added
+   `_dealer_lottery_result_seq` (bumped on every new draw) so the frontend
+   can detect a fresh result the same way it does for
+   `bust_handout_seq`/`round_over_seq` — not originally called out in
+   §5.5, added once the toast-reveal design made the need concrete.
 6. [x] NPC auto-entry — NPCs auto-submit `X = 0` the moment
    `maybe_start_dealer_lottery()` creates the pending window.
-7. [ ] Frontend prompt + result reveal (§5.6).
-8. [ ] Manual playtest: force a 9-9 and a ten-pair dealer hand (via a
-   debug hook, once routes/frontend exist) with 2-4 players, covering:
-   all-zero skip, mixed X values, both-bust credit + handout picker,
-   partial-bust drink amounts, a pending milestone delaying the prompt
-   correctly, a disconnected player timing out to 0.
+7. [x] Frontend: entry modal (`#dealer-lottery-modal-overlay`, per-local-player
+   stake select + Enter button, countdown synced against the server the
+   same way `_openBustVoteModal` does), handout picker
+   (`#dealer-lottery-give-overlay`, reuses `#bust-give-card`'s CSS), and a
+   text toast reveal (`showDealerLotteryToast`, gated on `result_seq`,
+   styled red/green by whether the viewer actually drinks). All wired
+   into `_syncDigitalUI` / `_syncRoundEffects` in `table.js`, alongside
+   the equivalent bust-vote hooks.
+8. [~] Manual playtest: verified every piece except the natural trigger
+   itself. Played ~20 real rounds in-browser without the ~9.5%-per-round
+   pair hitting naturally (not a bug — just bad luck within the testing
+   window; see the probability note below), so the full render → submit
+   → resolve → toast → handout chain was instead verified by injecting a
+   synthetic `dealer_lottery` state into the live page and exercising
+   every function directly (entry rendering, submit → real POST → real
+   server-side rejection when no genuine lottery is open, result toast
+   text/styling, handout panel → real POST). No console or server errors
+   throughout. **Still genuinely unverified: a real, naturally-triggered
+   end-to-end round** — worth doing once there's an easy way to force a
+   dealt pair (e.g. a debug/seeded-shoe hook), which nothing in this plan
+   has built yet.
+
+**Trigger probability, for context on step 8:** a two-card 9-9 or
+ten-value pair happens on ~9.5% of rounds (`C(4,2)/C(52,2)` for 9-9 plus
+`C(16,2)/C(52,2)` for any ten-pair, per a single fresh deck — the ratio
+holds for multi-deck shoes too). Over ~20 rounds that's roughly an 88%
+chance of at least one trigger, so not hitting it was within normal
+variance, not a sign of a detection bug — `_dealer_pair_trigger()`'s own
+unit tests already confirm the condition fires correctly in isolation.
 
 **Still to build:** steps 4, 5, 7, 8 — the engine core (steps 1-3, 6) is
 done and tested, but nothing is reachable from the UI yet.

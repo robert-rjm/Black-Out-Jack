@@ -55,6 +55,44 @@ def _serialize_pending_milestone(milestone: dict | None, client_info: dict) -> d
     }
 
 
+def _serialize_pending_dealer_lottery(pending: dict | None, client_info: dict) -> dict | None:
+    """Serialize a pending Dealer Lottery entry window.
+
+    Returns None when there is no pending lottery or its entry window has
+    expired. Only reveals this client's own local players' submitted
+    values (``my_entries``) plus an answered/total count -- never anyone
+    else's individual entry, to avoid metagaming the table's choices.
+    """
+    if not pending or time.monotonic() >= pending["expires_at"]:
+        return None
+    entries  = pending["entries"]
+    my_names = set(client_info.get("local_names") or
+                   ([client_info["name"]] if client_info.get("name") else []))
+    return {
+        "seconds_left":   max(0, round(pending["expires_at"] - time.monotonic())),
+        "answered_count": sum(1 for v in entries.values() if v is not None),
+        "total_count":    len(entries),
+        "my_entries":     {n: v for n, v in entries.items() if n in my_names},
+    }
+
+
+def _serialize_last_dealer_lottery_result(result: dict | None) -> dict | None:
+    """Serialize the most recently resolved Dealer Lottery draw for the
+    frontend. Returns None if there is no result or it is older than 90
+    seconds (matches _serialize_last_milestone's dismissal window)."""
+    if not result or time.monotonic() - result["set_at"] >= 90:
+        return None
+    return {
+        "hand_a":      result["hand_a"],
+        "hand_b":      result["hand_b"],
+        "hand_a_bust": result["hand_a_bust"],
+        "hand_b_bust": result["hand_b_bust"],
+        "busted":      result["busted"],
+        "entries":     dict(result["entries"]),
+        "seconds_ago": max(0, round(time.monotonic() - result["set_at"])),
+    }
+
+
 
 # ---------------------------------------------------------------------------
 # Turn / phase helpers
@@ -747,6 +785,27 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "pending_milestone":     _serialize_pending_milestone(session.round._pending_milestone, _ci),
     }
 
+    # ---- Dealer Lottery data ----
+    _dl_pending_handouts = (session.drinks.last_dealer_lottery_result or {}).get(
+        "pending_handouts", {})
+    _dl_my_names = set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
+    _dealer_lottery_data = {
+        "dealer_lottery": {
+            "pending":              _serialize_pending_dealer_lottery(
+                                        session.round._pending_dealer_lottery, _ci),
+            "last_result":          _serialize_last_dealer_lottery_result(
+                                        session.drinks.last_dealer_lottery_result),
+            "result_seq":           session.round._dealer_lottery_result_seq,
+            "pending_handouts":     dict(_dl_pending_handouts),
+            "my_pending_handouts":  {n: a for n, a in _dl_pending_handouts.items()
+                                     if n in _dl_my_names},
+            "handout_seconds_left": (
+                max(0, round(session.round._dealer_lottery_handout_expires_at - time.monotonic()))
+                if session.round._dealer_lottery_handout_expires_at else 0
+            ),
+        },
+    }
+
     # ---- Connection / room-membership data (admin-only fields gated below) ----
     _connection_data = {
         "kick_votes":             {k: len(v) for k, v in session.round._kick_votes.items()},
@@ -866,6 +925,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         **_bust_vote_data,
         **_insurance_data,
         **_milestone_data,
+        **_dealer_lottery_data,
         **_connection_data,
         **_client_identity_data,
         "state_seq":            int(time.monotonic() * 1_000_000),
