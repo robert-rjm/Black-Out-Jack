@@ -7,7 +7,10 @@ table_bias (visible ten/ace density) and sibling_awaiting_deal (a split
 sibling hand that hasn't been dealt its second card yet).
 """
 
-from engine.style_strategy import best_play_for, _table_bias_bucket, _sibling_awaiting_deal
+from engine.style_strategy import (
+    best_play_for, _table_bias_bucket, _sibling_awaiting_deal,
+    _owed_bucket, decide_dealer_lottery_stake,
+)
 from tests.conftest import make_card, make_hand
 
 
@@ -134,3 +137,43 @@ def test_deviation_only_applies_when_sibling_signal_matches():
         profile, hand1, dealer_up, valid,
         visible_cards=medium_visible, sibling_hands=None,
     ) == basic_play(hand1, dealer_up, valid, False)
+
+
+# ---------------------------------------------------------------------------
+# Dealer Lottery stake tendency
+# ---------------------------------------------------------------------------
+
+def test_owed_bucket_thresholds():
+    assert _owed_bucket(0)  == "none"
+    assert _owed_bucket(1)  == "low"
+    assert _owed_bucket(2)  == "low"
+    assert _owed_bucket(3)  == "high"
+    assert _owed_bucket(10) == "high"
+
+
+def test_decide_dealer_lottery_stake_falls_back_to_zero_with_no_data():
+    assert decide_dealer_lottery_stake(_profile([]), current_owed=5) == 0
+
+
+def test_decide_dealer_lottery_stake_uses_matching_bucket():
+    profile = {
+        "player": "Test",
+        "deviations": [],
+        "lottery_stakes": [
+            {"owed_bucket": "none", "avg_stake": 0.4, "samples": 5},
+            {"owed_bucket": "low",  "avg_stake": 2.6, "samples": 5},
+            {"owed_bucket": "high", "avg_stake": 4.9, "samples": 5},
+        ],
+    }
+    assert decide_dealer_lottery_stake(profile, current_owed=0) == 0   # rounds 0.4 -> 0
+    assert decide_dealer_lottery_stake(profile, current_owed=1) == 3   # rounds 2.6 -> 3
+    assert decide_dealer_lottery_stake(profile, current_owed=8) == 5   # rounds 4.9 -> 5, clamped
+
+
+def test_decide_dealer_lottery_stake_missing_bucket_falls_back_to_zero():
+    profile = {
+        "player": "Test", "deviations": [],
+        "lottery_stakes": [{"owed_bucket": "high", "avg_stake": 5, "samples": 5}],
+    }
+    # No "none" bucket recorded -- falls back to opting out.
+    assert decide_dealer_lottery_stake(profile, current_owed=0) == 0

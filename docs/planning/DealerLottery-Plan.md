@@ -224,8 +224,31 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
   route shape.
 
 ### 5.4 NPC participation
-- Bots auto-submit `X = 0` the moment the pending state is created —
-  mirrors "NPCs auto-vote 'pass' at deal time" for the Dealer Bust vote.
+- Bots submit their entry the moment the pending state is created (no
+  waiting on a countdown, mirrors "NPCs auto-vote 'pass' at deal time" for
+  the Dealer Bust vote) — but the stake itself is now a real per-personality
+  decision, not a hardcoded 0.
+- `NPC_Player.decide_dealer_lottery_stake(current_owed)`
+  (`engine/blackjack.py`) delegates to
+  `engine/style_strategy.py`'s `decide_dealer_lottery_stake(profile, current_owed)`,
+  which looks up the profile's mined `lottery_stakes` for the bucket
+  matching how many sips the player currently owes this round
+  (`_owed_bucket`: none/low/high) and returns the rounded average stake,
+  clamped 0-5. "basic" personality, or any profile with no mined data for
+  that bucket, falls back to `0` — identical to the old behavior.
+- Every entry (human or NPC) is recorded via
+  `app.services.decision_log.record_dealer_lottery_entry` into
+  `session._dealer_lottery_decision_log`, exported as CSV via
+  `/export_dealer_lottery_decisions` (mirrors `/export_decisions`, but for a
+  stake amount instead of a hand action — a separate file since the row
+  shape doesn't fit `_DECISION_COLUMNS`). Auto-forfeited (timed-out, unset →
+  0) entries are deliberately NOT logged — that's a non-choice, not a real
+  decision, and would pollute the mined tendency.
+- `scripts/build_player_profiles.py`'s `build_lottery_stakes()` mines
+  `dealer_lottery_decisions_*.csv` the same way hand decisions are mined:
+  human-only rows, grouped by owed-bucket, kept only when a bucket clears
+  `--min-samples`. Written into the profile JSON as a new `lottery_stakes`
+  key alongside `deviations`.
 
 ### 5.5 Polling / serializer
 - Add a `dealer_lottery` block to `AppState`

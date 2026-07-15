@@ -27,10 +27,11 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-# Repo root on sys.path so we can reuse the table_bias bucket thresholds from
-# engine/style_strategy.py instead of re-deriving them here.
+# Repo root on sys.path so we can reuse the table_bias/owed-sips bucket
+# thresholds from engine/style_strategy.py instead of re-deriving them here.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from engine.style_strategy import _table_bias_bucket as _bias_bucket  # noqa: E402
+from engine.style_strategy import _owed_bucket  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -60,10 +61,10 @@ def _majority(actions: list[str]) -> tuple[str, float, dict[str, int]]:
     return majority_action, counts[majority_action] / len(actions), dict(counts)
 
 
-def _load_csvs(directory: str) -> list[dict]:
+def _load_csvs(directory: str, pattern: str = "decision_log_*.csv") -> list[dict]:
     rows = []
     d = Path(directory)
-    for path in sorted(d.glob("decision_log_*.csv")):
+    for path in sorted(d.glob(pattern)):
         with open(path, encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
@@ -223,6 +224,49 @@ def build_profile(rows: list[dict], player_name: str,
     }
 
 
+def build_lottery_stakes(rows: list[dict], player_name: str,
+                          min_samples: int = 3) -> list[dict]:
+    """
+    Group this player's (human) Dealer Lottery entries -- rows from
+    dealer_lottery_decisions_*.csv, written by
+    app.services.decision_log.record_dealer_lottery_entry -- by how many
+    sips they owed this round when the entry window opened, and record
+    their average stake per bucket.
+
+    This is what engine/style_strategy.py's decide_dealer_lottery_stake
+    looks up to drive an NPC using this profile; a bucket without enough
+    samples is simply omitted (NPC falls back to opting out, same as a
+    "basic" personality).
+    """
+    player_rows = [
+        r for r in rows
+        if r["player"].strip().lower() == player_name.lower()
+        and not _parse_bool(r.get("is_npc", "False"))
+    ]
+
+    buckets: dict[str, list[int]] = defaultdict(list)
+    for r in player_rows:
+        try:
+            owed = int(r.get("current_owed", "") or 0)
+            x    = int(r.get("x_entered", "") or 0)
+        except ValueError:
+            continue
+        buckets[_owed_bucket(owed)].append(x)
+
+    stakes = []
+    for bucket, values in buckets.items():
+        n = len(values)
+        if n < min_samples:
+            continue
+        stakes.append({
+            "owed_bucket": bucket,
+            "avg_stake":   round(sum(values) / n, 2),
+            "samples":     n,
+        })
+    stakes.sort(key=lambda s: s["owed_bucket"])
+    return stakes
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -245,6 +289,8 @@ def main():
         print("No rows loaded — check --dir path.")
         sys.exit(1)
 
+    lottery_rows = _load_csvs(args.dir, pattern="dealer_lottery_decisions_*.csv")
+
     # Discover players
     all_players = sorted({r["player"].strip() for r in rows
                           if not _parse_bool(r.get("is_npc", "False"))})
@@ -254,12 +300,14 @@ def main():
 
     for name in targets:
         profile = build_profile(rows, name, args.min_samples, args.min_majority)
+        profile["lottery_stakes"] = build_lottery_stakes(lottery_rows, name, args.min_samples)
         n_dev   = len(profile["deviations"])
+        n_stake = len(profile["lottery_stakes"])
         out_path = Path(args.out) / f"{name.lower()}.json"
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(profile, f, indent=2)
         print(f"\n{name}: {profile['source_decisions']} decisions, "
-              f"{n_dev} deviation(s) recorded → {out_path}")
+              f"{n_dev} deviation(s), {n_stake} lottery-stake bucket(s) recorded → {out_path}")
         for d in profile["deviations"]:
             hand_desc = f"{'soft' if d['is_soft'] else 'hard'} {d['hand_total']}"
             flags = []
@@ -272,6 +320,9 @@ def main():
             print(f"  {hand_desc} vs {d['dealer_upcard_rank']}{flag_str}: "
                   f"{d['basic_strategy']} → {d['player_action']} "
                   f"({d['samples']} samples, {d['majority']*100:.0f}%)")
+        for s in profile["lottery_stakes"]:
+            print(f"  dealer lottery, owed={s['owed_bucket']}: "
+                  f"avg stake {s['avg_stake']} ({s['samples']} samples)")
 
 
 if __name__ == "__main__":

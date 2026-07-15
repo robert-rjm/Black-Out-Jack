@@ -27,6 +27,7 @@ from app.services.decision_log import (
     record_decision,
     backfill_hand_results,
     _snapshot_visible_cards,
+    record_dealer_lottery_entry,
 )
 from app.services.session_store import game_sessions
 
@@ -216,4 +217,67 @@ def test_export_decisions_drinking_mode(app_client):
 
 def test_export_decisions_no_session_returns_404(app_client):
     resp = app_client.get("/export_decisions?room_code=NoSuchRoom")
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# 5. Dealer Lottery entry capture + export
+# ---------------------------------------------------------------------------
+
+def test_record_dealer_lottery_entry_captures_owed_and_context():
+    room = _make_room(drinking_mode=True)
+    room.drinks.last_round_sips["Rob"] = 3
+
+    record_dealer_lottery_entry(room, "Rob", 4, is_npc=False)
+
+    row = room._dealer_lottery_decision_log[-1]
+    assert row["player"] == "Rob"
+    assert row["x_entered"] == 4
+    assert row["current_owed"] == 3
+    assert row["is_npc"] is False
+    assert row["num_players"] == 2
+    assert row["drinking_mode"] is True
+    assert row["round"] == room.round_count
+
+
+def test_record_dealer_lottery_entry_clamps_negative_owed_to_zero():
+    room = _make_room(drinking_mode=True)
+    room.drinks.last_round_sips["Rob"] = -2  # bust-vote credit can go negative
+
+    record_dealer_lottery_entry(room, "Rob", 0, is_npc=True)
+
+    assert room._dealer_lottery_decision_log[-1]["current_owed"] == 0
+
+
+def _populate_and_export_lottery(app_client, room_code: str):
+    room = _make_room(drinking_mode=True)
+    room.drinks.last_round_sips["Rob"] = 2
+    record_dealer_lottery_entry(room, "Rob", 3, is_npc=False)
+
+    game_sessions[room_code] = room
+    try:
+        resp = app_client.get(f"/export_dealer_lottery_decisions?room_code={room_code}")
+        assert resp.status_code == 200
+        assert resp.mimetype == "text/csv"
+
+        body = resp.data.decode("utf-8-sig")
+        reader = csv.reader(io.StringIO(body))
+        return list(reader)
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_export_dealer_lottery_decisions_csv_shape(app_client):
+    rows = _populate_and_export_lottery(app_client, room_code="TestLottery1")
+    header, data_row = rows[0], rows[1]
+    as_dict = dict(zip(header, data_row))
+
+    assert as_dict["player"] == "Rob"
+    assert as_dict["x_entered"] == "3"
+    assert as_dict["current_owed"] == "2"
+    assert as_dict["is_npc"] == "False"
+
+
+def test_export_dealer_lottery_decisions_no_session_returns_404(app_client):
+    resp = app_client.get("/export_dealer_lottery_decisions?room_code=NoSuchRoom")
     assert resp.status_code == 404

@@ -206,6 +206,11 @@ class GameRoom:
     # per-player bot training; see docs/planning/DecisionLog-Plan.md)
     _decision_log: list = field(default_factory=list)
 
+    # Dealer Lottery entry log — one row per stake (0-5) decision, human or
+    # NPC, so per-player lottery-staking tendency can be mined the same way
+    # hand decisions are (see scripts/build_player_profiles.py).
+    _dealer_lottery_decision_log: list = field(default_factory=list)
+
     # Client registry
     _room_clients: dict = field(default_factory=dict)
     _pending_registrations: list = field(default_factory=list)

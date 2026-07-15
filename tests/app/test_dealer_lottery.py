@@ -135,6 +135,40 @@ def test_maybe_start_noop_when_not_eligible():
     assert room.round._pending_dealer_lottery is None
 
 
+def test_maybe_start_npc_with_profile_uses_mined_stake():
+    """An NPC_Player with a personality profile should submit its mined
+    lottery_stakes tendency instead of always auto-opting-out at 0."""
+    alice = make_player("Alice", is_dealer=True, dealer_hand=make_hand(("9", "S"), ("9", "H")))
+    bob   = make_player("Bob")
+    carol = make_player("Carol", is_npc=True)
+    carol.personality = "highroller"
+    carol._style_profile = {
+        "player": "Carol", "deviations": [],
+        "lottery_stakes": [{"owed_bucket": "none", "avg_stake": 4, "samples": 5}],
+    }
+
+    raw_session = RefereeSession([alice, bob, carol], "Alice", wager=1, num_hands=2)
+    room = GameRoom(session=raw_session, config=GameConfig(mode="digital", drinking_mode=True))
+
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+
+    pending = room.round._pending_dealer_lottery
+    assert pending["entries"]["Carol"] == 4
+
+
+def test_maybe_start_logs_npc_entry_decision():
+    room = _make_room(num_players=3, dealer_hand=make_hand(("9", "S"), ("9", "H")))
+    room._get_player("Carol").is_npc = True
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+
+    npc_rows = [r for r in room._dealer_lottery_decision_log if r["player"] == "Carol"]
+    assert len(npc_rows) == 1
+    assert npc_rows[0]["is_npc"] is True
+    assert npc_rows[0]["x_entered"] == 0
+
+
 # ---------------------------------------------------------------------------
 # submit_dealer_lottery_entry
 # ---------------------------------------------------------------------------
@@ -147,6 +181,18 @@ def test_submit_entry_records_and_clamps():
     assert room.round._pending_dealer_lottery["entries"]["Alice"] == 3
     submit_dealer_lottery_entry(room, "Bob", 99)
     assert room.round._pending_dealer_lottery["entries"]["Bob"] == 5
+
+
+def test_submit_entry_logs_human_decision():
+    room = _make_room()
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+    submit_dealer_lottery_entry(room, "Alice", 3)
+
+    human_rows = [r for r in room._dealer_lottery_decision_log if r["player"] == "Alice"]
+    assert len(human_rows) == 1
+    assert human_rows[0]["is_npc"] is False
+    assert human_rows[0]["x_entered"] == 3
     submit_dealer_lottery_entry(room, "Bob", -3)
     assert room.round._pending_dealer_lottery["entries"]["Bob"] == 0
 
