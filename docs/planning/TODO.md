@@ -30,18 +30,8 @@
   - show in Dealer who drank most for each ace
   - show luckiest hits
   - for Milestone show Deltas to next best players
-- [ ] side bet on Dealer pair (18-20):
-  - player "buy in", 1 penalty sip each
-  - if dealer bust both: players drink nothing
-  - if dealer bust one: players drink normal amount
-  - if dealer bust none (17-21): drink double
-  - if dealer has BJ, drink 2 regardless
-  - details to brainstorm
-- [ ] side bet on Dealer pair (18-20):
-  - cost X = 0-5 sips (each player free choice)
-  - if dealer bust both: players hand X and hands out X
-  - if dealer bust one: players drink X
-  - if dealer bust none (both 17-21): drink double X
-  - automatic split if same numbers again
+- [x] Dealer Lottery — post-round bonus event when the dealer's final hand
+  is a paired 18/20 (see `docs/planning/DealerLottery-Plan.md` and `Rules.md`
+  §5.9). Fully built and tested: engine, routes, schema, and frontend.
 - [ ] Global state sprawl (state.js) — Full consolidation into single AppState object touches nearly every UI file — high risk of subtle bugs from missed references
   - remaining state.js globals (players, lastState, roomCode, clientId, myRole, myName, myNames, etc.) each have ~30-76 usages across 7-12 files (several hundred call sites total). The leftover setup.js singletons (_rowIdCtr, _lastActivityAt, _idleWatcherID) are unrelated to each other and not worth grouping. Per the original assessment, the core session/identity consolidation stays deferred — only worth doing as part of a larger rewrite, not as an incremental step.
