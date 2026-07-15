@@ -14,6 +14,24 @@ Usage::
 is found (or the spot has insufficient data), it falls back to
 ``strategy.best_play`` — so a bot with an empty or sparse profile is
 indistinguishable from the standard basic-strategy bot.
+
+Two optional context signals refine the lookup beyond the player's own hand:
+
+- ``visible_cards``: every card visible table-wide right now (all hands in
+  play + dealer upcard). Bucketed into a coarse "table_bias" of
+  low/medium/high ten-value-and-ace density, vs. a fresh shoe's ~38% (5 of
+  13 ranks). Lets a profile record e.g. "stands more on stiff hands when the
+  table is already ten-rich."
+- ``sibling_hands``: the player's *other* hands this round (only relevant
+  after a split). Flags whether a sibling hand hasn't been dealt its second
+  card yet — the signal behind a human playing an earlier split hand more
+  conservatively to dodge "taking away a ten" from a hand they haven't
+  even started yet.
+
+Both are optional and additive: a deviation entry that doesn't record
+``table_bias``/``sibling_awaiting_deal`` is matched on the original 5-field
+key regardless of table state, so every profile written before this feature
+keeps behaving exactly as before.
 """
 
 from __future__ import annotations
@@ -88,38 +106,100 @@ def _rank(card) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Table-bias bucket
+# ---------------------------------------------------------------------------
+
+_TEN_OR_ACE_LABELS = {"10", "J", "Q", "K", "A"}
+
+
+def _table_bias_bucket(visible_cards: list, low: float = 0.30, high: float = 0.45) -> str:
+    """
+    Coarse table-composition bucket from every card currently visible.
+
+    Buckets the share of ten-value-or-ace cards vs. the ~38% (5 of 13 ranks)
+    a fresh shoe carries: "low" (ten-poor), "medium" (near-neutral), "high"
+    (ten-rich). No visible cards yields "medium" (no information).
+    """
+    if not visible_cards:
+        return "medium"
+    ten_ace = sum(1 for c in visible_cards if _rank(c) in _TEN_OR_ACE_LABELS)
+    ratio = ten_ace / len(visible_cards)
+    if ratio < low:
+        return "low"
+    if ratio > high:
+        return "high"
+    return "medium"
+
+
+# ---------------------------------------------------------------------------
+# Cross-hand (sibling split hand) signal
+# ---------------------------------------------------------------------------
+
+def _sibling_awaiting_deal(hand, sibling_hands: Optional[list]) -> bool:
+    """
+    True if another of the player's hands this round (from a split) hasn't
+    been dealt its second card yet -- the "don't take away the ten my other
+    hand might want" signal.
+
+    _play_hand deals each split hand's second card only once the previous
+    hand is fully resolved (see Hand.split()), so a sibling can never be
+    caught sitting on a concrete two-card total while this hand is still
+    being decided -- it's either already resolved, or still down to its
+    single split-off card. That single-card state is the only one worth
+    checking.
+    """
+    if not sibling_hands:
+        return False
+    return any(
+        other is not hand and getattr(other, "from_split", False) and len(other.cards) < 2
+        for other in sibling_hands
+    )
+
+
+# ---------------------------------------------------------------------------
 # Lookup
 # ---------------------------------------------------------------------------
 
-def _build_index(profile: dict) -> dict[tuple, str]:
+def _build_index(profile: dict) -> tuple[dict[tuple, str], dict[tuple, str]]:
     """
-    Pre-index profile deviations for O(1) lookup.
+    Pre-index profile deviations for O(1) lookup, split into two tiers:
 
-    Key: (hand_total, is_soft, dealer_rank, can_split, can_double)
-    Value: player_action string
+    - ``full``:  keyed on the 5-field spot *plus* table_bias/sibling_
+      awaiting_deal, for entries that actually recorded those dimensions.
+    - ``basic``: keyed on just (hand_total, is_soft, dealer_rank, can_split,
+      can_double), for entries that didn't — these apply regardless of
+      table state, which is exactly how every pre-existing profile behaves.
     """
-    index = {}
+    full: dict[tuple, str] = {}
+    basic: dict[tuple, str] = {}
     for d in profile.get("deviations", []):
-        key = (
+        base_key = (
             d["hand_total"],
             d["is_soft"],
             d["dealer_upcard_rank"],
             d["can_split"],
             d["can_double"],
         )
-        index[key] = d["player_action"]
-    return index
+        bias    = d.get("table_bias")
+        sibling = d.get("sibling_awaiting_deal")
+        if bias is not None or sibling is not None:
+            full[base_key + (bias, bool(sibling))] = d["player_action"]
+        else:
+            basic[base_key] = d["player_action"]
+    return full, basic
 
 
-# Cache indices so we don't rebuild per decision.
-_index_cache: dict[str, dict[tuple, str]] = {}
+# Cache indices so we don't rebuild per decision. Keyed by profile identity
+# (not just the "player" name field) -- two distinct profile dicts sharing a
+# name would otherwise silently reuse each other's stale index.
+_index_cache: dict[tuple[str, int], tuple[dict[tuple, str], dict[tuple, str]]] = {}
 
 
-def _get_index(profile: dict) -> dict[tuple, str]:
-    player = profile.get("player", "")
-    if player not in _index_cache:
-        _index_cache[player] = _build_index(profile)
-    return _index_cache[player]
+def _get_index(profile: dict) -> tuple[dict[tuple, str], dict[tuple, str]]:
+    key = (profile.get("player", ""), id(profile))
+    if key not in _index_cache:
+        _index_cache[key] = _build_index(profile)
+    return _index_cache[key]
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +208,9 @@ def _get_index(profile: dict) -> dict[tuple, str]:
 
 def best_play_for(profile: dict, hand, dealer_upcard,
                   valid_actions: list[str],
-                  drinking_mode: bool = False) -> str:
+                  drinking_mode: bool = False,
+                  visible_cards: Optional[list] = None,
+                  sibling_hands: Optional[list] = None) -> str:
     """
     Return the best action for *hand* according to *profile*, falling back
     to basic strategy when no deviation is recorded for this spot.
@@ -140,6 +222,12 @@ def best_play_for(profile: dict, hand, dealer_upcard,
     dealer_upcard: engine Card object (or string) — the dealer's visible card
     valid_actions: list of legal action strings, e.g. ["h", "s", "d"]
     drinking_mode: passed through to the basic-strategy fallback
+    visible_cards: every card visible table-wide (all hands in play + dealer
+                   upcard), used to bucket table_bias. Omit if unknown — the
+                   table-aware tier is simply skipped, same as before.
+    sibling_hands: the player's other hands this round (post-split), used to
+                   detect a hand pending a strong double. Omit/empty if the
+                   player only has one hand.
 
     Returns
     -------
@@ -156,16 +244,34 @@ def best_play_for(profile: dict, hand, dealer_upcard,
         log.warning("style_strategy: error building key (%s) — using basic strategy", exc)
         return _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode)
 
-    index = _get_index(profile)
-    key   = (total, soft, d_rank, can_split, can_double)
-    action = index.get(key)
+    index_full, index_basic = _get_index(profile)
+    base_key = (total, soft, d_rank, can_split, can_double)
+    fallback_action = None  # computed lazily, only if we find a deviation
 
+    # Most specific tier first: table bias + sibling-hand signal, only
+    # attempted when the caller actually supplied that context.
+    if visible_cards is not None:
+        bias    = _table_bias_bucket(visible_cards)
+        sibling = _sibling_awaiting_deal(hand, sibling_hands)
+        action  = index_full.get(base_key + (bias, sibling))
+        if action is not None and action in valid_actions:
+            fallback_action = _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode)
+            log.debug(
+                "style_strategy [%s]: table-aware deviation at %s%d vs %s "
+                "(bias=%s, sibling_awaiting_deal=%s) — %s (not basic %s)",
+                profile.get("player"), "soft " if soft else "hard ", total,
+                d_rank, bias, sibling, action, fallback_action,
+            )
+            return action
+
+    # Basic tier: applies regardless of table state.
+    action = index_basic.get(base_key)
     if action is not None and action in valid_actions:
         log.debug(
             "style_strategy [%s]: deviation at %s%d vs %s — %s (not basic %s)",
             profile.get("player"), "soft " if soft else "hard ", total,
             d_rank, action,
-            _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode),
+            fallback_action or _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode),
         )
         return action
 

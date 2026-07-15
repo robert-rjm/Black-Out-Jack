@@ -14,6 +14,7 @@ from engine.blackjack import Hand, NPC_Player
 from engine.drinking_rules import _bj_multiplier
 
 from app.models.game_room import GameRoom
+from app.models.state_schema import AppState, QueuedSettingsOut
 from app.services.validators import get_client_info
 from app.config import INSURANCE_VOTE_TIMEOUT
 
@@ -820,7 +821,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         ),
     }
 
-    return {
+    state = {
         "ok":              True,
         "round":           session.round_count,
         "dealer":          session.dealer_name,
@@ -852,7 +853,12 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "anim_default":           session._anim_default,
         "easy_mode":              session.easy_mode,
         "god_mode_enabled":       session._god_mode,
-        "queued_settings":        session._queued_settings,
+        # Validated against the real shape, then dumped back to a sparse
+        # dict (only actually-queued keys) -- the frontend's
+        # _renderQueuedBanner checks presence with `"wager" in queued`, so
+        # every-key-with-null (a plain AppState field would dump that way)
+        # would break it. See QueuedSettingsOut's docstring.
+        "queued_settings": QueuedSettingsOut(**session._queued_settings).model_dump(exclude_none=True),
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
         "kpi_stats":              compute_kpi_stats(session, sip_ticker=sip_totals, order=order),
         **_payout_data,
@@ -864,3 +870,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         **_client_identity_data,
         "state_seq":            int(time.monotonic() * 1_000_000),
     }
+
+    # Validate against the AppState schema -- raises immediately (rather than
+    # reaching the frontend as a missing/misshapen field) if a bug ever makes
+    # this dict drift from the documented contract in state_schema.py.
+    return AppState(**state).model_dump()

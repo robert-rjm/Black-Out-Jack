@@ -211,19 +211,39 @@ function setGameType(type, btn) {
 // ============================================================
 // RANKS and SUITS are defined in config.js (loaded first).
 
-let playerRows = [];   // [{ id, name, isBot }]
+let playerRows = [];   // [{ id, name, isBot, personality }]
 let _rowIdCtr  = 0;
+
+// Personality profiles available on the server (populated async below).
+// Options beyond "basic" only show up once loaded -- harmless if a row was
+// already toggled to bot before the fetch resolves, since re-rendering just
+// adds the extra <option>s without losing the row's current selection.
+let availablePersonalities = [];
+
+async function loadAvailablePersonalities() {
+  try {
+    const res  = await fetch("/player_personalities");
+    const data = await res.json();
+    availablePersonalities = Array.isArray(data.personalities) ? data.personalities : [];
+  } catch (_) {
+    availablePersonalities = [];
+  }
+  syncPlayerRowsFromDOM();
+  renderPlayerRows();
+}
 
 // Read current input/toggle values from DOM back into playerRows state
 function syncPlayerRowsFromDOM() {
-  document.querySelectorAll(".player-row[data-row-id]").forEach(el => {
+  document.querySelectorAll(".player-row-group[data-row-id]").forEach(el => {
     const id  = parseInt(el.dataset.rowId, 10);
     const row = playerRows.find(r => r.id === id);
     if (!row) return;
-    const inp = el.querySelector(".player-name-input");
-    const chk = el.querySelector(".bot-chk");
-    if (inp) row.name  = inp.value;
-    if (chk) row.isBot = chk.checked;
+    const inp  = el.querySelector(".player-name-input");
+    const chk  = el.querySelector(".bot-chk");
+    const psel = el.querySelector(".bot-personality-select");
+    if (inp)  row.name        = inp.value;
+    if (chk)  row.isBot       = chk.checked;
+    if (psel) row.personality = psel.value;
   });
 }
 
@@ -233,6 +253,10 @@ function renderPlayerRows() {
   const showRemove = playerRows.length > 2;
 
   playerRows.forEach((row, i) => {
+    const group = document.createElement("div");
+    group.className = "player-row-group";
+    group.dataset.rowId = row.id;
+
     const rowEl = document.createElement("div");
     rowEl.className = "player-row";
     rowEl.dataset.rowId = row.id;
@@ -246,6 +270,23 @@ function renderPlayerRows() {
     inp.addEventListener("input", () => {
       const r = playerRows.find(r => r.id === row.id);
       if (r) r.name = inp.value;
+    });
+
+    // Bot personality select -- only shown/meaningful while isBot is on.
+    // Kept in the row's own element so syncPlayerRowsFromDOM() can read it
+    // via a plain querySelector, same pattern as the name input/checkbox.
+    const personalitySelect = document.createElement("select");
+    personalitySelect.className = "bot-personality-select";
+    personalitySelect.appendChild(new Option("Bot (Basic Strategy)", "basic"));
+    availablePersonalities.forEach(name => {
+      const label = name.charAt(0).toUpperCase() + name.slice(1) + "-bot";
+      personalitySelect.appendChild(new Option(label, name));
+    });
+    personalitySelect.value = row.personality || "basic";
+    personalitySelect.style.display = row.isBot ? "" : "none";
+    personalitySelect.addEventListener("change", () => {
+      const r = playerRows.find(r => r.id === row.id);
+      if (r) r.personality = personalitySelect.value;
     });
 
     // Bot toggle: "BOT" label + small pill
@@ -269,6 +310,7 @@ function renderPlayerRows() {
         r.isBot         = chk.checked;
         inp.placeholder = r.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
       }
+      personalitySelect.style.display = chk.checked ? "" : "none";
     });
 
     const slider = document.createElement("span");
@@ -296,23 +338,26 @@ function renderPlayerRows() {
     rowEl.appendChild(inp);
     rowEl.appendChild(toggleWrap);
     rowEl.appendChild(removeBtn);
-    c.appendChild(rowEl);
+    group.appendChild(rowEl);
+    group.appendChild(personalitySelect);
+    c.appendChild(group);
   });
 }
 
 function addPlayerRow() {
   syncPlayerRowsFromDOM();
-  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false });
+  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false, personality: "basic" });
   renderPlayerRows();
   syncDecksToPlayerCount();
 }
 
 // Start with 2 players
 playerRows = [
-  { id: _rowIdCtr++, name: "", isBot: false },
-  { id: _rowIdCtr++, name: "", isBot: false },
+  { id: _rowIdCtr++, name: "", isBot: false, personality: "basic" },
+  { id: _rowIdCtr++, name: "", isBot: false, personality: "basic" },
 ];
 renderPlayerRows();
+loadAvailablePersonalities();
 
 // ============================================================
 // NUMBER STEPPER
@@ -407,11 +452,15 @@ async function startGame() {
   syncPlayerRowsFromDOM();
   const names = [];
   const npcs  = [];
+  const personalities = {};
   playerRows.forEach((row, i) => {
     const isBot = row.isBot;
     const name  = (row.name || "").trim() || (isBot ? `Bot${i + 1}` : `Player${i + 1}`);
     names.push(name);
-    if (isBot) npcs.push(name);
+    if (isBot) {
+      npcs.push(name);
+      personalities[name] = row.personality || "basic";
+    }
   });
   npcPlayers = new Set(npcs);
 
@@ -426,7 +475,7 @@ async function startGame() {
   const easyMode        = !!(document.getElementById("easy-mode-setup-toggle")?.checked);
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, personalities, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
   if (isDigital) body.num_decks = numDecks;
   if (!setupDrinking) {
     body.bet_amount = getStepperValue("bet-dig") || 10;

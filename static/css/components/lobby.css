@@ -37,6 +37,13 @@
 #name-fields { display: flex; flex-direction: column; gap: 8px; }
 
 /* ---- DYNAMIC PLAYER ROWS ---- */
+.player-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 420px;
+}
 .player-row {
   display: flex;
   gap: 8px;
@@ -44,6 +51,19 @@
   width: 100%;
   max-width: 420px;
 }
+
+/* Bot personality select -- shown beneath a row only while its BOT toggle is on */
+.bot-personality-select {
+  width: 100%;
+  height: var(--tap);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  padding: 0 12px;
+}
+.bot-personality-select:focus { outline: none; border-color: var(--accent); }
 .player-name-input {
   flex: 1;
   min-width: 0;

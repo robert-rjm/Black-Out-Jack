@@ -91,6 +91,24 @@
   border-radius: 6px; color: var(--text); font-size: 13px; padding: 6px 10px;
 }
 
+/* ---- SETTINGS MODAL: Players sub-view ---- */
+.settings-players-nav-btn {
+  margin: 4px 0 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.settings-players-badge {
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+}
+.settings-subview-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+}
+.settings-back-btn { flex-shrink: 0; height: 32px; padding: 0 12px; font-size: 12px; }
+.settings-subview-title { font-size: 15px; font-weight: 700; }
+
 /* ---- QUEUED SETTINGS BANNER ---- */
 #queued-settings-banner {
   display: none; margin-top: 12px; padding: 10px 12px;

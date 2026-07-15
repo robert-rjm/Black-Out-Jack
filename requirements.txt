@@ -2,4 +2,5 @@ flask
 gunicorn
 tabulate
 openpyxl
+pydantic
 tzdata; sys_platform == "win32"
