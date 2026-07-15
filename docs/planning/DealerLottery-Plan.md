@@ -289,35 +289,52 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
    styled red/green by whether the viewer actually drinks). All wired
    into `_syncDigitalUI` / `_syncRoundEffects` in `table.js`, alongside
    the equivalent bust-vote hooks.
-8. [~] Manual playtest: verified every piece except the natural trigger
-   itself. Played ~20 real rounds in-browser without the ~9.5%-per-round
-   pair hitting naturally (not a bug — just bad luck within the testing
-   window; see the probability note below), so the full render → submit
-   → resolve → toast → handout chain was instead verified by injecting a
-   synthetic `dealer_lottery` state into the live page and exercising
-   every function directly (entry rendering, submit → real POST → real
-   server-side rejection when no genuine lottery is open, result toast
-   text/styling, handout panel → real POST). No console or server errors
-   throughout. **Still genuinely unverified: a real, naturally-triggered
-   end-to-end round** — worth doing once there's an easy way to force a
-   dealt pair (e.g. a debug/seeded-shoe hook), which nothing in this plan
-   has built yet.
+8. [x] Manual playtest: two layers now. (a) Live in-browser: ~20 real
+   rounds played without the ~9.5%-per-round pair hitting naturally
+   (see the probability note below — not a bug, just variance), so the
+   render → submit → resolve → toast → handout chain was verified by
+   injecting a synthetic `dealer_lottery` state into the live page and
+   exercising every function directly (entry rendering, submit → real
+   POST → real server-side rejection when no genuine lottery is open,
+   result toast text/styling, handout panel → real POST). No console or
+   server errors throughout. (b) The natural-trigger gap that left open
+   is now closed properly, not by chance: `tests/app/test_dealer_lottery
+   .py::test_dealer_lottery_triggers_through_a_real_dealt_round` rigs a
+   real `Shoe` so `initial_deal()` genuinely deals the dealer K,Q, then
+   drives the *entire* production path — `/command deal` → `stand` ×2 →
+   `_after_player_action` → `dealer_turn` → `_resolve_endround` →
+   `apply_endround_pipeline` → a real `/state` poll's `tick()` — and
+   confirms the dealer really lands on 20 and the lottery opens with a
+   real countdown. Passed first run.
 
 **Trigger probability, for context on step 8:** a two-card 9-9 or
 ten-value pair happens on ~9.5% of rounds (`C(4,2)/C(52,2)` for 9-9 plus
 `C(16,2)/C(52,2)` for any ten-pair, per a single fresh deck — the ratio
 holds for multi-deck shoes too). Over ~20 rounds that's roughly an 88%
-chance of at least one trigger, so not hitting it was within normal
-variance, not a sign of a detection bug — `_dealer_pair_trigger()`'s own
-unit tests already confirm the condition fires correctly in isolation.
+chance of at least one trigger, so not hitting it live was within normal
+variance, not a sign of a detection bug — confirmed separately by the
+rigged-shoe integration test above.
 
-**Still to build:** steps 4, 5, 7, 8 — the engine core (steps 1-3, 6) is
-done and tested, but nothing is reachable from the UI yet.
+**Still to build:** nothing — all 8 build-order steps and both
+documentation follow-ups (§7) are done. This feature is complete.
 
-## 7. Open documentation follow-ups
+## 7. Documentation follow-ups
 
-- `docs/Rules.md` — new subsection under §4 (Side Bets), likely 4.6.
-- `docs/Comprehensive-Example.md` — add per `Ruleset-Improvement.md`'s
-  existing checklist format.
-- `docs/planning/TODO.md` — already updated to point at this plan doc;
-  check it back off entirely (remove the bullet) once this ships.
+- [x] `docs/Rules.md` — new **§5.9 Dealer Lottery**, not 4.6 as originally
+  guessed: the mechanic runs after Milestone Handouts (5.8), so it
+  belongs in "Drinking Rules (End of Round)" (§5), not the pre-deal Side
+  Bets under §4. Also added a row to §6.1's halving table (drink/handout
+  halved, self-credit never halved) and a ToC entry.
+- [x] `docs/Comprehensive-Example.md` — standalone "Bonus illustration"
+  section (matches the existing Milestone-Handouts-style treatment for
+  mechanics that need specific dealt cards rather than fitting a full
+  round), plus a Quick Reference table row. Also added the item to
+  `Ruleset-Improvement.md`'s checklist (it postdates that checklist, so
+  it wasn't on the original list).
+- [x] `docs/.rules_sync.json` re-pinned via `python scripts/rules_sync.py
+  update` — the drift checker correctly flagged that `Rules.md` changed
+  without `drinking_rules.py` changing, since this mechanic lives in
+  `dealer_lottery.py`/`round_pipeline.py`/`tick.py` instead; expected,
+  not a real drift.
+- [x] `docs/planning/TODO.md` — bullet removed now that the feature is
+  fully built and tested, not just planned.

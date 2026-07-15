@@ -30,14 +30,14 @@ from app.services.dealer_lottery import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_room(num_players=3, dealer_hand=None, drinking_mode=True, easy_mode=False):
+def _make_room(num_players=3, dealer_hand=None, drinking_mode=True, easy_mode=False, num_hands=2):
     """Build a minimal GameRoom with `num_players` players (Alice is dealer)."""
     names = ["Alice", "Bob", "Carol", "Dave"][:num_players]
     players = [make_player(n) for n in names]
     players[0].is_dealer = True
     players[0].dealer_hand = dealer_hand if dealer_hand is not None else make_hand()
 
-    raw_session = RefereeSession(players, "Alice", wager=1, num_hands=2)
+    raw_session = RefereeSession(players, "Alice", wager=1, num_hands=num_hands)
     room = GameRoom(
         session=raw_session,
         config=GameConfig(mode="digital", drinking_mode=drinking_mode, easy_mode=easy_mode),
@@ -556,5 +556,80 @@ def test_give_sip_route_rejects_no_pending_handout(client, monkeypatch):
         data = resp.get_json()
         assert data["ok"] is False
         assert "already given" in data["error"].lower()
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+# ---------------------------------------------------------------------------
+# Full-stack integration: a real digital round, dealt from a rigged shoe,
+# driven entirely through /command and /state -- the same code path
+# production traffic uses (initial_deal -> stand -> _after_player_action ->
+# dealer_turn -> _resolve_endround -> apply_endround_pipeline -> tick()).
+# Closes the one gap flagged in DealerLottery-Plan.md step 8: every piece
+# was unit/route-tested, but not through a genuinely dealt trigger.
+# ---------------------------------------------------------------------------
+
+def test_dealer_lottery_triggers_through_a_real_dealt_round(client):
+    from engine.blackjack import Shoe
+
+    room_code = "TestLotteryRealRound"
+    room = _make_room(num_players=2, num_hands=1)
+    room.start_round()
+
+    # Rig the shoe so initial_deal() hands the dealer a real 20 (K, Q) --
+    # a genuine two-card ten-value pair, dealt through the actual shoe.
+    # initial_deal() order per pass: every player's hand(s), then the
+    # dealer's own dealer_hand -- see app/services/game_engine.py.
+    deal_order = [
+        make_card("2", "S"),   # Alice (dealer-as-player) hand1 card 1
+        make_card("2", "H"),   # Bob hand1 card 1
+        make_card("K", "D"),   # dealer_hand card 1
+        make_card("3", "S"),   # Alice hand1 card 2
+        make_card("3", "H"),   # Bob hand1 card 2
+        make_card("Q", "C"),   # dealer_hand card 2 -> dealer stands on K,Q = 20
+    ]
+    shoe = Shoe(1)
+    shoe.cards = list(reversed(deal_order))
+    shoe.penetration = 1.0
+    shoe.total_cards = len(shoe.cards)
+    room.shoe = shoe
+
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice", "Bob"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+    try:
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "deal",
+        })
+        assert resp.get_json()["ok"] is not False  # /command has no explicit "ok" on success
+
+        # Play order: dealer (Alice) plays last, so Bob's hand goes first.
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "stand Bob hand1",
+        })
+        assert "Out of order" not in (resp.get_json().get("output") or "")
+
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "stand Alice hand1",
+        })
+        assert "Out of order" not in (resp.get_json().get("output") or "")
+
+        # dealer_turn() + _resolve_endround() ran synchronously inside that
+        # last /command response (all hands were done) -- confirm the
+        # dealer really did land on the rigged 20 and the trigger fired.
+        dealer = room._get_dealer()
+        assert [c.rank.label for c in dealer.dealer_hand.cards] == ["K", "Q"]
+        assert dealer.dealer_hand.score() == 20
+        assert room.round._dealer_lottery_eligible is True
+
+        # A /state poll runs tick(), which promotes eligible -> pending
+        # (no milestone in the way on round 1) with a real countdown.
+        resp = client.get(f"/state?room_code={room_code}&client_id=client-1")
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["dealer_lottery"]["pending"] is not None
+        assert data["dealer_lottery"]["pending"]["total_count"] == 2
+        assert room.round._pending_dealer_lottery is not None
     finally:
         game_sessions.pop(room_code, None)
