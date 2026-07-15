@@ -2,13 +2,18 @@
 Tests for the Dealer Lottery post-round bonus event
 (docs/planning/DealerLottery-Plan.md):
   - app/services/dealer_lottery.py
+  - /dealer_lottery/enter and /dealer_lottery/give_sip routes (app/routes/polling.py)
 """
 
 import time
 
+import pytest
+
 from engine.referee import RefereeSession
 from tests.conftest import make_player, make_hand, make_card
+from app import create_app
 from app.models.game_room import GameRoom, GameConfig
+from app.services.session_store import game_sessions, set_session
 from app.services.dealer_lottery import (
     _dealer_pair_trigger,
     check_dealer_lottery_trigger,
@@ -378,3 +383,178 @@ def test_credit_never_reduces_cumulative_sip_ticker(monkeypatch):
     assert room.drinks.last_round_sips["Alice"] == 0     # credited down to the floor
     assert room.drinks.sip_ticker["Alice"] == 105        # cumulative total untouched
     assert room.drinks.milestones_claimed[100] == "Alice"  # claim still stands
+
+
+# ---------------------------------------------------------------------------
+# Flask routes: /dealer_lottery/enter, /dealer_lottery/give_sip
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def app():
+    return create_app()
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture
+def lottery_room_setup():
+    """Register a 3-player room (Alice dealer, on a 9-9 hand) with a client
+    registered as Alice and Bob as a local player on the same client, with
+    a Dealer Lottery entry window already open."""
+    room_code = "TestLottery1"
+    room = _make_room(dealer_hand=make_hand(("9", "S"), ("9", "H")))
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice", "Bob"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+    yield room_code, room
+    game_sessions.pop(room_code, None)
+
+
+def test_enter_route_records_entry(client, lottery_room_setup):
+    room_code, room = lottery_room_setup
+    resp = client.post("/dealer_lottery/enter", json={
+        "room_code": room_code, "client_id": "client-1", "x": 3,
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room.round._pending_dealer_lottery["entries"]["Alice"] == 3
+
+
+def test_enter_route_rejects_out_of_range_x(client, lottery_room_setup):
+    room_code, room = lottery_room_setup
+    resp = client.post("/dealer_lottery/enter", json={
+        "room_code": room_code, "client_id": "client-1", "x": 9,
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert "between 0 and 5" in data["error"]
+
+
+def test_enter_route_rejects_when_no_pending(client):
+    room_code = "TestLotteryNone"
+    room = _make_room(dealer_hand=make_hand(("K", "S"), ("9", "H")))  # non-paired 19
+    room._room_clients["client-1"] = {"name": "Alice", "local_names": ["Alice"], "role": "admin"}
+    set_session(room_code, room)
+    try:
+        resp = client.post("/dealer_lottery/enter", json={
+            "room_code": room_code, "client_id": "client-1", "x": 3,
+        })
+        data = resp.get_json()
+        assert data["ok"] is False
+        assert "No dealer lottery" in data["error"]
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_enter_route_local_player_override(client, lottery_room_setup):
+    room_code, room = lottery_room_setup
+    resp = client.post("/dealer_lottery/enter", json={
+        "room_code": room_code, "client_id": "client-1", "x": 2, "player_name": "Bob",
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room.round._pending_dealer_lottery["entries"]["Bob"] == 2
+    assert room.round._pending_dealer_lottery["entries"]["Alice"] is None  # unaffected
+
+
+def test_enter_route_rejects_player_not_local(client, lottery_room_setup):
+    room_code, room = lottery_room_setup
+    resp = client.post("/dealer_lottery/enter", json={
+        "room_code": room_code, "client_id": "client-1", "x": 2, "player_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert "not one of your local players" in data["error"].lower()
+
+
+def test_enter_route_resolves_early_when_all_entries_in(client, lottery_room_setup):
+    room_code, room = lottery_room_setup
+    # Carol is an NPC in this room? No -- make her submit too, plus Bob (local to
+    # client-1) and Alice, so every entrant (Alice, Bob, Carol) has answered.
+    client.post("/dealer_lottery/enter", json={
+        "room_code": room_code, "client_id": "client-1", "x": 0,
+    })
+    client.post("/dealer_lottery/enter", json={
+        "room_code": room_code, "client_id": "client-1", "x": 0, "player_name": "Bob",
+    })
+    assert room.round._pending_dealer_lottery is not None  # Carol hasn't answered yet
+    room._room_clients["client-2"] = {"name": "Carol", "local_names": ["Carol"], "role": "player"}
+    resp = client.post("/dealer_lottery/enter", json={
+        "room_code": room_code, "client_id": "client-2", "x": 0,
+    })
+    assert resp.get_json()["ok"] is True
+    # All zero -> resolves immediately to a no-op (pending cleared, no result)
+    assert room.round._pending_dealer_lottery is None
+    assert room.drinks.last_dealer_lottery_result is None
+
+
+def _lottery_room_with_handout(monkeypatch, room_code="TestLotteryHandout"):
+    room = _make_room(dealer_hand=make_hand(("9", "S"), ("9", "H")))
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+    room.drinks.last_round_sips["Alice"] = 10
+    submit_dealer_lottery_entry(room, "Alice", 5)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+    return room_code, room
+
+
+def test_give_sip_route_assigns(client, monkeypatch):
+    room_code, room = _lottery_room_with_handout(monkeypatch)
+    try:
+        resp = client.post("/dealer_lottery/give_sip", json={
+            "room_code": room_code, "client_id": "client-1",
+            "giver_name": "Alice", "recipient_name": "Bob",
+        })
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert room.drinks.last_round_sips["Bob"] == 5
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_give_sip_route_rejects_not_local_player(client, monkeypatch):
+    room_code, room = _lottery_room_with_handout(monkeypatch)
+    try:
+        resp = client.post("/dealer_lottery/give_sip", json={
+            "room_code": room_code, "client_id": "client-1",
+            "giver_name": "Bob", "recipient_name": "Carol",
+        })
+        data = resp.get_json()
+        assert data["ok"] is False
+        assert "not one of your local players" in data["error"].lower()
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_give_sip_route_rejects_no_pending_handout(client, monkeypatch):
+    room_code, room = _lottery_room_with_handout(monkeypatch)
+    try:
+        client.post("/dealer_lottery/give_sip", json={
+            "room_code": room_code, "client_id": "client-1",
+            "giver_name": "Alice", "recipient_name": "Bob",
+        })
+        resp = client.post("/dealer_lottery/give_sip", json={
+            "room_code": room_code, "client_id": "client-1",
+            "giver_name": "Alice", "recipient_name": "Carol",
+        })
+        data = resp.get_json()
+        assert data["ok"] is False
+        assert "already given" in data["error"].lower()
+    finally:
+        game_sessions.pop(room_code, None)

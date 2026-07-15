@@ -91,6 +91,10 @@ class RoundState:
     _dealer_lottery_handout_expires_at: float | None = None
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
+    # Bumped each time resolve_dealer_lottery() sets a new result, so the
+    # frontend can detect a fresh draw (vs. re-polling the same one) the
+    # same way it does for ace_drink_seq / bust_handout_seq / round_over_seq.
+    _dealer_lottery_result_seq: int = 0
 
     # Wild Card Easter egg (per-round transient)
     _wild_card_seq: int = 0

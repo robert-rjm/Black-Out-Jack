@@ -253,6 +253,36 @@ class PendingMilestoneOut(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
+# Dealer Lottery (docs/planning/DealerLottery-Plan.md)
+# ---------------------------------------------------------------------------
+
+class DealerLotteryPendingOut(_StrictModel):
+    seconds_left:   int
+    answered_count: int
+    total_count:    int
+    my_entries:     dict[str, Optional[int]]
+
+
+class DealerLotteryResultOut(_StrictModel):
+    hand_a:      list[CardOut]
+    hand_b:      list[CardOut]
+    hand_a_bust: bool
+    hand_b_bust: bool
+    busted:      int
+    entries:     dict[str, int]
+    seconds_ago: int
+
+
+class DealerLotteryOut(_StrictModel):
+    pending:              Optional[DealerLotteryPendingOut]
+    last_result:          Optional[DealerLotteryResultOut]
+    result_seq:           int
+    pending_handouts:     dict[str, int]
+    my_pending_handouts:  dict[str, int]
+    handout_seconds_left: int
+
+
+# ---------------------------------------------------------------------------
 # Bust vote
 # ---------------------------------------------------------------------------
 
@@ -395,6 +425,9 @@ class AppState(_StrictModel):
     # ---- Milestone data (always present) ----
     last_milestone_result: Optional[LastMilestoneResultOut]
     pending_milestone:     Optional[PendingMilestoneOut]
+
+    # ---- Dealer Lottery data (always present) ----
+    dealer_lottery: DealerLotteryOut
 
     # ---- Connection / room-membership data (always present) ----
     kick_votes:                 dict[str, int]
