@@ -27,6 +27,11 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
+# Repo root on sys.path so we can reuse the table_bias bucket thresholds from
+# engine/style_strategy.py instead of re-deriving them here.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from engine.style_strategy import _table_bias_bucket as _bias_bucket  # noqa: E402
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -36,6 +41,23 @@ def _rank(card_str: str) -> str:
     """Extract rank from a card string like '7♣', 'J♦', '10♥', 'A♠'."""
     # Suits are single unicode chars; strip the last character.
     return card_str[:-1] if card_str else ""
+
+
+def _hand_index(row: dict) -> int:
+    try:
+        return int(row.get("hand_index") or 0)
+    except ValueError:
+        return 0
+
+
+def _majority(actions: list[str]) -> tuple[str, float, dict[str, int]]:
+    """Return (majority_action, majority_fraction, action_counts) for a list
+    of action strings."""
+    counts: dict[str, int] = defaultdict(int)
+    for a in actions:
+        counts[a] += 1
+    majority_action = max(counts, key=lambda a: counts[a])
+    return majority_action, counts[majority_action] / len(actions), dict(counts)
 
 
 def _load_csvs(directory: str) -> list[dict]:
@@ -66,6 +88,14 @@ def build_profile(rows: list[dict], player_name: str,
     Groups decisions by (hand_total, is_soft, dealer_upcard_rank, can_split,
     can_double) and records a deviation entry where the player's majority
     action differs from basic_strategy_action and meets the thresholds.
+
+    Also groups the same decisions by that same key *plus* table_bias
+    (bucketed from the row's visible_cards) and sibling_awaiting_deal
+    (whether another of the player's hands this round, from a split, was
+    still undealt at decision time). A table-aware deviation is only kept
+    when its majority action differs from what the coarser (plain 5-field)
+    grouping would already produce -- otherwise the extra context is noise
+    and the coarser deviation (or basic strategy) already covers the spot.
     """
     # Filter: this player, human only, non-insurance, has a basic_strategy_action
     player_rows = [
@@ -76,9 +106,20 @@ def build_profile(rows: list[dict], player_name: str,
         and r.get("basic_strategy_action", "").strip()
     ]
 
-    # Group by lookup key
+    # A hand_index greater than this row's own, anywhere in the same round
+    # for this player, means that hand was still undealt (1 card, from a
+    # split) at the moment of this decision -- splits are dealt and played
+    # strictly in hand_index order (see engine/style_strategy.py's
+    # _sibling_awaiting_deal docstring for why).
+    max_hand_index_by_round: dict[str, int] = defaultdict(int)
+    for r in player_rows:
+        rnd = r.get("round", "")
+        max_hand_index_by_round[rnd] = max(max_hand_index_by_round[rnd], _hand_index(r))
+
     groups: dict[tuple, list[str]] = defaultdict(list)
     basic_for_key: dict[tuple, str] = {}
+    fine_groups: dict[tuple, list[str]] = defaultdict(list)
+    fine_basic_for_key: dict[tuple, str] = {}
 
     for r in player_rows:
         valid = r.get("valid_actions", "")
@@ -92,30 +133,34 @@ def build_profile(rows: list[dict], player_name: str,
         dealer_rank = _rank(r.get("dealer_upcard", "").strip())
         if not dealer_rank:
             continue
-        action  = r["action_taken"].strip()
+        action    = r["action_taken"].strip()
         bs_action = r["basic_strategy_action"].strip()
 
-        key = (total, is_soft, dealer_rank, can_split, can_double)
-        groups[key].append(action)
-        basic_for_key[key] = bs_action  # same for any row at this key
+        base_key = (total, is_soft, dealer_rank, can_split, can_double)
+        groups[base_key].append(action)
+        basic_for_key[base_key] = bs_action  # same for any row at this key
 
-    # Build deviation entries
+        bias    = _bias_bucket(r.get("visible_cards", "").split())
+        sibling = max_hand_index_by_round[r.get("round", "")] > _hand_index(r)
+        fine_key = base_key + (bias, sibling)
+        fine_groups[fine_key].append(action)
+        fine_basic_for_key[fine_key] = bs_action
+
+    # --- Coarse (5-field) deviations -- unchanged behavior ---
     deviations = []
+    coarse_action_by_key: dict[tuple, str] = {}
     for key, actions in groups.items():
         n = len(actions)
         if n < min_samples:
             continue
-        counts: dict[str, int] = defaultdict(int)
-        for a in actions:
-            counts[a] += 1
-        majority_action = max(counts, key=lambda a: counts[a])
-        majority_frac   = counts[majority_action] / n
+        majority_action, majority_frac, counts = _majority(actions)
         if majority_frac < min_majority:
             continue
         bs = basic_for_key[key]
         if majority_action == bs:
             continue  # agrees with basic strategy — no deviation to store
 
+        coarse_action_by_key[key] = majority_action
         total, is_soft, dealer_rank, can_split, can_double = key
         deviations.append({
             "hand_total":        total,
@@ -127,11 +172,44 @@ def build_profile(rows: list[dict], player_name: str,
             "player_action":     majority_action,
             "samples":           n,
             "majority":          round(majority_frac, 3),
-            "action_counts":     dict(counts),
+            "action_counts":     counts,
         })
 
-    deviations.sort(key=lambda d: (d["hand_total"], d["is_soft"],
-                                   d["dealer_upcard_rank"]))
+    # --- Fine (table-aware) deviations -- only where the extra context
+    # actually reveals a different tendency than the coarse tier above ---
+    for fine_key, actions in fine_groups.items():
+        n = len(actions)
+        if n < min_samples:
+            continue
+        majority_action, majority_frac, counts = _majority(actions)
+        if majority_frac < min_majority:
+            continue
+
+        base_key = fine_key[:5]
+        bias, sibling = fine_key[5], fine_key[6]
+        bs = fine_basic_for_key[fine_key]
+        baseline = coarse_action_by_key.get(base_key, bs)
+        if majority_action == baseline:
+            continue  # no different from the coarser spot -- not worth recording
+
+        total, is_soft, dealer_rank, can_split, can_double = base_key
+        deviations.append({
+            "hand_total":            total,
+            "is_soft":               is_soft,
+            "dealer_upcard_rank":    dealer_rank,
+            "can_split":             can_split,
+            "can_double":            can_double,
+            "table_bias":            bias,
+            "sibling_awaiting_deal": sibling,
+            "basic_strategy":        bs,
+            "player_action":         majority_action,
+            "samples":               n,
+            "majority":              round(majority_frac, 3),
+            "action_counts":         counts,
+        })
+
+    deviations.sort(key=lambda d: (d["hand_total"], d["is_soft"], d["dealer_upcard_rank"],
+                                   d.get("table_bias") or "", d.get("sibling_awaiting_deal", False)))
 
     return {
         "player":           player_name,
@@ -187,6 +265,9 @@ def main():
             flags = []
             if d["can_split"]:  flags.append("splittable")
             if d["can_double"]: flags.append("doubling available")
+            if "table_bias" in d:
+                flags.append(f"table_bias={d['table_bias']}")
+                flags.append(f"sibling_awaiting_deal={d['sibling_awaiting_deal']}")
             flag_str = f" [{', '.join(flags)}]" if flags else ""
             print(f"  {hand_desc} vs {d['dealer_upcard_rank']}{flag_str}: "
                   f"{d['basic_strategy']} → {d['player_action']} "

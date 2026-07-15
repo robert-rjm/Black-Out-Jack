@@ -506,6 +506,17 @@ def dealer_turn(session: GameRoom) -> None:
 # NPC auto-play
 # ---------------------------------------------------------------------------
 
+def _visible_cards_for_npc(session: GameRoom) -> list:
+    """Every card visible table-wide right now: all hands in play + the
+    dealer's revealed upcard (never the hidden hole card). Feeds the
+    style-strategy table_bias bucket."""
+    visible = [card for p in session.all_players for h in p.hands for card in h.cards]
+    dealer = session._get_dealer()
+    if dealer and dealer.dealer_hand and dealer.dealer_hand.cards:
+        visible.append(dealer.dealer_hand.cards[0])
+    return visible
+
+
 def bust_vote_pending(session: GameRoom) -> bool:
     """Return True while the bust-vote window is open and at least one human
     non-dealer player hasn't cast a vote yet.
@@ -568,7 +579,17 @@ def auto_play_npc_turns(session: GameRoom) -> None:
         suggested      = session.round._suggestions.pop(suggestion_key, None)
         if suggested in valid:
             action = suggested
+        elif hasattr(player, "decide"):
+            # NPC_Player instance -- routes through its personality profile
+            # (falls back to plain basic strategy internally if none is set).
+            action = player.decide(
+                hand, dealer_up, valid,
+                drinking_mode=session.drinking_mode,
+                visible_cards=_visible_cards_for_npc(session),
+                sibling_hands=[h for h in player.hands if h is not hand])
         else:
+            # A real Player converted to a bot mid-session via admin.make_bot()
+            # -- no personality profile exists for them, just basic strategy.
             action = NPC_Player.best_play(
                 hand, dealer_up, valid,
                 drinking_mode=session.drinking_mode)
