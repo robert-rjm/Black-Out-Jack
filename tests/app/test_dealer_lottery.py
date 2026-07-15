@@ -14,6 +14,7 @@ from tests.conftest import make_player, make_hand, make_card
 from app import create_app
 from app.models.game_room import GameRoom, GameConfig, RoundState
 from app.services.session_store import game_sessions, set_session
+from app.services.serializer import serialize_state
 from app.services.dealer_lottery import (
     _dealer_pair_trigger,
     check_dealer_lottery_trigger,
@@ -406,6 +407,30 @@ def test_give_sip_assigns_and_closes_window(monkeypatch):
     assert room.drinks.last_round_sips["Bob"] == 5
     assert "Alice" in room.round._dealer_lottery_handouts_given
     assert room.round._dealer_lottery_handout_expires_at is None  # all givers done
+
+
+def test_give_sip_removes_giver_from_served_pending_handouts(monkeypatch):
+    """Regression: serialize_state's pending_handouts/my_pending_handouts
+    must stop listing a giver the instant they give -- last_dealer_lottery_
+    result["pending_handouts"] is a static snapshot from resolve_dealer_
+    lottery() that give_dealer_lottery_sip() never mutates, so without this
+    exclusion the give-overlay panel (a full-screen modal) kept showing the
+    already-given giver's button for the rest of the 90-second result
+    window, appearing to freeze the table for everyone."""
+    room = _both_bust_room(monkeypatch)
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False,
+    }
+
+    before = serialize_state(room, "client-1")
+    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 5}
+    assert before["dealer_lottery"]["my_pending_handouts"] == {"Alice": 5}
+
+    assert give_dealer_lottery_sip(room, "Alice", "Bob") is True
+
+    after = serialize_state(room, "client-1")
+    assert after["dealer_lottery"]["pending_handouts"] == {}
+    assert after["dealer_lottery"]["my_pending_handouts"] == {}
 
 
 def test_give_sip_rejects_self_assignment(monkeypatch):
