@@ -80,6 +80,22 @@ class RoundState:
     # Milestone
     _pending_milestone: dict | None = None
 
+    # Dealer Lottery (post-round bonus event on a paired 18/20 dealer hand)
+    # _dealer_lottery_eligible is set once (right after milestone check) when
+    # this round's dealer hand qualifies; _pending_dealer_lottery is only
+    # opened (with a real countdown) once any pending milestone has cleared,
+    # so the entry window's clock never ticks down while the milestone
+    # modal is still blocking the player's attention.
+    _dealer_lottery_eligible: bool = False
+    _pending_dealer_lottery: dict | None = None
+    _dealer_lottery_handout_expires_at: float | None = None
+    _dealer_lottery_handouts_given: set = field(default_factory=set)
+    _dealer_lottery_handout_log: list = field(default_factory=list)
+    # Bumped each time resolve_dealer_lottery() sets a new result, so the
+    # frontend can detect a fresh draw (vs. re-polling the same one) the
+    # same way it does for ace_drink_seq / bust_handout_seq / round_over_seq.
+    _dealer_lottery_result_seq: int = 0
+
     # Wild Card Easter egg (per-round transient)
     _wild_card_seq: int = 0
     _wild_card_result: dict | None = None
@@ -155,6 +171,7 @@ class DrinkLedger:
     last_milestone_result: dict | None = None
     last_milestone_worst: str | None   = None
     wild_card_presses: dict    = field(default_factory=dict)
+    last_dealer_lottery_result: dict | None = None
 
 
 @dataclass

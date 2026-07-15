@@ -830,6 +830,27 @@ it's shown with assumed totals rather than folded into Round 5:
 > sips/round at that milestone (rounded, minimum 1). The "worst"
 > streak then resets.
 
+### Bonus illustration: Dealer Lottery (→ Rule 5.9)
+
+This needs the Dealer to be dealt a specific paired hand, so it's
+shown standalone rather than folded into a round above:
+
+> The Dealer's starting hand is K♠ Q♥ — a paired 20, and (since the
+> Dealer always stands on 17+) that pair *is* the Dealer's whole hand
+> this round. After the round's own result, side bets, and Milestone
+> Handouts are all settled, the Dealer Lottery opens: Alice enters
+> with **X = 4**, Bob enters with **0**.
+>
+> The pair splits into two fresh hands from a new shuffled deck —
+> K♠+5♣ (18 → stands) and Q♥+9♦ (19 → stands). Neither busts, so per
+> **Rule 5.9** Alice drinks **2 × 4 = 8 sips** (halved to 4 if 4+
+> players or Easy Mode is active). Bob, having entered 0, is
+> unaffected either way.
+>
+> Had *both* new hands busted instead, Alice would credit herself up
+> to 4 sips off what she owes this round (floored at 0) and hand 4
+> sips (2 if halved) to a Player of her choice.
+
 ---
 
 ## Quick Reference — Rules Triggered in These Examples
@@ -869,6 +890,7 @@ it's shown with assumed totals rather than folded into Round 5:
 | Player All-Hand Bonus | 5.5 | — | — | — | — | ✅ | — |
 | Milestone Handouts | 5.8 | — | — | — | — | — | ✅ |
 | "Worst Average" penalty | 5.8 | — | — | — | — | — | ✅ |
+| Dealer Lottery | 5.9 | — | — | — | — | — | ✅ |
 
 > **Note:** Soft Dealer Switch (**Rule 2**) still hasn't occurred in
 > any example — worth building into a future round if the docs get

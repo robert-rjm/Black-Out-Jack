@@ -49,6 +49,13 @@ BUST_HANDOUT_WINDOW_SECONDS  = 20  # window to claim a dealer-bust sip handout
 INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) after this long
 
 # ---------------------------------------------------------------------------
+# Dealer Lottery — post-round bonus event on a paired 18/20 dealer hand
+# (see docs/planning/DealerLottery-Plan.md)
+# ---------------------------------------------------------------------------
+
+DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-responders default to 0
+
+# ---------------------------------------------------------------------------
 # Registration / connection limits
 # ---------------------------------------------------------------------------
 
