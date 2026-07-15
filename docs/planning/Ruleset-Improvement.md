@@ -25,3 +25,6 @@ Applies only to the **Drinking Game mode**, as these are the rules to be explain
 - [ ] side bet bust (win and loss)
 - [ ] Devil's Hand and Lucky Sevens (potentially also 4 Aces showing)
 - [ ] "worst average" penalty at milestone handouts
+- [x] Dealer Lottery (Rule 5.9, added after this checklist was written —
+      see `docs/planning/DealerLottery-Plan.md`) — covered via bonus
+      illustration in `docs/Comprehensive-Example.md`

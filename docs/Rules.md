@@ -29,6 +29,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
     - 5.6 [Four Aces at End of Round](#56-four-aces-at-end-of-round)
     - 5.7 [Hard Dealer Switch Penalty](#57-hard-dealer-switch-penalty)
     - 5.8 [Milestone Handouts](#58-milestone-handouts)
+    - 5.9 [Dealer Lottery](#59-dealer-lottery)
 6. [Relaxed Drinking Rules](#6-relaxed-drinking-rules)
     - 6.1 [Large Group Rules](#61-large-group-rules-4-players)
     - 6.2 [Easy Mode](#62-easy-mode)
@@ -366,6 +367,24 @@ At each milestone, the Player with the **lowest average sips/round overall** (to
 If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (rounded, minimum 1). The streak then resets.
 
 
+### 5.9 Dealer Lottery
+
+If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards) — the only way this can happen is as the dealt starting hand, since the Dealer always stands on 17+ — every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
+
+Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule:
+
+| Result | Effect |
+| --- | --- |
+| Both new hands bust | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
+| One new hand busts | Drink X sips |
+| Neither hand busts | Drink 2×X sips |
+
+Drink and handout amounts are halved (rounded up) under 4+ players or Easy Mode, same as other end-of-round sips — the self-credit is never halved.
+
+> **Example:** Dealer stands on K♠ Q♥ (20). Alice enters with X=4, Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice credits herself up to 4 sips off her own total this round and hands 4 sips (2 if halving is active) to another Player of her choice. Bob, having entered 0, is unaffected either way.
+
+The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side-bet-dealer-bust).
+
 
 ## 6. Relaxed Drinking Rules
 
@@ -382,6 +401,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | All-hands sweep | 5-card handouts |
 | Insurance resolution | Bust vote penalty/credit (+1/−1) |
 | Four aces at end of round | |
+| Dealer Lottery drink/handout (never the self-credit) | |
 | RoundEndEvent drinks (wins-all, immunity breakers) | |
 
 
