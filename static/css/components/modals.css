@@ -191,8 +191,8 @@
 .dl-entry-card:last-child { border-bottom: none; }
 .dl-entry-top     { display: flex; align-items: center; justify-content: space-between; }
 .dl-name-lbl      { font-size: 14px; font-weight: 700; color: var(--text); }
-.dl-status        { font-size: 13px; font-weight: 600; color: var(--accent); }
-.dl-x-value       { font-size: 15px; font-weight: 800; color: var(--accent); min-width: 20px; text-align: right; }
+.dl-status        { font-size: 13px; font-weight: 600; color: var(--purple); }
+.dl-x-value       { font-size: 15px; font-weight: 800; color: var(--purple); min-width: 20px; text-align: right; }
 .dl-entry-row     { display: flex; gap: 10px; align-items: center; }
 .dl-x-slider {
   flex: 1; -webkit-appearance: none; appearance: none;
@@ -201,12 +201,12 @@
 .dl-x-slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent); cursor: pointer; border: 2px solid var(--surface);
+  background: var(--purple); cursor: pointer; border: 2px solid var(--surface);
   box-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
 .dl-x-slider::-moz-range-thumb {
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent); cursor: pointer; border: 2px solid var(--surface);
+  background: var(--purple); cursor: pointer; border: 2px solid var(--surface);
   box-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
 .dl-enter-btn     { flex-shrink: 0; }
@@ -274,7 +274,18 @@
 .dl-reveal-payout {
   font-size: 13px; color: var(--text); margin-bottom: 14px; line-height: 1.5;
 }
-.dl-reveal-payout strong { color: var(--accent); }
+.dl-reveal-payout strong { color: var(--purple); }
+.dl-reveal-headline { font-weight: 700; margin-bottom: 8px; text-align: center; }
+.dl-reveal-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+}
+.dl-reveal-list li {
+  background: color-mix(in srgb, var(--purple) 10%, transparent);
+  border-radius: 8px; padding: 6px 10px;
+}
+.dl-reveal-name { font-weight: 700; color: var(--text); }
+#dealer-lottery-reveal-modal .btn:disabled { opacity: .5; cursor: not-allowed; }
 .ms-stepper {
   display: flex; align-items: center; gap: 10px;
   margin: 7px 0;

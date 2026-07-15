@@ -653,6 +653,10 @@ function _renderBustGivePanel(state) {
 
 let _dealerLotteryModalOpen   = false;
 let _dealerLotteryTimerHandle = null;
+// Slider values persist here across the per-poll re-render in
+// _renderDealerLotteryCards (that render rebuilds the DOM from scratch, so
+// without this the slider would visibly snap back to 0 on every poll tick).
+let _dlPendingX = {};
 
 async function submitDealerLotteryX(x, playerName) {
   const body = { room_code: roomCode, client_id: clientId, x };
@@ -726,6 +730,7 @@ function _closeDealerLotteryModal() {
   if (!_dealerLotteryModalOpen) return;
   _dealerLotteryModalOpen = false;
   if (_dealerLotteryTimerHandle) { clearTimeout(_dealerLotteryTimerHandle); _dealerLotteryTimerHandle = null; }
+  _dlPendingX = {};
   closeModal("dealer-lottery-modal-overlay");
 }
 
@@ -763,9 +768,11 @@ function _renderDealerLotteryCards(state) {
       top.appendChild(statusEl);
       card.appendChild(top);
     } else {
+      const startVal = _dlPendingX[name] ?? 0;
+
       const valueLbl = document.createElement("span");
       valueLbl.classList.add("dl-x-value");
-      valueLbl.textContent = "0";
+      valueLbl.textContent = String(startVal);
       top.appendChild(valueLbl);
       card.appendChild(top);
 
@@ -774,14 +781,18 @@ function _renderDealerLotteryCards(state) {
 
       const slider = document.createElement("input");
       slider.type = "range";
-      slider.min = "0"; slider.max = "5"; slider.step = "1"; slider.value = "0";
+      slider.min = "0"; slider.max = "5"; slider.step = "1"; slider.value = String(startVal);
       slider.classList.add("dl-x-slider");
-      slider.addEventListener("input", () => { valueLbl.textContent = slider.value; });
+      slider.addEventListener("input", () => {
+        _dlPendingX[name] = parseInt(slider.value, 10) || 0;
+        valueLbl.textContent = slider.value;
+      });
 
       const enterBtn = document.createElement("button");
       enterBtn.className = "btn dl-enter-btn";
       enterBtn.textContent = "Enter";
       enterBtn.addEventListener("click", () => {
+        delete _dlPendingX[name];
         submitDealerLotteryX(parseInt(slider.value, 10) || 0, multiLocal ? name : undefined);
       });
 
@@ -817,47 +828,104 @@ function updateDealerLotteryUI(state) {
   _renderDealerLotteryGivePanel(state);
 }
 
-// Visual reveal: the dealer's pair splitting into two fresh hands, shown as
-// real card visuals (reuses handBlock()/cardEl() from table-render.js —
-// the same rendering the main table uses) rather than a plain text toast.
-function _showDealerLotteryRevealModal(result) {
+// Builds the score/BUST/STAND tags for a finished lottery hand, matching
+// handBlock()'s own tag markup so the mid-animation swap looks identical
+// to a normally-rendered hand-meta div.
+function _dlHandMetaHtml(score, bust) {
+  return `<span class="score">${score}</span>` +
+    (bust ? `<span class="bust">BUST</span>` : `<span class="stood">STAND</span>`);
+}
+
+// Deals the extra (post-split) cards of one hand into the DOM one at a
+// time, fading/sliding each in like the main table's animateDeal(), then
+// reveals that hand's final score/BUST/STAND tag.
+async function _dlAnimateHandCards(block, cards, score, bust) {
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+  const row = block.querySelector(".cards-row");
+  for (let i = 1; i < cards.length; i++) {
+    const el = cardEl(cards[i]);
+    el.style.transition = "none";
+    el.style.opacity = "0";
+    el.style.transform = "translateY(-16px) scale(.85)";
+    row.appendChild(el);
+    void el.offsetHeight; // force layout so the hidden state actually paints before transitioning
+    el.style.transition = "opacity .22s ease-out, transform .22s ease-out";
+    el.style.opacity = "1";
+    el.style.transform = "translateY(0) scale(1)";
+    await delay(380);
+  }
+  const meta = block.querySelector(".hand-meta");
+  if (meta) meta.innerHTML = _dlHandMetaHtml(score, bust);
+}
+
+// Visual reveal: the dealer's pair actually splitting into two fresh hands,
+// shown as real card visuals (reuses handBlock()/cardEl() from
+// table-render.js — the same rendering the main table uses) with each
+// hand's post-split card(s) dealt in one at a time, hand A fully then
+// hand B, instead of showing both hands complete instantly.
+async function _showDealerLotteryRevealModal(result) {
   if (!result) return;
   const hands  = document.getElementById("dealer-lottery-reveal-hands");
   const payout = document.getElementById("dealer-lottery-reveal-payout");
   const sub    = document.getElementById("dealer-lottery-reveal-sub");
+  const closeBtn = document.getElementById("dealer-lottery-reveal-close-btn");
   if (!hands) return;
 
   if (sub) sub.textContent = "The dealer's pair splits into two fresh hands:";
+  if (payout) payout.innerHTML = "";
+  if (closeBtn) closeBtn.disabled = true;
 
   hands.innerHTML = "";
-  hands.appendChild(handBlock({
-    cards: result.hand_a, score: result.hand_a_score,
-    bust: result.hand_a_bust, stood: !result.hand_a_bust, done: true,
-  }, "Split Hand A"));
-  hands.appendChild(handBlock({
-    cards: result.hand_b, score: result.hand_b_score,
-    bust: result.hand_b_bust, stood: !result.hand_b_bust, done: true,
-  }, "Split Hand B"));
-
-  if (payout) {
-    const _myNames  = (typeof myNames !== "undefined" && myNames) ? myNames : [];
-    const myEntries = _myNames.filter(n => (result.entries || {})[n] > 0);
-    if (result.busted === 2) {
-      const creditVerb = myEntries.length === 1 ? "credits" : "credit";
-      payout.innerHTML = myEntries.length
-        ? `<strong>Both hands busted!</strong> ${myEntries.map(escapeHtml).join(", ")} ${creditVerb} sips off this round and hand some out.`
-        : `<strong>Both hands busted!</strong> Nobody entered, so nothing happens.`;
-    } else {
-      const mult = 2 - result.busted;
-      const verb = myEntries.length === 1 ? "drinks" : "drink";
-      payout.innerHTML = myEntries.length
-        ? `${result.busted === 1 ? "One hand busted" : "Neither hand busted"} — ${myEntries.map(escapeHtml).join(", ")} ${verb} <strong>${mult}×</strong> their stake.`
-        : `${result.busted === 1 ? "One hand busted" : "Neither hand busted"} — nobody entered, so nothing happens.`;
-    }
-  }
+  // Start with just each hand's original split card (score/tag hidden
+  // until that hand's extra card(s) finish dealing below).
+  const blockA = handBlock({ cards: [result.hand_a[0]], score: null }, "Split Hand A");
+  const blockB = handBlock({ cards: [result.hand_b[0]], score: null }, "Split Hand B");
+  hands.appendChild(blockA);
+  hands.appendChild(blockB);
 
   _dealerLotteryRevealOpen = true;
   openModal("dealer-lottery-reveal-overlay", { useClass: true });
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+  await delay(350);
+  await _dlAnimateHandCards(blockA, result.hand_a, result.hand_a_score, result.hand_a_bust);
+  await delay(300);
+  await _dlAnimateHandCards(blockB, result.hand_b, result.hand_b_score, result.hand_b_bust);
+  await delay(200);
+
+  if (payout) {
+    const entries        = result.entries || {};
+    const drinkAmounts    = result.drink_amounts || {};
+    const creditAmounts   = result.credit_amounts || {};
+    const pendingHandouts = result.pending_handouts || {};
+    const participants    = Object.keys(entries).filter(n => entries[n] > 0);
+
+    const headline = result.busted === 2 ? "Both hands busted!"
+      : result.busted === 1 ? "One hand busted." : "Neither hand busted.";
+
+    if (!participants.length) {
+      payout.innerHTML = `<div class="dl-reveal-headline">${headline}</div>Nobody entered, so nothing happens.`;
+    } else {
+      const rows = participants.map(name => {
+        const bits = [];
+        if (drinkAmounts[name]) {
+          bits.push(`drinks <strong>${drinkAmounts[name]}</strong> sip${drinkAmounts[name] === 1 ? "" : "s"}`);
+        }
+        if (creditAmounts[name]) {
+          bits.push(`credits <strong>${creditAmounts[name]}</strong> sip${creditAmounts[name] === 1 ? "" : "s"} off this round`);
+        }
+        if (pendingHandouts[name]) {
+          bits.push(`hands out <strong>${pendingHandouts[name]}</strong> sip${pendingHandouts[name] === 1 ? "" : "s"}`);
+        }
+        if (!bits.length) bits.push("nothing happens (already owed 0)");
+        return `<li><span class="dl-reveal-name">${escapeHtml(name)}</span> ${bits.join(", ")}</li>`;
+      });
+      payout.innerHTML = `<div class="dl-reveal-headline">${headline}</div>` +
+        `<ul class="dl-reveal-list">${rows.join("")}</ul>`;
+    }
+  }
+
+  if (closeBtn) closeBtn.disabled = false;
 }
 
 function closeDealerLotteryRevealModal() {
