@@ -112,18 +112,18 @@ produced — otherwise the extra dimensions are noise, and the plain
 ### 5. Wire style bots into `NPC_Player`
 *Prerequisites: step 4 complete and tests passing.*
 
-- [ ] Add a `personality` field to `NPC_Player` (values: `"basic"` | `"rob"` | `"marco"` | `"david"`)
-- [ ] In `NPC_Player.decide()` (or equivalent), route to `style_strategy.best_play_for(profile, ...)` when `personality != "basic"`, loading the corresponding profile from `engine/player_profiles/`
-- [ ] Profile loading: load once at bot-creation time (not per-decision); handle missing profile file gracefully by falling back to basic strategy and logging a warning
-- [ ] NPC decisions are already logged with `is_npc: true` — confirm the style bot's choices show up correctly in the decision log (useful for verifying the bot isn't just always matching basic strategy)
+- [x] Add a `personality` field to `NPC_Player` (values: `"basic"` | any profile stem present in `engine/player_profiles/`, e.g. `"rob"`, `"marko"`, `"david"`)
+- [x] In `NPC_Player.decide()`, route to `style_strategy.best_play_for(profile, ...)` when `personality != "basic"`, loading the corresponding profile from `engine/player_profiles/`
+- [x] Profile loading: loaded once at bot-creation time via `_get_profile()` (lazy, cached on the instance); a missing profile file falls back to basic strategy and logs a warning (`load_profile`)
+- [x] NPC decisions are logged with `is_npc: true`; `game_engine.auto_play_npc_turns` now calls `player.decide(...)` (previously called the static basic-strategy `best_play` unconditionally, so personality was silently never applied in live games — fixed alongside the table-bias/sibling-signal work above)
 
 ---
 
 ### 6. UI — bot personality selection
 *Prerequisites: step 5 complete.*
 
-- [ ] Add a personality dropdown when adding an NPC seat in the setup screen (options: "Bot (basic strategy)", "Rob-bot", "Marco-bot", "David-bot")
-- [ ] Only show personality options for profiles that actually exist in `engine/player_profiles/` — don't expose a bot whose profile hasn't been built yet
+- [x] Added a personality dropdown per bot row in the setup screen (`static/js/ui/setup.js`, `static/css/components/lobby.css`): appears under a player row only while its BOT toggle is on, options are "Bot (Basic Strategy)" plus one entry per profile returned by `GET /player_personalities`
+- [x] Only shows personality options for profiles that actually exist in `engine/player_profiles/` — populated from `available_profiles()` via the existing `/player_personalities` route, so a bot whose profile hasn't been built never appears
 - [ ] Optional: add an admin/debug view listing each bot's known deviations (the deviation table entries), so players can see what the bot "learned"
 
 ---
