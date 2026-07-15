@@ -149,39 +149,24 @@ same-rank check.
   penalty and the handout; never the self-credit) and the round-up
   (`math.ceil`) convention, matching every other halving in the codebase.
 
-## 4. Open question: card source for the draw
+## 4. Card source for the draw — decided: new single deck
 
-Only one question remains genuinely open — the others above are locked
-in. Two options, weighed out:
+**Decided: Option B — a fresh, isolated single deck, scoped only to this
+draw.** Zero interaction with the real shoe — no reshuffle-timing edge
+cases, no card-economy skew for the next real round. Directly precedented
+in this exact codebase: `Busfahrer-Plan.md` §4.1 makes the identical call
+for the identical reason ("a fresh deck scoped to the [event] so it
+doesn't interact with the main game's shoe/penetration tracking").
+Trivially unit-testable (inject a seeded deck).
 
-- **Option A — draw from the live `session.shoe`.** Thematically "more
-  real" (the same shared shoe everyone's been playing from), and
-  mechanically simplest — one deck concept for the whole game, no new
-  deck-management code. But it consumes 2 extra cards from the shared
-  shoe on every trigger (rare, but non-zero over a session), and risks an
-  awkward mid-lottery reshuffle if the shoe is already low — a "just for
-  fun" bonus event forcing a real reshuffle, possibly confusing players
-  about why the shoe reset without a real deal happening. Also makes the
-  trigger/resolution harder to unit-test deterministically (needs
-  control over the live shoe's exact remaining cards).
-- **Option B — isolated one-off mini-deck, scoped only to this draw.**
-  Zero interaction with the real shoe — no reshuffle-timing edge cases,
-  no card-economy skew for the next real round. Directly precedented in
-  this exact codebase: `Busfahrer-Plan.md` §4.1 makes the identical call
-  for the identical reason ("a fresh deck scoped to the [event] so it
-  doesn't interact with the main game's shoe/penetration tracking").
-  Trivially unit-testable (inject a seeded deck). Slightly less
-  "immersive" — a sharp-eyed player might ask whether these are really
-  from the same shoe — but this is an explicitly bolt-on bonus event, not
-  the canonical game, so that's a minor and acceptable tradeoff.
-
-**Recommendation: Option B.** The reshuffle-timing risk in Option A is a
-real correctness headache (what happens if the lottery's draw is what
-tips the shoe under its penetration threshold right as the *next* round
-is about to deal?), and Option B has direct, working precedent in this
-same codebase for exactly this scenario. Reuse whatever `Deck`/`Shoe`
-construction `engine/busfahrer.py` already uses rather than inventing a
-second pattern.
+Concretely: `engine.blackjack.Deck()` (a single 52-card deck, shuffled)
+constructed fresh inside `resolve_dealer_lottery()`, used only to deal the
+two new hands' extra cards, then discarded — never touches
+`session.shoe`. The rejected alternative (drawing from the live shoe) had
+a real correctness cost: it could tip the shoe under its penetration
+threshold mid-lottery, forcing an awkward reshuffle right as the next
+round is about to deal, and would make the trigger/resolution harder to
+unit-test deterministically.
 
 ## 5. Integration with the live app
 
@@ -211,16 +196,23 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
   window times out). No-ops (skips the draw, clears pending state) if every
   submitted entry is 0. Otherwise: deals the two split hands from an
   isolated mini-deck (per §4 — mirrors `engine/busfahrer.py`'s deck),
-  plays each out via the
-  same dealer-hits-to-17 logic the real dealer uses, computes
-  `busted ∈ {0, 1, 2}`, then for each participant with `X > 0` calls
-  `award_sips()` with the signed delta per §1's payout table (negative for
-  the "both busted" credit case) tagged with a new rule string, e.g.
-  `"Dealer Lottery"` / `"Dealer Lottery credit"`, added to
-  `classify_rule()` in `app/services/utils.py`.
+  plays each out via the same dealer-hits-to-17 logic the real dealer
+  uses, computes `busted ∈ {0, 1, 2}`, then for each participant with
+  `X > 0` calls `award_sips()` with the signed delta per §1's payout
+  table (negative for the "both busted" credit case), passing a literal
+  rule string directly (`"Dealer Lottery drink"` / `"Dealer Lottery
+  credit"` / `"Dealer Lottery handout"`) — **no `classify_rule()` changes
+  needed**: that function only classifies raw `drink_log` reasons during
+  harvest; every out-of-band `award_sips()` caller (bust-vote handout,
+  milestone forfeit) already supplies its own canonical rule string
+  directly, and this feature follows the same pattern.
 - Gate the pending-state's *reveal* (not just its creation) behind "no
   milestone pending," matching `tick.py`'s existing pattern of pausing one
-  window while another is open — add this alongside steps 3-4 of `tick()`.
+  window while another is open — implemented as a two-phase
+  `_dealer_lottery_eligible` flag (set once, right after milestone check)
+  promoted to a real `_pending_dealer_lottery` (with a fresh `expires_at`)
+  only once `_pending_milestone` is `None`, so the entry window's 20s
+  clock never starts ticking while the milestone modal is still up.
 
 ### 5.3 Player routes (new, in `app/routes/admin.py` or a new
 `app/routes/dealer_lottery.py`)
@@ -260,22 +252,37 @@ mirrors `payout_tracker.py`'s scope — one small focused module)
 
 ## 6. Suggested build order
 
-1. Trigger + pure resolution logic (`app/services/dealer_lottery.py`),
+1. [x] Trigger + pure resolution logic (`app/services/dealer_lottery.py`),
    fully unit-testable without Flask (mirrors `payout_tracker.py`'s
-   testing style) — cover: trigger fires only on 9-9/ten-pair two-card
-   dealer hands, never on non-paired 19, never when a milestone is
-   pending, skip-if-all-zero, and the four payout-table branches.
-2. Wire into `round_pipeline.py` + `tick.py`'s pending/forfeit gating.
-3. `award_sips()` hookup + new `classify_rule()` entries + CSV categories.
-4. Player route(s) + reuse of the bust-vote-handout recipient flow.
-5. `AppState` schema fields + `serialize_state()` block.
-6. NPC auto-entry.
-7. Frontend prompt + result reveal.
-8. Manual playtest: force a 9-9 and a ten-pair dealer hand (via seeded
-   shoe or a debug hook) with 2-4 players, covering: all-zero skip, mixed
-   X values, both-bust credit + handout picker, partial-bust drink amounts,
-   a pending milestone delaying the prompt correctly, a disconnected
-   player timing out to 0.
+   scope) — `tests/app/test_dealer_lottery.py` (28 tests) covers: trigger
+   fires only on 9-9/ten-pair two-card dealer hands, never on non-paired
+   19, waits for milestone to clear, skip-if-all-zero, all four
+   payout-table branches, halving at 4+ players and under Easy Mode, the
+   handout picker + its forfeit, and confirms (per §3's locked-in
+   decision) a credit never touches the cumulative `sip_ticker`.
+2. [x] Wired into `round_pipeline.py` (trigger check, right after
+   `check_and_set_milestone`) and `tick.py` (steps 6-8: start the entry
+   window once milestone clears, entry-window forfeit, handout-window
+   forfeit).
+3. [x] `award_sips()` hookup — turned out to need **no** `classify_rule()`
+   changes (see §5.2's note: out-of-band `award_sips()` callers pass their
+   own literal rule string, they don't route through `classify_rule`).
+4. [ ] Player route(s) + reuse of the bust-vote-handout recipient flow —
+   `submit_dealer_lottery_entry()` / `give_dealer_lottery_sip()` exist as
+   pure functions; still need the Flask routes calling them
+   (`POST /dealer_lottery/enter`, handout picker per §5.3).
+5. [ ] `AppState` schema fields + `serialize_state()` block (§5.5).
+6. [x] NPC auto-entry — NPCs auto-submit `X = 0` the moment
+   `maybe_start_dealer_lottery()` creates the pending window.
+7. [ ] Frontend prompt + result reveal (§5.6).
+8. [ ] Manual playtest: force a 9-9 and a ten-pair dealer hand (via a
+   debug hook, once routes/frontend exist) with 2-4 players, covering:
+   all-zero skip, mixed X values, both-bust credit + handout picker,
+   partial-bust drink amounts, a pending milestone delaying the prompt
+   correctly, a disconnected player timing out to 0.
+
+**Still to build:** steps 4, 5, 7, 8 — the engine core (steps 1-3, 6) is
+done and tested, but nothing is reachable from the UI yet.
 
 ## 7. Open documentation follow-ups
 
