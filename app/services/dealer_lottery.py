@@ -169,6 +169,8 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     session.round._dealer_lottery_handouts_given = set()
     session.round._dealer_lottery_handout_log = []
     pending_handouts: dict[str, int] = {}  # giver -> amount still to hand out
+    drink_amounts: dict[str, int] = {}     # name -> sips this lottery makes them drink
+    credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
 
     for name, x in entries.items():
         if x <= 0:
@@ -181,6 +183,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
                     session, name, -credit, "Dealer Lottery credit",
                     reason=f"Dealer Lottery: both split hands busted -- -{credit} sip credit",
                 )
+                credit_amounts[name] = credit
             handout_amt = math.ceil(x / 2) if halving_active else x
             if handout_amt > 0:
                 pending_handouts[name] = handout_amt
@@ -195,6 +198,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
                         f"drink {actual} sip(s)"
                     ),
                 )
+                drink_amounts[name] = actual
 
     if pending_handouts:
         session.round._dealer_lottery_handout_expires_at = (
@@ -213,6 +217,8 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         "busted": busted,
         "entries": dict(entries),
         "pending_handouts": pending_handouts,
+        "drink_amounts": drink_amounts,
+        "credit_amounts": credit_amounts,
         "set_at": time.monotonic(),
     }
     session.round._dealer_lottery_result_seq += 1

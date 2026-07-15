@@ -272,6 +272,8 @@ class DealerLotteryResultOut(_StrictModel):
     hand_b_bust:  bool
     busted:       int
     entries:      dict[str, int]
+    drink_amounts:  dict[str, int]
+    credit_amounts: dict[str, int]
     seconds_ago:  int
 
 

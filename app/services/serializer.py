@@ -91,6 +91,8 @@ def _serialize_last_dealer_lottery_result(result: dict | None) -> dict | None:
         "hand_b_bust":  result["hand_b_bust"],
         "busted":       result["busted"],
         "entries":      dict(result["entries"]),
+        "drink_amounts":  dict(result.get("drink_amounts", {})),
+        "credit_amounts": dict(result.get("credit_amounts", {})),
         "seconds_ago":  max(0, round(time.monotonic() - result["set_at"])),
     }
 
