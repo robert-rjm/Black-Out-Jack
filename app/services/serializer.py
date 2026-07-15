@@ -799,7 +799,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                         session.round._pending_dealer_lottery, _ci),
             "last_result":          _serialize_last_dealer_lottery_result(
                                         session.drinks.last_dealer_lottery_result),
-            "result_seq":           session.round._dealer_lottery_result_seq,
+            "result_seq":           session.drinks._dealer_lottery_result_seq,
             "pending_handouts":     dict(_dl_pending_handouts),
             "my_pending_handouts":  {n: a for n, a in _dl_pending_handouts.items()
                                      if n in _dl_my_names},

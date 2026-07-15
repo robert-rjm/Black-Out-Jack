@@ -234,7 +234,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         "credit_amounts": credit_amounts,
         "set_at": time.monotonic(),
     }
-    session.round._dealer_lottery_result_seq += 1
+    session.drinks._dealer_lottery_result_seq += 1
 
 
 def give_dealer_lottery_sip(session: GameRoom, giver_name: str, recipient_name: str) -> bool:
