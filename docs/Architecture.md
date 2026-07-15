@@ -22,7 +22,8 @@ Black-Out-Jack/
 ├── app/
 │   ├── config.py                           # App-wide constants and feature flags
 │   ├── models/
-│   │   └── game_room.py                    # Typed room-state container
+│   │   ├── game_room.py                    # Typed room-state container
+│   │   └── state_schema.py                 # Pydantic AppState schema — validates serialize_state()'s return shape
 │   ├── routes/
 │   │   ├── lobby.py                        # Room creation, joining, setup
 │   │   ├── polling.py                      # Long-poll state sync; delegates per-poll ticks to services/tick.py
@@ -151,6 +152,8 @@ The main files are intentionally decoupled:
 | `app/services/utils.py` | _(none)_ | Pure helper functions used across app services. Currently: `classify_rule()` — maps raw drink-reason strings to short canonical category names for CSV export and the UI. Moved here from `engine/drinking_rules.py` (refactor 4.2). |
 | `app/services/round_pipeline.py` | `app/services/drink_tracker.py`, `app/services/payout_tracker.py`, `app/services/decision_log.py` | Single authoritative post-round sequence: bust-vote penalties → harvest drink log → milestone check → payouts → backfill. Imported by both `game_commands.py` and `polling.py` so pipeline ordering only needs to change in one place. |
 | `app/services/decision_log.py` | `app/models/game_room.py`, `engine/strategy.py` | Captures one row per player decision (hit/stand/double/split/insurance) with board-state context for Phase D bot training; exported via `/export_decisions` |
+| `app/models/state_schema.py` | `pydantic` | `AppState` — the runtime schema for `serialize_state()`'s return value. Every field `serialize_state` produces must appear here with the right type, and every model uses `extra="forbid"`, so a serializer/schema drift raises immediately instead of reaching the frontend as a missing/misshapen field. |
+| `app/services/serializer.py` | `app/models/game_room.py`, `app/models/state_schema.py`, `app/services/validators.py` | Converts room state to the JSON payload for the polling response; validates the result against `AppState` before returning |
 | `scripts/load_decision_logs.py` | `data/decisions/decision_log_*.csv` (output of `/export_decisions`) | Concatenates exports and prints a per-player summary (decision counts, deviation from basic strategy, results) — Phase D step 0 |
 | `server.py` | `app/` package | Flask entry point; creates the app and registers blueprints |
 | `app/` | `engine/` | Routes, models, and services for the web UI |
@@ -285,6 +288,7 @@ drift in `engine/blackjack.py` as well.
 ### Prerequisites
 - Python 3.10+
 - `flask` (for web UI)
+- `pydantic` (for web UI — validates the state payload the web UI polls; see `app/models/state_schema.py`)
 - `pytest` (for running the test suite)
 - No other dependencies for terminal play
 - Consult [requirements.txt](requirements.txt) (deployment) or
