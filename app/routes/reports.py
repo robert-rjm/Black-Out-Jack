@@ -3,14 +3,15 @@ app/routes/reports.py
 ======================
 Static-asset and reporting routes.
 
-GET /logo.png       — app icon (PWA)
-GET /manifest.json  — PWA manifest
-GET /rules          — Rules.md as JSON for frontend markdown rendering
-GET /export_xlsx    — Full drink-log XLSX download for the session
-GET /summary_json   — Drink summary as JSON for on-screen display
+GET /logo.png          — app icon (PWA)
+GET /manifest.json     — PWA manifest
+GET /rules             — Rules.md as JSON for frontend markdown rendering
+GET /export_xlsx       — Full drink-log XLSX download for the session
+GET /export_decisions  — Decision-log XLSX (hand decisions + Dealer Lottery
+                          entries, one sheet each) for scripts/build_player_profiles.py
+GET /summary_json      — Drink summary as JSON for on-screen display
 """
 
-import csv
 import io
 import os
 from collections import defaultdict
@@ -304,12 +305,28 @@ _DECISION_COLUMNS = [
     "drinking_mode", "mode", "bet_amount", "wager", "is_npc", "hand_result",
 ]
 
+_DEALER_LOTTERY_DECISION_COLUMNS = [
+    "session_id", "timestamp", "round", "player", "is_npc",
+    "x_entered", "current_owed", "num_players", "drinking_mode",
+]
+
 
 @bp.route("/export_decisions")
 def export_decisions():
     """
-    Return a CSV of recorded player decisions for this session.
+    Return an Excel workbook of recorded player decisions for this session --
+    one workbook, two sheets, so there's a single download to save into
+    data/decisions/ for scripts/build_player_profiles.py to mine.
+
+    Sheet 1 "Hand Decisions"        — one row per hit/stand/double/split/
+                                       insurance decision (was /export_decisions
+                                       as a standalone CSV).
+    Sheet 2 "Dealer Lottery Entries" — one row per Dealer Lottery stake (0-5)
+                                       decision (was the separate
+                                       /export_dealer_lottery_decisions CSV).
+
     Usage: GET /export_decisions?room_code=Jack-21&player=<name optional>
+    (the player filter only applies to the Hand Decisions sheet)
     """
     room_code = request.args.get("room_code", "")
     player    = request.args.get("player", "").strip()
@@ -318,62 +335,35 @@ def export_decisions():
     if not session:
         return Response("No active session.", status=404, mimetype="text/plain")
 
-    rows = session._decision_log
+    hand_rows = session._decision_log
     if player:
-        rows = [r for r in rows if r["player"].lower() == player.lower()]
+        hand_rows = [r for r in hand_rows if r["player"].lower() == player.lower()]
+    lottery_rows = session._dealer_lottery_decision_log
 
-    buf = io.StringIO()
-    w   = csv.writer(buf)
-    w.writerow(_DECISION_COLUMNS)
-    for row in rows:
-        w.writerow([row.get(col, "") for col in _DECISION_COLUMNS])
+    wb = openpyxl.Workbook()
 
-    _date_str = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
-    return Response(
-        b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
-        status=200,
-        mimetype="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="decision_log_{_date_str}.csv"'},
-    )
+    ws1 = wb.active
+    ws1.title = "Hand Decisions"
+    _xlsx_header(ws1, _DECISION_COLUMNS)
+    for row in hand_rows:
+        ws1.append([row.get(col, "") for col in _DECISION_COLUMNS])
+    _auto_width(ws1)
 
-
-# ---------------------------------------------------------------------------
-# Dealer Lottery entry log export -- a separate decision stream from the
-# hand-action decision log above (a stake amount, not h/s/d/sp), mined into
-# player_profiles/<name>.json's lottery_stakes by build_player_profiles.py.
-# ---------------------------------------------------------------------------
-
-_DEALER_LOTTERY_DECISION_COLUMNS = [
-    "session_id", "timestamp", "round", "player", "is_npc",
-    "x_entered", "current_owed", "num_players", "drinking_mode",
-]
-
-
-@bp.route("/export_dealer_lottery_decisions")
-def export_dealer_lottery_decisions():
-    """
-    Return a CSV of recorded Dealer Lottery entries for this session.
-    Usage: GET /export_dealer_lottery_decisions?room_code=Jack-21
-    """
-    room_code = request.args.get("room_code", "")
-    session   = game_sessions.get(room_code)
-    if not session:
-        return Response("No active session.", status=404, mimetype="text/plain")
-
-    rows = session._dealer_lottery_decision_log
-
-    buf = io.StringIO()
-    w   = csv.writer(buf)
-    w.writerow(_DEALER_LOTTERY_DECISION_COLUMNS)
-    for row in rows:
-        w.writerow([row.get(col, "") for col in _DEALER_LOTTERY_DECISION_COLUMNS])
+    ws2 = wb.create_sheet("Dealer Lottery Entries")
+    _xlsx_header(ws2, _DEALER_LOTTERY_DECISION_COLUMNS)
+    for row in lottery_rows:
+        ws2.append([row.get(col, "") for col in _DEALER_LOTTERY_DECISION_COLUMNS])
+    _auto_width(ws2)
 
     _date_str = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
     return Response(
-        b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8"),  # UTF-8 BOM for Excel
+        buf.getvalue(),
         status=200,
-        mimetype="text/csv",
-        headers={"Content-Disposition": f'attachment; filename="dealer_lottery_decisions_{_date_str}.csv"'},
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="decision_log_{_date_str}.xlsx"'},
     )
 
 
