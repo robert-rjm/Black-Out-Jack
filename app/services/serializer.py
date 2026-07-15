@@ -790,8 +790,17 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     }
 
     # ---- Dealer Lottery data ----
-    _dl_pending_handouts = (session.drinks.last_dealer_lottery_result or {}).get(
-        "pending_handouts", {})
+    # Exclude givers who already gave (mirrors my_bust_handout_pending's
+    # "n not in _bust_handouts_given" filter) -- last_dealer_lottery_result's
+    # pending_handouts is a static snapshot from resolve_dealer_lottery() and
+    # is never mutated by give_dealer_lottery_sip(), so without this filter
+    # the give-overlay panel keeps showing an already-given giver's button
+    # for the rest of the 90-second result window, blocking the table.
+    _dl_pending_handouts = {
+        n: a for n, a in (session.drinks.last_dealer_lottery_result or {}).get(
+            "pending_handouts", {}).items()
+        if n not in session.round._dealer_lottery_handouts_given
+    }
     _dl_my_names = set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
     _dealer_lottery_data = {
         "dealer_lottery": {
