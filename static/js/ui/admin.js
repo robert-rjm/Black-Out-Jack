@@ -861,9 +861,19 @@ async function _dlAnimateHandCards(block, cards, score, bust) {
 // Visual reveal: the dealer's pair actually splitting into fresh hands --
 // always at least two, more if a hand re-split -- shown as real card
 // visuals (reuses handBlock()/cardEl() from table-render.js — the same
-// rendering the main table uses) with each hand's post-split card(s)
-// dealt in one at a time, one full hand before the next, instead of
-// showing every hand complete instantly.
+// rendering the main table uses), animated in this order:
+//   1. The dealer's original pair separates into two fresh hands (H1, H2).
+//   2. H1 is played out fully -- including, if its own 2nd card pairs up
+//      again, revealing that re-split (a new hand appears) BEFORE H1's own
+//      post-split cards are dealt, then finishing H1's cards, then playing
+//      the re-split hand the same way (recursively, in case IT re-splits
+//      too) -- never H2.
+//   3. H2 is played out fully, same rule.
+// Each hand's parent_index (app/services/dealer_lottery.py) says which
+// other hand it split off from (null for H1/H2 themselves), so a hand's
+// block is only ever created at the moment it actually splits off, instead
+// of every eventual hand (including future re-splits) appearing complete
+// from the very start.
 async function _showDealerLotteryRevealModal(result) {
   if (!result) return;
   const hands  = document.getElementById("dealer-lottery-reveal-hands");
@@ -882,23 +892,75 @@ async function _showDealerLotteryRevealModal(result) {
   if (closeBtn) closeBtn.disabled = true;
 
   hands.innerHTML = "";
-  // Start with just each hand's original split card (score/tag hidden
-  // until that hand's extra card(s) finish dealing below).
-  const blocks = handList.map((h, i) => {
-    const block = handBlock({ cards: [h.cards[0]], score: null }, `Split Hand ${i + 1}`);
-    hands.appendChild(block);
-    return block;
-  });
-
   _dealerLotteryRevealOpen = true;
   openModal("dealer-lottery-reveal-overlay", { useClass: true });
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
-  await delay(350);
-  for (let i = 0; i < handList.length; i++) {
-    await _dlAnimateHandCards(blocks[i], handList[i].cards, handList[i].score, handList[i].bust);
-    await delay(i < handList.length - 1 ? 300 : 200);
+
+  // Group hands by parent so a re-split child is only revealed at the
+  // moment it actually splits off. Children of the same parent arrive from
+  // the backend in reverse-chronological order (the LAST re-split is
+  // listed first, since it finishes its own resolution first) -- reverse
+  // so they're revealed in the order they actually split off.
+  const childrenOf = new Map();
+  const roots = [];
+  handList.forEach((h, i) => {
+    if (h.parent_index === null || h.parent_index === undefined) {
+      roots.push(i);
+    } else {
+      if (!childrenOf.has(h.parent_index)) childrenOf.set(h.parent_index, []);
+      childrenOf.get(h.parent_index).push(i);
+    }
+  });
+  childrenOf.forEach(list => list.reverse());
+
+  let displayNum = 0;
+  const blocks = new Array(handList.length);
+
+  // Creates hand i's block showing just its first card (its "pair
+  // separated" / "split off" moment), fading in like a freshly dealt card.
+  function revealBlock(i) {
+    displayNum++;
+    const block = handBlock({ cards: [handList[i].cards[0]], score: null }, `Split Hand ${displayNum}`);
+    block.style.transition = "none";
+    block.style.opacity    = "0";
+    block.style.transform  = "translateY(-16px) scale(.85)";
+    hands.appendChild(block);
+    void block.offsetHeight; // force layout so the hidden state actually paints before transitioning
+    block.style.transition = "opacity .22s ease-out, transform .22s ease-out";
+    block.style.opacity    = "1";
+    block.style.transform  = "translateY(0) scale(1)";
+    blocks[i] = block;
   }
+
+  // Recursively plays hand i: reveal any re-split children first (their
+  // split-off moment), then deal this hand's own remaining cards, then
+  // play each child in turn -- so a hand's own cards never appear before
+  // all of its children have had their split moment shown, and a child is
+  // never played before its parent has fully finished.
+  async function playHand(i) {
+    const children = childrenOf.get(i) || [];
+    for (const childIdx of children) {
+      revealBlock(childIdx);
+      await delay(250);
+    }
+    await _dlAnimateHandCards(blocks[i], handList[i].cards, handList[i].score, handList[i].bust);
+    await delay(children.length ? 300 : 200);
+    for (const childIdx of children) {
+      await playHand(childIdx);
+    }
+  }
+
+  // Step 1: the dealer's original pair separating into two fresh hands.
+  revealBlock(roots[0]);
+  await delay(180);
+  revealBlock(roots[1]);
+  await delay(350);
+
+  // Steps 2 & 3: play H1 fully (incl. any of its own re-splits), then H2.
+  await playHand(roots[0]);
+  await playHand(roots[1]);
+  await delay(150);
 
   if (payout) {
     const entries        = result.entries || {};
