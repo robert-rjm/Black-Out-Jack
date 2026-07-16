@@ -62,7 +62,7 @@ function _renderStateSilent(state) {
     updateInsuranceVisibility(state);
     updateHandLocks(state);
     updateActionButtons(state);
-    updateRoundPane(state);
+    drinksPanel.render(state);
     updateBestPlay(state);
     updateBustVoteUI(state);
     updateRoleUI(state);
