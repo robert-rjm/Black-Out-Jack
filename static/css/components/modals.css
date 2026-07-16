@@ -212,7 +212,7 @@
 .dl-enter-btn     { flex-shrink: 0; }
 .dl-answered      { font-size: 11px; color: var(--muted); min-height: 16px; margin-top: 4px; }
 
-/* ---- BUST GIVE PANEL (_renderBustGivePanel in admin.js) ---- */
+/* ---- BUST GIVE PANEL (BustGivePanel in admin.js) ---- */
 .bgp-winner-label { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 10px; text-align: center; }
 .bgp-btns-col     { display: flex; flex-direction: column; }
 .bgp-give-btn     { margin-bottom: 8px; }
