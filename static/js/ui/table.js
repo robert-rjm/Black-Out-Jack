@@ -347,7 +347,6 @@ function _applyKicked(state) {
     document.getElementById("app").style.display    = "none";
     document.getElementById("setup").style.display  = "none";
     document.getElementById("lobby").style.display  = "flex";
-    document.getElementById("log").innerHTML = "";
     document.getElementById("header-room").textContent = "";
     hideLobbyMsg();
     players  = [];

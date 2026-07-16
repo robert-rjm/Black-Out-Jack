@@ -31,7 +31,7 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#ref-panel`, `#dig-panel`
   - `#deal-*`, `#result-*`, `#action-*`
   - `#pane-*` and digital action rows
-  - `#left-col`, `#dealer-panel`, `#log`, `#sip-ticker`
+  - `#left-col`, `#dealer-panel`, `#sip-ticker`
   - `#btn-admin-nav`, `#btn-admin-players`
 - Digital game panels:
   - `#dig-predeal-panel`, `#dig-play-content`, `#dig-play-hands`
