@@ -297,259 +297,265 @@ async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
 }
 
 
-// ── Milestone: 50-sip handout feature ───────────────────────────────────────
+// ── Milestone panel component (Improvements.md item 7, Option A:
+// class-based, no framework) — 50-sip handout feature ──────────────────
+// Coordinates four surfaces: the announcement toast, the non-winners'
+// waiting banner, the winner's handout modal (+/- steppers), and
+// recipients' drink-acknowledgement modal. mount() attaches one delegated
+// listener for the steppers (replacing addEventListener calls re-attached
+// on every rebuild) and one for the ack button (replacing a cloneNode
+// trick used only to strip a previous listener before attaching a new
+// one -- the same problem mount() solves formally). render(state) is the
+// per-poll entry point, replacing the old renderMilestoneState() function.
+// milestoneAdjust/submitMilestoneHandout stay top-level functions (not
+// methods) since the modal's submit button is wired via the static
+// data-action="submitMilestoneHandout" dispatch in the template, which
+// only resolves plain window-level names.
+class MilestonePanel {
+  mount(modalEl, ackOverlayEl) {
+    if (this.modalEl) return;   // idempotent -- buildGameUI() may run more than once
+    this.modalEl     = modalEl;
+    this.ackOverlayEl = ackOverlayEl;
 
-function renderMilestoneState(state) {
-  const ms     = state && state.pending_milestone;
-  const result = state && state.last_milestone_result;
+    modalEl.addEventListener("click", e => {
+      const btn = e.target.closest("[data-ms-adjust]");
+      if (btn) milestoneAdjust(btn.dataset.msPlayer, Number(btn.dataset.msAdjust));
+    });
 
-  // ── Drink notification for recipients (fires once per result) ──────────
-  if (result) {
-    const rKey = `${result.boundary}:${result.winner}`;
-    if (rKey !== DrinkUI.lastMilestoneResultKey) {
-      DrinkUI.lastMilestoneResultKey = rKey;
-      // Check if I'm a recipient
-      if (myName) {
-        // allocations keys might be capitalised differently — case-insensitive lookup
-        const myEntry = Object.entries(result.allocations || {})
-          .find(([n]) => n.toLowerCase() === myName.toLowerCase());
-        if (myEntry) {
-          const [, sipCount] = myEntry;
-          _showDrinkToast(sipCount, result.winner);
+    ackOverlayEl.addEventListener("click", e => {
+      if (e.target.closest("#ms-ack-btn")) ackOverlayEl.classList.remove("open");
+    });
+  }
+
+  render(state) {
+    const ms     = state && state.pending_milestone;
+    const result = state && state.last_milestone_result;
+
+    // ── Drink notification for recipients (fires once per result) ──────
+    if (result) {
+      const rKey = `${result.boundary}:${result.winner}`;
+      if (rKey !== DrinkUI.lastMilestoneResultKey) {
+        DrinkUI.lastMilestoneResultKey = rKey;
+        // Check if I'm a recipient
+        if (myName) {
+          // allocations keys might be capitalised differently — case-insensitive lookup
+          const myEntry = Object.entries(result.allocations || {})
+            .find(([n]) => n.toLowerCase() === myName.toLowerCase());
+          if (myEntry) {
+            const [, sipCount] = myEntry;
+            this.showDrinkAck(sipCount, result.winner);
+          }
         }
       }
     }
-  }
 
-  // ── Pending milestone handling ─────────────────────────────────────────
-  if (!ms) {
-    _hideMilestoneToast();
-    _hideWaitingBanner();
-    // Close modal if the TTL expired server-side while modal was open
-    if (DrinkUI.lastMilestoneKey && document.getElementById("milestone-modal-overlay").classList.contains("open")) {
-      _closeMilestoneModal();
+    // ── Pending milestone handling ──────────────────────────────────────
+    if (!ms) {
+      this.hideToast();
+      this.hideWaitingBanner();
+      // Close modal if the TTL expired server-side while modal was open
+      if (DrinkUI.lastMilestoneKey && document.getElementById("milestone-modal-overlay").classList.contains("open")) {
+        this.closeModal();
+      }
+      return;
     }
-    return;
-  }
 
-  const key       = `${ms.boundary}:${ms.winner}`;
-  const iAmWinner = !!ms.i_am_winner;  // server-authoritative; no JS name-matching needed
+    const key       = `${ms.boundary}:${ms.winner}`;
+    const iAmWinner = !!ms.i_am_winner;  // server-authoritative; no JS name-matching needed
 
-  // Show announcement toast exactly once per new milestone (all players)
-  if (key !== DrinkUI.lastMilestoneKey) {
-    DrinkUI.lastMilestoneKey     = key;
-    DrinkUI.milestoneAllocations = {};
-    _showMilestoneToast(ms);
-  }
+    // Show announcement toast exactly once per new milestone (all players)
+    if (key !== DrinkUI.lastMilestoneKey) {
+      DrinkUI.lastMilestoneKey     = key;
+      DrinkUI.milestoneAllocations = {};
+      this.showToast(ms);
+    }
 
-  if (iAmWinner) {
-    _hideWaitingBanner();
-    // Open the handout modal exactly once for this milestone
-    if (DrinkUI.milestoneModalOpened !== key) {
-      DrinkUI.milestoneModalOpened = key;
-      // Short delay so the toast is visible before modal covers it
-      setTimeout(() => _openMilestoneModal(ms, state), 600);
+    if (iAmWinner) {
+      this.hideWaitingBanner();
+      // Open the handout modal exactly once for this milestone
+      if (DrinkUI.milestoneModalOpened !== key) {
+        DrinkUI.milestoneModalOpened = key;
+        // Short delay so the toast is visible before modal covers it
+        setTimeout(() => this.openModal(ms, state), 600);
+      } else {
+        // Modal already open — keep timer in sync; auto-submit when time's up
+        this.updateTimer(ms.seconds_left);
+        if (ms.seconds_left <= 0) {
+          const overlay = document.getElementById("milestone-modal-overlay");
+          if (overlay && overlay.classList.contains("open")) {
+            submitMilestoneHandout();
+          }
+        }
+      }
     } else {
-      // Modal already open — keep timer in sync; auto-submit when time's up
-      _updateMilestoneTimer(ms.seconds_left);
-      if (ms.seconds_left <= 0) {
-        const overlay = document.getElementById("milestone-modal-overlay");
-        if (overlay && overlay.classList.contains("open")) {
-          submitMilestoneHandout();
-        }
+      // Non-winners: persistent waiting banner with live countdown
+      this.showWaitingBanner(ms);
+    }
+  }
+
+  showToast(ms) {
+    const html = `🎉 ${escapeHtml(ms.winner)} hit ${ms.boundary} sips!`;
+    const _show = () => {
+      const toast = document.getElementById("milestone-toast");
+      if (!toast) return;
+      toast.innerHTML = html;
+      toast.classList.remove("show");
+      void toast.offsetWidth;
+      toast.classList.add("show");
+      setTimeout(() => this.hideToast(), 5000);
+    };
+    if (typeof _bustVoteOpen === "function" && _bustVoteOpen()) {
+      ToastUI.queue.push(_show);
+    } else {
+      _show();
+    }
+  }
+
+  hideToast() {
+    const toast = document.getElementById("milestone-toast");
+    if (toast) toast.classList.remove("show");
+  }
+
+  showWaitingBanner(ms) {
+    // In-flow slot (digital mode — sits exactly above the tab bar)
+    const slot = document.getElementById("ms-waiting-slot");
+    const s    = ms.seconds_left;
+    const timerStr = s > 0 ? ` · ⏱ ${s}s` : "";
+    const html = `🎉 <strong>${escapeHtml(ms.winner)}</strong> is handing out ${ms.handout} milestone sips…${timerStr}`;
+    if (slot) {
+      slot.innerHTML     = html;
+      slot.style.display = "block";
+    }
+    // Fallback fixed banner (referee mode / any other context)
+    const fixed = document.getElementById("ms-waiting-banner");
+    if (fixed && !slot) {
+      fixed.innerHTML = html;
+      fixed.classList.add("show");
+    }
+  }
+
+  hideWaitingBanner() {
+    const slot = document.getElementById("ms-waiting-slot");
+    if (slot) slot.style.display = "none";
+    const fixed = document.getElementById("ms-waiting-banner");
+    if (fixed) fixed.classList.remove("show");
+  }
+
+  showDrinkAck(sips, winner) {
+    // Open the acknowledgement modal instead of a dismissable toast.
+    // No cloneNode-to-strip-old-listener trick needed -- mount()'s
+    // delegated listener on ackOverlayEl handles every open of this modal.
+    const overlay = document.getElementById("ms-ack-overlay");
+    if (!overlay) return;
+    const sipWord = sips === 1 ? "sip" : "sips";
+    const title   = document.getElementById("ms-ack-title");
+    const sub     = document.getElementById("ms-ack-sub");
+    if (title) title.textContent = `Drink ${sips} ${sipWord}!`;
+    if (sub)   sub.textContent   = `${escapeHtml(winner)} reached a milestone and handed you ${sips} ${sipWord}.`;
+    overlay.classList.add("open");
+  }
+
+  openModal(ms, state) {
+    const overlay = document.getElementById("milestone-modal-overlay");
+    if (!overlay) return;
+
+    const title = document.getElementById("milestone-modal-title");
+    const sub   = document.getElementById("milestone-modal-sub");
+    if (title) title.textContent = `You hit ${ms.boundary} sips first! 🏆`;
+    if (sub)   sub.textContent   = `Hand out up to ${ms.handout} sips — unassigned ones come back to you.`;
+
+    // Build stepper list from current players except self
+    const players = (lastState && lastState.players || []).filter(
+      n => n.toLowerCase() !== (myName || "").toLowerCase()
+    );
+    // Drop any allocation entries for players no longer in the roster (e.g. a
+    // player left/was kicked between two milestones with the same
+    // boundary+winner, so DrinkUI.lastMilestoneKey didn't change and the dict wasn't
+    // reset) — stale entries would otherwise count toward `used` and could
+    // block the winner from allocating their full handout.
+    Object.keys(DrinkUI.milestoneAllocations).forEach(n => {
+      if (!players.includes(n)) delete DrinkUI.milestoneAllocations[n];
+    });
+
+    // Initialize allocations to 0 for everyone
+    players.forEach(n => { if (!(DrinkUI.milestoneAllocations[n] >= 0)) DrinkUI.milestoneAllocations[n] = 0; });
+
+    this.renderSteppers(players, ms.handout);
+    this.updateTimer(ms.seconds_left);
+    openModal("milestone-modal-overlay", { useClass: true });
+  }
+
+  closeModal() {
+    closeModal("milestone-modal-overlay", { useClass: true });
+  }
+
+  renderSteppers(players, total) {
+    const container = document.getElementById("milestone-steppers");
+    if (!container) return;
+    // No addEventListener here -- mount()'s delegated listener handles taps.
+    container.innerHTML = players.map(name => {
+      const val = DrinkUI.milestoneAllocations[name] || 0;
+      return `<div class="ms-stepper">
+        <span class="ms-name">${escapeHtml(name)}</span>
+        <button data-ms-player="${escapeHtml(name)}" data-ms-adjust="-1">−</button>
+        <span class="ms-count" data-ms-player="${escapeHtml(name)}">${val}</span>
+        <button data-ms-player="${escapeHtml(name)}" data-ms-adjust="1">+</button>
+      </div>`;
+    }).join("");
+    this.updateRemaining(total);
+  }
+
+  updateRemaining(total) {
+    const used = Object.values(DrinkUI.milestoneAllocations).reduce((a, b) => a + b, 0);
+    const left = total - used;
+    const rem  = document.getElementById("milestone-remaining");
+    const btn  = document.getElementById("milestone-submit-btn");
+    if (rem) {
+      if (left === 0) {
+        rem.textContent = "✓ All sips assigned";
+        rem.style.color = "var(--green)";
+      } else {
+        rem.textContent = `${left} sip${left !== 1 ? "s" : ""} back to you`;
+        rem.style.color = "var(--yellow)";
       }
     }
-  } else {
-    // Non-winners: persistent waiting banner with live countdown
-    _showWaitingBanner(ms);
+    if (btn) btn.disabled = false;  // always submittable — unassigned sips go to winner
+  }
+
+  updateTimer(secondsLeft) {
+    const timerEl = document.getElementById("milestone-timer");
+    if (!timerEl) return;
+    if (secondsLeft == null) return;
+    const s = Math.max(0, secondsLeft);
+    timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "⏱ Time's up!";
+    timerEl.style.color = s <= 10 ? "var(--red)" : "var(--muted)";
   }
 }
 
-function _showMilestoneToast(ms) {
-  const html = `🎉 ${escapeHtml(ms.winner)} hit ${ms.boundary} sips!`;
-  const _show = () => {
-    const toast = document.getElementById("milestone-toast");
-    if (!toast) return;
-    toast.innerHTML = html;
-    toast.classList.remove("show");
-    void toast.offsetWidth;
-    toast.classList.add("show");
-    setTimeout(() => _hideMilestoneToast(), 5000);
-  };
-  if (typeof _bustVoteOpen === "function" && _bustVoteOpen()) {
-    ToastUI.queue.push(_show);
-  } else {
-    _show();
-  }
-}
+const milestonePanel = new MilestonePanel();
 
-function _hideMilestoneToast() {
-  const toast = document.getElementById("milestone-toast");
-  if (toast) toast.classList.remove("show");
-}
-
-function _showWaitingBanner(ms) {
-  // In-flow slot (digital mode — sits exactly above the tab bar)
-  const slot = document.getElementById("ms-waiting-slot");
-  const s    = ms.seconds_left;
-  const timerStr = s > 0 ? ` · ⏱ ${s}s` : "";
-  const html = `🎉 <strong>${escapeHtml(ms.winner)}</strong> is handing out ${ms.handout} milestone sips…${timerStr}`;
-  if (slot) {
-    slot.innerHTML     = html;
-    slot.style.display = "block";
-  }
-  // Fallback fixed banner (referee mode / any other context)
-  const fixed = document.getElementById("ms-waiting-banner");
-  if (fixed && !slot) {
-    fixed.innerHTML = html;
-    fixed.classList.add("show");
-  }
-}
-
-function _hideWaitingBanner() {
-  const slot = document.getElementById("ms-waiting-slot");
-  if (slot) slot.style.display = "none";
-  const fixed = document.getElementById("ms-waiting-banner");
-  if (fixed) fixed.classList.remove("show");
-}
-
-function _showDrinkToast(sips, winner) {
-  // Open the acknowledgement modal instead of a dismissable toast
-  const overlay = document.getElementById("ms-ack-overlay");
-  if (!overlay) return;
-  const sipWord = sips === 1 ? "sip" : "sips";
-  const title   = document.getElementById("ms-ack-title");
-  const sub     = document.getElementById("ms-ack-sub");
-  if (title) title.textContent = `Drink ${sips} ${sipWord}!`;
-  if (sub)   sub.textContent   = `${escapeHtml(winner)} reached a milestone and handed you ${sips} ${sipWord}.`;
-  overlay.classList.add("open");
-  const btn = document.getElementById("ms-ack-btn");
-  if (btn) {
-    // Replace to remove any previous listener
-    const fresh = btn.cloneNode(true);
-    btn.parentNode.replaceChild(fresh, btn);
-    fresh.addEventListener("click", () => overlay.classList.remove("open"), { once: true });
-  }
-}
-
-function _openMilestoneModal(ms, state) {
-  const overlay = document.getElementById("milestone-modal-overlay");
-  if (!overlay) return;
-
-  const title = document.getElementById("milestone-modal-title");
-  const sub   = document.getElementById("milestone-modal-sub");
-  if (title) title.textContent = `You hit ${ms.boundary} sips first! 🏆`;
-  if (sub)   sub.textContent   = `Hand out up to ${ms.handout} sips — unassigned ones come back to you.`;
-
-  // Build stepper list from current players except self
-  const players = (lastState && lastState.players || []).filter(
-    n => n.toLowerCase() !== (myName || "").toLowerCase()
-  );
-  // Drop any allocation entries for players no longer in the roster (e.g. a
-  // player left/was kicked between two milestones with the same
-  // boundary+winner, so DrinkUI.lastMilestoneKey didn't change and the dict wasn't
-  // reset) — stale entries would otherwise count toward `used` and could
-  // block the winner from allocating their full handout.
-  Object.keys(DrinkUI.milestoneAllocations).forEach(n => {
-    if (!players.includes(n)) delete DrinkUI.milestoneAllocations[n];
-  });
-
-  // Initialize allocations to 0 for everyone
-  players.forEach(n => { if (!(DrinkUI.milestoneAllocations[n] >= 0)) DrinkUI.milestoneAllocations[n] = 0; });
-
-  _renderMilestoneSteppers(players, ms.handout);
-  _updateMilestoneTimer(ms.seconds_left);
-  openModal("milestone-modal-overlay", { useClass: true });
-}
-
-function _closeMilestoneModal() {
-  closeModal("milestone-modal-overlay", { useClass: true });
-}
-
-function _renderMilestoneSteppers(players, total) {
-  const container = document.getElementById("milestone-steppers");
-  if (!container) return;
-  container.innerHTML = "";
-  players.forEach(name => {
-    const row = document.createElement("div");
-    row.className = "ms-stepper";
-    const val = DrinkUI.milestoneAllocations[name] || 0;
-
-    // Build with DOM nodes — onclick string interpolation breaks for names
-    // containing apostrophes (browsers decode &#39; → ' before JS eval).
-    // Count span uses data-ms-player instead of id so the name never lands
-    // in a CSS selector or HTML attribute raw.
-    const nameSpan = document.createElement("span");
-    nameSpan.className = "ms-name";
-    nameSpan.textContent = name;
-
-    const decBtn = document.createElement("button");
-    decBtn.textContent = "−";
-    decBtn.addEventListener("click", () => milestoneAdjust(name, -1));
-
-    const countSpan = document.createElement("span");
-    countSpan.className = "ms-count";
-    countSpan.dataset.msPlayer = name;
-    countSpan.textContent = val;
-
-    const incBtn = document.createElement("button");
-    incBtn.textContent = "+";
-    incBtn.addEventListener("click", () => milestoneAdjust(name, +1));
-
-    row.appendChild(nameSpan);
-    row.appendChild(decBtn);
-    row.appendChild(countSpan);
-    row.appendChild(incBtn);
-    container.appendChild(row);
-  });
-  _updateMilestoneRemaining(total);
-}
-
+// Note: the stepper's data-ms-player attribute is shared by both the +/-
+// buttons (read by mount()'s delegated listener) and the count <span>
+// (looked up below to update the displayed value) -- querySelector on a
+// dataset value can match either, so this scopes to the span specifically
+// via its element type below.
 function milestoneAdjust(name, delta) {
   const ms = lastState && lastState.pending_milestone;
   const total = ms ? ms.handout : 5;
   const cur   = DrinkUI.milestoneAllocations[name] || 0;
   const used  = Object.values(DrinkUI.milestoneAllocations).reduce((a, b) => a + b, 0);
-  const newVal = Math.max(0, Math.min(cur + delta, cur + (total - used) + (delta < 0 ? 0 : 0)));
 
   if (delta > 0 && used >= total) return;  // budget exhausted
 
   DrinkUI.milestoneAllocations[name] = Math.max(0, cur + delta);
-  const el = document.querySelector(`[data-ms-player="${CSS.escape(name)}"]`);
+  const el = document.querySelector(`span.ms-count[data-ms-player="${CSS.escape(name)}"]`);
   if (el) el.textContent = DrinkUI.milestoneAllocations[name];
-  _updateMilestoneRemaining(total);
-}
-
-function _updateMilestoneRemaining(total) {
-  const used = Object.values(DrinkUI.milestoneAllocations).reduce((a, b) => a + b, 0);
-  const left = total - used;
-  const rem  = document.getElementById("milestone-remaining");
-  const btn  = document.getElementById("milestone-submit-btn");
-  if (rem) {
-    if (left === 0) {
-      rem.textContent = "✓ All sips assigned";
-      rem.style.color = "var(--green)";
-    } else {
-      rem.textContent = `${left} sip${left !== 1 ? "s" : ""} back to you`;
-      rem.style.color = "var(--yellow)";
-    }
-  }
-  if (btn) btn.disabled = false;  // always submittable — unassigned sips go to winner
-}
-
-function _updateMilestoneTimer(secondsLeft) {
-  const timerEl = document.getElementById("milestone-timer");
-  if (!timerEl) return;
-  if (secondsLeft == null) return;
-  const s = Math.max(0, secondsLeft);
-  timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "⏱ Time's up!";
-  timerEl.style.color = s <= 10 ? "var(--red)" : "var(--muted)";
+  milestonePanel.updateRemaining(total);
 }
 
 async function submitMilestoneHandout() {
   const ms = lastState && lastState.pending_milestone;
   if (!ms) return;
-  const used = Object.values(DrinkUI.milestoneAllocations).reduce((a, b) => a + b, 0);
 
   const btn = document.getElementById("milestone-submit-btn");
   if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
@@ -562,7 +568,7 @@ async function submitMilestoneHandout() {
     });
     const data = await res.json();
     if (data.ok) {
-      _closeMilestoneModal();
+      milestonePanel.closeModal();
       DrinkUI.lastMilestoneKey     = null;
       DrinkUI.milestoneModalOpened = null;
       applyState(data);

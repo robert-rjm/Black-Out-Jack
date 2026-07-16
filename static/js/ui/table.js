@@ -10,6 +10,10 @@ function buildGameUI() {
   const regBanner = document.getElementById("pending-reg-banner");
   if (regBanner) pendingRegBanner.mount(regBanner);
 
+  const msModal   = document.getElementById("milestone-modal-overlay");
+  const msAckOv   = document.getElementById("ms-ack-overlay");
+  if (msModal && msAckOv) milestonePanel.mount(msModal, msAckOv);
+
   if (isDigital) {
     buildDigitalUI();
   } else {
@@ -626,7 +630,7 @@ function applyState(state) {
   if (gameMode === "digital") _syncDigitalUI(state);
   _syncRender(state, isDeal);
 
-  renderMilestoneState(state);
+  milestonePanel.render(state);
 }
 
 
