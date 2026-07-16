@@ -63,6 +63,13 @@ class RoundState:
     _bust_handouts_given: set = field(default_factory=set)
     _bust_handout_log: list = field(default_factory=list)
 
+    # Targeted Drinking Mode — current round's vote + countdown only
+    # (docs/planning/TargetedDrinkingMode.md). The subgame's persistent
+    # state (active flag, target list, graduation streaks, cooldown) lives
+    # on GameRoom below, since it must survive across rounds.
+    _targeted_drinking_votes: dict = field(default_factory=dict)        # name -> "bust" | "stand" | None
+    _targeted_drinking_expires_at: float | None = None
+
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
     # The frontend resets its local pointer when it detects a new round via
@@ -239,6 +246,14 @@ class GameRoom:
     # Wild Card Easter egg — cooldown tracker (session-lifetime so it
     # persists across rounds).  Maps player_name → round_count when last used.
     _wild_card_last_used: dict = field(default_factory=dict)
+
+    # Targeted Drinking Mode — persistent subgame state (survives across
+    # rounds; see docs/planning/TargetedDrinkingMode.md §4). Per-round vote
+    # state lives on RoundState above instead.
+    _targeted_drinking_active: bool = False
+    _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
+    _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
+    _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     _bankrolls: dict = field(default_factory=dict)
