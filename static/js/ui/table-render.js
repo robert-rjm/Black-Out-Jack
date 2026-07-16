@@ -234,6 +234,11 @@ function renderPlayers(state) {
     const jugBadge      = (wasWorst && state.drinking_mode !== false)
       ? `<span class="seat-jug" title="Worst round (session record)">🍻</span>` : "";
 
+    // Snail: player had the lowest avg sips/round (excluding winner) at the last milestone
+    const worstBadge = (isDrinking && state.last_milestone_worst === s.name)
+      ? `<span class="seat-worst-badge" title="Worst average sips/round at the last milestone">🐌</span>`
+      : "";
+
     // Strategy-hint badge: visible to all players when that seat has hints on
     const hintBadge = s.strategy_hint_enabled
       ? `<span class="seat-hint-badge" title="${s.name} is playing with basic strategy hints">📘</span>`
@@ -255,7 +260,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");

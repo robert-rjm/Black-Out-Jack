@@ -782,6 +782,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     _milestone_data = {
         "last_milestone_result": _serialize_last_milestone(session.drinks.last_milestone_result),
         "pending_milestone":     _serialize_pending_milestone(session.round._pending_milestone, _ci),
+        "last_milestone_worst":  session.drinks.last_milestone_worst,
     }
 
     # ---- Dealer Lottery data ----

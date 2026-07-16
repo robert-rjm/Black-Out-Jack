@@ -430,6 +430,7 @@ class AppState(_StrictModel):
     # ---- Milestone data (always present) ----
     last_milestone_result: Optional[LastMilestoneResultOut]
     pending_milestone:     Optional[PendingMilestoneOut]
+    last_milestone_worst:  Optional[str]
 
     # ---- Dealer Lottery data (always present) ----
     dealer_lottery: DealerLotteryOut
