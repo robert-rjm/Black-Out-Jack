@@ -138,3 +138,35 @@ def backfill_hand_results(session: GameRoom) -> None:
         result = hand_results.get(row["_hand_id"])
         if result is not None:
             row["hand_result"] = result
+
+
+# ---------------------------------------------------------------------------
+# Dealer Lottery entry capture (mirrors record_decision, for a different
+# kind of decision -- a stake amount, not a hand action)
+# ---------------------------------------------------------------------------
+
+def record_dealer_lottery_entry(session: GameRoom, player_name: str, x: int, *,
+                                 is_npc: bool = False) -> None:
+    """
+    Append one row to session._dealer_lottery_decision_log for a player's
+    Dealer Lottery entry (0-5), so per-player staking tendency can later be
+    mined into their profile's ``lottery_stakes`` (see
+    scripts/build_player_profiles.py and engine/style_strategy.py's
+    decide_dealer_lottery_stake).
+
+    `current_owed` is this player's sips owed so far this round at the
+    moment the entry window opened -- the context signal the mined
+    tendency is bucketed on.
+    """
+    current_owed = max(0, session.drinks.last_round_sips.get(player_name, 0))
+    session._dealer_lottery_decision_log.append({
+        "session_id":   session.room_code,
+        "timestamp":    time.time(),
+        "round":        session.round_count,
+        "player":       player_name,
+        "is_npc":       is_npc,
+        "x_entered":    x,
+        "current_owed": current_owed,
+        "num_players":  len(session.all_players),
+        "drinking_mode": session.drinking_mode,
+    })

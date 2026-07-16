@@ -91,10 +91,6 @@ class RoundState:
     _dealer_lottery_handout_expires_at: float | None = None
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
-    # Bumped each time resolve_dealer_lottery() sets a new result, so the
-    # frontend can detect a fresh draw (vs. re-polling the same one) the
-    # same way it does for ace_drink_seq / bust_handout_seq / round_over_seq.
-    _dealer_lottery_result_seq: int = 0
 
     # Wild Card Easter egg (per-round transient)
     _wild_card_seq: int = 0
@@ -172,6 +168,14 @@ class DrinkLedger:
     last_milestone_worst: str | None   = None
     wild_card_presses: dict    = field(default_factory=dict)
     last_dealer_lottery_result: dict | None = None
+    # Bumped each time resolve_dealer_lottery() sets a new result, so the
+    # frontend can detect a fresh draw (vs. re-polling the same one) --
+    # lives here (session-lifetime), not on RoundState, because RoundState
+    # is replaced wholesale every round: a per-round seq would reset to 0
+    # on the very next round and the frontend's already-advanced local
+    # pointer (which never resets) would then never see a "new" value again,
+    # silently suppressing the reveal modal on every round after the first.
+    _dealer_lottery_result_seq: int = 0
 
 
 @dataclass
@@ -205,6 +209,11 @@ class GameRoom:
     # Decision log (Phase C — per-decision board-state capture for
     # per-player bot training; see docs/planning/DecisionLog-Plan.md)
     _decision_log: list = field(default_factory=list)
+
+    # Dealer Lottery entry log — one row per stake (0-5) decision, human or
+    # NPC, so per-player lottery-staking tendency can be mined the same way
+    # hand decisions are (see scripts/build_player_profiles.py).
+    _dealer_lottery_decision_log: list = field(default_factory=list)
 
     # Client registry
     _room_clients: dict = field(default_factory=dict)

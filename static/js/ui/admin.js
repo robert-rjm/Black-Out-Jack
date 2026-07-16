@@ -858,11 +858,12 @@ async function _dlAnimateHandCards(block, cards, score, bust) {
   if (meta) meta.innerHTML = _dlHandMetaHtml(score, bust);
 }
 
-// Visual reveal: the dealer's pair actually splitting into two fresh hands,
-// shown as real card visuals (reuses handBlock()/cardEl() from
-// table-render.js — the same rendering the main table uses) with each
-// hand's post-split card(s) dealt in one at a time, hand A fully then
-// hand B, instead of showing both hands complete instantly.
+// Visual reveal: the dealer's pair actually splitting into fresh hands --
+// always at least two, more if a hand re-split -- shown as real card
+// visuals (reuses handBlock()/cardEl() from table-render.js — the same
+// rendering the main table uses) with each hand's post-split card(s)
+// dealt in one at a time, one full hand before the next, instead of
+// showing every hand complete instantly.
 async function _showDealerLotteryRevealModal(result) {
   if (!result) return;
   const hands  = document.getElementById("dealer-lottery-reveal-hands");
@@ -871,27 +872,33 @@ async function _showDealerLotteryRevealModal(result) {
   const closeBtn = document.getElementById("dealer-lottery-reveal-close-btn");
   if (!hands) return;
 
-  if (sub) sub.textContent = "The dealer's pair splits into two fresh hands:";
+  const handList = result.hands || [];
+  if (sub) {
+    sub.textContent = handList.length > 2
+      ? `The dealer's pair re-splits into ${handList.length} fresh hands:`
+      : "The dealer's pair splits into two fresh hands:";
+  }
   if (payout) payout.innerHTML = "";
   if (closeBtn) closeBtn.disabled = true;
 
   hands.innerHTML = "";
   // Start with just each hand's original split card (score/tag hidden
   // until that hand's extra card(s) finish dealing below).
-  const blockA = handBlock({ cards: [result.hand_a[0]], score: null }, "Split Hand A");
-  const blockB = handBlock({ cards: [result.hand_b[0]], score: null }, "Split Hand B");
-  hands.appendChild(blockA);
-  hands.appendChild(blockB);
+  const blocks = handList.map((h, i) => {
+    const block = handBlock({ cards: [h.cards[0]], score: null }, `Split Hand ${i + 1}`);
+    hands.appendChild(block);
+    return block;
+  });
 
   _dealerLotteryRevealOpen = true;
   openModal("dealer-lottery-reveal-overlay", { useClass: true });
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
   await delay(350);
-  await _dlAnimateHandCards(blockA, result.hand_a, result.hand_a_score, result.hand_a_bust);
-  await delay(300);
-  await _dlAnimateHandCards(blockB, result.hand_b, result.hand_b_score, result.hand_b_bust);
-  await delay(200);
+  for (let i = 0; i < handList.length; i++) {
+    await _dlAnimateHandCards(blocks[i], handList[i].cards, handList[i].score, handList[i].bust);
+    await delay(i < handList.length - 1 ? 300 : 200);
+  }
 
   if (payout) {
     const entries        = result.entries || {};
@@ -900,8 +907,9 @@ async function _showDealerLotteryRevealModal(result) {
     const pendingHandouts = result.pending_handouts || {};
     const participants    = Object.keys(entries).filter(n => entries[n] > 0);
 
-    const headline = result.busted === 2 ? "Both hands busted!"
-      : result.busted === 1 ? "One hand busted." : "Neither hand busted.";
+    const nHands = handList.length;
+    const headline = result.busted === nHands ? "Every hand busted!"
+      : result.busted === 0 ? "No hand busted." : "Mixed result — nothing happens.";
 
     if (!participants.length) {
       payout.innerHTML = `<div class="dl-reveal-headline">${headline}</div>Nobody entered, so nothing happens.`;
@@ -917,7 +925,7 @@ async function _showDealerLotteryRevealModal(result) {
         if (pendingHandouts[name]) {
           bits.push(`hands out <strong>${pendingHandouts[name]}</strong> sip${pendingHandouts[name] === 1 ? "" : "s"}`);
         }
-        if (!bits.length) bits.push("nothing happens (already owed 0)");
+        if (!bits.length) bits.push("nothing happens this time");
         return `<li><span class="dl-reveal-name">${escapeHtml(name)}</span> ${bits.join(", ")}</li>`;
       });
       payout.innerHTML = `<div class="dl-reveal-headline">${headline}</div>` +

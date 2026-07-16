@@ -1,18 +1,19 @@
 """
 scripts/load_decision_logs.py -- Phase D, step 1 (docs/planning/DecisionLog-Plan.md)
 
-Loads all `decision_log_*.csv` exports out of data/decisions/, concatenates
-them, and reports a per-player breakdown -- a first look at how much training
-data has been collected for each of Rob, Marco, and David before any model
-is attempted.
+Loads all `decision_log_*.xlsx` exports out of data/decisions/ (the "Hand
+Decisions" sheet -- see GET /export_decisions in app/routes/reports.py),
+concatenates them, and reports a per-player breakdown -- a first look at how
+much training data has been collected for each of Rob, Marco, and David
+before any model is attempted.
 
 This is intentionally NOT a training script. It does no feature engineering
-or modeling (that's D1/D2, still future). It just answers: "how many decisions
-do we have per player, and what does the data look like?"
+or modeling (that's scripts/build_player_profiles.py). It just answers: "how
+many decisions do we have per player, and what does the data look like?"
 
 Usage:
     python scripts/load_decision_logs.py
-    python scripts/load_decision_logs.py --dir path/to/csvs
+    python scripts/load_decision_logs.py --dir path/to/xlsx
     python scripts/load_decision_logs.py --player Rob
     python scripts/load_decision_logs.py --out data/decisions/combined.csv
 """
@@ -20,10 +21,12 @@ from __future__ import annotations
 
 import argparse
 import csv
-import glob
 import os
 import sys
 from collections import Counter, defaultdict
+from pathlib import Path
+
+import openpyxl
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -31,25 +34,32 @@ DEFAULT_DIR = os.path.join(ROOT, "data", "decisions")
 
 
 def load_rows(directory: str) -> list[dict]:
-    """Read every decision_log_*.csv in `directory` and return all rows
-    as dicts, tagged with the source filename."""
-    pattern = os.path.join(directory, "decision_log_*.csv")
-    files = sorted(glob.glob(pattern))
+    """Read the "Hand Decisions" sheet of every decision_log_*.xlsx in
+    `directory` and return all rows as string-keyed dicts (values coerced
+    to strings, matching this script's original csv.DictReader shape),
+    tagged with the source filename."""
+    files = sorted(Path(directory).glob("decision_log_*.xlsx"))
     if not files:
-        print(f"No decision_log_*.csv files found in {directory}")
+        print(f"No decision_log_*.xlsx files found in {directory}")
         return []
 
     rows: list[dict] = []
     for path in files:
-        # utf-8-sig strips the BOM written by /export_decisions
-        with open(path, encoding="utf-8-sig", newline="") as f:
-            reader = csv.DictReader(f)
-            n = 0
-            for row in reader:
-                row["_source_file"] = os.path.basename(path)
-                rows.append(row)
-                n += 1
-        print(f"  loaded {n:4d} rows from {os.path.basename(path)}")
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        if "Hand Decisions" not in wb.sheetnames:
+            continue
+        ws = wb["Hand Decisions"]
+        row_iter = ws.iter_rows(values_only=True)
+        header = next(row_iter, None)
+        if not header:
+            continue
+        n = 0
+        for values in row_iter:
+            row = {str(h): ("" if v is None else str(v)) for h, v in zip(header, values)}
+            row["_source_file"] = path.name
+            rows.append(row)
+            n += 1
+        print(f"  loaded {n:4d} rows from {path.name}")
     return rows
 
 
@@ -132,7 +142,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dir", default=DEFAULT_DIR,
-        help=f"Directory containing decision_log_*.csv files (default: {DEFAULT_DIR})",
+        help=f"Directory containing decision_log_*.xlsx files (default: {DEFAULT_DIR})",
     )
     parser.add_argument(
         "--player", default=None,

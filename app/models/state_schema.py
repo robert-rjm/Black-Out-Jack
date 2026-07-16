@@ -263,13 +263,14 @@ class DealerLotteryPendingOut(_StrictModel):
     my_entries:     dict[str, Optional[int]]
 
 
+class DealerLotteryHandOut(_StrictModel):
+    cards: list[CardOut]
+    score: int
+    bust:  bool
+
+
 class DealerLotteryResultOut(_StrictModel):
-    hand_a:       list[CardOut]
-    hand_b:       list[CardOut]
-    hand_a_score: int
-    hand_b_score: int
-    hand_a_bust:  bool
-    hand_b_bust:  bool
+    hands:        list[DealerLotteryHandOut]
     busted:       int
     entries:      dict[str, int]
     drink_amounts:  dict[str, int]

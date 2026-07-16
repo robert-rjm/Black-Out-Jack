@@ -12,8 +12,9 @@ import pytest
 from engine.referee import RefereeSession
 from tests.conftest import make_player, make_hand, make_card
 from app import create_app
-from app.models.game_room import GameRoom, GameConfig
+from app.models.game_room import GameRoom, GameConfig, RoundState
 from app.services.session_store import game_sessions, set_session
+from app.services.serializer import serialize_state
 from app.services.dealer_lottery import (
     _dealer_pair_trigger,
     check_dealer_lottery_trigger,
@@ -135,6 +136,40 @@ def test_maybe_start_noop_when_not_eligible():
     assert room.round._pending_dealer_lottery is None
 
 
+def test_maybe_start_npc_with_profile_uses_mined_stake():
+    """An NPC_Player with a personality profile should submit its mined
+    lottery_stakes tendency instead of always auto-opting-out at 0."""
+    alice = make_player("Alice", is_dealer=True, dealer_hand=make_hand(("9", "S"), ("9", "H")))
+    bob   = make_player("Bob")
+    carol = make_player("Carol", is_npc=True)
+    carol.personality = "highroller"
+    carol._style_profile = {
+        "player": "Carol", "deviations": [],
+        "lottery_stakes": [{"owed_bucket": "none", "avg_stake": 4, "samples": 5}],
+    }
+
+    raw_session = RefereeSession([alice, bob, carol], "Alice", wager=1, num_hands=2)
+    room = GameRoom(session=raw_session, config=GameConfig(mode="digital", drinking_mode=True))
+
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+
+    pending = room.round._pending_dealer_lottery
+    assert pending["entries"]["Carol"] == 4
+
+
+def test_maybe_start_logs_npc_entry_decision():
+    room = _make_room(num_players=3, dealer_hand=make_hand(("9", "S"), ("9", "H")))
+    room._get_player("Carol").is_npc = True
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+
+    npc_rows = [r for r in room._dealer_lottery_decision_log if r["player"] == "Carol"]
+    assert len(npc_rows) == 1
+    assert npc_rows[0]["is_npc"] is True
+    assert npc_rows[0]["x_entered"] == 0
+
+
 # ---------------------------------------------------------------------------
 # submit_dealer_lottery_entry
 # ---------------------------------------------------------------------------
@@ -147,6 +182,18 @@ def test_submit_entry_records_and_clamps():
     assert room.round._pending_dealer_lottery["entries"]["Alice"] == 3
     submit_dealer_lottery_entry(room, "Bob", 99)
     assert room.round._pending_dealer_lottery["entries"]["Bob"] == 5
+
+
+def test_submit_entry_logs_human_decision():
+    room = _make_room()
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+    submit_dealer_lottery_entry(room, "Alice", 3)
+
+    human_rows = [r for r in room._dealer_lottery_decision_log if r["player"] == "Alice"]
+    assert len(human_rows) == 1
+    assert human_rows[0]["is_npc"] is False
+    assert human_rows[0]["x_entered"] == 3
     submit_dealer_lottery_entry(room, "Bob", -3)
     assert room.round._pending_dealer_lottery["entries"]["Bob"] == 0
 
@@ -197,6 +244,40 @@ def _nine_pair_room(**kwargs):
     return room
 
 
+def test_result_seq_keeps_incrementing_across_rounds(monkeypatch):
+    """Regression: _dealer_lottery_result_seq must survive a new round's
+    RoundState replacement (it lives on DrinkLedger, not RoundState) --
+    otherwise it resets to 0 every round, the frontend's already-advanced
+    local pointer never sees a "new" value again, and the reveal modal only
+    ever fires once per session no matter how many times the lottery
+    triggers afterward."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+    assert room.drinks._dealer_lottery_result_seq == 1
+
+    # Simulate a new round: RoundState is replaced wholesale, same as
+    # app/services/room_manager.py's newround handler does.
+    room.round = RoundState()
+    room.round._dealer_lottery_eligible = True
+    maybe_start_dealer_lottery(room)
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+    assert room.drinks._dealer_lottery_result_seq == 2  # not reset back to 1
+
+
 def test_resolve_all_zero_skips_draw(monkeypatch):
     room = _nine_pair_room()
     for name in room.round._pending_dealer_lottery["entries"]:
@@ -230,7 +311,7 @@ def test_resolve_both_bust_credits_and_opens_handout(monkeypatch):
     assert room.round._dealer_lottery_handout_expires_at is not None
 
 
-def test_resolve_neither_bust_drinks_full_penalty(monkeypatch):
+def test_resolve_neither_bust_drinks_stake(monkeypatch):
     room = _nine_pair_room()
     submit_dealer_lottery_entry(room, "Alice", 4)
     submit_dealer_lottery_entry(room, "Bob", 0)
@@ -242,11 +323,12 @@ def test_resolve_neither_bust_drinks_full_penalty(monkeypatch):
 
     result = room.drinks.last_dealer_lottery_result
     assert result["busted"] == 0
-    # (2 - 0) * 4 = 8, no halving (3 players, easy_mode off)
-    assert room.drinks.last_round_sips["Alice"] == 8
+    # Drink X (no halving, 3 players, easy_mode off) -- was 2X before Proposal A.
+    assert room.drinks.last_round_sips["Alice"] == 4
+    assert result["drink_amounts"] == {"Alice": 4}
 
 
-def test_resolve_one_bust_drinks_half_penalty(monkeypatch):
+def test_resolve_one_bust_does_nothing(monkeypatch):
     room = _nine_pair_room()
     submit_dealer_lottery_entry(room, "Alice", 4)
     submit_dealer_lottery_entry(room, "Bob", 0)
@@ -262,11 +344,107 @@ def test_resolve_one_bust_drinks_half_penalty(monkeypatch):
 
     result = room.drinks.last_dealer_lottery_result
     assert result["busted"] == 1
-    # (2 - 1) * 4 = 4
+    # Proposal A: exactly one hand busting is a wash -- no drink, no credit.
+    assert "Alice" not in room.drinks.last_round_sips
+    assert result["drink_amounts"] == {}
+    assert result["credit_amounts"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Re-splitting (a new second card that itself pairs up) and the generalized
+# all-bust/none-bust/mixed payout rule that scales to however many hands
+# a re-split produces
+# ---------------------------------------------------------------------------
+
+def test_resolve_resplits_when_new_card_pairs_again(monkeypatch):
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),  # hand_a's 2nd card forms a new pair -> re-splits
+        make_card("8", "C"),  # re-split hand #1: 9+8 = 17, stands
+        make_card("8", "D"),  # re-split hand #2: 9+8 = 17, stands
+        make_card("K", "C"),  # hand_b: 9+King = 19, stands
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 3   # the re-split hand_a plus hand_b
+    assert [h["score"] for h in result["hands"]] == [17, 17, 19]
+    assert result["busted"] == 0
+    # No hand busted -> drink X (no halving, 3 players) -- unaffected by
+    # there being 3 hands instead of 2, since the rule keys on busted==0.
     assert room.drinks.last_round_sips["Alice"] == 4
 
 
-def test_resolve_halves_drink_and_handout_at_four_players(monkeypatch):
+def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypatch):
+    room = _nine_pair_room()
+    room.drinks.last_round_sips["Alice"] = 10
+    submit_dealer_lottery_entry(room, "Alice", 5)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),                          # hand_a re-splits
+        make_card("5", "C"), make_card("K", "C"),      # re-split hand #1: 9+5=14, hit K -> 24 bust
+        make_card("5", "D"), make_card("Q", "C"),      # re-split hand #2: 9+5=14, hit Q -> 24 bust
+        make_card("5", "H"), make_card("J", "C"),      # hand_b: 9+5=14, hit J -> 24 bust
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 3
+    assert result["busted"] == 3   # every hand busted -> credit + handout
+    assert room.drinks.last_round_sips["Alice"] == 5   # 10 - 5 credit
+    assert result["pending_handouts"] == {"Alice": 5}
+
+
+def test_resolve_mixed_bust_after_resplit_does_nothing(monkeypatch):
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),                          # hand_a re-splits
+        make_card("8", "C"),                           # re-split hand #1: 9+8 = 17, stands
+        make_card("8", "D"),                           # re-split hand #2: 9+8 = 17, stands
+        make_card("5", "H"), make_card("K", "C"),      # hand_b: 9+5=14, hit K -> 24 bust
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 3
+    assert result["busted"] == 1   # some (not all) busted -> nothing happens
+    assert result["drink_amounts"] == {}
+    assert result["credit_amounts"] == {}
+    assert "Alice" not in room.drinks.last_round_sips
+
+
+def test_deal_and_resolve_hand_respects_max_splits_cap():
+    """A hand already at the shared split cap must not split again, even
+    when the newly dealt card would otherwise form another matching pair --
+    the safety property that keeps a hot run of 9s/tens bounded (mirrors
+    Hand.MAX_SPLITS, the same cap the main game's own hand-splitting uses)."""
+    from app.services.dealer_lottery import _deal_and_resolve_hand
+    from engine.blackjack import Hand
+
+    hand = Hand()
+    hand.cards.append(make_card("10", "S"))
+    hand.split_count = Hand.MAX_SPLITS   # already at the cap
+
+    class _OneCardDeck:
+        def __init__(self):
+            self.cards = list(reversed([make_card("J", "D")]))  # matches value 10
+
+    result = _deal_and_resolve_hand(hand, _OneCardDeck())
+    assert len(result) == 1             # did not split again despite matching
+    assert result[0].score() == 20
+
+
+def test_resolve_halves_handout_at_four_players(monkeypatch):
     room = _make_room(num_players=4, dealer_hand=make_hand(("9", "S"), ("9", "H")))
     room.round._dealer_lottery_eligible = True
     maybe_start_dealer_lottery(room)
@@ -287,7 +465,10 @@ def test_resolve_halves_drink_and_handout_at_four_players(monkeypatch):
     assert room.drinks.last_round_sips["Alice"] == 5    # 10 - 5 credit (not halved)
 
 
-def test_resolve_halves_drink_penalty_with_easy_mode(monkeypatch):
+def test_resolve_drink_is_never_halved_even_under_easy_mode(monkeypatch):
+    """The drink (no-hand-busts) branch is never halved -- only the handout
+    (all-hands-bust branch) is. Easy Mode / 4+ players still governs the
+    handout, but has no effect on the drink amount."""
     room = _make_room(dealer_hand=make_hand(("9", "S"), ("9", "H")), easy_mode=True)
     room.round._dealer_lottery_eligible = True
     maybe_start_dealer_lottery(room)
@@ -295,7 +476,7 @@ def test_resolve_halves_drink_penalty_with_easy_mode(monkeypatch):
     for name in ("Bob", "Carol"):
         submit_dealer_lottery_entry(room, name, 0)
 
-    # Neither hand busts: (2-0)*3 = 6 -> ceil(6/2) = 3
+    # Neither hand busts: drink stays the full X=3, unhalved despite easy_mode
     _patch_deck(monkeypatch, [make_card("K", "C"), make_card("K", "D")])
     resolve_dealer_lottery(room)
 
@@ -326,6 +507,30 @@ def test_give_sip_assigns_and_closes_window(monkeypatch):
     assert room.drinks.last_round_sips["Bob"] == 5
     assert "Alice" in room.round._dealer_lottery_handouts_given
     assert room.round._dealer_lottery_handout_expires_at is None  # all givers done
+
+
+def test_give_sip_removes_giver_from_served_pending_handouts(monkeypatch):
+    """Regression: serialize_state's pending_handouts/my_pending_handouts
+    must stop listing a giver the instant they give -- last_dealer_lottery_
+    result["pending_handouts"] is a static snapshot from resolve_dealer_
+    lottery() that give_dealer_lottery_sip() never mutates, so without this
+    exclusion the give-overlay panel (a full-screen modal) kept showing the
+    already-given giver's button for the rest of the 90-second result
+    window, appearing to freeze the table for everyone."""
+    room = _both_bust_room(monkeypatch)
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False,
+    }
+
+    before = serialize_state(room, "client-1")
+    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 5}
+    assert before["dealer_lottery"]["my_pending_handouts"] == {"Alice": 5}
+
+    assert give_dealer_lottery_sip(room, "Alice", "Bob") is True
+
+    after = serialize_state(room, "client-1")
+    assert after["dealer_lottery"]["pending_handouts"] == {}
+    assert after["dealer_lottery"]["my_pending_handouts"] == {}
 
 
 def test_give_sip_rejects_self_assignment(monkeypatch):
