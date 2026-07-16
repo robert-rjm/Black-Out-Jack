@@ -379,7 +379,7 @@ Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults
 | Some hands bust, some don't | Nothing happens |
 | No hand busts | Drink X sips |
 
-Drink and handout amounts are halved (rounded up) under 4+ players or Easy Mode, same as other end-of-round sips — the self-credit is never halved.
+Only the handout amount is halved (rounded up) under 4+ players or Easy Mode — the drink (no-bust) amount is always the full X, and the self-credit is never halved either.
 
 > **Example:** Dealer stands on K♠ Q♥ (20). Alice enters with X=4, Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice credits herself up to 4 sips off her own total this round and hands 4 sips (2 if halving is active) to another Player of her choice. Bob, having entered 0, is unaffected either way.
 
@@ -401,7 +401,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | All-hands sweep | 5-card handouts |
 | Insurance resolution | Bust vote penalty/credit (+1/−1) |
 | Four aces at end of round | |
-| Dealer Lottery drink/handout (never the self-credit) | |
+| Dealer Lottery handout only (never the drink or self-credit) | |
 | RoundEndEvent drinks (wins-all, immunity breakers) | |
 
 

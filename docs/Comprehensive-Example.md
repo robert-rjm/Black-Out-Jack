@@ -843,9 +843,9 @@ shown standalone rather than folded into a round above:
 >
 > The pair splits into two fresh hands from a new shuffled deck —
 > K♠+5♣ (18 → stands) and Q♥+9♦ (19 → stands). Neither busts, so per
-> **Rule 5.9** Alice drinks **X = 4 sips** (halved to 2 if 4+ players
-> or Easy Mode is active). Bob, having entered 0, is unaffected either
-> way.
+> **Rule 5.9** Alice drinks the full **X = 4 sips** — the drink amount
+> is never halved, regardless of player count or Easy Mode. Bob, having
+> entered 0, is unaffected either way.
 >
 > Had *every* new hand busted instead, Alice would credit herself up
 > to 4 sips off what she owes this round (floored at 0) and hand 4
