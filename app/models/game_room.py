@@ -27,6 +27,7 @@ State is divided into five layers:
                  RefereeSession.
 """
 from __future__ import annotations
+import threading
 from dataclasses import dataclass, field
 from engine.referee import RefereeSession
 
@@ -221,6 +222,12 @@ class GameRoom:
     _pending_seat_transfers: list = field(default_factory=list)
     _rejoin_requests: list = field(default_factory=list)
     _anim_default: bool = True
+
+    # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
+    # _pending_seat_transfers (seat claims, registration approval, seat-transfer
+    # approval) against concurrent requests for the same room -- see
+    # docs/planning/Code-Audit-2026-07.md #4. Not used for other GameRoom fields.
+    _registry_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     # Queued settings (applied at newround)
     _queued_settings: dict = field(default_factory=dict)
