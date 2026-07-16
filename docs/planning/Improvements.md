@@ -2,6 +2,9 @@
 
 > Concrete suggestions based on the June 2026 audit and post-audit review.
 > Ordered roughly by effort, not priority — pick what fits the current sprint.
+> Statuses re-verified against current code in the July 2026 audit — see
+> `Code-Audit-2026-07.md` for the full writeup, fresh bug findings, and a
+> combined implementation-order checklist.
 
 ---
 
@@ -198,7 +201,16 @@ Catches missing fields when a new game phase is added.
 
 ## 5 · Unified game engine — merge referee and digital paths
 
-**Status:** Large effort. Most valuable long-term, especially for Busfahrer.
+**Status:** Partially refactored, not merged (re-verified July 2026 — see
+`Code-Audit-2026-07.md` Part 2). `app/services/game_engine.py` now exists
+(626 lines) and holds the digital-mode logic (`deal_card`, `initial_deal`,
+`dealer_turn`, `auto_play_npc_turns`, `perform_split`, etc.) that used to
+live inline in `game_commands.py` — a real, positive step. But
+`engine/referee.py`'s `RefereeSession` is still a fully separate parallel
+implementation (`cmd_deal`/`cmd_action`/`cmd_result`/...) that does not call
+into `game_engine.py`, and `game_commands.py` dispatches to **both**
+depending on mode. The actual merge described below — one engine, two thin
+adapters — has not happened yet.
 
 **Problem today:**
 `RefereeSession` (CLI path, `engine/referee.py`) and the digital web path
@@ -449,7 +461,7 @@ where only the engine is being tested. The `importorskip` lines in
 | 2 | [ ] | SSE instead of polling | Medium (1 week) | Yes — needs off Render | No |
 | 3 | [X] | Backend-first API | Done | — | — |
 | 4 | [X] | Pydantic serialization | Done | — | — |
-| 5 | [ ] | Unified game engine | Large (2–3 weeks) | No | Ideal |
+| 5 | [~] | Unified game engine | Large (2–3 weeks) | No | Only if Busfahrer must also run in referee mode — see `Code-Audit-2026-07.md` Part 3 |
 | 6 | [X] | Decompose `GameRoom` | Medium per phase | No — do Phase A with #1 | Phase A yes |
 | 7 | [ ] | Frontend components | Large (ongoing) | No | No |
 | 8 | [X] | Test directory split | Small (30 min) | No | **Yes** |
