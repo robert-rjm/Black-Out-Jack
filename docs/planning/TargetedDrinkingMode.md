@@ -187,11 +187,14 @@ instead of touching `_sip_ticker`/`_drink_csv_rows` by hand:
   with unanswered targets, defaults their vote to `"stand"` — the same
   "default the unset value to something safe/neutral" precedent the
   Dealer Lottery entry-window forfeit already uses (defaults an unset
-  stake to 0) — and resolves. No AFK tracking in the MVP (§8.4).
-- `resolve_targeted_drinking_round(session)` — called once the round's
-  real dealer hand is known resolved (hook: same point `tick.py`'s
-  `_run_deferred_dealer_play` already determines `dealer.dealer_hand.is_bust()`
-  for Bust Vote). For each target:
+  stake to 0). **Does not itself resolve** — see the correctness note
+  below. No AFK tracking in the MVP (§8.4).
+- `resolve_targeted_drinking_round(session)` — called **only** from
+  `app/services/round_pipeline.py`'s `apply_endround_pipeline`, once the
+  round has genuinely ended (same single trigger point `apply_bust_vote_penalties`
+  already uses — one call per real `cmd_endround()`, never an independent
+  timer). Also must run *after* `harvest_drink_log()` in that pipeline, not
+  before — see §6 step 3's note on why. For each target:
   - Correct guess: `streak += 1`. If `streak >= TARGETED_DRINKING_STREAK_TO_GRADUATE`,
     remove them from `_targeted_drinking_targets` (they "graduate").
   - Wrong guess: `streak = 0`, `award_sips(session, name, 1, "Targeted Drinking wrong guess", reason=...)`.
@@ -202,6 +205,30 @@ instead of touching `_sip_ticker`/`_drink_csv_rows` by hand:
   sets `_targeted_drinking_cooldown_until_round = session.round_count +
   TARGETED_DRINKING_COOLDOWN_ROUNDS` (flat cooldown, no repeat-target
   special case in the MVP — §8.3).
+
+**Correctness note (found during §6 step 4's in-browser verification, not
+part of the original design):** the first implementation had
+`apply_targeted_drinking_vote_forfeit` call `resolve_targeted_drinking_round`
+directly once its own 15s window expired. That's wrong, because — unlike
+Bust Vote, whose countdown *blocks* dealer play until it closes, keeping
+vote-close and dealer-resolve in lockstep — this window deliberately never
+pauses anything (§3). A round routinely outlasts 15s, so the window can
+expire while `dealer.dealer_hand` is still either the *previous* round's
+stale result or an empty pre-deal `Hand()` that reads as "not bust" —
+neither is this round's real outcome. Worse, nothing re-armed the window
+after it fired once, so every following tick (every `/state` poll, ~every
+2s) re-ran the resolve against that same stale hand — graduating a target
+within seconds of the game sitting in the pre-deal waiting room. Fixed by
+making the forfeit function only lock in the "stand" default (cosmetic —
+`resolve_targeted_drinking_round`'s own `votes.get(name) or "stand"`
+fallback would apply the same default regardless) and leaving all
+resolution to the single `apply_endround_pipeline` call site. A second,
+related gap: `RoundState` is never replaced wholesale between rounds (only
+individual mechanics reset their own fields, e.g. `_cmd_deal_digital`'s
+own `_bust_votes = {}`), so `_cmd_deal_digital` now also resets
+`_targeted_drinking_votes`/`_targeted_drinking_expires_at` each deal —
+without it, a new round would inherit the previous round's already-expired
+window and stale votes.
 
 ### 5.3 Admin routes (`app/routes/admin.py`)
 
@@ -325,9 +352,41 @@ question). No majority-vote banner in the MVP — see §8.1.
   `my_vote`, `votes_cast`, `seconds_left`, `cooldown_until_round`). 10 new
   tests (vote route + serializer + full-stack integration) in
   `tests/app/test_targeted_drinking.py`; full suite now 451 tests passing.
-- [ ] **4. Frontend modal** (§5.7), verified in-browser the same way
-  every panel this session was: real dispatched click events, not direct
-  method calls, covering vote submission and graduation.
+- [x] **4. Frontend modal** (§5.7). `TargetedDrinkingPanel` (class-based,
+  `mount(el)`/`render(state)`) added to `table-modals.js`, wired into
+  `table.js`'s `buildDigitalUI()`/`_syncDigitalUI()`: a per-local-target
+  vote card (BUST/STAND) inside `#targeted-drinking-modal-overlay`, reusing
+  Dealer Lottery's CSS classes/shape per the brainstorm's own UI note, plus
+  a compact `#td-status-banner` for players who aren't currently targeted
+  (mirrors `MilestonePanel`'s non-winner waiting banner). Admin-side
+  "Target players…" checkbox multi-select + Start/Cancel added to
+  `admin-settings.js`'s players screen (`_renderTargetedDrinkingAdmin`,
+  next to the kick-list per §2's resolved placement question).
+
+  Verified in-browser (real dev server, real fetch calls through the
+  actual routes) — and this surfaced two real backend bugs the unit tests
+  hadn't caught, now fixed with regression tests added:
+  - The admin's target checkboxes rendered at 0×0 and were unclickable:
+    `main.css`'s global `input { appearance: none }` reset collapses an
+    unstyled checkbox with no fallback box. Fixed with an explicit
+    `#targeted-drinking-admin-section input[type="checkbox"]` rule
+    (`modals.css`) restoring native sizing/appearance.
+  - `apply_targeted_drinking_vote_forfeit` was itself calling
+    `resolve_targeted_drinking_round` once its independent 15s timer
+    expired — but this window (unlike Bust Vote's) never pauses the round,
+    so it can expire mid-round against a stale/empty `dealer.dealer_hand`,
+    and nothing re-armed it afterward, so it re-resolved on *every*
+    following tick — graduating a target within seconds while the table
+    was still sitting in the pre-deal waiting room. Fixed by having the
+    forfeit only lock in the "stand" default; only `apply_endround_pipeline`
+    (after harvest, once per real round-end) may resolve. Separately,
+    `_cmd_deal_digital` now also resets `_targeted_drinking_votes`/
+    `_targeted_drinking_expires_at` each deal (RoundState isn't replaced
+    wholesale between rounds), matching its own `_bust_votes` reset — see
+    §5.2's correctness note for the full writeup.
+
+  10 new/updated tests in `tests/app/test_targeted_drinking.py`; full
+  suite now 452 tests passing.
 - [ ] **5. Playtest the MVP with a real group** before touching anything
   in §8 — this is the actual point of shipping a smaller slice first.
 

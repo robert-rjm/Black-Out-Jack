@@ -84,14 +84,27 @@ def apply_targeted_drinking_vote_forfeit(session: GameRoom) -> None:
     """If this round's vote window has expired, default every unanswered
     target to "stand" -- the same "default the unset value to something
     safe/neutral" precedent apply_dealer_lottery_entry_forfeit already
-    uses (it defaults an unset stake to 0) -- then resolve the round.
-    Safe to call every tick."""
+    uses (it defaults an unset stake to 0). Safe to call every tick.
+
+    Deliberately does NOT resolve the round itself. Unlike Bust Vote's own
+    countdown (which blocks dealer play until it closes, so vote-close and
+    dealer-resolve happen in lockstep), this window rides alongside normal
+    play without pausing it (see module docstring / §3) -- a round can
+    easily outlast the 15s window. Resolving here would score the vote
+    against whatever `dealer.dealer_hand` currently holds, which during a
+    still-in-progress round is either the previous round's stale result or
+    an empty pre-deal Hand() that reads as "not bust" -- neither is the
+    real outcome. Only resolve_targeted_drinking_round(), called once from
+    apply_endround_pipeline() after the round has genuinely ended, may
+    score a vote. This function only locks in the "stand" default early so
+    the UI can show it; resolve_targeted_drinking_round()'s own
+    `votes.get(name) or "stand"` fallback would apply the same default
+    regardless, even if this never ran."""
     expires_at = session.round._targeted_drinking_expires_at
     if expires_at is None or time.monotonic() < expires_at:
         return
     for name in session._targeted_drinking_targets:
         session.round._targeted_drinking_votes.setdefault(name, "stand")
-    resolve_targeted_drinking_round(session)
 
 
 def resolve_targeted_drinking_round(session: GameRoom) -> None:

@@ -212,6 +212,27 @@
 .dl-enter-btn     { flex-shrink: 0; }
 .dl-answered      { font-size: 11px; color: var(--muted); min-height: 16px; margin-top: 4px; }
 
+/* ---- TARGETED DRINKING MODE (TargetedDrinkingPanel in table-modals.js;
+   entry cards reuse .dl-entry-card/.dl-entry-top/.dl-name-lbl/.dl-status
+   above -- only the vote-button row and streak badge are new) ---- */
+.td-streak        { font-size: 12px; font-weight: 600; color: var(--muted); }
+.td-vote-row      { display: flex; gap: 8px; }
+.td-vote-btn      { flex: 1; }
+
+/* Admin's target-select checkboxes (_renderTargetedDrinkingAdmin in
+   admin-settings.js) -- main.css resets all inputs to appearance:none with
+   no fallback box, which collapses an unstyled checkbox to 0x0. Restore
+   native checkbox rendering explicitly since this list has no custom
+   slider visual like the .pill-toggle switches elsewhere. */
+#targeted-drinking-admin-section input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  width: 18px; height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* ---- BUST GIVE PANEL (BustGivePanel in admin.js) ---- */
 .bgp-winner-label { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 10px; text-align: center; }
 .bgp-btns-col     { display: flex; flex-direction: column; }
