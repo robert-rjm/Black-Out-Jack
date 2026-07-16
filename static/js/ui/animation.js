@@ -59,7 +59,7 @@ function _renderStateSilent(state) {
   applyTurnGate(state);
   if (gameMode === "digital") {
     autoSwitchDigTab(state);
-    updateInsuranceVisibility(state);
+    insurancePanel.updateVisibility(state);
     updateHandLocks(state);
     updateActionButtons(state);
     drinksPanel.render(state);
