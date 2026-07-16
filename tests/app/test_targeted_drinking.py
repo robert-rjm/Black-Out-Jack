@@ -1,6 +1,8 @@
 """
 Tests for Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md,
-MVP scope): app/services/targeted_drinking.py.
+MVP scope): app/services/targeted_drinking.py and the
+/targeted_drinking/start + /targeted_drinking/cancel admin routes
+(app/routes/admin.py).
 """
 
 import time
@@ -9,7 +11,9 @@ import pytest
 
 from engine.referee import RefereeSession
 from tests.conftest import make_player, make_hand
+from app import create_app
 from app.models.game_room import GameRoom, GameConfig
+from app.services.session_store import game_sessions, set_session
 from app.services.targeted_drinking import (
     start_targeted_drinking,
     maybe_open_targeted_drinking_vote,
@@ -297,3 +301,133 @@ def test_end_is_idempotent():
     room.session.round_count = 999   # would produce a different cooldown if re-applied
     end_targeted_drinking(room, reason="admin_cancelled")
     assert room._targeted_drinking_cooldown_until_round == cooldown_after_first_end
+
+
+# ---------------------------------------------------------------------------
+# Flask app + route fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def app():
+    return create_app()
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture
+def room_setup():
+    """Register a 3-player room with a client registered as Bob, admin role."""
+    room_code = "TDRoom1"
+    room = _make_room(num_players=3)
+    room.start_round()
+    room._room_clients["client-1"] = {
+        "name": "Bob", "local_names": ["Bob"], "role": "admin", "kicked": False,
+    }
+    room._room_clients["client-2"] = {
+        "name": "Carol", "local_names": ["Carol"], "role": "player", "kicked": False,
+    }
+    set_session(room_code, room)
+    yield room_code, room
+    game_sessions.pop(room_code, None)
+
+
+# ---------------------------------------------------------------------------
+# /targeted_drinking/start
+# ---------------------------------------------------------------------------
+
+def test_start_route_requires_admin(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/start", json={
+        "room_code": room_code, "client_id": "client-2",  # Carol is not admin
+        "target_names": ["Carol"],
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert "admin" in data["error"].lower()
+    assert room._targeted_drinking_active is False
+
+
+def test_start_route_rejects_empty_target_list(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/start", json={
+        "room_code": room_code, "client_id": "client-1", "target_names": [],
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_active is False
+
+
+def test_start_route_rejects_unknown_target(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/start", json={
+        "room_code": room_code, "client_id": "client-1", "target_names": ["Nobody"],
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_active is False
+
+
+def test_start_route_succeeds(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/start", json={
+        "room_code": room_code, "client_id": "client-1", "target_names": ["carol"],
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room._targeted_drinking_active is True
+    # sanitize_name capitalises to match the stored player casing
+    assert room._targeted_drinking_targets == ["Carol"]
+
+
+def test_start_route_rejects_while_already_active(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+
+    resp = client.post("/targeted_drinking/start", json={
+        "room_code": room_code, "client_id": "client-1", "target_names": ["Bob"],
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_targets == ["Carol"]   # untouched
+
+
+# ---------------------------------------------------------------------------
+# /targeted_drinking/cancel
+# ---------------------------------------------------------------------------
+
+def test_cancel_route_requires_admin(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+
+    resp = client.post("/targeted_drinking/cancel", json={
+        "room_code": room_code, "client_id": "client-2",  # Carol is not admin
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_active is True
+
+
+def test_cancel_route_ends_active_subgame(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+
+    resp = client.post("/targeted_drinking/cancel", json={
+        "room_code": room_code, "client_id": "client-1",
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room._targeted_drinking_active is False
+    assert room._targeted_drinking_targets == []
+
+
+def test_cancel_route_is_noop_when_inactive(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/cancel", json={
+        "room_code": room_code, "client_id": "client-1",
+    })
+    data = resp.get_json()
+    assert data["ok"] is True   # idempotent, still succeeds
+    assert room._targeted_drinking_active is False

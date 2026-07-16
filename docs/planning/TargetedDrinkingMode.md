@@ -295,8 +295,16 @@ question). No majority-vote banner in the MVP — see §8.1.
   `app/config.py` + new fields on `GameRoom`/`RoundState` in
   `app/models/game_room.py`; 25 tests in
   `tests/app/test_targeted_drinking.py`, full suite (433 tests) passing.
-- [ ] **2. Admin start/cancel routes** (§5.3) — playable end-to-end via
-  direct admin action.
+- [x] **2. Admin start/cancel routes** (§5.3) — playable end-to-end via
+  direct admin action. `POST /targeted_drinking/start` (body:
+  `target_names: [str]`) and `POST /targeted_drinking/cancel` added to
+  `app/routes/admin.py`, following the existing `_require_admin` /
+  `sanitize_name` / `jsonify({**serialize_state(...), "ok": True})`
+  pattern used by every other admin route (`rotate_dealer`,
+  `take_back_seat`, etc.). 8 new Flask-test-client route tests added to
+  `tests/app/test_targeted_drinking.py` (admin-only gating, empty/unknown
+  target rejection, already-active rejection, cancel idempotency); full
+  suite now 441 tests passing.
 - [ ] **3. Player vote route + `tick.py` hook + serializer block**
   (§5.4, §5.6, §5.5).
 - [ ] **4. Frontend modal** (§5.7), verified in-browser the same way
