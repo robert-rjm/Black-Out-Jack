@@ -47,7 +47,7 @@ async function animateDeal(newState) {
   } finally {
     _dealAnimating = false;
     // Now that cards are visible, open bust-vote modal if window is still open
-    if (lastState && gameMode === "digital") updateBustVoteUI(lastState);
+    if (lastState && gameMode === "digital") bustVotePanel.render(lastState);
   }
 }
 
@@ -64,7 +64,7 @@ function _renderStateSilent(state) {
     updateActionButtons(state);
     drinksPanel.render(state);
     updateBestPlay(state);
-    updateBustVoteUI(state);
+    bustVotePanel.render(state);
     updateRoleUI(state);
   }
 }

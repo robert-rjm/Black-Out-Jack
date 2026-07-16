@@ -192,9 +192,6 @@ function updateRoleUI(state) {
 // BUST VOTE SIDE BET
 // ============================================================
 
-let _bustVoteModalOpen   = false;
-let _bustVoteTimerHandle = null;
-
 async function submitBustVote(choice, playerName) {
   // For single-player: pass no playerName (server uses primary name).
   // For local multiplayer: pass the specific player's name.
@@ -357,225 +354,257 @@ async function requestLocalSeat(name) {
 }
 
 
-function _openBustVoteModal(secondsLeft) {
-  if (_bustVoteModalOpen) return;
-  const overlay = openModal("bust-vote-modal-overlay");
-  if (!overlay) return;
-  _bustVoteModalOpen = true;
+// ── Bust-vote panel component (Improvements.md item 7, Option A:
+// class-based, no framework) ─────────────────────────────────────────────
+// Encapsulates the bust-vote confirmation modal (countdown timer,
+// per-player vote cards, tally) and the post-round status indicator.
+// mount() attaches one delegated click listener for vote-card buttons --
+// previously re-attached via addEventListener every time
+// #bust-vote-players-wrap's innerHTML was rebuilt, which is the "listeners
+// re-added on every render" anti-pattern Improvements.md item 7 flags, even
+// though it wasn't an onclick= string. render(state) is the per-poll entry
+// point, replacing the old updateBustVoteUI() function.
+class BustVotePanel {
+  constructor() {
+    this.modalOpen   = false;
+    this.timerHandle = null;
+  }
 
-  const bar      = document.getElementById("bust-vote-timer-bar");
-  const label    = document.getElementById("bust-vote-timer-label");
-  const duration = secondsLeft || 15;   // guard against 0
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bv-vote-btn");
+      if (!btn) return;
+      submitBustVote(btn.dataset.vote, btn.dataset.name || undefined);
+    });
+  }
 
-  let secs = duration;
-  function tick() {
-    if (!_bustVoteModalOpen) return;
+  open(secondsLeft) {
+    if (this.modalOpen) return;
+    const overlay = openModal("bust-vote-modal-overlay");
+    if (!overlay) return;
+    this.modalOpen = true;
 
-    // Re-sync with the server's clock each tick. The server pauses/extends
-    // the bust-vote window while an insurance vote is pending, so trust
-    // bust_vote_seconds_left over our local countdown when it's available
-    // and the window is still open server-side.
-    let resynced = false;
-    if (lastState) {
-      if (lastState.bust_vote_window_open && typeof lastState.bust_vote_seconds_left === "number") {
-        secs = lastState.bust_vote_seconds_left;
-        resynced = true;
-      } else if (!lastState.bust_vote_window_open) {
-        // Server says the window already closed (e.g. all votes decided) —
-        // close the modal without re-submitting votes.
-        _closeBustVoteModal();
+    const bar      = document.getElementById("bust-vote-timer-bar");
+    const label    = document.getElementById("bust-vote-timer-label");
+    const duration = secondsLeft || 15;   // guard against 0
+
+    let secs = duration;
+    const tick = () => {
+      if (!this.modalOpen) return;
+
+      // Re-sync with the server's clock each tick. The server pauses/extends
+      // the bust-vote window while an insurance vote is pending, so trust
+      // bust_vote_seconds_left over our local countdown when it's available
+      // and the window is still open server-side.
+      let resynced = false;
+      if (lastState) {
+        if (lastState.bust_vote_window_open && typeof lastState.bust_vote_seconds_left === "number") {
+          secs = lastState.bust_vote_seconds_left;
+          resynced = true;
+        } else if (!lastState.bust_vote_window_open) {
+          // Server says the window already closed (e.g. all votes decided) —
+          // close the modal without re-submitting votes.
+          this.close();
+          return;
+        }
+      }
+
+      const display = Math.min(secs, 15);
+      if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
+      if (label) label.textContent = `${display}s`;
+      if (secs <= 0) {
+        // Auto-pass for all un-voted local players
+        const bustVotes = (lastState && lastState.my_bust_votes) || {};
+        const unvoted   = myNames.filter(n => !bustVotes[n]);
+        if (unvoted.length) {
+          // Submit pass for each unvoted player sequentially; close after last
+          (async () => {
+            for (const name of unvoted) await submitBustVote("pass", name);
+            this.close();
+          })();
+        } else {
+          this.close();
+        }
         return;
       }
-    }
+      // Only decrement locally when this tick wasn't just resynced from the
+      // server — otherwise the next resync overwrites this and we end up
+      // double-decrementing (timer skips a number every poll).
+      if (!resynced) secs--;
+      this.timerHandle = setTimeout(tick, 1000);
+    };
+    tick();
+  }
 
-    const display = Math.min(secs, 15);
-    if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
-    if (label) label.textContent = `${display}s`;
-    if (secs <= 0) {
-      // Auto-pass for all un-voted local players
-      const bustVotes = (lastState && lastState.my_bust_votes) || {};
-      const unvoted   = myNames.filter(n => !bustVotes[n]);
-      if (unvoted.length) {
-        // Submit pass for each unvoted player sequentially; close after last
-        (async () => {
-          for (const name of unvoted) await submitBustVote("pass", name);
-          _closeBustVoteModal();
-        })();
-      } else {
-        _closeBustVoteModal();
+  // Render per-player vote cards inside the modal.
+  // Called whenever state updates while the modal is open.
+  renderVoteCards(state) {
+    const wrap = document.getElementById("bust-vote-players-wrap");
+    if (!wrap) return;
+
+    const bustVotes = state.my_bust_votes || {};
+    // Only show human local players active in the game (skip NPCs)
+    const npcSet   = new Set([...(npcPlayers || [])]);
+    const locals   = myNames.filter(n => !npcSet.has(n));
+    const multiLocal = locals.length > 1;
+
+    wrap.innerHTML = "";
+    locals.forEach(name => {
+      const voted = bustVotes[name];
+      const card  = document.createElement("div");
+      card.classList.add("bv-vote-card");
+
+      if (multiLocal) {
+        const nameLbl = document.createElement("span");
+        nameLbl.classList.add("bv-name-lbl");
+        nameLbl.textContent = name;
+        card.appendChild(nameLbl);
       }
-      return;
-    }
-    // Only decrement locally when this tick wasn't just resynced from the
-    // server — otherwise the next resync overwrites this and we end up
-    // double-decrementing (timer skips a number every poll).
-    if (!resynced) secs--;
-    _bustVoteTimerHandle = setTimeout(tick, 1000);
-  }
-  tick();
-}
 
-// Render per-player vote cards inside the modal.
-// Called whenever state updates while the modal is open.
-function _renderBustVoteCards(state) {
-  const wrap = document.getElementById("bust-vote-players-wrap");
-  if (!wrap) return;
+      if (voted) {
+        // Already voted — show status
+        const statusEl = document.createElement("span");
+        statusEl.classList.add("bv-status", voted === "bust" ? "bv-status--bust" : "bv-status--pass");
+        statusEl.textContent = voted === "bust" ? "💥 Bet Bust" : "Passed";
+        card.appendChild(statusEl);
+      } else {
+        // Buttons -- no addEventListener here, mount()'s delegated
+        // listener reads these data attributes instead.
+        const btns = document.createElement("div");
+        btns.classList.add("bv-btn-row");
 
-  const bustVotes = state.my_bust_votes || {};
-  // Only show human local players active in the game (skip NPCs)
-  const npcSet   = new Set([...(npcPlayers || [])]);
-  const locals   = myNames.filter(n => !npcSet.has(n));
-  const multiLocal = locals.length > 1;
+        const bustBtn = document.createElement("button");
+        bustBtn.className = "btn green bv-vote-btn";
+        bustBtn.textContent = "💥 Bet Bust";
+        bustBtn.dataset.vote = "bust";
+        if (multiLocal) bustBtn.dataset.name = name;
 
-  wrap.innerHTML = "";
-  locals.forEach(name => {
-    const voted = bustVotes[name];
-    const card  = document.createElement("div");
-    card.classList.add("bv-vote-card");
+        const passBtn = document.createElement("button");
+        passBtn.className = "btn muted-btn bv-vote-btn";
+        passBtn.textContent = "Pass";
+        passBtn.dataset.vote = "pass";
+        if (multiLocal) passBtn.dataset.name = name;
 
-    if (multiLocal) {
-      const nameLbl = document.createElement("span");
-      nameLbl.classList.add("bv-name-lbl");
-      nameLbl.textContent = name;
-      card.appendChild(nameLbl);
-    }
+        btns.appendChild(bustBtn);
+        btns.appendChild(passBtn);
+        card.appendChild(btns);
+      }
 
-    if (voted) {
-      // Already voted — show status
-      const statusEl = document.createElement("span");
-      statusEl.classList.add("bv-status", voted === "bust" ? "bv-status--bust" : "bv-status--pass");
-      statusEl.textContent = voted === "bust" ? "💥 Bet Bust" : "Passed";
-      card.appendChild(statusEl);
-    } else {
-      // Buttons
-      const btns = document.createElement("div");
-      btns.classList.add("bv-btn-row");
-
-      const bustBtn = document.createElement("button");
-      bustBtn.className = "btn green bv-vote-btn";
-      bustBtn.textContent = "💥 Bet Bust";
-      bustBtn.addEventListener("click", () => submitBustVote("bust", multiLocal ? name : undefined));
-
-      const passBtn = document.createElement("button");
-      passBtn.className = "btn muted-btn bv-vote-btn";
-      passBtn.textContent = "Pass";
-      passBtn.addEventListener("click", () => submitBustVote("pass", multiLocal ? name : undefined));
-
-      btns.appendChild(bustBtn);
-      btns.appendChild(passBtn);
-      card.appendChild(btns);
-    }
-
-    wrap.appendChild(card);
-  });
-}
-
-function _closeBustVoteModal() {
-  if (!_bustVoteModalOpen) return;
-  _bustVoteModalOpen = false;
-  if (_bustVoteTimerHandle) { clearTimeout(_bustVoteTimerHandle); _bustVoteTimerHandle = null; }
-  closeModal("bust-vote-modal-overlay");
-}
-
-function updateBustVoteUI(state) {
-  // Sync modal pill toggle in settings (checkbox + ON/OFF labels)
-  const bustCb = document.getElementById("bust-vote-toggle-modal");
-  if (bustCb) {
-    const on = !!state.bust_vote_enabled;
-    bustCb.checked = on;
-    const lblOff = document.getElementById("bust-vote-lbl-modal");
-    const lblOn  = document.getElementById("bust-vote-lbl-modal-on");
-    if (lblOff) lblOff.style.display = on ? "none"   : "inline";
-    if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
+      wrap.appendChild(card);
+    });
   }
 
-  const statusEl      = document.getElementById("bust-vote-status");
-  const statusElRound = document.getElementById("bust-vote-status-round");
+  close() {
+    if (!this.modalOpen) return;
+    this.modalOpen = false;
+    if (this.timerHandle) { clearTimeout(this.timerHandle); this.timerHandle = null; }
+    closeModal("bust-vote-modal-overlay");
+  }
 
-  // Modal: open when window is open and any local player hasn't voted yet.
-  // Delay until deal animation finishes so the modal doesn't cover the cards.
-  const bustVotes  = state.my_bust_votes || {};
-  const anyUnvoted = Object.values(bustVotes).some(v => v === null || v === undefined);
-  if (state.bust_vote_window_open && anyUnvoted
+  render(state) {
+    // Sync modal pill toggle in settings (checkbox + ON/OFF labels)
+    const bustCb = document.getElementById("bust-vote-toggle-modal");
+    if (bustCb) {
+      const on = !!state.bust_vote_enabled;
+      bustCb.checked = on;
+      const lblOff = document.getElementById("bust-vote-lbl-modal");
+      const lblOn  = document.getElementById("bust-vote-lbl-modal-on");
+      if (lblOff) lblOff.style.display = on ? "none"   : "inline";
+      if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
+    }
+
+    const statusEl      = document.getElementById("bust-vote-status");
+    const statusElRound = document.getElementById("bust-vote-status-round");
+
+    // Modal: open when window is open and any local player hasn't voted yet.
+    // Delay until deal animation finishes so the modal doesn't cover the cards.
+    const bustVotes  = state.my_bust_votes || {};
+    const anyUnvoted = Object.values(bustVotes).some(v => v === null || v === undefined);
+    if (state.bust_vote_window_open && anyUnvoted
+        && myRole !== null && myRole !== ROLE.SPECTATOR
+        && !_dealAnimating) {
+      this.open(state.bust_vote_seconds_left || 15);
+    } else if (!state.bust_vote_window_open) {
+      this.close();
+    }
+
+    // Re-render player cards while modal is open (handles partial local votes)
+    if (this.modalOpen) {
+      this.renderVoteCards(state);
+      // Update tally
+      const votes   = state.bust_votes || {};
+      const decided = Object.keys(votes).length;
+      const bustCnt = Object.values(votes).filter(v => v === "bust").length;
+      const tally   = document.getElementById("bust-vote-modal-tally");
+      if (tally) tally.textContent = decided
+        ? `${bustCnt} betting bust · ${decided - bustCnt} passed`
+        : "";
+      // Auto-close if all local players have now voted
+      if (!anyUnvoted) this.close();
+    }
+
+    // Give-panel: show at round-over if this client has pending handouts
+    bustGivePanel.render(state);
+
+    // Status indicator: show after window closes.
+    // For local multiplayer, represent as a summary across all local names.
+    if (!statusEl) return;
+    const phase  = state.phase;
+    const myVote = state.my_bust_vote;   // primary player's vote (backward compat)
+    const show   = state.bust_vote_enabled
       && myRole !== null && myRole !== ROLE.SPECTATOR
-      && !_dealAnimating) {
-    _openBustVoteModal(state.bust_vote_seconds_left || 15);
-  } else if (!state.bust_vote_window_open) {
-    _closeBustVoteModal();
-  }
+      && phase !== PHASE.PRE_DEAL
+      && !state.bust_vote_window_open;
 
-  // Re-render player cards while modal is open (handles partial local votes)
-  if (_bustVoteModalOpen) {
-    _renderBustVoteCards(state);
-    // Update tally
-    const votes   = state.bust_votes || {};
-    const decided = Object.keys(votes).length;
-    const bustCnt = Object.values(votes).filter(v => v === "bust").length;
-    const tally   = document.getElementById("bust-vote-modal-tally");
-    if (tally) tally.textContent = decided
-      ? `${bustCnt} betting bust · ${decided - bustCnt} passed`
-      : "";
-    // Auto-close if all local players have now voted
-    if (!anyUnvoted) _closeBustVoteModal();
-  }
+    statusEl.style.display = show ? "block" : "none";
+    if (statusElRound) statusElRound.style.display = show ? "block" : "none";
+    if (!show) return;
 
-  // Give-panel: show at round-over if this client has pending handouts
-  bustGivePanel.render(state);
+    const allVotes = state.bust_votes || {};
+    const bustCnt  = Object.values(allVotes).filter(v => v === "bust").length;
+    const myBusters = myNames.filter(n => bustVotes[n] === "bust");
 
-  // Status indicator: show after window closes.
-  // For local multiplayer, represent as a summary across all local names.
-  if (!statusEl) return;
-  const phase  = state.phase;
-  const myVote = state.my_bust_vote;   // primary player's vote (backward compat)
-  const show   = state.bust_vote_enabled
-    && myRole !== null && myRole !== ROLE.SPECTATOR
-    && phase !== PHASE.PRE_DEAL
-    && !state.bust_vote_window_open;
-
-  statusEl.style.display = show ? "block" : "none";
-  if (statusElRound) statusElRound.style.display = show ? "block" : "none";
-  if (!show) return;
-
-  const allVotes = state.bust_votes || {};
-  const bustCnt  = Object.values(allVotes).filter(v => v === "bust").length;
-  const myBusters = myNames.filter(n => bustVotes[n] === "bust");
-
-  if (phase === PHASE.ROUND_OVER) {
-    const result = state.bust_vote_result;
-    if (!myBusters.length) {
-      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
-    } else if (result) {
-      const winners    = result.winners || [];
-      const myWinners  = myBusters.filter(n => winners.includes(n));
-      const myLosers   = myBusters.filter(n => !winners.includes(n));
-      const wLabel     = result.winner_label || "called it";
-      const lLabel     = result.loser_label  || "wrong";
-      const parts = [];
-      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} ${escapeHtml(wLabel)}</span>`);
-      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} ${escapeHtml(lLabel)}</span>`);
-      statusEl.innerHTML = parts.join("<br>");
+    if (phase === PHASE.ROUND_OVER) {
+      const result = state.bust_vote_result;
+      if (!myBusters.length) {
+        statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
+      } else if (result) {
+        const winners    = result.winners || [];
+        const myWinners  = myBusters.filter(n => winners.includes(n));
+        const myLosers   = myBusters.filter(n => !winners.includes(n));
+        const wLabel     = result.winner_label || "called it";
+        const lLabel     = result.loser_label  || "wrong";
+        const parts = [];
+        if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} ${escapeHtml(wLabel)}</span>`);
+        if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} ${escapeHtml(lLabel)}</span>`);
+        statusEl.innerHTML = parts.join("<br>");
+      } else {
+        // Result not yet available — re-render from current state to avoid stale text
+        statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
+      }
     } else {
-      // Result not yet available — re-render from current state to avoid stale text
-      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
+      const allBusters = Object.entries(allVotes)
+        .filter(([, v]) => v === "bust")
+        .map(([n]) => n);
+      if (allBusters.length) {
+        const label = allBusters.length === 1
+          ? `💥 ${escapeHtml(allBusters[0])} bet dealer busts`
+          : `💥 ${allBusters.map(escapeHtml).join(" & ")} bet dealer busts`;
+        statusEl.innerHTML = `<span class="bust-label">${label}</span>`;
+      } else if (myVote === "pass") {
+        statusEl.textContent = "You passed the bust bet.";
+      } else {
+        statusEl.textContent = "";
+      }
     }
-  } else {
-    const allBusters = Object.entries(allVotes)
-      .filter(([, v]) => v === "bust")
-      .map(([n]) => n);
-    if (allBusters.length) {
-      const label = allBusters.length === 1
-        ? `💥 ${escapeHtml(allBusters[0])} bet dealer busts`
-        : `💥 ${allBusters.map(escapeHtml).join(" & ")} bet dealer busts`;
-      statusEl.innerHTML = `<span class="bust-label">${label}</span>`;
-    } else if (myVote === "pass") {
-      statusEl.textContent = "You passed the bust bet.";
-    } else {
-      statusEl.textContent = "";
-    }
+    // Mirror to the drinks-pane copy
+    if (statusElRound) statusElRound.innerHTML = statusEl.innerHTML;
   }
-  // Mirror to the drinks-pane copy
-  if (statusElRound) statusElRound.innerHTML = statusEl.innerHTML;
 }
+
+const bustVotePanel = new BustVotePanel();
 
 async function giveBustSip(winnerName, recipientName) {
   _requestsInFlight++;
