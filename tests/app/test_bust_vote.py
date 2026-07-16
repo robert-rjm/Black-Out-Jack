@@ -17,6 +17,7 @@ from app.services.drink_tracker import (
     apply_bust_vote_penalties,
     apply_bust_handout_forfeit,
 )
+from app.services.payout_tracker import init_bankrolls, apply_payouts
 from app.services.utils import classify_rule
 
 
@@ -89,7 +90,7 @@ def test_dealer_busts_credits_winners():
         "dealer_busted": True,
         "winners": ["Bob", "Carol"],
         "losers": [],
-        "side_bet_amount": None,   # None in drinking mode
+        "side_bets":      {},   # {} in drinking mode
         "outcome_lines":  ["✅ Bob, Carol called it (-1 sip + give 1)"],
         "winner_label":   "called it — -1 sip + give 1!",
         "loser_label":    "wrong — +1 sip each",
@@ -113,7 +114,7 @@ def test_dealer_does_not_bust_penalizes_voters():
         "dealer_busted": False,
         "winners": [],
         "losers": ["Bob", "Carol"],
-        "side_bet_amount": None,   # None in drinking mode
+        "side_bets":      {},   # {} in drinking mode
         "outcome_lines":  ["❌ Bob, Carol bet bust — wrong (+1 sip each)"],
         "winner_label":   "called it — -1 sip + give 1!",
         "loser_label":    "wrong — +1 sip each",
@@ -135,6 +136,40 @@ def test_mixed_votes_dealer_busts():
     assert dave.drink_log == []
     assert room.round._bust_vote_result["winners"] == ["Bob"]
     assert room.round._bust_vote_result["losers"] == []
+
+
+def test_side_bet_settlement_uses_each_players_own_stake():
+    """Regression for Code-Audit-2026-07.md #1: apply_bust_vote_penalties
+    used to compute one shared side-bet stake from the table-wide
+    session.bet_amount, while /cast_bust_vote (polling.py:642) deducts each
+    player's own custom bet (_player_bets) if they set one -- silently
+    mismatching anyone with a custom bet. Bob has a custom $20 bet
+    (stake=$10); the table default is $10 (stake=$5)."""
+    busted_hand = make_hand(("K", "S"), ("Q", "H"), ("5", "D"))  # 25 -> bust
+    alice = make_player("Alice", is_dealer=True, dealer_hand=busted_hand)
+    bob   = make_player("Bob")
+
+    raw_session = RefereeSession([alice, bob], "Alice", wager=1, num_hands=1)
+    room = GameRoom(
+        session=raw_session,
+        config=GameConfig(mode="digital", drinking_mode=False,
+                           bust_vote_enabled=True, bet_amount=10),
+    )
+    room._player_bets = {"Bob": 20}   # Bob's own bet; table default stays $10
+
+    init_bankrolls(room)
+    # Mirror /cast_bust_vote's deduction (polling.py:642): stake = own bet / 2.
+    room._bankrolls["Bob"] -= 10   # Bob's own $20 bet / 2 -- not the $10 table default / 2
+
+    room.round._bust_votes = {"Bob": "bust"}
+    apply_bust_vote_penalties(room)
+    assert room.round._bust_vote_result["side_bets"] == {"Bob": 10.0}
+
+    apply_payouts(room)
+    # Dealer busted -> Bob called it correctly: stake back + 2:1 profit = 3x his
+    # real $10 stake = $30. Before the fix this settled off the table default's
+    # $5 stake instead ($15 total), leaving Bob's bankroll $15 short of correct.
+    assert room._bankrolls["Bob"] == 100 - 10 + 30
 
 
 def test_classify_rule_round_trip():
@@ -383,14 +418,14 @@ def test_cast_vote_all_humans_voted_triggers_deferred_play(client, room_setup, m
 
 def _set_winner(room, winner="Bob", dealer_busted=True, winners=None):
     # Full shape matching apply_bust_vote_penalties' real output (drinking
-    # mode -- side_bet_amount stays None) -- these tests go through the real
+    # mode -- side_bets stays {}) -- these tests go through the real
     # /give_bust_sip route into serialize_state(), which now validates the
     # response against AppState's BustVoteResultOut schema.
     room.round._bust_vote_result = {
         "dealer_busted":   dealer_busted,
         "winners":         winners if winners is not None else [winner],
         "losers":          [],
-        "side_bet_amount": None,
+        "side_bets":       {},
         "outcome_lines":   [],
         "winner_label":    "called it — -1 sip + give 1!",
         "loser_label":     "wrong — +1 sip each",

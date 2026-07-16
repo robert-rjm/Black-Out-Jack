@@ -119,11 +119,16 @@ def apply_payouts(session: GameRoom) -> None:
             payouts[p.name] = net_display
 
     # Settle bust-vote side bets (normal mode only — drinking mode uses sips instead).
-    # Stake = bet_amount / 2.  Casino-standard 2:1 payout on a correct bust call.
+    # Each player's own stake (their custom per-hand bet if set, else the table
+    # default / 2) was already computed in apply_bust_vote_penalties and must be
+    # read per-player here too -- using one shared amount for everyone previously
+    # mismatched anyone with a custom bet (Code-Audit-2026-07.md #1).
+    # Casino-standard 2:1 payout on a correct bust call.
     bust_result = session.round._bust_vote_result
-    if bust_result and bust_result.get("side_bet_amount"):
-        side_bet = bust_result["side_bet_amount"]
+    if bust_result and bust_result.get("side_bets"):
+        side_bets = bust_result["side_bets"]
         for name in bust_result.get("winners", []):
+            side_bet = side_bets.get(name, session.bet_amount / 2)
             # Stake was already deducted at vote time — return stake + 2:1 profit = 3× total
             ret_amt = side_bet * 3
             session._bankrolls[name] = session._bankrolls.get(name, session.starting_bankroll) + ret_amt
@@ -132,6 +137,7 @@ def apply_payouts(session: GameRoom) -> None:
             session.round._log_entries.append(f"  {name} bust side bet: won +${net_profit:.2f} (2:1)\n")
             session._log_version += 1
         for name in bust_result.get("losers", []):
+            side_bet = side_bets.get(name, session.bet_amount / 2)
             # Stake already gone — subtract from display so badge reflects the loss
             payouts[name] = payouts.get(name, 0.0) - side_bet
             session.round._log_entries.append(f"  {name} bust side bet: lost -${side_bet:.2f}\n")

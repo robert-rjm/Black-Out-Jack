@@ -102,7 +102,7 @@ function _isTriviaActive() {
 // ---- Full initial render ----
 function _buildTriviaHTML() {
   var catBtns = _availableCats().map(function(c) {
-    return '<button class="trivia-cat-btn" data-cat="' + c.key + '" onclick="setTriviaFilter(\'' + c.key + '\')">' +
+    return '<button class="trivia-cat-btn" data-cat="' + c.key + '" data-action="setTriviaFilter" data-args="[&quot;' + c.key + '&quot;]">' +
       '<span class="t-icon">' + c.icon + '</span>' +
       '<span class="t-label">' + c.label + '</span>' +
       '</button>';
@@ -149,15 +149,15 @@ function _updateTriviaContent() {
       for (var i = 0; i < total; i++) {
         // Use CSS class for active dot — avoids inline CSS variable in style string
         var cls = "trivia-dot" + (i === TriviaUI.index ? " active" : "");
-        dots += '<button class="' + cls + '" onclick="jumpTrivia(' + i + ')"></button>';
+        dots += '<button class="' + cls + '" data-action="jumpTrivia" data-args="[' + i + ']"></button>';
       }
       dots += '</div>';
       navRow.innerHTML = dots;
     } else {
       navRow.innerHTML =
-        '<button class="trivia-arr" onclick="prevTrivia()" ' + (TriviaUI.index === 0 ? "disabled" : "") + '>&#8592;</button>' +
+        '<button class="trivia-arr" data-action="prevTrivia" ' + (TriviaUI.index === 0 ? "disabled" : "") + '>&#8592;</button>' +
         '<span class="trivia-counter">' + (TriviaUI.index + 1) + ' / ' + total + '</span>' +
-        '<button class="trivia-arr" onclick="nextTrivia()">&#8594;</button>';
+        '<button class="trivia-arr" data-action="nextTrivia">&#8594;</button>';
     }
   }
 

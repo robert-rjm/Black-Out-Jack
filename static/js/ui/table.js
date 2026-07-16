@@ -7,6 +7,13 @@ function buildGameUI() {
   document.getElementById("ref-panel").style.display = isDigital ? "none"  : "block";
   document.getElementById("dig-panel").style.display = isDigital ? "block" : "none";
 
+  const regBanner = document.getElementById("pending-reg-banner");
+  if (regBanner) pendingRegBanner.mount(regBanner);
+
+  const msModal   = document.getElementById("milestone-modal-overlay");
+  const msAckOv   = document.getElementById("ms-ack-overlay");
+  if (msModal && msAckOv) milestonePanel.mount(msModal, msAckOv);
+
   if (isDigital) {
     buildDigitalUI();
   } else {
@@ -31,6 +38,19 @@ function buildRefereeUI() {
 
 function buildDigitalUI() {
   // Player and hand selection is driven automatically by game state (applyTurnGate)
+  const roundPane = document.getElementById("pane-dig-round");
+  if (roundPane) drinksPanel.mount(roundPane);
+  const giveOverlay = document.getElementById("bust-give-overlay");
+  if (giveOverlay) bustGivePanel.mount(giveOverlay);
+  const dlGiveOverlay = document.getElementById("dealer-lottery-give-overlay");
+  if (dlGiveOverlay) dealerLotteryGivePanel.mount(dlGiveOverlay);
+  const bustVoteOverlay = document.getElementById("bust-vote-modal-overlay");
+  if (bustVoteOverlay) bustVotePanel.mount(bustVoteOverlay);
+  const insModal  = document.getElementById("insurance-modal-overlay");
+  const insBanner = document.getElementById("insurance-vote-banner");
+  if (insModal && insBanner) insurancePanel.mount(insModal, insBanner);
+  const dlEntryOverlay = document.getElementById("dealer-lottery-modal-overlay");
+  if (dlEntryOverlay) dealerLotteryEntryPanel.mount(dlEntryOverlay);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -506,12 +526,12 @@ function _syncModals(state) {
 // best play hint, and bust vote UI.
 function _syncDigitalUI(state) {
   autoSwitchDigTab(state);
-  updateInsuranceVisibility(state);
+  insurancePanel.updateVisibility(state);
   updateHandLocks(state);
-  updateRoundPane(state);
+  drinksPanel.render(state);
   updateBestPlay(state);
-  updateBustVoteUI(state);
-  updateDealerLotteryUI(state);
+  bustVotePanel.render(state);
+  dealerLotteryEntryPanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.
@@ -612,7 +632,7 @@ function applyState(state) {
   if (gameMode === "digital") _syncDigitalUI(state);
   _syncRender(state, isDeal);
 
-  renderMilestoneState(state);
+  milestonePanel.render(state);
 }
 
 
@@ -773,148 +793,169 @@ function bankExit() {
 }
 window.bankExit = bankExit;
 
-// ── Drinks pane: player card selection ──────────────────────────────────────
-function selectDrinksPlayer(name) {
-  // Toggle: tap same card again to deselect
-  DrinkUI.drinksPaneSelected = (DrinkUI.drinksPaneSelected === name) ? null : name;
-  renderDrinksDetail();
-  // Re-highlight cards via CSS class (outline defined in utilities.css)
-  document.querySelectorAll(".drinks-card").forEach(el => {
-    el.classList.toggle("selected", el.dataset.name === DrinkUI.drinksPaneSelected);
-  });
-}
-
-function renderDrinksDetail() {
-  const detail = document.getElementById("dig-drinks-detail");
-  if (!detail) return;
-  if (!DrinkUI.drinksPaneSelected) {
-    detail.innerHTML = `<div class="drinks-detail-empty">← tap a name<br>to see details</div>`;
-    return;
+// ── Drinks pane component (Improvements.md item 7, Option A: class-based,
+// no framework) ──────────────────────────────────────────────────────────
+// Encapsulates #pane-dig-round's drinks-summary subtree. mount() attaches
+// one delegated click listener for .drinks-card taps (replacing the former
+// per-card onclick="selectDrinksPlayer(...)" string), so re-rendering the
+// cards on every poll never needs to re-attach any handler. render(state)
+// rebuilds the DOM exactly as the old updateRoundPane()/renderDrinksDetail()
+// functions did -- same markup, same behavior, just no string-built onclick.
+class DrinksPanel {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const card = e.target.closest(".drinks-card");
+      if (card) this._selectPlayer(card.dataset.name);
+    });
   }
-  const entries = DrinkUI.lastRoundDrinks.filter(d => d.name === DrinkUI.drinksPaneSelected);
-  const total   = DrinkUI.lastRoundSips[DrinkUI.drinksPaneSelected] || 0;
-  if (!entries.length) {
-    detail.innerHTML = `<div class="drinks-detail-clean">${escapeHtml(DrinkUI.drinksPaneSelected)} — no drinks 🎉</div>`;
-    return;
+
+  _selectPlayer(name) {
+    // Toggle: tap same card again to deselect
+    DrinkUI.drinksPaneSelected = (DrinkUI.drinksPaneSelected === name) ? null : name;
+    this._renderDetail();
+    // Re-highlight cards via CSS class (outline defined in utilities.css)
+    this.el.querySelectorAll(".drinks-card").forEach(cardEl => {
+      cardEl.classList.toggle("selected", cardEl.dataset.name === DrinkUI.drinksPaneSelected);
+    });
   }
-  detail.innerHTML =
-    `<div class="drinks-detail-header">${escapeHtml(DrinkUI.drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
-    entries.map(d => {
-      const isCredit = d.sips < 0;
-      const col   = isCredit ? "var(--green)" : "var(--red)";
-      const bg    = `color-mix(in srgb, ${col} 8%, transparent)`;
-      const label = isCredit ? `${d.sips}`            : `+${d.sips}`;
-      // Static layout via .drinks-entry; dynamic color/border/bg stay inline
-      return `<div class="drinks-entry" style="color:${col};border-left:2px solid ${col};background:${bg}">
-        <span class="drinks-entry-label">${label}</span>
-        <span class="drinks-entry-reason"> ${escapeHtml(d.reason)}</span>
-      </div>`;
-    }).join("");
-}
 
-function updateRoundPane(state) {
-  const isOver   = state.phase === PHASE.ROUND_OVER;
-  const panel    = document.getElementById("dig-drinks-panel");
-  const agg      = document.getElementById("dig-drinks-agg");
-  const detail   = document.getElementById("dig-drinks-detail");
-  const none     = document.getElementById("dig-drinks-none");
-  const progress = document.getElementById("dig-drinks-progress");
-
-  if (isOver) {
-    if (progress) progress.style.display = "none";
-    // Always include all players; ensure dealer card shows even with 0 sips
-    const allPlayers = [...new Set([...(state.players || []),
-                                    ...(state.dealer ? [state.dealer] : [])])];
-
-    if (panel) panel.style.display = "flex";
-    if (none)  none.style.display  = "none";
-
-    // Round notices (e.g. "Hard Switch triggered — A♣ protects X from drinking")
-    const noticesEl = document.getElementById("dig-round-notices");
-    if (noticesEl) {
-      const notices = state.round_notices || [];
-      noticesEl.innerHTML = notices.map(n =>
-        `<div class="round-notice">${escapeHtml(n)}</div>`
-      ).join("");
-      noticesEl.style.display = notices.length ? "block" : "none";
+  _renderDetail() {
+    const detail = this.el.querySelector("#dig-drinks-detail");
+    if (!detail) return;
+    if (!DrinkUI.drinksPaneSelected) {
+      detail.innerHTML = `<div class="drinks-detail-empty">← tap a name<br>to see details</div>`;
+      return;
     }
-
-    // LEFT: 2-col grid of tappable player cards
-    if (agg) {
-      agg.innerHTML = allPlayers.map(name => {
-        const sips       = DrinkUI.lastRoundSips[name] || 0;
-        const hot        = sips > 0;
-        const isSelected = DrinkUI.drinksPaneSelected === name;
-        const color      = hot ? "var(--red)" : "var(--green)";
-        const bg         = `color-mix(in srgb, ${color} ${hot ? 18 : 14}%, transparent)`;
-        const border     = `color-mix(in srgb, ${color} 40%, transparent)`;
-        // Treat missing prev as 0 when at least one round has completed —
-        // absent from DrinkUI.prevRoundSips means the player had 0 sips that round.
-        const hasPrev = (state.round || 0) > 1;
-        const prev    = hasPrev ? (DrinkUI.prevRoundSips[name] || 0) : null;
-        const diff    = hasPrev ? sips - prev : 0;
-        const diffColor = diff > 0 ? "var(--red)" : "var(--green)";
-        const diffStr = hasPrev
-          ? `<div class="dc-diff" style="color:${diff === 0 ? "var(--muted)" : diffColor}">
-               ${diff > 0 ? "▲" : diff < 0 ? "▼" : "="}&thinsp;${Math.abs(diff)} prev
-             </div>`
-          : "";
-        // Static layout on .drinks-card (utilities.css); dynamic bg/border stay inline
-        return `<button class="drinks-card${isSelected ? " selected" : ""}" data-name="${escapeHtml(name)}"
-          onclick="selectDrinksPlayer(this.dataset.name)"
-          style="background:${bg};border:1.5px solid ${border}">
-          <div class="dc-name">${escapeHtml(name)}</div>
-          <div class="dc-count" style="color:${color}">${sips}</div>
-          <div class="dc-unit" style="color:${color}">sip${sips !== 1 ? "s" : ""}</div>
-          ${diffStr}
-        </button>`;
+    const entries = DrinkUI.lastRoundDrinks.filter(d => d.name === DrinkUI.drinksPaneSelected);
+    const total   = DrinkUI.lastRoundSips[DrinkUI.drinksPaneSelected] || 0;
+    if (!entries.length) {
+      detail.innerHTML = `<div class="drinks-detail-clean">${escapeHtml(DrinkUI.drinksPaneSelected)} — no drinks 🎉</div>`;
+      return;
+    }
+    detail.innerHTML =
+      `<div class="drinks-detail-header">${escapeHtml(DrinkUI.drinksPaneSelected)} · ${total} sip${total !== 1 ? "s" : ""}</div>` +
+      entries.map(d => {
+        const isCredit = d.sips < 0;
+        const col   = isCredit ? "var(--green)" : "var(--red)";
+        const bg    = `color-mix(in srgb, ${col} 8%, transparent)`;
+        const label = isCredit ? `${d.sips}`            : `+${d.sips}`;
+        // Static layout via .drinks-entry; dynamic color/border/bg stay inline
+        return `<div class="drinks-entry" style="color:${col};border-left:2px solid ${col};background:${bg}">
+          <span class="drinks-entry-label">${label}</span>
+          <span class="drinks-entry-reason"> ${escapeHtml(d.reason)}</span>
+        </div>`;
       }).join("");
-    }
-
-    // RIGHT: detail for selected player (or prompt if none selected)
-    renderDrinksDetail();
-
-  } else {
-    // Mid-round: waiting for turn or finished, not yet round-over
-    DrinkUI.drinksPaneSelected = null;
-    if (panel)    panel.style.display    = "none";
-    if (none)     none.style.display     = "none";
-    if (agg)      agg.innerHTML          = "";
-    if (detail)   detail.innerHTML       = "";
-    const noticesEl2 = document.getElementById("dig-round-notices");
-    if (noticesEl2) { noticesEl2.innerHTML = ""; noticesEl2.style.display = "none"; }
-    if (progress) {
-      const mySeats    = (myNames || []);
-      const anyDone    = mySeats.some(n => {
-        const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
-        return seat && seat.done;
-      });
-      const anyPlaying = mySeats.some(n => {
-        const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
-        return seat && seat.hands && seat.hands.length > 0;
-      });
-      if (anyDone) {
-        progress.textContent = "✋ You're done — waiting for results…";
-      } else if (anyPlaying) {
-        progress.textContent = "⏳ Waiting for your turn…";
-      } else {
-        progress.textContent = "⏳ Waiting for round to start…";
-      }
-      progress.style.display = "block";
-    }
   }
 
-  // Peeked card — sync across state polls; button label reflects toggle state
-  const peekBtn = document.getElementById("btn-peek");
-  const peeked  = state.peeked_card;
-  if (peeked) {
-    showPeekedCard(peeked);
-    if (peekBtn) peekBtn.textContent = "🃏 Hide next card";
-  } else {
-    clearPeekedCard();
-    if (peekBtn) peekBtn.textContent = "🃏 Next card?";
+  render(state) {
+    if (!this.el) return;   // not mounted yet (e.g. referee mode never mounts it)
+    const isOver   = state.phase === PHASE.ROUND_OVER;
+    const panel    = this.el.querySelector("#dig-drinks-panel");
+    const agg      = this.el.querySelector("#dig-drinks-agg");
+    const detail   = this.el.querySelector("#dig-drinks-detail");
+    const none     = this.el.querySelector("#dig-drinks-none");
+    const progress = this.el.querySelector("#dig-drinks-progress");
+
+    if (isOver) {
+      if (progress) progress.style.display = "none";
+      // Always include all players; ensure dealer card shows even with 0 sips
+      const allPlayers = [...new Set([...(state.players || []),
+                                      ...(state.dealer ? [state.dealer] : [])])];
+
+      if (panel) panel.style.display = "flex";
+      if (none)  none.style.display  = "none";
+
+      // Round notices (e.g. "Hard Switch triggered — A♣ protects X from drinking")
+      const noticesEl = this.el.querySelector("#dig-round-notices");
+      if (noticesEl) {
+        const notices = state.round_notices || [];
+        noticesEl.innerHTML = notices.map(n =>
+          `<div class="round-notice">${escapeHtml(n)}</div>`
+        ).join("");
+        noticesEl.style.display = notices.length ? "block" : "none";
+      }
+
+      // LEFT: 2-col grid of tappable player cards
+      if (agg) {
+        agg.innerHTML = allPlayers.map(name => {
+          const sips       = DrinkUI.lastRoundSips[name] || 0;
+          const hot        = sips > 0;
+          const isSelected = DrinkUI.drinksPaneSelected === name;
+          const color      = hot ? "var(--red)" : "var(--green)";
+          const bg         = `color-mix(in srgb, ${color} ${hot ? 18 : 14}%, transparent)`;
+          const border     = `color-mix(in srgb, ${color} 40%, transparent)`;
+          // Treat missing prev as 0 when at least one round has completed —
+          // absent from DrinkUI.prevRoundSips means the player had 0 sips that round.
+          const hasPrev = (state.round || 0) > 1;
+          const prev    = hasPrev ? (DrinkUI.prevRoundSips[name] || 0) : null;
+          const diff    = hasPrev ? sips - prev : 0;
+          const diffColor = diff > 0 ? "var(--red)" : "var(--green)";
+          const diffStr = hasPrev
+            ? `<div class="dc-diff" style="color:${diff === 0 ? "var(--muted)" : diffColor}">
+                 ${diff > 0 ? "▲" : diff < 0 ? "▼" : "="}&thinsp;${Math.abs(diff)} prev
+               </div>`
+            : "";
+          // Static layout on .drinks-card (utilities.css); dynamic bg/border stay
+          // inline. No onclick= here -- mount()'s delegated listener handles taps.
+          return `<button class="drinks-card${isSelected ? " selected" : ""}" data-name="${escapeHtml(name)}"
+            style="background:${bg};border:1.5px solid ${border}">
+            <div class="dc-name">${escapeHtml(name)}</div>
+            <div class="dc-count" style="color:${color}">${sips}</div>
+            <div class="dc-unit" style="color:${color}">sip${sips !== 1 ? "s" : ""}</div>
+            ${diffStr}
+          </button>`;
+        }).join("");
+      }
+
+      // RIGHT: detail for selected player (or prompt if none selected)
+      this._renderDetail();
+
+    } else {
+      // Mid-round: waiting for turn or finished, not yet round-over
+      DrinkUI.drinksPaneSelected = null;
+      if (panel)    panel.style.display    = "none";
+      if (none)     none.style.display     = "none";
+      if (agg)      agg.innerHTML          = "";
+      if (detail)   detail.innerHTML       = "";
+      const noticesEl2 = this.el.querySelector("#dig-round-notices");
+      if (noticesEl2) { noticesEl2.innerHTML = ""; noticesEl2.style.display = "none"; }
+      if (progress) {
+        const mySeats    = (myNames || []);
+        const anyDone    = mySeats.some(n => {
+          const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
+          return seat && seat.done;
+        });
+        const anyPlaying = mySeats.some(n => {
+          const seat = (state.table || []).find(p => p.name.toLowerCase() === n.toLowerCase());
+          return seat && seat.hands && seat.hands.length > 0;
+        });
+        if (anyDone) {
+          progress.textContent = "✋ You're done — waiting for results…";
+        } else if (anyPlaying) {
+          progress.textContent = "⏳ Waiting for your turn…";
+        } else {
+          progress.textContent = "⏳ Waiting for round to start…";
+        }
+        progress.style.display = "block";
+      }
+    }
+
+    // Peeked card — sync across state polls; button label reflects toggle state
+    const peekBtn = this.el.querySelector("#btn-peek");
+    const peeked  = state.peeked_card;
+    if (peeked) {
+      showPeekedCard(peeked);
+      if (peekBtn) peekBtn.textContent = "🃏 Hide next card";
+    } else {
+      clearPeekedCard();
+      if (peekBtn) peekBtn.textContent = "🃏 Next card?";
+    }
   }
 }
+
+const drinksPanel = new DrinksPanel();
 
 function autoSwitchDigTab(state) {
   const phase     = state.phase;
