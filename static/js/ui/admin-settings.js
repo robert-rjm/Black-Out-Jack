@@ -931,12 +931,25 @@ function resetToSetup() {
   document.getElementById("app").style.display    = "none";
   document.getElementById("setup").style.display  = "none";
   document.getElementById("lobby").style.display  = "flex";
-  document.getElementById("log").innerHTML = "";
   document.getElementById("header-room").textContent = "";
   document.getElementById("join-code").value = "";
   hideLobbyMsg();
   players  = [];
   gameMode = "referee";
+
+  // Reset every "did this seq/key just advance" one-shot tracker -- these
+  // compare against the PREVIOUS room's last-seen value, so without this a
+  // player who ends a session and joins a different room in the same tab
+  // (no page reload) would have every toast/reveal/auto-export gated on
+  // one of these silently suppressed until the new room's own counters
+  // happen to climb back past whatever value was last seen in the old room.
+  DrinkUI.lastRoundOverSeq          = 0;
+  DrinkUI.lastBustHandoutSeq        = 0;
+  DrinkUI.lastDealerLotteryResultSeq = 0;
+  DrinkUI.lastMilestoneKey          = null;
+  DrinkUI.lastMilestoneResultKey    = null;
+  DrinkUI.milestoneModalOpened      = null;
+  _lastAutoExportRound = 0;
 }
 
 // ============================================================
