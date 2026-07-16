@@ -423,6 +423,7 @@ function _syncRoundEffects(state, drinkingOn) {
     if (state.insurance_result && state.insurance_result.length) {
       showInsuranceToast(state.insurance_result);
     }
+    _maybeAutoExportDecisions(state);
   }
   DrinkUI.lastRoundOverSeq = Math.max(DrinkUI.lastRoundOverSeq, newRoundOverSeq);
 

@@ -801,11 +801,37 @@ async function rotateDealer() {
 // ============================================================
 // FINAL SUMMARY
 // ============================================================
+
+// Auto-export (every 10 rounds, both reports) is a personal convenience for
+// whoever's mining these sessions into bot profiles -- not a security
+// boundary, just hidden from everyone else's summary modal so it doesn't
+// clutter a normal player's view. Off by default even for these names; the
+// checkbox in #summary-overlay opts in per-device (localStorage).
+const _AUTO_EXPORT_ALLOWLIST = ["rob", "marko", "david"];
+
+function _isAutoExportEligible() {
+  return myRole === ROLE.ADMIN &&
+    (myNames || []).some(n => _AUTO_EXPORT_ALLOWLIST.includes(n.toLowerCase()));
+}
+
+function setAutoExportDecisions(enabled) {
+  lsSet("autoExportDecisions", enabled ? "1" : "0");
+}
+
+function _autoExportDecisionsOn() {
+  return _isAutoExportEligible() && lsGet("autoExportDecisions") === "1";
+}
+
 async function showSessionSummary() {
   const overlay = document.getElementById("summary-overlay");
   const meta    = document.getElementById("summary-meta");
   const body    = document.getElementById("summary-body");
   if (!overlay) return;
+
+  const toggleRow = document.getElementById("auto-export-row");
+  const toggleBox = document.getElementById("auto-export-toggle");
+  if (toggleRow) toggleRow.style.display = _isAutoExportEligible() ? "block" : "none";
+  if (toggleBox) toggleBox.checked = lsGet("autoExportDecisions") === "1";
 
   meta.textContent = "Loading…";
   body.innerHTML   = "";
@@ -868,6 +894,22 @@ function exportDrinkCSV() {
 function exportDecisionLog() {
   if (!roomCode) { alert("No active session."); return; }
   window.location.href = "/export_decisions?room_code=" + encodeURIComponent(roomCode);
+}
+
+// Fires both existing downloads back to back (same requests the manual
+// summary-modal buttons make) -- staggered slightly so the browser treats
+// them as two distinct attachment downloads instead of one navigation
+// interrupting the other.
+let _lastAutoExportRound = 0;
+
+function _maybeAutoExportDecisions(state) {
+  const round = state.round || 0;
+  if (round <= _lastAutoExportRound || round % 10 !== 0) return;
+  _lastAutoExportRound = round;
+  if (!_autoExportDecisionsOn()) return;
+
+  exportDrinkCSV();
+  setTimeout(() => exportDecisionLog(), 400);
 }
 
 // ============================================================
