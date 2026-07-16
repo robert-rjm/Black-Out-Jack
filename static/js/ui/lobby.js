@@ -195,7 +195,7 @@ function showDisconnected() {
         '<div class="server-disconnect-msg">Attempting to reconnect…</div>' +
         '<div class="server-disconnect-note">The server may be waking up or is disconnected. Please wait or try again later.</div>' +
         '<div class="server-disconnect-elapsed" id="server-disconnect-elapsed"></div>' +
-        '<button class="btn server-disconnect-giveup" onclick="showGiveUpScreen()">Give up</button>' +
+        '<button class="btn server-disconnect-giveup" data-action="showGiveUpScreen">Give up</button>' +
       '</div>';
     document.body.appendChild(overlay);
   }
@@ -215,7 +215,7 @@ function showGiveUpScreen() {
     '<img src="/static/img/logo-transparent.png" alt="Black(Out)Jack Logo" class="server-disconnect-logo">' +
     '<div class="server-disconnect-title" style="font-size:20px">Thanks for playing BlackOutJack!</div>' +
     '<div class="server-disconnect-msg">Come back when the server is ready.</div>' +
-    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" onclick="tryAgainFromGiveUp()">Try again</button>' +
+    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" data-action="tryAgainFromGiveUp">Try again</button>' +
     '<a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener" class="server-disconnect-github">🔗 github.com/robert-rjm/Black-Out-Jack</a>';
 }
 
