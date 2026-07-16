@@ -49,6 +49,8 @@ function buildDigitalUI() {
   const insModal  = document.getElementById("insurance-modal-overlay");
   const insBanner = document.getElementById("insurance-vote-banner");
   if (insModal && insBanner) insurancePanel.mount(insModal, insBanner);
+  const dlEntryOverlay = document.getElementById("dealer-lottery-modal-overlay");
+  if (dlEntryOverlay) dealerLotteryEntryPanel.mount(dlEntryOverlay);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -529,7 +531,7 @@ function _syncDigitalUI(state) {
   drinksPanel.render(state);
   updateBestPlay(state);
   bustVotePanel.render(state);
-  updateDealerLotteryUI(state);
+  dealerLotteryEntryPanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.

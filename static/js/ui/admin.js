@@ -700,12 +700,166 @@ const bustGivePanel = new BustGivePanel();
 // DEALER LOTTERY (docs/planning/DealerLottery-Plan.md)
 // ============================================================
 
-let _dealerLotteryModalOpen   = false;
-let _dealerLotteryTimerHandle = null;
-// Slider values persist here across the per-poll re-render in
-// _renderDealerLotteryCards (that render rebuilds the DOM from scratch, so
-// without this the slider would visibly snap back to 0 on every poll tick).
-let _dlPendingX = {};
+// ── Dealer Lottery entry panel component (Improvements.md item 7,
+// Option A: class-based, no framework) ───────────────────────────────────
+// Encapsulates the entry modal (countdown timer, per-player stake sliders
+// + Enter buttons). mount() attaches one delegated "input" listener (live
+// slider value) and one delegated "click" listener (Enter button) --
+// replacing addEventListener calls re-attached on every rebuild of
+// #dealer-lottery-players-wrap. render(state) is the per-poll entry point,
+// replacing the old updateDealerLotteryUI() function.
+class DealerLotteryEntryPanel {
+  constructor() {
+    this.modalOpen   = false;
+    this.timerHandle = null;
+    // Slider values persist here across the per-poll re-render in
+    // renderCards() (that render rebuilds the DOM from scratch, so without
+    // this the slider would visibly snap back to 0 on every poll tick).
+    this.pendingX = {};
+  }
+
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+
+    el.addEventListener("input", e => {
+      const slider = e.target.closest(".dl-x-slider");
+      if (!slider) return;
+      const val = parseInt(slider.value, 10) || 0;
+      this.pendingX[slider.dataset.dlName] = val;
+      const valueLbl = slider.closest(".dl-entry-card").querySelector(".dl-x-value");
+      if (valueLbl) valueLbl.textContent = String(val);
+    });
+
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".dl-enter-btn");
+      if (!btn) return;
+      const name   = btn.dataset.dlName;
+      const slider = btn.closest(".dl-entry-row").querySelector(".dl-x-slider");
+      const x      = slider ? (parseInt(slider.value, 10) || 0) : 0;
+      delete this.pendingX[name];
+      const npcSet     = new Set([...(npcPlayers || [])]);
+      const locals     = myNames.filter(n => !npcSet.has(n));
+      const multiLocal = locals.length > 1;
+      submitDealerLotteryX(x, multiLocal ? name : undefined);
+    });
+  }
+
+  open(secondsLeft) {
+    if (this.modalOpen) return;
+    const overlay = openModal("dealer-lottery-modal-overlay");
+    if (!overlay) return;
+    this.modalOpen = true;
+
+    const bar      = document.getElementById("dealer-lottery-timer-bar");
+    const label    = document.getElementById("dealer-lottery-timer-label");
+    const duration = secondsLeft || 20;
+
+    let secs = duration;
+    const tick = () => {
+      if (!this.modalOpen) return;
+
+      let resynced = false;
+      if (lastState && lastState.dealer_lottery) {
+        const pending = lastState.dealer_lottery.pending;
+        if (pending && typeof pending.seconds_left === "number") {
+          secs = pending.seconds_left;
+          resynced = true;
+        } else if (!pending) {
+          // Server says the window already closed (resolved or expired).
+          this.close();
+          return;
+        }
+      }
+
+      const display = Math.min(secs, 20);
+      if (bar)   bar.style.width   = `${(display / 20) * 100}%`;
+      if (label) label.textContent = `${display}s`;
+      if (secs <= 0) {
+        // Auto-submit 0 for any unanswered local players
+        const myEntries = (lastState && lastState.dealer_lottery && lastState.dealer_lottery.pending)
+          ? lastState.dealer_lottery.pending.my_entries : {};
+        const unanswered = myNames.filter(n => (myEntries || {})[n] == null);
+        if (unanswered.length) {
+          (async () => {
+            for (const name of unanswered) await submitDealerLotteryX(0, name);
+            this.close();
+          })();
+        } else {
+          this.close();
+        }
+        return;
+      }
+      if (!resynced) secs--;
+      this.timerHandle = setTimeout(tick, 1000);
+    };
+    tick();
+  }
+
+  close() {
+    if (!this.modalOpen) return;
+    this.modalOpen = false;
+    if (this.timerHandle) { clearTimeout(this.timerHandle); this.timerHandle = null; }
+    this.pendingX = {};
+    closeModal("dealer-lottery-modal-overlay");
+  }
+
+  // Render per-player entry rows (stake slider 0-5 + Enter button) inside the modal.
+  renderCards(state) {
+    const wrap = document.getElementById("dealer-lottery-players-wrap");
+    if (!wrap) return;
+
+    const pending   = (state.dealer_lottery && state.dealer_lottery.pending) || {};
+    const myEntries = pending.my_entries || {};
+    const npcSet    = new Set([...(npcPlayers || [])]);
+    const locals    = myNames.filter(n => !npcSet.has(n));
+    const multiLocal = locals.length > 1;
+
+    // No addEventListener here -- mount()'s delegated listeners handle input/click.
+    wrap.innerHTML = locals.map(name => {
+      const answered = myEntries[name];
+      const nameLbl  = multiLocal ? `<span class="dl-name-lbl">${escapeHtml(name)}</span>` : "";
+
+      if (answered !== null && answered !== undefined) {
+        return `<div class="dl-entry-card">
+          <div class="dl-entry-top">${nameLbl}<span class="dl-status">Entered: ${answered}</span></div>
+        </div>`;
+      }
+
+      const startVal = this.pendingX[name] ?? 0;
+      return `<div class="dl-entry-card">
+        <div class="dl-entry-top">${nameLbl}<span class="dl-x-value">${startVal}</span></div>
+        <div class="dl-entry-row">
+          <input type="range" class="dl-x-slider" min="0" max="5" step="1" value="${startVal}" data-dl-name="${escapeHtml(name)}">
+          <button class="btn dl-enter-btn" data-dl-name="${escapeHtml(name)}">Enter</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  render(state) {
+    const dl = state.dealer_lottery || {};
+    const pending = dl.pending;
+
+    if (pending && myRole !== null && myRole !== ROLE.SPECTATOR && !_dealAnimating) {
+      this.open(pending.seconds_left || 20);
+    } else if (!pending) {
+      this.close();
+    }
+
+    if (this.modalOpen) {
+      this.renderCards(state);
+      const answered = document.getElementById("dealer-lottery-answered");
+      if (answered && pending) {
+        answered.textContent = `${pending.answered_count}/${pending.total_count} answered`;
+      }
+    }
+
+    dealerLotteryGivePanel.render(state);
+  }
+}
+
+const dealerLotteryEntryPanel = new DealerLotteryEntryPanel();
 
 async function submitDealerLotteryX(x, playerName) {
   const body = { room_code: roomCode, client_id: clientId, x };
@@ -724,158 +878,7 @@ async function submitDealerLotteryX(x, playerName) {
   }
 }
 
-function _openDealerLotteryModal(secondsLeft) {
-  if (_dealerLotteryModalOpen) return;
-  const overlay = openModal("dealer-lottery-modal-overlay");
-  if (!overlay) return;
-  _dealerLotteryModalOpen = true;
-
-  const bar      = document.getElementById("dealer-lottery-timer-bar");
-  const label    = document.getElementById("dealer-lottery-timer-label");
-  const duration = secondsLeft || 20;
-
-  let secs = duration;
-  function tick() {
-    if (!_dealerLotteryModalOpen) return;
-
-    let resynced = false;
-    if (lastState && lastState.dealer_lottery) {
-      const pending = lastState.dealer_lottery.pending;
-      if (pending && typeof pending.seconds_left === "number") {
-        secs = pending.seconds_left;
-        resynced = true;
-      } else if (!pending) {
-        // Server says the window already closed (resolved or expired).
-        _closeDealerLotteryModal();
-        return;
-      }
-    }
-
-    const display = Math.min(secs, 20);
-    if (bar)   bar.style.width   = `${(display / 20) * 100}%`;
-    if (label) label.textContent = `${display}s`;
-    if (secs <= 0) {
-      // Auto-submit 0 for any unanswered local players
-      const myEntries = (lastState && lastState.dealer_lottery && lastState.dealer_lottery.pending)
-        ? lastState.dealer_lottery.pending.my_entries : {};
-      const unanswered = myNames.filter(n => (myEntries || {})[n] == null);
-      if (unanswered.length) {
-        (async () => {
-          for (const name of unanswered) await submitDealerLotteryX(0, name);
-          _closeDealerLotteryModal();
-        })();
-      } else {
-        _closeDealerLotteryModal();
-      }
-      return;
-    }
-    if (!resynced) secs--;
-    _dealerLotteryTimerHandle = setTimeout(tick, 1000);
-  }
-  tick();
-}
-
-function _closeDealerLotteryModal() {
-  if (!_dealerLotteryModalOpen) return;
-  _dealerLotteryModalOpen = false;
-  if (_dealerLotteryTimerHandle) { clearTimeout(_dealerLotteryTimerHandle); _dealerLotteryTimerHandle = null; }
-  _dlPendingX = {};
-  closeModal("dealer-lottery-modal-overlay");
-}
-
-// Render per-player entry rows (stake select 0-5 + Enter button) inside the modal.
-function _renderDealerLotteryCards(state) {
-  const wrap = document.getElementById("dealer-lottery-players-wrap");
-  if (!wrap) return;
-
-  const pending   = (state.dealer_lottery && state.dealer_lottery.pending) || {};
-  const myEntries = pending.my_entries || {};
-  const npcSet    = new Set([...(npcPlayers || [])]);
-  const locals    = myNames.filter(n => !npcSet.has(n));
-  const multiLocal = locals.length > 1;
-
-  wrap.innerHTML = "";
-  locals.forEach(name => {
-    const answered = myEntries[name];
-    const card = document.createElement("div");
-    card.classList.add("dl-entry-card");
-
-    const top = document.createElement("div");
-    top.classList.add("dl-entry-top");
-
-    if (multiLocal) {
-      const nameLbl = document.createElement("span");
-      nameLbl.classList.add("dl-name-lbl");
-      nameLbl.textContent = name;
-      top.appendChild(nameLbl);
-    }
-
-    if (answered !== null && answered !== undefined) {
-      const statusEl = document.createElement("span");
-      statusEl.classList.add("dl-status");
-      statusEl.textContent = `Entered: ${answered}`;
-      top.appendChild(statusEl);
-      card.appendChild(top);
-    } else {
-      const startVal = _dlPendingX[name] ?? 0;
-
-      const valueLbl = document.createElement("span");
-      valueLbl.classList.add("dl-x-value");
-      valueLbl.textContent = String(startVal);
-      top.appendChild(valueLbl);
-      card.appendChild(top);
-
-      const row = document.createElement("div");
-      row.classList.add("dl-entry-row");
-
-      const slider = document.createElement("input");
-      slider.type = "range";
-      slider.min = "0"; slider.max = "5"; slider.step = "1"; slider.value = String(startVal);
-      slider.classList.add("dl-x-slider");
-      slider.addEventListener("input", () => {
-        _dlPendingX[name] = parseInt(slider.value, 10) || 0;
-        valueLbl.textContent = slider.value;
-      });
-
-      const enterBtn = document.createElement("button");
-      enterBtn.className = "btn dl-enter-btn";
-      enterBtn.textContent = "Enter";
-      enterBtn.addEventListener("click", () => {
-        delete _dlPendingX[name];
-        submitDealerLotteryX(parseInt(slider.value, 10) || 0, multiLocal ? name : undefined);
-      });
-
-      row.appendChild(slider);
-      row.appendChild(enterBtn);
-      card.appendChild(row);
-    }
-
-    wrap.appendChild(card);
-  });
-}
-
 let _dealerLotteryRevealOpen = false;
-
-function updateDealerLotteryUI(state) {
-  const dl = state.dealer_lottery || {};
-  const pending = dl.pending;
-
-  if (pending && myRole !== null && myRole !== ROLE.SPECTATOR && !_dealAnimating) {
-    _openDealerLotteryModal(pending.seconds_left || 20);
-  } else if (!pending) {
-    _closeDealerLotteryModal();
-  }
-
-  if (_dealerLotteryModalOpen) {
-    _renderDealerLotteryCards(state);
-    const answered = document.getElementById("dealer-lottery-answered");
-    if (answered && pending) {
-      answered.textContent = `${pending.answered_count}/${pending.total_count} answered`;
-    }
-  }
-
-  dealerLotteryGivePanel.render(state);
-}
 
 // Builds the score/BUST/STAND tags for a finished lottery hand, matching
 // handBlock()'s own tag markup so the mid-animation swap looks identical
