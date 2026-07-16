@@ -289,6 +289,20 @@ class DealerLotteryOut(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
+# Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md, MVP scope)
+# ---------------------------------------------------------------------------
+
+class TargetedDrinkingOut(_StrictModel):
+    active:               bool
+    targets:              list[str]
+    streaks:              dict[str, int]             # graduation streak, per target
+    my_vote:              Optional[Literal["bust", "stand"]]   # this client's own pending vote, if targeted
+    votes_cast:           dict[str, Literal["bust", "stand"]]  # who has voted this round (values revealed once cast)
+    seconds_left:         int
+    cooldown_until_round: int
+
+
+# ---------------------------------------------------------------------------
 # Bust vote
 # ---------------------------------------------------------------------------
 
@@ -435,6 +449,9 @@ class AppState(_StrictModel):
 
     # ---- Dealer Lottery data (always present) ----
     dealer_lottery: DealerLotteryOut
+
+    # ---- Targeted Drinking Mode data (always present) ----
+    targeted_drinking: TargetedDrinkingOut
 
     # ---- Connection / room-membership data (always present) ----
     kick_votes:                 dict[str, int]

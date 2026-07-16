@@ -1,8 +1,10 @@
 """
 Tests for Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md,
-MVP scope): app/services/targeted_drinking.py and the
+MVP scope): app/services/targeted_drinking.py; the
 /targeted_drinking/start + /targeted_drinking/cancel admin routes
-(app/routes/admin.py).
+(app/routes/admin.py); the /targeted_drinking/vote player route
+(app/routes/polling.py); and the serializer's "targeted_drinking" block
+(app/services/serializer.py).
 """
 
 import time
@@ -14,6 +16,7 @@ from tests.conftest import make_player, make_hand
 from app import create_app
 from app.models.game_room import GameRoom, GameConfig
 from app.services.session_store import game_sessions, set_session
+from app.services.serializer import serialize_state
 from app.services.targeted_drinking import (
     start_targeted_drinking,
     maybe_open_targeted_drinking_vote,
@@ -431,3 +434,267 @@ def test_cancel_route_is_noop_when_inactive(client, room_setup):
     data = resp.get_json()
     assert data["ok"] is True   # idempotent, still succeeds
     assert room._targeted_drinking_active is False
+
+
+# ---------------------------------------------------------------------------
+# /targeted_drinking/vote
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def td_vote_setup():
+    """Register a 3-player room with Targeted Drinking active against Carol,
+    a client registered as Carol (with Dave as a local player), and an open
+    vote window."""
+    room_code = "TDVoteRoom1"
+    room = _make_room(num_players=3)
+    room.start_round()
+    start_targeted_drinking(room, ["Carol"])
+    room._room_clients["client-1"] = {
+        "name": "Carol", "local_names": ["Carol"], "role": "player", "kicked": False,
+    }
+    room.round._targeted_drinking_expires_at = time.monotonic() + 60
+    set_session(room_code, room)
+    yield room_code, room
+    game_sessions.pop(room_code, None)
+
+
+def test_vote_route_rejects_when_inactive(client):
+    room_code = "TDVoteRoomInactive"
+    room = _make_room(num_players=3)
+    room.start_round()
+    room._room_clients["client-1"] = {
+        "name": "Carol", "local_names": ["Carol"], "role": "player", "kicked": False,
+    }
+    set_session(room_code, room)
+    try:
+        resp = client.post("/targeted_drinking/vote", json={
+            "room_code": room_code, "client_id": "client-1", "vote": "bust",
+        })
+        data = resp.get_json()
+        assert data["ok"] is False
+        assert "not active" in data["error"].lower()
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_vote_route_rejects_when_window_closed(client, td_vote_setup):
+    room_code, room = td_vote_setup
+    room.round._targeted_drinking_expires_at = time.monotonic() - 1   # expired
+
+    resp = client.post("/targeted_drinking/vote", json={
+        "room_code": room_code, "client_id": "client-1", "vote": "bust",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert "closed" in data["error"].lower()
+
+
+def test_vote_route_rejects_invalid_vote_value(client, td_vote_setup):
+    room_code, room = td_vote_setup
+    resp = client.post("/targeted_drinking/vote", json={
+        "room_code": room_code, "client_id": "client-1", "vote": "maybe",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_vote_route_rejects_non_target(client):
+    room_code = "TDVoteRoomNonTarget"
+    room = _make_room(num_players=3)
+    room.start_round()
+    start_targeted_drinking(room, ["Carol"])
+    room._room_clients["client-1"] = {
+        "name": "Bob", "local_names": ["Bob"], "role": "player", "kicked": False,
+    }
+    room.round._targeted_drinking_expires_at = time.monotonic() + 60
+    set_session(room_code, room)
+    try:
+        resp = client.post("/targeted_drinking/vote", json={
+            "room_code": room_code, "client_id": "client-1", "vote": "bust",
+        })
+        data = resp.get_json()
+        assert data["ok"] is False
+        assert "Bob" not in room.round._targeted_drinking_votes
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_vote_route_records_valid_vote(client, td_vote_setup):
+    room_code, room = td_vote_setup
+    resp = client.post("/targeted_drinking/vote", json={
+        "room_code": room_code, "client_id": "client-1", "vote": "bust",
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room.round._targeted_drinking_votes["Carol"] == "bust"
+
+    # Re-cast -- last vote wins
+    resp = client.post("/targeted_drinking/vote", json={
+        "room_code": room_code, "client_id": "client-1", "vote": "stand",
+    })
+    assert resp.get_json()["ok"] is True
+    assert room.round._targeted_drinking_votes["Carol"] == "stand"
+
+
+def test_vote_route_local_player_override(client):
+    room_code = "TDVoteRoomLocal"
+    room = _make_room(num_players=3)
+    room.start_round()
+    start_targeted_drinking(room, ["Carol"])
+    room._room_clients["client-1"] = {
+        "name": "Bob", "local_names": ["Bob", "Carol"], "role": "player", "kicked": False,
+    }
+    room.round._targeted_drinking_expires_at = time.monotonic() + 60
+    set_session(room_code, room)
+    try:
+        resp = client.post("/targeted_drinking/vote", json={
+            "room_code": room_code, "client_id": "client-1",
+            "vote": "bust", "player_name": "Carol",
+        })
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert room.round._targeted_drinking_votes["Carol"] == "bust"
+        assert "Bob" not in room.round._targeted_drinking_votes
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_vote_route_local_player_not_in_local_names_rejected(client, td_vote_setup):
+    room_code, room = td_vote_setup
+    resp = client.post("/targeted_drinking/vote", json={
+        "room_code": room_code, "client_id": "client-1",
+        "vote": "bust", "player_name": "Alice",  # not in client-1's local_names
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert "not one of your local players" in data["error"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Serializer: "targeted_drinking" block
+# ---------------------------------------------------------------------------
+
+def test_serialize_state_includes_targeted_drinking_block():
+    room = _make_room(num_players=3)
+    room.start_round()
+    start_targeted_drinking(room, ["Carol"])
+    room.round._targeted_drinking_expires_at = time.monotonic() + 12
+    submit_targeted_drinking_vote(room, "Carol", "stand")
+    room._room_clients["client-1"] = {
+        "name": "Carol", "local_names": ["Carol"], "role": "player", "kicked": False,
+    }
+
+    data = serialize_state(room, "client-1")
+    td = data["targeted_drinking"]
+    assert td["active"] is True
+    assert td["targets"] == ["Carol"]
+    assert td["streaks"] == {"Carol": 0}
+    assert td["my_vote"] == "stand"
+    assert td["votes_cast"] == {"Carol": "stand"}
+    assert 0 < td["seconds_left"] <= 12
+    assert td["cooldown_until_round"] == 0
+
+
+def test_serialize_state_targeted_drinking_inactive_defaults():
+    room = _make_room(num_players=3)
+    room.start_round()
+    room._room_clients["client-1"] = {
+        "name": "Bob", "local_names": ["Bob"], "role": "player", "kicked": False,
+    }
+
+    data = serialize_state(room, "client-1")
+    td = data["targeted_drinking"]
+    assert td["active"] is False
+    assert td["targets"] == []
+    assert td["streaks"] == {}
+    assert td["my_vote"] is None
+    assert td["votes_cast"] == {}
+    assert td["seconds_left"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Full-stack integration: a real digital round, dealt from a rigged shoe,
+# driven entirely through /command and /state -- the same code path
+# production traffic uses (deal -> stand -> stand -> dealer_turn ->
+# _resolve_endround -> apply_endround_pipeline -> tick()). This locks in the
+# apply_endround_pipeline ordering: resolve_targeted_drinking_round() must
+# run *after* harvest_drink_log(), since harvest_drink_log's own snapshot
+# step (_snapshot_round / _record_drinks_detail) overwrites
+# last_round_sips/last_round_drinks wholesale from each player's drink_log,
+# which would silently wipe out award_sips()'s contribution if the ordering
+# were reversed.
+# ---------------------------------------------------------------------------
+
+def test_targeted_drinking_resolves_through_a_real_dealt_round(client):
+    from engine.blackjack import Shoe
+    from tests.conftest import make_card
+
+    room_code = "TDRealRound"
+    room = _make_room(num_players=2)
+    room.start_round()
+    start_targeted_drinking(room, ["Bob"])
+    room._targeted_drinking_streaks["Bob"] = 2   # pretend a streak — must reset on a wrong guess
+    submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong: dealer will stand on 19
+
+    # Deal order per pass: every player's hand(s) card N, then the dealer's
+    # own dealer_hand card N (see app/services/game_engine.py).
+    deal_order = [
+        make_card("2", "S"),   # Alice (dealer-as-player) hand1 card 1
+        make_card("2", "H"),   # Bob hand1 card 1
+        make_card("K", "D"),   # dealer_hand card 1
+        make_card("3", "S"),   # Alice hand1 card 2
+        make_card("3", "H"),   # Bob hand1 card 2
+        make_card("9", "C"),   # dealer_hand card 2 -> dealer stands on K,9 = 19 (no bust)
+    ]
+    shoe = Shoe(1)
+    shoe.cards = list(reversed(deal_order))
+    shoe.penetration = 1.0
+    shoe.total_cards = len(shoe.cards)
+    room.shoe = shoe
+
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice", "Bob"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+    try:
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "deal",
+        })
+        assert resp.get_json()["ok"] is not False
+
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "stand Bob hand1",
+        })
+        assert "Out of order" not in (resp.get_json().get("output") or "")
+
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "stand Alice hand1",
+        })
+        assert "Out of order" not in (resp.get_json().get("output") or "")
+
+        dealer = room._get_dealer()
+        assert dealer.dealer_hand.score() == 19
+        assert dealer.dealer_hand.is_bust() is False
+
+        # resolve_targeted_drinking_round already ran synchronously inside
+        # that last /command response's apply_endround_pipeline call. Bob
+        # also owes normal drinking-mode sips for losing his hand to the
+        # dealer's 19 -- check the Targeted Drinking entry specifically
+        # (rather than the total) to confirm award_sips()'s contribution
+        # survived harvest_drink_log's snapshot overwrite instead of being
+        # silently dropped by it.
+        assert room._targeted_drinking_streaks["Bob"] == 0
+        td_entries = [
+            d for d in room.drinks.last_round_drinks
+            if d["name"] == "Bob" and d["reason"].startswith("Targeted Drinking:")
+        ]
+        assert len(td_entries) == 1
+        assert td_entries[0]["sips"] == 1
+
+        # A /state poll must still reflect it through the serializer.
+        resp = client.get(f"/state?room_code={room_code}&client_id=client-1")
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["targeted_drinking"]["streaks"]["Bob"] == 0
+    finally:
+        game_sessions.pop(room_code, None)
