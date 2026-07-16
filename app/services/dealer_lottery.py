@@ -167,7 +167,9 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         this round) -- floored at 0, never negative -- and open a handout
         window to give ceil(X/2) (if halving is active) or X to another
         player, mirroring /give_bust_sip's exact pattern.
-      - No hand busts: drink ceil(X / 2) if halving is active, else X.
+      - No hand busts: drink the full X -- never halved. Only the handout
+        (above) is halved; halving softens what you hand to someone else,
+        not what you owe yourself.
       - Anything in between (some hands bust, some don't): nothing
         happens -- no drink, no credit.
 
@@ -178,7 +180,8 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     hand), which makes the whole event gentler on average, never harsher.
 
     halving_active reuses the exact flag DrinkTracker.apply_end_of_round
-    already uses: easy_mode or 4+ players.
+    already uses: easy_mode or 4+ players -- but only for the handout here,
+    unlike apply_end_of_round where it halves everything.
     """
     pending = session.round._pending_dealer_lottery
     if not pending:
@@ -227,16 +230,13 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             if handout_amt > 0:
                 pending_handouts[name] = handout_amt
         elif busted == 0:
-            actual = math.ceil(x / 2) if halving_active else x
-            if actual > 0:
-                award_sips(
-                    session, name, actual, "Dealer Lottery drink",
-                    reason=(
-                        f"Dealer Lottery: no split hand busted -- "
-                        f"drink {actual} sip(s)"
-                    ),
-                )
-                drink_amounts[name] = actual
+            # Drink is never halved -- only the handout is (halving softens
+            # what you hand to someone else, not what you owe yourself).
+            award_sips(
+                session, name, x, "Dealer Lottery drink",
+                reason=f"Dealer Lottery: no split hand busted -- drink {x} sip(s)",
+            )
+            drink_amounts[name] = x
         # 0 < busted < n_hands: some hands busted, some didn't -- nothing happens.
 
     if pending_handouts:

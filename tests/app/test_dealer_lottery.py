@@ -444,7 +444,7 @@ def test_deal_and_resolve_hand_respects_max_splits_cap():
     assert result[0].score() == 20
 
 
-def test_resolve_halves_drink_and_handout_at_four_players(monkeypatch):
+def test_resolve_halves_handout_at_four_players(monkeypatch):
     room = _make_room(num_players=4, dealer_hand=make_hand(("9", "S"), ("9", "H")))
     room.round._dealer_lottery_eligible = True
     maybe_start_dealer_lottery(room)
@@ -465,7 +465,10 @@ def test_resolve_halves_drink_and_handout_at_four_players(monkeypatch):
     assert room.drinks.last_round_sips["Alice"] == 5    # 10 - 5 credit (not halved)
 
 
-def test_resolve_halves_drink_penalty_with_easy_mode(monkeypatch):
+def test_resolve_drink_is_never_halved_even_under_easy_mode(monkeypatch):
+    """The drink (no-hand-busts) branch is never halved -- only the handout
+    (all-hands-bust branch) is. Easy Mode / 4+ players still governs the
+    handout, but has no effect on the drink amount."""
     room = _make_room(dealer_hand=make_hand(("9", "S"), ("9", "H")), easy_mode=True)
     room.round._dealer_lottery_eligible = True
     maybe_start_dealer_lottery(room)
@@ -473,11 +476,11 @@ def test_resolve_halves_drink_penalty_with_easy_mode(monkeypatch):
     for name in ("Bob", "Carol"):
         submit_dealer_lottery_entry(room, name, 0)
 
-    # Neither hand busts: X=3 -> ceil(3/2) = 2 (halved, easy_mode)
+    # Neither hand busts: drink stays the full X=3, unhalved despite easy_mode
     _patch_deck(monkeypatch, [make_card("K", "C"), make_card("K", "D")])
     resolve_dealer_lottery(room)
 
-    assert room.drinks.last_round_sips["Alice"] == 2
+    assert room.drinks.last_round_sips["Alice"] == 3
 
 
 # ---------------------------------------------------------------------------

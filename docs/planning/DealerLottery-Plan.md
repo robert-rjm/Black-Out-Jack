@@ -63,7 +63,9 @@ same format as `Busfahrer-Plan.md`.
     "Handout recipient picker" bullet). The self-credit is never halved
     (halving softens drinking, not credits); the handout *is* halved,
     since it's sips the recipient will actually drink.
-  - No new hand busts → drink `ceil(X/2)` if `halving_active` else `X`.
+  - No new hand busts → drink the full `X` -- **never halved**, regardless
+    of `halving_active`. Only the handout above is halved; halving softens
+    what you hand to someone else, not what you owe yourself.
   - Anything in between (some hands bust, some don't) → **nothing
     happens** (no drink, no credit).
   - Rounding is always **up** (`math.ceil`), matching every other halving
@@ -86,6 +88,14 @@ same format as `Busfahrer-Plan.md`.
     the double-stake ceiling to a single stake roughly halves the expected
     sips per point staked, while keeping the both-bust credit as the one
     genuinely good outcome.
+  - **Revision (drink never halved)**: the drink (no-bust) branch briefly
+    used the same `halving_active` check as the handout, so Easy Mode /
+    4+ players halved both. Un-halved the drink specifically: you always
+    owe the full `X` you staked when nothing busts, win or lose only the
+    handout scales with table size. `DrinkTracker.apply_end_of_round`'s
+    own `easy_mode` handling (the main game's separate end-of-round
+    halving) was untouched by this -- it still halves its own list
+    exactly as before.
 - Applies to **Drinking mode only** (Normal mode has no sip economy for
   this to plug into).
 
