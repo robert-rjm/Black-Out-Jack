@@ -83,12 +83,7 @@ def _serialize_last_dealer_lottery_result(result: dict | None) -> dict | None:
     if not result or time.monotonic() - result["set_at"] >= 90:
         return None
     return {
-        "hand_a":       result["hand_a"],
-        "hand_b":       result["hand_b"],
-        "hand_a_score": result["hand_a_score"],
-        "hand_b_score": result["hand_b_score"],
-        "hand_a_bust":  result["hand_a_bust"],
-        "hand_b_bust":  result["hand_b_bust"],
+        "hands":        [dict(h) for h in result["hands"]],
         "busted":       result["busted"],
         "entries":      dict(result["entries"]),
         "drink_amounts":  dict(result.get("drink_amounts", {})),

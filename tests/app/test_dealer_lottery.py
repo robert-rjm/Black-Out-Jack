@@ -311,7 +311,7 @@ def test_resolve_both_bust_credits_and_opens_handout(monkeypatch):
     assert room.round._dealer_lottery_handout_expires_at is not None
 
 
-def test_resolve_neither_bust_drinks_full_penalty(monkeypatch):
+def test_resolve_neither_bust_drinks_stake(monkeypatch):
     room = _nine_pair_room()
     submit_dealer_lottery_entry(room, "Alice", 4)
     submit_dealer_lottery_entry(room, "Bob", 0)
@@ -323,11 +323,12 @@ def test_resolve_neither_bust_drinks_full_penalty(monkeypatch):
 
     result = room.drinks.last_dealer_lottery_result
     assert result["busted"] == 0
-    # (2 - 0) * 4 = 8, no halving (3 players, easy_mode off)
-    assert room.drinks.last_round_sips["Alice"] == 8
+    # Drink X (no halving, 3 players, easy_mode off) -- was 2X before Proposal A.
+    assert room.drinks.last_round_sips["Alice"] == 4
+    assert result["drink_amounts"] == {"Alice": 4}
 
 
-def test_resolve_one_bust_drinks_half_penalty(monkeypatch):
+def test_resolve_one_bust_does_nothing(monkeypatch):
     room = _nine_pair_room()
     submit_dealer_lottery_entry(room, "Alice", 4)
     submit_dealer_lottery_entry(room, "Bob", 0)
@@ -343,8 +344,104 @@ def test_resolve_one_bust_drinks_half_penalty(monkeypatch):
 
     result = room.drinks.last_dealer_lottery_result
     assert result["busted"] == 1
-    # (2 - 1) * 4 = 4
+    # Proposal A: exactly one hand busting is a wash -- no drink, no credit.
+    assert "Alice" not in room.drinks.last_round_sips
+    assert result["drink_amounts"] == {}
+    assert result["credit_amounts"] == {}
+
+
+# ---------------------------------------------------------------------------
+# Re-splitting (a new second card that itself pairs up) and the generalized
+# all-bust/none-bust/mixed payout rule that scales to however many hands
+# a re-split produces
+# ---------------------------------------------------------------------------
+
+def test_resolve_resplits_when_new_card_pairs_again(monkeypatch):
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),  # hand_a's 2nd card forms a new pair -> re-splits
+        make_card("8", "C"),  # re-split hand #1: 9+8 = 17, stands
+        make_card("8", "D"),  # re-split hand #2: 9+8 = 17, stands
+        make_card("K", "C"),  # hand_b: 9+King = 19, stands
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 3   # the re-split hand_a plus hand_b
+    assert [h["score"] for h in result["hands"]] == [17, 17, 19]
+    assert result["busted"] == 0
+    # No hand busted -> drink X (no halving, 3 players) -- unaffected by
+    # there being 3 hands instead of 2, since the rule keys on busted==0.
     assert room.drinks.last_round_sips["Alice"] == 4
+
+
+def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypatch):
+    room = _nine_pair_room()
+    room.drinks.last_round_sips["Alice"] = 10
+    submit_dealer_lottery_entry(room, "Alice", 5)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),                          # hand_a re-splits
+        make_card("5", "C"), make_card("K", "C"),      # re-split hand #1: 9+5=14, hit K -> 24 bust
+        make_card("5", "D"), make_card("Q", "C"),      # re-split hand #2: 9+5=14, hit Q -> 24 bust
+        make_card("5", "H"), make_card("J", "C"),      # hand_b: 9+5=14, hit J -> 24 bust
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 3
+    assert result["busted"] == 3   # every hand busted -> credit + handout
+    assert room.drinks.last_round_sips["Alice"] == 5   # 10 - 5 credit
+    assert result["pending_handouts"] == {"Alice": 5}
+
+
+def test_resolve_mixed_bust_after_resplit_does_nothing(monkeypatch):
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),                          # hand_a re-splits
+        make_card("8", "C"),                           # re-split hand #1: 9+8 = 17, stands
+        make_card("8", "D"),                           # re-split hand #2: 9+8 = 17, stands
+        make_card("5", "H"), make_card("K", "C"),      # hand_b: 9+5=14, hit K -> 24 bust
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 3
+    assert result["busted"] == 1   # some (not all) busted -> nothing happens
+    assert result["drink_amounts"] == {}
+    assert result["credit_amounts"] == {}
+    assert "Alice" not in room.drinks.last_round_sips
+
+
+def test_deal_and_resolve_hand_respects_max_splits_cap():
+    """A hand already at the shared split cap must not split again, even
+    when the newly dealt card would otherwise form another matching pair --
+    the safety property that keeps a hot run of 9s/tens bounded (mirrors
+    Hand.MAX_SPLITS, the same cap the main game's own hand-splitting uses)."""
+    from app.services.dealer_lottery import _deal_and_resolve_hand
+    from engine.blackjack import Hand
+
+    hand = Hand()
+    hand.cards.append(make_card("10", "S"))
+    hand.split_count = Hand.MAX_SPLITS   # already at the cap
+
+    class _OneCardDeck:
+        def __init__(self):
+            self.cards = list(reversed([make_card("J", "D")]))  # matches value 10
+
+    result = _deal_and_resolve_hand(hand, _OneCardDeck())
+    assert len(result) == 1             # did not split again despite matching
+    assert result[0].score() == 20
 
 
 def test_resolve_halves_drink_and_handout_at_four_players(monkeypatch):
@@ -376,11 +473,11 @@ def test_resolve_halves_drink_penalty_with_easy_mode(monkeypatch):
     for name in ("Bob", "Carol"):
         submit_dealer_lottery_entry(room, name, 0)
 
-    # Neither hand busts: (2-0)*3 = 6 -> ceil(6/2) = 3
+    # Neither hand busts: X=3 -> ceil(3/2) = 2 (halved, easy_mode)
     _patch_deck(monkeypatch, [make_card("K", "C"), make_card("K", "D")])
     resolve_dealer_lottery(room)
 
-    assert room.drinks.last_round_sips["Alice"] == 3
+    assert room.drinks.last_round_sips["Alice"] == 2
 
 
 # ---------------------------------------------------------------------------

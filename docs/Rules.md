@@ -371,13 +371,13 @@ If the **same Player** is flagged "worst" for **two milestones in a row**, they 
 
 If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards) — the only way this can happen is as the dealt starting hand, since the Dealer always stands on 17+ — every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
 
-Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule:
+Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule — and if a hand's new card itself forms another matching pair, it splits again the same way a Player's hand would, so a hot run of 9s or tens can turn this into three, four, or more hands (capped the same way Player re-splits are):
 
 | Result | Effect |
 | --- | --- |
-| Both new hands bust | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
-| One new hand busts | Drink X sips |
-| Neither hand busts | Drink 2×X sips |
+| Every new hand busts | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
+| Some hands bust, some don't | Nothing happens |
+| No hand busts | Drink X sips |
 
 Drink and handout amounts are halved (rounded up) under 4+ players or Easy Mode, same as other end-of-round sips — the self-credit is never halved.
 

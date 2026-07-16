@@ -122,34 +122,60 @@ def apply_dealer_lottery_entry_forfeit(session: GameRoom) -> None:
     resolve_dealer_lottery(session)
 
 
-def _play_out_new_hand(first_card, deck) -> Hand:
-    """Deal one dealer-style hand starting from `first_card`, hitting from
-    `deck` until standing at 17+ (matches the real dealer's soft-17 stand
-    behavior -- Hand.score() already resolves the best ace interpretation,
-    so this is exactly the same `while score() < 17: hit` the real dealer
-    turn uses)."""
-    hand = Hand()
-    hand.cards.append(first_card)
+def _deal_and_resolve_hand(hand: Hand, deck) -> list[Hand]:
+    """Deal `hand`'s second card (assumes exactly one card so far) and
+    resolve it: hit from `deck` until standing at 17+ (matches the real
+    dealer's soft-17 stand behavior -- Hand.score() already resolves the
+    best ace interpretation), unless the new card forms another matching
+    pair -- then it re-splits instead of standing on the pair, exactly like
+    a real player hand (Hand.split()/can_split(), same MAX_SPLITS=4 cap the
+    main game already uses, so a hot run of 9s/tens can't spin out an
+    unbounded hand tree -- capped at 5 hands per original starting card,
+    10 total across both).
+
+    Returns every hand this branch ultimately produces (1, unless it
+    (re-)split)."""
     hand.cards.append(deck.cards.pop())
+    if hand.can_split():
+        sibling = hand.split()  # pops hand's 2nd card into sibling; both now hold 1 card
+        return _deal_and_resolve_hand(hand, deck) + _deal_and_resolve_hand(sibling, deck)
     while hand.score() < 17:
         hand.cards.append(deck.cards.pop())
-    return hand
+    return [hand]
+
+
+def _play_out_new_hand(first_card, deck) -> list[Hand]:
+    """Deal one dealer-style hand starting from `first_card` -- see
+    _deal_and_resolve_hand for the hit/stand/re-split logic. Returns a list
+    since a re-split branch can produce more than one hand."""
+    hand = Hand()
+    hand.cards.append(first_card)
+    return _deal_and_resolve_hand(hand, deck)
 
 
 def resolve_dealer_lottery(session: GameRoom) -> None:
     """Resolve the pending lottery.
 
     No-ops (clears pending state, no draw) if every entry is 0. Otherwise
-    splits the dealer's pair into two fresh hands from an isolated deck,
-    plays each out, and pays out every X > 0 entrant per the payout table
-    in docs/planning/DealerLottery-Plan.md §1:
+    splits the dealer's pair into fresh hands from an isolated deck --
+    always at least two, more if a hand re-splits (see
+    _deal_and_resolve_hand) -- plays every one out, and pays out every
+    X > 0 entrant per the payout table in docs/planning/DealerLottery-Plan.md
+    §1:
 
-      - Both new hands bust: credit yourself min(X, your current owed
-        sips this round) -- floored at 0, never negative -- and open a
-        handout window to give ceil(X/2) (if halving is active) or X to
-        another player, mirroring /give_bust_sip's exact pattern.
-      - Otherwise: drink ceil(((2 - busted) * X) / 2) if halving is
-        active, else (2 - busted) * X.
+      - Every hand busts: credit yourself min(X, your current owed sips
+        this round) -- floored at 0, never negative -- and open a handout
+        window to give ceil(X/2) (if halving is active) or X to another
+        player, mirroring /give_bust_sip's exact pattern.
+      - No hand busts: drink ceil(X / 2) if halving is active, else X.
+      - Anything in between (some hands bust, some don't): nothing
+        happens -- no drink, no credit.
+
+    This is a binary win/lose rule keyed on the two extremes (all-bust /
+    none-bust) rather than the hand count, so it scales to however many
+    hands a re-split produces without new cases: more hands only ever makes
+    both extremes rarer (harder to bust every hand, harder to stand every
+    hand), which makes the whole event gentler on average, never harsher.
 
     halving_active reuses the exact flag DrinkTracker.apply_end_of_round
     already uses: easy_mode or 4+ players.
@@ -171,9 +197,9 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     deck = Deck()
     random.shuffle(deck.cards)
 
-    hand_a = _play_out_new_hand(original_cards[0], deck)
-    hand_b = _play_out_new_hand(original_cards[1], deck)
-    busted = sum(1 for h in (hand_a, hand_b) if h.is_bust())
+    hands = _play_out_new_hand(original_cards[0], deck) + _play_out_new_hand(original_cards[1], deck)
+    n_hands = len(hands)
+    busted = sum(1 for h in hands if h.is_bust())
 
     halving_active = session.easy_mode or len(session.all_players) >= 4
 
@@ -188,30 +214,30 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     for name, x in entries.items():
         if x <= 0:
             continue
-        if busted == 2:
+        if busted == n_hands:
             current_owed = max(0, session.drinks.last_round_sips.get(name, 0))
             credit = min(x, current_owed)
             if credit > 0:
                 award_sips(
                     session, name, -credit, "Dealer Lottery credit",
-                    reason=f"Dealer Lottery: both split hands busted -- -{credit} sip credit",
+                    reason=f"Dealer Lottery: every split hand busted -- -{credit} sip credit",
                 )
                 credit_amounts[name] = credit
             handout_amt = math.ceil(x / 2) if halving_active else x
             if handout_amt > 0:
                 pending_handouts[name] = handout_amt
-        else:
-            raw = (2 - busted) * x
-            actual = math.ceil(raw / 2) if halving_active else raw
+        elif busted == 0:
+            actual = math.ceil(x / 2) if halving_active else x
             if actual > 0:
                 award_sips(
                     session, name, actual, "Dealer Lottery drink",
                     reason=(
-                        f"Dealer Lottery: {2 - busted} of 2 new hands stood -- "
+                        f"Dealer Lottery: no split hand busted -- "
                         f"drink {actual} sip(s)"
                     ),
                 )
                 drink_amounts[name] = actual
+        # 0 < busted < n_hands: some hands busted, some didn't -- nothing happens.
 
     if pending_handouts:
         session.round._dealer_lottery_handout_expires_at = (
@@ -221,12 +247,10 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         session.round._dealer_lottery_handout_expires_at = None
 
     session.drinks.last_dealer_lottery_result = {
-        "hand_a": [serialize_card(c) for c in hand_a.cards],
-        "hand_b": [serialize_card(c) for c in hand_b.cards],
-        "hand_a_score": hand_a.score(),
-        "hand_b_score": hand_b.score(),
-        "hand_a_bust": hand_a.is_bust(),
-        "hand_b_bust": hand_b.is_bust(),
+        "hands": [
+            {"cards": [serialize_card(c) for c in h.cards], "score": h.score(), "bust": h.is_bust()}
+            for h in hands
+        ],
         "busted": busted,
         "entries": dict(entries),
         "pending_handouts": pending_handouts,

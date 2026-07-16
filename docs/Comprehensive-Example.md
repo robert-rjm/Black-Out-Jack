@@ -843,13 +843,17 @@ shown standalone rather than folded into a round above:
 >
 > The pair splits into two fresh hands from a new shuffled deck —
 > K♠+5♣ (18 → stands) and Q♥+9♦ (19 → stands). Neither busts, so per
-> **Rule 5.9** Alice drinks **2 × 4 = 8 sips** (halved to 4 if 4+
-> players or Easy Mode is active). Bob, having entered 0, is
-> unaffected either way.
+> **Rule 5.9** Alice drinks **X = 4 sips** (halved to 2 if 4+ players
+> or Easy Mode is active). Bob, having entered 0, is unaffected either
+> way.
 >
-> Had *both* new hands busted instead, Alice would credit herself up
+> Had *every* new hand busted instead, Alice would credit herself up
 > to 4 sips off what she owes this round (floored at 0) and hand 4
-> sips (2 if halved) to a Player of her choice.
+> sips (2 if halved) to a Player of her choice. Had only *some* hands
+> busted, nothing would happen — no drink, no credit. (Neither new
+> card here happened to pair up again — K♠+5♣ and Q♥+9♦ don't match —
+> but if one had, that hand would split again the same way a Player's
+> would, same 4-splits cap and all.)
 
 ---
 
