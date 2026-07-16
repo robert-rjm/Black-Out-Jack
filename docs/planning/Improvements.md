@@ -139,7 +139,13 @@ belongs in `serialize_state` or a helper it calls.
 
 ## 4 · Pydantic for state serialization
 
-**Status:** Actionable now. Medium effort (~1 day).
+**Status:** DONE. `app/models/state_schema.py` defines the full `AppState`
+schema (~450 lines, every serializer field modeled, `extra="forbid"`
+throughout), and `serialize_state()` returns `AppState(**state).model_dump()`
+— a schema/serializer drift now raises immediately at the call site instead
+of silently reaching the frontend. Grown well beyond the original sketch
+below as new features (Dealer Lottery, decision log, etc.) added their own
+nested models.
 
 **Problem today:**
 `serialize_state` returns a raw `dict`. There is no schema, no validation,
@@ -250,7 +256,9 @@ only, and the CLI path is left behind.
 - Phase B: `SessionStats` extracted (`session.stats.*`)
 - Phase C: `GameConfig` extracted (`session.config.*`)
 
-Property shims remain on `GameRoom` for backward compat; remove alongside test cleanup when convenient.
+The old flat-name property shims (`_sip_ticker`, `_last_round_sips`,
+`_drink_csv_rows`, `_milestones_claimed`, etc.) have since been removed —
+all call sites read/write `session.drinks.*` directly now.
 
 **Problem today:**
 `GameRoom` has ~40 fields across 5 unrelated concerns. Any file that imports
@@ -440,7 +448,7 @@ where only the engine is being tested. The `importorskip` lines in
 | 1 | [X] | `award_sips()` helper | Small (2–3h) | No | **Yes** |
 | 2 | [ ] | SSE instead of polling | Medium (1 week) | Yes — needs off Render | No |
 | 3 | [X] | Backend-first API | Done | — | — |
-| 4 | [ ] | Pydantic serialization | Medium (1 day) | No | No |
+| 4 | [X] | Pydantic serialization | Done | — | — |
 | 5 | [ ] | Unified game engine | Large (2–3 weeks) | No | Ideal |
 | 6 | [X] | Decompose `GameRoom` | Medium per phase | No — do Phase A with #1 | Phase A yes |
 | 7 | [ ] | Frontend components | Large (ongoing) | No | No |
