@@ -56,6 +56,15 @@ INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) a
 DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-responders default to 0
 
 # ---------------------------------------------------------------------------
+# Targeted Drinking Mode — admin-started subgame targeting specific players
+# (see docs/planning/TargetedDrinkingMode.md; MVP scope only)
+# ---------------------------------------------------------------------------
+
+TARGETED_DRINKING_VOTE_WINDOW_SECONDS = 15   # per-round bust/stand vote timer
+TARGETED_DRINKING_STREAK_TO_GRADUATE  = 3    # consecutive correct guesses to opt out
+TARGETED_DRINKING_COOLDOWN_ROUNDS     = 3    # rounds before a new subgame can start
+
+# ---------------------------------------------------------------------------
 # Registration / connection limits
 # ---------------------------------------------------------------------------
 
