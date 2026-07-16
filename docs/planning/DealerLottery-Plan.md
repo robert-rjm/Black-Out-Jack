@@ -35,7 +35,7 @@ same format as `Busfahrer-Plan.md`.
   concept needed. Bots auto-submit 0 immediately. If everyone (who
   responds, plus every timed-out default) ends up at 0, the lottery is
   skipped entirely — no draw happens, nothing is logged.
-- **The draw** — the dealer's pair is split into two fresh hands for this
+- **The draw** — the dealer's pair is split into fresh hands for this
   event only: each keeps one of the original two cards and is dealt one new
   card, then plays out under the normal dealer-hits-to-17 rule (whatever
   soft-17 handling the real dealer already uses). This is a genuine split
@@ -45,25 +45,47 @@ same format as `Busfahrer-Plan.md`.
   - One shared draw for the whole table. Every participating player's
     payout is scaled by their *own* X against that same shared outcome —
     this is not N independent per-player draws.
-  - No re-splitting even if one of the two new hands itself draws a
-    matching pair — always exactly two hands, one draw, done.
-- **Payout** (`N = 2`, fixed, since there's no re-splitting). Let
-  `halving_active = easy_mode or len(players) >= 4` — the *exact* existing
-  flag from `DrinkTracker.apply_end_of_round` (`engine/drinking_rules.py:723`),
-  reused verbatim, not reinvented:
-  - Both new hands bust → **credit** yourself `min(X, your current
+  - **Re-splitting (revision)**: if a new hand's second card itself forms
+    another matching pair, it re-splits instead of standing on the pair —
+    exactly like a real player hand (`Hand.split()`/`can_split()`), sharing
+    the same `MAX_SPLITS = 4` cap the main game already uses (5 hands max
+    per original starting card, 10 total across both — a hot run of 9s or
+    tens can't spin out an unbounded hand tree). The original plan fixed
+    this at always-exactly-two-hands; see the Payout revision below for why
+    that no longer needs to be a hard rule.
+- **Payout**. Let `halving_active = easy_mode or len(players) >= 4` — the
+  *exact* existing flag from `DrinkTracker.apply_end_of_round`
+  (`engine/drinking_rules.py:723`), reused verbatim, not reinvented:
+  - Every new hand busts → **credit** yourself `min(X, your current
     last_round_sips)` — floored at 0, you can never end a round owing
     negative sips from this — and **hand out** `ceil(X/2)` if
     `halving_active` else `X` to another player (picker: see §3's
     "Handout recipient picker" bullet). The self-credit is never halved
     (halving softens drinking, not credits); the handout *is* halved,
     since it's sips the recipient will actually drink.
-  - Otherwise → drink `ceil(((2 − busted) × X) / 2)` if `halving_active`
-    else `(2 − busted) × X` (0 busted → `2X` before halving, 1 busted →
-    `X` before halving).
+  - No new hand busts → drink `ceil(X/2)` if `halving_active` else `X`.
+  - Anything in between (some hands bust, some don't) → **nothing
+    happens** (no drink, no credit).
   - Rounding is always **up** (`math.ceil`), matching every other halving
     in the codebase (4-player/Easy Mode batching, the A♣ hard-switch
     half-protection) — never introduce a different rounding rule here.
+  - **Why this scales to re-splitting**: keying the payout on the two
+    extremes (all hands bust / no hand busts) rather than a fixed hand
+    count means re-splitting into 3+ hands needs no new payout cases —
+    more hands only ever makes both extremes rarer (harder to bust every
+    hand, harder to stand every hand), which makes the event gentler on
+    average as the hand count grows, never harsher. This is also why
+    re-splitting could safely be turned back on: the original "always
+    exactly two hands" rule existed to keep the old *fixed* N=2 payout
+    formula well-defined, not because more hands were unsafe.
+  - **Revision (Proposal A)**: the original payout was `(2 − busted) × X`
+    (0 busted → `2X`, 1 busted → `X`) before halving — i.e. drinking was
+    the outcome ~95% of the time a stake was entered, and the worst case
+    (double stake) hit ~60% of the time, per a 200k-trial simulation of
+    the real dealt hands. Dropping the one-bust case to a wash and halving
+    the double-stake ceiling to a single stake roughly halves the expected
+    sips per point staked, while keeping the both-bust credit as the one
+    genuinely good outcome.
 - Applies to **Drinking mode only** (Normal mode has no sip economy for
   this to plug into).
 
