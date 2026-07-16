@@ -97,6 +97,18 @@ Players drink their sips. Dealer drinks nothing. Role passes.
 
 ---
 
+## Dealer Lottery
+
+Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value cards) → everyone picks a stake **X = 0-5** and the pair redeals into fresh hands (re-splits again on another matching pair):
+
+| Result | Effect |
+|--------|--------|
+| Every new hand busts | Credit up to X sips off what you owe, hand X out to another Player |
+| Some bust, some don't | Nothing happens |
+| No hand busts | Drink X sips (never halved) |
+
+---
+
 ## Group Size & Easy Mode
 
 | Situation | Effect |
