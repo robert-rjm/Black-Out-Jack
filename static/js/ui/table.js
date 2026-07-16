@@ -7,6 +7,9 @@ function buildGameUI() {
   document.getElementById("ref-panel").style.display = isDigital ? "none"  : "block";
   document.getElementById("dig-panel").style.display = isDigital ? "block" : "none";
 
+  const regBanner = document.getElementById("pending-reg-banner");
+  if (regBanner) pendingRegBanner.mount(regBanner);
+
   if (isDigital) {
     buildDigitalUI();
   } else {
@@ -33,6 +36,10 @@ function buildDigitalUI() {
   // Player and hand selection is driven automatically by game state (applyTurnGate)
   const roundPane = document.getElementById("pane-dig-round");
   if (roundPane) drinksPanel.mount(roundPane);
+  const giveOverlay = document.getElementById("bust-give-overlay");
+  if (giveOverlay) bustGivePanel.mount(giveOverlay);
+  const dlGiveOverlay = document.getElementById("dealer-lottery-give-overlay");
+  if (dlGiveOverlay) dealerLotteryGivePanel.mount(dlGiveOverlay);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not

@@ -520,7 +520,7 @@ function updateBustVoteUI(state) {
   }
 
   // Give-panel: show at round-over if this client has pending handouts
-  _renderBustGivePanel(state);
+  bustGivePanel.render(state);
 
   // Status indicator: show after window closes.
   // For local multiplayer, represent as a summary across all local names.
@@ -596,56 +596,76 @@ async function giveBustSip(winnerName, recipientName) {
   }
 }
 
-function _renderBustGivePanel(state) {
-  const overlay = document.getElementById("bust-give-overlay");
-  const body    = document.getElementById("bust-give-body");
-  if (!overlay || !body) return;
-
-  const pending = state.my_bust_handout_pending || [];
-  if (!pending.length) {
-    overlay.style.display = "none";
-    body.innerHTML = "";
-    return;
+// ── Bust-vote handout give-panel component (Improvements.md item 7,
+// Option A: class-based, no framework) ──────────────────────────────────
+// Encapsulates #bust-give-overlay. mount() attaches one delegated click
+// listener for handout buttons (replacing the former per-button
+// onclick="giveBustSip(...)" string); render(state) rebuilds the panel
+// exactly as the old _renderBustGivePanel() function did.
+class BustGivePanel {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bgp-give-btn");
+      if (btn) giveBustSip(btn.dataset.winner, btn.dataset.recipient);
+    });
   }
 
-  // Defer behind the milestone handout popup so the two allocation prompts
-  // (and their countdown timers) appear one after the other, not stacked.
-  // The server gives the bust-handout window a fresh countdown once the
-  // milestone prompt clears (see polling.py), so nothing is lost by waiting.
-  if (state.pending_milestone) {
-    overlay.style.display = "none";
-    body.innerHTML = "";
-    return;
+  render(state) {
+    if (!this.el) return;   // not mounted yet (e.g. referee mode never mounts it)
+    const overlay = this.el;
+    const body    = overlay.querySelector("#bust-give-body");
+    if (!body) return;
+
+    const pending = state.my_bust_handout_pending || [];
+    if (!pending.length) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    // Defer behind the milestone handout popup so the two allocation prompts
+    // (and their countdown timers) appear one after the other, not stacked.
+    // The server gives the bust-handout window a fresh countdown once the
+    // milestone prompt clears (see polling.py), so nothing is lost by waiting.
+    if (state.pending_milestone) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    const allPlayers  = (state.players || []);
+    const secsLeft    = state.bust_handout_seconds_left || 0;
+    overlay.style.display = "flex";
+
+    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerStr    = secsLeft > 0
+      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
+      : "";
+
+    body.innerHTML = pending.map((winnerName, idx) => {
+      const label = pending.length > 1
+        ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
+        : "🎉 You called it! Give 1 sip to:";
+      // No onclick= here -- mount()'s delegated listener handles taps.
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn"
+            data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const mb = pending.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        ${timerStr}
+        <div class="bgp-btns-col">${btns}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
   }
-
-  const allPlayers  = (state.players || []);
-  const secsLeft    = state.bust_handout_seconds_left || 0;
-  overlay.style.display = "flex";
-
-  const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
-  const timerStr    = secsLeft > 0
-    ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
-    : "";
-
-  body.innerHTML = pending.map((winnerName, idx) => {
-    const label = pending.length > 1
-      ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
-      : "🎉 You called it! Give 1 sip to:";
-    const btns = allPlayers
-      .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
-      .map(n => `<button class="btn wide bgp-give-btn"
-          data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
-          onclick="giveBustSip(this.dataset.winner, this.dataset.recipient)"
-          >${escapeHtml(n)}</button>`)
-      .join("");
-    const mb = pending.length > 1 ? " bgp-multi-entry" : "";
-    return `<div class="bgp-entry${mb}">
-      <div class="bgp-winner-label">${label}</div>
-      ${timerStr}
-      <div class="bgp-btns-col">${btns}</div>
-    </div>`;
-  }).join(`<hr class="bgp-divider">`);
 }
+
+const bustGivePanel = new BustGivePanel();
 
 // ============================================================
 // DEALER LOTTERY (docs/planning/DealerLottery-Plan.md)
@@ -825,7 +845,7 @@ function updateDealerLotteryUI(state) {
     }
   }
 
-  _renderDealerLotteryGivePanel(state);
+  dealerLotteryGivePanel.render(state);
 }
 
 // Builds the score/BUST/STAND tags for a finished lottery hand, matching
@@ -1022,59 +1042,79 @@ async function giveDealerLotterySip(giverName, recipientName) {
   }
 }
 
-function _renderDealerLotteryGivePanel(state) {
-  const overlay = document.getElementById("dealer-lottery-give-overlay");
-  const body    = document.getElementById("dealer-lottery-give-body");
-  if (!overlay || !body) return;
-
-  const dl      = state.dealer_lottery || {};
-  const pending = dl.my_pending_handouts || {};
-  const givers  = Object.keys(pending);
-  if (!givers.length) {
-    overlay.style.display = "none";
-    body.innerHTML = "";
-    return;
+// ── Dealer Lottery handout give-panel component (Improvements.md item 7,
+// Option A: class-based, no framework) ──────────────────────────────────
+// Same pattern as BustGivePanel above: mount() attaches one delegated click
+// listener (replacing the former per-button
+// onclick="giveDealerLotterySip(...)" string); render(state) rebuilds the
+// panel exactly as the old _renderDealerLotteryGivePanel() function did.
+class DealerLotteryGivePanel {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bgp-give-btn");
+      if (btn) giveDealerLotterySip(btn.dataset.giver, btn.dataset.recipient);
+    });
   }
 
-  // Defer behind the milestone prompt, the bust-vote handout prompt, and
-  // this event's own reveal modal, so popups appear one after another,
-  // never stacked.
-  if (state.pending_milestone || (state.my_bust_handout_pending || []).length
-      || _dealerLotteryRevealOpen) {
-    overlay.style.display = "none";
-    body.innerHTML = "";
-    return;
+  render(state) {
+    if (!this.el) return;   // not mounted yet (e.g. referee mode never mounts it)
+    const overlay = this.el;
+    const body    = overlay.querySelector("#dealer-lottery-give-body");
+    if (!body) return;
+
+    const dl      = state.dealer_lottery || {};
+    const pending = dl.my_pending_handouts || {};
+    const givers  = Object.keys(pending);
+    if (!givers.length) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    // Defer behind the milestone prompt, the bust-vote handout prompt, and
+    // this event's own reveal modal, so popups appear one after another,
+    // never stacked.
+    if (state.pending_milestone || (state.my_bust_handout_pending || []).length
+        || _dealerLotteryRevealOpen) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    const allPlayers = state.players || [];
+    const secsLeft    = dl.handout_seconds_left || 0;
+    overlay.style.display = "flex";
+
+    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerStr = secsLeft > 0
+      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      : "";
+
+    // No onclick= here -- mount()'s delegated listener handles taps.
+    body.innerHTML = givers.map(giverName => {
+      const amount = pending[giverName];
+      const label = givers.length > 1
+        ? `🎰 <strong>${escapeHtml(giverName)}</strong>'s split hands both busted! Give ${amount} sip(s) to:`
+        : `🎰 Both split hands busted! Give ${amount} sip(s) to:`;
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== giverName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const mb = givers.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        ${timerStr}
+        <div class="bgp-btns-col">${btns}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
   }
-
-  const allPlayers = state.players || [];
-  const secsLeft    = dl.handout_seconds_left || 0;
-  overlay.style.display = "flex";
-
-  const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
-  const timerStr = secsLeft > 0
-    ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
-    : "";
-
-  body.innerHTML = givers.map(giverName => {
-    const amount = pending[giverName];
-    const label = givers.length > 1
-      ? `🎰 <strong>${escapeHtml(giverName)}</strong>'s split hands both busted! Give ${amount} sip(s) to:`
-      : `🎰 Both split hands busted! Give ${amount} sip(s) to:`;
-    const btns = allPlayers
-      .filter(n => n.toLowerCase() !== giverName.toLowerCase())
-      .map(n => `<button class="btn wide bgp-give-btn"
-          data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
-          onclick="giveDealerLotterySip(this.dataset.giver, this.dataset.recipient)"
-          >${escapeHtml(n)}</button>`)
-      .join("");
-    const mb = givers.length > 1 ? " bgp-multi-entry" : "";
-    return `<div class="bgp-entry${mb}">
-      <div class="bgp-winner-label">${label}</div>
-      ${timerStr}
-      <div class="bgp-btns-col">${btns}</div>
-    </div>`;
-  }).join(`<hr class="bgp-divider">`);
 }
+
+const dealerLotteryGivePanel = new DealerLotteryGivePanel();
 
 
 // Shared toast helper — sets content, applies drink/clean class, triggers show animation.
@@ -1162,7 +1202,7 @@ function updateRegisterOverlay(state) {
   }
 
   // Admin: render pending registration approvals banner
-  renderPendingRegBanner(state);
+  pendingRegBanner.render(state);
 
   // Seat transfer requests (current controller must approve/deny)
   _syncSeatTransfers(state.pending_seat_transfers || []);
@@ -1209,26 +1249,48 @@ function _showRegisterBlocked() {
   if (overlay) overlay.style.display = "flex";
 }
 
-function renderPendingRegBanner(state) {
-  const banner = document.getElementById("pending-reg-banner");
-  if (!banner) return;
-  const pending = state.pending_registrations || [];
-  if (!pending.length || myRole !== ROLE.ADMIN) {
-    banner.style.display = "none";
-    banner.innerHTML = "";
-    return;
+// ── Pending-registration approval banner component (Improvements.md item 7,
+// Option A: class-based, no framework) ──────────────────────────────────
+// mount() attaches one delegated click listener (replacing the former
+// per-button onclick="handleRegistration('${client_id}', ...)" strings --
+// the one site in this file where server-derived data was interpolated
+// directly into an onclick= attribute rather than read back via dataset);
+// render(state) rebuilds the banner exactly as the old
+// renderPendingRegBanner() function did.
+class PendingRegBanner {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildGameUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest("[data-approve]");
+      if (btn) handleRegistration(btn.dataset.clientId, btn.dataset.approve === "true");
+    });
   }
-  banner.style.display = "block";
-  banner.innerHTML = pending.map(r =>
-    `<div class="pending-reg-row">
-      <span class="pending-reg-name">🙋 ${escapeHtml(r.name)} wants to join</span>
-      <span class="pending-reg-btns">
-        <button class="btn green btn-sm" onclick="handleRegistration('${escapeHtml(r.client_id)}', true)">✓ Accept</button>
-        <button class="btn red btn-sm"   onclick="handleRegistration('${escapeHtml(r.client_id)}', false)">✗ Deny</button>
-      </span>
-    </div>`
-  ).join("");
+
+  render(state) {
+    if (!this.el) return;
+    const banner = this.el;
+    const pending = state.pending_registrations || [];
+    if (!pending.length || myRole !== ROLE.ADMIN) {
+      banner.style.display = "none";
+      banner.innerHTML = "";
+      return;
+    }
+    banner.style.display = "block";
+    // No onclick= here -- mount()'s delegated listener handles taps.
+    banner.innerHTML = pending.map(r =>
+      `<div class="pending-reg-row">
+        <span class="pending-reg-name">🙋 ${escapeHtml(r.name)} wants to join</span>
+        <span class="pending-reg-btns">
+          <button class="btn green btn-sm" data-client-id="${escapeHtml(r.client_id)}" data-approve="true">✓ Accept</button>
+          <button class="btn red btn-sm"   data-client-id="${escapeHtml(r.client_id)}" data-approve="false">✗ Deny</button>
+        </span>
+      </div>`
+    ).join("");
+  }
 }
+
+const pendingRegBanner = new PendingRegBanner();
 
 function showRegisterOverlay(state) {
   const overlay  = document.getElementById("register-overlay");
