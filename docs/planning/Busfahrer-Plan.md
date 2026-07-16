@@ -194,3 +194,11 @@ check_and_set_milestone(session)
   (e.g. only between hands)?
 - **Bot-as-Busfahrer**: any special handling needed, or just log it and
   move on?
+- **Unified engine prerequisite**: `engine/referee.py`'s `RefereeSession`
+  (CLI path) and `app/services/game_engine.py` (digital path, extracted
+  from `game_commands.py`) are still two parallel implementations, not
+  merged. If Busfahrer is web-mode-only (as this whole plan assumes — §4
+  only wires into `GameRoom`/web routes/serializer, never `RefereeSession`),
+  that's fine as-is. If Busfahrer must also work in referee/CLI mode, the
+  engine merge is an unresolved prerequisite that needs to happen first.
+  Resolve which scope is intended before starting §5's build order.
