@@ -144,32 +144,77 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
             else:
                 log.debug(f"  [bust vote] {p.name} wrong (normal mode — no sip penalty)")
 
-    # In normal mode, attach the side-bet stake so the frontend and
-    # payout_tracker can display / settle the correct dollar amount.
-    side_bet_amount = (session.bet_amount / 2) if not session.drinking_mode else None
-    normal = side_bet_amount is not None
+    # In normal mode, attach each affected player's own side-bet stake --
+    # their custom per-hand bet if they set one via /set_player_bet, else
+    # the table default -- so payout_tracker settles the *exact* dollar
+    # amount that was actually deducted at vote time (cast_bust_vote in
+    # polling.py uses this same _pbets-aware lookup). Previously this used
+    # one shared session.bet_amount-derived figure for every player, which
+    # silently mismatched anyone with a custom bet (Code-Audit-2026-07.md #1).
+    normal = not session.drinking_mode
+    _pbets = getattr(session, "_player_bets", {})
+    side_bets = {
+        name: _pbets.get(name, session.bet_amount) / 2
+        for name in winners + losers
+    } if normal else {}
 
     # Pre-build outcome strings so the frontend is a pure renderer.
     def _fmt(v):
         return f"${float(v):.2f}"
 
+    def _grouped_lines(names, line_fmt):
+        """One line per distinct side-bet amount among `names` -- almost
+        always collapses to a single line (most tables never set a custom
+        per-hand bet), but stays accurate when stakes differ."""
+        groups: dict[float, list[str]] = {}
+        for n in names:
+            groups.setdefault(side_bets[n], []).append(n)
+        return [
+            line_fmt(", ".join(grp_names), amt, len(grp_names) > 1)
+            for amt, grp_names in groups.items()
+        ]
+
+    def _uniform_amount(names):
+        """The single stake shared by every name in `names`, or None if
+        their custom bets differ (compact labels can't show one number
+        safely then -- the per-player outcome_lines above stay exact)."""
+        vals = {side_bets[n] for n in names}
+        return vals.pop() if len(vals) == 1 else None
+
     each = " each" if len(losers) > 1 else ""
     outcome_lines = []
     if dealer_busted:
         if winners:
-            reward = f" (+{_fmt(side_bet_amount * 2)} @ 2:1)" if normal else " (-1 sip + give 1)"
-            outcome_lines.append(f"✅ {', '.join(winners)} called it{reward}")
+            if normal:
+                outcome_lines += _grouped_lines(
+                    winners,
+                    lambda names, amt, many: f"✅ {names} called it (+{_fmt(amt * 2)} @ 2:1{' each' if many else ''})",
+                )
+            else:
+                outcome_lines.append(f"✅ {', '.join(winners)} called it (-1 sip + give 1)")
         if losers:
-            penalty = f" (-{_fmt(side_bet_amount)}{each})" if normal else f" (+1 sip{each})"
-            outcome_lines.append(f"❌ {', '.join(losers)} wrong{penalty}")
+            if normal:
+                outcome_lines += _grouped_lines(
+                    losers,
+                    lambda names, amt, many: f"❌ {names} wrong (-{_fmt(amt)}{' each' if many else ''})",
+                )
+            else:
+                outcome_lines.append(f"❌ {', '.join(losers)} wrong (+1 sip{each})")
     else:
         if losers:
-            penalty = f" (-{_fmt(side_bet_amount)}{each})" if normal else f" (+1 sip{each})"
-            outcome_lines.append(f"❌ {', '.join(losers)} bet bust — wrong{penalty}")
+            if normal:
+                outcome_lines += _grouped_lines(
+                    losers,
+                    lambda names, amt, many: f"❌ {names} bet bust — wrong (-{_fmt(amt)}{' each' if many else ''})",
+                )
+            else:
+                outcome_lines.append(f"❌ {', '.join(losers)} bet bust — wrong (+1 sip{each})")
 
     if normal:
-        winner_label = f"called it (+{_fmt(side_bet_amount * 2)} @ 2:1)"
-        loser_label  = f"wrong (−{_fmt(side_bet_amount)})"
+        w_uniform = _uniform_amount(winners) if winners else (session.bet_amount / 2)
+        l_uniform = _uniform_amount(losers) if losers else (session.bet_amount / 2)
+        winner_label = f"called it (+{_fmt(w_uniform * 2)} @ 2:1)" if w_uniform is not None else "called it"
+        loser_label  = f"wrong (−{_fmt(l_uniform)})" if l_uniform is not None else "wrong"
     else:
         winner_label = "called it — -1 sip + give 1!"
         loser_label  = "wrong — +1 sip each"
@@ -178,7 +223,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         "dealer_busted":   dealer_busted,
         "winners":         winners,
         "losers":          losers,
-        "side_bet_amount": side_bet_amount,   # None in drinking mode
+        "side_bets":       side_bets,   # {} in drinking mode; name -> stake in normal mode
         "outcome_lines":   outcome_lines,
         "winner_label":    winner_label,
         "loser_label":     loser_label,
