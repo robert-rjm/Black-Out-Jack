@@ -500,10 +500,32 @@ penalty tier thresholds (3 and 5 in a row), the repeat-target 5-round
 cooldown and consent-override path, and AFK-strike counting plus the
 seat-reassignment side effects on `_room_clients`/`local_names`.
 
-## 10. Ensure accurracy across md files
+## 10. [x] Ensure accurracy across md files
 
 Ensure that any and all newly added files etc are correctly documented
 in README, Architecture, Rules, and any other doc that may be impacted.
 Also remove any mention of docs/planning/TargetedDrinkingMode.md file
 name from any file, this file will be deleted after implementation and
 remains only in git log
+
+Done: added **Rules.md §5.10** (new numbered rule, TOC entry, halving
+table row), **Multiplayer.md** (new section + TOC entry), **Cheat-Sheet.md**
+(new section), and **Architecture.md** (directory tree, file-dependency
+table rows for `targeted_drinking.py`/`tick.py`/`round_pipeline.py`, test
+list, docs index). Re-pinned `docs/.rules_sync.json` via
+`python scripts/rules_sync.py update` (Rules.md changed, `drinking_rules.py`
+didn't — expected, since this logic lives in `app/services/`, same as
+Dealer Lottery). README.md needed no change — it doesn't name individual
+subgames.
+
+Every in-code/in-doc reference to this plan file's own filename was
+replaced with a `Rules.md §5.10` citation (10 files: `app/config.py`,
+`app/models/game_room.py`, `app/models/state_schema.py`,
+`app/routes/admin.py`, `app/routes/polling.py`,
+`app/services/targeted_drinking.py`, `docs/DOM-Hooks.md`,
+`static/js/ui/admin-settings.js`, `static/js/ui/table-modals.js`,
+`tests/app/test_targeted_drinking.py`) so this file can be deleted later
+without leaving dangling references — Dealer Lottery's own plan doc was
+already deleted at some point but 6 files still cite
+`DealerLottery-Plan.md` by name; **not fixed here** (out of scope for this
+feature) but flagged as a separate cleanup task.

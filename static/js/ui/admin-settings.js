@@ -316,9 +316,9 @@ function openKickModal() {
     rejoinSection.style.display = "none";
   }
 
-  // Targeted Drinking Mode start/cancel controls (admin only, drinking mode
-  // only -- docs/planning/TargetedDrinkingMode.md §5.7, §2's resolved
-  // placement question: next to the kick-list in this same players screen)
+  // Targeted Drinking Mode start/cancel controls (Rules.md §5.10;
+  // admin-only, drinking mode only; placed next to the kick-list in this
+  // same players screen)
   _renderTargetedDrinkingAdmin(lastState, isAdmin);
 
   // Reset the bot toggle button to OFF each time the modal opens
@@ -805,8 +805,8 @@ async function rotateDealer() {
 
 // ============================================================
 // TARGETED DRINKING MODE — admin start/cancel controls
-// (docs/planning/TargetedDrinkingMode.md §5.7; admin-only, drinking mode
-// only). Follows the same "create the section once, insertBefore the
+// (Rules.md §5.10; admin-only, drinking mode only). Follows the same
+// "create the section once, insertBefore the
 // add/remove-seat section" idiom as the pending-registrations/kicked/denied/
 // rejoin sections above, rebuilt on every openKickModal() call so it stays
 // live while the settings modal is open.

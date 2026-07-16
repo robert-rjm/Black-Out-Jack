@@ -289,7 +289,7 @@ class DealerLotteryOut(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
-# Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md, MVP scope)
+# Targeted Drinking Mode (Rules.md §5.10, MVP scope)
 # ---------------------------------------------------------------------------
 
 class TargetedDrinkingOut(_StrictModel):

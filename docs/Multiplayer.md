@@ -14,6 +14,7 @@
 - [Milestone Handouts](#milestone-handouts)
 - [Dealer Bust Vote](#dealer-bust-vote)
 - [Dealer Lottery](#dealer-lottery)
+- [Targeted Drinking Mode](#targeted-drinking-mode)
 - [Easy Mode](#easy-mode)
 - [KPI Panel](#kpi-panel)
 - [Strategy Accuracy](#strategy-accuracy)
@@ -143,6 +144,23 @@ If the Dealer's final hand happens to be a **paired 18** (two 9s) or **paired 20
 ### Rules
 - The dealer is eligible to enter too, same as the Bust Vote
 - Every entry (yours or an NPC's) is recorded and can be mined into that player's bot profile — see [Architecture.md](Architecture.md) for `scripts/build_player_profiles.py`
+
+---
+
+## Targeted Drinking Mode
+
+The host can single out one or more players and force them into a running bust/stand call, round after round, until they clear it or the host cancels it.
+
+### How it works
+- Host picks target(s) from **Settings → Players** and taps **Start Targeted Drinking**
+- Each round, every targeted player gets a 15-second window to call **BUST** or **STAND** against the real dealer hand — no answer defaults to STAND
+- Call it right 3 rounds in a row and you're released; call it wrong and your streak resets to 0, plus a 1-sip penalty
+- Once every targeted player has been released, a 3-round cooldown starts before the host can start it again
+
+### Rules
+- Admin-only to start or cancel — see [Rules.md](Rules.md#510-targeted-drinking-mode) for the full rule
+- Runs alongside the normal round — it never pauses or blocks anyone else's turn
+- Players who aren't currently targeted see a small status banner instead of a modal
 
 ---
 

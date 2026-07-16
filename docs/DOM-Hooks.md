@@ -75,7 +75,7 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
   - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
   - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
-- Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md):
+- Targeted Drinking Mode (Rules.md §5.10):
   - `#targeted-drinking-modal-overlay`, `#td-players-wrap`
   - `#td-timer-bar`, `#td-timer-label`
   - `#td-status-banner` (non-targeted players' compact status, in `#dig-panel`)

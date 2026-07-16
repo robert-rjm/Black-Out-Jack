@@ -18,6 +18,7 @@
   - add / edits facts
   - add Black(Out)Jack specific fun facts
 - [ ] Full code sweep for "dead comments" or useless / outdated references (eg to docs/planning/TargetedDrinkingModes.md)
+  - Dealer Lottery's own plan doc was already deleted at some point but 6 files still cite `DealerLottery-Plan.md` by name; **not fixed here** (out of scope for this feature) but flagged as a separate cleanup task.
 
 ## Features
 
