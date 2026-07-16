@@ -21,7 +21,7 @@ import math
 import random
 import time
 
-from engine.blackjack import Deck, Hand
+from engine.blackjack import Card, Deck, Hand
 from app.models.game_room import GameRoom
 from app.config import DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
 from app.services.decision_log import record_dealer_lottery_entry
@@ -122,7 +122,23 @@ def apply_dealer_lottery_entry_forfeit(session: GameRoom) -> None:
     resolve_dealer_lottery(session)
 
 
-def _deal_and_resolve_hand(hand: Hand, deck) -> list[Hand]:
+def _draw(deck) -> Card:
+    """Pop the next card from `deck`, replenishing with a fresh shuffled
+    52-card deck if it runs dry mid-resolution. A run of several re-splits
+    combined with many hands each needing multiple low-card hits to reach
+    17 can plausibly exceed the deck's original 52 cards -- without this,
+    deck.cards.pop() would raise IndexError and crash the /state poll for
+    the whole room. Replenishing here (rather than starting from a bigger
+    deck upfront) keeps the common case cheap and still never touches
+    session.shoe, so the main game's card economy is unaffected either way.
+    """
+    if not deck.cards:
+        deck.cards.extend(Deck().cards)
+        random.shuffle(deck.cards)
+    return deck.cards.pop()
+
+
+def _deal_and_resolve_hand(hand: Hand, deck, parent: Hand | None) -> list[tuple[Hand, Hand | None]]:
     """Deal `hand`'s second card (assumes exactly one card so far) and
     resolve it: hit from `deck` until standing at 17+ (matches the real
     dealer's soft-17 stand behavior -- Hand.score() already resolves the
@@ -133,24 +149,34 @@ def _deal_and_resolve_hand(hand: Hand, deck) -> list[Hand]:
     unbounded hand tree -- capped at 5 hands per original starting card,
     10 total across both).
 
-    Returns every hand this branch ultimately produces (1, unless it
-    (re-)split)."""
-    hand.cards.append(deck.cards.pop())
+    `parent` is the Hand this one was split off from (None for the two
+    original branch roots) -- threaded through so the frontend reveal
+    animation (admin.js's _showDealerLotteryRevealModal) knows which hands
+    are re-split children and can defer creating their card blocks until
+    the moment they actually split off, instead of showing every hand
+    complete from the very start.
+
+    Returns every (hand, parent) pair this branch ultimately produces (1,
+    unless it (re-)split) -- `hand` continuing after a split keeps the same
+    `parent` it was called with, since it's still the same lineage/branch;
+    only the newly split-off `sibling` gets `hand` itself as its parent."""
+    hand.cards.append(_draw(deck))
     if hand.can_split():
         sibling = hand.split()  # pops hand's 2nd card into sibling; both now hold 1 card
-        return _deal_and_resolve_hand(hand, deck) + _deal_and_resolve_hand(sibling, deck)
+        return (_deal_and_resolve_hand(hand, deck, parent)
+                + _deal_and_resolve_hand(sibling, deck, hand))
     while hand.score() < 17:
-        hand.cards.append(deck.cards.pop())
-    return [hand]
+        hand.cards.append(_draw(deck))
+    return [(hand, parent)]
 
 
-def _play_out_new_hand(first_card, deck) -> list[Hand]:
+def _play_out_new_hand(first_card, deck) -> list[tuple[Hand, Hand | None]]:
     """Deal one dealer-style hand starting from `first_card` -- see
     _deal_and_resolve_hand for the hit/stand/re-split logic. Returns a list
     since a re-split branch can produce more than one hand."""
     hand = Hand()
     hand.cards.append(first_card)
-    return _deal_and_resolve_hand(hand, deck)
+    return _deal_and_resolve_hand(hand, deck, None)
 
 
 def resolve_dealer_lottery(session: GameRoom) -> None:
@@ -200,7 +226,15 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     deck = Deck()
     random.shuffle(deck.cards)
 
-    hands = _play_out_new_hand(original_cards[0], deck) + _play_out_new_hand(original_cards[1], deck)
+    resolved = _play_out_new_hand(original_cards[0], deck) + _play_out_new_hand(original_cards[1], deck)
+    hands   = [h for h, _parent in resolved]
+    # Map each hand's parent (the Hand object it split off from, or None for
+    # the two original branch roots) to an index into `hands`, by identity --
+    # Hand has no custom __eq__, so this correctly finds the exact object.
+    parent_indices = [
+        hands.index(parent) if parent is not None else None
+        for _hand, parent in resolved
+    ]
     n_hands = len(hands)
     busted = sum(1 for h in hands if h.is_bust())
 
@@ -248,8 +282,13 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
 
     session.drinks.last_dealer_lottery_result = {
         "hands": [
-            {"cards": [serialize_card(c) for c in h.cards], "score": h.score(), "bust": h.is_bust()}
-            for h in hands
+            {
+                "cards": [serialize_card(c) for c in h.cards],
+                "score": h.score(),
+                "bust":  h.is_bust(),
+                "parent_index": parent_indices[i],
+            }
+            for i, h in enumerate(hands)
         ],
         "busted": busted,
         "entries": dict(entries),

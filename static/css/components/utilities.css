@@ -301,7 +301,7 @@ body.no-drinking .drink-only {
   transition: outline .1s;
   -webkit-tap-highlight-color: transparent;
 }
-/* Selected state — toggled by selectDrinksPlayer(); replaces inline style.outline */
+/* Selected state — toggled by DrinksPanel._selectPlayer(); replaces inline style.outline */
 .drinks-card.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Inner elements of a drinks card (background/border/color remain inline — dynamic) */
@@ -323,7 +323,7 @@ body.no-drinking .drink-only {
   max-height: 160px;
 }
 
-/* Drinks detail panel states (renderDrinksDetail) */
+/* Drinks detail panel states (DrinksPanel._renderDetail) */
 .drinks-detail-empty  { color: var(--muted); font-size: 12px; text-align: center; padding: 20px 8px; opacity: .55; line-height: 1.5; }
 .drinks-detail-clean  { color: var(--green); font-size: 12px; text-align: center; padding: 10px 4px; }
 .drinks-detail-header { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }

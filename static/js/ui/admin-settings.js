@@ -578,7 +578,7 @@ function _populateSettingsUI(state) {
   const removeEl   = document.getElementById("setting-remove-name");
 
   // Sync bust vote pill toggle
-  // Bust vote pill toggle sync is handled by updateBustVoteUI — just sync checkbox here
+  // Bust vote pill toggle sync is handled by bustVotePanel.render — just sync checkbox here
   const bustCb2 = document.getElementById("bust-vote-toggle-modal");
   if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
   const wildCb = document.getElementById("wild-card-toggle-modal");

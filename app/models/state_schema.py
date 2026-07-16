@@ -267,6 +267,7 @@ class DealerLotteryHandOut(_StrictModel):
     cards: list[CardOut]
     score: int
     bust:  bool
+    parent_index: Optional[int]   # index into `hands` this one split off from; None for the 2 branch roots
 
 
 class DealerLotteryResultOut(_StrictModel):
@@ -292,13 +293,13 @@ class DealerLotteryOut(_StrictModel):
 # ---------------------------------------------------------------------------
 
 class BustVoteResultOut(_StrictModel):
-    dealer_busted:   bool
-    winners:         list[str]
-    losers:          list[str]
-    side_bet_amount: Optional[float]
-    outcome_lines:   list[str]
-    winner_label:    str
-    loser_label:     str
+    dealer_busted: bool
+    winners:       list[str]
+    losers:        list[str]
+    side_bets:     dict[str, float]   # {} in drinking mode; name -> stake in normal mode
+    outcome_lines: list[str]
+    winner_label:  str
+    loser_label:   str
 
 
 # ---------------------------------------------------------------------------
@@ -430,6 +431,7 @@ class AppState(_StrictModel):
     # ---- Milestone data (always present) ----
     last_milestone_result: Optional[LastMilestoneResultOut]
     pending_milestone:     Optional[PendingMilestoneOut]
+    last_milestone_worst:  Optional[str]
 
     # ---- Dealer Lottery data (always present) ----
     dealer_lottery: DealerLotteryOut

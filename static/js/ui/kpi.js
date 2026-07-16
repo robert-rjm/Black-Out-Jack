@@ -121,12 +121,16 @@ function _mobileSheet(id, title, contentHtml) {
   sheet.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:13px;font-weight:700;color:var(--text)">${title}</div>
-      <button onclick="document.getElementById('${id}').remove()"
+      <button class="mobile-sheet-close"
         style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1">✕</button>
     </div>
     <div style="overflow-x:auto">${contentHtml}</div>`;
   overlay.appendChild(sheet);
-  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+  // One delegated listener handles both the backdrop tap and the close
+  // button -- no onclick= needed for either.
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay || e.target.closest(".mobile-sheet-close")) overlay.remove();
+  });
   document.body.appendChild(overlay);
 }
 
@@ -328,7 +332,7 @@ function renderStats(state) {
         ${drinking ? `<span style="text-align:right">${avgStr}</span>` : ""}
       </div>`;
     }).join("");
-    callouts.push(`<div class="stat-card stat-card-mobile-lb" onclick="openMobileLbModal()"
+    callouts.push(`<div class="stat-card stat-card-mobile-lb" data-action="openMobileLbModal"
         style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
         <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">🏆 Rankings</div>
@@ -342,7 +346,7 @@ function renderStats(state) {
       drinking ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${ss.total_sips}</div><div class="ssb-lbl">Total sips</div></div>` : "",
       `<div class="ssb-item"><div class="ssb-val">${_fmtDuration(ss.session_seconds)}</div><div class="ssb-lbl">Duration</div></div>`,
     ].filter(Boolean).join("");
-    callouts.push(`<div class="stat-card stat-card-mobile-kpi" onclick="openMobileKpiModal()"
+    callouts.push(`<div class="stat-card stat-card-mobile-kpi" data-action="openMobileKpiModal"
         style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">📊 Session</div>

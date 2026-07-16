@@ -350,6 +350,42 @@ def test_resolve_one_bust_does_nothing(monkeypatch):
     assert result["credit_amounts"] == {}
 
 
+def test_resolve_survives_deck_exhaustion_from_long_hit_runs(monkeypatch):
+    """Regression for the Dealer Lottery deck-exhaustion crash
+    (docs/planning/Code-Audit-2026-07.md #2): a long run of low-card hits
+    needed to reach 17 can pop more cards than the isolated one-off Deck()
+    originally held. Before the fix, deck.cards.pop() on an empty list
+    raised IndexError -- which would 500 the /state poll for the whole room,
+    since resolve_dealer_lottery() runs on every tick via
+    apply_dealer_lottery_entry_forfeit(). _draw() now replenishes with a
+    fresh shuffled deck instead of crashing."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    deck_calls = []
+
+    def _counting_deck():
+        deck_calls.append(1)
+        return _ScriptedDeck([make_card("6", "H")])  # only 1 card per "deck"
+
+    monkeypatch.setattr("app.services.dealer_lottery.Deck", _counting_deck)
+    monkeypatch.setattr("app.services.dealer_lottery.random.shuffle", lambda cards: None)
+
+    resolve_dealer_lottery(room)  # must not raise IndexError
+
+    # Deck() was called more than once -- proves the deck ran dry mid-hand
+    # and _draw() replenished it instead of crashing.
+    assert len(deck_calls) > 1
+
+    # Both hands: 9 + 6 + 6 = 21 (stand, no bust, no split -- 9 and 6 don't pair).
+    result = room.drinks.last_dealer_lottery_result
+    assert [h["score"] for h in result["hands"]] == [21, 21]
+    assert result["busted"] == 0
+    assert result["drink_amounts"] == {"Alice": 3}
+
+
 # ---------------------------------------------------------------------------
 # Re-splitting (a new second card that itself pairs up) and the generalized
 # all-bust/none-bust/mixed payout rule that scales to however many hands
@@ -373,10 +409,48 @@ def test_resolve_resplits_when_new_card_pairs_again(monkeypatch):
     result = room.drinks.last_dealer_lottery_result
     assert len(result["hands"]) == 3   # the re-split hand_a plus hand_b
     assert [h["score"] for h in result["hands"]] == [17, 17, 19]
+    # hand_a (idx 0) and hand_b (idx 2) are the two original branch roots
+    # (parent_index None); the re-split sibling (idx 1) split off hand_a.
+    assert [h["parent_index"] for h in result["hands"]] == [None, 0, None]
     assert result["busted"] == 0
     # No hand busted -> drink X (no halving, 3 players) -- unaffected by
     # there being 3 hands instead of 2, since the rule keys on busted==0.
     assert room.drinks.last_round_sips["Alice"] == 4
+
+
+def test_resolve_cascading_resplit_tracks_parent_chain(monkeypatch):
+    """A hand whose new 2nd card pairs up TWICE in a row (re-splitting
+    twice) must still correctly attribute both split-off siblings to the
+    SAME parent hand -- and the flat `hands` list holds 4 entries: the
+    twice-continuing root, its two siblings, and the untouched other
+    branch. Regression coverage for the parent_index field added to
+    support the reveal-modal animation ordering (see admin.js's
+    _showDealerLotteryRevealModal)."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),   # hand_a's 2nd card pairs again -> re-splits (sibling1 split off)
+        make_card("9", "C"),   # continuing hand_a's NEW 2nd card pairs AGAIN -> re-splits (sibling2 split off)
+        make_card("8", "H"),   # continuing hand_a's 3rd attempt: 9+8=17, no match, stands
+        make_card("8", "S"),   # sibling2: 9+8=17, stands
+        make_card("Q", "C"),   # sibling1: 9+Q=19, stands
+        make_card("K", "C"),   # hand_b: 9+K=19, stands
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 4
+    assert [h["score"] for h in result["hands"]] == [17, 17, 19, 19]
+    # idx0 = hand_a's final continuation (root, no parent)
+    # idx1 = sibling2 (split off hand_a 2nd) -- appears before sibling1 because
+    #   the backend fully resolves hand_a's own continuing branch (including
+    #   any further splits) before ever touching the FIRST sibling it split off
+    # idx2 = sibling1 (split off hand_a 1st)
+    # idx3 = hand_b (the other original branch root, no parent)
+    assert [h["parent_index"] for h in result["hands"]] == [None, 0, 0, None]
 
 
 def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypatch):
@@ -439,9 +513,11 @@ def test_deal_and_resolve_hand_respects_max_splits_cap():
         def __init__(self):
             self.cards = list(reversed([make_card("J", "D")]))  # matches value 10
 
-    result = _deal_and_resolve_hand(hand, _OneCardDeck())
+    result = _deal_and_resolve_hand(hand, _OneCardDeck(), None)
     assert len(result) == 1             # did not split again despite matching
-    assert result[0].score() == 20
+    resolved_hand, parent = result[0]
+    assert resolved_hand.score() == 20
+    assert parent is None
 
 
 def test_resolve_halves_handout_at_four_players(monkeypatch):
