@@ -347,7 +347,6 @@ function _applyKicked(state) {
     document.getElementById("app").style.display    = "none";
     document.getElementById("setup").style.display  = "none";
     document.getElementById("lobby").style.display  = "flex";
-    document.getElementById("log").innerHTML = "";
     document.getElementById("header-room").textContent = "";
     hideLobbyMsg();
     players  = [];
@@ -423,6 +422,7 @@ function _syncRoundEffects(state, drinkingOn) {
     if (state.insurance_result && state.insurance_result.length) {
       showInsuranceToast(state.insurance_result);
     }
+    _maybeAutoExportDecisions(state);
   }
   DrinkUI.lastRoundOverSeq = Math.max(DrinkUI.lastRoundOverSeq, newRoundOverSeq);
 

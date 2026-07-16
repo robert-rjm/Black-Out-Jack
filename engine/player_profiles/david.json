@@ -1,12 +1,56 @@
 {
   "player": "David",
   "generated": "2026-07-15",
-  "source_decisions": 121,
+  "source_decisions": 225,
   "thresholds": {
     "min_samples": 3,
     "min_majority": 0.6
   },
   "deviations": [
+    {
+      "hand_total": 12,
+      "is_soft": false,
+      "dealer_upcard_rank": "5",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "s",
+      "player_action": "d",
+      "samples": 3,
+      "majority": 0.667,
+      "action_counts": {
+        "s": 1,
+        "d": 2
+      }
+    },
+    {
+      "hand_total": 13,
+      "is_soft": false,
+      "dealer_upcard_rank": "7",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 3,
+      "majority": 0.667,
+      "action_counts": {
+        "s": 2,
+        "h": 1
+      }
+    },
+    {
+      "hand_total": 15,
+      "is_soft": false,
+      "dealer_upcard_rank": "10",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 3,
+      "majority": 1.0,
+      "action_counts": {
+        "s": 3
+      }
+    },
     {
       "hand_total": 16,
       "is_soft": false,
@@ -21,5 +65,6 @@
         "s": 3
       }
     }
-  ]
+  ],
+  "lottery_stakes": []
 }

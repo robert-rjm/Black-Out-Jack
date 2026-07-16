@@ -191,8 +191,8 @@
 .dl-entry-card:last-child { border-bottom: none; }
 .dl-entry-top     { display: flex; align-items: center; justify-content: space-between; }
 .dl-name-lbl      { font-size: 14px; font-weight: 700; color: var(--text); }
-.dl-status        { font-size: 13px; font-weight: 600; color: var(--purple); }
-.dl-x-value       { font-size: 15px; font-weight: 800; color: var(--purple); min-width: 20px; text-align: right; }
+.dl-status        { font-size: 13px; font-weight: 600; color: var(--green); }
+.dl-x-value       { font-size: 15px; font-weight: 800; color: var(--green); min-width: 20px; text-align: right; }
 .dl-entry-row     { display: flex; gap: 10px; align-items: center; }
 .dl-x-slider {
   flex: 1; -webkit-appearance: none; appearance: none;
@@ -201,12 +201,12 @@
 .dl-x-slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--purple); cursor: pointer; border: 2px solid var(--surface);
+  background: var(--green); cursor: pointer; border: 2px solid var(--surface);
   box-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
 .dl-x-slider::-moz-range-thumb {
   width: 20px; height: 20px; border-radius: 50%;
-  background: var(--purple); cursor: pointer; border: 2px solid var(--surface);
+  background: var(--green); cursor: pointer; border: 2px solid var(--surface);
   box-shadow: 0 1px 4px rgba(0,0,0,.4);
 }
 .dl-enter-btn     { flex-shrink: 0; }

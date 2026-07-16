@@ -83,12 +83,7 @@ def _serialize_last_dealer_lottery_result(result: dict | None) -> dict | None:
     if not result or time.monotonic() - result["set_at"] >= 90:
         return None
     return {
-        "hand_a":       result["hand_a"],
-        "hand_b":       result["hand_b"],
-        "hand_a_score": result["hand_a_score"],
-        "hand_b_score": result["hand_b_score"],
-        "hand_a_bust":  result["hand_a_bust"],
-        "hand_b_bust":  result["hand_b_bust"],
+        "hands":        [dict(h) for h in result["hands"]],
         "busted":       result["busted"],
         "entries":      dict(result["entries"]),
         "drink_amounts":  dict(result.get("drink_amounts", {})),
@@ -790,8 +785,17 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     }
 
     # ---- Dealer Lottery data ----
-    _dl_pending_handouts = (session.drinks.last_dealer_lottery_result or {}).get(
-        "pending_handouts", {})
+    # Exclude givers who already gave (mirrors my_bust_handout_pending's
+    # "n not in _bust_handouts_given" filter) -- last_dealer_lottery_result's
+    # pending_handouts is a static snapshot from resolve_dealer_lottery() and
+    # is never mutated by give_dealer_lottery_sip(), so without this filter
+    # the give-overlay panel keeps showing an already-given giver's button
+    # for the rest of the 90-second result window, blocking the table.
+    _dl_pending_handouts = {
+        n: a for n, a in (session.drinks.last_dealer_lottery_result or {}).get(
+            "pending_handouts", {}).items()
+        if n not in session.round._dealer_lottery_handouts_given
+    }
     _dl_my_names = set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
     _dealer_lottery_data = {
         "dealer_lottery": {
@@ -799,7 +803,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                         session.round._pending_dealer_lottery, _ci),
             "last_result":          _serialize_last_dealer_lottery_result(
                                         session.drinks.last_dealer_lottery_result),
-            "result_seq":           session.round._dealer_lottery_result_seq,
+            "result_seq":           session.drinks._dealer_lottery_result_seq,
             "pending_handouts":     dict(_dl_pending_handouts),
             "my_pending_handouts":  {n: a for n, a in _dl_pending_handouts.items()
                                      if n in _dl_my_names},

@@ -13,6 +13,7 @@
 - [Live Sip Tracking](#live-sip-tracking)
 - [Milestone Handouts](#milestone-handouts)
 - [Dealer Bust Vote](#dealer-bust-vote)
+- [Dealer Lottery](#dealer-lottery)
 - [Easy Mode](#easy-mode)
 - [KPI Panel](#kpi-panel)
 - [Strategy Accuracy](#strategy-accuracy)
@@ -124,6 +125,24 @@ Before the dealer reveals their hand, players can predict whether the dealer wil
 - Only players who voted are affected — abstainers skip the round entirely
 - The −1 credit offsets one of your own sips from that round (net result of a correct call is 0 or positive)
 - Bust voting can be toggled on or off by the admin in settings
+
+---
+
+## Dealer Lottery
+
+If the Dealer's final hand happens to be a **paired 18** (two 9s) or **paired 20** (any two ten-value cards), every player gets a shot at a bonus split redeal.
+
+### How it works
+- Each player picks a stake **X = 0-5** (20-second window; no answer defaults to 0)
+- If everyone picks 0, nothing happens — no draw, nothing logged
+- Otherwise the dealer's pair splits into fresh hands from a new shuffled deck, played out under the normal dealer-hits-to-17 rule — shown as a real card-by-card reveal animation. If a new card itself forms another matching pair, that hand splits again the same way a player's hand would (same 4-splits cap), so a hot run of 9s or tens can turn this into three or more hands
+- **Every hand busts**: credit yourself up to X sips off what you owe this round, and hand X sips out to another player (picker window mirrors the Bust Vote's)
+- **Some hands bust, some don't**: nothing happens
+- **No hand busts**: drink the full X — this is never halved, regardless of player count or Easy Mode (only the all-bust handout scales with those)
+
+### Rules
+- The dealer is eligible to enter too, same as the Bust Vote
+- Every entry (yours or an NPC's) is recorded and can be mined into that player's bot profile — see [Architecture.md](Architecture.md) for `scripts/build_player_profiles.py`
 
 ---
 

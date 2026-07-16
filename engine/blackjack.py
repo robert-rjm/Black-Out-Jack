@@ -334,6 +334,17 @@ class NPC_Player(Player):
                                  sibling_hands=sibling_hands)
         return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
 
+    def decide_dealer_lottery_stake(self, current_owed: int) -> int:
+        """Choose this NPC's Dealer Lottery entry (0-5), per its profile's
+        mined lottery_stakes tendency. "basic" personality (or a profile with
+        no mined lottery data) always opts out (0) -- same as before this
+        was a real decision."""
+        profile = self._get_profile()
+        if profile is None:
+            return 0
+        from engine.style_strategy import decide_dealer_lottery_stake
+        return decide_dealer_lottery_stake(profile, current_owed)
+
 
 # =============================================================================
 # HandEvaluator

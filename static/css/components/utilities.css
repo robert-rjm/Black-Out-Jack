@@ -491,6 +491,14 @@ body.no-drinking .drink-only {
   margin-bottom: 12px;
 }
 .summary-actions { margin-top: 4px; }
+.auto-export-row {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.auto-export-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted); cursor: pointer;
+}
+.auto-export-label input[type="checkbox"] { cursor: pointer; }
 
 .local-seat-switcher {
   display: flex; align-items: center; gap: 8px;

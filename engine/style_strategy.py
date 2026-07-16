@@ -157,6 +157,38 @@ def _sibling_awaiting_deal(hand, sibling_hands: Optional[list]) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Dealer Lottery stake tendency
+# ---------------------------------------------------------------------------
+
+def _owed_bucket(current_owed: int) -> str:
+    """
+    Coarse bucket for how many sips a player currently owes this round,
+    at the moment the Dealer Lottery entry window opens -- the signal a
+    real human weighs (higher owed = more upside from a both-bust credit).
+    """
+    if current_owed <= 0:
+        return "none"
+    if current_owed <= 2:
+        return "low"
+    return "high"
+
+
+def decide_dealer_lottery_stake(profile: dict, current_owed: int) -> int:
+    """
+    Return this profile's mined Dealer Lottery stake (0-5) for the given
+    owed-sips bucket, falling back to 0 (opt out) when the profile has no
+    ``lottery_stakes`` entry for that bucket -- mirrors ``best_play_for``'s
+    fallback-to-basic-strategy pattern, just for a stake amount instead of
+    a hand action.
+    """
+    bucket = _owed_bucket(current_owed)
+    for entry in profile.get("lottery_stakes", []):
+        if entry.get("owed_bucket") == bucket:
+            return max(0, min(5, round(entry.get("avg_stake", 0))))
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # Lookup
 # ---------------------------------------------------------------------------
 
