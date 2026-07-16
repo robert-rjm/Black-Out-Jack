@@ -799,6 +799,25 @@ Dealer stood at 17 (no bust). Had a Player placed a "Bust" side bet
 that round, they'd have been wrong:
 → **+1 sip penalty**, no handout.
 
+### Bonus illustration: Ace effects dealt to the Dealer (→ Rule 4.1)
+
+The five rounds above show every Ace effect dealt to a Player, plus `A♠`
+and `A♣` dealt to the Dealer — but not `A♥`/`A♦` dealt to the Dealer, or
+`A♠`'s *even-card* variant (Round 3 only showed the odd-card case). Three
+standalone cases to fill the gap:
+
+> **`A♠` dealt to the Dealer as the 2nd card (even)** — instead of the
+> Dealer drinking alone (the odd-card case in Round 3), **all Players
+> drink 1 sip**.
+>
+> **`A♥` dealt to the Dealer** — instead of just one Player treating
+> themselves (Rounds 1/3/4), **all Players treat themselves to a sip**
+> (1 sip each).
+>
+> **`A♦` dealt to the Dealer** — instead of the Dealer drinking (the
+> Player-dealt case in Rounds 3/4), **all Players except the Dealer**
+> drink 1 sip.
+
 ### Bonus illustration: "no losses, at least one push" (→ Rule 5.2)
 
 None of the five rounds above happens to land on this exact row of
@@ -878,9 +897,12 @@ shown standalone rather than folded into a round above:
 | Hard Dealer Switch | 5.7 | — | ✅ | — | — | — | — |
 | Ace of Clubs protection | 4.1 / 5.7 | — | ✅ | — | — | — | — |
 | `A♠` Player card rule | 4.1 | — | ✅ | — | ✅ | — | — |
-| `A♠` Dealer card rule | 4.1 | — | — | ✅ | — | — | — |
-| `A♥` treat yourself | 4.1 | ✅ | — | ✅ | ✅ | — | — |
-| `A♦` Dealer drinks | 4.1 | — | — | ✅ | ✅ | — | — |
+| `A♠` Dealer card rule (odd → Dealer only) | 4.1 | — | — | ✅ | — | — | — |
+| `A♠` Dealer card rule (even → all Players) | 4.1 | — | — | — | — | — | ✅ |
+| `A♥` treat yourself (Player) | 4.1 | ✅ | — | ✅ | ✅ | — | — |
+| `A♥` Dealer card rule (all Players treat themselves) | 4.1 | — | — | — | — | — | ✅ |
+| `A♦` Dealer drinks (Player-dealt) | 4.1 | — | — | ✅ | ✅ | — | — |
+| `A♦` Dealer card rule (all Players except Dealer) | 4.1 | — | — | — | — | — | ✅ |
 | `A♣` subtract 1 sip | 4.1 | — | — | ✅ | ✅ | — | — |
 | Four Aces on first deal | 4.3 | — | — | — | ✅ | — | — |
 | Four Aces end of round (no stack) | 5.6 | — | — | — | ✅ | — | — |
