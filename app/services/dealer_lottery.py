@@ -21,7 +21,7 @@ import math
 import random
 import time
 
-from engine.blackjack import Deck, Hand
+from engine.blackjack import Card, Deck, Hand
 from app.models.game_room import GameRoom
 from app.config import DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
 from app.services.decision_log import record_dealer_lottery_entry
@@ -122,6 +122,22 @@ def apply_dealer_lottery_entry_forfeit(session: GameRoom) -> None:
     resolve_dealer_lottery(session)
 
 
+def _draw(deck) -> Card:
+    """Pop the next card from `deck`, replenishing with a fresh shuffled
+    52-card deck if it runs dry mid-resolution. A run of several re-splits
+    combined with many hands each needing multiple low-card hits to reach
+    17 can plausibly exceed the deck's original 52 cards -- without this,
+    deck.cards.pop() would raise IndexError and crash the /state poll for
+    the whole room. Replenishing here (rather than starting from a bigger
+    deck upfront) keeps the common case cheap and still never touches
+    session.shoe, so the main game's card economy is unaffected either way.
+    """
+    if not deck.cards:
+        deck.cards.extend(Deck().cards)
+        random.shuffle(deck.cards)
+    return deck.cards.pop()
+
+
 def _deal_and_resolve_hand(hand: Hand, deck) -> list[Hand]:
     """Deal `hand`'s second card (assumes exactly one card so far) and
     resolve it: hit from `deck` until standing at 17+ (matches the real
@@ -135,12 +151,12 @@ def _deal_and_resolve_hand(hand: Hand, deck) -> list[Hand]:
 
     Returns every hand this branch ultimately produces (1, unless it
     (re-)split)."""
-    hand.cards.append(deck.cards.pop())
+    hand.cards.append(_draw(deck))
     if hand.can_split():
         sibling = hand.split()  # pops hand's 2nd card into sibling; both now hold 1 card
         return _deal_and_resolve_hand(hand, deck) + _deal_and_resolve_hand(sibling, deck)
     while hand.score() < 17:
-        hand.cards.append(deck.cards.pop())
+        hand.cards.append(_draw(deck))
     return [hand]
 
 

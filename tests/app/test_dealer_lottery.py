@@ -350,6 +350,42 @@ def test_resolve_one_bust_does_nothing(monkeypatch):
     assert result["credit_amounts"] == {}
 
 
+def test_resolve_survives_deck_exhaustion_from_long_hit_runs(monkeypatch):
+    """Regression for the Dealer Lottery deck-exhaustion crash
+    (docs/planning/Code-Audit-2026-07.md #2): a long run of low-card hits
+    needed to reach 17 can pop more cards than the isolated one-off Deck()
+    originally held. Before the fix, deck.cards.pop() on an empty list
+    raised IndexError -- which would 500 the /state poll for the whole room,
+    since resolve_dealer_lottery() runs on every tick via
+    apply_dealer_lottery_entry_forfeit(). _draw() now replenishes with a
+    fresh shuffled deck instead of crashing."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    deck_calls = []
+
+    def _counting_deck():
+        deck_calls.append(1)
+        return _ScriptedDeck([make_card("6", "H")])  # only 1 card per "deck"
+
+    monkeypatch.setattr("app.services.dealer_lottery.Deck", _counting_deck)
+    monkeypatch.setattr("app.services.dealer_lottery.random.shuffle", lambda cards: None)
+
+    resolve_dealer_lottery(room)  # must not raise IndexError
+
+    # Deck() was called more than once -- proves the deck ran dry mid-hand
+    # and _draw() replenished it instead of crashing.
+    assert len(deck_calls) > 1
+
+    # Both hands: 9 + 6 + 6 = 21 (stand, no bust, no split -- 9 and 6 don't pair).
+    result = room.drinks.last_dealer_lottery_result
+    assert [h["score"] for h in result["hands"]] == [21, 21]
+    assert result["busted"] == 0
+    assert result["drink_amounts"] == {"Alice": 3}
+
+
 # ---------------------------------------------------------------------------
 # Re-splitting (a new second card that itself pairs up) and the generalized
 # all-bust/none-bust/mixed payout rule that scales to however many hands
