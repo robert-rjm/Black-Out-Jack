@@ -292,13 +292,13 @@ class DealerLotteryOut(_StrictModel):
 # ---------------------------------------------------------------------------
 
 class BustVoteResultOut(_StrictModel):
-    dealer_busted:   bool
-    winners:         list[str]
-    losers:          list[str]
-    side_bet_amount: Optional[float]
-    outcome_lines:   list[str]
-    winner_label:    str
-    loser_label:     str
+    dealer_busted: bool
+    winners:       list[str]
+    losers:        list[str]
+    side_bets:     dict[str, float]   # {} in drinking mode; name -> stake in normal mode
+    outcome_lines: list[str]
+    winner_label:  str
+    loser_label:   str
 
 
 # ---------------------------------------------------------------------------
