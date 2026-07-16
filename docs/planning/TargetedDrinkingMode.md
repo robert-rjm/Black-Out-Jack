@@ -445,3 +445,6 @@ seat-reassignment side effects on `_room_clients`/`local_names`.
 
 Ensure that any and all newly added files etc are correctly documented
 in README, Architecture, Rules, and any other doc that may be impacted.
+Also remove any mention of docs/planning/TargetedDrinkingMode.md file
+name from any file, this file will be deleted after implementation and
+remains only in git log
