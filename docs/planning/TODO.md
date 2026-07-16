@@ -17,7 +17,6 @@
   - fact check
   - add / edits facts
   - add Black(Out)Jack specific fun facts
-  - Have somewhere tracker if you are the "loser" of last Milestone (maybe emoji as loser)
 
 
 ## Features
