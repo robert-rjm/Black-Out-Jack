@@ -267,6 +267,7 @@ class DealerLotteryHandOut(_StrictModel):
     cards: list[CardOut]
     score: int
     bust:  bool
+    parent_index: Optional[int]   # index into `hands` this one split off from; None for the 2 branch roots
 
 
 class DealerLotteryResultOut(_StrictModel):
