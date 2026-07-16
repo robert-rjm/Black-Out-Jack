@@ -69,6 +69,12 @@ This document defines selector ownership for the web UI modules and the shared e
 - Digital panel controls (also read by `table.js`):
   - `#dig-predeal-panel`, `#dig-play-content`, `#dig-play-role-hint`
   - `#dig-drinks-dealer-actions`, `#dig-drinks-waiting`
+- Dealer Lottery (Rules.md §5.9):
+  - `#dealer-lottery-modal-overlay`, `#dealer-lottery-players-wrap`, `#dealer-lottery-answered`
+  - `#dealer-lottery-timer-bar`, `#dealer-lottery-timer-label`
+  - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
+  - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
+  - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
 
 ### `static/js/ui/admin-settings.js`
 - Kick / player management modal:
@@ -91,6 +97,7 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#god-mode-toggle-modal`, `#god-mode-lbl-off`, `#god-mode-lbl-on`
 - Summary modal:
   - `#summary-overlay`, `#summary-meta`, `#summary-body`
+  - `#auto-export-row`, `#auto-export-toggle` (auto-export-decisions-every-10-rounds opt-in, only rendered for the admin when playing under one of the mined-profile names)
 
 ### `static/js/ui/log.js`
 - Header and tabs:
