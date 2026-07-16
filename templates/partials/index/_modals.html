@@ -315,6 +315,12 @@
       {{ action_btn('⬇️ Download Session Report', 'exportDrinksAndClose', '[]', 'btn wide green drink-only') }}
       {{ action_btn('⬇️ Export Drinks Log', 'exportDecisionLogAndClose', '[]', 'btn wide') }}
     </div>
+    <div id="auto-export-row" class="auto-export-row" style="display:none">
+      <label class="auto-export-label">
+        <input type="checkbox" id="auto-export-toggle" onchange="setAutoExportDecisions(this.checked)">
+        🤖 Auto-export both reports every 10 rounds
+      </label>
+    </div>
   </div>
 </div>
 
