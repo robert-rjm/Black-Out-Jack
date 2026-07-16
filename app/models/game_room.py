@@ -63,10 +63,10 @@ class RoundState:
     _bust_handouts_given: set = field(default_factory=set)
     _bust_handout_log: list = field(default_factory=list)
 
-    # Targeted Drinking Mode — current round's vote + countdown only
-    # (docs/planning/TargetedDrinkingMode.md). The subgame's persistent
-    # state (active flag, target list, graduation streaks, cooldown) lives
-    # on GameRoom below, since it must survive across rounds.
+    # Targeted Drinking Mode (Rules.md §5.10) — current round's vote +
+    # countdown only. The subgame's persistent state (active flag, target
+    # list, graduation streaks, cooldown) lives on GameRoom below, since it
+    # must survive across rounds.
     _targeted_drinking_votes: dict = field(default_factory=dict)        # name -> "bust" | "stand" | None
     _targeted_drinking_expires_at: float | None = None
 
@@ -247,9 +247,9 @@ class GameRoom:
     # persists across rounds).  Maps player_name → round_count when last used.
     _wild_card_last_used: dict = field(default_factory=dict)
 
-    # Targeted Drinking Mode — persistent subgame state (survives across
-    # rounds; see docs/planning/TargetedDrinkingMode.md §4). Per-round vote
-    # state lives on RoundState above instead.
+    # Targeted Drinking Mode (Rules.md §5.10) — persistent subgame state
+    # (survives across rounds). Per-round vote state lives on RoundState
+    # above instead.
     _targeted_drinking_active: bool = False
     _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
     _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)

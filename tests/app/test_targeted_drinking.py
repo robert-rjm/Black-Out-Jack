@@ -1,6 +1,6 @@
 """
-Tests for Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md,
-MVP scope): app/services/targeted_drinking.py; the
+Tests for Targeted Drinking Mode (Rules.md §5.10, MVP scope):
+app/services/targeted_drinking.py; the
 /targeted_drinking/start + /targeted_drinking/cancel admin routes
 (app/routes/admin.py); the /targeted_drinking/vote player route
 (app/routes/polling.py); and the serializer's "targeted_drinking" block

@@ -57,7 +57,7 @@ DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-respon
 
 # ---------------------------------------------------------------------------
 # Targeted Drinking Mode — admin-started subgame targeting specific players
-# (see docs/planning/TargetedDrinkingMode.md; MVP scope only)
+# (see Rules.md §5.10; MVP scope only)
 # ---------------------------------------------------------------------------
 
 TARGETED_DRINKING_VOTE_WINDOW_SECONDS = 15   # per-round bust/stand vote timer

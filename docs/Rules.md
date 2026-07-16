@@ -30,6 +30,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
     - 5.7 [Hard Dealer Switch Penalty](#57-hard-dealer-switch-penalty)
     - 5.8 [Milestone Handouts](#58-milestone-handouts)
     - 5.9 [Dealer Lottery](#59-dealer-lottery)
+    - 5.10 [Targeted Drinking Mode](#510-targeted-drinking-mode)
 6. [Relaxed Drinking Rules](#6-relaxed-drinking-rules)
     - 6.1 [Large Group Rules](#61-large-group-rules-4-players)
     - 6.2 [Easy Mode](#62-easy-mode)
@@ -386,6 +387,36 @@ Only the handout amount is halved (rounded up) under 4+ players or Easy Mode —
 The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side-bet-dealer-bust).
 
 
+### 5.10 Targeted Drinking Mode
+
+The host can single out one or more Players and put them on the spot: every
+round until they clear it, targeted Players must call whether the Dealer's
+hand will **bust** or **stand** — the same call as the Side Bet Dealer Bust,
+but mandatory once targeted and running across multiple rounds instead of
+opt-in per round. It never pauses normal play; targeted Players just also
+owe a call each round alongside everything else.
+
+| Outcome | Effect |
+| --- | --- |
+| Correct call | Counts toward a 3-in-a-row streak |
+| Wrong call | Streak resets to 0, **+1 sip penalty** |
+| No answer within 15 seconds | Defaults to STAND |
+
+A targeted Player is released once they string together **3 correct calls
+in a row**. Once every targeted Player has been released — or the host
+cancels the mode early — a **3-round cooldown** starts before it can be
+started again.
+
+> **Example:** The host targets Bob for playing it too safe all night. Round
+> 1 he calls STAND correctly (streak: 1). Round 2 he calls BUST but the
+> Dealer stands — wrong call, streak resets to 0 and he drinks a sip. Round
+> 3 and 4 he calls it right twice in a row (streak: 2)... one more correct
+> call and he's off the hook.
+
+Started and cancelled by the host from **Settings → Players** — see
+[Multiplayer.md](Multiplayer.md#targeted-drinking-mode).
+
+
 ## 6. Relaxed Drinking Rules
 
 
@@ -400,7 +431,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | Hard Dealer Switch | Four aces on first deal |
 | All-hands sweep | 5-card handouts |
 | Insurance resolution | Bust vote penalty/credit (+1/−1) |
-| Four aces at end of round | |
+| Four aces at end of round | Targeted Drinking Mode wrong-guess penalty (+1) |
 | Dealer Lottery handout only (never the drink or self-credit) | |
 | RoundEndEvent drinks (wins-all, immunity breakers) | |
 

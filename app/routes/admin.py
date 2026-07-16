@@ -826,7 +826,7 @@ def set_bot_personality():
 
 
 # ---------------------------------------------------------------------------
-# Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md, MVP scope)
+# Targeted Drinking Mode (Rules.md §5.10, MVP scope)
 # ---------------------------------------------------------------------------
 
 @bp.route("/targeted_drinking/start", methods=["POST"])

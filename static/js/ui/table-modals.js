@@ -583,8 +583,8 @@ async function submitMilestoneHandout() {
 }
 
 
-// ── Targeted Drinking Mode panel component (docs/planning/TargetedDrinkingMode.md
-// §5.7, Improvements.md item 7 Option A: class-based, no framework) ────────
+// ── Targeted Drinking Mode panel component (Rules.md §5.10,
+// Improvements.md item 7 Option A: class-based, no framework) ─────────────
 // Modal reuses Dealer Lottery's CSS classes/shape per the brainstorm's own
 // "interface should look similar to the Dealer Lottery modal" note: a timed
 // vote card per locally-controlled targeted seat (BUST/STAND, mirroring the

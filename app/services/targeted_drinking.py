@@ -1,20 +1,22 @@
 """
 app/services/targeted_drinking.py
 ===================================
-Targeted Drinking Mode: an admin-started subgame that forces one or more
-specific players to cast a mandatory bust/stand vote against the real
-dealer hand, every round, until they "graduate" (enough correct guesses
-in a row) or the subgame is cancelled. See
-docs/planning/TargetedDrinkingMode.md for the full design and the MVP
-scope note (majority-vote start/end, escalating loss penalties, cooldown
-consent-override, and AFK handling are deliberately deferred -- see that
-doc's §8).
+Targeted Drinking Mode (Rules.md §5.10): an admin-started subgame that
+forces one or more specific players to cast a mandatory bust/stand vote
+against the real dealer hand, every round, until they "graduate" (enough
+correct guesses in a row) or the subgame is cancelled. This is the MVP
+scope only -- majority-vote start/end, escalating loss penalties, cooldown
+consent-override, and AFK handling are deliberately deferred.
 
 Unlike Bust Vote (opt-in, single round, any player), this is mandatory
 once a player is targeted and persists across multiple rounds. Unlike
-Busfahrer, it never pauses normal round flow -- it rides alongside it,
-resolved each round at the same point Bust Vote's own dealer-bust check
-happens (see tick.py's _run_deferred_dealer_play).
+Busfahrer, it never pauses normal round flow -- it rides alongside it.
+Its own vote window (`maybe_open_targeted_drinking_vote`/
+`apply_targeted_drinking_vote_forfeit`, ticked every poll) never blocks
+anything and only ever defaults an unanswered vote to "stand" -- actual
+resolution (`resolve_targeted_drinking_round`) is called exactly once per
+round, from `round_pipeline.py`'s `apply_endround_pipeline`, after the
+round has genuinely ended and `harvest_drink_log()` has already run.
 """
 
 from __future__ import annotations
@@ -118,8 +120,7 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
     (removing them from the target list once it reaches
     TARGETED_DRINKING_STREAK_TO_GRADUATE); a wrong guess resets their
     streak to 0 and costs them a flat 1 sip (no escalating penalty tiers
-    in the MVP -- see TargetedDrinkingMode.md §8.2). Ends the subgame once
-    every target has graduated.
+    in the MVP). Ends the subgame once every target has graduated.
     """
     if not session._targeted_drinking_active:
         return
@@ -159,8 +160,7 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
 def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     """Ends the subgame (idempotent -- no-op if not active), clearing
     active/targets/streaks and setting a flat cooldown before a new
-    subgame can start (no repeat-target special case in the MVP -- see
-    TargetedDrinkingMode.md §8.3)."""
+    subgame can start (no repeat-target special case in the MVP)."""
     if not session._targeted_drinking_active:
         return
     session._targeted_drinking_active = False
