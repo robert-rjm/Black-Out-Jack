@@ -75,6 +75,10 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
   - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
   - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
+- Targeted Drinking Mode (docs/planning/TargetedDrinkingMode.md):
+  - `#targeted-drinking-modal-overlay`, `#td-players-wrap`
+  - `#td-timer-bar`, `#td-timer-label`
+  - `#td-status-banner` (non-targeted players' compact status, in `#dig-panel`)
 
 ### `static/js/ui/admin-settings.js`
 - Kick / player management modal:
@@ -83,6 +87,8 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#kicked-players-section`
   - `#transfer-admin-section`, `#transfer-admin-list`
   - `#pending-reg-modal-section`, `#denied-reg-section`, `#rejoin-requests-section`
+  - `#targeted-drinking-admin-section` (admin start/cancel controls, created
+    dynamically like the sections above it)
 - Rules modal:
   - `#rules-overlay`, `#rules-body`
 - Game settings panel (inside kick modal):

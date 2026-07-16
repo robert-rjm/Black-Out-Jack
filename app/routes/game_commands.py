@@ -290,6 +290,13 @@ def _cmd_deal_digital(game_session, parts):
     )
     game_session.round._bust_handouts_given  = set()   # clear any stale handouts
     game_session.round._bust_handout_expires_at = None
+    # Targeted Drinking Mode: fresh vote window each deal, same as bust vote
+    # above -- RoundState isn't replaced wholesale between rounds (see
+    # targeted_drinking.py's module docstring), so without this reset a new
+    # round would inherit last round's already-expired window and votes,
+    # and maybe_open_targeted_drinking_vote() would never re-open one.
+    game_session.round._targeted_drinking_votes = {}
+    game_session.round._targeted_drinking_expires_at = None
     # Clear the previous round's payout badge so the seat doesn't show a
     # stale "+$10" delta while the new round's hands are in progress.
     game_session._last_round_payouts = {}

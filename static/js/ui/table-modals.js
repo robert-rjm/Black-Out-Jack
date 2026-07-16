@@ -582,3 +582,142 @@ async function submitMilestoneHandout() {
   }
 }
 
+
+// ── Targeted Drinking Mode panel component (docs/planning/TargetedDrinkingMode.md
+// §5.7, Improvements.md item 7 Option A: class-based, no framework) ────────
+// Modal reuses Dealer Lottery's CSS classes/shape per the brainstorm's own
+// "interface should look similar to the Dealer Lottery modal" note: a timed
+// vote card per locally-controlled targeted seat (BUST/STAND, mirroring the
+// Bust Vote side bet). Players who aren't currently targeted see a compact
+// persistent status banner instead of the modal (mirrors MilestonePanel's
+// waiting banner for non-winners). mount() attaches one delegated click
+// listener for the vote buttons; render(state) is the per-poll entry point.
+class TargetedDrinkingPanel {
+  constructor() {
+    this.modalOpen = false;
+  }
+
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+
+    el.addEventListener("click", e => {
+      const btn = e.target.closest("[data-td-vote]");
+      if (!btn) return;
+      const npcSet     = new Set([...(npcPlayers || [])]);
+      const locals     = myNames.filter(n => !npcSet.has(n));
+      const multiLocal = locals.length > 1;
+      submitTargetedDrinkingVote(btn.dataset.tdVote, multiLocal ? btn.dataset.tdName : undefined);
+    });
+  }
+
+  open() {
+    if (this.modalOpen) return;
+    const overlay = openModal("targeted-drinking-modal-overlay");
+    if (!overlay) return;
+    this.modalOpen = true;
+  }
+
+  close() {
+    if (!this.modalOpen) return;
+    this.modalOpen = false;
+    closeModal("targeted-drinking-modal-overlay");
+  }
+
+  render(state) {
+    const td     = (state && state.targeted_drinking) || {};
+    const banner = document.getElementById("td-status-banner");
+
+    if (!td.active) {
+      this.close();
+      if (banner) banner.style.display = "none";
+      return;
+    }
+
+    const npcSet    = new Set([...(npcPlayers || [])]);
+    const locals    = myNames.filter(n => !npcSet.has(n));
+    const targetsLc = (td.targets || []).map(n => n.toLowerCase());
+    const myTargets = locals.filter(n => targetsLc.includes(n.toLowerCase()));
+
+    if (myTargets.length && myRole !== null && myRole !== ROLE.SPECTATOR && !_dealAnimating) {
+      if (banner) banner.style.display = "none";
+      this.open();
+      this.renderCards(td, myTargets);
+
+      const bar      = document.getElementById("td-timer-bar");
+      const label    = document.getElementById("td-timer-label");
+      const duration = 15;
+      const secs     = td.seconds_left || 0;
+      const display  = Math.min(secs, duration);
+      if (bar)   bar.style.width   = `${(display / duration) * 100}%`;
+      if (label) label.textContent = secs > 0 ? `${secs}s` : "Time up!";
+    } else {
+      // Not (locally) targeted -- close the vote modal if it happens to be
+      // open (e.g. this player just graduated) and show a compact status
+      // banner instead, so the rest of the table still sees the subgame
+      // is live without being forced into a blocking modal themselves.
+      this.close();
+      if (banner) {
+        const names = escapeHtml((td.targets || []).join(", "));
+        const secs  = td.seconds_left || 0;
+        banner.innerHTML = `🎯 Targeted Drinking: <strong>${names}</strong> must call it` +
+          (secs > 0 ? ` · ⏱ ${secs}s` : "");
+        banner.style.display = "block";
+      }
+    }
+  }
+
+  // Render one vote card per locally-controlled targeted seat inside the modal.
+  renderCards(td, myTargets) {
+    const wrap = document.getElementById("td-players-wrap");
+    if (!wrap) return;
+
+    const votesCast   = td.votes_cast || {};
+    const streaks     = td.streaks || {};
+    const multiLocal  = myTargets.length > 1;
+
+    // No addEventListener here -- mount()'s delegated listener handles clicks.
+    wrap.innerHTML = myTargets.map(name => {
+      const nameLbl   = multiLocal ? `<span class="dl-name-lbl">${escapeHtml(name)}</span>` : "";
+      const streak    = streaks[name] || 0;
+      const streakLbl = `<span class="td-streak">${streak}/3 correct</span>`;
+      const myVote    = votesCast[name];
+
+      if (myVote) {
+        const label = myVote === "bust" ? "BUST" : "STAND";
+        return `<div class="dl-entry-card">
+          <div class="dl-entry-top">${nameLbl}${streakLbl}</div>
+          <div class="dl-status">Voted: ${label}</div>
+        </div>`;
+      }
+
+      return `<div class="dl-entry-card">
+        <div class="dl-entry-top">${nameLbl}${streakLbl}</div>
+        <div class="td-vote-row">
+          <button class="btn red wide td-vote-btn"   data-td-vote="bust"  data-td-name="${escapeHtml(name)}">BUST</button>
+          <button class="btn green wide td-vote-btn" data-td-vote="stand" data-td-name="${escapeHtml(name)}">STAND</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+}
+
+const targetedDrinkingPanel = new TargetedDrinkingPanel();
+
+async function submitTargetedDrinkingVote(vote, playerName) {
+  const body = { room_code: roomCode, client_id: clientId, vote };
+  if (playerName) body.player_name = playerName;
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/targeted_drinking/vote", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+

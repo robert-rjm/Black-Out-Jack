@@ -252,7 +252,13 @@ def test_forfeit_noop_when_no_window_open():
     apply_targeted_drinking_vote_forfeit(room)  # must not raise with no window at all
 
 
-def test_forfeit_defaults_unanswered_votes_and_resolves():
+def test_forfeit_defaults_unanswered_votes_but_does_not_resolve():
+    # Regression guard: an expired window must NOT score the round itself --
+    # only apply_endround_pipeline's call to resolve_targeted_drinking_round
+    # (once the round has genuinely ended) may do that. Verified in-browser
+    # that without this, every subsequent tick after expiry re-ran
+    # resolve_targeted_drinking_round against a still-in-progress round's
+    # placeholder dealer_hand, graduating a target within seconds.
     good_hand = make_hand(("K", "S"), ("9", "H"))  # 19 -> no bust
     room = _make_room(dealer_hand=good_hand)
     start_targeted_drinking(room, ["Bob"])
@@ -261,20 +267,23 @@ def test_forfeit_defaults_unanswered_votes_and_resolves():
     apply_targeted_drinking_vote_forfeit(room)
 
     assert room.round._targeted_drinking_votes["Bob"] == "stand"
-    assert room._targeted_drinking_streaks["Bob"] == 1   # defaulted "stand" was correct
+    assert room._targeted_drinking_streaks["Bob"] == 0   # not resolved yet
+
+    # A second tick (window still expired) must not re-run it either.
+    apply_targeted_drinking_vote_forfeit(room)
+    assert room._targeted_drinking_streaks["Bob"] == 0
 
 
 def test_forfeit_does_not_override_an_explicit_vote():
     busted_hand = make_hand(("K", "S"), ("Q", "H"), ("5", "D"))  # bust
     room = _make_room(dealer_hand=busted_hand)
     start_targeted_drinking(room, ["Bob"])
-    submit_targeted_drinking_vote(room, "Bob", "bust")   # explicit, correct
+    submit_targeted_drinking_vote(room, "Bob", "bust")   # explicit
     room.round._targeted_drinking_expires_at = time.monotonic() - 1
 
     apply_targeted_drinking_vote_forfeit(room)
 
     assert room.round._targeted_drinking_votes["Bob"] == "bust"
-    assert room._targeted_drinking_streaks["Bob"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -634,7 +643,6 @@ def test_targeted_drinking_resolves_through_a_real_dealt_round(client):
     room.start_round()
     start_targeted_drinking(room, ["Bob"])
     room._targeted_drinking_streaks["Bob"] = 2   # pretend a streak — must reset on a wrong guess
-    submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong: dealer will stand on 19
 
     # Deal order per pass: every player's hand(s) card N, then the dealer's
     # own dealer_hand card N (see app/services/game_engine.py).
@@ -661,6 +669,11 @@ def test_targeted_drinking_resolves_through_a_real_dealt_round(client):
             "room_code": room_code, "client_id": "client-1", "cmd": "deal",
         })
         assert resp.get_json()["ok"] is not False
+
+        # Vote after the deal -- _cmd_deal_digital resets the vote window
+        # each round (mirroring its own bust-vote reset), so a vote cast
+        # before "deal" would be wiped out by it.
+        assert submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong: dealer will stand on 19
 
         resp = client.post("/command", json={
             "room_code": room_code, "client_id": "client-1", "cmd": "stand Bob hand1",
@@ -696,5 +709,46 @@ def test_targeted_drinking_resolves_through_a_real_dealt_round(client):
         data = resp.get_json()
         assert data["ok"] is True
         assert data["targeted_drinking"]["streaks"]["Bob"] == 0
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+# ---------------------------------------------------------------------------
+# Per-round reset: /command deal must clear last round's vote + window
+# (app/routes/game_commands.py's _cmd_deal_digital, mirroring its own
+# `_bust_votes = {}` reset). Without this, a new round would inherit the
+# previous round's already-expired window and stale votes, and
+# maybe_open_targeted_drinking_vote() would never open a fresh one.
+# ---------------------------------------------------------------------------
+
+def test_deal_resets_targeted_drinking_votes_and_window(client):
+    from engine.blackjack import Shoe
+    from tests.conftest import make_card
+
+    room_code = "TDDealReset"
+    room = _make_room(num_players=2)
+    room.start_round()
+    start_targeted_drinking(room, ["Bob"])
+    submit_targeted_drinking_vote(room, "Bob", "bust")
+    room.round._targeted_drinking_expires_at = time.monotonic() - 1   # stale, expired
+
+    shoe = Shoe(1)
+    shoe.cards = list(reversed([make_card(r, s) for r in ("2", "3", "4", "5", "6", "7") for s in ("S",)]))
+    shoe.penetration = 1.0
+    shoe.total_cards = len(shoe.cards)
+    room.shoe = shoe
+
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice", "Bob"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+    try:
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "deal",
+        })
+        assert resp.get_json()["ok"] is not False
+
+        assert room.round._targeted_drinking_votes == {}
+        assert room.round._targeted_drinking_expires_at is None
     finally:
         game_sessions.pop(room_code, None)

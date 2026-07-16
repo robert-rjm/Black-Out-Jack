@@ -73,7 +73,9 @@ def tick(session) -> None:
     9. Start (or refresh) the Targeted Drinking Mode vote window, if the
        subgame is active.
     10. Apply Targeted Drinking Mode vote forfeit if that window has
-        expired (defaults unanswered targets to "stand" and resolves).
+        expired (defaults unanswered targets to "stand" -- does not itself
+        resolve; scoring only happens once the round genuinely ends, via
+        apply_endround_pipeline).
     11. Unblock NPC turns and trigger deferred dealer play when the bust-vote
         window closes (or all eligible players have voted).
     12. Safety-net: trigger dealer play when stuck at dealer-ready with no
