@@ -815,6 +815,23 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         },
     }
 
+    # ---- Targeted Drinking Mode data ----
+    _targeted_drinking_data = {
+        "targeted_drinking": {
+            "active":  session._targeted_drinking_active,
+            "targets": list(session._targeted_drinking_targets),
+            "streaks": dict(session._targeted_drinking_streaks),
+            "my_vote": session.round._targeted_drinking_votes.get(
+                           (_ci.get("name") or "").capitalize()),
+            "votes_cast": dict(session.round._targeted_drinking_votes),
+            "seconds_left": (
+                max(0, round(session.round._targeted_drinking_expires_at - time.monotonic()))
+                if session.round._targeted_drinking_expires_at else 0
+            ),
+            "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
+        },
+    }
+
     # ---- Connection / room-membership data (admin-only fields gated below) ----
     _connection_data = {
         "kick_votes":             {k: len(v) for k, v in session.round._kick_votes.items()},
@@ -935,6 +952,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         **_insurance_data,
         **_milestone_data,
         **_dealer_lottery_data,
+        **_targeted_drinking_data,
         **_connection_data,
         **_client_identity_data,
         "state_seq":            int(time.monotonic() * 1_000_000),

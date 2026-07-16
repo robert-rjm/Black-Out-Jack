@@ -305,8 +305,26 @@ question). No majority-vote banner in the MVP — see §8.1.
   `tests/app/test_targeted_drinking.py` (admin-only gating, empty/unknown
   target rejection, already-active rejection, cancel idempotency); full
   suite now 441 tests passing.
-- [ ] **3. Player vote route + `tick.py` hook + serializer block**
-  (§5.4, §5.6, §5.5).
+- [x] **3. Player vote route + `tick.py` hook + serializer block**
+  (§5.4, §5.6, §5.5). `POST /targeted_drinking/vote` added to
+  `app/routes/polling.py` (mirrors `/cast_bust_vote`: window-closed check,
+  optional `player_name` for local multiplayer). `tick.py` gained steps 9-10
+  (`maybe_open_targeted_drinking_vote` / `apply_targeted_drinking_vote_forfeit`),
+  placed after the Dealer Lottery block and before the bust-vote-closed
+  dealer-play trigger per §5.6. `resolve_targeted_drinking_round` wired into
+  `app/services/round_pipeline.py`'s `apply_endround_pipeline` — **placed
+  after `harvest_drink_log()`, not before**: `award_sips()` writes directly
+  to the post-harvest accumulators (`last_round_sips`/`last_round_drinks`),
+  which `harvest_drink_log`'s own snapshot step overwrites wholesale from
+  each player's `drink_log`, so resolving before harvest would silently
+  drop the sip event. A full-stack regression test (real dealt round
+  through `/command` + `/state`) locks this ordering in — verified it
+  actually fails if the two calls are swapped. New `TargetedDrinkingOut`
+  schema block in `app/models/state_schema.py` + matching serializer block
+  in `app/services/serializer.py` (`active`, `targets`, `streaks`,
+  `my_vote`, `votes_cast`, `seconds_left`, `cooldown_until_round`). 10 new
+  tests (vote route + serializer + full-stack integration) in
+  `tests/app/test_targeted_drinking.py`; full suite now 451 tests passing.
 - [ ] **4. Frontend modal** (§5.7), verified in-browser the same way
   every panel this session was: real dispatched click events, not direct
   method calls, covering vote submission and graduation.
