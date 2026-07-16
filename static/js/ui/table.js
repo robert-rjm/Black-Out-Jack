@@ -42,6 +42,9 @@ function buildDigitalUI() {
   if (dlGiveOverlay) dealerLotteryGivePanel.mount(dlGiveOverlay);
   const bustVoteOverlay = document.getElementById("bust-vote-modal-overlay");
   if (bustVoteOverlay) bustVotePanel.mount(bustVoteOverlay);
+  const insModal  = document.getElementById("insurance-modal-overlay");
+  const insBanner = document.getElementById("insurance-vote-banner");
+  if (insModal && insBanner) insurancePanel.mount(insModal, insBanner);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -517,7 +520,7 @@ function _syncModals(state) {
 // best play hint, and bust vote UI.
 function _syncDigitalUI(state) {
   autoSwitchDigTab(state);
-  updateInsuranceVisibility(state);
+  insurancePanel.updateVisibility(state);
   updateHandLocks(state);
   drinksPanel.render(state);
   updateBestPlay(state);

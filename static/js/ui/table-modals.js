@@ -1,276 +1,278 @@
-let _insuranceModalKey   = null;
-let _insuranceMinimised  = false;
-
-function updateInsuranceVisibility(state) {
-  const row = document.getElementById("dig-insurance-row");
-  if (row) {
-    const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
-    const dealerShowsAce = upCard && upCard.rank === "A";
-    let activeHandIsBlackjack = false;
-    const activeName = myActiveName || myName;
-    if (state.phase === PHASE.PLAYING && state.current_turn && activeName &&
-        state.current_turn.toLowerCase() === activeName.toLowerCase()) {
-      const me = (state.table || []).find(p => p.name.toLowerCase() === activeName.toLowerCase());
-      if (me) {
-        const activeHand = (me.hands || []).find(h => !h.done);
-        if (activeHand) activeHandIsBlackjack = activeHand.blackjack;
-      }
-    }
-    const hasVoteForMyHand = activeHandIsBlackjack && (state.insurance_votes || []).some(v =>
-      !v.resolved && v.bj_player.toLowerCase() === (activeName || "").toLowerCase()
-    );
-    row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "block" : "none";
-  }
-  renderInsuranceModal(state);
-}
-
-function renderInsuranceModal(state) {
-  const overlay = document.getElementById("insurance-modal-overlay");
-  if (!overlay) return;
-
-  const openVotes = (state.insurance_votes || []).filter(v => !v.resolved);
-
-  if (!openVotes.length) {
-    _closeInsuranceModal();
-    // If the vote just resolved, show the outcome in the banner instead of
-    // hiding it immediately.  The backend clears insurance_result on new round,
-    // so the banner disappears naturally without extra cleanup.
-    const results = state.insurance_result;
-    if (results && results.length) {
-      _renderInsuranceBannerOutcome(results);
-    } else {
-      _renderInsuranceBanner(null);
-    }
-    return;
+// ── Insurance vote panel component (Improvements.md item 7, Option A:
+// class-based, no framework) ─────────────────────────────────────────────
+// Encapsulates both insurance-vote surfaces -- the full modal
+// (#insurance-modal-overlay) and the compact banner
+// (#insurance-vote-banner) it minimises into. mount() attaches one
+// delegated click listener per surface (replacing the modal's ad-hoc
+// "_wired" flag on the minimize button, and the addEventListener calls
+// re-attached on every rebuild of the vote buttons / expand span in both
+// surfaces); updateVisibility(state) is the per-poll entry point,
+// replacing the old updateInsuranceVisibility() function.
+class InsurancePanel {
+  constructor() {
+    this.modalKey  = null;
+    this.minimised = false;
   }
 
-  const v   = openVotes[0];
-  const key = `${v.bj_player}:${v.hand_idx}`;
+  mount(modalEl, bannerEl) {
+    if (this.modalEl) return;   // idempotent -- buildGameUI() may run more than once
+    this.modalEl  = modalEl;
+    this.bannerEl = bannerEl;
 
-  if (_insuranceModalKey !== key) {
-    _insuranceModalKey  = key;
-    _insuranceMinimised = false;  // always expand on new vote
-    openModal("insurance-modal-overlay", { useClass: true });
-    // Wire up minimize button once
-    const minBtn = document.getElementById("insurance-modal-minimize");
-    if (minBtn && !minBtn._wired) {
-      minBtn._wired = true;
-      minBtn.addEventListener("click", () => {
-        _insuranceMinimised = true;
+    const onVoteClick = e => {
+      const btn = e.target.closest("[data-ins-vote]");
+      if (!btn) return;
+      castInsuranceVote(btn.dataset.bjPlayer, Number(btn.dataset.handIdx),
+        btn.dataset.insVote === "true", btn.dataset.voter || null);
+    };
+
+    modalEl.addEventListener("click", e => {
+      if (e.target.closest("#insurance-modal-minimize")) {
+        this.minimised = true;
         closeModal("insurance-modal-overlay", { useClass: true });
-      });
+        return;
+      }
+      onVoteClick(e);
+    });
+
+    bannerEl.addEventListener("click", e => {
+      if (e.target.closest(".ins-banner-expand")) { this._expand(); return; }
+      onVoteClick(e);
+    });
+  }
+
+  updateVisibility(state) {
+    const row = document.getElementById("dig-insurance-row");
+    if (row) {
+      const upCard = state.dealer_hand && state.dealer_hand.cards && state.dealer_hand.cards[0];
+      const dealerShowsAce = upCard && upCard.rank === "A";
+      let activeHandIsBlackjack = false;
+      const activeName = myActiveName || myName;
+      if (state.phase === PHASE.PLAYING && state.current_turn && activeName &&
+          state.current_turn.toLowerCase() === activeName.toLowerCase()) {
+        const me = (state.table || []).find(p => p.name.toLowerCase() === activeName.toLowerCase());
+        if (me) {
+          const activeHand = (me.hands || []).find(h => !h.done);
+          if (activeHand) activeHandIsBlackjack = activeHand.blackjack;
+        }
+      }
+      const hasVoteForMyHand = activeHandIsBlackjack && (state.insurance_votes || []).some(v =>
+        !v.resolved && v.bj_player.toLowerCase() === (activeName || "").toLowerCase()
+      );
+      row.style.display = (dealerShowsAce && activeHandIsBlackjack && !hasVoteForMyHand) ? "block" : "none";
     }
+    this.renderModal(state);
   }
 
-  // Local multiplayer: find which local seats still need to vote
-  const voterNames   = myNames.filter(n => n.toLowerCase() !== v.bj_player.toLowerCase());
-  const votedNames   = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
-  const pendingLocal = voterNames.filter(n => !votedNames.includes(n.toLowerCase()));
+  renderModal(state) {
+    const overlay = document.getElementById("insurance-modal-overlay");
+    if (!overlay) return;
 
-  // Active voter: prefer first pending local seat, else fall back to myActiveName/myName
-  const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
-                     : (myActiveName || myName);
+    const openVotes = (state.insurance_votes || []).filter(v => !v.resolved);
 
-  // If minimised, keep overlay closed — render compact banner instead
-  if (_insuranceMinimised) {
-    closeModal("insurance-modal-overlay", { useClass: true });
-    _renderInsuranceBanner(v, true, activeVoter);
-    return;
-  }
+    if (!openVotes.length) {
+      this._closeModal();
+      // If the vote just resolved, show the outcome in the banner instead of
+      // hiding it immediately.  The backend clears insurance_result on new round,
+      // so the banner disappears naturally without extra cleanup.
+      const results = state.insurance_result;
+      if (results && results.length) {
+        this.renderBannerOutcome(results);
+      } else {
+        this.renderBanner(null);
+      }
+      return;
+    }
 
-  const allIn = (v.votes_cast != null && v.votes_needed != null && v.votes_cast >= v.votes_needed);
-  if (allIn) {
-    _insuranceMinimised = false;
-    _closeInsuranceModal();
-    _renderInsuranceBanner(v);
-    return;
-  }
+    const v   = openVotes[0];
+    const key = `${v.bj_player}:${v.hand_idx}`;
 
-  const iAmBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
-  const myVote       = v.my_vote;
-  const hasVoted     = myVote !== null && myVote !== undefined;
+    if (this.modalKey !== key) {
+      this.modalKey  = key;
+      this.minimised = false;  // always expand on new vote
+      openModal("insurance-modal-overlay", { useClass: true });
+    }
 
-  const titleEl = document.getElementById("insurance-modal-title");
-  const subEl   = document.getElementById("insurance-modal-sub");
-  if (titleEl) titleEl.textContent = `Insurance Vote — ${escapeHtml(v.bj_player)} H${v.hand_idx + 1}`;
+    // Local multiplayer: find which local seats still need to vote
+    const voterNames   = myNames.filter(n => n.toLowerCase() !== v.bj_player.toLowerCase());
+    const votedNames   = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
+    const pendingLocal = voterNames.filter(n => !votedNames.includes(n.toLowerCase()));
 
-  // Local multiplayer: show which player is currently voting
-  const voterLabel = voterNames.length > 1
-    ? ` <span style="color:var(--accent);font-size:11px">(${escapeHtml(activeVoter)})</span>`
-    : "";
-  if (subEl) subEl.innerHTML = iAmBJHolder
-    ? "The group is voting whether to insure your Blackjack."
-    : `${escapeHtml(v.bj_player)} has Blackjack. Vote to insure?${voterLabel}`;
+    // Active voter: prefer first pending local seat, else fall back to myActiveName/myName
+    const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
+                       : (myActiveName || myName);
 
-  const stakesEl = document.getElementById("insurance-modal-stakes");
-  if (stakesEl) {
-    const wager    = (state && state.wager) || 1;
-    const entry    = (state.table || []).find(p => p.name.toLowerCase() === v.bj_player.toLowerCase());
-    const bjHand   = entry && entry.hands[v.hand_idx];
-    const mult     = (bjHand && bjHand.bj_mult) || 1;
-    const normSips = mult * wager;
-    const dblSips  = mult * 2 * wager;
-    const sip      = n => `${n} sip${n !== 1 ? "s" : ""}`;
-    stakesEl.innerHTML =
-      `<span style="color:var(--green)">✓ INSURE + dealer BJ:</span> group safe · <strong>${escapeHtml(v.bj_player)}</strong> drinks ${sip(normSips)}<br>` +
-      `<span style="color:var(--red)">✗ INSURE + no dealer BJ:</span> group drinks <strong>${sip(dblSips)} each</strong><br>` +
-      `<span style="color:var(--muted)">DECLINE:</span> normal BJ bonus of ${sip(normSips)} each · tie = decline`;
-  }
+    // If minimised, keep overlay closed — render compact banner instead
+    if (this.minimised) {
+      closeModal("insurance-modal-overlay", { useClass: true });
+      this.renderBanner(v, true, activeVoter);
+      return;
+    }
 
-  const btnsEl   = document.getElementById("insurance-modal-btns");
-  const statusEl = document.getElementById("insurance-modal-status");
-  if (btnsEl) btnsEl.innerHTML = "";
+    const allIn = (v.votes_cast != null && v.votes_needed != null && v.votes_cast >= v.votes_needed);
+    if (allIn) {
+      this.minimised = false;
+      this._closeModal();
+      this.renderBanner(v);
+      return;
+    }
 
-  if (!iAmBJHolder && pendingLocal.length > 0) {
-    // Show vote buttons for the current pending local player
-    const ins = document.createElement("button");
-    ins.className = "btn green wide";
-    ins.textContent = "INSURE";
-    ins.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, true, activeVoter));
-    const dec = document.createElement("button");
-    dec.className = "btn red wide";
-    dec.textContent = "DECLINE";
-    dec.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, false, activeVoter));
-    if (btnsEl) { btnsEl.appendChild(ins); btnsEl.appendChild(dec); }
+    const iAmBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
+    const myVote       = v.my_vote;
+    const hasVoted     = myVote !== null && myVote !== undefined;
 
-    // Show remaining voters as chips
-    const remaining = pendingLocal.slice(1);
-    const votedChips = voterNames.filter(n => !pendingLocal.includes(n))
-      .map(n => `<span style="opacity:.5;text-decoration:line-through">${escapeHtml(n)}</span>`).join(" ");
-    const pendingChips = pendingLocal
-      .map((n, i) => i === 0
-        ? `<strong style="color:var(--accent)">${escapeHtml(n)}</strong>`
-        : `<span style="opacity:.6">${escapeHtml(n)}</span>`).join(" → ");
-    if (statusEl) statusEl.innerHTML =
-      `Voting: ${pendingChips}${votedChips ? ` · done: ${votedChips}` : ""} &nbsp;(${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})`;
+    const titleEl = document.getElementById("insurance-modal-title");
+    const subEl   = document.getElementById("insurance-modal-sub");
+    if (titleEl) titleEl.textContent = `Insurance Vote — ${escapeHtml(v.bj_player)} H${v.hand_idx + 1}`;
 
-  } else if (!iAmBJHolder && hasVoted) {
-    const label = myVote ? "INSURE" : "DECLINE";
-    const color = myVote ? "var(--green)" : "var(--red)";
-    if (statusEl) statusEl.innerHTML =
-      `Your vote: <strong style="color:${color}">${label}</strong> · waiting for dealer to reveal (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})`;
-  } else {
-    if (statusEl) statusEl.innerHTML =
-      `<span style="color:var(--muted)">⏳ Waiting for group to vote… (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})</span>`;
-  }
+    // Local multiplayer: show which player is currently voting
+    const voterLabel = voterNames.length > 1
+      ? ` <span style="color:var(--accent);font-size:11px">(${escapeHtml(activeVoter)})</span>`
+      : "";
+    if (subEl) subEl.innerHTML = iAmBJHolder
+      ? "The group is voting whether to insure your Blackjack."
+      : `${escapeHtml(v.bj_player)} has Blackjack. Vote to insure?${voterLabel}`;
 
-  const timerEl = document.getElementById("insurance-modal-timer");
-  if (timerEl) {
-    const s = v.seconds_left ?? 0;
-    timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up — auto-declining…";
-    timerEl.style.color = s <= 10 ? "var(--red)" : "var(--muted)";
-  }
-}
+    const stakesEl = document.getElementById("insurance-modal-stakes");
+    if (stakesEl) {
+      const wager    = (state && state.wager) || 1;
+      const entry    = (state.table || []).find(p => p.name.toLowerCase() === v.bj_player.toLowerCase());
+      const bjHand   = entry && entry.hands[v.hand_idx];
+      const mult     = (bjHand && bjHand.bj_mult) || 1;
+      const normSips = mult * wager;
+      const dblSips  = mult * 2 * wager;
+      const sip      = n => `${n} sip${n !== 1 ? "s" : ""}`;
+      stakesEl.innerHTML =
+        `<span style="color:var(--green)">✓ INSURE + dealer BJ:</span> group safe · <strong>${escapeHtml(v.bj_player)}</strong> drinks ${sip(normSips)}<br>` +
+        `<span style="color:var(--red)">✗ INSURE + no dealer BJ:</span> group drinks <strong>${sip(dblSips)} each</strong><br>` +
+        `<span style="color:var(--muted)">DECLINE:</span> normal BJ bonus of ${sip(normSips)} each · tie = decline`;
+    }
 
-function _closeInsuranceModal() {
-  closeModal("insurance-modal-overlay", { useClass: true });
-  _insuranceModalKey = null;
-}
+    const btnsEl   = document.getElementById("insurance-modal-btns");
+    const statusEl = document.getElementById("insurance-modal-status");
+    if (btnsEl) btnsEl.innerHTML = "";
 
-function _renderInsuranceBanner(v, minimisedActiveVote = false, activeVoter = null) {
-  const banner  = document.getElementById("insurance-vote-banner");
-  const content = document.getElementById("insurance-vote-banner-content");
-  if (!banner || !content) return;
+    if (!iAmBJHolder && pendingLocal.length > 0) {
+      // Show vote buttons for the current pending local player.
+      // No addEventListener here -- mount()'s delegated listener handles taps.
+      if (btnsEl) {
+        btnsEl.innerHTML =
+          `<button class="btn green wide" data-ins-vote="true"  data-bj-player="${escapeHtml(v.bj_player)}" data-hand-idx="${v.hand_idx}" data-voter="${escapeHtml(activeVoter)}">INSURE</button>` +
+          `<button class="btn red wide"   data-ins-vote="false" data-bj-player="${escapeHtml(v.bj_player)}" data-hand-idx="${v.hand_idx}" data-voter="${escapeHtml(activeVoter)}">DECLINE</button>`;
+      }
 
-  if (!v) {
-    banner.style.display = "none";
-    banner.classList.remove("minimised");
-    content.innerHTML = "";
-    return;
-  }
+      // Show remaining voters as chips
+      const votedChips = voterNames.filter(n => !pendingLocal.includes(n))
+        .map(n => `<span style="opacity:.5;text-decoration:line-through">${escapeHtml(n)}</span>`).join(" ");
+      const pendingChips = pendingLocal
+        .map((n, i) => i === 0
+          ? `<strong style="color:var(--accent)">${escapeHtml(n)}</strong>`
+          : `<span style="opacity:.6">${escapeHtml(n)}</span>`).join(" → ");
+      if (statusEl) statusEl.innerHTML =
+        `Voting: ${pendingChips}${votedChips ? ` · done: ${votedChips}` : ""} &nbsp;(${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})`;
 
-  // ── Minimised active-vote state ──────────────────────────────
-  if (minimisedActiveVote) {
-    banner.classList.add("minimised");
-    const s          = v.seconds_left ?? 0;
-    const timerColor = s <= 10 ? "var(--red)" : "var(--muted)";
-    const voterStr   = activeVoter ? ` <span style="color:var(--accent)">${escapeHtml(activeVoter)}</span>` : "";
-
-    // Build quick vote buttons if voter hasn't voted yet
-    const isBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
-    const votedNames  = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
-    const canVote     = !isBJHolder && activeVoter && !votedNames.includes(activeVoter.toLowerCase());
-
-    // Build with DOM nodes — onclick string interpolation breaks for names
-    // containing apostrophes (browsers decode &#39; → ' before JS eval).
-    content.innerHTML = "";
-
-    const _labelSpan = document.createElement("span");
-    _labelSpan.className = "ins-banner-label";
-    _labelSpan.innerHTML = `🃏 Insurance${voterStr}`;
-    content.appendChild(_labelSpan);
-
-    const _timerSpan = document.createElement("span");
-    _timerSpan.className = "ins-banner-timer";
-    _timerSpan.style.color = timerColor;
-    _timerSpan.textContent = `⏱ ${s}s`;
-    content.appendChild(_timerSpan);
-
-    if (canVote) {
-      const _btnsSpan = document.createElement("span");
-      _btnsSpan.className = "ins-banner-btns";
-      const _insBtn = document.createElement("button");
-      _insBtn.style.cssText = "background:var(--green);color:#000";
-      _insBtn.textContent = "INSURE";
-      _insBtn.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, true, activeVoter));
-      const _decBtn = document.createElement("button");
-      _decBtn.style.cssText = "background:var(--red);color:#fff";
-      _decBtn.textContent = "DECLINE";
-      _decBtn.addEventListener("click", () => castInsuranceVote(v.bj_player, v.hand_idx, false, activeVoter));
-      _btnsSpan.appendChild(_insBtn);
-      _btnsSpan.appendChild(_decBtn);
-      content.appendChild(_btnsSpan);
+    } else if (!iAmBJHolder && hasVoted) {
+      const label = myVote ? "INSURE" : "DECLINE";
+      const color = myVote ? "var(--green)" : "var(--red)";
+      if (statusEl) statusEl.innerHTML =
+        `Your vote: <strong style="color:${color}">${label}</strong> · waiting for dealer to reveal (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})`;
     } else {
-      const _votedSpan = document.createElement("span");
-      _votedSpan.style.cssText = "font-size:11px;color:var(--muted)";
-      _votedSpan.textContent = `${v.votes_cast ?? 0}/${v.votes_needed ?? "?"} voted`;
-      content.appendChild(_votedSpan);
+      if (statusEl) statusEl.innerHTML =
+        `<span style="color:var(--muted)">⏳ Waiting for group to vote… (${v.votes_cast ?? 0}/${v.votes_needed ?? "?"})</span>`;
     }
 
-    const _expandSpan = document.createElement("span");
-    _expandSpan.className = "ins-banner-expand";
-    _expandSpan.textContent = "expand";
-    _expandSpan.addEventListener("click", _expandInsuranceModal);
-    content.appendChild(_expandSpan);
-
-    banner.style.display = "";
-    return;
+    const timerEl = document.getElementById("insurance-modal-timer");
+    if (timerEl) {
+      const s = v.seconds_left ?? 0;
+      timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up — auto-declining…";
+      timerEl.style.color = s <= 10 ? "var(--red)" : "var(--muted)";
+    }
   }
 
-  // ── Resolved vote result state ───────────────────────────────
-  banner.classList.remove("minimised");
-  const insureCount  = v.insure_count ?? 0;
-  const declineCount = (v.votes_cast ?? 0) - insureCount;
-  const voteLabel    = insureCount > declineCount ? "INSURE" : "DECLINE";
-  const color        = voteLabel === "INSURE" ? "var(--green)" : "var(--red)";
-  content.innerHTML  =
-    `🃏 Insurance vote closed — <strong style="color:${color}">${voteLabel}</strong> ` +
-    `(${insureCount} insure / ${declineCount} decline) · waiting for dealer to reveal`;
-  banner.style.display = "block";
+  _closeModal() {
+    closeModal("insurance-modal-overlay", { useClass: true });
+    this.modalKey = null;
+  }
+
+  renderBanner(v, minimisedActiveVote = false, activeVoter = null) {
+    const banner  = document.getElementById("insurance-vote-banner");
+    const content = document.getElementById("insurance-vote-banner-content");
+    if (!banner || !content) return;
+
+    if (!v) {
+      banner.style.display = "none";
+      banner.classList.remove("minimised");
+      content.innerHTML = "";
+      return;
+    }
+
+    // ── Minimised active-vote state ──────────────────────────────
+    if (minimisedActiveVote) {
+      banner.classList.add("minimised");
+      const s          = v.seconds_left ?? 0;
+      const timerColor = s <= 10 ? "var(--red)" : "var(--muted)";
+      const voterStr   = activeVoter ? ` <span style="color:var(--accent)">${escapeHtml(activeVoter)}</span>` : "";
+
+      // Build quick vote buttons if voter hasn't voted yet
+      const isBJHolder  = activeVoter && v.bj_player.toLowerCase() === activeVoter.toLowerCase();
+      const votedNames  = Object.keys(v.votes_cast_by || {}).map(n => n.toLowerCase());
+      const canVote     = !isBJHolder && activeVoter && !votedNames.includes(activeVoter.toLowerCase());
+
+      // No addEventListener here -- mount()'s delegated listener handles taps.
+      const btnsHtml = canVote
+        ? `<span class="ins-banner-btns">
+             <button style="background:var(--green);color:#000" data-ins-vote="true"  data-bj-player="${escapeHtml(v.bj_player)}" data-hand-idx="${v.hand_idx}" data-voter="${escapeHtml(activeVoter)}">INSURE</button>
+             <button style="background:var(--red);color:#fff"   data-ins-vote="false" data-bj-player="${escapeHtml(v.bj_player)}" data-hand-idx="${v.hand_idx}" data-voter="${escapeHtml(activeVoter)}">DECLINE</button>
+           </span>`
+        : `<span style="font-size:11px;color:var(--muted)">${v.votes_cast ?? 0}/${v.votes_needed ?? "?"} voted</span>`;
+
+      content.innerHTML =
+        `<span class="ins-banner-label">🃏 Insurance${voterStr}</span>` +
+        `<span class="ins-banner-timer" style="color:${timerColor}">⏱ ${s}s</span>` +
+        btnsHtml +
+        `<span class="ins-banner-expand">expand</span>`;
+
+      banner.style.display = "";
+      return;
+    }
+
+    // ── Resolved vote result state ───────────────────────────────
+    banner.classList.remove("minimised");
+    const insureCount  = v.insure_count ?? 0;
+    const declineCount = (v.votes_cast ?? 0) - insureCount;
+    const voteLabel    = insureCount > declineCount ? "INSURE" : "DECLINE";
+    const color        = voteLabel === "INSURE" ? "var(--green)" : "var(--red)";
+    content.innerHTML  =
+      `🃏 Insurance vote closed — <strong style="color:${color}">${voteLabel}</strong> ` +
+      `(${insureCount} insure / ${declineCount} decline) · waiting for dealer to reveal`;
+    banner.style.display = "block";
+  }
+
+  renderBannerOutcome(results) {
+    const banner  = document.getElementById("insurance-vote-banner");
+    const content = document.getElementById("insurance-vote-banner-content");
+    if (!banner || !content) return;
+    banner.classList.remove("minimised");
+    const parts = results.map(r => {
+      const icon    = r.group_won ? "✅" : "❌";
+      const color   = r.group_won ? "var(--green)" : "var(--red)";
+      const voted   = r.insured ? "INSURE" : "DECLINE";
+      const outcome = r.outcome_text || (r.group_won ? "correct call" : "wrong call");
+      return `${icon} <strong style="color:${color}">${escapeHtml(r.player)}: ${voted}</strong> — ${outcome}`;
+    });
+    content.innerHTML = `🃏 Insurance result — ${parts.join(" &nbsp;·&nbsp; ")}`;
+    banner.style.display = "block";
+  }
+
+  _expand() {
+    this.minimised = false;
+    openModal("insurance-modal-overlay", { useClass: true });
+    const banner = document.getElementById("insurance-vote-banner");
+    if (banner) { banner.classList.remove("minimised"); banner.style.display = "none"; }
+  }
 }
 
-function _renderInsuranceBannerOutcome(results) {
-  const banner  = document.getElementById("insurance-vote-banner");
-  const content = document.getElementById("insurance-vote-banner-content");
-  if (!banner || !content) return;
-  banner.classList.remove("minimised");
-  const parts = results.map(r => {
-    const icon    = r.group_won ? "✅" : "❌";
-    const color   = r.group_won ? "var(--green)" : "var(--red)";
-    const voted   = r.insured ? "INSURE" : "DECLINE";
-    const outcome = r.outcome_text || (r.group_won ? "correct call" : "wrong call");
-    return `${icon} <strong style="color:${color}">${escapeHtml(r.player)}: ${voted}</strong> — ${outcome}`;
-  });
-  content.innerHTML = `🃏 Insurance result — ${parts.join(" &nbsp;·&nbsp; ")}`;
-  banner.style.display = "block";
-}
-
-function _expandInsuranceModal() {
-  _insuranceMinimised = false;
-  openModal("insurance-modal-overlay", { useClass: true });
-  const banner = document.getElementById("insurance-vote-banner");
-  if (banner) { banner.classList.remove("minimised"); banner.style.display = "none"; }
-}
+const insurancePanel = new InsurancePanel();
 
 async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
   _requestsInFlight++;
