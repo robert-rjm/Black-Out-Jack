@@ -742,3 +742,88 @@ just stale) to use two targets so the "still pending after one vote"
 scenarios they're actually testing still exercise real intermediate
 state. Multiplayer.md's Targeted Drinking section updated for the merged
 UI and direct-cancel note. Full suite: 467 passing.
+
+**Follow-up: no more flicker, color-coded outcomes, end-of-subgame
+recap, confirm before cancelling.** Feedback on the merged-modal version:
+it still visibly closed and reopened between chained mini-rounds (the
+8s reveal auto-dismiss closed the modal outright, then it popped back
+open once the next vote window opened after the reveal-pause breather);
+the "Name called STAND" line used the flat purple `.dl-reveal-payout
+strong` color regardless of whether the call was right; ending the
+subgame gave no indication of how much anyone actually drank over the
+whole run; and cancelling had no confirmation despite discarding every
+target's progress. All four addressed:
+
+- **No more close/reopen.** `TargetedDrinkingPanel` gained a `"waiting"`
+  phase: between mini-rounds (subgame still active, current round
+  already over), the modal stays open and reuses `#td-vote-phase`'s
+  shell to show a plain "waiting for the next mini-round…" message
+  instead of calling `close()`. The reveal's auto-dismiss became
+  `_onContinueClick()` (also wired to a new `#td-continue-btn`) which
+  just resets `phase = null` and immediately re-renders from the latest
+  `lastState` -- render() re-derives whatever should show next (queued
+  recap, waiting filler, or a real close) itself, so there's exactly one
+  decision point instead of a timer that hard-closes and a separate poll
+  that reopens moments later. A `_dismissed` flag is now edge-triggered
+  (cleared only when `pending` transitions from absent to present, not
+  on every tick it's absent) so dismissing the ✕ during the "waiting"
+  filler actually sticks instead of un-dismissing itself the very next
+  poll.
+- **Blocking modal vs. banner boundary made explicit.** Before this pass
+  the "between mini-rounds" and "subgame just started, current round
+  still live" cases were handled by the same fallback branch (close +
+  banner). They're genuinely different: a live round must never get a
+  blocking overlay dropped on it. Now gated explicitly on
+  `state.phase === PHASE.ROUND_OVER` -- the banner only ever appears
+  before the very first mini-round of a run opens; every other "nothing
+  pending right now" moment shows the modal's waiting filler instead.
+- **Color-coded calls.** `_enterRevealPhase`'s subtitle and
+  `_tdRevealLine`'s payout bullets both now pick `var(--green)` /
+  `var(--red)` per target from `result.correct[name]` (known the instant
+  the mini-round resolves, before any card animates) via an inline
+  `style` override, replacing the generic `.dl-reveal-payout strong`
+  purple.
+- **End-of-subgame recap.** New session-lifetime state:
+  `GameRoom._targeted_drinking_total_sips` (name → cumulative sips this
+  run, seeded in `start_targeted_drinking`, incremented alongside the
+  existing per-mini-round `sips[name] = 1` in `resolve_targeted_drinking_round`,
+  survives a target graduating out since it's independent of
+  `_targeted_drinking_targets`) and `DrinkLedger.last_targeted_drinking_summary`
+  / `_targeted_drinking_summary_seq` (same one-shot seq pattern as
+  `last_targeted_drinking_result`). `end_targeted_drinking` snapshots
+  `{reason, totals, set_at}` into the summary *before* clearing
+  everything else, whether it's reached via graduation
+  (`resolve_targeted_drinking_round` → `end_targeted_drinking(reason="all_graduated")`)
+  or an admin cancel (`reason="admin_cancelled"`). Serializer/schema
+  gained `_serialize_targeted_drinking_summary` /
+  `TargetedDrinkingSummaryOut` / `last_summary` / `summary_seq` on the
+  `targeted_drinking` state block. Frontend: a new `#td-summary-phase`
+  section (`_enterSummaryPhase`) lists each target's total sips, shown
+  via a `_queuedSummary` handoff so it always appears *after* any reveal
+  already in front of it, and *before* the modal is allowed to fully
+  close -- covers both the graduation case (arrives bundled with the
+  final mini-round's result) and the cancel-outside-a-mini-round case
+  (arrives on its own, no reveal to wait behind).
+- **Confirm before cancelling.** A single `confirm()` added inside
+  `cancelTargetedDrinking()` in admin-settings.js guards every path that
+  reaches it -- the mini-game modal's ✕, the idle status banner's ✕, and
+  the pre-existing Settings → Players button -- since all three ultimately
+  call this one function.
+
+Verified via a single-tab `becomeClient()`-driven pass: starting the
+subgame while the round was still live showed only the banner (no
+modal); ending the round opened the modal straight into the vote phase;
+casting the deciding vote transitioned in place into a reveal with the
+vote color-coded green for a correct call; tapping Continue moved the
+still-open modal into the "waiting" filler state; ending the subgame via
+the admin ✕ (confirmed) produced a summary phase listing each target's
+total sips, which closed the modal on Close; and declining the
+`confirm()` prompt aborted before any request was sent. Backend: 3 new
+tests (`test_end_snapshots_summary_with_totals_and_bumps_seq`,
+`test_end_summary_reflects_reason_when_graduation_ends_it`,
+`test_serialize_state_last_summary_after_end`) plus a fix to
+`test_end_discards_an_in_flight_mini_round_without_scoring`, which had
+gone flaky the same way the earlier stale tests had -- its single-target
+setup meant the explicit vote it submitted now auto-resolved against a
+real random deck instead of staying pending for the cancel to discard;
+switched to two targets like the other fixes. Full suite: 470 passing.

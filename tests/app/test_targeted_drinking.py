@@ -482,7 +482,47 @@ def test_end_clears_state_and_sets_cooldown():
     assert room._targeted_drinking_active is False
     assert room._targeted_drinking_targets == []
     assert room._targeted_drinking_streaks == {}
+    assert room._targeted_drinking_total_sips == {}
     assert room._targeted_drinking_cooldown_until_round == 13
+
+
+def test_end_snapshots_summary_with_totals_and_bumps_seq(monkeypatch):
+    # dealer busts: K + 5 = 15 (hit) + K = 25 -- Bob calls it wrong twice,
+    # Carol never plays a mini-round at all (still gets a 0 in the recap).
+    room = _active_room_with_pending(
+        monkeypatch, targets=["Bob", "Carol"],
+        hand_cards=[make_card("K", "S"), make_card("5", "H"), make_card("K", "D")],
+    )
+    submit_targeted_drinking_vote(room, "Bob", "stand")   # wrong -- dealer busted
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)   # Carol defaults to stand too, also wrong
+    assert room._targeted_drinking_active is True   # neither graduated yet
+
+    end_targeted_drinking(room, reason="admin_cancelled")
+
+    summary = room.drinks.last_targeted_drinking_summary
+    assert summary["reason"] == "admin_cancelled"
+    assert summary["totals"] == {"Bob": 1, "Carol": 1}
+    assert room.drinks._targeted_drinking_summary_seq == 1
+    assert room._targeted_drinking_total_sips == {}   # cleared after snapshotting
+
+
+def test_end_summary_reflects_reason_when_graduation_ends_it(monkeypatch):
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+
+    for _ in range(3):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "stand")  # correct each time -- resolves and re-arms itself
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    assert room._targeted_drinking_active is False   # graduated out on its own
+    summary = room.drinks.last_targeted_drinking_summary
+    assert summary["reason"] == "all_graduated"
+    assert summary["totals"] == {"Bob": 0}   # called it right every time -- never drank
 
 
 def test_end_is_idempotent():
@@ -498,7 +538,10 @@ def test_end_is_idempotent():
 
 
 def test_end_discards_an_in_flight_mini_round_without_scoring(monkeypatch):
-    room = _active_room_with_pending(monkeypatch, targets=["Bob"])
+    # Two targets so Bob's vote alone doesn't auto-resolve the round (Carol
+    # never answers) -- it's still genuinely pending, with a real
+    # (unresolved, undealt) hand, when the admin cancels mid-vote.
+    room = _active_room_with_pending(monkeypatch, targets=["Bob", "Carol"])
     submit_targeted_drinking_vote(room, "Bob", "bust")
 
     end_targeted_drinking(room, reason="admin_cancelled")
@@ -804,6 +847,8 @@ def test_serialize_state_pending_mini_round(monkeypatch):
     assert 0 < td["pending"]["seconds_left"] <= 15
     assert td["last_result"] is None
     assert td["result_seq"] == 0
+    assert td["last_summary"] is None
+    assert td["summary_seq"] == 0
 
 
 def test_serialize_state_last_result_after_resolve(monkeypatch):
@@ -826,6 +871,29 @@ def test_serialize_state_last_result_after_resolve(monkeypatch):
     assert result["votes"] == {"Carol": "stand"}
     assert result["correct"] == {"Carol": True}
     assert result["streaks"] == {"Carol": 1}
+    assert td["last_summary"] is None   # subgame still running -- no recap yet
+    assert td["summary_seq"] == 0
+
+
+def test_serialize_state_last_summary_after_end(monkeypatch):
+    # dealer busts: K + 5 = 15 (hit) + K = 25
+    room = _active_room_with_pending(
+        monkeypatch, targets=["Carol"],
+        hand_cards=[make_card("K", "S"), make_card("5", "H"), make_card("K", "D")],
+    )
+    submit_targeted_drinking_vote(room, "Carol", "stand")   # wrong -- auto-resolves (sole target)
+    end_targeted_drinking(room, reason="admin_cancelled")
+    room._room_clients["client-1"] = {
+        "name": "Carol", "local_names": ["Carol"], "role": "player", "kicked": False,
+    }
+
+    data = serialize_state(room, "client-1")
+    td = data["targeted_drinking"]
+    assert td["active"] is False
+    assert td["summary_seq"] == 1
+    summary = td["last_summary"]
+    assert summary["reason"] == "admin_cancelled"
+    assert summary["totals"] == {"Carol": 1}
 
 
 def test_serialize_state_targeted_drinking_inactive_defaults():
@@ -843,6 +911,8 @@ def test_serialize_state_targeted_drinking_inactive_defaults():
     assert td["pending"] is None
     assert td["last_result"] is None
     assert td["result_seq"] == 0
+    assert td["last_summary"] is None
+    assert td["summary_seq"] == 0
 
 
 # ---------------------------------------------------------------------------

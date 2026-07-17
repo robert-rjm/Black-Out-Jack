@@ -193,6 +193,12 @@ class DrinkLedger:
     last_targeted_drinking_result: dict | None = None
     # Same reasoning as _dealer_lottery_result_seq above.
     _targeted_drinking_result_seq: int = 0
+    # Fires once per subgame *run* (not per mini-round) -- set when
+    # end_targeted_drinking() closes out a run, holding each original
+    # target's total sips across every mini-round they played. Same
+    # session-lifetime placement/seq reasoning as _targeted_drinking_result_seq.
+    last_targeted_drinking_summary: dict | None = None
+    _targeted_drinking_summary_seq: int = 0
 
 
 @dataclass
@@ -263,6 +269,11 @@ class GameRoom:
     _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
     _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
     _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
+    # name -> total sips drunk across every mini-round of this subgame run
+    # (unlike _targeted_drinking_streaks, never loses a name when someone
+    # graduates -- this is the running tally end_targeted_drinking snapshots
+    # into last_targeted_drinking_summary for the end-of-subgame recap).
+    _targeted_drinking_total_sips: dict = field(default_factory=dict)
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     _bankrolls: dict = field(default_factory=dict)

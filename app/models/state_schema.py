@@ -316,6 +316,11 @@ class TargetedDrinkingResultOut(_StrictModel):
     seconds_ago: int
 
 
+class TargetedDrinkingSummaryOut(_StrictModel):
+    reason: str             # "all_graduated" | "admin_cancelled"
+    totals: dict[str, int]  # target -> total sips drunk across the whole subgame run
+
+
 class TargetedDrinkingOut(_StrictModel):
     active:               bool
     targets:              list[str]
@@ -324,6 +329,8 @@ class TargetedDrinkingOut(_StrictModel):
     pending:              Optional[TargetedDrinkingPendingOut]
     last_result:          Optional[TargetedDrinkingResultOut]
     result_seq:           int
+    last_summary:         Optional[TargetedDrinkingSummaryOut]
+    summary_seq:          int
 
 
 # ---------------------------------------------------------------------------

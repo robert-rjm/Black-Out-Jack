@@ -900,7 +900,12 @@ async function startTargetedDrinking() {
 // (table-modals.js) cancel directly without popping open the Settings
 // modal behind it -- the Settings "Cancel Targeted Drinking" button still
 // gets the reopen (it's already looking at that modal when it calls this).
+// A single confirm() guards every path that reaches this function (the
+// mini-game modal's ✕, the idle status banner's ✕, and this Settings
+// button) since ending the subgame early discards every target's
+// in-progress streak.
 async function cancelTargetedDrinking({ reopenSettings = true } = {}) {
+  if (!confirm("End Targeted Drinking Mode for everyone? Nobody's progress is saved.")) return;
   try {
     const res  = await fetch("/targeted_drinking/cancel", {
       method:  "POST",
@@ -1062,6 +1067,7 @@ function resetToSetup() {
   DrinkUI.lastBustHandoutSeq        = 0;
   DrinkUI.lastDealerLotteryResultSeq = 0;
   DrinkUI.lastTargetedDrinkingResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingSummarySeq = 0;
   DrinkUI.lastMilestoneKey          = null;
   DrinkUI.lastMilestoneResultKey    = null;
   DrinkUI.milestoneModalOpened      = null;
