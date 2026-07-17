@@ -761,7 +761,7 @@ def give_bust_sip():
 
 
 # ---------------------------------------------------------------------------
-# Dealer Lottery (docs/planning/DealerLottery-Plan.md)
+# Dealer Lottery (Rules.md §5.9)
 # ---------------------------------------------------------------------------
 
 @bp.route("/dealer_lottery/enter", methods=["POST"])

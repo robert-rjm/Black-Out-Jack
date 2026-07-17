@@ -56,7 +56,7 @@ Black-Out-Jack/
 │   ├── Architecture.md                     # This file
 │   ├── Multiplayer.md                      # Room setup, KPI panel, milestones, bust vote, Dealer Lottery, Targeted Drinking Mode, NPCs
 │   ├── DOM-Hooks.md                        # Frontend element IDs and JS module ownership reference
-│   └── planning/                           # Plans, roadmaps, TODOs (DealerLottery-Plan.md, PlayerStyleBots.md, Busfahrer-Plan.md, ...)
+│   └── planning/                           # Plans, roadmaps, TODOs (TargetedDrinkingMode.md, PlayerStyleBots.md, Busfahrer-Plan.md, ...)
 ├── static/
 │   ├── css/
 │   │   ├── main.css                        # Variables, reset, layout, bottom nav

@@ -1,6 +1,5 @@
 """
-Tests for the Dealer Lottery post-round bonus event
-(docs/planning/DealerLottery-Plan.md):
+Tests for the Dealer Lottery post-round bonus event (Rules.md §5.9):
   - app/services/dealer_lottery.py
   - /dealer_lottery/enter and /dealer_lottery/give_sip routes (app/routes/polling.py)
 """
@@ -641,7 +640,9 @@ def test_handout_forfeit_gives_sips_to_self_after_expiry(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Milestone safety (confirms docs/planning/DealerLottery-Plan.md §2/§3's claim)
+# Milestone safety (confirms a Dealer Lottery credit never lets a player's
+# cumulative sip_ticker go backwards, so it can't un-cross a milestone
+# boundary already claimed)
 # ---------------------------------------------------------------------------
 
 def test_credit_never_reduces_cumulative_sip_ticker(monkeypatch):
@@ -846,8 +847,8 @@ def test_give_sip_route_rejects_no_pending_handout(client, monkeypatch):
 # driven entirely through /command and /state -- the same code path
 # production traffic uses (initial_deal -> stand -> _after_player_action ->
 # dealer_turn -> _resolve_endround -> apply_endround_pipeline -> tick()).
-# Closes the one gap flagged in DealerLottery-Plan.md step 8: every piece
-# was unit/route-tested, but not through a genuinely dealt trigger.
+# Closes the one gap in the coverage above: every piece was unit/route-
+# tested, but not through a genuinely dealt trigger.
 # ---------------------------------------------------------------------------
 
 def test_dealer_lottery_triggers_through_a_real_dealt_round(client):

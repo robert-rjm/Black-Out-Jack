@@ -525,7 +525,6 @@ replaced with a `Rules.md §5.10` citation (10 files: `app/config.py`,
 `app/services/targeted_drinking.py`, `docs/DOM-Hooks.md`,
 `static/js/ui/admin-settings.js`, `static/js/ui/table-modals.js`,
 `tests/app/test_targeted_drinking.py`) so this file can be deleted later
-without leaving dangling references — Dealer Lottery's own plan doc was
-already deleted at some point but 6 files still cite
-`DealerLottery-Plan.md` by name; **not fixed here** (out of scope for this
-feature) but flagged as a separate cleanup task.
+without leaving dangling references — the same cleanup was done for the
+already-deleted `DealerLottery-Plan.md`'s 8 stale citations (see
+`docs/planning/TODO.md`).

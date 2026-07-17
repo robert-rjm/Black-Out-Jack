@@ -50,7 +50,7 @@ INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) a
 
 # ---------------------------------------------------------------------------
 # Dealer Lottery — post-round bonus event on a paired 18/20 dealer hand
-# (see docs/planning/DealerLottery-Plan.md)
+# (see Rules.md §5.9)
 # ---------------------------------------------------------------------------
 
 DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-responders default to 0
