@@ -58,6 +58,11 @@ _WILD_NAMES = [
      "Dead Man's Hand"),
 ]
 
+# ── Wild Card probability configuration ──────────────────────────────────────
+WILD_CARD_PROB_SELF = 0.45                                              # probability presser drinks
+WILD_CARD_PROB_RANDOM = 0.50                                            # probability a random player drinks
+WILD_CARD_PROB_DUD  = 1.0 - WILD_CARD_PROB_SELF - WILD_CARD_PROB_RANDOM # probability Targeted Drinking Mode
+
 _WILD_CARD_COOLDOWN = 3   # rounds that must pass before the same player can press again
 
 
@@ -121,12 +126,12 @@ def wild_card():
     # ── Roll ─────────────────────────────────────────────────────────────────
     roll                       = random.random()
     action_tmpl, dud_t, label = random.choice(_WILD_NAMES)
-    if roll < 0.45:
+    if roll < WILD_CARD_PROB_SELF:
         # Self drinks
         outcome = "self"
         player.add_drink(1, f"Wild Card 🃏 — {label}", "player")
         text = f"🃏 {action_tmpl.format(name=player_name)}"
-    elif roll < 0.50:
+    elif roll < WILD_CARD_PROB_SELF + WILD_CARD_PROB_DUD:
         # Dud
         outcome = "dud"
         text = f"🃏 {dud_t}"

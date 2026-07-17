@@ -63,6 +63,26 @@ class RoundState:
     _bust_handouts_given: set = field(default_factory=set)
     _bust_handout_log: list = field(default_factory=list)
 
+    # Targeted Drinking Mode (Rules.md §5.10) — a standalone mini-game
+    # played between normal rounds (mirrors the Dealer Lottery fields right
+    # below): _targeted_drinking_eligible is set once (right after
+    # milestone check) whenever the subgame is active;
+    # _pending_targeted_drinking (vote window + votes) is only opened once
+    # any pending milestone AND Dealer Lottery draw have cleared, so at
+    # most one of the three post-round modals is ever open at once. The
+    # subgame's persistent state (active flag, target list, graduation
+    # streaks, cooldown) lives on GameRoom below, since it must survive
+    # across rounds.
+    _targeted_drinking_eligible: bool = False
+    _pending_targeted_drinking: dict | None = None
+    # True once someone has tapped "Start Targeting Now" for the mini-round
+    # that _targeted_drinking_eligible above is waiting on -- lets the table
+    # finish drinking for the round that just ended before the mini-game
+    # takes over. Only gates the *first* mini-round after a normal round
+    # ends; back-to-back continuations re-set this for themselves (see
+    # resolve_targeted_drinking_round), so the chain never needs a repeat tap.
+    _targeted_drinking_start_requested: bool = False
+
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
     # The frontend resets its local pointer when it detects a new round via
@@ -157,6 +177,14 @@ class DrinkLedger:
     """
     csv_rows: list             = field(default_factory=list)
     sip_ticker: dict           = field(default_factory=dict)
+    # Mirrors sip_ticker but only for sips awarded with count_toward_round=False
+    # (currently just Targeted Drinking penalties) -- subtracted back out of
+    # sip_ticker when computing "average sips/round" for the milestone
+    # worst-player streak, so a between-round mini-game penalty can't make
+    # someone look artificially bad at blackjack itself. Never subtracted
+    # from sip_ticker directly -- session totals, the leaderboard, and
+    # milestone boundary crossing all still count these sips normally.
+    sip_ticker_excl_round_avg: dict = field(default_factory=dict)
     last_round_sips: dict      = field(default_factory=dict)
     last_round_drinks: list    = field(default_factory=list)
     round_notices: list        = field(default_factory=list)
@@ -177,6 +205,15 @@ class DrinkLedger:
     # pointer (which never resets) would then never see a "new" value again,
     # silently suppressing the reveal modal on every round after the first.
     _dealer_lottery_result_seq: int = 0
+    last_targeted_drinking_result: dict | None = None
+    # Same reasoning as _dealer_lottery_result_seq above.
+    _targeted_drinking_result_seq: int = 0
+    # Fires once per subgame *run* (not per mini-round) -- set when
+    # end_targeted_drinking() closes out a run, holding each original
+    # target's total sips across every mini-round they played. Same
+    # session-lifetime placement/seq reasoning as _targeted_drinking_result_seq.
+    last_targeted_drinking_summary: dict | None = None
+    _targeted_drinking_summary_seq: int = 0
 
 
 @dataclass
@@ -239,6 +276,31 @@ class GameRoom:
     # Wild Card Easter egg — cooldown tracker (session-lifetime so it
     # persists across rounds).  Maps player_name → round_count when last used.
     _wild_card_last_used: dict = field(default_factory=dict)
+
+    # Targeted Drinking Mode (Rules.md §5.10) — persistent subgame state
+    # (survives across rounds). Per-round vote state lives on RoundState
+    # above instead.
+    _targeted_drinking_active: bool = False
+    _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
+    _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
+    _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
+    # name -> total sips drunk across every mini-round of this subgame run
+    # (unlike _targeted_drinking_streaks, never loses a name when someone
+    # graduates -- this is the running tally end_targeted_drinking snapshots
+    # into last_targeted_drinking_summary for the end-of-subgame recap).
+    _targeted_drinking_total_sips: dict = field(default_factory=dict)
+    # Live run-wide statistics (Rules.md §5.10, "statistics table"):
+    # correct/wrong guess counts per target (never lose a name on
+    # graduation, same reasoning as _targeted_drinking_total_sips above),
+    # plus how many of this run's isolated dealer hands busted vs. stood --
+    # exposed live (not just in the end-of-run summary) so targeted players
+    # can factor "the dealer's busted 40% of hands so far" into their next
+    # call. Reset in start_targeted_drinking, snapshotted into
+    # last_targeted_drinking_summary and cleared in end_targeted_drinking.
+    _targeted_drinking_correct_counts: dict = field(default_factory=dict)
+    _targeted_drinking_wrong_counts: dict = field(default_factory=dict)
+    _targeted_drinking_dealer_hands: int = 0
+    _targeted_drinking_dealer_busts: int = 0
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     _bankrolls: dict = field(default_factory=dict)

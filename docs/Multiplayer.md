@@ -14,6 +14,7 @@
 - [Milestone Handouts](#milestone-handouts)
 - [Dealer Bust Vote](#dealer-bust-vote)
 - [Dealer Lottery](#dealer-lottery)
+- [Targeted Drinking Mode](#targeted-drinking-mode)
 - [Easy Mode](#easy-mode)
 - [KPI Panel](#kpi-panel)
 - [Strategy Accuracy](#strategy-accuracy)
@@ -136,13 +137,35 @@ If the Dealer's final hand happens to be a **paired 18** (two 9s) or **paired 20
 - Each player picks a stake **X = 0-5** (20-second window; no answer defaults to 0)
 - If everyone picks 0, nothing happens — no draw, nothing logged
 - Otherwise the dealer's pair splits into fresh hands from a new shuffled deck, played out under the normal dealer-hits-to-17 rule — shown as a real card-by-card reveal animation. If a new card itself forms another matching pair, that hand splits again the same way a player's hand would (same 4-splits cap), so a hot run of 9s or tens can turn this into three or more hands
-- **Every hand busts**: credit yourself up to X sips off what you owe this round, and hand X sips out to another player (picker window mirrors the Bust Vote's)
-- **Some hands bust, some don't**: nothing happens
-- **No hand busts**: drink the full X — this is never halved, regardless of player count or Easy Mode (only the all-bust handout scales with those)
+- **2 or more hands bust** (not necessarily all of them): credit yourself up to X sips off what you owe this round, and hand X sips out to another player (picker window mirrors the Bust Vote's)
+- **Exactly 1 hand busts**: nothing happens
+- **No hand busts**: drink X × (hands − 1) — scales with how many hands the redeal produced, so a re-split costs more to stand clean through, not just easier to credit off of. Never halved regardless of player count or Easy Mode (only the bust handout scales with those)
 
 ### Rules
 - The dealer is eligible to enter too, same as the Bust Vote
 - Every entry (yours or an NPC's) is recorded and can be mined into that player's bot profile — see [Architecture.md](Architecture.md) for `scripts/build_player_profiles.py`
+
+---
+
+## Targeted Drinking Mode
+
+The host can single out one or more players and drop them into their own standalone mini-game, played between normal rounds, until they clear it or the host cancels it.
+
+### How it works
+- Host picks target(s) from **Settings → Players** and taps **Start Targeted Drinking** — or ends it early any time with the ✕ in the corner of the mini-game modal itself, no trip through Settings required (a confirmation prompt guards this, since it discards everyone's in-progress streaks)
+- Once a normal round ends, everyone sees a **Start Targeting Now** button instead of the mini-game popping up immediately — this gives the table a chance to finish drinking for the round that just ended first. Any player can tap it when they're ready
+- Once started, the mini-game deals a fresh, isolated dealer-only hand — a new shuffled deck, unrelated to the real table — and every targeted player gets a 15-second window to call **BUST** or **STAND** on it before it's dealt; no answer defaults to STAND
+- The moment every targeted player has voted, the round resolves immediately — it never waits out the rest of the timer
+- One modal covers the whole mini-round from vote to reveal to (if it's the last one) the end-of-subgame recap — it never closes and reopens between phases. It opens on the vote and turns straight into the card-by-card reveal in place once voting's done, the same way a Dealer Lottery redeal plays out; targets and vote calls are shown color-coded green/red as soon as they're known. Tap **Continue** (or just wait — it advances on its own after a few seconds) to move on. Targeted players see BUST/STAND buttons; everyone else watches a read-only view of who's targeted and what they called, live, as votes come in and cards land
+- A **live statistics table** sits at the bottom of the modal throughout — each target's correct/wrong call count so far this run, and how often the dealer's isolated hand has busted (e.g. "Dealer this run: 3/7 busted (43%)") — so targeted players can factor the dealer's actual bust rate into their next call, not just guess blind
+- Call it right 3 times in a row and you're released; call it wrong and your streak resets to 0, plus a 1-sip penalty — this penalty still counts toward your session total and milestone progress, but not toward "worst average sips/round" or any round-based stat, since it happens between rounds rather than as part of any round's blackjack outcome
+- If the mode is still running once a mini-hand resolves, the next one starts right away (back-to-back, no repeat tap of Start Targeting Now needed) after a short pause — the same modal just shows a brief "waiting for the next mini-round" message during that gap rather than closing
+- Once every targeted player has been released — or the host ends it early — a recap shows the same statistics table (final correct/wrong counts and dealer bust rate) plus how many total sips each target drank across the whole run, then a 3-round cooldown starts before the host can start it again
+
+### Rules
+- Admin-only to start or cancel — see [Rules.md](Rules.md#510-targeted-drinking-mode) for the full rule. The host's ✕ (in the mini-game modal or the status banner) ends the whole thing on the spot after confirming; anyone else's ✕ just dismisses their own view of the current mini-round
+- Starting it mid-round never interrupts play — the first mini-round waits for the current round to end; until then, and again while waiting on the Start Targeting Now tap, everyone sees a small non-blocking status banner instead of the modal
+- Dealing the next normal round while a mini-round is waiting to start or is actively being voted on discards that mini-round — the dealer gets a confirmation prompt first ("Targeted Drinking hasn't started this mini-round yet…" / "…is still being voted on…"). The subgame itself keeps running either way and simply picks back up at the next round's end
 
 ---
 
