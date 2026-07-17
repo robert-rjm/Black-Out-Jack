@@ -376,13 +376,17 @@ Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults
 
 | Result | Effect |
 | --- | --- |
-| Every new hand busts | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
-| Some hands bust, some don't | Nothing happens |
-| No hand busts | Drink X sips |
+| 2 or more hands bust | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
+| Exactly 1 hand busts | Nothing happens |
+| No hand busts | Drink X × (hands − 1) sips |
 
-Only the handout amount is halved (rounded up) under 4+ players or Easy Mode — the drink (no-bust) amount is always the full X, and the self-credit is never halved either.
+The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive.
+
+Only the handout amount is halved (rounded up) under 4+ players or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1), and the self-credit is never halved either.
 
 > **Example:** Dealer stands on K♠ Q♥ (20). Alice enters with X=4, Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice credits herself up to 4 sips off her own total this round and hands 4 sips (2 if halving is active) to another Player of her choice. Bob, having entered 0, is unaffected either way.
+>
+> **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 4 × (3 − 1) = 8 sips instead of the base 4.
 
 The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side-bet-dealer-bust).
 
