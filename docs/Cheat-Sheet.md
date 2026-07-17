@@ -165,14 +165,14 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 
 ## Targeted Drinking Mode
 
-Host targets one or more Players from **Settings → Players**. Each round until cleared, targeted Players must call **BUST** or **STAND** against the real Dealer hand (15s window; no answer defaults to STAND):
+Host targets one or more Players from **Settings → Players**. Once a normal round ends, a fresh isolated Dealer hand is dealt and targeted Players must call **BUST** or **STAND** on it before it's played out (15s window; no answer defaults to STAND):
 
 | Outcome | Effect |
 |---------|--------|
 | Correct | Streak +1 — 3 in a row and you're released |
 | Wrong | Streak resets to 0, +1 sip |
 
-3-round cooldown once everyone's released or the host cancels.
+Still running after a mini-hand resolves? The next one starts right away, back-to-back — no normal round in between. 3-round cooldown once everyone's released or the host cancels.
 
 ---
 

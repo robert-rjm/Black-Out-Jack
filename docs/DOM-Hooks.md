@@ -79,6 +79,9 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#targeted-drinking-modal-overlay`, `#td-players-wrap`
   - `#td-timer-bar`, `#td-timer-label`
   - `#td-status-banner` (non-targeted players' compact status, in `#dig-panel`)
+  - `#targeted-drinking-reveal-overlay`, `#targeted-drinking-reveal-sub`
+  - `#targeted-drinking-reveal-hand`, `#targeted-drinking-reveal-payout`
+  - `#targeted-drinking-reveal-close-btn`
 
 ### `static/js/ui/admin-settings.js`
 - Kick / player management modal:

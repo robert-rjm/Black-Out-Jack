@@ -14,7 +14,7 @@ from app.services.drink_tracker import (
     check_and_set_milestone,
 )
 from app.services.dealer_lottery import check_dealer_lottery_trigger
-from app.services.targeted_drinking import resolve_targeted_drinking_round
+from app.services.targeted_drinking import check_targeted_drinking_trigger
 from app.services.payout_tracker import apply_payouts
 from app.services.decision_log import backfill_hand_results
 
@@ -28,12 +28,15 @@ def apply_endround_pipeline(session) -> None:
     """
     apply_bust_vote_penalties(session)
     harvest_drink_log(session)
-    # Must run after harvest_drink_log: award_sips() writes directly to the
-    # post-harvest accumulators (last_round_sips/last_round_drinks), which
-    # harvest_drink_log's own snapshot step overwrites wholesale from each
-    # player's drink_log.
-    resolve_targeted_drinking_round(session)
     check_and_set_milestone(session)
     check_dealer_lottery_trigger(session)
+    # Targeted Drinking Mode is its own standalone mini-game played between
+    # rounds (Rules.md §5.10), not resolved here -- this only flags the
+    # round as eligible to start one (mirrors check_dealer_lottery_trigger).
+    # tick.py's maybe_start_targeted_drinking_round() opens the vote window
+    # once milestone/Dealer Lottery are clear, and
+    # apply_targeted_drinking_vote_forfeit() resolves it once that window
+    # closes.
+    check_targeted_drinking_trigger(session)
     apply_payouts(session)
     backfill_hand_results(session)

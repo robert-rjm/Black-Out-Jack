@@ -393,12 +393,16 @@ The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side
 
 ### 5.10 Targeted Drinking Mode
 
-The host can single out one or more Players and put them on the spot: every
-round until they clear it, targeted Players must call whether the Dealer's
-hand will **bust** or **stand** — the same call as the Side Bet Dealer Bust,
-but mandatory once targeted and running across multiple rounds instead of
-opt-in per round. It never pauses normal play; targeted Players just also
-owe a call each round alongside everything else.
+The host can single out one or more Players and put them on the spot with
+their own standalone mini-game, played **between** normal rounds — never
+during one. Once a normal round ends, the mode deals a **fresh, isolated
+Dealer hand** (a new shuffled deck, unrelated to the actual table — nobody's
+real cards or the shoe are touched) and every targeted Player must call
+whether it will **bust** or **stand** before it's dealt. Once everyone's
+answered (or the 15-second window runs out), the hand is played out and
+revealed — and if the mode is still running (nobody's cleared it yet), the
+next mini-hand starts right away, back-to-back, without waiting for another
+normal round to be played in between.
 
 | Outcome | Effect |
 | --- | --- |
@@ -412,10 +416,11 @@ cancels the mode early — a **3-round cooldown** starts before it can be
 started again.
 
 > **Example:** The host targets Bob for playing it too safe all night. Round
-> 1 he calls STAND correctly (streak: 1). Round 2 he calls BUST but the
-> Dealer stands — wrong call, streak resets to 0 and he drinks a sip. Round
-> 3 and 4 he calls it right twice in a row (streak: 2)... one more correct
-> call and he's off the hook.
+> 1 ends, and Bob is dealt into his own isolated mini-hand: he calls STAND,
+> the hand plays out to 19 — correct (streak: 1). Round 2 ends and it
+> happens again: he calls BUST, but the isolated hand stands — wrong call,
+> streak resets to 0 and he drinks a sip. Rounds 3 and 4 he calls it right
+> twice in a row (streak: 2)... one more correct call and he's off the hook.
 
 Started and cancelled by the host from **Settings → Players** — see
 [Multiplayer.md](Multiplayer.md#targeted-drinking-mode).

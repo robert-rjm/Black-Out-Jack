@@ -278,15 +278,18 @@
 }
 
 /* ---- DEALER LOTTERY REVEAL MODAL (shares the milestone modal's shell) ---- */
-#dealer-lottery-reveal-overlay {
+#dealer-lottery-reveal-overlay,
+#targeted-drinking-reveal-overlay {
   display: none;
   position: fixed; inset: 0;
   background: rgba(0,0,0,.72);
   z-index: 910;
   align-items: center; justify-content: center;
 }
-#dealer-lottery-reveal-overlay.open { display: flex; }
-#dealer-lottery-reveal-modal {
+#dealer-lottery-reveal-overlay.open,
+#targeted-drinking-reveal-overlay.open { display: flex; }
+#dealer-lottery-reveal-modal,
+#targeted-drinking-reveal-modal {
   background: var(--surface);
   border: 1.5px solid var(--accent);
   border-radius: 18px;
@@ -314,7 +317,8 @@
   border-radius: 8px; padding: 6px 10px;
 }
 .dl-reveal-name { font-weight: 700; color: var(--text); }
-#dealer-lottery-reveal-modal .btn:disabled { opacity: .5; cursor: not-allowed; }
+#dealer-lottery-reveal-modal .btn:disabled,
+#targeted-drinking-reveal-modal .btn:disabled { opacity: .5; cursor: not-allowed; }
 .ms-stepper {
   display: flex; align-items: center; gap: 10px;
   margin: 7px 0;

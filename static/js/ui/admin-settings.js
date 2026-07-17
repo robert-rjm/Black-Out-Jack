@@ -1057,6 +1057,7 @@ function resetToSetup() {
   DrinkUI.lastRoundOverSeq          = 0;
   DrinkUI.lastBustHandoutSeq        = 0;
   DrinkUI.lastDealerLotteryResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingResultSeq = 0;
   DrinkUI.lastMilestoneKey          = null;
   DrinkUI.lastMilestoneResultKey    = null;
   DrinkUI.milestoneModalOpened      = null;

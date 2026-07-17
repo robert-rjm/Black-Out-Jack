@@ -63,12 +63,18 @@ class RoundState:
     _bust_handouts_given: set = field(default_factory=set)
     _bust_handout_log: list = field(default_factory=list)
 
-    # Targeted Drinking Mode (Rules.md §5.10) — current round's vote +
-    # countdown only. The subgame's persistent state (active flag, target
-    # list, graduation streaks, cooldown) lives on GameRoom below, since it
-    # must survive across rounds.
-    _targeted_drinking_votes: dict = field(default_factory=dict)        # name -> "bust" | "stand" | None
-    _targeted_drinking_expires_at: float | None = None
+    # Targeted Drinking Mode (Rules.md §5.10) — a standalone mini-game
+    # played between normal rounds (mirrors the Dealer Lottery fields right
+    # below): _targeted_drinking_eligible is set once (right after
+    # milestone check) whenever the subgame is active;
+    # _pending_targeted_drinking (vote window + votes) is only opened once
+    # any pending milestone AND Dealer Lottery draw have cleared, so at
+    # most one of the three post-round modals is ever open at once. The
+    # subgame's persistent state (active flag, target list, graduation
+    # streaks, cooldown) lives on GameRoom below, since it must survive
+    # across rounds.
+    _targeted_drinking_eligible: bool = False
+    _pending_targeted_drinking: dict | None = None
 
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
@@ -184,6 +190,9 @@ class DrinkLedger:
     # pointer (which never resets) would then never see a "new" value again,
     # silently suppressing the reveal modal on every round after the first.
     _dealer_lottery_result_seq: int = 0
+    last_targeted_drinking_result: dict | None = None
+    # Same reasoning as _dealer_lottery_result_seq above.
+    _targeted_drinking_result_seq: int = 0
 
 
 @dataclass

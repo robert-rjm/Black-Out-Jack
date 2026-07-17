@@ -464,6 +464,14 @@ function _syncRoundEffects(state, drinkingOn) {
     if (dl.last_result) _showDealerLotteryRevealModal(dl.last_result);
     DrinkUI.lastDealerLotteryResultSeq = newDealerLotterySeq;
   }
+
+  // Targeted Drinking mini-round reveal — gated on targeted_drinking.result_seq.
+  const td = state.targeted_drinking || {};
+  const newTargetedDrinkingSeq = td.result_seq || 0;
+  if (newTargetedDrinkingSeq > DrinkUI.lastTargetedDrinkingResultSeq) {
+    if (td.last_result) _showTargetedDrinkingRevealModal(td.last_result);
+    DrinkUI.lastTargetedDrinkingResultSeq = newTargetedDrinkingSeq;
+  }
 }
 
 // Sync log, sip ticker, in-round drink events, and KPI panel.
