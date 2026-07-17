@@ -17,8 +17,8 @@
   - fact check
   - add / edits facts
   - add Black(Out)Jack specific fun facts
-- [ ] Full code sweep for "dead comments" or useless / outdated references (eg to docs/planning/TargetedDrinkingModes.md)
-  - Dealer Lottery's own plan doc was already deleted at some point but 6 files still cite `DealerLottery-Plan.md` by name; **not fixed here** (out of scope for this feature) but flagged as a separate cleanup task.
+- [x] Full code sweep for "dead comments" or useless / outdated references (eg to docs/planning/TargetedDrinkingModes.md)
+  - Both known cases fixed: Targeted Drinking Mode's own references were pointed at `Rules.md §5.10` before the plan doc's eventual deletion. Dealer Lottery's plan doc had already been deleted with 8 stale `DealerLottery-Plan.md` citations left behind across `app/config.py`, `app/services/dealer_lottery.py` (x2), `app/routes/polling.py`, `app/models/state_schema.py`, `static/js/ui/admin.js`, `tests/app/test_dealer_lottery.py` (x3), and `docs/Architecture.md`'s directory-tree listing — all repointed to `Rules.md §5.9`.
 
 ## Features
 

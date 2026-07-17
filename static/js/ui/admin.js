@@ -697,7 +697,7 @@ class BustGivePanel {
 const bustGivePanel = new BustGivePanel();
 
 // ============================================================
-// DEALER LOTTERY (docs/planning/DealerLottery-Plan.md)
+// DEALER LOTTERY (Rules.md §5.9)
 // ============================================================
 
 // ── Dealer Lottery entry panel component (Improvements.md item 7,

@@ -1,10 +1,9 @@
 """
 app/services/dealer_lottery.py
 ================================
-Dealer Lottery: a post-round bonus event, separate from normal play, when
-the dealer's final hand happens to be a paired 18 (9-9) or 20 (any two
-ten-value cards). See docs/planning/DealerLottery-Plan.md for the full
-mechanic and the reasoning behind each design decision.
+Dealer Lottery (Rules.md §5.9): a post-round bonus event, separate from
+normal play, when the dealer's final hand happens to be a paired 18 (9-9)
+or 20 (any two ten-value cards).
 
 Sequencing: runs strictly after bust-vote resolution and milestone handout
 are both fully settled, and strictly before players drink for the round.
@@ -186,8 +185,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     splits the dealer's pair into fresh hands from an isolated deck --
     always at least two, more if a hand re-splits (see
     _deal_and_resolve_hand) -- plays every one out, and pays out every
-    X > 0 entrant per the payout table in docs/planning/DealerLottery-Plan.md
-    §1:
+    X > 0 entrant per the payout table in Rules.md §5.9:
 
       - Every hand busts: credit yourself min(X, your current owed sips
         this round) -- floored at 0, never negative -- and open a handout
