@@ -588,27 +588,37 @@ async function submitMilestoneHandout() {
 // A standalone mini-game played between normal rounds -- an isolated
 // dealer-only hand (never the round's real dealer hand) is dealt once the
 // vote window closes, and revealed card-by-card the same way Dealer
-// Lottery's redeal is. Vote and reveal are ONE continuous modal/card (no
-// separate overlay that closes and reopens) -- #td-vote-phase and
-// #td-reveal-phase are two inner sections of the same
-// #targeted-drinking-modal-overlay, toggled by show/hide rather than by
-// swapping overlays, so the vote UI visibly turns into the dealt hand the
-// instant the last relevant vote is cast (the backend already resolves
-// the mini-round immediately once every target has voted -- see
-// submit_targeted_drinking_vote -- so there is no timer wait once that
-// happens). Targeted players (who still need to vote) get BUST/STAND
-// buttons; everyone else (spectators, the host, and targets who've
-// already voted) get a read-only live view of every target's name and
-// vote as it's cast. A top-corner ✕ lets the admin end the whole subgame
-// on the spot (no trip through Settings), or lets anyone else dismiss
+// Lottery's redeal is. Vote, reveal, and the end-of-subgame recap are ONE
+// continuous modal/card (no separate overlay ever closes and reopens) --
+// #td-vote-phase / #td-reveal-phase / #td-summary-phase are three inner
+// sections of the same #targeted-drinking-modal-overlay, toggled by
+// show/hide. While the subgame is active but between mini-rounds (the
+// short back-to-back reveal-pause breather), the modal stays open too,
+// showing a lightweight "waiting" message inside #td-vote-phase, instead
+// of closing and popping back open moments later -- that close/reopen
+// flicker was the whole complaint this version fixes. The vote UI turns
+// into the dealt hand the instant the last relevant vote is cast (the
+// backend already resolves the mini-round immediately once every target
+// has voted -- see submit_targeted_drinking_vote -- so there is no timer
+// wait once that happens). Targeted players (who still need to vote) get
+// BUST/STAND buttons; everyone else (spectators, the host, and targets
+// who've already voted) get a read-only live view of every target's name
+// and vote as it's cast. A top-corner ✕ lets the admin end the whole
+// subgame on the spot (no trip through Settings, with a confirm() guard
+// since it discards everyone's progress), or lets anyone else dismiss
 // their own view of the current mini-round without affecting the game.
+// The modal only fully closes once the subgame has ended AND its recap
+// has been acknowledged (via the Continue/Close button, or its
+// auto-continue fallback).
 class TargetedDrinkingPanel {
   constructor() {
     this.modalOpen  = false;
-    this.phase      = null;   // "vote" | "reveal" | null
-    this._dismissed = false;  // non-admin tapped ✕ -- hide until the next pending/result
+    this.phase      = null;   // "vote" | "reveal" | "waiting" | "summary" | null
+    this._dismissed = false;  // non-admin tapped ✕ -- hide until the next pending window opens
+    this._hadPending = false; // edge-detects a fresh pending window opening, to clear _dismissed
     this._revealTimer = null;
-    this._revealKey   = null; // result_seq already showing, so re-renders don't restart the deal
+    this._revealKey    = null; // result_seq currently shown, so re-renders don't restart the deal
+    this._queuedSummary = null; // an ended-subgame recap waiting to be shown once reveal/vote clears
   }
 
   mount(el, bannerEl) {
@@ -617,6 +627,7 @@ class TargetedDrinkingPanel {
 
     el.addEventListener("click", e => {
       if (e.target.closest("#td-close-btn")) { this._onCloseClick(); return; }
+      if (e.target.closest("[data-td-continue]")) { this._onContinueClick(); return; }
       const btn = e.target.closest("[data-td-vote]");
       if (!btn) return;
       const npcSet     = new Set([...(npcPlayers || [])]);
@@ -627,7 +638,7 @@ class TargetedDrinkingPanel {
 
     // Host can end the whole subgame from the idle status banner too --
     // not just the mini-round modal -- so "cancel without going via
-    // Settings" holds even between mini-rounds when no modal is open.
+    // Settings" holds even before the first mini-round has opened.
     if (bannerEl) {
       bannerEl.addEventListener("click", e => {
         if (e.target.closest("[data-td-cancel]")) cancelTargetedDrinking({ reopenSettings: false });
@@ -635,20 +646,33 @@ class TargetedDrinkingPanel {
     }
   }
 
-  // Admin: end the whole subgame immediately, same effect as the
-  // Settings → Players "Cancel Targeted Drinking" button, just reachable
-  // straight from the mini-game itself. Anyone else: just stop showing
-  // this mini-round's modal to me locally -- doesn't submit a vote or
-  // touch server state, so an unvoted target still defaults to STAND at
-  // the timer exactly as if they'd ignored the app.
+  // Admin: end the whole subgame immediately (cancelTargetedDrinking itself
+  // confirms first), same effect as the Settings → Players "Cancel Targeted
+  // Drinking" button, just reachable straight from the mini-game itself.
+  // Anyone else: just stop showing this mini-round's modal to me locally --
+  // doesn't submit a vote or touch server state, so an unvoted target still
+  // defaults to STAND at the timer exactly as if they'd ignored the app.
   _onCloseClick() {
     if (myRole === ROLE.ADMIN) {
       cancelTargetedDrinking({ reopenSettings: false });
       return;
     }
     this._dismissed = true;
-    this._exitRevealPhase();
+    this._queuedSummary = null;
+    if (this._revealTimer) { clearTimeout(this._revealTimer); this._revealTimer = null; }
+    this.phase = null;
     this.close();
+  }
+
+  // Reveal/summary don't auto-close -- tapping Continue (or its auto-fire
+  // fallback) hands control back to render(), which re-derives whatever
+  // should show next (a queued end-of-subgame recap, the "waiting for next
+  // mini-round" filler, or a full close) from the latest state, so there's
+  // never a moment where the modal closes only to immediately reopen.
+  _onContinueClick() {
+    if (this._revealTimer) { clearTimeout(this._revealTimer); this._revealTimer = null; }
+    this.phase = null;
+    if (typeof lastState !== "undefined" && lastState) this.render(lastState);
   }
 
   open() {
@@ -665,21 +689,24 @@ class TargetedDrinkingPanel {
   }
 
   render(state) {
-    const td        = (state && state.targeted_drinking) || {};
-    const pending   = td.pending;
-    const banner    = document.getElementById("td-status-banner");
-    const resultSeq = td.result_seq || 0;
+    const td         = (state && state.targeted_drinking) || {};
+    const pending     = td.pending;
+    const banner      = document.getElementById("td-status-banner");
+    const resultSeq   = td.result_seq || 0;
+    const summarySeq  = td.summary_seq || 0;
 
-    if (!td.active) {
-      this.phase = null;
-      this.close();
-      if (banner) banner.style.display = "none";
-      return;
+    // Queue an ending recap -- may arrive alongside a fresh mini-round
+    // result (the last target graduated on this very resolve) or entirely
+    // on its own (the admin cancelled outside of any mini-round). Shown
+    // after any reveal currently in front of it, never skipped.
+    if (summarySeq > DrinkUI.lastTargetedDrinkingSummarySeq) {
+      DrinkUI.lastTargetedDrinkingSummarySeq = summarySeq;
+      if (td.last_summary) this._queuedSummary = td.last_summary;
     }
 
-    // A freshly resolved result just landed -- this is the "vote modal
-    // immediately turns into the dealt hand" transition: same overlay
-    // stays open, only the inner section swaps, no close/reopen.
+    // A freshly resolved mini-round result just landed -- this is the
+    // "vote modal immediately turns into the dealt hand" transition: same
+    // overlay stays open, only the inner section swaps, no close/reopen.
     if (resultSeq > DrinkUI.lastTargetedDrinkingResultSeq) {
       DrinkUI.lastTargetedDrinkingResultSeq = resultSeq;
       if (td.last_result) {
@@ -688,12 +715,36 @@ class TargetedDrinkingPanel {
       }
     }
 
-    if (this.phase === "reveal") {
+    if (this.phase === "reveal" || this.phase === "summary") {
       if (banner) banner.style.display = "none";
-      return;   // the reveal animation owns the modal until it (or the ✕, or its auto-dismiss) closes it
+      return;   // owns the modal until Continue, its auto-fire fallback, or the ✕
     }
 
-    if (!pending) this._dismissed = false;   // reset once this mini-round's window is gone
+    // A recap is waiting and nothing currently in front of it -- show it
+    // before anything else (including closing).
+    if (this._queuedSummary) {
+      const summary = this._queuedSummary;
+      this._queuedSummary = null;
+      this._enterSummaryPhase(summary);
+      if (banner) banner.style.display = "none";
+      return;
+    }
+
+    if (!td.active) {
+      // Subgame not running and nothing left queued to show -- fully closed.
+      this.phase = null;
+      this.close();
+      if (banner) banner.style.display = "none";
+      return;
+    }
+
+    // Edge-triggered: only clear a local dismissal when a genuinely NEW
+    // vote window opens, not on every tick where pending happens to be
+    // null (that would immediately un-dismiss the "waiting" filler state
+    // between mini-rounds, defeating the ✕).
+    const pendingIsOpen = !!pending;
+    if (pendingIsOpen && !this._hadPending) this._dismissed = false;
+    this._hadPending = pendingIsOpen;
 
     const npcSet    = new Set([...(npcPlayers || [])]);
     const locals    = myNames.filter(n => !npcSet.has(n));
@@ -702,6 +753,14 @@ class TargetedDrinkingPanel {
     const votesCast = (pending && pending.votes_cast) || {};
     const amTargeted = myTargets.length > 0;
     const allVoted    = amTargeted && myTargets.every(n => votesCast[n]);
+
+    // A mini-round can only ever be open once the current normal round has
+    // ended (check_targeted_drinking_trigger only arms at round-end), so
+    // gate the blocking modal on that too -- before the very first
+    // mini-round opens (subgame just started, current round still being
+    // played out live), show the small non-blocking banner instead, same
+    // as Dealer Lottery/Milestone never popping a modal over live play.
+    const isRoundOver = state && state.phase === PHASE.ROUND_OVER;
 
     if (pending && !this._dismissed && myRole !== null && !_dealAnimating) {
       this.phase = "vote";
@@ -725,10 +784,30 @@ class TargetedDrinkingPanel {
       const display  = Math.min(secs, duration);
       if (bar)   bar.style.width   = `${(display / duration) * 100}%`;
       if (label) label.textContent = secs > 0 ? `${secs}s` : "Time up!";
+    } else if (isRoundOver && !this._dismissed) {
+      // Between mini-rounds (subgame still active, current round already
+      // over) -- keep the SAME modal open with a lightweight waiting
+      // state instead of closing it, so there's no flicker before the
+      // next mini-round's vote phase takes over.
+      this.phase = "waiting";
+      this.open();
+      this._showPhase("vote");
+      const subEl = document.getElementById("td-modal-sub");
+      const wrap  = document.getElementById("td-players-wrap");
+      const bar   = document.getElementById("td-timer-bar");
+      const label = document.getElementById("td-timer-label");
+      if (subEl) subEl.textContent = amTargeted
+        ? "You're targeted — the next mini-round starts shortly…"
+        : "Waiting for the next mini-round…";
+      if (wrap) wrap.innerHTML = (td.targets || []).map(n =>
+        `<div class="td-spectator-row"><span class="dl-name-lbl">${escapeHtml(n)}</span></div>`).join("");
+      if (bar)   bar.style.width = "0%";
+      if (label) label.textContent = "";
+      if (banner) banner.style.display = "none";
     } else {
-      // Dismissed locally, or no mini-round currently running (subgame
-      // active but between mini-rounds) -- close the modal and show a
-      // compact status banner instead.
+      // Dismissed locally, or the subgame just started and the current
+      // normal round is still being played out live -- no blocking modal,
+      // just the compact status banner.
       this.phase = null;
       this.close();
       if (banner) {
@@ -747,10 +826,13 @@ class TargetedDrinkingPanel {
   }
 
   _showPhase(phase) {
-    const voteEl   = document.getElementById("td-vote-phase");
-    const revealEl = document.getElementById("td-reveal-phase");
-    if (voteEl)   voteEl.style.display   = phase === "vote"   ? "" : "none";
-    if (revealEl) revealEl.style.display = phase === "reveal" ? "" : "none";
+    const voteEl    = document.getElementById("td-vote-phase");
+    const revealEl  = document.getElementById("td-reveal-phase");
+    const summaryEl = document.getElementById("td-summary-phase");
+    // "waiting" reuses the vote-phase container's shell (see render()).
+    if (voteEl)    voteEl.style.display    = (phase === "vote" || phase === "waiting") ? "" : "none";
+    if (revealEl)  revealEl.style.display  = phase === "reveal"  ? "" : "none";
+    if (summaryEl) summaryEl.style.display = phase === "summary" ? "" : "none";
   }
 
   // Targeted-player view: BUST/STAND buttons per locally-controlled
@@ -812,25 +894,34 @@ class TargetedDrinkingPanel {
   // table-render.js, same as Dealer Lottery's own reveal), 2 initial cards
   // then each hit fading/sliding in one at a time, ending with a BUST/STAND
   // tag, then the per-target payout list. The subtitle names every target
-  // and their vote up front and keeps showing it through the whole
-  // animation, so spectators see who called what as the cards land.
+  // and their vote up front (color-coded green/red the moment we know --
+  // the outcome was already decided server-side before any card animates)
+  // and keeps showing it through the whole animation, so spectators see
+  // who called what, and whether they nailed it, as the cards land.
   async _enterRevealPhase(result, resultSeq) {
     if (!result || !result.hand) return;
     this.phase     = "reveal";
     this._revealKey = resultSeq;
 
-    const handWrap = document.getElementById("targeted-drinking-reveal-hand");
-    const payout   = document.getElementById("targeted-drinking-reveal-payout");
-    const sub      = document.getElementById("targeted-drinking-reveal-sub");
+    const handWrap    = document.getElementById("targeted-drinking-reveal-hand");
+    const payout      = document.getElementById("targeted-drinking-reveal-payout");
+    const sub         = document.getElementById("targeted-drinking-reveal-sub");
+    const continueBtn = document.getElementById("td-continue-btn");
     if (!handWrap) return;
 
-    const votes = result.votes || {};
-    const names = Object.keys(votes);
+    const votes   = result.votes   || {};
+    const correct = result.correct || {};
+    const names   = Object.keys(votes);
     const callLine = names.length
-      ? names.map(n => `<strong>${escapeHtml(n)}</strong> called ${(votes[n] || "?").toUpperCase()}`).join(" · ")
+      ? names.map(n => {
+          const color = correct[n] ? "var(--green)" : "var(--red)";
+          return `<strong>${escapeHtml(n)}</strong> called ` +
+                 `<strong style="color:${color}">${(votes[n] || "?").toUpperCase()}</strong>`;
+        }).join(" · ")
       : "The dealer plays out a fresh hand:";
     if (sub) sub.innerHTML = callLine;
     if (payout) payout.innerHTML = "";
+    if (continueBtn) continueBtn.disabled = true;
 
     handWrap.innerHTML = "";
     this.open();
@@ -871,20 +962,46 @@ class TargetedDrinkingPanel {
         ? `<ul class="dl-reveal-list">${names.map(n => _tdRevealLine(n, result)).join("")}</ul>`
         : `<div class="dl-reveal-headline">No one was targeted this mini-round.</div>`;
     }
+    if (continueBtn) continueBtn.disabled = false;
 
-    // Auto-dismiss if nobody taps ✕ -- mini-rounds can chain back-to-back,
-    // so an AFK/slow player must not permanently block their own next
-    // vote prompt behind a reveal they never closed.
+    // Auto-continue if nobody taps the button -- mini-rounds can chain
+    // back-to-back, so an AFK/slow player must not permanently block their
+    // own next vote prompt behind a reveal they never dismissed.
     if (this._revealTimer) clearTimeout(this._revealTimer);
-    this._revealTimer = setTimeout(() => this._exitRevealPhase(), 8000);
+    this._revealTimer = setTimeout(() => this._onContinueClick(), 8000);
   }
 
-  _exitRevealPhase() {
-    if (this.phase !== "reveal") return;
-    this.phase = null;
-    this._revealKey = null;
-    if (this._revealTimer) { clearTimeout(this._revealTimer); this._revealTimer = null; }
-    this.close();
+  // End-of-subgame recap: reason it ended + how many sips each original
+  // target drank in total across every mini-round of the run (survives
+  // graduation -- a target who's already been released still shows up
+  // with their final tally).
+  _enterSummaryPhase(summary) {
+    this.phase = "summary";
+
+    const sub  = document.getElementById("td-summary-sub");
+    const list = document.getElementById("td-summary-list");
+    const totals = (summary && summary.totals) || {};
+    const names  = Object.keys(totals);
+
+    if (sub) sub.textContent = summary && summary.reason === "all_graduated"
+      ? "Everyone called it enough times in a row to be released! 🎓"
+      : "The host ended it early.";
+
+    if (list) {
+      list.innerHTML = names.length
+        ? `<ul class="dl-reveal-list">${names.map(n => {
+            const sips = totals[n] || 0;
+            return `<li><span class="dl-reveal-name">${escapeHtml(n)}</span> drank ` +
+                   `<strong>${sips}</strong> sip${sips === 1 ? "" : "s"} total</li>`;
+          }).join("")}</ul>`
+        : `<div class="dl-reveal-headline">Nobody had to drink at all!</div>`;
+    }
+
+    this.open();
+    this._showPhase("summary");
+
+    if (this._revealTimer) clearTimeout(this._revealTimer);
+    this._revealTimer = setTimeout(() => this._onContinueClick(), 10000);
   }
 }
 
@@ -907,13 +1024,16 @@ async function submitTargetedDrinkingVote(vote, playerName) {
   }
 }
 
-// Builds one target's outcome line for the reveal modal's payout list.
+// Builds one target's outcome line for the reveal modal's payout list --
+// the vote word is color-coded green/red (correct/wrong), not the flat
+// purple every other Dealer-Lottery-style payout line uses.
 function _tdRevealLine(name, result) {
   const vote      = (result.votes || {})[name] || "?";
   const isCorrect = (result.correct || {})[name];
   const graduated = (result.graduated || []).includes(name);
   const sips      = (result.sips || {})[name];
   const streak    = (result.streaks || {})[name] || 0;
+  const color     = isCorrect ? "var(--green)" : "var(--red)";
 
   let text;
   if (graduated) {
@@ -923,6 +1043,7 @@ function _tdRevealLine(name, result) {
   } else {
     text = `wrong, drinks ${sips} sip${sips === 1 ? "" : "s"}`;
   }
-  return `<li><span class="dl-reveal-name">${escapeHtml(name)}</span> called <strong>${vote.toUpperCase()}</strong> — ${text}</li>`;
+  return `<li><span class="dl-reveal-name">${escapeHtml(name)}</span> called ` +
+         `<strong style="color:${color}">${vote.toUpperCase()}</strong> — ${text}</li>`;
 }
 

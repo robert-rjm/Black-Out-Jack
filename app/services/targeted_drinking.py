@@ -70,6 +70,7 @@ def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
     session._targeted_drinking_active = True
     session._targeted_drinking_targets = list(target_names)
     session._targeted_drinking_streaks = {name: 0 for name in target_names}
+    session._targeted_drinking_total_sips = {name: 0 for name in target_names}
     return True
 
 
@@ -222,6 +223,9 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
         else:
             session._targeted_drinking_streaks[name] = 0
             sips[name] = 1
+            session._targeted_drinking_total_sips[name] = (
+                session._targeted_drinking_total_sips.get(name, 0) + 1
+            )
             award_sips(
                 session, name, 1, "Targeted Drinking wrong guess",
                 reason=f"Targeted Drinking: guessed {vote}, dealer "
@@ -259,12 +263,26 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     active/targets/streaks and any in-flight mini-round, and setting a
     flat cooldown before a new subgame can start (no repeat-target special
     case in the MVP). A mini-round cancelled mid-vote is simply discarded
-    -- nobody's vote gets scored."""
+    -- nobody's vote gets scored.
+
+    Snapshots the whole run's per-target sip tally into
+    last_targeted_drinking_summary first (reason + totals), bumping
+    _targeted_drinking_summary_seq, so the frontend can show a one-shot
+    "here's what everyone drank" recap -- mirrors last_targeted_drinking_result's
+    own one-shot seq pattern, just for the subgame's *end* rather than each
+    mini-round."""
     if not session._targeted_drinking_active:
         return
+    session.drinks.last_targeted_drinking_summary = {
+        "reason": reason,
+        "totals": dict(session._targeted_drinking_total_sips),
+        "set_at": time.monotonic(),
+    }
+    session.drinks._targeted_drinking_summary_seq += 1
     session._targeted_drinking_active = False
     session._targeted_drinking_targets = []
     session._targeted_drinking_streaks = {}
+    session._targeted_drinking_total_sips = {}
     session._targeted_drinking_cooldown_until_round = (
         session.round_count + TARGETED_DRINKING_COOLDOWN_ROUNDS
     )

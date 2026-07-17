@@ -152,18 +152,17 @@ If the Dealer's final hand happens to be a **paired 18** (two 9s) or **paired 20
 The host can single out one or more players and drop them into their own standalone mini-game, played between normal rounds, until they clear it or the host cancels it.
 
 ### How it works
-- Host picks target(s) from **Settings → Players** and taps **Start Targeted Drinking** — or ends it early any time with the ✕ in the corner of the mini-game modal itself, no trip through Settings required
+- Host picks target(s) from **Settings → Players** and taps **Start Targeted Drinking** — or ends it early any time with the ✕ in the corner of the mini-game modal itself, no trip through Settings required (a confirmation prompt guards this, since it discards everyone's in-progress streaks)
 - Once a normal round ends, the mini-game deals a fresh, isolated dealer-only hand — a new shuffled deck, unrelated to the real table — and every targeted player gets a 15-second window to call **BUST** or **STAND** on it before it's dealt; no answer defaults to STAND
 - The moment every targeted player has voted, the round resolves immediately — it never waits out the rest of the timer
-- One modal covers the whole mini-round: it opens on the vote and turns straight into the card-by-card reveal in place once voting's done, the same way a Dealer Lottery redeal plays out. Targeted players see BUST/STAND buttons; everyone else watches a read-only view of who's targeted and what they called, live, as votes come in and cards land
+- One modal covers the whole mini-round from vote to reveal to (if it's the last one) the end-of-subgame recap — it never closes and reopens between phases. It opens on the vote and turns straight into the card-by-card reveal in place once voting's done, the same way a Dealer Lottery redeal plays out; targets and vote calls are shown color-coded green/red as soon as they're known. Tap **Continue** (or just wait — it advances on its own after a few seconds) to move on. Targeted players see BUST/STAND buttons; everyone else watches a read-only view of who's targeted and what they called, live, as votes come in and cards land
 - Call it right 3 times in a row and you're released; call it wrong and your streak resets to 0, plus a 1-sip penalty
-- If the mode is still running once a mini-hand resolves, the next one starts right away (back-to-back) after a short pause — it does **not** wait for another normal round to be played first
-- Once every targeted player has been released, a 3-round cooldown starts before the host can start it again
+- If the mode is still running once a mini-hand resolves, the next one starts right away (back-to-back) after a short pause — the same modal just shows a brief "waiting for the next mini-round" message during that gap rather than closing
+- Once every targeted player has been released — or the host ends it early — a recap shows how many total sips each target drank across the whole run, then a 3-round cooldown starts before the host can start it again
 
 ### Rules
-- Admin-only to start or cancel — see [Rules.md](Rules.md#510-targeted-drinking-mode) for the full rule. The host's ✕ in the mini-game modal ends the whole thing on the spot; anyone else's ✕ just dismisses their own view of the current mini-round
-- Starting it mid-round never interrupts play — the first mini-round waits for the current round to end
-- Between mini-rounds (mode active but no vote/reveal in progress), everyone sees a small status banner instead of the modal
+- Admin-only to start or cancel — see [Rules.md](Rules.md#510-targeted-drinking-mode) for the full rule. The host's ✕ (in the mini-game modal or the status banner) ends the whole thing on the spot after confirming; anyone else's ✕ just dismisses their own view of the current mini-round
+- Starting it mid-round never interrupts play — the first mini-round waits for the current round to end; until then everyone sees a small non-blocking status banner instead of the modal
 
 ---
 

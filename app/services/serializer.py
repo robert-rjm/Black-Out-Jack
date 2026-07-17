@@ -131,6 +131,19 @@ def _serialize_last_targeted_drinking_result(result: dict | None) -> dict | None
     }
 
 
+def _serialize_targeted_drinking_summary(summary: dict | None) -> dict | None:
+    """Serialize the most recent Targeted Drinking Mode subgame-ending
+    recap (reason + total sips per target across the whole run). Returns
+    None if there is no summary yet or it's older than 90 seconds (same
+    dismissal window as the per-mini-round result)."""
+    if not summary or time.monotonic() - summary["set_at"] >= 90:
+        return None
+    return {
+        "reason": summary["reason"],
+        "totals": dict(summary["totals"]),
+    }
+
+
 
 # ---------------------------------------------------------------------------
 # Turn / phase helpers
@@ -866,6 +879,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "last_result":          _serialize_last_targeted_drinking_result(
                                         session.drinks.last_targeted_drinking_result),
             "result_seq":           session.drinks._targeted_drinking_result_seq,
+            "last_summary":         _serialize_targeted_drinking_summary(
+                                        session.drinks.last_targeted_drinking_summary),
+            "summary_seq":          session.drinks._targeted_drinking_summary_seq,
         },
     }
 
