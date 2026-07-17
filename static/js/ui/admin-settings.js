@@ -896,7 +896,11 @@ async function startTargetedDrinking() {
   } catch (_) { alert("Network error."); }
 }
 
-async function cancelTargetedDrinking() {
+// reopenSettings=false lets the Targeted Drinking modal's own top-corner ✕
+// (table-modals.js) cancel directly without popping open the Settings
+// modal behind it -- the Settings "Cancel Targeted Drinking" button still
+// gets the reopen (it's already looking at that modal when it calls this).
+async function cancelTargetedDrinking({ reopenSettings = true } = {}) {
   try {
     const res  = await fetch("/targeted_drinking/cancel", {
       method:  "POST",
@@ -904,7 +908,7 @@ async function cancelTargetedDrinking() {
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
     });
     const data = await res.json();
-    if (data.ok) { applyState(data); openKickModal(); }
+    if (data.ok) { applyState(data); if (reopenSettings) openKickModal(); }
     else alert(data.error || "Could not cancel Targeted Drinking Mode.");
   } catch (_) { alert("Network error."); }
 }

@@ -278,18 +278,15 @@
 }
 
 /* ---- DEALER LOTTERY REVEAL MODAL (shares the milestone modal's shell) ---- */
-#dealer-lottery-reveal-overlay,
-#targeted-drinking-reveal-overlay {
+#dealer-lottery-reveal-overlay {
   display: none;
   position: fixed; inset: 0;
   background: rgba(0,0,0,.72);
   z-index: 910;
   align-items: center; justify-content: center;
 }
-#dealer-lottery-reveal-overlay.open,
-#targeted-drinking-reveal-overlay.open { display: flex; }
-#dealer-lottery-reveal-modal,
-#targeted-drinking-reveal-modal {
+#dealer-lottery-reveal-overlay.open { display: flex; }
+#dealer-lottery-reveal-modal {
   background: var(--surface);
   border: 1.5px solid var(--accent);
   border-radius: 18px;
@@ -299,6 +296,39 @@
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
   text-align: center;
 }
+
+/* ---- TARGETED DRINKING MODAL (vote + reveal share one overlay/card so the
+   UI never closes-and-reopens between phases -- see table-modals.js
+   TargetedDrinkingPanel) ---- */
+#targeted-drinking-modal-overlay .td-modal-card {
+  position: relative;
+  max-width: 360px;
+  text-align: center;
+}
+.td-close-btn {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px;
+  width: 26px; height: 26px; line-height: 1;
+  padding: 0; cursor: pointer; z-index: 1;
+}
+.td-close-btn:hover { background: rgba(255,255,255,.18); }
+.td-spectator-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.td-spectator-row:last-child { border-bottom: none; }
+.td-spectator-vote { font-weight: 700; color: var(--text); }
+.td-spectator-vote.pending { color: var(--muted); font-weight: 500; }
+.td-banner-cancel {
+  margin-left: 8px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 11px;
+  width: 20px; height: 20px; line-height: 1;
+  padding: 0; cursor: pointer; vertical-align: middle;
+}
+.td-banner-cancel:hover { background: rgba(255,255,255,.18); }
 .dl-reveal-hands {
   display: flex; gap: 14px; justify-content: center;
   margin: 14px 0 10px; flex-wrap: wrap;
@@ -317,8 +347,7 @@
   border-radius: 8px; padding: 6px 10px;
 }
 .dl-reveal-name { font-weight: 700; color: var(--text); }
-#dealer-lottery-reveal-modal .btn:disabled,
-#targeted-drinking-reveal-modal .btn:disabled { opacity: .5; cursor: not-allowed; }
+#dealer-lottery-reveal-modal .btn:disabled { opacity: .5; cursor: not-allowed; }
 .ms-stepper {
   display: flex; align-items: center; gap: 10px;
   margin: 7px 0;
