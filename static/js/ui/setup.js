@@ -15,6 +15,7 @@ const DrinkUI = {
   lastRoundOverSeq:   0,    // seq-based: fire drink toast whenever this advances
   lastBustHandoutSeq: 0,    // seq-based: fire bust-handout-result toast whenever this advances
   lastDealerLotteryResultSeq: 0, // seq-based: fire Dealer Lottery draw-reveal toast whenever this advances
+  lastTargetedDrinkingResultSeq: 0, // seq-based: fire Targeted Drinking mini-round reveal whenever this advances
   lastMilestoneKey:       null, // "boundary:winner" — prevents re-showing toast on every poll
   lastMilestoneResultKey: null, // same format — prevents re-showing drink toast on every poll
   milestoneModalOpened:   null, // key for which we already opened the modal (prevents re-open on re-poll)

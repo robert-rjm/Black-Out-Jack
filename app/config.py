@@ -63,6 +63,7 @@ DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-respon
 TARGETED_DRINKING_VOTE_WINDOW_SECONDS = 15   # per-round bust/stand vote timer
 TARGETED_DRINKING_STREAK_TO_GRADUATE  = 3    # consecutive correct guesses to opt out
 TARGETED_DRINKING_COOLDOWN_ROUNDS     = 3    # rounds before a new subgame can start
+TARGETED_DRINKING_REVEAL_PAUSE_SECONDS = 4   # breather after a mini-round's reveal before the next one opens
 
 # ---------------------------------------------------------------------------
 # Registration / connection limits

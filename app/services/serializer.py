@@ -92,6 +92,45 @@ def _serialize_last_dealer_lottery_result(result: dict | None) -> dict | None:
     }
 
 
+def _serialize_pending_targeted_drinking(pending: dict | None, client_info: dict) -> dict | None:
+    """Serialize a pending Targeted Drinking Mode vote window (Rules.md §5.10).
+
+    Returns None when there is no pending mini-round or its vote window has
+    expired. ``my_vote`` reveals only this client's own primary-name vote
+    (mirrors cast_bust_vote's single-seat convention) -- local multiplayer
+    with more than one targeted seat reads each target's vote from
+    ``votes_cast`` instead, same as Dealer Lottery's own ``my_entries`` vs.
+    the plain entry count.
+    """
+    if not pending or time.monotonic() >= pending["expires_at"]:
+        return None
+    votes   = pending["votes"]
+    my_name = (client_info.get("name") or "").capitalize()
+    return {
+        "seconds_left": max(0, round(pending["expires_at"] - time.monotonic())),
+        "my_vote":      votes.get(my_name),
+        "votes_cast":   {n: v for n, v in votes.items() if v is not None},
+    }
+
+
+def _serialize_last_targeted_drinking_result(result: dict | None) -> dict | None:
+    """Serialize the most recently resolved Targeted Drinking mini-round
+    for the frontend. Returns None if there is no result or it is older
+    than 90 seconds (matches _serialize_last_dealer_lottery_result's
+    dismissal window)."""
+    if not result or time.monotonic() - result["set_at"] >= 90:
+        return None
+    return {
+        "hand":        dict(result["hand"]),
+        "votes":       dict(result["votes"]),
+        "correct":     dict(result["correct"]),
+        "streaks":     dict(result["streaks"]),
+        "graduated":   list(result["graduated"]),
+        "sips":        dict(result["sips"]),
+        "seconds_ago": max(0, round(time.monotonic() - result["set_at"])),
+    }
+
+
 
 # ---------------------------------------------------------------------------
 # Turn / phase helpers
@@ -815,20 +854,18 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         },
     }
 
-    # ---- Targeted Drinking Mode data ----
+    # ---- Targeted Drinking Mode data (Rules.md §5.10) ----
     _targeted_drinking_data = {
         "targeted_drinking": {
-            "active":  session._targeted_drinking_active,
-            "targets": list(session._targeted_drinking_targets),
-            "streaks": dict(session._targeted_drinking_streaks),
-            "my_vote": session.round._targeted_drinking_votes.get(
-                           (_ci.get("name") or "").capitalize()),
-            "votes_cast": dict(session.round._targeted_drinking_votes),
-            "seconds_left": (
-                max(0, round(session.round._targeted_drinking_expires_at - time.monotonic()))
-                if session.round._targeted_drinking_expires_at else 0
-            ),
+            "active":               session._targeted_drinking_active,
+            "targets":              list(session._targeted_drinking_targets),
+            "streaks":              dict(session._targeted_drinking_streaks),
             "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
+            "pending":              _serialize_pending_targeted_drinking(
+                                        session.round._pending_targeted_drinking, _ci),
+            "last_result":          _serialize_last_targeted_drinking_result(
+                                        session.drinks.last_targeted_drinking_result),
+            "result_seq":           session.drinks._targeted_drinking_result_seq,
         },
     }
 

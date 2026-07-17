@@ -289,17 +289,41 @@ class DealerLotteryOut(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
-# Targeted Drinking Mode (Rules.md §5.10, MVP scope)
+# Targeted Drinking Mode (Rules.md §5.10, MVP scope) -- a standalone
+# mini-game played between normal rounds, mirroring Dealer Lottery's own
+# pending/last_result/result_seq shape.
 # ---------------------------------------------------------------------------
+
+class TargetedDrinkingPendingOut(_StrictModel):
+    seconds_left: int
+    my_vote:      Optional[Literal["bust", "stand"]]   # this client's own local-target vote, if any
+    votes_cast:   dict[str, Literal["bust", "stand"]]  # who has voted so far (values revealed once cast)
+
+
+class TargetedDrinkingHandOut(_StrictModel):
+    cards: list[CardOut]
+    score: int
+    bust:  bool
+
+
+class TargetedDrinkingResultOut(_StrictModel):
+    hand:        TargetedDrinkingHandOut
+    votes:       dict[str, Literal["bust", "stand"]]
+    correct:     dict[str, bool]           # per target: was their vote right?
+    streaks:     dict[str, int]            # graduation streak after this mini-round
+    graduated:   list[str]                 # targets who graduated out this mini-round
+    sips:        dict[str, int]            # target -> sips this mini-round cost them
+    seconds_ago: int
+
 
 class TargetedDrinkingOut(_StrictModel):
     active:               bool
     targets:              list[str]
-    streaks:              dict[str, int]             # graduation streak, per target
-    my_vote:              Optional[Literal["bust", "stand"]]   # this client's own pending vote, if targeted
-    votes_cast:           dict[str, Literal["bust", "stand"]]  # who has voted this round (values revealed once cast)
-    seconds_left:         int
+    streaks:              dict[str, int]   # graduation streak, per target (live, between mini-rounds too)
     cooldown_until_round: int
+    pending:              Optional[TargetedDrinkingPendingOut]
+    last_result:          Optional[TargetedDrinkingResultOut]
+    result_seq:           int
 
 
 # ---------------------------------------------------------------------------

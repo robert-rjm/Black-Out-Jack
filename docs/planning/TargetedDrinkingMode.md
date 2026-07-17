@@ -570,3 +570,86 @@ replaced with a `Rules.md §5.10` citation (10 files: `app/config.py`,
 without leaving dangling references — the same cleanup was done for the
 already-deleted `DealerLottery-Plan.md`'s 8 stale citations (see
 `docs/planning/TODO.md`).
+
+
+## 11. [x] Post-review rearchitecture: standalone mini-game
+
+After the MVP shipped and got real hands-on use, feedback was that the
+mode felt wrong: it reused the real round's own dealer hand and rode
+alongside normal play (§3/§4's original design), which is functionally
+identical to Bust Vote just made mandatory and persistent — not
+distinct enough to read as its own subgame. This is actually a course
+*correction* back toward the original brainstorm at the top of this
+doc ("separate from normal round, side game similar to Dealer Lottery",
+"interface should look similar to the Dealer Lottery modal") — the first
+implementation had drifted from that.
+
+Reworked to fully mirror Dealer Lottery's shape instead of Bust Vote's:
+
+- **Separate mini-game, played between rounds, never during one.**
+  `check_targeted_drinking_trigger` (round-end, mirrors
+  `check_dealer_lottery_trigger`) flags the subgame eligible;
+  `maybe_start_targeted_drinking_round` (ticked, mirrors
+  `maybe_start_dealer_lottery`) opens the vote window once any pending
+  milestone AND Dealer Lottery draw have cleared, so at most one of the
+  three post-round modals is ever open. Starting the subgame mid-round
+  no longer even has a "wait for the next deal" special case to get
+  right — it just naturally can't trigger until a round genuinely ends.
+- **A fresh, isolated dealer-only hand** (`Deck()` + shuffle + hit-to-17,
+  never touching `session.shoe` — same isolation Dealer Lottery's redeal
+  uses) is dealt only *after* the vote window closes, so nobody could
+  vote with foreknowledge of the outcome. This replaced every reference
+  to the round's real `dealer.dealer_hand`.
+- **Serializer/schema** rewritten to Dealer Lottery's `pending`/
+  `last_result`/`result_seq` shape (`TargetedDrinkingPendingOut`,
+  `TargetedDrinkingResultOut`) instead of flat `my_vote`/`votes_cast`/
+  `seconds_left` fields.
+- **Frontend**: the entry modal's data source moved to `pending`; a new
+  `#targeted-drinking-reveal-overlay` (reusing the Dealer Lottery reveal
+  modal's shell/CSS classes and `handBlock()`/`cardEl()` card-reveal
+  technique) plays the isolated hand out card-by-card, then lists each
+  target's correct/wrong/graduated outcome — mirrors
+  `_showDealerLotteryRevealModal` almost exactly, just for one hand
+  instead of a split tree.
+- `_cmd_deal_digital`'s deal-time window-open (added during the earlier
+  bug-fix round, since removed) is no longer needed at all: RoundState is
+  replaced wholesale on `newround` (`room_manager.reset_round_state`),
+  which already clears `_pending_targeted_drinking`/`_targeted_drinking_eligible`
+  between rounds -- this was misdiagnosed the first time around as "never
+  reset", which is why that deal-time patch existed in the first place.
+
+Test suite fully rewritten for the new trigger/pending/resolve flow
+(55 tests, `_ScriptedDeck`-based hand control mirroring
+`test_dealer_lottery.py`'s own pattern). Rules.md §5.10, Multiplayer.md,
+Cheat-Sheet.md, DOM-Hooks.md, and Architecture.md all updated. Full
+suite: 464 passing.
+
+**Follow-up: back-to-back mini-rounds.** The first pass of this
+rearchitecture still required a *whole normal round* to play out between
+each mini-round (only `check_targeted_drinking_trigger`, called from
+round-end, ever set `_targeted_drinking_eligible`). Feedback was that the
+mini-game should instead play back-to-back until it ends — matching the
+original brainstorm's own framing of a standalone session, not one
+occasional bonus event per normal round. Fixed:
+
+- `resolve_targeted_drinking_round` now re-arms `_targeted_drinking_eligible`
+  itself immediately whenever the subgame is still running (not everyone's
+  graduated yet), instead of only `check_targeted_drinking_trigger` being
+  able to set it.
+- A new `TARGETED_DRINKING_REVEAL_PAUSE_SECONDS` (4s) config constant gates
+  `maybe_start_targeted_drinking_round` for a short breather after each
+  result (checked against `last_targeted_drinking_result["set_at"]`), so
+  the next vote prompt doesn't pop in before anyone's had a chance to see
+  the previous reveal.
+- Frontend: a `_targetedDrinkingRevealOpen` flag (mirrors
+  `_dealerLotteryRevealOpen`, which Dealer Lottery itself never needed
+  since it never repeats) additionally blocks the vote modal from opening
+  while the reveal is still showing client-side, with an 8s auto-dismiss
+  so an AFK/slow player can't block their own next prompt indefinitely.
+
+Verified in-browser end-to-end: started the subgame, played one real
+round to completion, then watched `result_seq` advance from 2 → 3 and a
+full open → countdown → resolve cycle play out while `phase` stayed
+`"round-over"` the entire time -- confirming zero additional normal
+rounds were dealt between mini-rounds. Rules.md §5.10, Multiplayer.md,
+and Cheat-Sheet.md updated; 3 new tests. Full suite: 467 passing.

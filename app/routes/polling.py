@@ -907,10 +907,10 @@ def set_player_bet():
 
 @bp.route("/targeted_drinking/vote", methods=["POST"])
 def targeted_drinking_vote():
-    """Targeted player casts or updates their mandatory bust/stand vote.
-    Body: { room_code, client_id, vote: "bust" | "stand", player_name? }
-    Can be re-cast any time before the round's vote window closes — last
-    vote wins. `player_name` optionally votes on behalf of one of this
+    """Targeted player casts or updates their mandatory bust/stand vote for
+    the current mini-round. Body: { room_code, client_id, vote: "bust" | "stand", player_name? }
+    Can be re-cast any time before the mini-round's vote window closes --
+    last vote wins. `player_name` optionally votes on behalf of one of this
     client's local players (shared-device seats), mirroring /cast_bust_vote.
     """
     data      = request.json or {}
@@ -921,11 +921,9 @@ def targeted_drinking_vote():
     session = game_sessions.get(room_code)
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
-    if not session._targeted_drinking_active:
-        return jsonify({"ok": False, "error": "Targeted Drinking Mode is not active."})
 
-    expires = session.round._targeted_drinking_expires_at
-    if not expires or _time.monotonic() >= expires:
+    pending = session.round._pending_targeted_drinking
+    if not pending or _time.monotonic() >= pending["expires_at"]:
         return jsonify({"ok": False, "error": "Vote window is closed."})
 
     client_info = session._room_clients.get(client_id, {})
