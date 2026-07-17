@@ -41,6 +41,7 @@ def award_sips(
     *,
     role: str = "player",
     reason: str | None = None,
+    count_toward_round: bool = True,
 ) -> None:
     """Write a post-harvest sip event to all four session-level accumulators.
 
@@ -51,10 +52,20 @@ def award_sips(
     separately before or after.
 
     Updates:
-      • ``_drink_csv_rows``    — CSV export row
-      • ``_sip_ticker``        — cumulative session sip count per player
+      • ``_drink_csv_rows``    — CSV export row (always)
+      • ``_sip_ticker``        — cumulative session sip count per player (always)
       • ``_last_round_sips``   — per-player sip count for the current round
       • ``_last_round_drinks`` — ordered list shown in the Drinks panel
+
+    Pass ``count_toward_round=False`` for a sip that isn't part of any
+    specific round's blackjack outcome (currently: Targeted Drinking Mode
+    penalties, which resolve between rounds) — it still counts toward the
+    session total and milestone boundary crossing, but is excluded from
+    ``_last_round_sips``/``_last_round_drinks`` (so it can't misattribute to
+    the round that just happened to be current when the mini-game resolved)
+    and from the milestone "worst average sips/round" calculation (tracked
+    separately in ``sip_ticker_excl_round_avg`` and subtracted back out by
+    ``_apply_worst_player_streak``).
 
     If *sips* > 0, calls ``check_and_set_milestone`` so a freshly crossed
     milestone boundary is detected immediately.
@@ -73,14 +84,19 @@ def award_sips(
             session.drinks.sip_ticker[player_name] = (
                 session.drinks.sip_ticker.get(player_name, 0) + sips
             )
-        session.drinks.last_round_sips[player_name] = (
-            session.drinks.last_round_sips.get(player_name, 0) + sips
-        )
-        session.drinks.last_round_drinks.append({
-            "name":   player_name,
-            "sips":   sips,
-            "reason": reason if reason is not None else rule,
-        })
+            if not count_toward_round:
+                session.drinks.sip_ticker_excl_round_avg[player_name] = (
+                    session.drinks.sip_ticker_excl_round_avg.get(player_name, 0) + sips
+                )
+        if count_toward_round:
+            session.drinks.last_round_sips[player_name] = (
+                session.drinks.last_round_sips.get(player_name, 0) + sips
+            )
+            session.drinks.last_round_drinks.append({
+                "name":   player_name,
+                "sips":   sips,
+                "reason": reason if reason is not None else rule,
+            })
     if sips > 0:
         check_and_set_milestone(session)
 
@@ -564,11 +580,23 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     "worst" for two consecutive milestones, they take a one-time penalty —
     drinking a number of sips equal to the milestone winner's avg sips/round
     (rounded to the nearest whole sip, minimum 1).
+
+    Sips awarded with ``count_toward_round=False`` (Targeted Drinking Mode
+    penalties, which happen between rounds rather than as part of any
+    round's blackjack outcome) are subtracted back out of ``ticker`` here
+    via ``sip_ticker_excl_round_avg`` -- they still count toward every
+    player's session total and milestone progress, just not toward who
+    looks "worst" at actually playing rounds.
     """
     rounds_played = session.stats.player_rounds_played
+    excluded      = session.drinks.sip_ticker_excl_round_avg
+
+    def round_avg(name: str) -> float:
+        rounds = max(1, rounds_played.get(name, 0))
+        return (ticker.get(name, 0) - excluded.get(name, 0)) / rounds
 
     candidates = [
-        (ticker.get(p.name, 0) / max(1, rounds_played.get(p.name, 0)), p.name.lower(), p.name)
+        (round_avg(p.name), p.name.lower(), p.name)
         for p in session.all_players
         if p.name.lower() != winner.lower()
     ]
@@ -580,9 +608,8 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
 
     if session.drinks.last_milestone_worst and session.drinks.last_milestone_worst.lower() == worst_name.lower():
         # Second consecutive milestone as "worst" — apply the one-time penalty.
-        winner_rounds = max(1, rounds_played.get(winner, 0))
-        winner_avg    = ticker.get(winner, 0) / winner_rounds
-        penalty       = max(1, round(winner_avg))
+        winner_avg = round_avg(winner)
+        penalty    = max(1, round(winner_avg))
 
         worst_p = session._get_player(worst_name)
         if worst_p:

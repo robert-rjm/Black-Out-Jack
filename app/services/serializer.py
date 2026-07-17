@@ -16,7 +16,7 @@ from engine.drinking_rules import _bj_multiplier
 from app.models.game_room import GameRoom
 from app.models.state_schema import AppState, QueuedSettingsOut
 from app.services.validators import get_client_info
-from app.config import INSURANCE_VOTE_TIMEOUT
+from app.config import INSURANCE_VOTE_TIMEOUT, TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
 
 
 def _serialize_last_milestone(result: dict | None) -> dict | None:
@@ -89,6 +89,90 @@ def _serialize_last_dealer_lottery_result(result: dict | None) -> dict | None:
         "drink_amounts":  dict(result.get("drink_amounts", {})),
         "credit_amounts": dict(result.get("credit_amounts", {})),
         "seconds_ago":  max(0, round(time.monotonic() - result["set_at"])),
+    }
+
+
+def _serialize_pending_targeted_drinking(pending: dict | None, client_info: dict) -> dict | None:
+    """Serialize a pending Targeted Drinking Mode vote window (Rules.md §5.10).
+
+    Returns None when there is no pending mini-round or its vote window has
+    expired. ``my_vote`` reveals only this client's own primary-name vote
+    (mirrors cast_bust_vote's single-seat convention) -- local multiplayer
+    with more than one targeted seat reads each target's vote from
+    ``votes_cast`` instead, same as Dealer Lottery's own ``my_entries`` vs.
+    the plain entry count.
+    """
+    if not pending or time.monotonic() >= pending["expires_at"]:
+        return None
+    votes   = pending["votes"]
+    my_name = (client_info.get("name") or "").capitalize()
+    return {
+        "seconds_left": max(0, round(pending["expires_at"] - time.monotonic())),
+        "my_vote":      votes.get(my_name),
+        "votes_cast":   {n: v for n, v in votes.items() if v is not None},
+    }
+
+
+def _serialize_last_targeted_drinking_result(result: dict | None) -> dict | None:
+    """Serialize the most recently resolved Targeted Drinking mini-round
+    for the frontend. Returns None if there is no result or it is older
+    than 90 seconds (matches _serialize_last_dealer_lottery_result's
+    dismissal window)."""
+    if not result or time.monotonic() - result["set_at"] >= 90:
+        return None
+    return {
+        "hand":        dict(result["hand"]),
+        "votes":       dict(result["votes"]),
+        "correct":     dict(result["correct"]),
+        "streaks":     dict(result["streaks"]),
+        "graduated":   list(result["graduated"]),
+        "sips":        dict(result["sips"]),
+        "seconds_ago": max(0, round(time.monotonic() - result["set_at"])),
+    }
+
+
+def _targeted_drinking_awaiting_start(session: GameRoom) -> bool:
+    """True when the *first* mini-round after a normal round's end could
+    open right now but is waiting on someone to tap "Start Targeting Now".
+    Mirrors app/services/targeted_drinking.py's own
+    ``_targeted_drinking_ready_to_open`` + ``targeted_drinking_awaiting_start``
+    gates -- duplicated here rather than imported, since that module
+    imports *this* one for ``serialize_card``; importing back would be
+    circular."""
+    r = session.round
+    if not r._targeted_drinking_eligible:
+        return False
+    if r._pending_targeted_drinking is not None:
+        return False
+    if r._targeted_drinking_start_requested:
+        return False
+    if r._pending_milestone is not None:
+        return False
+    if r._dealer_lottery_eligible or r._pending_dealer_lottery is not None:
+        return False
+    last_result = session.drinks.last_targeted_drinking_result
+    if last_result and time.monotonic() - last_result["set_at"] < TARGETED_DRINKING_REVEAL_PAUSE_SECONDS:
+        return False
+    return True
+
+
+def _serialize_targeted_drinking_summary(summary: dict | None) -> dict | None:
+    """Serialize the most recent Targeted Drinking Mode subgame-ending
+    recap (reason + total sips per target, plus the run's final
+    statistics table). Returns None if there is no summary yet or it's
+    older than 90 seconds (same dismissal window as the per-mini-round
+    result)."""
+    if not summary or time.monotonic() - summary["set_at"] >= 90:
+        return None
+    return {
+        "reason": summary["reason"],
+        "totals": dict(summary["totals"]),
+        "stats": {
+            "correct":      dict(summary.get("correct", {})),
+            "wrong":        dict(summary.get("wrong", {})),
+            "dealer_hands": summary.get("dealer_hands", 0),
+            "dealer_busts": summary.get("dealer_busts", 0),
+        },
     }
 
 
@@ -815,6 +899,47 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         },
     }
 
+    # ---- Targeted Drinking Mode data (Rules.md §5.10) ----
+    _targeted_drinking_data = {
+        "targeted_drinking": {
+            "active":               session._targeted_drinking_active,
+            "targets":              list(session._targeted_drinking_targets),
+            "streaks":              dict(session._targeted_drinking_streaks),
+            "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
+            "pending":              _serialize_pending_targeted_drinking(
+                                        session.round._pending_targeted_drinking, _ci),
+            "last_result":          _serialize_last_targeted_drinking_result(
+                                        session.drinks.last_targeted_drinking_result),
+            "result_seq":           session.drinks._targeted_drinking_result_seq,
+            "last_summary":         _serialize_targeted_drinking_summary(
+                                        session.drinks.last_targeted_drinking_summary),
+            "summary_seq":          session.drinks._targeted_drinking_summary_seq,
+            "awaiting_start":       _targeted_drinking_awaiting_start(session),
+            # Raw eligibility flag -- true whenever a mini-round could be
+            # queued up right now (whether it's actually open yet, waiting
+            # on Start Targeting Now, or blocked by the reveal-pause/
+            # milestone/Dealer Lottery gates). The frontend uses this to
+            # tell "something's genuinely about to happen" apart from
+            # "nothing is queued at all" (e.g. the subgame was started
+            # while already between rounds, so nothing will arm it until
+            # a new round ends) -- see targeted_drinking.py's own
+            # start_targeted_drinking docstring for the failure mode this
+            # guards against.
+            "eligible":             session.round._targeted_drinking_eligible,
+            # Live run-wide statistics table (Rules.md §5.10) -- unlike
+            # last_result/last_summary this isn't seq-gated one-shot data,
+            # it's just the current running tally, always present so
+            # targeted players can see it update while deciding their
+            # next call.
+            "stats": {
+                "correct":      dict(session._targeted_drinking_correct_counts),
+                "wrong":        dict(session._targeted_drinking_wrong_counts),
+                "dealer_hands": session._targeted_drinking_dealer_hands,
+                "dealer_busts": session._targeted_drinking_dealer_busts,
+            },
+        },
+    }
+
     # ---- Connection / room-membership data (admin-only fields gated below) ----
     _connection_data = {
         "kick_votes":             {k: len(v) for k, v in session.round._kick_votes.items()},
@@ -935,6 +1060,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         **_insurance_data,
         **_milestone_data,
         **_dealer_lottery_data,
+        **_targeted_drinking_data,
         **_connection_data,
         **_client_identity_data,
         "state_seq":            int(time.monotonic() * 1_000_000),
