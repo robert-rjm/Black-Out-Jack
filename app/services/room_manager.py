@@ -99,6 +99,18 @@ def reset_round_state(session: GameRoom, *, digital: bool = False) -> None:
     session._log_version                 += 1
     session._hard_switch_drinking_applied = False
     session._insurance_result             = None
+    # last_dealer_lottery_result lives on DrinkLedger (session-lifetime, not
+    # RoundState) so its result_seq survives the wholesale round reset below
+    # for the reveal-modal's seq check (see DrinkLedger._dealer_lottery_result_seq).
+    # But that means its pending_handouts would otherwise outlive the round-scoped
+    # _dealer_lottery_handouts_given filter that excludes already-resolved givers
+    # from serialize_state() -- once RoundState is replaced, that filter set goes
+    # back to empty and any handout from last round (given or forfeited) reappears
+    # in the give-sip panel next round, and could be double-awarded via
+    # /dealer_lottery/give_sip. Clear it explicitly instead of relying on the
+    # (now-reset) exclusion set.
+    if session.drinks.last_dealer_lottery_result is not None:
+        session.drinks.last_dealer_lottery_result["pending_handouts"] = {}
 
 
 def apply_queued_settings(session: GameRoom) -> list[str]:

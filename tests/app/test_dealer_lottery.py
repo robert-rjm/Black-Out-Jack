@@ -641,6 +641,36 @@ def test_give_sip_removes_giver_from_served_pending_handouts(monkeypatch):
     assert after["dealer_lottery"]["my_pending_handouts"] == {}
 
 
+def test_newround_clears_stale_pending_handouts(monkeypatch):
+    """Regression: a handout that was already given (or forfeited) is only
+    excluded from serialize_state's pending_handouts via the round-scoped
+    _dealer_lottery_handouts_given set. reset_round_state() replaces
+    RoundState wholesale every newround, wiping that exclusion set -- but
+    last_dealer_lottery_result lives on DrinkLedger (session-lifetime) and
+    survives the reset untouched. Without clearing pending_handouts too, a
+    resolved handout from the previous round reappeared in the give-sip
+    panel every round after, and /dealer_lottery/give_sip would happily
+    double-award it since the new round's exclusion set no longer blocks
+    the giver."""
+    from app.services.room_manager import reset_round_state
+
+    room = _both_bust_room(monkeypatch)
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False,
+    }
+
+    before = serialize_state(room, "client-1")
+    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 5}
+
+    reset_round_state(room, digital=True)
+
+    after = serialize_state(room, "client-1")
+    assert after["dealer_lottery"]["pending_handouts"] == {}
+    assert after["dealer_lottery"]["my_pending_handouts"] == {}
+    # give_sip must now be rejected too, not just hidden from the UI.
+    assert give_dealer_lottery_sip(room, "Alice", "Bob") is False
+
+
 def test_give_sip_rejects_self_assignment(monkeypatch):
     room = _both_bust_room(monkeypatch)
     assert give_dealer_lottery_sip(room, "Alice", "Alice") is False
