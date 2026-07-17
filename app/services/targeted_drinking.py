@@ -45,7 +45,7 @@ from app.config import (
     TARGETED_DRINKING_COOLDOWN_ROUNDS,
 )
 from app.services.drink_tracker import award_sips
-from app.services.serializer import serialize_card
+from app.services.serializer import serialize_card, round_phase
 
 
 def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
@@ -55,7 +55,18 @@ def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
     On success, marks the subgame active with a fresh (zeroed) graduation
     streak for each target. The first mini-round doesn't open until the
     current normal round ends (see check_targeted_drinking_trigger) -- this
-    never interrupts a round already in progress."""
+    never interrupts a round already in progress.
+
+    check_targeted_drinking_trigger only ever fires once, at the moment a
+    round *transitions into* round-over (called from the end-round
+    pipeline) -- if the subgame is started while already sitting between
+    rounds (round-over already reached, admin just hasn't dealt the next
+    one yet), that trigger has already come and gone for this round-over
+    period and won't fire again until a whole *new* round completes,
+    stranding the subgame active but never eligible. So: if the room is
+    already in round-over when this starts, arm eligibility immediately
+    instead of waiting for it.
+    """
     if session._targeted_drinking_active:
         return False
     if session.round_count < session._targeted_drinking_cooldown_until_round:
@@ -75,6 +86,8 @@ def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
     session._targeted_drinking_wrong_counts = {name: 0 for name in target_names}
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
+    if round_phase(session) == "round-over":
+        session.round._targeted_drinking_eligible = True
     return True
 
 

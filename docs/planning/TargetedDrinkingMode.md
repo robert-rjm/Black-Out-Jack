@@ -995,3 +995,52 @@ assertions to match rather than assume empty), plus a new
 `test_stats_table_accumulates_across_mini_rounds` driving two mini-rounds
 with a mixed bust/stand dealer outcome to confirm the tally is additive
 across resolves, not reset each time. Full suite: 483 passing.
+
+**Bug fix: starting the subgame while already between rounds stranded
+it.** Reported as "stuck on 'Waiting for the next mini-round…' forever,
+with 0 mini-rounds ever resolved (dealer_hands: 0), right after starting
+Targeted Drinking in between rounds." Root cause:
+`check_targeted_drinking_trigger` only ever fires *once*, at the moment
+a round transitions *into* round-over (called from the end-round
+pipeline) -- `start_targeted_drinking` itself never armed
+`_targeted_drinking_eligible`. So starting the subgame while the room
+was already sitting in round-over (rather than exactly as a round
+ended) meant that trigger had already come and gone for this round-over
+period; nothing would arm eligibility again until an entire *new* round
+completed. Compounding it, the frontend's "waiting" branch
+(`isRoundOver && !dismissed`) didn't check whether anything was actually
+armed -- it fired on `isRoundOver` alone, so instead of showing nothing
+useful (or the fallback banner), it displayed a message implying a
+mini-round was imminent when nothing would ever come.
+
+Fixed both ends:
+- **Backend**: `start_targeted_drinking` now calls the already-imported
+  `round_phase()` (from `serializer.py`, imported alongside
+  `serialize_card`) and arms `session.round._targeted_drinking_eligible = True`
+  immediately if the room is already in `"round-over"` when the subgame
+  starts. Doesn't touch `_targeted_drinking_start_requested` -- the
+  Start Targeting Now gate still applies normally from there.
+- **Frontend defense-in-depth**: added a raw `targeted_drinking.eligible`
+  field to the serializer/schema (mirrors `awaiting_start`'s own gates
+  but without the "and not start_requested" bit) so the frontend can
+  distinguish "genuinely armed, just temporarily gated by the
+  reveal-pause/milestone/Dealer-Lottery/button" from "nothing queued at
+  all." `TargetedDrinkingPanel`'s "waiting" branch now additionally
+  requires `td.eligible` -- if a similar gap ever recurs for an
+  unrelated reason, it now degrades to the plain "Targeting X" banner
+  (still cancellable) instead of promising a mini-round that isn't coming.
+
+Verified in the browser: played a round to completion with Targeted
+Drinking *not yet* started, then started it -- confirmed `eligible: true`
+immediately (no extra round needed). A Dealer Lottery draw happened to
+also trigger on the same round-end by chance, which correctly held
+`awaiting_start` at `false` until resolved (proving the fix distinguishes
+"armed but gated" from "not armed at all"); once resolved, `awaiting_start`
+flipped to `true` and the banner correctly showed the Start Targeting Now
+button instead of a stuck waiting screen. New regression test
+`test_start_while_already_between_rounds_arms_eligibility_immediately`
+(full-stack, via `/command` + `/targeted_drinking/start`) plus an
+assertion added to the existing pre-deal `start_targeted_drinking` test
+confirming eligibility is *not* armed when a round is still in progress
+(the original "never interrupts a round already in progress" guarantee).
+Full suite: 484 passing.

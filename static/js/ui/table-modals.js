@@ -802,11 +802,18 @@ class TargetedDrinkingPanel {
         banner.innerHTML = `<button class="td-start-btn" data-td-start>🎯 Start Targeting Now</button>${cancelBtn}`;
         banner.style.display = "block";
       }
-    } else if (isRoundOver && !this._dismissed) {
+    } else if (isRoundOver && !this._dismissed && td.eligible) {
       // Between mini-rounds (subgame still active, current round already
-      // over) -- keep the SAME modal open with a lightweight waiting
-      // state instead of closing it, so there's no flicker before the
-      // next mini-round's vote phase takes over.
+      // over, and the backend has genuinely armed the next mini-round --
+      // just temporarily gated by the reveal-pause breather, a pending
+      // milestone/Dealer Lottery, or the Start Targeting Now button) --
+      // keep the SAME modal open with a lightweight waiting state instead
+      // of closing it, so there's no flicker before the next mini-round's
+      // vote phase takes over. Gated on td.eligible (not just isRoundOver)
+      // so this never shows when nothing is actually queued -- e.g. the
+      // subgame was started while already between rounds, so nothing will
+      // arm it until a whole new round ends; that falls through to the
+      // plain banner below instead of promising a mini-round that isn't coming.
       this.phase = "waiting";
       this.open();
       this._showPhase("vote");

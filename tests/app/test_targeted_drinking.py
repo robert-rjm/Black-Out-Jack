@@ -103,6 +103,10 @@ def test_start_succeeds_and_zeroes_streaks():
     assert room._targeted_drinking_active is True
     assert room._targeted_drinking_targets == ["Bob", "Carol"]
     assert room._targeted_drinking_streaks == {"Bob": 0, "Carol": 0}
+    # No cards dealt yet (pre-deal, not round-over) -- must NOT arm
+    # eligibility itself; the first mini-round still waits for the
+    # current round to actually finish (check_targeted_drinking_trigger).
+    assert room.round._targeted_drinking_eligible is False
 
 
 def test_start_is_case_insensitive_on_names():
@@ -1201,5 +1205,59 @@ def test_targeted_drinking_triggers_and_resolves_between_rounds(client, monkeypa
         assert data["targeted_drinking"]["result_seq"] == 1
         assert data["targeted_drinking"]["last_result"]["correct"]["Bob"] is True
         assert room._targeted_drinking_streaks["Bob"] == 1
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_start_while_already_between_rounds_arms_eligibility_immediately(client, monkeypatch):
+    """Regression test: starting the subgame *after* a round has already
+    ended (rather than before dealing it, like the test above) used to
+    strand it -- check_targeted_drinking_trigger only ever fires once, at
+    the moment a round *transitions into* round-over, so it would never
+    fire again until an entire extra round played out. start_targeted_drinking
+    must arm eligibility itself when the room's already sitting between
+    rounds."""
+    from engine.blackjack import Shoe
+
+    room_code = "TDStartBetweenRounds"
+    room = _make_room(num_players=2)
+    room.start_round()
+
+    cards = [
+        make_card("2", "S"), make_card("2", "H"), make_card("K", "D"),
+        make_card("3", "S"), make_card("3", "H"), make_card("9", "C"),
+    ]
+    shoe = Shoe(1)
+    shoe.cards = list(reversed(cards))
+    shoe.penetration = 1.0
+    shoe.total_cards = len(shoe.cards)
+    room.shoe = shoe
+
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice", "Bob"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+    try:
+        client.post("/command", json={"room_code": room_code, "client_id": "client-1", "cmd": "deal"})
+        client.post("/command", json={"room_code": room_code, "client_id": "client-1", "cmd": "stand Bob hand1"})
+        client.post("/command", json={"room_code": room_code, "client_id": "client-1", "cmd": "stand Alice hand1"})
+
+        # Round is over now, but Targeted Drinking was never started, so
+        # check_targeted_drinking_trigger never ran for this round-over
+        # period at all.
+        assert room.round._targeted_drinking_eligible is False
+
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        resp = client.post("/targeted_drinking/start", json={
+            "room_code": room_code, "client_id": "client-1", "target_names": ["Bob"],
+        })
+        assert resp.get_json()["ok"] is True
+        assert room.round._targeted_drinking_eligible is True   # armed immediately, not stranded
+
+        resp = client.get(f"/state?room_code={room_code}&client_id=client-1")
+        data = resp.get_json()
+        assert data["targeted_drinking"]["eligible"] is True
+        assert data["targeted_drinking"]["awaiting_start"] is True
+        assert data["targeted_drinking"]["pending"] is None
     finally:
         game_sessions.pop(room_code, None)
