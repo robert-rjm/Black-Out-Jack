@@ -331,6 +331,7 @@ class TargetedDrinkingOut(_StrictModel):
     result_seq:           int
     last_summary:         Optional[TargetedDrinkingSummaryOut]
     summary_seq:          int
+    awaiting_start:       bool   # eligible + ready, waiting on someone to tap "Start Targeting Now"
 
 
 # ---------------------------------------------------------------------------

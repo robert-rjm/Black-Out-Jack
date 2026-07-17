@@ -84,9 +84,11 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#td-vote-phase`, `#td-modal-sub`, `#td-players-wrap` (also reused,
     with a filler message, for the "waiting for next mini-round" state)
   - `#td-timer-bar`, `#td-timer-label`
-  - `#td-status-banner` (shown only before the first mini-round of a
-    subgame opens, while the current normal round is still live; includes
-    its own admin-only `[data-td-cancel]` ✕)
+  - `#td-status-banner` -- shown while the current normal round is still
+    live (before the first mini-round of a subgame can even open), and
+    again once it's ended but awaiting a `[data-td-start]` "Start
+    Targeting Now" tap (any registered player, not admin-only); also
+    carries its own admin-only `[data-td-cancel]` ✕ in both states
   - `#td-reveal-phase`, `#targeted-drinking-reveal-sub`,
     `#targeted-drinking-reveal-hand`, `#targeted-drinking-reveal-payout`,
     `#td-continue-btn` (`[data-td-continue]` -- also used by the summary

@@ -14,6 +14,7 @@ POST /give_bust_sip           — Bust vote winner hands out their 1-sip reward
 POST /dealer_lottery/enter    — Player submits their Dealer Lottery entry (0-5)
 POST /dealer_lottery/give_sip — Dealer Lottery credit-winner hands out their sip(s)
 POST /targeted_drinking/vote  — Targeted player casts their bust/stand vote
+POST /targeted_drinking/begin — Any player kicks off the waiting mini-round
 """
 
 import logging
@@ -37,7 +38,10 @@ from app.services.dealer_lottery import (
     resolve_dealer_lottery,
     give_dealer_lottery_sip,
 )
-from app.services.targeted_drinking import submit_targeted_drinking_vote
+from app.services.targeted_drinking import (
+    submit_targeted_drinking_vote,
+    request_targeted_drinking_start,
+)
 from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
 from app.services.tick import tick, _run_deferred_dealer_play
@@ -941,6 +945,30 @@ def targeted_drinking_vote():
     if not submit_targeted_drinking_vote(session, voter_name, vote):
         return jsonify({"ok": False, "error": "Invalid vote, or not a current target."})
 
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/begin", methods=["POST"])
+def targeted_drinking_begin():
+    """Any registered (non-spectator) player kicks off the mini-round that's
+    waiting on "Start Targeting Now" -- lets the table finish drinking for
+    the round that just ended before the mini-game's modal takes over.
+    Body: { room_code, client_id }. No-op (still returns ok) if nothing is
+    actually waiting to start, e.g. a race with another player's tap.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    client_info = session._room_clients.get(client_id, {})
+    if not client_info.get("name"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    request_targeted_drinking_start(session)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
     return jsonify({**serialize_state(session, client_id), "ok": True})

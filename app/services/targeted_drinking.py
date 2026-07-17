@@ -92,9 +92,55 @@ def check_targeted_drinking_trigger(session: GameRoom) -> None:
     session.round._targeted_drinking_eligible = True
 
 
+def _targeted_drinking_ready_to_open(session: GameRoom) -> bool:
+    """Internal: every condition EXCEPT the "Start Targeting Now" gate has
+    cleared and a mini-round's vote window could open right now -- shared
+    by maybe_start_targeted_drinking_round (which additionally requires
+    the start-request gate) and targeted_drinking_awaiting_start (which
+    reports the opposite: ready to open, but nobody's tapped the button
+    yet)."""
+    if not session.round._targeted_drinking_eligible:
+        return False
+    if session.round._pending_targeted_drinking is not None:
+        return False
+    if session.round._pending_milestone is not None:
+        return False
+    if session.round._dealer_lottery_eligible or session.round._pending_dealer_lottery is not None:
+        return False
+    last_result = session.drinks.last_targeted_drinking_result
+    if last_result and time.monotonic() - last_result["set_at"] < TARGETED_DRINKING_REVEAL_PAUSE_SECONDS:
+        return False
+    return True
+
+
+def targeted_drinking_awaiting_start(session: GameRoom) -> bool:
+    """True when the *first* mini-round after a normal round's end could
+    open right now but is waiting on someone to tap "Start Targeting Now"
+    -- lets the table finish drinking for the round that just ended before
+    the mini-game takes over the screen. Never true for a back-to-back
+    continuation (resolve_targeted_drinking_round re-requests the start
+    for itself) or once the vote window is already open."""
+    return (
+        _targeted_drinking_ready_to_open(session)
+        and not session.round._targeted_drinking_start_requested
+    )
+
+
+def request_targeted_drinking_start(session: GameRoom) -> bool:
+    """Any registered player taps "Start Targeting Now" to open the
+    waiting mini-round. Returns False (no-op) if there's nothing waiting
+    to start."""
+    if not _targeted_drinking_ready_to_open(session):
+        return False
+    session.round._targeted_drinking_start_requested = True
+    return True
+
+
 def maybe_start_targeted_drinking_round(session: GameRoom) -> None:
-    """Open this mini-round's vote window, if eligible and nothing is
-    blocking it. Safe to call on every /state tick.
+    """Open this mini-round's vote window, if eligible, nothing is
+    blocking it, and someone's tapped "Start Targeting Now" (or this is a
+    back-to-back continuation, which re-requests the start for itself --
+    see resolve_targeted_drinking_round). Safe to call on every /state tick.
 
     Waits for any pending milestone AND any pending-or-not-yet-opened
     Dealer Lottery draw to clear first, so at most one of these three
@@ -102,16 +148,9 @@ def maybe_start_targeted_drinking_round(session: GameRoom) -> None:
     after the previous mini-round's reveal (if this is a back-to-back
     continuation, not the chain's first round) so the next vote prompt
     doesn't pop in before anyone's had a chance to see that result."""
-    if not session.round._targeted_drinking_eligible:
+    if not _targeted_drinking_ready_to_open(session):
         return
-    if session.round._pending_targeted_drinking is not None:
-        return
-    if session.round._pending_milestone is not None:
-        return
-    if session.round._dealer_lottery_eligible or session.round._pending_dealer_lottery is not None:
-        return
-    last_result = session.drinks.last_targeted_drinking_result
-    if last_result and time.monotonic() - last_result["set_at"] < TARGETED_DRINKING_REVEAL_PAUSE_SECONDS:
+    if not session.round._targeted_drinking_start_requested:
         return
 
     session.round._pending_targeted_drinking = {
@@ -230,6 +269,7 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                 session, name, 1, "Targeted Drinking wrong guess",
                 reason=f"Targeted Drinking: guessed {vote}, dealer "
                        f"{'busted' if dealer_busted else 'stood'} -- +1 sip",
+                count_toward_round=False,
             )
 
     session.drinks.last_targeted_drinking_result = {
@@ -254,8 +294,11 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
         # mini-round opens as soon as the reveal breather elapses (see
         # maybe_start_targeted_drinking_round), instead of waiting for an
         # entire normal round to play out first. Mini-rounds chain
-        # back-to-back until the subgame ends.
+        # back-to-back until the subgame ends -- re-request the start too,
+        # so the "Start Targeting Now" gate only ever applies to the first
+        # mini-round after a normal round ends, never mid-chain.
         session.round._targeted_drinking_eligible = True
+        session.round._targeted_drinking_start_requested = True
 
 
 def end_targeted_drinking(session: GameRoom, reason: str) -> None:

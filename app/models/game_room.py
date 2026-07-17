@@ -75,6 +75,13 @@ class RoundState:
     # across rounds.
     _targeted_drinking_eligible: bool = False
     _pending_targeted_drinking: dict | None = None
+    # True once someone has tapped "Start Targeting Now" for the mini-round
+    # that _targeted_drinking_eligible above is waiting on -- lets the table
+    # finish drinking for the round that just ended before the mini-game
+    # takes over. Only gates the *first* mini-round after a normal round
+    # ends; back-to-back continuations re-set this for themselves (see
+    # resolve_targeted_drinking_round), so the chain never needs a repeat tap.
+    _targeted_drinking_start_requested: bool = False
 
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
@@ -170,6 +177,14 @@ class DrinkLedger:
     """
     csv_rows: list             = field(default_factory=list)
     sip_ticker: dict           = field(default_factory=dict)
+    # Mirrors sip_ticker but only for sips awarded with count_toward_round=False
+    # (currently just Targeted Drinking penalties) -- subtracted back out of
+    # sip_ticker when computing "average sips/round" for the milestone
+    # worst-player streak, so a between-round mini-game penalty can't make
+    # someone look artificially bad at blackjack itself. Never subtracted
+    # from sip_ticker directly -- session totals, the leaderboard, and
+    # milestone boundary crossing all still count these sips normally.
+    sip_ticker_excl_round_avg: dict = field(default_factory=dict)
     last_round_sips: dict      = field(default_factory=dict)
     last_round_drinks: list    = field(default_factory=list)
     round_notices: list        = field(default_factory=list)
