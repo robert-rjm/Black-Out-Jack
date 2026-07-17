@@ -187,21 +187,26 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     _deal_and_resolve_hand) -- plays every one out, and pays out every
     X > 0 entrant per the payout table in Rules.md §5.9:
 
-      - Every hand busts: credit yourself min(X, your current owed sips
-        this round) -- floored at 0, never negative -- and open a handout
-        window to give ceil(X/2) (if halving is active) or X to another
-        player, mirroring /give_bust_sip's exact pattern.
-      - No hand busts: drink the full X -- never halved. Only the handout
-        (above) is halved; halving softens what you hand to someone else,
-        not what you owe yourself.
-      - Anything in between (some hands bust, some don't): nothing
-        happens -- no drink, no credit.
+      - 2 or more hands bust (regardless of how many hands total -- a
+        re-split just makes this easier to reach): credit yourself
+        min(X, your current owed sips this round) -- floored at 0, never
+        negative -- and open a handout window to give ceil(X/2) (if
+        halving is active) or X to another player, mirroring
+        /give_bust_sip's exact pattern.
+      - No hand busts: drink X * (n_hands - 1) -- never halved. Only the
+        handout (above) is halved; halving softens what you hand to
+        someone else, not what you owe yourself. n_hands - 1 is 1 for the
+        base (un-split) case and increases by 1 per re-split, so standing
+        through a re-split chain costs more the longer that chain runs.
+      - Anything in between (exactly 1 hand busts): nothing happens -- no
+        drink, no credit.
 
-    This is a binary win/lose rule keyed on the two extremes (all-bust /
-    none-bust) rather than the hand count, so it scales to however many
-    hands a re-split produces without new cases: more hands only ever makes
-    both extremes rarer (harder to bust every hand, harder to stand every
-    hand), which makes the whole event gentler on average, never harsher.
+    Simplified from the original all-bust/none-bust binary rule (see git
+    history): that version required every single hand to bust for a
+    credit, which got sharply rarer as re-splits piled up hands. The
+    scaled drink here is what keeps "none bust" from getting relatively
+    easier (and thus relatively better for the entrant) as re-splits make
+    it rarer to land on the same side across every hand.
 
     halving_active reuses the exact flag DrinkTracker.apply_end_of_round
     already uses: easy_mode or 4+ players -- but only for the handout here,
@@ -249,13 +254,13 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     for name, x in entries.items():
         if x <= 0:
             continue
-        if busted == n_hands:
+        if busted >= 2:
             current_owed = max(0, session.drinks.last_round_sips.get(name, 0))
             credit = min(x, current_owed)
             if credit > 0:
                 award_sips(
                     session, name, -credit, "Dealer Lottery credit",
-                    reason=f"Dealer Lottery: every split hand busted -- -{credit} sip credit",
+                    reason=f"Dealer Lottery: {busted}/{n_hands} split hands busted -- -{credit} sip credit",
                 )
                 credit_amounts[name] = credit
             handout_amt = math.ceil(x / 2) if halving_active else x
@@ -264,12 +269,15 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         elif busted == 0:
             # Drink is never halved -- only the handout is (halving softens
             # what you hand to someone else, not what you owe yourself).
+            # Scales with n_hands so standing through a re-split chain
+            # costs more than standing on the un-split base case.
+            drink = x * (n_hands - 1)
             award_sips(
-                session, name, x, "Dealer Lottery drink",
-                reason=f"Dealer Lottery: no split hand busted -- drink {x} sip(s)",
+                session, name, drink, "Dealer Lottery drink",
+                reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",
             )
-            drink_amounts[name] = x
-        # 0 < busted < n_hands: some hands busted, some didn't -- nothing happens.
+            drink_amounts[name] = drink
+        # busted == 1: exactly one hand busted, the rest didn't -- nothing happens.
 
     if pending_handouts:
         session.round._dealer_lottery_handout_expires_at = (

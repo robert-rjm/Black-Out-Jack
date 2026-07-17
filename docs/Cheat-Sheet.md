@@ -157,9 +157,9 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 
 | Result | Effect |
 |--------|--------|
-| Every new hand busts | Credit up to X sips off what you owe, hand X out to another Player |
-| Some bust, some don't | Nothing happens |
-| No hand busts | Drink X sips (never halved) |
+| 2+ hands bust | Credit up to X sips off what you owe, hand X out to another Player |
+| Exactly 1 busts | Nothing happens |
+| No hand busts | Drink X × (hands − 1) sips (never halved) |
 
 ---
 
