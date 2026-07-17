@@ -55,7 +55,7 @@ Black-Out-Jack/
 │   ├── Architecture.md                     # This file
 │   ├── Multiplayer.md                      # Room setup, KPI panel, milestones, bust vote, Dealer Lottery, NPCs
 │   ├── DOM-Hooks.md                        # Frontend element IDs and JS module ownership reference
-│   └── planning/                           # Plans, roadmaps, TODOs (DealerLottery-Plan.md, PlayerStyleBots.md, Busfahrer-Plan.md, ...)
+│   └── planning/                           # Plans, roadmaps, TODOs (DealerLottery-Plan.md, PlayerStyleBots.md, ...)
 ├── static/
 │   ├── css/
 │   │   ├── main.css                        # Variables, reset, layout, bottom nav
@@ -92,8 +92,6 @@ Black-Out-Jack/
 │   ├── events.py                           # Typed dataclass events dispatched via DrinkingRules.handle()
 │   ├── drinking_rules.py                   # Drinking layer — reacts to game events
 │   ├── referee.py                          # RefereeSession class for real-life play
-│   ├── busfahrer.py                        # Busfahrer end-of-night game engine — planned add-on, not yet wired into
-│   │                                       # the web app (see docs/planning/Busfahrer-Plan.md)
 │   └── player_profiles/                    # Mined per-player deviation tables (rob.json, marko.json, david.json) —
 │                                           # built by scripts/build_player_profiles.py, consumed by style_strategy.py
 ├── scripts/                                # Standalone CLI tools
@@ -160,7 +158,6 @@ The main files are intentionally decoupled:
 | `engine/drinking_rules.py` | `engine/blackjack.py`, `engine/events.py` | Drinking layer only, no game logic |
 | `engine/referee.py` | `engine/blackjack.py`, `engine/drinking_rules.py` | RefereeSession for real-life play |
 | `engine/style_strategy.py` | `engine/strategy.py`, `engine/player_profiles/*.json` | Player-mimicry bot resolver: `best_play_for()` looks up a mined deviation table (hand context + table_bias/sibling_awaiting_deal signals), `decide_dealer_lottery_stake()` looks up a mined stake tendency bucketed by sips owed; both fall back to plain basic strategy / opting out when no profile data exists |
-| `engine/busfahrer.py` | `engine/blackjack.py` (card/hand primitives, isolated deck) | Busfahrer end-of-night game engine — planned add-on, not yet wired into the web app (see `docs/planning/Busfahrer-Plan.md`) |
 | `app/services/asset_bundler.py` | `static/js/*`, `static/css/*` (source files, read not imported) | Concatenates the app's JS/CSS source files into `static/js/bundle.js` / `static/css/bundle.css` on every `create_app()` call; called from `app/__init__.py`. Bundle files are gitignored — regenerated fresh every startup, never a stale committed artifact. |
 | `app/services/validators.py` | nothing | `sanitize_name` + `get_client_info`; used by routes and serializer |
 | `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery entry/handout windows); imported by `polling.py` |
