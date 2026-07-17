@@ -14,12 +14,13 @@ from app.services.drink_tracker import (
     check_and_set_milestone,
 )
 from app.services.dealer_lottery import check_dealer_lottery_trigger
+from app.services.targeted_drinking import check_targeted_drinking_trigger
 from app.services.payout_tracker import apply_payouts
 from app.services.decision_log import backfill_hand_results
 
 
 def apply_endround_pipeline(session) -> None:
-    """Run the six bookkeeping steps that finalise a completed round.
+    """Run the bookkeeping steps that finalise a completed round.
 
     ``session.cmd_endround()`` must be called by the caller *before* this
     function — the two sites need different stdout handling around that call
@@ -29,5 +30,13 @@ def apply_endround_pipeline(session) -> None:
     harvest_drink_log(session)
     check_and_set_milestone(session)
     check_dealer_lottery_trigger(session)
+    # Targeted Drinking Mode is its own standalone mini-game played between
+    # rounds (Rules.md §5.10), not resolved here -- this only flags the
+    # round as eligible to start one (mirrors check_dealer_lottery_trigger).
+    # tick.py's maybe_start_targeted_drinking_round() opens the vote window
+    # once milestone/Dealer Lottery are clear, and
+    # apply_targeted_drinking_vote_forfeit() resolves it once that window
+    # closes.
+    check_targeted_drinking_trigger(session)
     apply_payouts(session)
     backfill_hand_results(session)

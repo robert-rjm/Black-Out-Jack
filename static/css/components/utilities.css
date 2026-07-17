@@ -32,6 +32,8 @@ body.no-drinking .drink-only {
 #bust-vote-status,
 #bust-vote-modal-overlay,
 #dealer-lottery-modal-overlay,
+#targeted-drinking-modal-overlay,
+#td-status-banner,
 #insurance-vote-banner,
 #dig-drinks-progress,
 #dig-drinks-panel,
@@ -484,6 +486,7 @@ body.no-drinking .drink-only {
   font-weight: 800;
   cursor: pointer;
 }
+.milestone-submit:disabled { opacity: .5; cursor: not-allowed; }
 
 .summary-meta {
   font-size: 12px;

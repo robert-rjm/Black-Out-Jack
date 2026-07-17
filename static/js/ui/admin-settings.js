@@ -316,6 +316,11 @@ function openKickModal() {
     rejoinSection.style.display = "none";
   }
 
+  // Targeted Drinking Mode start/cancel controls (Rules.md §5.10;
+  // admin-only, drinking mode only; placed next to the kick-list in this
+  // same players screen)
+  _renderTargetedDrinkingAdmin(lastState, isAdmin);
+
   // Reset the bot toggle button to OFF each time the modal opens
   const npcCb  = document.getElementById("setting-add-npc");
   const npcBtn = document.getElementById("setting-add-npc-btn");
@@ -799,6 +804,121 @@ async function rotateDealer() {
 }
 
 // ============================================================
+// TARGETED DRINKING MODE — admin start/cancel controls
+// (Rules.md §5.10; admin-only, drinking mode only). Follows the same
+// "create the section once, insertBefore the
+// add/remove-seat section" idiom as the pending-registrations/kicked/denied/
+// rejoin sections above, rebuilt on every openKickModal() call so it stays
+// live while the settings modal is open.
+// ============================================================
+let _tdSelectedTargets = new Set();
+
+function _renderTargetedDrinkingAdmin(state, isAdmin) {
+  let section = document.getElementById("targeted-drinking-admin-section");
+  if (!section) {
+    section = document.createElement("div");
+    section.id = "targeted-drinking-admin-section";
+    section.className = "drink-only";
+    const playersView = document.getElementById("settings-players-view");
+    if (playersView) playersView.insertBefore(section, document.getElementById("add-remove-seat-section"));
+  }
+
+  if (!isAdmin || !state) { section.style.display = "none"; return; }
+  section.style.display = "block";
+
+  const td = state.targeted_drinking || {};
+
+  if (td.active) {
+    _tdSelectedTargets.clear();
+    const streakRows = (td.targets || []).map(name => {
+      const streak = (td.streaks && td.streaks[name]) || 0;
+      return `<div class="kick-row"><span class="kick-name">${escapeHtml(name)}</span><span class="kick-role">${streak}/3 correct</span></div>`;
+    }).join("");
+    section.innerHTML =
+      `<div class="modal-section-title modal-gap-top">🎯 TARGETED DRINKING MODE</div>` +
+      `<div class="modal-note">Active — targeting ${escapeHtml((td.targets || []).join(", "))}</div>` +
+      streakRows +
+      `<button class="btn red wide" style="margin-top:8px" data-action="cancelTargetedDrinking">Cancel Targeted Drinking</button>`;
+    return;
+  }
+
+  const cooldownRemaining = (td.cooldown_until_round || 0) - (state.round || 0);
+  const eligible = (state.table || []).filter(p => !p.is_npc);
+
+  let html = `<div class="modal-section-title modal-gap-top">🎯 TARGETED DRINKING MODE</div>`;
+
+  if (cooldownRemaining > 0) {
+    html += `<div class="modal-note">On cooldown — ${cooldownRemaining} more round${cooldownRemaining !== 1 ? "s" : ""} before a new one can start.</div>`;
+    section.innerHTML = html;
+    return;
+  }
+
+  if (eligible.length === 0) {
+    html += `<p style="color:var(--muted);font-size:13px;padding:8px 0">No eligible (non-bot) players.</p>`;
+    section.innerHTML = html;
+    return;
+  }
+
+  // Drop selections for players no longer in the roster
+  const rosterNames = new Set(eligible.map(p => p.name));
+  Array.from(_tdSelectedTargets).forEach(n => { if (!rosterNames.has(n)) _tdSelectedTargets.delete(n); });
+
+  html += eligible.map(p => {
+    const checked = _tdSelectedTargets.has(p.name) ? "checked" : "";
+    return `<label class="kick-row" style="cursor:pointer">
+      <span class="kick-name">${escapeHtml(p.name)}</span>
+      <input type="checkbox" data-td-target="${escapeHtml(p.name)}" ${checked}>
+    </label>`;
+  }).join("");
+  html += `<button class="btn wide" style="margin-top:8px" data-action="startTargetedDrinking">Start Targeted Drinking</button>`;
+
+  section.innerHTML = html;
+  section.querySelectorAll("[data-td-target]").forEach(cb => {
+    cb.onchange = () => {
+      if (cb.checked) _tdSelectedTargets.add(cb.dataset.tdTarget);
+      else _tdSelectedTargets.delete(cb.dataset.tdTarget);
+    };
+  });
+}
+
+async function startTargetedDrinking() {
+  const targets = Array.from(_tdSelectedTargets);
+  if (targets.length === 0) { alert("Select at least one player to target."); return; }
+  try {
+    const res  = await fetch("/targeted_drinking/start", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_names: targets }),
+    });
+    const data = await res.json();
+    if (data.ok) { _tdSelectedTargets.clear(); applyState(data); openKickModal(); }
+    else alert(data.error || "Could not start Targeted Drinking Mode.");
+  } catch (_) { alert("Network error."); }
+}
+
+// reopenSettings=false lets the Targeted Drinking modal's own top-corner ✕
+// (table-modals.js) cancel directly without popping open the Settings
+// modal behind it -- the Settings "Cancel Targeted Drinking" button still
+// gets the reopen (it's already looking at that modal when it calls this).
+// A single confirm() guards every path that reaches this function (the
+// mini-game modal's ✕, the idle status banner's ✕, and this Settings
+// button) since ending the subgame early discards every target's
+// in-progress streak.
+async function cancelTargetedDrinking({ reopenSettings = true } = {}) {
+  if (!confirm("End Targeted Drinking Mode for everyone? Nobody's progress is saved.")) return;
+  try {
+    const res  = await fetch("/targeted_drinking/cancel", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); if (reopenSettings) openKickModal(); }
+    else alert(data.error || "Could not cancel Targeted Drinking Mode.");
+  } catch (_) { alert("Network error."); }
+}
+
+// ============================================================
 // FINAL SUMMARY
 // ============================================================
 
@@ -946,6 +1066,8 @@ function resetToSetup() {
   DrinkUI.lastRoundOverSeq          = 0;
   DrinkUI.lastBustHandoutSeq        = 0;
   DrinkUI.lastDealerLotteryResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingSummarySeq = 0;
   DrinkUI.lastMilestoneKey          = null;
   DrinkUI.lastMilestoneResultKey    = null;
   DrinkUI.milestoneModalOpened      = null;
