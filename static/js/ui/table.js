@@ -52,7 +52,8 @@ function buildDigitalUI() {
   const dlEntryOverlay = document.getElementById("dealer-lottery-modal-overlay");
   if (dlEntryOverlay) dealerLotteryEntryPanel.mount(dlEntryOverlay);
   const tdOverlay = document.getElementById("targeted-drinking-modal-overlay");
-  if (tdOverlay) targetedDrinkingPanel.mount(tdOverlay);
+  const tdBanner  = document.getElementById("td-status-banner");
+  if (tdOverlay) targetedDrinkingPanel.mount(tdOverlay, tdBanner);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -465,13 +466,11 @@ function _syncRoundEffects(state, drinkingOn) {
     DrinkUI.lastDealerLotteryResultSeq = newDealerLotterySeq;
   }
 
-  // Targeted Drinking mini-round reveal — gated on targeted_drinking.result_seq.
-  const td = state.targeted_drinking || {};
-  const newTargetedDrinkingSeq = td.result_seq || 0;
-  if (newTargetedDrinkingSeq > DrinkUI.lastTargetedDrinkingResultSeq) {
-    if (td.last_result) _showTargetedDrinkingRevealModal(td.last_result);
-    DrinkUI.lastTargetedDrinkingResultSeq = newTargetedDrinkingSeq;
-  }
+  // Targeted Drinking mini-round reveal is triggered from within
+  // targetedDrinkingPanel.render(state) itself (see table-modals.js) --
+  // unlike Dealer Lottery/Milestone it needs role-aware phase state
+  // (vote vs. reveal) that the panel already owns, so the seq check lives
+  // there instead of being duplicated here.
 }
 
 // Sync log, sip ticker, in-round drink events, and KPI panel.

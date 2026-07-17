@@ -533,6 +533,20 @@ separate spectator side-bet surface. Neither has a concrete design yet —
 revisit only if the MVP earns its keep and players specifically ask for
 either.
 
+### 8.6 [ ] Statistics Table
+
+Table that tracks how often each targeted player was correct / incorrect
+(total number of sips drank during this mini game). And also tracks how
+often the Dealer Bust%
+
+### 8.7 [ ] Dealer Aces
+
+Could consider to have Ace of:
+- Clubs count as -1 sip (no sips if incorrect vote)
+- Hearts everyone drinks (also spectators)
+- Diamond only targeted players drink
+
+
 ## 9. Testing plan additions for §8
 
 If/when any of §8 ships: majority-vote start with a mixed set of proposed
@@ -653,3 +667,78 @@ full open → countdown → resolve cycle play out while `phase` stayed
 `"round-over"` the entire time -- confirming zero additional normal
 rounds were dealt between mini-rounds. Rules.md §5.10, Multiplayer.md,
 and Cheat-Sheet.md updated; 3 new tests. Full suite: 467 passing.
+
+**Follow-up: UI overhaul -- one continuous modal, role-aware views,
+direct host cancel.** User feedback after using the back-to-back version:
+the vote and reveal were two separate overlays that visibly closed and
+reopened; the vote modal still felt like it "waited out the timer" even
+though the backend already resolved on the last vote; spectators only
+got a small status banner instead of any real view of what was
+happening; and cancelling the subgame required navigating into
+Settings → Players every time. Fixed entirely in the frontend --
+`app/services/targeted_drinking.py` needed no changes at all, since
+`submit_targeted_drinking_vote` already resolves the mini-round
+synchronously the moment every target has voted (confirmed by direct
+API testing: the same HTTP response that submits the deciding vote comes
+back with `pending: null` and a bumped `result_seq`/populated
+`last_result` -- there never was a server-side timer wait once every
+target answers, so the "waits for the countdown" complaint was purely a
+frontend perception problem):
+
+- `#targeted-drinking-modal-overlay` in `_modals.html` now contains BOTH
+  phases as sibling divs (`#td-vote-phase`, `#td-reveal-phase`) inside one
+  `.td-modal-card`, toggled by `TargetedDrinkingPanel._showPhase()` via
+  plain show/hide rather than swapping between two separate overlay
+  elements -- `#targeted-drinking-reveal-overlay` was deleted outright.
+  The reveal's own "Got it" button was dropped in favor of a single
+  top-corner ✕ that works in both phases.
+- `TargetedDrinkingPanel` (table-modals.js) absorbed the old
+  `_showTargetedDrinkingRevealModal`/`closeTargetedDrinkingRevealModal`
+  globals as `_enterRevealPhase`/`_exitRevealPhase` methods, and now also
+  owns the `result_seq` bump-detection that used to live duplicated in
+  `table.js`'s `_syncRoundEffects` -- one place decides whether to show
+  vote buttons, the read-only view, or the reveal, so there's no window
+  where two different code paths could show contradictory UI.
+- **Role-aware vote-phase view**: targets who still need to vote get the
+  existing BUST/STAND button cards (`_renderTargetVoteView`); everyone
+  else -- spectators, the host, and targets who already voted --
+  see a read-only live list of every target's name and vote as it's cast
+  (`_renderSpectatorVoteView`), reading the same `pending.votes_cast` data
+  the serializer already exposed (it was never hidden from non-targets,
+  just never rendered for them before).
+- **Reveal subtitle** now names every target and their vote up front
+  (`<name> called BUST/STAND`) and keeps that line up through the whole
+  card-dealing animation, instead of only listing the vote in the
+  post-animation payout list -- this is what lets spectators see who
+  called what "as the cards are dealt" rather than only after.
+- **Direct host cancel**: the modal's ✕ calls `cancelTargetedDrinking()`
+  for an admin (ending the whole subgame on the spot, no Settings trip),
+  or just locally dismisses the current mini-round's view for anyone
+  else (doesn't touch server state -- an unvoted target who dismisses
+  still defaults to STAND at the timer, same as ignoring the app
+  entirely). `cancelTargetedDrinking()` gained a `reopenSettings` option
+  so calling it from the mini-game modal doesn't also pop open the
+  Settings modal behind it (the existing Settings button still gets the
+  reopen, since it's already looking at that modal). The idle status
+  banner (shown between mini-rounds, when no modal is open at all) got
+  its own small ✕ for the same admin-cancel affordance, so "cancel
+  without going through Settings" holds in every state, not just while a
+  mini-round happens to be live.
+
+Verified via direct API calls (bypassing the UI) that a target's vote
+response carries the fully-resolved state instantly, then verified in
+the browser (using `becomeClient()`, a small test harness that swaps the
+page's live `clientId`/state without a reload, added because the
+Browser pane's tabs share one origin's localStorage so two "separate"
+tabs kept clobbering each other's saved `client_id`) that: the admin/
+spectator view shows the read-only "watching" list with live vote
+status; the target's view shows working BUST/STAND buttons; clicking a
+vote transitions the *same* modal straight into the reveal with the
+correct name+vote in the subtitle; and the admin ✕ ends the subgame
+immediately. Updated 5 backend tests that had implicitly assumed a
+single-target vote would leave the round pending (it now resolves
+immediately, which was already the actual behavior -- the tests were
+just stale) to use two targets so the "still pending after one vote"
+scenarios they're actually testing still exercise real intermediate
+state. Multiplayer.md's Targeted Drinking section updated for the merged
+UI and direct-cancel note. Full suite: 467 passing.

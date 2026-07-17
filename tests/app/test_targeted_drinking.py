@@ -63,11 +63,11 @@ def _patch_deck(monkeypatch, pop_order):
     monkeypatch.setattr("app.services.targeted_drinking.random.shuffle", lambda cards: None)
 
 
-def _active_room_with_pending(monkeypatch, targets=("Bob",), hand_cards=None):
+def _active_room_with_pending(monkeypatch, targets=("Bob",), hand_cards=None, num_players=3):
     """A room with the subgame active and a mini-round's vote window
     already open -- the common starting point for vote/forfeit/resolve
     tests."""
-    room = _make_room()
+    room = _make_room(num_players=num_players)
     start_targeted_drinking(room, list(targets))
     check_targeted_drinking_trigger(room)
     maybe_start_targeted_drinking_round(room)
@@ -252,9 +252,14 @@ def test_submit_vote_rejects_invalid_value(monkeypatch):
 
 
 def test_submit_vote_records_valid_vote(monkeypatch):
-    room = _active_room_with_pending(monkeypatch, targets=["Bob"])
+    # Two targets so Bob's vote alone doesn't immediately resolve the
+    # mini-round (submit_targeted_drinking_vote only auto-resolves once
+    # *every* target has voted) -- this test is checking the vote gets
+    # recorded, not the resolution path.
+    room = _active_room_with_pending(monkeypatch, targets=["Bob", "Carol"])
     assert submit_targeted_drinking_vote(room, "Bob", "bust") is True
     assert room.round._pending_targeted_drinking["votes"]["Bob"] == "bust"
+    assert room.round._pending_targeted_drinking["votes"]["Carol"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -289,9 +294,13 @@ def test_forfeit_defaults_unanswered_votes_and_resolves(monkeypatch):
 
 
 def test_forfeit_does_not_override_an_explicit_vote(monkeypatch):
+    # Two targets: Bob votes explicitly (and correctly) but Carol never
+    # answers -- the round can't auto-resolve on Bob's vote alone (Carol
+    # is still pending), so it stays open until the forfeit sweep defaults
+    # Carol to "stand". That sweep must not clobber Bob's explicit vote.
     # dealer busts: K + 5 = 15 (hit) + K = 25
     room = _active_room_with_pending(
-        monkeypatch, targets=["Bob"],
+        monkeypatch, targets=["Bob", "Carol"],
         hand_cards=[make_card("K", "S"), make_card("5", "H"), make_card("K", "D")],
     )
     submit_targeted_drinking_vote(room, "Bob", "bust")   # explicit, correct
@@ -303,6 +312,8 @@ def test_forfeit_does_not_override_an_explicit_vote(monkeypatch):
     assert result["votes"]["Bob"] == "bust"
     assert result["correct"]["Bob"] is True
     assert room._targeted_drinking_streaks["Bob"] == 1
+    assert result["votes"]["Carol"] == "stand"   # defaulted, and wrong (dealer busted)
+    assert result["correct"]["Carol"] is False
 
 
 def test_resolve_noop_if_no_pending():
@@ -634,12 +645,16 @@ def test_cancel_route_is_noop_when_inactive(client, room_setup):
 
 @pytest.fixture
 def td_vote_setup(monkeypatch):
-    """Register a 3-player room with Targeted Drinking active against Carol
-    and a mini-round's vote window already open, client registered as Carol."""
+    """Register a 4-player room with Targeted Drinking active against Carol
+    and Dave and a mini-round's vote window already open, client registered
+    as Carol. Two targets (rather than just Carol) so that Carol voting
+    alone never auto-resolves the mini-round -- Dave is left unvoted so the
+    window stays open for tests that re-cast or otherwise expect it to
+    still be pending after Carol's vote."""
     room_code = "TDVoteRoom1"
-    room = _make_room(num_players=3)
+    room = _make_room(num_players=4)
     room.start_round()
-    start_targeted_drinking(room, ["Carol"])
+    start_targeted_drinking(room, ["Carol", "Dave"])
     check_targeted_drinking_trigger(room)
     maybe_start_targeted_drinking_round(room)
     room._room_clients["client-1"] = {
@@ -730,9 +745,11 @@ def test_vote_route_records_valid_vote(client, td_vote_setup):
 
 def test_vote_route_local_player_override(client):
     room_code = "TDVoteRoomLocal"
-    room = _make_room(num_players=3)
+    # Two targets (Carol, Dave) so Carol's vote alone doesn't immediately
+    # resolve the mini-round -- Dave is left unvoted.
+    room = _make_room(num_players=4)
     room.start_round()
-    start_targeted_drinking(room, ["Carol"])
+    start_targeted_drinking(room, ["Carol", "Dave"])
     check_targeted_drinking_trigger(room)
     maybe_start_targeted_drinking_round(room)
     room._room_clients["client-1"] = {
@@ -768,7 +785,9 @@ def test_vote_route_local_player_not_in_local_names_rejected(client, td_vote_set
 # ---------------------------------------------------------------------------
 
 def test_serialize_state_pending_mini_round(monkeypatch):
-    room = _active_room_with_pending(monkeypatch, targets=["Carol"])
+    # Two targets so Carol voting alone leaves the mini-round (and its
+    # streaks, all still at 0) unresolved and pending.
+    room = _active_room_with_pending(monkeypatch, targets=["Carol", "Dave"], num_players=4)
     submit_targeted_drinking_vote(room, "Carol", "stand")
     room._room_clients["client-1"] = {
         "name": "Carol", "local_names": ["Carol"], "role": "player", "kicked": False,
@@ -777,8 +796,8 @@ def test_serialize_state_pending_mini_round(monkeypatch):
     data = serialize_state(room, "client-1")
     td = data["targeted_drinking"]
     assert td["active"] is True
-    assert td["targets"] == ["Carol"]
-    assert td["streaks"] == {"Carol": 0}
+    assert td["targets"] == ["Carol", "Dave"]
+    assert td["streaks"] == {"Carol": 0, "Dave": 0}
     assert td["cooldown_until_round"] == 0
     assert td["pending"]["my_vote"] == "stand"
     assert td["pending"]["votes_cast"] == {"Carol": "stand"}

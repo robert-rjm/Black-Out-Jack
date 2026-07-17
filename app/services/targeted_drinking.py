@@ -129,6 +129,8 @@ def submit_targeted_drinking_vote(session: GameRoom, player_name: str, vote: str
     if not pending or player_name not in pending["votes"]:
         return False
     pending["votes"][player_name] = vote
+    if all(v is not None for v in pending["votes"].values()):
+        resolve_targeted_drinking_round(session)
     return True
 
 

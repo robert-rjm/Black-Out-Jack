@@ -75,13 +75,17 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
   - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
   - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
-- Targeted Drinking Mode (Rules.md §5.10):
-  - `#targeted-drinking-modal-overlay`, `#td-players-wrap`
+- Targeted Drinking Mode (Rules.md §5.10) -- vote and reveal are one
+  continuous modal/card (`#targeted-drinking-modal-overlay` /
+  `.td-modal-card`), not two separate overlays:
+  - `#td-close-btn` (top-corner ✕ -- ends the subgame for admin, dismisses
+    the local view for anyone else)
+  - `#td-vote-phase`, `#td-modal-sub`, `#td-players-wrap`
   - `#td-timer-bar`, `#td-timer-label`
-  - `#td-status-banner` (non-targeted players' compact status, in `#dig-panel`)
-  - `#targeted-drinking-reveal-overlay`, `#targeted-drinking-reveal-sub`
+  - `#td-status-banner` (shown between mini-rounds when no modal is open;
+    includes its own admin-only `[data-td-cancel]` ✕)
+  - `#td-reveal-phase`, `#targeted-drinking-reveal-sub`
   - `#targeted-drinking-reveal-hand`, `#targeted-drinking-reveal-payout`
-  - `#targeted-drinking-reveal-close-btn`
 
 ### `static/js/ui/admin-settings.js`
 - Kick / player management modal:

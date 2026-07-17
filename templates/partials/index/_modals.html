@@ -249,27 +249,28 @@
 </div>
 
 <div id="targeted-drinking-modal-overlay" class="drink-only bust-vote-modal-overlay">
-  <div class="bust-vote-modal-card">
-    <div class="bust-vote-modal-title">🎯 Targeted Drinking Mode</div>
-    <div class="bust-vote-modal-sub">Call it — will the dealer's hand bust?</div>
-    <div class="bust-vote-timer-bar-wrap">
-      <div id="td-timer-bar" class="bust-vote-timer-bar"></div>
-    </div>
-    <div id="td-timer-label" class="bust-vote-timer-label">15s</div>
-    <div id="td-players-wrap"></div>
-  </div>
-</div>
+  <div class="bust-vote-modal-card td-modal-card">
+    <button id="td-close-btn" class="td-close-btn" title="End targeting">✕</button>
 
-<div id="targeted-drinking-reveal-overlay" class="drink-only">
-  <div id="targeted-drinking-reveal-modal">
-    <div class="milestone-header">
-      <div class="milestone-emoji">🎯</div>
-      <div class="milestone-title">Targeted Drinking!</div>
-      <div id="targeted-drinking-reveal-sub" class="milestone-sub"></div>
+    <div id="td-vote-phase">
+      <div class="bust-vote-modal-title">🎯 Targeted Drinking Mode</div>
+      <div id="td-modal-sub" class="bust-vote-modal-sub">Call it — will the dealer's hand bust?</div>
+      <div class="bust-vote-timer-bar-wrap">
+        <div id="td-timer-bar" class="bust-vote-timer-bar"></div>
+      </div>
+      <div id="td-timer-label" class="bust-vote-timer-label">15s</div>
+      <div id="td-players-wrap"></div>
     </div>
-    <div id="targeted-drinking-reveal-hand" class="dl-reveal-hands"></div>
-    <div id="targeted-drinking-reveal-payout" class="dl-reveal-payout"></div>
-    {{ action_btn('Got it', 'closeTargetedDrinkingRevealModal', '[]', 'milestone-submit', 'id="targeted-drinking-reveal-close-btn"') }}
+
+    <div id="td-reveal-phase" style="display:none">
+      <div class="milestone-header">
+        <div class="milestone-emoji">🎯</div>
+        <div class="milestone-title">Targeted Drinking!</div>
+        <div id="targeted-drinking-reveal-sub" class="milestone-sub"></div>
+      </div>
+      <div id="targeted-drinking-reveal-hand" class="dl-reveal-hands"></div>
+      <div id="targeted-drinking-reveal-payout" class="dl-reveal-payout"></div>
+    </div>
   </div>
 </div>
 
