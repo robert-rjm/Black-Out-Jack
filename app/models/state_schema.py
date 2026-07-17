@@ -316,9 +316,21 @@ class TargetedDrinkingResultOut(_StrictModel):
     seconds_ago: int
 
 
+class TargetedDrinkingStatsOut(_StrictModel):
+    """Run-wide statistics table (Rules.md §5.10) -- correct/wrong guess
+    counts per target and the isolated dealer hand's own bust rate,
+    accumulated across every mini-round of the current (or, inside
+    TargetedDrinkingSummaryOut, the just-ended) subgame run."""
+    correct:      dict[str, int]   # target -> correct guesses this run
+    wrong:        dict[str, int]   # target -> wrong guesses this run
+    dealer_hands: int              # mini-rounds resolved this run
+    dealer_busts: int              # of those, how many the dealer busted
+
+
 class TargetedDrinkingSummaryOut(_StrictModel):
     reason: str             # "all_graduated" | "admin_cancelled"
     totals: dict[str, int]  # target -> total sips drunk across the whole subgame run
+    stats:  TargetedDrinkingStatsOut
 
 
 class TargetedDrinkingOut(_StrictModel):
@@ -332,6 +344,7 @@ class TargetedDrinkingOut(_StrictModel):
     last_summary:         Optional[TargetedDrinkingSummaryOut]
     summary_seq:          int
     awaiting_start:       bool   # eligible + ready, waiting on someone to tap "Start Targeting Now"
+    stats:                TargetedDrinkingStatsOut   # live running tally, not seq-gated
 
 
 # ---------------------------------------------------------------------------

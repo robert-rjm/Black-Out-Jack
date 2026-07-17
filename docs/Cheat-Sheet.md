@@ -172,7 +172,7 @@ Host targets one or more Players from **Settings → Players**. Once a normal ro
 | Correct | Streak +1 — 3 in a row and you're released |
 | Wrong | Streak resets to 0, +1 sip (counts toward your total, not toward "worst average/round") |
 
-Still running after a mini-hand resolves? The next one starts right away, back-to-back — no normal round in between. 3-round cooldown once everyone's released or the host cancels.
+A live stats table (correct/wrong per Player, dealer bust %) runs the whole time so you can call it smarter, not blind. Still running after a mini-hand resolves? The next one starts right away, back-to-back — no normal round in between. 3-round cooldown once everyone's released or the host cancels.
 
 ---
 

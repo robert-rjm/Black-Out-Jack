@@ -71,6 +71,10 @@ def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
     session._targeted_drinking_targets = list(target_names)
     session._targeted_drinking_streaks = {name: 0 for name in target_names}
     session._targeted_drinking_total_sips = {name: 0 for name in target_names}
+    session._targeted_drinking_correct_counts = {name: 0 for name in target_names}
+    session._targeted_drinking_wrong_counts = {name: 0 for name in target_names}
+    session._targeted_drinking_dealer_hands = 0
+    session._targeted_drinking_dealer_busts = 0
     return True
 
 
@@ -215,6 +219,14 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
     streak to 0 and costs them a flat 1 sip (no escalating penalty tiers
     in the MVP). Ends the subgame once every target has graduated.
 
+    Also updates the run-wide statistics table (Rules.md §5.10):
+    _targeted_drinking_correct_counts/_wrong_counts per target, and
+    _targeted_drinking_dealer_hands/_dealer_busts for the isolated dealer
+    hand's own bust rate this run. These are exposed live in every state
+    poll (not gated behind a seq, unlike last_targeted_drinking_result)
+    so targeted players can factor the running dealer-bust% into their
+    next call while the mini-round is still open.
+
     Stores the dealt hand + per-target outcome on
     session.drinks.last_targeted_drinking_result for the frontend to
     reveal card-by-card (mirrors last_dealer_lottery_result), and bumps
@@ -239,6 +251,10 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
     dealer_busted = hand.is_bust()
     votes = pending["votes"]
 
+    session._targeted_drinking_dealer_hands += 1
+    if dealer_busted:
+        session._targeted_drinking_dealer_busts += 1
+
     correct: dict[str, bool] = {}
     sips: dict[str, int] = {}
     graduated: list[str] = []
@@ -249,6 +265,9 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
         correct[name] = is_correct
 
         if is_correct:
+            session._targeted_drinking_correct_counts[name] = (
+                session._targeted_drinking_correct_counts.get(name, 0) + 1
+            )
             streak = session._targeted_drinking_streaks.get(name, 0) + 1
             session._targeted_drinking_streaks[name] = streak
             if streak >= TARGETED_DRINKING_STREAK_TO_GRADUATE:
@@ -260,6 +279,9 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                 )
                 session._log_version += 1
         else:
+            session._targeted_drinking_wrong_counts[name] = (
+                session._targeted_drinking_wrong_counts.get(name, 0) + 1
+            )
             session._targeted_drinking_streaks[name] = 0
             sips[name] = 1
             session._targeted_drinking_total_sips[name] = (
@@ -308,17 +330,22 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     case in the MVP). A mini-round cancelled mid-vote is simply discarded
     -- nobody's vote gets scored.
 
-    Snapshots the whole run's per-target sip tally into
-    last_targeted_drinking_summary first (reason + totals), bumping
-    _targeted_drinking_summary_seq, so the frontend can show a one-shot
-    "here's what everyone drank" recap -- mirrors last_targeted_drinking_result's
-    own one-shot seq pattern, just for the subgame's *end* rather than each
-    mini-round."""
+    Snapshots the whole run's per-target sip tally AND its statistics
+    table (correct/wrong counts, dealer bust rate) into
+    last_targeted_drinking_summary first (reason + totals + stats),
+    bumping _targeted_drinking_summary_seq, so the frontend can show a
+    one-shot "here's what everyone drank" recap -- mirrors
+    last_targeted_drinking_result's own one-shot seq pattern, just for
+    the subgame's *end* rather than each mini-round."""
     if not session._targeted_drinking_active:
         return
     session.drinks.last_targeted_drinking_summary = {
         "reason": reason,
         "totals": dict(session._targeted_drinking_total_sips),
+        "correct": dict(session._targeted_drinking_correct_counts),
+        "wrong": dict(session._targeted_drinking_wrong_counts),
+        "dealer_hands": session._targeted_drinking_dealer_hands,
+        "dealer_busts": session._targeted_drinking_dealer_busts,
         "set_at": time.monotonic(),
     }
     session.drinks._targeted_drinking_summary_seq += 1
@@ -326,6 +353,10 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_targets = []
     session._targeted_drinking_streaks = {}
     session._targeted_drinking_total_sips = {}
+    session._targeted_drinking_correct_counts = {}
+    session._targeted_drinking_wrong_counts = {}
+    session._targeted_drinking_dealer_hands = 0
+    session._targeted_drinking_dealer_busts = 0
     session._targeted_drinking_cooldown_until_round = (
         session.round_count + TARGETED_DRINKING_COOLDOWN_ROUNDS
     )

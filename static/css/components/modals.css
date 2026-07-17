@@ -329,6 +329,21 @@
   padding: 0; cursor: pointer; vertical-align: middle;
 }
 .td-banner-cancel:hover { background: rgba(255,255,255,.18); }
+.td-stats-panel {
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+.td-stats-dealer-bust {
+  font-size: 12px; color: var(--muted); text-align: center;
+  margin-bottom: 6px;
+}
+.td-stats-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 2px; font-size: 12px;
+}
+.td-stats-correct { color: var(--green); font-weight: 700; }
+.td-stats-wrong   { color: var(--red);   font-weight: 700; }
 .td-start-btn {
   background: var(--yellow); color: #000;
   border: none; border-radius: 8px;

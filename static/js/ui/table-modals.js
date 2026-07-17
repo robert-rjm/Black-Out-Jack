@@ -714,7 +714,7 @@ class TargetedDrinkingPanel {
       DrinkUI.lastTargetedDrinkingResultSeq = resultSeq;
       if (td.last_result) {
         this._dismissed = false;
-        this._enterRevealPhase(td.last_result, resultSeq);
+        this._enterRevealPhase(td.last_result, resultSeq, td.targets, td.stats);
       }
     }
 
@@ -770,6 +770,7 @@ class TargetedDrinkingPanel {
       if (banner) banner.style.display = "none";
       this.open();
       this._showPhase("vote");
+      this._renderStatsPanel(td.targets, td.stats);
 
       const subEl = document.getElementById("td-modal-sub");
       if (amTargeted && !allVoted) {
@@ -809,6 +810,7 @@ class TargetedDrinkingPanel {
       this.phase = "waiting";
       this.open();
       this._showPhase("vote");
+      this._renderStatsPanel(td.targets, td.stats);
       const subEl = document.getElementById("td-modal-sub");
       const wrap  = document.getElementById("td-players-wrap");
       const bar   = document.getElementById("td-timer-bar");
@@ -846,10 +848,43 @@ class TargetedDrinkingPanel {
     const voteEl    = document.getElementById("td-vote-phase");
     const revealEl  = document.getElementById("td-reveal-phase");
     const summaryEl = document.getElementById("td-summary-phase");
+    const statsEl   = document.getElementById("td-stats-panel");
     // "waiting" reuses the vote-phase container's shell (see render()).
     if (voteEl)    voteEl.style.display    = (phase === "vote" || phase === "waiting") ? "" : "none";
     if (revealEl)  revealEl.style.display  = phase === "reveal"  ? "" : "none";
     if (summaryEl) summaryEl.style.display = phase === "summary" ? "" : "none";
+    // The live stats table rides along with vote/waiting/reveal -- hidden
+    // only for the summary phase, which shows its own final version.
+    if (statsEl) statsEl.style.display = phase === "summary" ? "none" : "";
+  }
+
+  // Live statistics table (Rules.md §5.10): each target's correct/wrong
+  // guess count and the isolated dealer hand's own bust rate, both
+  // accumulated across the whole subgame run so far -- visible during
+  // vote/waiting/reveal so targeted players can factor "the dealer's
+  // busted 40% of hands so far" into their next call.
+  _renderStatsPanel(targets, stats) {
+    const dealerEl  = document.getElementById("td-stats-dealer-bust");
+    const targetsEl = document.getElementById("td-stats-targets");
+    const hands = (stats && stats.dealer_hands) || 0;
+    const busts = (stats && stats.dealer_busts) || 0;
+    const pct   = hands ? Math.round((busts / hands) * 100) : 0;
+
+    if (dealerEl) {
+      dealerEl.textContent = hands
+        ? `Dealer this run: ${busts}/${hands} busted (${pct}%)`
+        : "Dealer this run: no mini-rounds resolved yet";
+    }
+    if (targetsEl) {
+      const correct = (stats && stats.correct) || {};
+      const wrong   = (stats && stats.wrong) || {};
+      targetsEl.innerHTML = (targets || []).map(name => {
+        const c = correct[name] || 0;
+        const w = wrong[name] || 0;
+        return `<div class="td-stats-row"><span class="dl-name-lbl">${escapeHtml(name)}</span>` +
+          `<span><span class="td-stats-correct">${c}✓</span> / <span class="td-stats-wrong">${w}✗</span></span></div>`;
+      }).join("");
+    }
   }
 
   // Targeted-player view: BUST/STAND buttons per locally-controlled
@@ -915,7 +950,7 @@ class TargetedDrinkingPanel {
   // the outcome was already decided server-side before any card animates)
   // and keeps showing it through the whole animation, so spectators see
   // who called what, and whether they nailed it, as the cards land.
-  async _enterRevealPhase(result, resultSeq) {
+  async _enterRevealPhase(result, resultSeq, targets, stats) {
     if (!result || !result.hand) return;
     this.phase     = "reveal";
     this._revealKey = resultSeq;
@@ -943,6 +978,7 @@ class TargetedDrinkingPanel {
     handWrap.innerHTML = "";
     this.open();
     this._showPhase("reveal");
+    this._renderStatsPanel(targets, stats);
 
     const delay = ms => new Promise(r => setTimeout(r, ms));
     const cards = result.hand.cards || [];
@@ -988,30 +1024,44 @@ class TargetedDrinkingPanel {
     this._revealTimer = setTimeout(() => this._onContinueClick(), 8000);
   }
 
-  // End-of-subgame recap: reason it ended + how many sips each original
-  // target drank in total across every mini-round of the run (survives
-  // graduation -- a target who's already been released still shows up
-  // with their final tally).
+  // End-of-subgame recap: reason it ended, the final statistics table
+  // (correct/wrong calls per target, dealer bust rate), and how many sips
+  // each original target drank in total across every mini-round of the
+  // run (survives graduation -- a target who's already been released
+  // still shows up with their final tally).
   _enterSummaryPhase(summary) {
     this.phase = "summary";
 
     const sub  = document.getElementById("td-summary-sub");
     const list = document.getElementById("td-summary-list");
     const totals = (summary && summary.totals) || {};
-    const names  = Object.keys(totals);
+    const stats  = (summary && summary.stats) || {};
+    const correct = stats.correct || {};
+    const wrong   = stats.wrong   || {};
+    const hands   = stats.dealer_hands || 0;
+    const busts   = stats.dealer_busts || 0;
+    const pct     = hands ? Math.round((busts / hands) * 100) : 0;
+    const names   = Object.keys(totals);
 
     if (sub) sub.textContent = summary && summary.reason === "all_graduated"
       ? "Everyone called it enough times in a row to be released! 🎓"
       : "The host ended it early.";
 
     if (list) {
-      list.innerHTML = names.length
+      const dealerLine = hands
+        ? `<div class="td-stats-dealer-bust">Dealer this run: ${busts}/${hands} busted (${pct}%)</div>`
+        : "";
+      const rows = names.length
         ? `<ul class="dl-reveal-list">${names.map(n => {
             const sips = totals[n] || 0;
-            return `<li><span class="dl-reveal-name">${escapeHtml(n)}</span> drank ` +
+            const c    = correct[n] || 0;
+            const w    = wrong[n] || 0;
+            return `<li><span class="dl-reveal-name">${escapeHtml(n)}</span> ` +
+                   `<span class="td-stats-correct">${c}✓</span>/<span class="td-stats-wrong">${w}✗</span> — drank ` +
                    `<strong>${sips}</strong> sip${sips === 1 ? "" : "s"} total</li>`;
           }).join("")}</ul>`
         : `<div class="dl-reveal-headline">Nobody had to drink at all!</div>`;
+      list.innerHTML = dealerLine + rows;
     }
 
     this.open();
