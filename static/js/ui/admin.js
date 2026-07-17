@@ -697,7 +697,7 @@ class BustGivePanel {
 const bustGivePanel = new BustGivePanel();
 
 // ============================================================
-// DEALER LOTTERY (docs/planning/DealerLottery-Plan.md)
+// DEALER LOTTERY (Rules.md §5.9)
 // ============================================================
 
 // ── Dealer Lottery entry panel component (Improvements.md item 7,
@@ -1022,7 +1022,7 @@ async function _showDealerLotteryRevealModal(result) {
     const participants    = Object.keys(entries).filter(n => entries[n] > 0);
 
     const nHands = handList.length;
-    const headline = result.busted === nHands ? "Every hand busted!"
+    const headline = result.busted >= 2 ? `${result.busted} of ${nHands} hands busted!`
       : result.busted === 0 ? "No hand busted." : "Mixed result — nothing happens.";
 
     if (!participants.length) {

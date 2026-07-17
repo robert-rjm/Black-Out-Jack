@@ -26,6 +26,10 @@ from app.services.dealer_lottery import (
     apply_dealer_lottery_entry_forfeit,
     apply_dealer_lottery_handout_forfeit,
 )
+from app.services.targeted_drinking import (
+    maybe_start_targeted_drinking_round,
+    apply_targeted_drinking_vote_forfeit,
+)
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
 from app.services.round_pipeline import apply_endround_pipeline
 
@@ -66,9 +70,15 @@ def tick(session) -> None:
        0 and resolves) if that window has expired.
     8. Apply Dealer Lottery handout-window forfeit if that window has
        expired (mirrors the bust-vote handout forfeit).
-    9. Unblock NPC turns and trigger deferred dealer play when the bust-vote
-       window closes (or all eligible players have voted).
-    10. Safety-net: trigger dealer play when stuck at dealer-ready with no
+    9. Start the Targeted Drinking Mode mini-round's vote window, now that
+       any milestone and Dealer Lottery draw have cleared (no-op unless the
+       subgame is active).
+    10. Apply Targeted Drinking Mode vote-window forfeit (defaults unset
+        votes to "stand") and resolve the mini-round -- deals its isolated
+        dealer hand and scores every target -- if that window has expired.
+    11. Unblock NPC turns and trigger deferred dealer play when the bust-vote
+        window closes (or all eligible players have voted).
+    12. Safety-net: trigger dealer play when stuck at dealer-ready with no
         bust-vote window (e.g. bust-vote disabled, or all-BJ deal).
     """
     now = _time.monotonic()
@@ -122,12 +132,18 @@ def tick(session) -> None:
     # 8. Dealer Lottery handout-window forfeit
     apply_dealer_lottery_handout_forfeit(session)
 
-    # 9. Bust-vote window closed — unblock NPCs and run dealer if ready
+    # 9. Start the Targeted Drinking mini-round's vote window
+    maybe_start_targeted_drinking_round(session)
+
+    # 10. Targeted Drinking vote-window forfeit + resolve
+    apply_targeted_drinking_vote_forfeit(session)
+
+    # 11. Bust-vote window closed — unblock NPCs and run dealer if ready
     if (session.round._bust_vote_expires_at is not None
             and now >= session.round._bust_vote_expires_at):
         if round_phase(session) == "playing":
             auto_play_npc_turns(session)
         _run_deferred_dealer_play(session)
-    # 10. Safety net: dealer-ready with no bust-vote window
+    # 12. Safety net: dealer-ready with no bust-vote window
     elif round_phase(session) == "dealer-ready" and session.round._bust_vote_expires_at is None:
         _run_deferred_dealer_play(session)

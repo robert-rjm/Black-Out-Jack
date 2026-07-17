@@ -25,11 +25,19 @@
 #register-seats   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 
 /* ---- KICK / SUMMARY OVERLAY ---- */
+/* z-index above the game-event modals (bust vote / Dealer Lottery /
+   Targeted Drinking, all z-index 500) and below #rules-overlay (600,
+   opened from within this one) -- so Settings can always be opened on
+   top of a still-open game-event modal. Without this, a targeted player
+   who is also admin couldn't reach the Targeted Drinking Cancel button
+   (buried in Settings -> Players) while their own vote modal was showing,
+   since it's a same-z-index full-viewport overlay that would otherwise
+   paint on top by DOM order. */
 #kick-overlay, #summary-overlay {
   display: none;
   position: fixed; inset: 0;
   background: rgba(0,0,0,.75);
-  z-index: 500;
+  z-index: 550;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -212,6 +220,27 @@
 .dl-enter-btn     { flex-shrink: 0; }
 .dl-answered      { font-size: 11px; color: var(--muted); min-height: 16px; margin-top: 4px; }
 
+/* ---- TARGETED DRINKING MODE (TargetedDrinkingPanel in table-modals.js;
+   entry cards reuse .dl-entry-card/.dl-entry-top/.dl-name-lbl/.dl-status
+   above -- only the vote-button row and streak badge are new) ---- */
+.td-streak        { font-size: 12px; font-weight: 600; color: var(--muted); }
+.td-vote-row      { display: flex; gap: 8px; }
+.td-vote-btn      { flex: 1; }
+
+/* Admin's target-select checkboxes (_renderTargetedDrinkingAdmin in
+   admin-settings.js) -- main.css resets all inputs to appearance:none with
+   no fallback box, which collapses an unstyled checkbox to 0x0. Restore
+   native checkbox rendering explicitly since this list has no custom
+   slider visual like the .pill-toggle switches elsewhere. */
+#targeted-drinking-admin-section input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  width: 18px; height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* ---- BUST GIVE PANEL (BustGivePanel in admin.js) ---- */
 .bgp-winner-label { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 10px; text-align: center; }
 .bgp-btns-col     { display: flex; flex-direction: column; }
@@ -267,6 +296,61 @@
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
   text-align: center;
 }
+
+/* ---- TARGETED DRINKING MODAL (vote + reveal share one overlay/card so the
+   UI never closes-and-reopens between phases -- see table-modals.js
+   TargetedDrinkingPanel) ---- */
+#targeted-drinking-modal-overlay .td-modal-card {
+  position: relative;
+  max-width: 360px;
+  text-align: center;
+}
+.td-close-btn {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px;
+  width: 26px; height: 26px; line-height: 1;
+  padding: 0; cursor: pointer; z-index: 1;
+}
+.td-close-btn:hover { background: rgba(255,255,255,.18); }
+.td-spectator-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.td-spectator-row:last-child { border-bottom: none; }
+.td-spectator-vote { font-weight: 700; color: var(--text); }
+.td-spectator-vote.pending { color: var(--muted); font-weight: 500; }
+.td-banner-cancel {
+  margin-left: 8px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 11px;
+  width: 20px; height: 20px; line-height: 1;
+  padding: 0; cursor: pointer; vertical-align: middle;
+}
+.td-banner-cancel:hover { background: rgba(255,255,255,.18); }
+.td-stats-panel {
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+.td-stats-dealer-bust {
+  font-size: 12px; color: var(--muted); text-align: center;
+  margin-bottom: 6px;
+}
+.td-stats-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 2px; font-size: 12px;
+}
+.td-stats-correct { color: var(--green); font-weight: 700; }
+.td-stats-wrong   { color: var(--red);   font-weight: 700; }
+.td-start-btn {
+  background: var(--yellow); color: #000;
+  border: none; border-radius: 8px;
+  padding: 6px 14px; font-size: 13px; font-weight: 800;
+  cursor: pointer;
+}
+.td-start-btn:hover { filter: brightness(1.08); }
 .dl-reveal-hands {
   display: flex; gap: 14px; justify-content: center;
   margin: 14px 0 10px; flex-wrap: wrap;
