@@ -915,6 +915,17 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                         session.drinks.last_targeted_drinking_summary),
             "summary_seq":          session.drinks._targeted_drinking_summary_seq,
             "awaiting_start":       _targeted_drinking_awaiting_start(session),
+            # Raw eligibility flag -- true whenever a mini-round could be
+            # queued up right now (whether it's actually open yet, waiting
+            # on Start Targeting Now, or blocked by the reveal-pause/
+            # milestone/Dealer Lottery gates). The frontend uses this to
+            # tell "something's genuinely about to happen" apart from
+            # "nothing is queued at all" (e.g. the subgame was started
+            # while already between rounds, so nothing will arm it until
+            # a new round ends) -- see targeted_drinking.py's own
+            # start_targeted_drinking docstring for the failure mode this
+            # guards against.
+            "eligible":             session.round._targeted_drinking_eligible,
             # Live run-wide statistics table (Rules.md §5.10) -- unlike
             # last_result/last_summary this isn't seq-gated one-shot data,
             # it's just the current running tally, always present so

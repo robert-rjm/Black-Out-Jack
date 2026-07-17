@@ -344,6 +344,7 @@ class TargetedDrinkingOut(_StrictModel):
     last_summary:         Optional[TargetedDrinkingSummaryOut]
     summary_seq:          int
     awaiting_start:       bool   # eligible + ready, waiting on someone to tap "Start Targeting Now"
+    eligible:             bool   # raw flag -- a mini-round could be queued right now (open, gated, or awaiting_start)
     stats:                TargetedDrinkingStatsOut   # live running tally, not seq-gated
 
 
