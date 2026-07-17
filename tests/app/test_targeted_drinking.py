@@ -23,6 +23,8 @@ from app.services.serializer import serialize_state
 from app.services.targeted_drinking import (
     start_targeted_drinking,
     check_targeted_drinking_trigger,
+    targeted_drinking_awaiting_start,
+    request_targeted_drinking_start,
     maybe_start_targeted_drinking_round,
     submit_targeted_drinking_vote,
     apply_targeted_drinking_vote_forfeit,
@@ -66,10 +68,13 @@ def _patch_deck(monkeypatch, pop_order):
 def _active_room_with_pending(monkeypatch, targets=("Bob",), hand_cards=None, num_players=3):
     """A room with the subgame active and a mini-round's vote window
     already open -- the common starting point for vote/forfeit/resolve
-    tests."""
+    tests. Requests the start itself (as if someone had tapped "Start
+    Targeting Now") since that's a separate concern from whatever the
+    calling test actually wants to exercise."""
     room = _make_room(num_players=num_players)
     start_targeted_drinking(room, list(targets))
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     maybe_start_targeted_drinking_round(room)
     if hand_cards is not None:
         _patch_deck(monkeypatch, hand_cards)
@@ -164,8 +169,10 @@ def test_check_trigger_idempotent_if_already_pending():
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     maybe_start_targeted_drinking_round(room)
     pending_before = room.round._pending_targeted_drinking
+    assert pending_before is not None
     check_targeted_drinking_trigger(room)   # must not disturb the open window
     assert room.round._pending_targeted_drinking is pending_before
 
@@ -181,10 +188,37 @@ def test_maybe_start_noop_when_not_eligible():
     assert room.round._pending_targeted_drinking is None
 
 
+def test_maybe_start_waits_for_start_request():
+    """The 'Start Targeting Now' gate: eligible + nothing else blocking is
+    not enough on its own -- the first mini-round after a normal round
+    ends also waits for someone to tap the button (see
+    targeted_drinking_awaiting_start / request_targeted_drinking_start)."""
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    assert targeted_drinking_awaiting_start(room) is True
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is None   # still waiting on the tap
+
+    assert request_targeted_drinking_start(room) is True
+    assert targeted_drinking_awaiting_start(room) is False   # requested -- no longer "awaiting"
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is not None
+
+
+def test_request_start_noop_when_nothing_waiting():
+    room = _make_room()
+    assert request_targeted_drinking_start(room) is False   # subgame isn't even active
+
+    start_targeted_drinking(room, ["Bob"])
+    assert request_targeted_drinking_start(room) is False   # round hasn't ended yet either
+
+
 def test_maybe_start_opens_window_with_all_targets_unanswered():
     room = _make_room()
     start_targeted_drinking(room, ["Bob", "Carol"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     maybe_start_targeted_drinking_round(room)
     pending = room.round._pending_targeted_drinking
     assert pending is not None
@@ -196,8 +230,10 @@ def test_maybe_start_does_not_reopen_an_already_open_window():
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     maybe_start_targeted_drinking_round(room)
     first = room.round._pending_targeted_drinking
+    assert first is not None
     maybe_start_targeted_drinking_round(room)
     assert room.round._pending_targeted_drinking is first
 
@@ -206,6 +242,7 @@ def test_maybe_start_waits_for_pending_milestone():
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     room.round._pending_milestone = {"boundary": 50, "winner": "Alice", "handout": 5,
                                       "expires_at": time.monotonic() + 60}
     maybe_start_targeted_drinking_round(room)
@@ -216,6 +253,7 @@ def test_maybe_start_waits_for_dealer_lottery_eligible():
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     room.round._dealer_lottery_eligible = True
     maybe_start_targeted_drinking_round(room)
     assert room.round._pending_targeted_drinking is None
@@ -225,6 +263,7 @@ def test_maybe_start_waits_for_pending_dealer_lottery():
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     room.round._pending_dealer_lottery = {"expires_at": time.monotonic() + 20, "entries": {}}
     maybe_start_targeted_drinking_round(room)
     assert room.round._pending_targeted_drinking is None
@@ -349,10 +388,14 @@ def test_resolve_wrong_guess_resets_streak_and_awards_sip(monkeypatch):
 
     assert room._targeted_drinking_streaks["Bob"] == 0
     assert "Bob" in room._targeted_drinking_targets   # still targeted
-    assert room.drinks.last_round_sips["Bob"] == 1
-    assert room.drinks.last_round_drinks[-1]["reason"].startswith(
-        "Targeted Drinking: guessed bust, dealer stood"
-    )
+    # Counts toward the session total (and milestone progress)...
+    assert room.drinks.sip_ticker["Bob"] == 1
+    assert room.drinks.sip_ticker_excl_round_avg["Bob"] == 1
+    # ...but not toward this (or any) round's own sip tally -- it happened
+    # between rounds, not as part of any round's blackjack outcome, so it
+    # can't skew "worst average sips/round" or the Last Round summary.
+    assert "Bob" not in room.drinks.last_round_sips
+    assert room.drinks.last_round_drinks == []
     result = room.drinks.last_targeted_drinking_result
     assert result["sips"]["Bob"] == 1
     assert result["hand"]["score"] == 19
@@ -363,6 +406,7 @@ def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)   # only the first mini-round needs this -- resolve re-requests itself
 
     for _ in range(3):
         maybe_start_targeted_drinking_round(room)
@@ -445,8 +489,12 @@ def test_resolve_only_targets_still_in_subgame_are_scored(monkeypatch):
     assert room._targeted_drinking_streaks["Carol"] == 0
     assert "Bob" in room._targeted_drinking_targets
     assert "Carol" in room._targeted_drinking_targets
-    assert room.drinks.last_round_sips.get("Bob") is None
-    assert room.drinks.last_round_sips["Carol"] == 1
+    assert room.drinks.sip_ticker.get("Bob") is None
+    assert room.drinks.sip_ticker["Carol"] == 1
+    # Neither shows up in the round-based tally -- Bob was correct (no
+    # sip), and Carol's wrong-guess sip is deliberately excluded from it.
+    assert "Bob" not in room.drinks.last_round_sips
+    assert "Carol" not in room.drinks.last_round_sips
 
 
 def test_resolve_survives_deck_exhaustion_from_long_hit_runs(monkeypatch):
@@ -511,6 +559,7 @@ def test_end_summary_reflects_reason_when_graduation_ends_it(monkeypatch):
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)   # only the first mini-round needs this -- resolve re-requests itself
 
     for _ in range(3):
         maybe_start_targeted_drinking_round(room)
@@ -683,6 +732,49 @@ def test_cancel_route_is_noop_when_inactive(client, room_setup):
 
 
 # ---------------------------------------------------------------------------
+# /targeted_drinking/begin
+# ---------------------------------------------------------------------------
+
+def test_begin_route_rejects_unregistered_client(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+
+    resp = client.post("/targeted_drinking/begin", json={
+        "room_code": room_code, "client_id": "not-a-real-client",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert targeted_drinking_awaiting_start(room) is True   # unaffected by the rejected attempt
+
+
+def test_begin_route_any_registered_player_can_start(client, room_setup):
+    """Not admin-only -- Carol (a plain player, not Bob the admin) can tap
+    "Start Targeting Now" for herself."""
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+
+    resp = client.post("/targeted_drinking/begin", json={
+        "room_code": room_code, "client_id": "client-2",   # Carol, not admin
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert data["targeted_drinking"]["awaiting_start"] is False
+    assert room.round._targeted_drinking_start_requested is True
+
+
+def test_begin_route_noop_when_nothing_waiting(client, room_setup):
+    room_code, room = room_setup   # subgame not even started
+    resp = client.post("/targeted_drinking/begin", json={
+        "room_code": room_code, "client_id": "client-1",
+    })
+    data = resp.get_json()
+    assert data["ok"] is True   # still succeeds -- just a no-op
+    assert room.round._targeted_drinking_start_requested is False
+
+
+# ---------------------------------------------------------------------------
 # /targeted_drinking/vote
 # ---------------------------------------------------------------------------
 
@@ -699,6 +791,7 @@ def td_vote_setup(monkeypatch):
     room.start_round()
     start_targeted_drinking(room, ["Carol", "Dave"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     maybe_start_targeted_drinking_round(room)
     room._room_clients["client-1"] = {
         "name": "Carol", "local_names": ["Carol"], "role": "player", "kicked": False,
@@ -753,6 +846,7 @@ def test_vote_route_rejects_non_target(client):
     room.start_round()
     start_targeted_drinking(room, ["Carol"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     maybe_start_targeted_drinking_round(room)
     room._room_clients["client-1"] = {
         "name": "Bob", "local_names": ["Bob"], "role": "player", "kicked": False,
@@ -794,6 +888,7 @@ def test_vote_route_local_player_override(client):
     room.start_round()
     start_targeted_drinking(room, ["Carol", "Dave"])
     check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
     maybe_start_targeted_drinking_round(room)
     room._room_clients["client-1"] = {
         "name": "Bob", "local_names": ["Bob", "Carol"], "role": "player", "kicked": False,
@@ -913,6 +1008,39 @@ def test_serialize_state_targeted_drinking_inactive_defaults():
     assert td["result_seq"] == 0
     assert td["last_summary"] is None
     assert td["summary_seq"] == 0
+    assert td["awaiting_start"] is False
+
+
+def test_serialize_state_awaiting_start_before_and_after_request():
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False,
+    }
+
+    data = serialize_state(room, "client-1")
+    assert data["targeted_drinking"]["awaiting_start"] is True
+    assert data["targeted_drinking"]["pending"] is None
+
+    request_targeted_drinking_start(room)
+    data = serialize_state(room, "client-1")
+    assert data["targeted_drinking"]["awaiting_start"] is False
+
+
+def test_serialize_state_awaiting_start_false_while_milestone_pending():
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    room.round._pending_milestone = {"boundary": 50, "winner": "Alice", "handout": 5,
+                                      "expires_at": time.monotonic() + 60}
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False,
+    }
+
+    data = serialize_state(room, "client-1")
+    # Not "awaiting start" -- it isn't even this mini-round's turn to open yet.
+    assert data["targeted_drinking"]["awaiting_start"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -970,13 +1098,26 @@ def test_targeted_drinking_triggers_and_resolves_between_rounds(client, monkeypa
         })
         assert "Out of order" not in (resp.get_json().get("output") or "")
 
-        # Round just ended -- the mini-round should now be eligible, and a
-        # /state poll (tick) opens its vote window.
+        # Round just ended -- the mini-round is now eligible but waiting on
+        # "Start Targeting Now" (nobody's tapped it yet), so a /state poll
+        # (tick) must NOT open its vote window on its own.
         assert room.round._targeted_drinking_eligible is True
         _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
         resp = client.get(f"/state?room_code={room_code}&client_id=client-1")
         data = resp.get_json()
         assert data["ok"] is True
+        assert data["targeted_drinking"]["awaiting_start"] is True
+        assert data["targeted_drinking"]["pending"] is None
+        assert room.round._pending_targeted_drinking is None
+
+        # Someone taps "Start Targeting Now" -- now the next poll opens it.
+        resp = client.post("/targeted_drinking/begin", json={
+            "room_code": room_code, "client_id": "client-1",
+        })
+        assert resp.get_json()["ok"] is True
+        resp = client.get(f"/state?room_code={room_code}&client_id=client-1")
+        data = resp.get_json()
+        assert data["targeted_drinking"]["awaiting_start"] is False
         assert data["targeted_drinking"]["pending"] is not None
         assert room.round._pending_targeted_drinking is not None
 

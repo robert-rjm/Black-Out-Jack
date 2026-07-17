@@ -395,20 +395,27 @@ The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side
 
 The host can single out one or more Players and put them on the spot with
 their own standalone mini-game, played **between** normal rounds — never
-during one. Once a normal round ends, the mode deals a **fresh, isolated
-Dealer hand** (a new shuffled deck, unrelated to the actual table — nobody's
-real cards or the shoe are touched) and every targeted Player must call
-whether it will **bust** or **stand** before it's dealt. Once everyone's
-answered (or the 15-second window runs out), the hand is played out and
-revealed — and if the mode is still running (nobody's cleared it yet), the
-next mini-hand starts right away, back-to-back, without waiting for another
-normal round to be played in between.
+during one. Once a normal round ends, the mode waits for any Player to tap
+**Start Targeting Now** (so the table can finish drinking for that round
+first) before dealing a **fresh, isolated Dealer hand** (a new shuffled
+deck, unrelated to the actual table — nobody's real cards or the shoe are
+touched); every targeted Player must then call whether it will **bust** or
+**stand** before it's dealt. Once everyone's answered (or the 15-second
+window runs out), the hand is played out and revealed — and if the mode is
+still running (nobody's cleared it yet), the next mini-hand starts right
+away, back-to-back, without waiting for another normal round — or another
+tap of Start Targeting Now — in between.
 
 | Outcome | Effect |
 | --- | --- |
 | Correct call | Counts toward a 3-in-a-row streak |
 | Wrong call | Streak resets to 0, **+1 sip penalty** |
 | No answer within 15 seconds | Defaults to STAND |
+
+The wrong-call penalty still counts toward a Player's overall session total
+and milestone progress, but never toward "worst average sips/round" or any
+other round-based statistic — it happens between rounds, not as part of any
+round's own blackjack outcome.
 
 A targeted Player is released once they string together **3 correct calls
 in a row**. Once every targeted Player has been released — or the host

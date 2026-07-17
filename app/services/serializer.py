@@ -16,7 +16,7 @@ from engine.drinking_rules import _bj_multiplier
 from app.models.game_room import GameRoom
 from app.models.state_schema import AppState, QueuedSettingsOut
 from app.services.validators import get_client_info
-from app.config import INSURANCE_VOTE_TIMEOUT
+from app.config import INSURANCE_VOTE_TIMEOUT, TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
 
 
 def _serialize_last_milestone(result: dict | None) -> dict | None:
@@ -129,6 +129,31 @@ def _serialize_last_targeted_drinking_result(result: dict | None) -> dict | None
         "sips":        dict(result["sips"]),
         "seconds_ago": max(0, round(time.monotonic() - result["set_at"])),
     }
+
+
+def _targeted_drinking_awaiting_start(session: GameRoom) -> bool:
+    """True when the *first* mini-round after a normal round's end could
+    open right now but is waiting on someone to tap "Start Targeting Now".
+    Mirrors app/services/targeted_drinking.py's own
+    ``_targeted_drinking_ready_to_open`` + ``targeted_drinking_awaiting_start``
+    gates -- duplicated here rather than imported, since that module
+    imports *this* one for ``serialize_card``; importing back would be
+    circular."""
+    r = session.round
+    if not r._targeted_drinking_eligible:
+        return False
+    if r._pending_targeted_drinking is not None:
+        return False
+    if r._targeted_drinking_start_requested:
+        return False
+    if r._pending_milestone is not None:
+        return False
+    if r._dealer_lottery_eligible or r._pending_dealer_lottery is not None:
+        return False
+    last_result = session.drinks.last_targeted_drinking_result
+    if last_result and time.monotonic() - last_result["set_at"] < TARGETED_DRINKING_REVEAL_PAUSE_SECONDS:
+        return False
+    return True
 
 
 def _serialize_targeted_drinking_summary(summary: dict | None) -> dict | None:
@@ -882,6 +907,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "last_summary":         _serialize_targeted_drinking_summary(
                                         session.drinks.last_targeted_drinking_summary),
             "summary_seq":          session.drinks._targeted_drinking_summary_seq,
+            "awaiting_start":       _targeted_drinking_awaiting_start(session),
         },
     }
 

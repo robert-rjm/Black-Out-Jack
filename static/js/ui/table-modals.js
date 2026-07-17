@@ -638,10 +638,13 @@ class TargetedDrinkingPanel {
 
     // Host can end the whole subgame from the idle status banner too --
     // not just the mini-round modal -- so "cancel without going via
-    // Settings" holds even before the first mini-round has opened.
+    // Settings" holds even before the first mini-round has opened. Anyone
+    // registered can tap "Start Targeting Now" to open the waiting
+    // mini-round once they're ready (see the awaiting_start branch below).
     if (bannerEl) {
       bannerEl.addEventListener("click", e => {
-        if (e.target.closest("[data-td-cancel]")) cancelTargetedDrinking({ reopenSettings: false });
+        if (e.target.closest("[data-td-cancel]")) { cancelTargetedDrinking({ reopenSettings: false }); return; }
+        if (e.target.closest("[data-td-start]")) beginTargetedDrinkingRound();
       });
     }
   }
@@ -784,6 +787,20 @@ class TargetedDrinkingPanel {
       const display  = Math.min(secs, duration);
       if (bar)   bar.style.width   = `${(display / duration) * 100}%`;
       if (label) label.textContent = secs > 0 ? `${secs}s` : "Time up!";
+    } else if (td.awaiting_start) {
+      // The round that triggered this mini-game just ended, but nobody's
+      // tapped "Start Targeting Now" yet -- let the table finish drinking
+      // for that round first instead of dropping the mini-game's modal on
+      // them immediately. Compact banner + button, not the blocking modal.
+      this.phase = null;
+      this.close();
+      if (banner) {
+        const cancelBtn = myRole === ROLE.ADMIN
+          ? `<button class="td-banner-cancel" data-td-cancel title="End targeting">✕</button>`
+          : "";
+        banner.innerHTML = `<button class="td-start-btn" data-td-start>🎯 Start Targeting Now</button>${cancelBtn}`;
+        banner.style.display = "block";
+      }
     } else if (isRoundOver && !this._dismissed) {
       // Between mini-rounds (subgame still active, current round already
       // over) -- keep the SAME modal open with a lightweight waiting
@@ -1016,6 +1033,24 @@ async function submitTargetedDrinkingVote(vote, playerName) {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+// Any registered player taps this to open the mini-round that's waiting
+// on "Start Targeting Now" -- lets the table finish drinking for the
+// round that just ended before the mini-game's modal takes over.
+async function beginTargetedDrinkingRound() {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/targeted_drinking/begin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
     });
     const data = await res.json();
     if (data.ok) applyState(data);

@@ -827,3 +827,113 @@ gone flaky the same way the earlier stale tests had -- its single-target
 setup meant the explicit vote it submitted now auto-resolved against a
 real random deck instead of staying pending for the cancel to discard;
 switched to two targets like the other fixes. Full suite: 470 passing.
+
+**Follow-up: "Start Targeting Now" gate, and penalties excluded from
+round statistics.** Two more requests: (1) the mini-game was popping up
+the instant a round ended, which didn't give the table a chance to
+finish drinking for the round that had just resolved first -- wanted a
+button instead, in the same spot the other in-round status messages
+appear, so people can settle up before the mini-game takes the screen;
+(2) Targeted Drinking's wrong-guess sip was quietly inflating "worst
+average sips/round" (the milestone streak penalty) and the Last-Round
+summary, since it resolves *during* the just-ended round's still-current
+`last_round_sips` snapshot -- a between-round mini-game penalty
+shouldn't make someone look bad at actually playing blackjack, or
+misattribute to a round it wasn't part of.
+
+- **Start gate.** New `RoundState._targeted_drinking_start_requested`
+  (per-round, so it resets naturally on `newround` same as everything
+  else in that dataclass). `maybe_start_targeted_drinking_round` now
+  requires this flag in addition to every existing gate (milestone,
+  Dealer Lottery, reveal-pause) -- refactored the shared "everything
+  except the start gate" check into `_targeted_drinking_ready_to_open()`
+  so it can't drift between `maybe_start_targeted_drinking_round` and the
+  new `targeted_drinking_awaiting_start()` (the frontend-facing "should I
+  show the button" query) and `request_targeted_drinking_start()` (sets
+  the flag; any registered player can call it, not admin-only -- new
+  `POST /targeted_drinking/begin` route in polling.py). Critically, the
+  gate only ever applies to the *first* mini-round after a normal round
+  ends: `resolve_targeted_drinking_round`'s existing back-to-back re-arm
+  now also re-sets `_targeted_drinking_start_requested = True` for
+  itself, so chained mini-rounds never need a repeat tap. Serializer
+  gained `targeted_drinking.awaiting_start` -- computed by a duplicated
+  (not imported -- `targeted_drinking.py` imports `serializer.py` for
+  `serialize_card`, so the reverse import would be circular)
+  `_targeted_drinking_awaiting_start()` mirroring the same gates.
+  Frontend: `TargetedDrinkingPanel.render()` gained a branch, checked
+  before the existing "waiting between mini-rounds" modal branch, that
+  shows a **Start Targeting Now** button in `#td-status-banner` (the same
+  slot the idle "Targeting X" message already used) instead of opening
+  the blocking modal when `awaiting_start` is true.
+- **Excluded from round statistics.** `award_sips()` gained a
+  `count_toward_round: bool = True` parameter -- when `False`, the sip
+  still updates `sip_ticker` (session total, milestone boundary
+  crossing) and a new parallel `sip_ticker_excl_round_avg` tracker, but
+  skips `last_round_sips`/`last_round_drinks` entirely. `targeted_drinking.py`'s
+  wrong-guess `award_sips()` call now passes `count_toward_round=False`.
+  `_apply_worst_player_streak()` (the milestone "worst average
+  sips/round" penalty) now subtracts `sip_ticker_excl_round_avg` back out
+  of `sip_ticker` before dividing by rounds played, for both the
+  candidate-ranking pass and the winner's-average penalty calculation --
+  factored into a small `round_avg()` closure so both call sites can't
+  drift out of sync with each other.
+
+Verified in-browser: ending a round with the subgame active showed the
+**Start Targeting Now** button (not the modal) in the status banner;
+tapping it opened the mini-round's vote phase on the next poll; and a
+live wrong-guess vote left `last_round_sips` byte-for-byte identical
+before and after (session sip total still climbed). New tests: this
+repo had no dedicated drink_tracker test module at all, so added
+`tests/app/test_award_sips_round_avg.py` (named to avoid a pytest
+basename collision with the existing `tests/engine/test_drink_tracker.py`)
+covering `award_sips`'s `count_toward_round` flag and
+`_apply_worst_player_streak`'s exclusion math directly; plus new
+targeted_drinking.py-side tests for the start gate itself
+(`test_maybe_start_waits_for_start_request`,
+`test_request_start_noop_when_nothing_waiting`), the `/targeted_drinking/begin`
+route (admin not required, no-op when nothing's waiting), and the
+serializer's `awaiting_start` field, and updated every existing test that
+built a pending mini-round directly (rather than through
+`_active_room_with_pending`, which now requests the start itself) to call
+`request_targeted_drinking_start()` first. Full suite: 482 passing.
+
+**Follow-up: warn before a premature "new round" discards a mini-round.**
+Asked whether starting a new normal round while Targeted Drinking hadn't
+started (or was mid-vote) already warned anyone. It didn't — checked
+`_cmd_newround` (game_commands.py) and found it unconditionally calls
+`reset_round_state()`, which wholesale-replaces `RoundState` (by design,
+so every per-round field defined there is automatically cleared on
+`newround` — see the dataclass's own docstring). That silently wipes
+`_targeted_drinking_eligible`/`_targeted_drinking_start_requested`/
+`_pending_targeted_drinking` along with everything else. The subgame
+itself (`_targeted_drinking_active`, targets, streaks) lives on `GameRoom`
+rather than `RoundState`, so it isn't lost outright -- `check_targeted_drinking_trigger`
+just re-arms it at the *next* round's end -- but that round's own
+mini-hand (started or not) is silently skipped. Also confirmed via
+`admin.js`'s `updateRoleUI()` that the NEW ROUND button's visibility is
+gated only on `isMyDealerClient && isRoundOver` -- nothing already checks
+pending milestone/Dealer Lottery/Targeted Drinking state before showing
+it, so this isn't a new gap introduced by the Start Targeting Now button,
+just one it made much easier to hit in practice (previously the mini-round
+opened instantly at round-end, leaving almost no window to deal into it
+by mistake; now there's a deliberate pause during which a dealer might
+reach for NEW ROUND instead).
+
+Fixed narrowly for Targeted Drinking (the other two mechanics have the
+same underlying gap but weren't in scope here): `doNewRound()` in log.js
+now checks `lastState.targeted_drinking` before doing anything, and if
+`active && (awaiting_start || pending)`, shows a `confirm()` with a
+message specific to which case it is ("hasn't started this mini-round
+yet" vs. "still being voted on") -- declining aborts before `sendCmd`
+is ever called, matching the same confirm-then-proceed pattern already
+used by `cancelTargetedDrinking()`/`resetToSetup()`. This is a soft
+warning, not a hard block, since a host might legitimately want to skip
+a mini-round on purpose.
+
+Verified in the browser: with the subgame `awaiting_start`, calling
+`doNewRound()` with `confirm` mocked to decline correctly aborted before
+`sendCmd` ran and left state untouched; same with a `pending` vote
+window open, with the other message; accepting the confirm let the
+round advance normally (subgame stayed active, ready to re-trigger next
+round-end). No backend changes, so no new backend tests -- this is a
+client-side-only guard. Full suite still 482 passing.
