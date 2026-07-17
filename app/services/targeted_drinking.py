@@ -10,10 +10,12 @@ consent-override, and AFK handling are deliberately deferred.
 
 Unlike Bust Vote (opt-in, single round, any player), this is mandatory
 once a player is targeted and persists across multiple rounds. Unlike
-Busfahrer, it never pauses normal round flow -- it rides alongside it.
-Its own vote window (`maybe_open_targeted_drinking_vote`/
-`apply_targeted_drinking_vote_forfeit`, ticked every poll) never blocks
-anything and only ever defaults an unanswered vote to "stand" -- actual
+Busfahrer, it never pauses normal round flow -- it rides alongside it. Its
+vote window opens once per round, at deal time (`maybe_open_targeted_drinking_vote`,
+called from `_cmd_deal_digital` -- so starting the subgame mid-round can't
+interrupt a hand already in progress; the first prompt waits for the next
+deal) and, on expiry, only ever defaults an unanswered vote to "stand"
+(`apply_targeted_drinking_vote_forfeit`, ticked every poll). Actual
 resolution (`resolve_targeted_drinking_round`) is called exactly once per
 round, from `round_pipeline.py`'s `apply_endround_pipeline`, after the
 round has genuinely ended and `harvest_drink_log()` has already run.
@@ -57,10 +59,13 @@ def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
 
 def maybe_open_targeted_drinking_vote(session: GameRoom) -> None:
     """Open this round's vote window, if the subgame is active and no
-    window is open yet. Safe to call every tick (mirrors
-    maybe_start_dealer_lottery). Callers should gate this behind any
-    pending milestone/insurance vote the same way tick.py already gates
-    Dealer Lottery, so prompts never stack."""
+    window is open yet. Called once from `_cmd_deal_digital` at deal time
+    (mirrors bust-vote's own window, opened the same way in the same
+    place) -- deliberately NOT ticked every poll, so starting the subgame
+    while a round is already in progress can't pop the vote prompt mid-hand;
+    it only ever opens at the start of a fresh round. Idempotent regardless
+    (no-ops if a window is already open), so it's still safe to call more
+    than once."""
     if not session._targeted_drinking_active:
         return
     if session.round._targeted_drinking_expires_at is not None:

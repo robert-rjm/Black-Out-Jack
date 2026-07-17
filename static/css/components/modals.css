@@ -25,11 +25,19 @@
 #register-seats   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 
 /* ---- KICK / SUMMARY OVERLAY ---- */
+/* z-index above the game-event modals (bust vote / Dealer Lottery /
+   Targeted Drinking, all z-index 500) and below #rules-overlay (600,
+   opened from within this one) -- so Settings can always be opened on
+   top of a still-open game-event modal. Without this, a targeted player
+   who is also admin couldn't reach the Targeted Drinking Cancel button
+   (buried in Settings -> Players) while their own vote modal was showing,
+   since it's a same-z-index full-viewport overlay that would otherwise
+   paint on top by DOM order. */
 #kick-overlay, #summary-overlay {
   display: none;
   position: fixed; inset: 0;
   background: rgba(0,0,0,.75);
-  z-index: 500;
+  z-index: 550;
   flex-direction: column;
   align-items: center;
   justify-content: center;

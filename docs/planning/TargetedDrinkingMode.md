@@ -387,6 +387,48 @@ question). No majority-vote banner in the MVP — see §8.1.
 
   10 new/updated tests in `tests/app/test_targeted_drinking.py`; full
   suite now 452 tests passing.
+
+  **Post-review bug reports (4), all fixed:**
+  1. *"should queue for in-between rounds, not during active round"* —
+     the vote window opened via a lazy tick-based `maybe_open_targeted_drinking_vote`
+     call, so admin-starting the subgame mid-round could pop the vote
+     prompt mid-hand. Fixed by moving the window-open call to
+     `_cmd_deal_digital` (deal time, exactly mirroring how Bust Vote's own
+     window is opened) instead of ticking it every poll — starting the
+     subgame mid-round now leaves `_targeted_drinking_expires_at` unset
+     until the *next* deal. `maybe_open_targeted_drinking_vote`'s own logic
+     is unchanged (still idempotent/safe to call more than once), only its
+     call site moved.
+  2. *"the targeted drinks froze after selecting bust"* — the vote modal
+     is a full-viewport overlay that never auto-closed after voting (only
+     `!td.active` or losing local-target status closed it), so it sat
+     blocking hit/stand for the rest of the round. Fixed by closing it once
+     every locally-targeted seat has voted this round, mirroring
+     `BustVotePanel`'s own `if (!anyUnvoted) this.close()`. Also found and
+     fixed the frontend's missing check that a window is *actually* open
+     server-side (`seconds_left > 0`) before trying to show the modal at
+     all — without it, a subgame that's `active` but hasn't reached its
+     first deal yet (see bug 1) would still try to pop the modal client-side
+     with nothing to vote on.
+  3. *"should it say something like 'targeting Rob'?"* — `#td-status-banner`
+     copy reworked: non-targeted players now see "🎯 Targeting **Rob**",
+     a targeted-but-not-yet-prompted player sees "🎯 You've been targeted —
+     starts next round", and a locked-in target sees "🎯 You called
+     **BUST** — waiting for the dealer" (ordering bug caught here too: the
+     "not yet prompted" branch was checked before the "already voted"
+     branch, so a player who *had* voted but whose window had since expired
+     saw the wrong message).
+  4. *"how can the admin prematurely exit without 3 in a row correct?"* —
+     the Cancel button was always reachable via Settings → Players, but
+     `#kick-overlay` shared the same `z-index: 500` as the vote modal and
+     appeared earlier in `_modals.html`'s DOM order, so the vote modal
+     painted on top and blocked the click when both were open (e.g. an
+     admin who is also a live target). Bumped `#kick-overlay`/`#summary-overlay`
+     to `z-index: 550` (still below `#rules-overlay`'s 600) so Settings
+     always stacks above any game-event modal. Combined with fix 2, this
+     is now rarely even needed — voting once gets the modal out of the way.
+
+  3 new regression tests added; full suite now 453 tests passing.
 - [ ] **5. Playtest the MVP with a real group** before touching anything
   in §8 — this is the actual point of shipping a smaller slice first.
 
