@@ -714,14 +714,17 @@ def test_targeted_drinking_resolves_through_a_real_dealt_round(client):
 
 
 # ---------------------------------------------------------------------------
-# Per-round reset: /command deal must clear last round's vote + window
-# (app/routes/game_commands.py's _cmd_deal_digital, mirroring its own
-# `_bust_votes = {}` reset). Without this, a new round would inherit the
-# previous round's already-expired window and stale votes, and
-# maybe_open_targeted_drinking_vote() would never open a fresh one.
+# Per-round reset + deal-time window open: /command deal must clear last
+# round's votes and open a fresh vote window (app/routes/game_commands.py's
+# _cmd_deal_digital, mirroring its own `_bust_votes = {}` +
+# `_bust_vote_expires_at` reset). Without the votes reset, a new round
+# would inherit the previous round's stale votes. The window is opened
+# here (not lazily on tick) specifically so starting the subgame mid-round
+# can't interrupt a hand already in progress -- see
+# test_starting_mid_round_does_not_open_a_window_until_the_next_deal below.
 # ---------------------------------------------------------------------------
 
-def test_deal_resets_targeted_drinking_votes_and_window(client):
+def test_deal_resets_targeted_drinking_votes_and_opens_a_fresh_window(client):
     from engine.blackjack import Shoe
     from tests.conftest import make_card
 
@@ -749,6 +752,62 @@ def test_deal_resets_targeted_drinking_votes_and_window(client):
         assert resp.get_json()["ok"] is not False
 
         assert room.round._targeted_drinking_votes == {}
+        # A fresh window opened immediately at deal time (not None, not stale).
+        assert room.round._targeted_drinking_expires_at is not None
+        assert room.round._targeted_drinking_expires_at > time.monotonic()
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_starting_mid_round_does_not_open_a_window_until_the_next_deal(client):
+    """Regression guard for the reported bug: admin starting Targeted
+    Drinking while a round is already in progress must not interrupt that
+    round -- the vote prompt should only appear starting with the next
+    deal, not mid-hand."""
+    from engine.blackjack import Shoe
+    from tests.conftest import make_card
+
+    room_code = "TDMidRoundStart"
+    room = _make_room(num_players=2)
+    room.start_round()
+
+    # Enough cards for two full deals (2 players x 1 hand x 2 cards +
+    # dealer x 2 cards = 6 cards per deal).
+    cards = [make_card(r, "S") for _ in range(2) for r in ("2", "3", "4", "5", "6", "7")]
+    shoe = Shoe(1)
+    shoe.cards = list(reversed(cards))
+    shoe.penetration = 1.0
+    shoe.total_cards = len(shoe.cards)
+    room.shoe = shoe
+
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice", "Bob"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+    try:
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "deal",
+        })
+        assert resp.get_json()["ok"] is not False
+
+        # Admin starts the subgame mid-round, after the deal already happened.
+        assert start_targeted_drinking(room, ["Bob"])
+        assert room.round._targeted_drinking_expires_at is None   # no interruption
+
+        # A poll (tick) must not open one either -- only a deal does.
+        resp = client.get(f"/state?room_code={room_code}&client_id=client-1")
+        assert resp.get_json()["ok"] is True
         assert room.round._targeted_drinking_expires_at is None
+
+        # Only the *next* deal opens the first vote window. (Not exercising
+        # the full stand/dealer-resolve sequence here -- start_round() alone
+        # is enough to reset hands for a second deal; that's not what this
+        # test is verifying.)
+        room.start_round()
+        resp = client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": "deal",
+        })
+        assert resp.get_json()["ok"] is not False
+        assert room.round._targeted_drinking_expires_at is not None
     finally:
         game_sessions.pop(room_code, None)

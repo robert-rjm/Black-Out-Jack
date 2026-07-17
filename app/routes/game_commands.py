@@ -39,6 +39,7 @@ from app.services.decision_log import record_decision
 from app.services.payout_tracker import cmd_rebuy, deduct_bets, deduct_split_bet
 from app.services.round_pipeline import apply_endround_pipeline
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
+from app.services.targeted_drinking import maybe_open_targeted_drinking_vote
 from app.config import BUST_VOTE_WINDOW_SECONDS
 
 log = logging.getLogger(__name__)
@@ -290,13 +291,17 @@ def _cmd_deal_digital(game_session, parts):
     )
     game_session.round._bust_handouts_given  = set()   # clear any stale handouts
     game_session.round._bust_handout_expires_at = None
-    # Targeted Drinking Mode: fresh vote window each deal, same as bust vote
-    # above -- RoundState isn't replaced wholesale between rounds (see
-    # targeted_drinking.py's module docstring), so without this reset a new
-    # round would inherit last round's already-expired window and votes,
-    # and maybe_open_targeted_drinking_vote() would never re-open one.
+    # Targeted Drinking Mode: fresh votes + a freshly opened window each
+    # deal, same as bust vote above -- RoundState isn't replaced wholesale
+    # between rounds (see targeted_drinking.py's module docstring), so
+    # without the reset a new round would inherit last round's already-
+    # expired window and votes. Opened here rather than lazily on tick so
+    # that starting the subgame mid-round (admin hits "Start" while a hand
+    # is already in progress) never interrupts play already underway --
+    # the first prompt waits for this deal, i.e. the next round.
     game_session.round._targeted_drinking_votes = {}
     game_session.round._targeted_drinking_expires_at = None
+    maybe_open_targeted_drinking_vote(game_session)
     # Clear the previous round's payout badge so the seat doesn't show a
     # stale "+$10" delta while the new round's hands are in progress.
     game_session._last_round_payouts = {}

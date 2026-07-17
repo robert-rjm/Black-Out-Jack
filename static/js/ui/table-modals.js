@@ -638,8 +638,22 @@ class TargetedDrinkingPanel {
     const locals    = myNames.filter(n => !npcSet.has(n));
     const targetsLc = (td.targets || []).map(n => n.toLowerCase());
     const myTargets = locals.filter(n => targetsLc.includes(n.toLowerCase()));
+    const votesCast = td.votes_cast || {};
+    // Every local target already voted this round -- mirrors BustVotePanel's
+    // own `if (!anyUnvoted) this.close();`. Without this the modal (a
+    // full-viewport overlay) would stay open blocking hit/stand for the
+    // rest of the round once cast, since nothing else closes it until the
+    // round resolves minutes later.
+    const allVoted  = myTargets.length > 0 && myTargets.every(n => votesCast[n]);
+    // A window is only actually open server-side once seconds_left > 0 --
+    // the subgame can be `active` with no window yet (just started
+    // mid-round; the first prompt waits for the next deal, see
+    // maybe_open_targeted_drinking_vote's docstring). Without this check
+    // the modal would try to open with nothing to vote on, and any vote
+    // submitted would just be rejected server-side as "window closed".
+    const windowOpen = (td.seconds_left || 0) > 0;
 
-    if (myTargets.length && myRole !== null && myRole !== ROLE.SPECTATOR && !_dealAnimating) {
+    if (myTargets.length && !allVoted && windowOpen && myRole !== null && myRole !== ROLE.SPECTATOR && !_dealAnimating) {
       if (banner) banner.style.display = "none";
       this.open();
       this.renderCards(td, myTargets);
@@ -652,16 +666,32 @@ class TargetedDrinkingPanel {
       if (bar)   bar.style.width   = `${(display / duration) * 100}%`;
       if (label) label.textContent = secs > 0 ? `${secs}s` : "Time up!";
     } else {
-      // Not (locally) targeted -- close the vote modal if it happens to be
-      // open (e.g. this player just graduated) and show a compact status
-      // banner instead, so the rest of the table still sees the subgame
-      // is live without being forced into a blocking modal themselves.
+      // Not (locally) targeted; every local target already voted this
+      // round; or a window hasn't opened yet (subgame just started
+      // mid-round -- see windowOpen above) -- close the vote modal (if
+      // open) and show a compact status banner instead, so the rest of
+      // the table (or a locked-in/not-yet-prompted target) still sees the
+      // subgame is live without a blocking modal.
       this.close();
       if (banner) {
-        const names = escapeHtml((td.targets || []).join(", "));
-        const secs  = td.seconds_left || 0;
-        banner.innerHTML = `🎯 Targeted Drinking: <strong>${names}</strong> must call it` +
-          (secs > 0 ? ` · ⏱ ${secs}s` : "");
+        if (myTargets.length && allVoted) {
+          const parts = myTargets.map(n => {
+            const v   = votesCast[n];
+            const who = myTargets.length > 1 ? `${escapeHtml(n)}: ` : "";
+            return `${who}${v ? v.toUpperCase() : "…"}`;
+          });
+          banner.innerHTML = `🎯 You called <strong>${parts.join(", ")}</strong> — waiting for the dealer`;
+        } else if (myTargets.length) {
+          // Not yet voted and no window open -- either the subgame just
+          // started mid-round (waiting for the next deal) or the window
+          // hasn't ticked open on the server yet.
+          banner.innerHTML = `🎯 You've been targeted — starts next round`;
+        } else {
+          const names = escapeHtml((td.targets || []).join(", "));
+          const secs  = td.seconds_left || 0;
+          banner.innerHTML = `🎯 Targeting <strong>${names}</strong>` +
+            (secs > 0 ? ` · ⏱ ${secs}s` : "");
+        }
         banner.style.display = "block";
       }
     }
