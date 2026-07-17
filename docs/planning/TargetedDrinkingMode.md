@@ -1,6 +1,6 @@
 # Subgame Targeted Drinking Mode — Implementation Plan
 
-## general idea
+## General idea
 - subgame that takes 1+ players into betting on whether dealer busts
 - can be started by host at any time (maybe also via majority vote)
 - participating/ selected players cannot obt out
@@ -15,7 +15,7 @@
 - consider having a 3 round cooldown between subgames, 5 rounds if only one player is targeted both times (can be overwritten if targeted player agrees)
 - losing streak, if 3 times wrong, drink extra sip(s), if 5 times wrong streak extra drink punishment
 
-## open questions
+## Open questions
 
 Resolved (with reasoning), vs. still genuinely open:
 
@@ -63,32 +63,6 @@ the core loop: admin-only start/cancel, one flat per-round penalty, a
 flat cooldown, and no AFK handling (unanswered votes just default to
 "stand," matching the Dealer Lottery's own precedent of defaulting an
 unset entry to a safe/neutral value on timeout).
-
-## architecture brainstorming
-
-SubgameState {
-  isActive: boolean
-  targetedPlayers: Player[]
-  currentRound: number
-  streaks: Map  // consecutive correct guesses
-  votes: Map
-  afkStrikes: Map
-  voteTimer: number  // countdown in seconds
-  endVotes: Set  // players voting to end early
-}
-
-Host triggers subgame (or majority vote)
-  → Select target player(s)
-  → Modal appears for targeted players (all others are spectators)
-  → Dealer hand plays out normally
-  → Each round:
-      1. Timer starts (e.g., 15s)
-      2. Players vote BUST or STAND (all players vote and play independently)
-      3. Dealer resolves hand
-      4. Compare: wrong = +1 sip, right = streak++
-      5. If streak === 3 → player "graduates" out
-      6. If AFK twice → kicked to host-local
-  → Subgame ends when all players graduate OR end button majority
 
 ## 3. Relationship to existing mechanics
 
@@ -479,6 +453,7 @@ Reuse the milestone-repeat-offender pattern in `_apply_worst_player_streak`
 (`drink_tracker.py:515`) as the style reference for "streak-gated bonus
 penalty, logged with its own reason string." New config constants:
 `TARGETED_DRINKING_LOSS_PENALTY_AT = 3`, `TARGETED_DRINKING_LOSS_PENALTY_AT_5 = 5`.
+OR consider to have streak be amount of sips (2 consecutive wrong = 2 sips, 4 = 4 sips)
 
 ### 8.3 [ ] Cooldown consent-override + repeat-target cooldown
 
@@ -547,6 +522,17 @@ Could consider to have Ace of:
 - Hearts everyone drinks (also spectators)
 - Diamond only targeted players drink
 
+### 8.8 [ ] Easter Egg integration
+
+Link the Easter Egg "dud" outcome to Targeted Drinking Mini-Game.
+Either have the 5% be the presser, or random between all, or 75% presser bias.
+Should consider to have a limit of 10 mini-rounds
+
+### 8.9 [ ] Admin controls
+
+Until §8.1 with majority vote is not integrated, only the admin (or potentially
+dealer) can start the mini game. same for exiting, should be guarded behing host
+admin powers
 
 ## 9. Testing plan additions for §8
 
