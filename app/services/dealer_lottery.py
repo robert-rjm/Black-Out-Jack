@@ -10,8 +10,7 @@ are both fully settled, and strictly before players drink for the round.
 Never touches the round's own recorded result/stats -- a pure bolt-on.
 
 Uses an isolated one-off deck for the draw -- never touches session.shoe
-(mirrors engine/busfahrer.py's identical call for the identical reason:
-this event shouldn't skew the real shoe's card economy for the next round).
+(reason: this event shouldn't skew the real shoe's card economy for the next round).
 """
 
 from __future__ import annotations
