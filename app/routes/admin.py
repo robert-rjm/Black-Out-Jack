@@ -16,6 +16,8 @@ POST /update_settings  — Admin queues game settings for next round
 POST /claim_milestone  — Winner distributes their milestone-handout sips
 POST /rotate_dealer    — Admin immediately rotates the dealer seat
 POST /take_back_seat   — Admin reclaims a remote seat, moving them to spectator
+POST /targeted_drinking/start  — Admin starts Targeted Drinking Mode against target(s)
+POST /targeted_drinking/cancel — Admin ends Targeted Drinking Mode immediately
 """
 
 import time
@@ -29,6 +31,10 @@ from app.services.drink_tracker import award_sips, check_and_set_milestone
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
 from app.services.validators    import sanitize_name
+from app.services.targeted_drinking import (
+    start_targeted_drinking,
+    end_targeted_drinking,
+)
 
 bp = Blueprint("admin", __name__)
 
@@ -816,4 +822,43 @@ def set_bot_personality():
     player.personality    = personality
     player._style_profile = None   # clear cached profile so next decide() reloads it
 
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Targeted Drinking Mode (Rules.md §5.10, MVP scope)
+# ---------------------------------------------------------------------------
+
+@bp.route("/targeted_drinking/start", methods=["POST"])
+def targeted_drinking_start():
+    """Admin starts Targeted Drinking Mode against one or more players.
+    Body: { room_code, client_id, target_names: [str, ...] }"""
+    data        = request.json or {}
+    raw_names   = data.get("target_names") or []
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": escape(err)})
+
+    if not isinstance(raw_names, list) or not raw_names:
+        return jsonify({"ok": False, "error": "No target players provided."})
+    target_names = [sanitize_name(n) for n in raw_names if isinstance(n, str) and n.strip()]
+    if not target_names:
+        return jsonify({"ok": False, "error": "No target players provided."})
+
+    if not start_targeted_drinking(session, target_names):
+        return jsonify({"ok": False, "error": "Could not start Targeted Drinking Mode (already active, on cooldown, or invalid target)."})
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/cancel", methods=["POST"])
+def targeted_drinking_cancel():
+    """Admin ends Targeted Drinking Mode immediately.
+    Body: { room_code, client_id }"""
+    data = request.json or {}
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": escape(err)})
+
+    end_targeted_drinking(session, reason="admin_cancelled")
     return jsonify({**serialize_state(session, client_id), "ok": True})

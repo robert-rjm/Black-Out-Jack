@@ -30,6 +30,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
     - 5.7 [Hard Dealer Switch Penalty](#57-hard-dealer-switch-penalty)
     - 5.8 [Milestone Handouts](#58-milestone-handouts)
     - 5.9 [Dealer Lottery](#59-dealer-lottery)
+    - 5.10 [Targeted Drinking Mode](#510-targeted-drinking-mode)
 6. [Relaxed Drinking Rules](#6-relaxed-drinking-rules)
     - 6.1 [Large Group Rules](#61-large-group-rules-4-players)
     - 6.2 [Easy Mode](#62-easy-mode)
@@ -375,15 +376,68 @@ Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults
 
 | Result | Effect |
 | --- | --- |
-| Every new hand busts | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
-| Some hands bust, some don't | Nothing happens |
-| No hand busts | Drink X sips |
+| 2 or more hands bust | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
+| Exactly 1 hand busts | Nothing happens |
+| No hand busts | Drink X × (hands − 1) sips |
 
-Only the handout amount is halved (rounded up) under 4+ players or Easy Mode — the drink (no-bust) amount is always the full X, and the self-credit is never halved either.
+The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive.
+
+Only the handout amount is halved (rounded up) under 4+ players or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1), and the self-credit is never halved either.
 
 > **Example:** Dealer stands on K♠ Q♥ (20). Alice enters with X=4, Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice credits herself up to 4 sips off her own total this round and hands 4 sips (2 if halving is active) to another Player of her choice. Bob, having entered 0, is unaffected either way.
+>
+> **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 4 × (3 − 1) = 8 sips instead of the base 4.
 
 The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side-bet-dealer-bust).
+
+
+### 5.10 Targeted Drinking Mode
+
+The host can single out one or more Players and put them on the spot with
+their own standalone mini-game, played **between** normal rounds — never
+during one. Once a normal round ends, the mode waits for any Player to tap
+**Start Targeting Now** (so the table can finish drinking for that round
+first) before dealing a **fresh, isolated Dealer hand** (a new shuffled
+deck, unrelated to the actual table — nobody's real cards or the shoe are
+touched); every targeted Player must then call whether it will **bust** or
+**stand** before it's dealt. Once everyone's answered (or the 15-second
+window runs out), the hand is played out and revealed — and if the mode is
+still running (nobody's cleared it yet), the next mini-hand starts right
+away, back-to-back, without waiting for another normal round — or another
+tap of Start Targeting Now — in between.
+
+| Outcome | Effect |
+| --- | --- |
+| Correct call | Counts toward a 3-in-a-row streak |
+| Wrong call | Streak resets to 0, **+1 sip penalty** |
+| No answer within 15 seconds | Defaults to STAND |
+
+The wrong-call penalty still counts toward a Player's overall session total
+and milestone progress, but never toward "worst average sips/round" or any
+other round-based statistic — it happens between rounds, not as part of any
+round's own blackjack outcome.
+
+A live **statistics table** runs throughout the whole subgame: each
+targeted Player's correct/wrong call count so far, and how often the
+dealer's isolated hand has busted this run (e.g. "3/7 busted, 43%") — so a
+targeted Player isn't calling entirely blind, and can weigh the dealer's
+actual bust rate into their next guess.
+
+A targeted Player is released once they string together **3 correct calls
+in a row**. Once every targeted Player has been released — or the host
+cancels the mode early — the statistics table's final numbers are shown
+one last time in a recap, then a **3-round cooldown** starts before it can
+be started again.
+
+> **Example:** The host targets Bob for playing it too safe all night. Round
+> 1 ends, and Bob is dealt into his own isolated mini-hand: he calls STAND,
+> the hand plays out to 19 — correct (streak: 1). Round 2 ends and it
+> happens again: he calls BUST, but the isolated hand stands — wrong call,
+> streak resets to 0 and he drinks a sip. Rounds 3 and 4 he calls it right
+> twice in a row (streak: 2)... one more correct call and he's off the hook.
+
+Started and cancelled by the host from **Settings → Players** — see
+[Multiplayer.md](Multiplayer.md#targeted-drinking-mode).
 
 
 ## 6. Relaxed Drinking Rules
@@ -400,7 +454,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | Hard Dealer Switch | Four aces on first deal |
 | All-hands sweep | 5-card handouts |
 | Insurance resolution | Bust vote penalty/credit (+1/−1) |
-| Four aces at end of round | |
+| Four aces at end of round | Targeted Drinking Mode wrong-guess penalty (+1) |
 | Dealer Lottery handout only (never the drink or self-credit) | |
 | RoundEndEvent drinks (wins-all, immunity breakers) | |
 

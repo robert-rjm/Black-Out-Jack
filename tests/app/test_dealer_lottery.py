@@ -1,6 +1,5 @@
 """
-Tests for the Dealer Lottery post-round bonus event
-(docs/planning/DealerLottery-Plan.md):
+Tests for the Dealer Lottery post-round bonus event (Rules.md §5.9):
   - app/services/dealer_lottery.py
   - /dealer_lottery/enter and /dealer_lottery/give_sip routes (app/routes/polling.py)
 """
@@ -413,9 +412,12 @@ def test_resolve_resplits_when_new_card_pairs_again(monkeypatch):
     # (parent_index None); the re-split sibling (idx 1) split off hand_a.
     assert [h["parent_index"] for h in result["hands"]] == [None, 0, None]
     assert result["busted"] == 0
-    # No hand busted -> drink X (no halving, 3 players) -- unaffected by
-    # there being 3 hands instead of 2, since the rule keys on busted==0.
-    assert room.drinks.last_round_sips["Alice"] == 4
+    # No hand busted -> drink X * (n_hands - 1) = 4 * (3 - 1) = 8. Scales
+    # with hand count so standing through a re-split costs more than
+    # standing on the un-split base case (see resolve_dealer_lottery's
+    # docstring for why).
+    assert room.drinks.last_round_sips["Alice"] == 8
+    assert result["drink_amounts"] == {"Alice": 8}
 
 
 def test_resolve_cascading_resplit_tracks_parent_chain(monkeypatch):
@@ -475,7 +477,11 @@ def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypa
     assert result["pending_handouts"] == {"Alice": 5}
 
 
-def test_resolve_mixed_bust_after_resplit_does_nothing(monkeypatch):
+def test_resolve_exactly_one_bust_after_resplit_does_nothing(monkeypatch):
+    """Only exactly 1 of 3 hands busting is still a wash under the
+    >=2-bust rule -- 2 of 3 busting is covered separately below, since
+    that's exactly the case the >=2 threshold (instead of the old
+    all-N-bust requirement) changed."""
     room = _nine_pair_room()
     submit_dealer_lottery_entry(room, "Alice", 4)
     submit_dealer_lottery_entry(room, "Bob", 0)
@@ -491,10 +497,36 @@ def test_resolve_mixed_bust_after_resplit_does_nothing(monkeypatch):
 
     result = room.drinks.last_dealer_lottery_result
     assert len(result["hands"]) == 3
-    assert result["busted"] == 1   # some (not all) busted -> nothing happens
+    assert result["busted"] == 1   # exactly 1 of 3 busted -> still nothing happens
     assert result["drink_amounts"] == {}
     assert result["credit_amounts"] == {}
     assert "Alice" not in room.drinks.last_round_sips
+
+
+def test_resolve_two_of_three_bust_after_resplit_credits_and_opens_handout(monkeypatch):
+    """The behavior change from the old all-N-bust rule: 2 of 3 hands
+    busting (not all 3) now credits + opens a handout, same as if all 3
+    had busted -- a re-split only ever makes this easier to reach, never
+    harder."""
+    room = _nine_pair_room()
+    room.drinks.last_round_sips["Alice"] = 10
+    submit_dealer_lottery_entry(room, "Alice", 5)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),                          # hand_a re-splits
+        make_card("5", "C"), make_card("K", "C"),      # re-split hand #1: 9+5=14, hit K -> 24 bust
+        make_card("8", "D"),                           # re-split hand #2: 9+8 = 17, stands
+        make_card("5", "H"), make_card("J", "C"),      # hand_b: 9+5=14, hit J -> 24 bust
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 3
+    assert result["busted"] == 2   # 2 of 3, not all 3 -- still credits under the >=2 rule
+    assert room.drinks.last_round_sips["Alice"] == 5   # 10 - 5 credit
+    assert result["pending_handouts"] == {"Alice": 5}
 
 
 def test_deal_and_resolve_hand_respects_max_splits_cap():
@@ -671,7 +703,9 @@ def test_handout_forfeit_gives_sips_to_self_after_expiry(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Milestone safety (confirms docs/planning/DealerLottery-Plan.md §2/§3's claim)
+# Milestone safety (confirms a Dealer Lottery credit never lets a player's
+# cumulative sip_ticker go backwards, so it can't un-cross a milestone
+# boundary already claimed)
 # ---------------------------------------------------------------------------
 
 def test_credit_never_reduces_cumulative_sip_ticker(monkeypatch):
@@ -876,8 +910,8 @@ def test_give_sip_route_rejects_no_pending_handout(client, monkeypatch):
 # driven entirely through /command and /state -- the same code path
 # production traffic uses (initial_deal -> stand -> _after_player_action ->
 # dealer_turn -> _resolve_endround -> apply_endround_pipeline -> tick()).
-# Closes the one gap flagged in DealerLottery-Plan.md step 8: every piece
-# was unit/route-tested, but not through a genuinely dealt trigger.
+# Closes the one gap in the coverage above: every piece was unit/route-
+# tested, but not through a genuinely dealt trigger.
 # ---------------------------------------------------------------------------
 
 def test_dealer_lottery_triggers_through_a_real_dealt_round(client):
