@@ -75,6 +75,31 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
   - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
   - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
+- Targeted Drinking Mode (Rules.md §5.10) -- vote, reveal, and the
+  end-of-subgame recap are one continuous modal/card
+  (`#targeted-drinking-modal-overlay` / `.td-modal-card`), never separate
+  overlays that close and reopen:
+  - `#td-close-btn` (top-corner ✕ -- ends the subgame for admin after a
+    confirm() prompt, dismisses the local view for anyone else)
+  - `#td-vote-phase`, `#td-modal-sub`, `#td-players-wrap` (also reused,
+    with a filler message, for the "waiting for next mini-round" state)
+  - `#td-timer-bar`, `#td-timer-label`
+  - `#td-status-banner` -- shown while the current normal round is still
+    live (before the first mini-round of a subgame can even open), and
+    again once it's ended but awaiting a `[data-td-start]` "Start
+    Targeting Now" tap (any registered player, not admin-only); also
+    carries its own admin-only `[data-td-cancel]` ✕ in both states
+  - `#td-reveal-phase`, `#targeted-drinking-reveal-sub`,
+    `#targeted-drinking-reveal-hand`, `#targeted-drinking-reveal-payout`,
+    `#td-continue-btn` (`[data-td-continue]` -- also used by the summary
+    phase's Close button)
+  - `#td-summary-phase`, `#td-summary-sub`, `#td-summary-list` (per-target
+    total sips drunk across the whole subgame run, plus the same
+    correct/wrong counts and dealer bust rate as the live stats panel)
+  - `#td-stats-panel` (`#td-stats-dealer-bust`, `#td-stats-targets`) --
+    live statistics table (correct/wrong calls per target, dealer bust
+    rate this run), visible through vote/waiting/reveal, hidden only
+    during the summary phase (which shows its own final version instead)
 
 ### `static/js/ui/admin-settings.js`
 - Kick / player management modal:
@@ -83,6 +108,8 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#kicked-players-section`
   - `#transfer-admin-section`, `#transfer-admin-list`
   - `#pending-reg-modal-section`, `#denied-reg-section`, `#rejoin-requests-section`
+  - `#targeted-drinking-admin-section` (admin start/cancel controls, created
+    dynamically like the sections above it)
 - Rules modal:
   - `#rules-overlay`, `#rules-body`
 - Game settings panel (inside kick modal):

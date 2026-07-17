@@ -185,6 +185,20 @@ function clearPeekedCard() {
 }
 
 async function doNewRound() {
+  // newround wholesale-replaces RoundState (see room_manager.reset_round_state),
+  // silently discarding a Targeted Drinking mini-round that hasn't started
+  // yet (awaiting_start) or is actively being voted on (pending) -- the
+  // subgame itself stays active and re-triggers at the *next* round's end,
+  // but this round's mini-hand is skipped without anyone noticing unless
+  // warned first.
+  const td = lastState && lastState.targeted_drinking;
+  if (td && td.active && (td.awaiting_start || td.pending)) {
+    const msg = td.pending
+      ? "A Targeted Drinking mini-round is still being voted on — starting a new round now will discard it without scoring anyone. Continue?"
+      : "Targeted Drinking hasn't started this mini-round yet — starting a new round now will skip it. Continue?";
+    if (!confirm(msg)) return;
+  }
+
   // Rotation is decided server-side: in drinking mode the backend auto-rotates
   // when a hard/soft switch fired or the interval is reached. Always send bare
   // "newround" — the frontend no longer makes this game-logic decision.
