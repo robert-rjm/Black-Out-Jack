@@ -862,17 +862,20 @@ shown standalone rather than folded into a round above:
 >
 > The pair splits into two fresh hands from a new shuffled deck —
 > K♠+5♣ (18 → stands) and Q♥+9♦ (19 → stands). Neither busts, so per
-> **Rule 5.9** Alice drinks the full **X = 4 sips** — the drink amount
-> is never halved, regardless of player count or Easy Mode. Bob, having
-> entered 0, is unaffected either way.
+> **Rule 5.9** Alice drinks **X × (hands − 1) = 4 × 1 = 4 sips** — just
+> the base X since this redeal didn't re-split into a third hand. The
+> drink amount is never halved, regardless of player count or Easy
+> Mode. Bob, having entered 0, is unaffected either way.
 >
-> Had *every* new hand busted instead, Alice would credit herself up
-> to 4 sips off what she owes this round (floored at 0) and hand 4
-> sips (2 if halved) to a Player of her choice. Had only *some* hands
-> busted, nothing would happen — no drink, no credit. (Neither new
-> card here happened to pair up again — K♠+5♣ and Q♥+9♦ don't match —
-> but if one had, that hand would split again the same way a Player's
-> would, same 4-splits cap and all.)
+> Had **2 or more** of the new hands busted instead (not necessarily
+> both — a re-split only ever makes this easier to reach), Alice would
+> credit herself up to 4 sips off what she owes this round (floored at
+> 0) and hand 4 sips (2 if halved) to a Player of her choice. Had
+> exactly **1** hand busted, nothing would happen — no drink, no
+> credit. (Neither new card here happened to pair up again — K♠+5♣ and
+> Q♥+9♦ don't match — but if one had, that hand would split again the
+> same way a Player's would, same 4-splits cap and all, and a
+> none-bust outcome would then drink X × 2 = 8 sips instead of 4.)
 
 ---
 

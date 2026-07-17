@@ -51,6 +51,9 @@ function buildDigitalUI() {
   if (insModal && insBanner) insurancePanel.mount(insModal, insBanner);
   const dlEntryOverlay = document.getElementById("dealer-lottery-modal-overlay");
   if (dlEntryOverlay) dealerLotteryEntryPanel.mount(dlEntryOverlay);
+  const tdOverlay = document.getElementById("targeted-drinking-modal-overlay");
+  const tdBanner  = document.getElementById("td-status-banner");
+  if (tdOverlay) targetedDrinkingPanel.mount(tdOverlay, tdBanner);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -462,6 +465,12 @@ function _syncRoundEffects(state, drinkingOn) {
     if (dl.last_result) _showDealerLotteryRevealModal(dl.last_result);
     DrinkUI.lastDealerLotteryResultSeq = newDealerLotterySeq;
   }
+
+  // Targeted Drinking mini-round reveal is triggered from within
+  // targetedDrinkingPanel.render(state) itself (see table-modals.js) --
+  // unlike Dealer Lottery/Milestone it needs role-aware phase state
+  // (vote vs. reveal) that the panel already owns, so the seq check lives
+  // there instead of being duplicated here.
 }
 
 // Sync log, sip ticker, in-round drink events, and KPI panel.
@@ -532,6 +541,7 @@ function _syncDigitalUI(state) {
   updateBestPlay(state);
   bustVotePanel.render(state);
   dealerLotteryEntryPanel.render(state);
+  targetedDrinkingPanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.

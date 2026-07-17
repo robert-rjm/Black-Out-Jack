@@ -248,6 +248,48 @@
   </div>
 </div>
 
+<div id="targeted-drinking-modal-overlay" class="drink-only bust-vote-modal-overlay">
+  <div class="bust-vote-modal-card td-modal-card">
+    <button id="td-close-btn" class="td-close-btn" title="End targeting">✕</button>
+
+    <div id="td-vote-phase">
+      <div class="bust-vote-modal-title">🎯 Targeted Drinking Mode</div>
+      <div id="td-modal-sub" class="bust-vote-modal-sub">Call it — will the dealer's hand bust?</div>
+      <div class="bust-vote-timer-bar-wrap">
+        <div id="td-timer-bar" class="bust-vote-timer-bar"></div>
+      </div>
+      <div id="td-timer-label" class="bust-vote-timer-label">15s</div>
+      <div id="td-players-wrap"></div>
+    </div>
+
+    <div id="td-reveal-phase" style="display:none">
+      <div class="milestone-header">
+        <div class="milestone-emoji">🎯</div>
+        <div class="milestone-title">Targeted Drinking!</div>
+        <div id="targeted-drinking-reveal-sub" class="milestone-sub"></div>
+      </div>
+      <div id="targeted-drinking-reveal-hand" class="dl-reveal-hands"></div>
+      <div id="targeted-drinking-reveal-payout" class="dl-reveal-payout"></div>
+      <button id="td-continue-btn" class="milestone-submit" data-td-continue disabled>Continue</button>
+    </div>
+
+    <div id="td-stats-panel" class="td-stats-panel">
+      <div id="td-stats-dealer-bust" class="td-stats-dealer-bust"></div>
+      <div id="td-stats-targets"></div>
+    </div>
+
+    <div id="td-summary-phase" style="display:none">
+      <div class="milestone-header">
+        <div class="milestone-emoji">🏁</div>
+        <div class="milestone-title">Targeted Drinking Ended</div>
+        <div id="td-summary-sub" class="milestone-sub"></div>
+      </div>
+      <div id="td-summary-list" class="dl-reveal-payout"></div>
+      <button class="milestone-submit" data-td-continue>Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="dealer-toast">🃏 You are the dealer now!</div>
 <div id="player-toast"></div>
 <div id="switch-toast"></div>

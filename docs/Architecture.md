@@ -26,9 +26,9 @@ Black-Out-Jack/
 │   │   └── state_schema.py                 # Pydantic AppState schema — validates serialize_state()'s return shape
 │   ├── routes/
 │   │   ├── lobby.py                        # Room creation, joining, initial game setup
-│   │   ├── polling.py                      # Long-poll state sync, registration, pre-selections, insurance votes; delegates per-poll ticks to services/tick.py
+│   │   ├── polling.py                      # Long-poll state sync, registration, pre-selections, insurance votes, Targeted Drinking vote; delegates per-poll ticks to services/tick.py
 │   │   ├── game_commands.py                # POST /command — the dispatcher for all referee + digital game actions
-│   │   ├── admin.py                        # Kick, dealer rotation, milestone claim, player management
+│   │   ├── admin.py                        # Kick, dealer rotation, milestone claim, player management, Targeted Drinking start/cancel
 │   │   ├── wild_card.py                    # Easter egg: POST /wild_card (logo press)
 │   │   └── reports.py                      # /export_xlsx (drink summary), /export_decisions (decision log XLSX), /summary_json, /rules
 │   └── services/
@@ -37,11 +37,12 @@ Black-Out-Jack/
 │       ├── drink_tracker.py                # Sip harvesting, milestones, bust-vote penalties, award_sips()
 │       ├── payout_tracker.py               # Cash wager/bankroll bookkeeping (Normal mode) — mirrors drink_tracker.py for dollars
 │       ├── dealer_lottery.py               # Dealer Lottery bonus event (paired 18/20 redeal) — see Rules.md §5.9
-│       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery windows)
+│       ├── targeted_drinking.py            # Targeted Drinking Mode: standalone between-round bust/stand mini-game, isolated dealer hand — see Rules.md §5.10
+│       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery + Targeted Drinking windows)
 │       ├── utils.py                        # Cross-cutting app-layer utilities (classify_rule)
 │       ├── validators.py                   # sanitize_name, get_client_info; used by routes and serializer
 │       ├── serializer.py                   # Converts room state to the JSON payload for polling; validates against AppState
-│       ├── round_pipeline.py               # Shared post-round pipeline (bust votes → harvest → milestone → Dealer Lottery → payouts → backfill)
+│       ├── round_pipeline.py               # Shared post-round pipeline (bust votes → harvest → milestone → Dealer Lottery → Targeted Drinking → payouts → backfill)
 │       ├── room_manager.py                 # Tracker patching, queued settings, dealer rotation, stdout-capture helper
 │       ├── session_store.py                # In-memory room store — single source of truth for all room state
 │       └── decision_log.py                 # Per-decision + Dealer Lottery entry capture for player-mimicry bot training
@@ -53,7 +54,7 @@ Black-Out-Jack/
 │   ├── Cheat-Sheet.md                      # One-page quick reference for gameplay
 │   ├── Comprehensive-Example.md            # Full round walkthrough + bonus-event illustrations
 │   ├── Architecture.md                     # This file
-│   ├── Multiplayer.md                      # Room setup, KPI panel, milestones, bust vote, Dealer Lottery, NPCs
+│   ├── Multiplayer.md                      # Room setup, KPI panel, milestones, bust vote, Dealer Lottery, Targeted Drinking Mode, NPCs
 │   ├── DOM-Hooks.md                        # Frontend element IDs and JS module ownership reference
 │   └── planning/                           # Plans, roadmaps, TODOs (DealerLottery-Plan.md, PlayerStyleBots.md, ...)
 ├── static/
@@ -118,7 +119,8 @@ Black-Out-Jack/
 │   │   ├── test_decision_log.py            # Decision-log + Dealer Lottery entry capture, /export_decisions XLSX shape
 │   │   ├── test_harvest_helpers.py         # Harvest helper function unit tests
 │   │   ├── test_normal_mode_no_drinking.py # Verifies no drinks fire outside drinking rules
-│   │   └── test_payout_tracker.py          # PayoutTracker unit tests
+│   │   ├── test_payout_tracker.py          # PayoutTracker unit tests
+│   │   └── test_targeted_drinking.py       # Targeted Drinking Mode: service, admin/vote routes, serializer, pipeline ordering (Rules.md §5.10)
 │   ├── engine/                             # Core engine tests
 │   │   ├── conftest.py
 │   │   ├── test_drinking_rules_aces_blackjack.py   # Ace effects, four-aces, blackjack bonus rules
@@ -160,8 +162,9 @@ The main files are intentionally decoupled:
 | `engine/style_strategy.py` | `engine/strategy.py`, `engine/player_profiles/*.json` | Player-mimicry bot resolver: `best_play_for()` looks up a mined deviation table (hand context + table_bias/sibling_awaiting_deal signals), `decide_dealer_lottery_stake()` looks up a mined stake tendency bucketed by sips owed; both fall back to plain basic strategy / opting out when no profile data exists |
 | `app/services/asset_bundler.py` | `static/js/*`, `static/css/*` (source files, read not imported) | Concatenates the app's JS/CSS source files into `static/js/bundle.js` / `static/css/bundle.css` on every `create_app()` call; called from `app/__init__.py`. Bundle files are gitignored — regenerated fresh every startup, never a stale committed artifact. |
 | `app/services/validators.py` | nothing | `sanitize_name` + `get_client_info`; used by routes and serializer |
-| `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery entry/handout windows); imported by `polling.py` |
+| `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery entry/handout windows, Targeted Drinking mini-round start/forfeit); imported by `polling.py` |
 | `app/services/dealer_lottery.py` | `engine/blackjack.py` (isolated `Deck`/`Hand`), `app/services/drink_tracker.py`, `app/services/decision_log.py` | Dealer Lottery bonus event: trigger detection, entry window, recursive re-splitting (mirrors `Hand.split()`/`MAX_SPLITS`), and the all-bust/none-bust/mixed payout — see Rules.md §5.9 |
+| `app/services/targeted_drinking.py` | `engine/blackjack.py` (isolated `Deck`/`Hand`), `app/models/game_room.py`, `app/services/drink_tracker.py` (`award_sips`), `app/services/serializer.py` (`serialize_card`) | Targeted Drinking Mode: admin-started standalone mini-game played between normal rounds for a fixed player list -- deals its own isolated dealer-only hand (never the round's real dealer hand) once the vote window closes, with a 3-in-a-row graduation streak and a flat cooldown — see Rules.md §5.10. Trigger/pending/resolve shape mirrors `dealer_lottery.py`: `check_targeted_drinking_trigger` (round-end) → `maybe_start_targeted_drinking_round` (ticked, waits for milestone/Dealer Lottery to clear) → `apply_targeted_drinking_vote_forfeit` (ticked, resolves on expiry) |
 | `scripts/_cli.py` | nothing | Shared CLI input helpers (`safe_int`, `yes_no`); imported by terminal scripts |
 | `scripts/play_terminal.py` | `engine/blackjack.py`, `engine/drinking_rules.py`, `scripts/_cli.py` | Interactive terminal play via `RoundManager` + `DrinkTracker` |
 | `scripts/play_referee.py` | `engine/referee.py`, `scripts/_cli.py` | Interactive CLI for real-life referee mode (`RefereeSession`) |
@@ -172,7 +175,7 @@ The main files are intentionally decoupled:
 | `scripts/rules_sync.py` | `docs/Rules.md`, `engine/drinking_rules.py`, `docs/.rules_sync.json` | Hash-based drift check + re-pin helper (see [Rules/Code Sync Check](#rulescode-sync-check)) |
 | `scripts/build_player_profiles.py` | `data/decisions/decision_log_*.xlsx`, `engine/style_strategy.py` (shared bucket thresholds) | Mines the "Hand Decisions" and "Dealer Lottery Entries" sheets into `engine/player_profiles/<name>.json`'s `deviations` and `lottery_stakes` |
 | `app/services/utils.py` | _(none)_ | Pure helper functions used across app services. Currently: `classify_rule()` — maps raw drink-reason strings to short canonical category names for CSV export and the UI. Moved here from `engine/drinking_rules.py` (refactor 4.2). |
-| `app/services/round_pipeline.py` | `app/services/drink_tracker.py`, `app/services/payout_tracker.py`, `app/services/decision_log.py`, `app/services/dealer_lottery.py` | Single authoritative post-round sequence: bust-vote penalties → harvest drink log → milestone check → Dealer Lottery trigger check → payouts → backfill. Imported by both `game_commands.py` and `polling.py` so pipeline ordering only needs to change in one place. |
+| `app/services/round_pipeline.py` | `app/services/drink_tracker.py`, `app/services/payout_tracker.py`, `app/services/decision_log.py`, `app/services/dealer_lottery.py`, `app/services/targeted_drinking.py` | Single authoritative post-round sequence: bust-vote penalties → harvest drink log → milestone check → Dealer Lottery trigger check → Targeted Drinking trigger check → payouts → backfill. Imported by both `game_commands.py` and `polling.py` so pipeline ordering only needs to change in one place. |
 | `app/services/decision_log.py` | `app/models/game_room.py`, `engine/strategy.py` | Captures one row per player decision (hit/stand/double/split/insurance) and one row per Dealer Lottery stake entry, both with board-state context for bot training; exported via `/export_decisions` |
 | `app/models/state_schema.py` | `pydantic` | `AppState` — the runtime schema for `serialize_state()`'s return value. Every field `serialize_state` produces must appear here with the right type, and every model uses `extra="forbid"`, so a serializer/schema drift raises immediately instead of reaching the frontend as a missing/misshapen field. |
 | `app/services/serializer.py` | `app/models/game_room.py`, `app/models/state_schema.py`, `app/services/validators.py` | Converts room state to the JSON payload for the polling response; validates the result against `AppState` before returning |

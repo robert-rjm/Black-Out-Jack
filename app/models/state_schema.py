@@ -253,7 +253,7 @@ class PendingMilestoneOut(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
-# Dealer Lottery (docs/planning/DealerLottery-Plan.md)
+# Dealer Lottery (Rules.md §5.9)
 # ---------------------------------------------------------------------------
 
 class DealerLotteryPendingOut(_StrictModel):
@@ -286,6 +286,66 @@ class DealerLotteryOut(_StrictModel):
     pending_handouts:     dict[str, int]
     my_pending_handouts:  dict[str, int]
     handout_seconds_left: int
+
+
+# ---------------------------------------------------------------------------
+# Targeted Drinking Mode (Rules.md §5.10, MVP scope) -- a standalone
+# mini-game played between normal rounds, mirroring Dealer Lottery's own
+# pending/last_result/result_seq shape.
+# ---------------------------------------------------------------------------
+
+class TargetedDrinkingPendingOut(_StrictModel):
+    seconds_left: int
+    my_vote:      Optional[Literal["bust", "stand"]]   # this client's own local-target vote, if any
+    votes_cast:   dict[str, Literal["bust", "stand"]]  # who has voted so far (values revealed once cast)
+
+
+class TargetedDrinkingHandOut(_StrictModel):
+    cards: list[CardOut]
+    score: int
+    bust:  bool
+
+
+class TargetedDrinkingResultOut(_StrictModel):
+    hand:        TargetedDrinkingHandOut
+    votes:       dict[str, Literal["bust", "stand"]]
+    correct:     dict[str, bool]           # per target: was their vote right?
+    streaks:     dict[str, int]            # graduation streak after this mini-round
+    graduated:   list[str]                 # targets who graduated out this mini-round
+    sips:        dict[str, int]            # target -> sips this mini-round cost them
+    seconds_ago: int
+
+
+class TargetedDrinkingStatsOut(_StrictModel):
+    """Run-wide statistics table (Rules.md §5.10) -- correct/wrong guess
+    counts per target and the isolated dealer hand's own bust rate,
+    accumulated across every mini-round of the current (or, inside
+    TargetedDrinkingSummaryOut, the just-ended) subgame run."""
+    correct:      dict[str, int]   # target -> correct guesses this run
+    wrong:        dict[str, int]   # target -> wrong guesses this run
+    dealer_hands: int              # mini-rounds resolved this run
+    dealer_busts: int              # of those, how many the dealer busted
+
+
+class TargetedDrinkingSummaryOut(_StrictModel):
+    reason: str             # "all_graduated" | "admin_cancelled"
+    totals: dict[str, int]  # target -> total sips drunk across the whole subgame run
+    stats:  TargetedDrinkingStatsOut
+
+
+class TargetedDrinkingOut(_StrictModel):
+    active:               bool
+    targets:              list[str]
+    streaks:              dict[str, int]   # graduation streak, per target (live, between mini-rounds too)
+    cooldown_until_round: int
+    pending:              Optional[TargetedDrinkingPendingOut]
+    last_result:          Optional[TargetedDrinkingResultOut]
+    result_seq:           int
+    last_summary:         Optional[TargetedDrinkingSummaryOut]
+    summary_seq:          int
+    awaiting_start:       bool   # eligible + ready, waiting on someone to tap "Start Targeting Now"
+    eligible:             bool   # raw flag -- a mini-round could be queued right now (open, gated, or awaiting_start)
+    stats:                TargetedDrinkingStatsOut   # live running tally, not seq-gated
 
 
 # ---------------------------------------------------------------------------
@@ -435,6 +495,9 @@ class AppState(_StrictModel):
 
     # ---- Dealer Lottery data (always present) ----
     dealer_lottery: DealerLotteryOut
+
+    # ---- Targeted Drinking Mode data (always present) ----
+    targeted_drinking: TargetedDrinkingOut
 
     # ---- Connection / room-membership data (always present) ----
     kick_votes:                 dict[str, int]
