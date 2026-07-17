@@ -12,7 +12,6 @@ exclude = [
     "venv",
     "build",
     "dist",
-    "engine/busfahrer.py",  # WIP, not ready hence exclded from testing
 ]
 
 [tool.ruff.lint]
