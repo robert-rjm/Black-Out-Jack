@@ -158,14 +158,21 @@ def _targeted_drinking_awaiting_start(session: GameRoom) -> bool:
 
 def _serialize_targeted_drinking_summary(summary: dict | None) -> dict | None:
     """Serialize the most recent Targeted Drinking Mode subgame-ending
-    recap (reason + total sips per target across the whole run). Returns
-    None if there is no summary yet or it's older than 90 seconds (same
-    dismissal window as the per-mini-round result)."""
+    recap (reason + total sips per target, plus the run's final
+    statistics table). Returns None if there is no summary yet or it's
+    older than 90 seconds (same dismissal window as the per-mini-round
+    result)."""
     if not summary or time.monotonic() - summary["set_at"] >= 90:
         return None
     return {
         "reason": summary["reason"],
         "totals": dict(summary["totals"]),
+        "stats": {
+            "correct":      dict(summary.get("correct", {})),
+            "wrong":        dict(summary.get("wrong", {})),
+            "dealer_hands": summary.get("dealer_hands", 0),
+            "dealer_busts": summary.get("dealer_busts", 0),
+        },
     }
 
 
@@ -908,6 +915,17 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                                         session.drinks.last_targeted_drinking_summary),
             "summary_seq":          session.drinks._targeted_drinking_summary_seq,
             "awaiting_start":       _targeted_drinking_awaiting_start(session),
+            # Live run-wide statistics table (Rules.md §5.10) -- unlike
+            # last_result/last_summary this isn't seq-gated one-shot data,
+            # it's just the current running tally, always present so
+            # targeted players can see it update while deciding their
+            # next call.
+            "stats": {
+                "correct":      dict(session._targeted_drinking_correct_counts),
+                "wrong":        dict(session._targeted_drinking_wrong_counts),
+                "dealer_hands": session._targeted_drinking_dealer_hands,
+                "dealer_busts": session._targeted_drinking_dealer_busts,
+            },
         },
     }
 

@@ -400,6 +400,12 @@ def test_resolve_wrong_guess_resets_streak_and_awards_sip(monkeypatch):
     assert result["sips"]["Bob"] == 1
     assert result["hand"]["score"] == 19
     assert result["hand"]["bust"] is False
+    # Statistics table: this mini-round counted as a wrong guess for Bob,
+    # and the dealer stood (not a bust) on its one resolved hand this run.
+    assert room._targeted_drinking_wrong_counts["Bob"] == 1
+    assert room._targeted_drinking_correct_counts.get("Bob", 0) == 0
+    assert room._targeted_drinking_dealer_hands == 1
+    assert room._targeted_drinking_dealer_busts == 0
 
 
 def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
@@ -423,6 +429,38 @@ def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
     assert room._targeted_drinking_targets == []
     assert room._targeted_drinking_cooldown_until_round == room.session.round_count + 3
     assert room.drinks.last_targeted_drinking_result["graduated"] == ["Bob"]
+
+
+def test_stats_table_accumulates_across_mini_rounds(monkeypatch):
+    """The statistics table (correct/wrong per target, dealer bust rate)
+    is a running tally across the whole subgame run, not reset each
+    mini-round -- unlike last_targeted_drinking_result, which only ever
+    reflects the most recent one."""
+    room = _make_room(num_players=3)   # Alice, Bob, Carol
+    start_targeted_drinking(room, ["Bob", "Carol"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    def _resolve(hand_cards, bob_vote, carol_vote):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, hand_cards)
+        submit_targeted_drinking_vote(room, "Bob", bob_vote)
+        submit_targeted_drinking_vote(room, "Carol", carol_vote)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0   # skip the reveal-pause breather
+
+    # Round 1: dealer stands (K+9=19). Bob calls stand (correct), Carol calls bust (wrong).
+    _resolve([make_card("K", "S"), make_card("9", "H")], "stand", "bust")
+    # Round 2: dealer busts (K+5=15, hit, +K=25). Bob calls bust (correct), Carol calls stand (wrong).
+    _resolve([make_card("K", "S"), make_card("5", "H"), make_card("K", "D")], "bust", "stand")
+
+    assert room._targeted_drinking_correct_counts == {"Bob": 2, "Carol": 0}
+    assert room._targeted_drinking_wrong_counts == {"Bob": 0, "Carol": 2}
+    assert room._targeted_drinking_dealer_hands == 2
+    assert room._targeted_drinking_dealer_busts == 1
+    # Streaks are per-mini-round-outcome (reset on a wrong guess), distinct
+    # from the run-wide correct/wrong counters above.
+    assert room._targeted_drinking_streaks == {"Bob": 2, "Carol": 0}
 
 
 def test_resolve_rearms_eligible_for_back_to_back_mini_rounds(monkeypatch):
@@ -495,6 +533,13 @@ def test_resolve_only_targets_still_in_subgame_are_scored(monkeypatch):
     # sip), and Carol's wrong-guess sip is deliberately excluded from it.
     assert "Bob" not in room.drinks.last_round_sips
     assert "Carol" not in room.drinks.last_round_sips
+    # Statistics table tracks both outcomes for this one dealer hand.
+    assert room._targeted_drinking_correct_counts["Bob"] == 1
+    assert room._targeted_drinking_wrong_counts.get("Bob", 0) == 0
+    assert room._targeted_drinking_wrong_counts["Carol"] == 1
+    assert room._targeted_drinking_correct_counts.get("Carol", 0) == 0
+    assert room._targeted_drinking_dealer_hands == 1
+    assert room._targeted_drinking_dealer_busts == 0
 
 
 def test_resolve_survives_deck_exhaustion_from_long_hit_runs(monkeypatch):
@@ -551,8 +596,16 @@ def test_end_snapshots_summary_with_totals_and_bumps_seq(monkeypatch):
     summary = room.drinks.last_targeted_drinking_summary
     assert summary["reason"] == "admin_cancelled"
     assert summary["totals"] == {"Bob": 1, "Carol": 1}
+    assert summary["correct"] == {"Bob": 0, "Carol": 0}
+    assert summary["wrong"] == {"Bob": 1, "Carol": 1}
+    assert summary["dealer_hands"] == 1
+    assert summary["dealer_busts"] == 1
     assert room.drinks._targeted_drinking_summary_seq == 1
     assert room._targeted_drinking_total_sips == {}   # cleared after snapshotting
+    assert room._targeted_drinking_correct_counts == {}
+    assert room._targeted_drinking_wrong_counts == {}
+    assert room._targeted_drinking_dealer_hands == 0
+    assert room._targeted_drinking_dealer_busts == 0
 
 
 def test_end_summary_reflects_reason_when_graduation_ends_it(monkeypatch):
@@ -572,6 +625,10 @@ def test_end_summary_reflects_reason_when_graduation_ends_it(monkeypatch):
     summary = room.drinks.last_targeted_drinking_summary
     assert summary["reason"] == "all_graduated"
     assert summary["totals"] == {"Bob": 0}   # called it right every time -- never drank
+    assert summary["correct"] == {"Bob": 3}
+    assert summary["wrong"] == {"Bob": 0}
+    assert summary["dealer_hands"] == 3
+    assert summary["dealer_busts"] == 0
 
 
 def test_end_is_idempotent():
@@ -944,6 +1001,11 @@ def test_serialize_state_pending_mini_round(monkeypatch):
     assert td["result_seq"] == 0
     assert td["last_summary"] is None
     assert td["summary_seq"] == 0
+    # Live stats: zeroed for every target, nothing resolved yet this run.
+    assert td["stats"] == {
+        "correct": {"Carol": 0, "Dave": 0}, "wrong": {"Carol": 0, "Dave": 0},
+        "dealer_hands": 0, "dealer_busts": 0,
+    }
 
 
 def test_serialize_state_last_result_after_resolve(monkeypatch):
@@ -968,6 +1030,8 @@ def test_serialize_state_last_result_after_resolve(monkeypatch):
     assert result["streaks"] == {"Carol": 1}
     assert td["last_summary"] is None   # subgame still running -- no recap yet
     assert td["summary_seq"] == 0
+    # Live stats reflect this one resolved (non-bust) hand and Carol's correct call.
+    assert td["stats"] == {"correct": {"Carol": 1}, "wrong": {"Carol": 0}, "dealer_hands": 1, "dealer_busts": 0}
 
 
 def test_serialize_state_last_summary_after_end(monkeypatch):
@@ -989,6 +1053,9 @@ def test_serialize_state_last_summary_after_end(monkeypatch):
     summary = td["last_summary"]
     assert summary["reason"] == "admin_cancelled"
     assert summary["totals"] == {"Carol": 1}
+    assert summary["stats"] == {"correct": {"Carol": 0}, "wrong": {"Carol": 1}, "dealer_hands": 1, "dealer_busts": 1}
+    # Live stats reset back to zero once the run's ended and been snapshotted.
+    assert td["stats"] == {"correct": {}, "wrong": {}, "dealer_hands": 0, "dealer_busts": 0}
 
 
 def test_serialize_state_targeted_drinking_inactive_defaults():
@@ -1009,6 +1076,7 @@ def test_serialize_state_targeted_drinking_inactive_defaults():
     assert td["last_summary"] is None
     assert td["summary_seq"] == 0
     assert td["awaiting_start"] is False
+    assert td["stats"] == {"correct": {}, "wrong": {}, "dealer_hands": 0, "dealer_busts": 0}
 
 
 def test_serialize_state_awaiting_start_before_and_after_request():

@@ -94,7 +94,12 @@ This document defines selector ownership for the web UI modules and the shared e
     `#td-continue-btn` (`[data-td-continue]` -- also used by the summary
     phase's Close button)
   - `#td-summary-phase`, `#td-summary-sub`, `#td-summary-list` (per-target
-    total sips drunk across the whole subgame run)
+    total sips drunk across the whole subgame run, plus the same
+    correct/wrong counts and dealer bust rate as the live stats panel)
+  - `#td-stats-panel` (`#td-stats-dealer-bust`, `#td-stats-targets`) --
+    live statistics table (correct/wrong calls per target, dealer bust
+    rate this run), visible through vote/waiting/reveal, hidden only
+    during the summary phase (which shows its own final version instead)
 
 ### `static/js/ui/admin-settings.js`
 - Kick / player management modal:

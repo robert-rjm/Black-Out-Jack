@@ -417,10 +417,17 @@ and milestone progress, but never toward "worst average sips/round" or any
 other round-based statistic — it happens between rounds, not as part of any
 round's own blackjack outcome.
 
+A live **statistics table** runs throughout the whole subgame: each
+targeted Player's correct/wrong call count so far, and how often the
+dealer's isolated hand has busted this run (e.g. "3/7 busted, 43%") — so a
+targeted Player isn't calling entirely blind, and can weigh the dealer's
+actual bust rate into their next guess.
+
 A targeted Player is released once they string together **3 correct calls
 in a row**. Once every targeted Player has been released — or the host
-cancels the mode early — a **3-round cooldown** starts before it can be
-started again.
+cancels the mode early — the statistics table's final numbers are shown
+one last time in a recap, then a **3-round cooldown** starts before it can
+be started again.
 
 > **Example:** The host targets Bob for playing it too safe all night. Round
 > 1 ends, and Bob is dealt into his own isolated mini-hand: he calls STAND,

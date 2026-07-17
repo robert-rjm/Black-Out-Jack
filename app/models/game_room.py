@@ -289,6 +289,18 @@ class GameRoom:
     # graduates -- this is the running tally end_targeted_drinking snapshots
     # into last_targeted_drinking_summary for the end-of-subgame recap).
     _targeted_drinking_total_sips: dict = field(default_factory=dict)
+    # Live run-wide statistics (Rules.md §5.10, "statistics table"):
+    # correct/wrong guess counts per target (never lose a name on
+    # graduation, same reasoning as _targeted_drinking_total_sips above),
+    # plus how many of this run's isolated dealer hands busted vs. stood --
+    # exposed live (not just in the end-of-run summary) so targeted players
+    # can factor "the dealer's busted 40% of hands so far" into their next
+    # call. Reset in start_targeted_drinking, snapshotted into
+    # last_targeted_drinking_summary and cleared in end_targeted_drinking.
+    _targeted_drinking_correct_counts: dict = field(default_factory=dict)
+    _targeted_drinking_wrong_counts: dict = field(default_factory=dict)
+    _targeted_drinking_dealer_hands: int = 0
+    _targeted_drinking_dealer_busts: int = 0
 
     # Cash wager / bankroll system (Normal mode only — drinking_mode = False)
     _bankrolls: dict = field(default_factory=dict)

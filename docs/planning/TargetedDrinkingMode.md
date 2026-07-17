@@ -533,11 +533,12 @@ separate spectator side-bet surface. Neither has a concrete design yet —
 revisit only if the MVP earns its keep and players specifically ask for
 either.
 
-### 8.6 [ ] Statistics Table
+### 8.6 [x] Statistics Table
 
 Table that tracks how often each targeted player was correct / incorrect
 (total number of sips drank during this mini game). And also tracks how
-often the Dealer Bust%
+often the Dealer Bust%. **Done** -- see the follow-up entry near the end
+of this doc for the implementation writeup.
 
 ### 8.7 [ ] Dealer Aces
 
@@ -937,3 +938,60 @@ window open, with the other message; accepting the confirm let the
 round advance normally (subgame stayed active, ready to re-trigger next
 round-end). No backend changes, so no new backend tests -- this is a
 client-side-only guard. Full suite still 482 passing.
+
+**§8.6 Statistics Table -- implemented, live in the modal and in the
+end-of-run recap.** Asked for exactly what §8.6 originally scoped: a
+running tally of each target's correct/wrong calls, plus the isolated
+dealer hand's own bust rate across the run -- but explicitly *live*
+inside the mini-round modal (not just a post-hoc report), so a targeted
+player can factor "the dealer's busted 40% of hands so far" into their
+next call, and *also* folded into the existing end-of-subgame recap
+alongside the sip totals that already lived there.
+
+- **Backend**: two new session-lifetime `GameRoom` fields alongside
+  `_targeted_drinking_total_sips` (same "never loses a name on
+  graduation" reasoning) -- `_targeted_drinking_correct_counts` /
+  `_targeted_drinking_wrong_counts` (per target), plus plain counters
+  `_targeted_drinking_dealer_hands` / `_targeted_drinking_dealer_busts`
+  for the run as a whole. All four: seeded in `start_targeted_drinking`
+  (correct/wrong dicts zeroed per target, counters at 0), updated in
+  `resolve_targeted_drinking_round` right alongside the existing
+  streak/sip bookkeeping, snapshotted into `last_targeted_drinking_summary`
+  and cleared in `end_targeted_drinking` -- exactly mirroring
+  `_targeted_drinking_total_sips`'s own lifecycle.
+- **Live exposure, not seq-gated**: unlike `last_result`/`last_summary`
+  (one-shot events gated behind `result_seq`/`summary_seq` so the
+  frontend fires a reveal/recap exactly once), the statistics table is
+  just *current state* -- serializer exposes it as `targeted_drinking.stats`
+  every poll, always present (all-zero when inactive), no seq needed
+  since there's nothing to "fire once," only to keep in sync. New
+  `TargetedDrinkingStatsOut` schema model (`correct`, `wrong`,
+  `dealer_hands`, `dealer_busts`), reused both at the top level and
+  nested inside `TargetedDrinkingSummaryOut.stats` for the final recap.
+- **Frontend**: new `#td-stats-panel` (`#td-stats-dealer-bust` +
+  `#td-stats-targets`) as a sibling of `#td-vote-phase`/`#td-reveal-phase`
+  inside the same `.td-modal-card` -- `_showPhase()` keeps it visible
+  through vote/waiting/reveal and hides it only for the summary phase
+  (which shows its own richer final version instead of the live one).
+  `TargetedDrinkingPanel._renderStatsPanel(targets, stats)` builds a
+  ✓/✗ row per target plus a "Dealer this run: X/Y busted (Z%)" line;
+  called from the vote branch, the waiting-between-mini-rounds branch,
+  and `_enterRevealPhase` (which now also takes `targets`/`stats` params
+  from `render()`, since `result` alone only has *that* mini-round's
+  outcome, not the running tally). `_enterSummaryPhase` extends the
+  existing per-target sip list with the same ✓/✗ counts plus an overall
+  dealer-bust-rate line at the top.
+
+Verified in the browser end-to-end: the stats panel showed correctly
+during the vote phase (zeroed for a fresh run), updated in place through
+the reveal phase after a mini-round resolved (1✓/0✗, dealer 0/1 busted),
+and the same numbers carried through into the summary screen alongside
+the sip total once the subgame was cancelled. Backend: extended the
+existing wrong-guess/graduation/summary tests with stats assertions
+(learned partway through that `correct`/`wrong` dicts are zero-seeded
+per target at `start_targeted_drinking`, same as `total_sips` -- so
+"never resolved" reads as `{"Bob": 0}`, not `{}`, and adjusted the new
+assertions to match rather than assume empty), plus a new
+`test_stats_table_accumulates_across_mini_rounds` driving two mini-rounds
+with a mixed bust/stand dealer outcome to confirm the tally is additive
+across resolves, not reset each time. Full suite: 483 passing.
