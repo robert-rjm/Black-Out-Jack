@@ -72,6 +72,7 @@ python server.py
 | [Multiplayer.md](docs/Multiplayer.md) | Room setup, rules, KPI panel, milestones |
 | [Comprehensive-Example.md](docs/Comprehensive-Example.md) | Full round walkthrough|
 | [Architecture.md](docs/Architecture.md) | Project structure, file dependencies, simulation |
+| [Dev-Cheat-Sheet.md](docs/Dev-Cheat-Sheet.md) | Quick reference for dev CLI commands (tests, simulation, snapshots, player profiles) |
 
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
