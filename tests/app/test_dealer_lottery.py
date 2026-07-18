@@ -305,8 +305,8 @@ def test_resolve_both_bust_credits_and_opens_handout(monkeypatch):
     assert result["busted"] == 2
     # Credit floored at current owed (3), even though X=5
     assert room.drinks.last_round_sips["Alice"] == 0
-    # Handout amount (not halved, only 3 players) is the full X=5, pending a recipient
-    assert result["pending_handouts"] == {"Alice": 5}
+    # Handout amount is always halved (rounded up): ceil(5/2) = 3, pending a recipient
+    assert result["pending_handouts"] == {"Alice": 3}
     assert room.round._dealer_lottery_handout_expires_at is not None
 
 
@@ -474,7 +474,7 @@ def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypa
     assert len(result["hands"]) == 3
     assert result["busted"] == 3   # every hand busted -> credit + handout
     assert room.drinks.last_round_sips["Alice"] == 5   # 10 - 5 credit
-    assert result["pending_handouts"] == {"Alice": 5}
+    assert result["pending_handouts"] == {"Alice": 3}   # ceil(5/2), always halved
 
 
 def test_resolve_exactly_one_bust_after_resplit_does_nothing(monkeypatch):
@@ -526,7 +526,7 @@ def test_resolve_two_of_three_bust_after_resplit_credits_and_opens_handout(monke
     assert len(result["hands"]) == 3
     assert result["busted"] == 2   # 2 of 3, not all 3 -- still credits under the >=2 rule
     assert room.drinks.last_round_sips["Alice"] == 5   # 10 - 5 credit
-    assert result["pending_handouts"] == {"Alice": 5}
+    assert result["pending_handouts"] == {"Alice": 3}   # ceil(5/2), always halved
 
 
 def test_deal_and_resolve_hand_respects_max_splits_cap():
@@ -545,14 +545,53 @@ def test_deal_and_resolve_hand_respects_max_splits_cap():
         def __init__(self):
             self.cards = list(reversed([make_card("J", "D")]))  # matches value 10
 
-    result = _deal_and_resolve_hand(hand, _OneCardDeck(), None)
+    result = _deal_and_resolve_hand(hand, _OneCardDeck(), None, [2])
     assert len(result) == 1             # did not split again despite matching
     resolved_hand, parent = result[0]
     assert resolved_hand.score() == 20
     assert parent is None
 
 
-def test_resolve_halves_handout_at_four_players(monkeypatch):
+def test_resolve_caps_total_hands_at_five_across_both_branches(monkeypatch):
+    """Regression: DEALER_LOTTERY_MAX_HANDS caps the TOTAL hand count across
+    both original branches combined, not 5-per-branch (10 total) like
+    Hand.MAX_SPLITS alone would allow. A hot run of 9s that keeps re-pairing
+    on branch A alone must stop splitting once the combined total hits 5 --
+    even though branch A's own per-hand split_count is nowhere near
+    Hand.MAX_SPLITS, and even though branch B's own first pairing opportunity
+    would otherwise be perfectly legal on its own."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "H"),   # hand_a 2nd card -> pairs, split #1 (hand_count 2->3)
+        make_card("9", "D"),   # continuing hand's 2nd card -> pairs, split #2 (hand_count 3->4)
+        make_card("9", "C"),   # continuing hand's 2nd card -> pairs, split #3 (hand_count 4->5, cap hit)
+        make_card("8", "S"),   # continuing hand's 2nd card -> 17, stands (cap blocks a 4th split)
+        make_card("8", "H"),   # 3rd split-sibling's 2nd card -> 17, stands
+        make_card("8", "D"),   # 2nd split-sibling's 2nd card -> 17, stands
+        make_card("8", "C"),   # 1st split-sibling's 2nd card -> 17, stands
+        make_card("9", "S"),   # hand_b's 2nd card -> would pair (9+9) but the cap
+                                # blocks it even though hand_b's own split_count is 0
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 5   # capped at 5 total, not 10
+    assert [h["score"] for h in result["hands"]] == [17, 17, 17, 17, 18]
+    # hand_b (last hand) never split despite its 2nd card matching -- proves
+    # the cap is enforced across branches, not reset per branch.
+    assert result["hands"][-1]["score"] == 18
+    assert result["hands"][-1]["parent_index"] is None   # still an original branch root
+
+
+def test_resolve_handout_is_always_halved(monkeypatch):
+    """The handout is halved (rounded up) unconditionally now -- not just
+    under 4+ players / Easy Mode like DrinkTracker.apply_end_of_round's own
+    halving. This room has 4 players only to double as a smoke test that
+    player count no longer changes the outcome."""
     room = _make_room(num_players=4, dealer_hand=make_hand(("9", "S"), ("9", "H")))
     room.round._dealer_lottery_eligible = True
     maybe_start_dealer_lottery(room)
@@ -575,8 +614,9 @@ def test_resolve_halves_handout_at_four_players(monkeypatch):
 
 def test_resolve_drink_is_never_halved_even_under_easy_mode(monkeypatch):
     """The drink (no-hand-busts) branch is never halved -- only the handout
-    (all-hands-bust branch) is. Easy Mode / 4+ players still governs the
-    handout, but has no effect on the drink amount."""
+    (all-hands-bust branch) is, and that halving is now unconditional
+    (see test_resolve_handout_is_always_halved). Easy Mode has no effect
+    on the drink amount either way."""
     room = _make_room(dealer_hand=make_hand(("9", "S"), ("9", "H")), easy_mode=True)
     room.round._dealer_lottery_eligible = True
     maybe_start_dealer_lottery(room)
@@ -612,7 +652,7 @@ def _both_bust_room(monkeypatch, x=5):
 def test_give_sip_assigns_and_closes_window(monkeypatch):
     room = _both_bust_room(monkeypatch)
     assert give_dealer_lottery_sip(room, "Alice", "Bob") is True
-    assert room.drinks.last_round_sips["Bob"] == 5
+    assert room.drinks.last_round_sips["Bob"] == 3   # ceil(5/2), always halved
     assert "Alice" in room.round._dealer_lottery_handouts_given
     assert room.round._dealer_lottery_handout_expires_at is None  # all givers done
 
@@ -631,8 +671,8 @@ def test_give_sip_removes_giver_from_served_pending_handouts(monkeypatch):
     }
 
     before = serialize_state(room, "client-1")
-    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 5}
-    assert before["dealer_lottery"]["my_pending_handouts"] == {"Alice": 5}
+    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 3}   # ceil(5/2)
+    assert before["dealer_lottery"]["my_pending_handouts"] == {"Alice": 3}
 
     assert give_dealer_lottery_sip(room, "Alice", "Bob") is True
 
@@ -660,7 +700,7 @@ def test_newround_clears_stale_pending_handouts(monkeypatch):
     }
 
     before = serialize_state(room, "client-1")
-    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 5}
+    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 3}   # ceil(5/2)
 
     reset_round_state(room, digital=True)
 
@@ -697,7 +737,7 @@ def test_handout_forfeit_gives_sips_to_self_after_expiry(monkeypatch):
     room = _both_bust_room(monkeypatch)  # starts owing 10, credited down to 5 (10 - X=5)
     room.round._dealer_lottery_handout_expires_at = time.monotonic() - 1
     apply_dealer_lottery_handout_forfeit(room)
-    assert room.drinks.last_round_sips["Alice"] == 10  # 5 (post-credit) + 5 forfeited back
+    assert room.drinks.last_round_sips["Alice"] == 8  # 5 (post-credit) + 3 (ceil(5/2)) forfeited back
     assert "Alice" in room.round._dealer_lottery_handouts_given
     assert room.round._dealer_lottery_handout_expires_at is None
 
@@ -868,7 +908,7 @@ def test_give_sip_route_assigns(client, monkeypatch):
         })
         data = resp.get_json()
         assert data["ok"] is True
-        assert room.drinks.last_round_sips["Bob"] == 5
+        assert room.drinks.last_round_sips["Bob"] == 3   # ceil(5/2), always halved
     finally:
         game_sessions.pop(room_code, None)
 

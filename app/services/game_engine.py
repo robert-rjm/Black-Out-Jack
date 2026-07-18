@@ -480,13 +480,18 @@ def dealer_turn(session: GameRoom) -> None:
             )))
             session._hard_switch_drinking_applied = True
 
-        # All-hands sweep
+        # All-hands sweep. Unlike the per-hand win events above, this bonus is
+        # never covered by the Hard Switch payout (on_hard_dealer_switch only
+        # tallies blackjack/doubled/regular wins, nothing about all-same-suit
+        # or all-21) -- so the dealer must stay a valid recipient even on a
+        # hard switch, or the bonus silently disappears whenever the sweeping
+        # player is also the one who swept the dealer (e.g. heads-up).
         for p in session.all_players:
             if p.is_dealer:
                 continue
             eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                 player_name=p.name, player_hands=p.hands, all_names=all_names,
-                wager=session.wager, dealer_name=exempt_dealer, dealer_bj=dealer_bj,
+                wager=session.wager, dealer_bj=dealer_bj,
             )))
 
         # Four-aces end-of-round check

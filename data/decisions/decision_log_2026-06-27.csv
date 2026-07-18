@@ -1,0 +1,267 @@
+﻿session_id,timestamp,round,player,hand_index,dealer_name,hand_cards_before,hand_total_before,is_soft,dealer_upcard,visible_cards,cards_remaining,decks_in_play,valid_actions,action_taken,basic_strategy_action,drinking_mode,mode,bet_amount,wager,is_npc,hand_result
+Heart54,1782584365.9802246,1,David,1,Rob,Q♥ 4♦,14,False,4♥,2♥ 9♦ 4♣ 2♠ Q♥ 4♦ J♠ 2♦ 4♥,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782584366.8677535,1,David,2,Rob,J♠ 2♦,12,False,4♥,2♥ 9♦ 4♣ 2♠ Q♥ 4♦ J♠ 2♦ 4♥,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782584375.3471358,1,Rob,1,Rob,2♥ 9♦,11,False,4♥,2♥ 9♦ 4♣ 2♠ Q♥ 4♦ J♠ 2♦ 4♥,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782584377.0164192,1,Rob,2,Rob,4♣ 2♠,6,False,4♥,2♥ 9♦ 3♦ 4♣ 2♠ Q♥ 4♦ J♠ 2♦ 4♥,41,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782584377.9346836,1,Rob,2,Rob,4♣ 2♠ 6♦,12,False,4♥,2♥ 9♦ 3♦ 4♣ 2♠ 6♦ Q♥ 4♦ J♠ 2♦ 4♥,40,1,"h,s",h,s,True,digital,,1,False,loss
+Heart54,1782584399.6381595,1,Rob,2,Rob,4♣ 2♠ 6♦ 5♣,17,False,4♥,2♥ 9♦ 3♦ 4♣ 2♠ 6♦ 5♣ Q♥ 4♦ J♠ 2♦ 4♥,39,1,"h,s",s,s,True,digital,,1,False,loss
+Heart54,1782584477.1127477,2,Rob,1,David,3♥ J♦,13,False,4♠,3♥ J♦ 8♠ J♣ K♠ A♠ 8♣ 7♥ 4♠,42,1,"h,s,d",h,s,True,digital,,1,False,win
+Heart54,1782584479.7617018,2,Rob,1,David,3♥ J♦ 4♥,17,False,4♠,3♥ J♦ 4♥ 8♠ J♣ K♠ A♠ 8♣ 7♥ 4♠,41,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782584480.3054729,2,Rob,2,David,8♠ J♣,18,False,4♠,3♥ J♦ 4♥ 8♠ J♣ K♠ A♠ 8♣ 7♥ 4♠,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782584484.0158732,2,David,2,David,8♣ 7♥,15,False,4♠,3♥ J♦ 4♥ 8♠ J♣ K♠ A♠ 8♣ 7♥ 4♠,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782584516.905341,3,David,1,Rob,K♥ 9♦,19,False,3♣,7♥ 7♦ 9♣ 5♦ K♥ 9♦ K♣ 6♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,push
+Heart54,1782584517.5049047,3,David,2,Rob,K♣ 6♦,16,False,3♣,7♥ 7♦ 9♣ 5♦ K♥ 9♦ K♣ 6♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782584530.2566938,3,Rob,1,Rob,7♥ 7♦,14,False,3♣,7♥ 7♦ 9♣ 5♦ K♥ 9♦ K♣ 6♦ 3♣,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782584534.431439,3,Rob,1,Rob,7♥ A♥,18,True,3♣,7♥ A♥ 7♦ 9♣ 5♦ K♥ 9♦ K♣ 6♦ 3♣,41,1,"h,s,d",s,d,True,digital,,1,False,loss
+Heart54,1782584535.8528478,3,Rob,2,Rob,7♦ 2♠,9,False,3♣,7♥ A♥ 7♦ 2♠ 9♣ 5♦ K♥ 9♦ K♣ 6♦ 3♣,40,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782584537.0516481,3,Rob,3,Rob,9♣ 5♦,14,False,3♣,7♥ A♥ 7♦ 2♠ 6♥ 9♣ 5♦ K♥ 9♦ K♣ 6♦ 3♣,39,1,"h,s,d",h,s,True,digital,,1,False,win
+Heart54,1782584630.222331,4,David,1,Rob,8♥ 10♠,18,False,J♠,6♥ A♥ 2♠ 3♠ 8♥ 10♠ 8♣ K♥ J♠,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782584630.6333537,4,David,2,Rob,8♣ K♥,18,False,J♠,6♥ A♥ 2♠ 3♠ 8♥ 10♠ 8♣ K♥ J♠,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782584718.5970116,4,Rob,1,Rob,6♥ A♥,17,True,J♠,6♥ A♥ 2♠ 3♠ 8♥ 10♠ 8♣ K♥ J♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782584719.6976933,4,Rob,2,Rob,2♠ 3♠,5,False,J♠,6♥ A♥ 2♠ 3♠ 8♥ 10♠ 8♣ K♥ J♠,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782584720.8756561,4,Rob,2,Rob,2♠ 3♠ 4♥,9,False,J♠,6♥ A♥ 2♠ 3♠ 4♥ 8♥ 10♠ 8♣ K♥ J♠,41,1,"h,s",h,h,True,digital,,1,False,loss
+Heart54,1782584722.4063866,4,Rob,2,Rob,2♠ 3♠ 4♥ 9♦,18,False,J♠,6♥ A♥ 2♠ 3♠ 4♥ 9♦ 8♥ 10♠ 8♣ K♥ J♠,40,1,"h,s",s,s,True,digital,,1,False,loss
+Heart54,1782584750.6467826,5,Rob,1,David,3♦ 9♥,12,False,8♥,3♦ 9♥ 5♠ 6♥ K♠ 10♣ 7♦ 9♣ 8♥,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782584754.7550845,5,Rob,1,David,3♦ 9♥ 2♠,14,False,8♥,3♦ 9♥ 2♠ 5♠ 6♥ K♠ 10♣ 7♦ 9♣ 8♥,41,1,"h,s",s,h,True,digital,,1,False,loss
+Heart54,1782584756.1383371,5,Rob,2,David,5♠ 6♥,11,False,8♥,3♦ 9♥ 2♠ 5♠ 6♥ K♠ 10♣ 7♦ 9♣ 8♥,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782584760.3235195,5,David,1,David,K♠ 10♣,20,False,8♥,3♦ 9♥ 2♠ 5♠ 6♥ A♣ K♠ 10♣ 7♦ 9♣ 8♥,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782584762.169093,5,David,1,David,K♠ 2♦,12,False,8♥,3♦ 9♥ 2♠ 5♠ 6♥ A♣ K♠ 2♦ 10♣ 7♦ 9♣ 8♥,39,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782584771.3183522,5,David,2,David,10♣ 3♣,13,False,8♥,3♦ 9♥ 2♠ 5♠ 6♥ A♣ K♠ 2♦ 9♠ 10♣ 3♣ 7♦ 9♣ 8♥,37,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782584774.8415196,5,David,2,David,10♣ 3♣ 4♣,17,False,8♥,3♦ 9♥ 2♠ 5♠ 6♥ A♣ K♠ 2♦ 9♠ 10♣ 3♣ 4♣ 7♦ 9♣ 8♥,36,1,"h,s",s,s,True,digital,,1,False,loss
+Heart54,1782584777.847702,5,David,3,David,7♦ 9♣,16,False,8♥,3♦ 9♥ 2♠ 5♠ 6♥ A♣ K♠ 2♦ 9♠ 10♣ 3♣ 4♣ 7♦ 9♣ 8♥,36,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782584807.797871,6,Rob,1,David,A♥ 8♥,19,True,10♠,A♥ 8♥ 2♥ 9♥ K♦ 3♦ 4♥ 2♦ 10♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782584809.932078,6,Rob,2,David,2♥ 9♥,11,False,10♠,A♥ 8♥ 2♥ 9♥ K♦ 3♦ 4♥ 2♦ 10♠,42,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782584821.2825327,6,David,1,David,K♦ 3♦,13,False,10♠,A♥ 8♥ 2♥ 9♥ 9♠ K♦ 3♦ 4♥ 2♦ 10♠,41,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782584824.1131456,6,David,1,David,K♦ 3♦ 2♣,15,False,10♠,A♥ 8♥ 2♥ 9♥ 9♠ K♦ 3♦ 2♣ 4♥ 2♦ 10♠,40,1,"h,s",h,h,True,digital,,1,False,win
+Heart54,1782584825.5490298,6,David,1,David,K♦ 3♦ 2♣ 4♦,19,False,10♠,A♥ 8♥ 2♥ 9♥ 9♠ K♦ 3♦ 2♣ 4♦ 4♥ 2♦ 10♠,39,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782584827.1184976,6,David,2,David,4♥ 2♦,6,False,10♠,A♥ 8♥ 2♥ 9♥ 9♠ K♦ 3♦ 2♣ 4♦ 4♥ 2♦ 10♠,39,1,"h,s,d",h,h,True,digital,,1,False,push
+Heart54,1782584828.3299923,6,David,2,David,4♥ 2♦ 6♠,12,False,10♠,A♥ 8♥ 2♥ 9♥ 9♠ K♦ 3♦ 2♣ 4♦ 4♥ 2♦ 6♠ 10♠,38,1,"h,s",h,h,True,digital,,1,False,push
+Heart54,1782584830.12575,6,David,2,David,4♥ 2♦ 6♠ 5♠,17,False,10♠,A♥ 8♥ 2♥ 9♥ 9♠ K♦ 3♦ 2♣ 4♦ 4♥ 2♦ 6♠ 5♠ 10♠,37,1,"h,s",s,s,True,digital,,1,False,push
+Heart54,1782584920.3972285,7,David,1,Rob,4♦ 9♣,13,False,J♦,10♠ 2♣ 7♦ 6♠ 4♦ 9♣ 5♥ J♣ J♦,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782584923.5461867,7,David,1,Rob,4♦ 9♣ 5♠,18,False,J♦,10♠ 2♣ 7♦ 6♠ 4♦ 9♣ 5♠ 5♥ J♣ J♦,41,1,"h,s",s,s,True,digital,,1,False,loss
+Heart54,1782584924.7951715,7,David,2,Rob,5♥ J♣,15,False,J♦,10♠ 2♣ 7♦ 6♠ 4♦ 9♣ 5♠ 5♥ J♣ J♦,41,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782584928.9769728,7,Rob,1,Rob,10♠ 2♣,12,False,J♦,10♠ 2♣ 7♦ 6♠ 4♦ 9♣ 5♠ 5♥ J♣ J♠ J♦,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782584932.5779636,7,Rob,2,Rob,7♦ 6♠,13,False,J♦,10♠ 2♣ 9♠ 7♦ 6♠ 4♦ 9♣ 5♠ 5♥ J♣ J♠ J♦,39,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782585015.969312,8,Rob,1,David,3♠ K♦,13,False,5♥,3♠ K♦ 6♠ 7♣ K♣ 3♦ 3♣ 9♦ 5♥,42,1,"h,s,d",h,s,True,digital,,1,False,loss
+Heart54,1782585021.5304222,8,Rob,2,David,6♠ 7♣,13,False,5♥,3♠ K♦ J♣ 6♠ 7♣ K♣ 3♦ 3♣ 9♦ 5♥,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782585022.211933,8,David,1,David,K♣ 3♦,13,False,5♥,3♠ K♦ J♣ 6♠ 7♣ K♣ 3♦ 3♣ 9♦ 5♥,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782585023.5697443,8,David,2,David,3♣ 9♦,12,False,5♥,3♠ K♦ J♣ 6♠ 7♣ K♣ 3♦ 3♣ 9♦ 5♥,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782585185.4353843,9,David,1,Rob,K♠ 6♦,16,False,10♦,10♠ J♥ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,42,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782585185.8557897,9,David,2,Rob,8♣ 7♥,15,False,10♦,10♠ J♥ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,42,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782585194.7613432,9,Rob,1,Rob,10♠ J♥,20,False,10♦,10♠ J♥ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782585196.7446184,9,Rob,1,Rob,10♠ 4♦,14,False,10♦,10♠ 4♦ J♥ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,41,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782585197.8118646,9,Rob,1,Rob,10♠ 4♦ 5♠,19,False,10♦,10♠ 4♦ 5♠ J♥ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,40,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782585199.2922184,9,Rob,2,Rob,J♥ K♦,20,False,10♦,10♠ 4♦ 5♠ J♥ K♦ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,39,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782585204.1492739,9,Rob,3,Rob,K♦ 8♠,18,False,10♦,10♠ 4♦ 5♠ J♥ A♦ K♦ 8♠ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,37,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585205.9548683,9,Rob,4,Rob,J♠ 2♠,12,False,10♦,10♠ 4♦ 5♠ J♥ A♦ K♦ 8♠ J♠ 2♠ K♠ 6♦ 8♣ 7♥ 10♦,37,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782585345.8571205,10,Rob,1,David,2♥ J♥,12,False,3♦,2♥ J♥ 7♥ A♠ 3♣ 6♣ 5♣ J♣ 3♦,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585347.3090987,10,Rob,2,David,7♥ A♠,18,True,3♦,2♥ J♥ 7♥ A♠ 3♣ 6♣ 5♣ J♣ 3♦,42,1,"h,s,d",d,d,True,digital,,1,False,push
+Heart54,1782585350.1547348,10,David,1,David,3♣ 6♣,9,False,3♦,2♥ J♥ 7♥ A♠ Q♣ 3♣ 6♣ 5♣ J♣ 3♦,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782585351.4293184,10,David,2,David,5♣ J♣,15,False,3♦,2♥ J♥ 7♥ A♠ Q♣ 3♣ 6♣ 2♦ 5♣ J♣ 3♦,40,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782585394.2698078,11,Rob,1,David,3♥ J♣,13,False,Q♣,3♥ J♣ 9♦ 8♣ 10♦ 2♦ A♦ 8♦ Q♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585394.8967776,11,Rob,2,David,9♦ 8♣,17,False,Q♣,3♥ J♣ 9♦ 8♣ 10♦ 2♦ A♦ 8♦ Q♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782585397.3577442,11,David,1,David,10♦ 2♦,12,False,Q♣,3♥ J♣ 9♦ 8♣ 10♦ 2♦ A♦ 8♦ Q♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585397.8094044,11,David,2,David,A♦ 8♦,19,True,Q♣,3♥ J♣ 9♦ 8♣ 10♦ 2♦ A♦ 8♦ Q♣,42,1,"h,s,d",s,s,True,digital,,1,False,push
+Heart54,1782585450.1270707,12,David,1,Rob,J♠ 3♥,13,False,8♠,8♣ 10♥ A♠ 2♣ J♠ 3♥ K♣ Q♥ 8♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585450.7619414,12,David,2,Rob,K♣ Q♥,20,False,8♠,8♣ 10♥ A♠ 2♣ J♠ 3♥ K♣ Q♥ 8♠,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782585452.4802501,12,David,2,Rob,K♣ K♥,20,False,8♠,8♣ 10♥ A♠ 2♣ J♠ 3♥ K♣ K♥ Q♥ 8♠,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782585456.50646,12,David,2,Rob,K♣ 5♠,15,False,8♠,8♣ 10♥ A♠ 2♣ J♠ 3♥ K♣ 5♠ K♥ Q♥ 8♠,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585460.2584546,12,David,3,Rob,K♥ 2♥,12,False,8♠,8♣ 10♥ A♠ 2♣ J♠ 3♥ K♣ 5♠ K♥ 2♥ Q♥ 8♠,39,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585469.4766018,12,Rob,1,Rob,8♣ 10♥,18,False,8♠,8♣ 10♥ A♠ 2♣ J♠ 3♥ K♣ 5♠ K♥ 2♥ Q♥ A♦ 8♠,38,1,"h,s,d",s,s,True,digital,,1,False,push
+Heart54,1782585473.0116181,12,Rob,2,Rob,A♠ 2♣,13,True,8♠,8♣ 10♥ A♠ 2♣ J♠ 3♥ K♣ 5♠ K♥ 2♥ Q♥ A♦ 8♠,38,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782585474.0125852,12,Rob,2,Rob,A♠ 2♣ 10♠,13,False,8♠,8♣ 10♥ A♠ 2♣ 10♠ J♠ 3♥ K♣ 5♠ K♥ 2♥ Q♥ A♦ 8♠,37,1,"h,s",h,h,True,digital,,1,False,win
+Heart54,1782585475.298342,12,Rob,2,Rob,A♠ 2♣ 10♠ 6♠,19,False,8♠,8♣ 10♥ A♠ 2♣ 10♠ 6♠ J♠ 3♥ K♣ 5♠ K♥ 2♥ Q♥ A♦ 8♠,36,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782585496.3186193,13,David,1,Rob,8♥ 10♦,18,False,8♠,3♦ 5♠ A♥ 2♥ 8♥ 10♦ 8♦ 10♣ 8♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585497.6100914,13,David,2,Rob,8♦ 10♣,18,False,8♠,3♦ 5♠ A♥ 2♥ 8♥ 10♦ 8♦ 10♣ 8♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585506.4443588,13,Rob,1,Rob,3♦ 5♠,8,False,8♠,3♦ 5♠ A♥ 2♥ 8♥ 10♦ 8♦ 10♣ 8♠,42,1,"h,s,d",d,h,True,digital,,1,False,loss
+Heart54,1782585507.5172825,13,Rob,2,Rob,A♥ 2♥,13,True,8♠,3♦ 5♠ 8♣ A♥ 2♥ 8♥ 10♦ 8♦ 10♣ 8♠,41,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782585509.333664,13,Rob,2,Rob,A♥ 2♥ 3♠,16,True,8♠,3♦ 5♠ 8♣ A♥ 2♥ 3♠ 8♥ 10♦ 8♦ 10♣ 8♠,40,1,"h,s",h,h,True,digital,,1,False,win
+Heart54,1782585510.8475716,13,Rob,2,Rob,A♥ 2♥ 3♠ 4♠,20,True,8♠,3♦ 5♠ 8♣ A♥ 2♥ 3♠ 4♠ 8♥ 10♦ 8♦ 10♣ 8♠,39,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782585558.0246558,14,Rob,1,David,Q♠ 4♣,14,False,3♣,Q♠ 4♣ 7♥ 8♣ J♣ Q♦ 6♦ 8♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585558.655349,14,Rob,2,David,7♥ 8♣,15,False,3♣,Q♠ 4♣ 7♥ 8♣ J♣ Q♦ 6♦ 8♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585561.0227692,14,David,1,David,J♣ Q♦,20,False,3♣,Q♠ 4♣ 7♥ 8♣ J♣ Q♦ 6♦ 8♦ 3♣,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782585566.7152,14,David,3,David,6♦ 8♦,14,False,3♣,Q♠ 4♣ 7♥ 8♣ J♣ A♠ Q♦ A♥ 6♦ 8♦ 3♣,40,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585620.6369278,15,David,1,Rob,8♠ J♣,18,False,6♣,8♣ 8♦ 9♠ 4♣ 8♠ J♣ 6♠ A♣ 6♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585622.3995342,15,David,2,Rob,6♠ A♣,17,True,6♣,8♣ 8♦ 9♠ 4♣ 8♠ J♣ 6♠ A♣ 6♣,42,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782585624.7333784,15,Rob,1,Rob,8♣ 8♦,16,False,6♣,8♣ 8♦ 9♠ 4♣ 8♠ J♣ 6♠ A♣ Q♥ 6♣,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782585625.896322,15,Rob,1,Rob,8♣ K♦,18,False,6♣,8♣ K♦ 8♦ 9♠ 4♣ 8♠ J♣ 6♠ A♣ Q♥ 6♣,40,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585627.1716573,15,Rob,2,Rob,8♦ 2♥,10,False,6♣,8♣ K♦ 8♦ 2♥ 9♠ 4♣ 8♠ J♣ 6♠ A♣ Q♥ 6♣,39,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782585629.2418618,15,Rob,3,Rob,9♠ 4♣,13,False,6♣,8♣ K♦ 8♦ 2♥ 5♠ 9♠ 4♣ 8♠ J♣ 6♠ A♣ Q♥ 6♣,38,1,"h,s,d",h,s,True,digital,,1,False,win
+Heart54,1782585685.6569438,16,Rob,1,David,K♥ K♦,20,False,Q♥,K♥ K♦ 3♦ K♠ 2♦ Q♦ 2♥ 9♣ Q♥,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782585693.64764,16,Rob,1,David,K♥ 8♠,18,False,Q♥,K♥ 8♠ K♦ 3♦ K♠ 2♦ Q♦ 2♥ 9♣ Q♥,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782585699.5722294,16,Rob,2,David,K♦ 5♣,15,False,Q♥,K♥ 8♠ K♦ 5♣ 3♦ K♠ 2♦ Q♦ 2♥ 9♣ Q♥,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585702.1342695,16,Rob,3,David,3♦ K♠,13,False,Q♥,K♥ 8♠ K♦ 5♣ 3♦ K♠ 2♦ Q♦ 2♥ 9♣ Q♥,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782585705.0090811,16,David,1,David,2♦ Q♦,12,False,Q♥,K♥ 8♠ K♦ 5♣ 3♦ K♠ 2♦ Q♦ 2♥ 9♣ Q♥,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782585707.4268732,16,David,2,David,2♥ 9♣,11,False,Q♥,K♥ 8♠ K♦ 5♣ 3♦ K♠ 2♦ Q♦ J♣ 2♥ 9♣ Q♥,39,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782585744.3159926,17,David,1,Rob,8♦ 9♠,17,False,10♠,A♦ K♥ A♥ 4♠ 8♦ 9♠ 4♣ 6♥ 10♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585745.054211,17,David,2,Rob,4♣ 6♥,10,False,10♠,A♦ K♥ A♥ 4♠ 8♦ 9♠ 4♣ 6♥ 10♠,42,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782585749.5209947,17,Rob,2,Rob,A♥ 4♠,15,True,10♠,A♦ K♥ A♥ 4♠ 8♦ 9♠ 4♣ 6♥ 3♣ 10♠,41,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782585759.770532,17,Rob,2,Rob,A♥ 4♠ A♠,16,True,10♠,A♦ K♥ A♥ 4♠ A♠ 8♦ 9♠ 4♣ 6♥ 3♣ 10♠,40,1,"h,s",h,h,True,digital,,1,False,win
+Heart54,1782585773.572931,17,Rob,2,Rob,A♥ 4♠ A♠ 2♦,18,True,10♠,A♦ K♥ A♥ 4♠ A♠ 2♦ 8♦ 9♠ 4♣ 6♥ 3♣ 10♠,39,1,"h,s",s,h,True,digital,,1,False,win
+Heart54,1782585942.9091043,18,Rob,1,David,6♦ 5♦,11,False,3♦,6♦ 5♦ 9♦ 10♣ Q♠ Q♥ 3♥ J♦ 3♦,42,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782585944.3696058,18,Rob,2,David,9♦ 10♣,19,False,3♦,6♦ 5♦ A♦ 9♦ 10♣ Q♠ Q♥ 3♥ J♦ 3♦,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585947.7732842,18,David,1,David,Q♠ Q♥,20,False,3♦,6♦ 5♦ A♦ 9♦ 10♣ Q♠ Q♥ 3♥ J♦ 3♦,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782585950.5404453,18,David,1,David,Q♠ 4♣,14,False,3♦,6♦ 5♦ A♦ 9♦ 10♣ Q♠ 4♣ Q♥ 3♥ J♦ 3♦,40,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585953.0333242,18,David,2,David,Q♥ 6♣,16,False,3♦,6♦ 5♦ A♦ 9♦ 10♣ Q♠ 4♣ Q♥ 6♣ 3♥ J♦ 3♦,39,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782585954.5987813,18,David,3,David,3♥ J♦,13,False,3♦,6♦ 5♦ A♦ 9♦ 10♣ Q♠ 4♣ Q♥ 6♣ 3♥ J♦ 3♦,39,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782586127.5855362,19,David,1,Rob,9♠ Q♦,19,False,J♣,9♥ 6♦ 4♣ 8♦ 9♠ Q♦ 2♦ 8♠ J♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782586128.294372,19,David,2,Rob,2♦ 8♠,10,False,J♣,9♥ 6♦ 4♣ 8♦ 9♠ Q♦ 2♦ 8♠ J♣,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782586134.2948751,19,Rob,1,Rob,9♥ 6♦,15,False,J♣,9♥ 6♦ 4♣ 8♦ 9♠ Q♦ 2♦ 8♠ 6♥ J♣,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782586134.998727,19,Rob,2,Rob,4♣ 8♦,12,False,J♣,9♥ 6♦ 4♣ 8♦ 9♠ Q♦ 2♦ 8♠ 6♥ J♣,41,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782586139.429895,19,Rob,2,Rob,4♣ 8♦ 2♠,14,False,J♣,9♥ 6♦ 4♣ 8♦ 2♠ 9♠ Q♦ 2♦ 8♠ 6♥ J♣,40,1,"h,s",s,h,True,digital,,1,False,loss
+Heart54,1782586187.74863,20,David,1,Rob,8♥ 7♠,15,False,J♥,K♦ 8♦ 4♦ Q♦ 8♥ 7♠ 8♠ K♣ J♥,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782586188.4913893,20,David,2,Rob,8♠ K♣,18,False,J♥,K♦ 8♦ 4♦ Q♦ 8♥ 7♠ 8♠ K♣ J♥,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782586191.3790457,20,Rob,1,Rob,K♦ 8♦,18,False,J♥,K♦ 8♦ 4♦ Q♦ 8♥ 7♠ 8♠ K♣ J♥,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782586192.0679436,20,Rob,2,Rob,4♦ Q♦,14,False,J♥,K♦ 8♦ 4♦ Q♦ 8♥ 7♠ 8♠ K♣ J♥,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782586319.6211047,21,Rob,1,David,9♠ 8♦,17,False,9♦,9♠ 8♦ 5♠ Q♣ 7♥ 9♥ 4♠ A♠ 9♦,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782586324.160051,21,Rob,2,David,5♠ Q♣,15,False,9♦,9♠ 8♦ 5♠ Q♣ 7♥ 9♥ 4♠ A♠ 9♦,42,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782586326.6325781,21,David,1,David,7♥ 9♥,16,False,9♦,9♠ 8♦ 5♠ Q♣ 7♥ 9♥ 4♠ A♠ 9♦,42,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782586333.2228973,21,David,2,David,4♠ A♠,15,True,9♦,9♠ 8♦ 5♠ Q♣ 7♥ 9♥ 4♠ A♠ 9♦,42,1,"h,s,d",d,h,True,digital,,1,False,win
+Heart54,1782586391.3386364,22,David,1,Rob,4♠ 3♠,7,False,2♣,2♥ 2♦ 10♠ 5♠ 4♠ 3♠ 9♦ 3♦ 2♣,42,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782586396.6300602,22,David,1,Rob,4♠ 3♠ 9♣,16,False,2♣,2♥ 2♦ 10♠ 5♠ 4♠ 3♠ 9♣ 9♦ 3♦ 2♣,41,1,"h,s",h,s,True,digital,,1,False,win
+Heart54,1782586408.7840128,22,David,1,Rob,4♠ 3♠ 9♣ A♦,17,False,2♣,2♥ 2♦ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 2♣,40,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782586409.572948,22,David,2,Rob,9♦ 3♦,12,False,2♣,2♥ 2♦ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 2♣,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782586413.247013,22,David,2,Rob,9♦ 3♦ 4♣,16,False,2♣,2♥ 2♦ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 4♣ 2♣,39,1,"h,s",h,s,True,digital,,1,False,loss
+Heart54,1782586416.0519578,22,Rob,1,Rob,2♥ 2♦,4,False,2♣,2♥ 2♦ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 4♣ 7♦ 2♣,38,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782586418.877175,22,Rob,1,Rob,2♥ 5♣,7,False,2♣,2♥ 5♣ 2♦ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 4♣ 7♦ 2♣,37,1,"h,s,d",d,h,True,digital,,1,False,win
+Heart54,1782586421.9937098,22,Rob,2,Rob,2♦ 5♥,7,False,2♣,2♥ 5♣ Q♣ 2♦ 5♥ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 4♣ 7♦ 2♣,35,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782586423.7690716,22,Rob,2,Rob,2♦ 5♥ J♦,17,False,2♣,2♥ 5♣ Q♣ 2♦ 5♥ J♦ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 4♣ 7♦ 2♣,34,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782586424.330843,22,Rob,3,Rob,10♠ 5♠,15,False,2♣,2♥ 5♣ Q♣ 2♦ 5♥ J♦ 10♠ 5♠ 4♠ 3♠ 9♣ A♦ 9♦ 3♦ 4♣ 7♦ 2♣,34,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782586460.9236367,23,David,1,Rob,Q♦ 5♣,15,False,Q♣,7♦ 4♠ 2♣ 8♣ Q♦ 5♣ 6♥ 4♣ Q♣,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782586464.6500251,23,David,2,Rob,6♥ 4♣,10,False,Q♣,7♦ 4♠ 2♣ 8♣ Q♦ 5♣ 7♠ 6♥ 4♣ Q♣,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782586465.4859078,23,Rob,1,Rob,7♦ 4♠,11,False,Q♣,7♦ 4♠ 2♣ 8♣ Q♦ 5♣ 7♠ 6♥ 4♣ 6♠ Q♣,40,1,"h,s,d",d,d,True,digital,,1,False,push
+Heart54,1782586466.0454395,23,Rob,2,Rob,2♣ 8♣,10,False,Q♣,7♦ 4♠ 9♣ 2♣ 8♣ Q♦ 5♣ 7♠ 6♥ 4♣ 6♠ Q♣,39,1,"h,s,d",d,d,True,digital,,1,False,push
+Heart54,1782586612.500341,24,Rob,1,David,8♣ 9♣,17,False,K♣,8♣ 9♣ 6♦ Q♠ K♠ A♠ 5♦ 10♠ K♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782586613.1734595,24,Rob,2,David,6♦ Q♠,16,False,K♣,8♣ 9♣ 6♦ Q♠ K♠ A♠ 5♦ 10♠ K♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782586616.600044,24,David,2,David,5♦ 10♠,15,False,K♣,8♣ 9♣ 6♦ Q♠ K♠ A♠ 5♦ 10♠ K♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782586664.9663827,25,Rob,1,David,9♥ A♥,20,True,7♦,9♥ A♥ 9♣ 3♥ 6♣ K♦ 10♣ 3♦ 7♦,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782586666.0417216,25,Rob,2,David,9♣ 3♥,12,False,7♦,9♥ A♥ 9♣ 3♥ 6♣ K♦ 10♣ 3♦ 7♦,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782586669.0041819,25,David,1,David,6♣ K♦,16,False,7♦,9♥ A♥ 9♣ 3♥ K♣ 6♣ K♦ 10♣ 3♦ 7♦,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782586669.469383,25,David,2,David,10♣ 3♦,13,False,7♦,9♥ A♥ 9♣ 3♥ K♣ 6♣ K♦ 10♣ 3♦ 7♦,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782586702.154024,26,David,1,Rob,5♠ 6♠,11,False,10♥,10♠ 2♠ Q♠ 3♥ 5♠ 6♠ 6♦ 4♦ 10♥,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782586702.8553069,26,David,2,Rob,6♦ 4♦,10,False,10♥,10♠ 2♠ Q♠ 3♥ 5♠ 6♠ 2♦ 6♦ 4♦ 10♥,41,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782586708.2170782,26,Rob,1,Rob,10♠ 2♠,12,False,10♥,10♠ 2♠ Q♠ 3♥ 5♠ 6♠ 2♦ 6♦ 4♦ K♥ 10♥,40,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782586712.3378553,26,Rob,1,Rob,10♠ 2♠ A♣,13,False,10♥,10♠ 2♠ A♣ Q♠ 3♥ 5♠ 6♠ 2♦ 6♦ 4♦ K♥ 10♥,39,1,"h,s",h,h,True,digital,,1,False,win
+Heart54,1782586713.878257,26,Rob,1,Rob,10♠ 2♠ A♣ 7♣,20,False,10♥,10♠ 2♠ A♣ 7♣ Q♠ 3♥ 5♠ 6♠ 2♦ 6♦ 4♦ K♥ 10♥,38,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782586764.4641802,26,Rob,2,Rob,Q♠ 3♥,13,False,10♥,10♠ 2♠ A♣ 7♣ Q♠ 3♥ 5♠ 6♠ 2♦ 6♦ 4♦ K♥ 10♥,38,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587091.1383946,27,David,1,Rob,4♠ K♠,14,False,7♥,8♥ A♥ J♣ 10♠ 4♠ K♠ 3♥ A♦ 7♥,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587092.5301688,27,David,2,Rob,3♥ A♦,14,True,7♥,8♥ A♥ J♣ 10♠ 4♠ K♠ 3♥ A♦ 7♥,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782587096.6419332,27,David,2,Rob,3♥ A♦ Q♦,14,False,7♥,8♥ A♥ J♣ 10♠ 4♠ K♠ 3♥ A♦ Q♦ 7♥,41,1,"h,s",s,h,True,digital,,1,False,loss
+Heart54,1782587098.4553971,27,Rob,1,Rob,8♥ A♥,19,True,7♥,8♥ A♥ J♣ 10♠ 4♠ K♠ 3♥ A♦ Q♦ 7♥,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587101.7547274,27,Rob,2,Rob,J♣ 10♠,20,False,7♥,8♥ A♥ J♣ 10♠ 4♠ K♠ 3♥ A♦ Q♦ 7♥,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+Heart54,1782587103.2437184,27,Rob,2,Rob,J♣ 7♦,17,False,7♥,8♥ A♥ J♣ 7♦ 10♠ 4♠ K♠ 3♥ A♦ Q♦ 7♥,40,1,"h,s,d",s,s,True,digital,,1,False,push
+Heart54,1782587104.081854,27,Rob,3,Rob,10♠ 9♣,19,False,7♥,8♥ A♥ J♣ 7♦ 10♠ 9♣ 4♠ K♠ 3♥ A♦ Q♦ 7♥,39,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587156.4997354,28,Rob,1,David,J♥ 4♣,14,False,10♦,J♥ 4♣ A♠ 7♠ K♦ 3♠ 7♦ Q♦ 10♦,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587157.810022,28,Rob,2,David,A♠ 7♠,18,True,10♦,J♥ 4♣ A♠ 7♠ K♦ 3♠ 7♦ Q♦ 10♦,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587160.4768858,28,David,1,David,K♦ 3♠,13,False,10♦,J♥ 4♣ A♠ 7♠ K♦ 3♠ 7♦ Q♦ 10♦,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587161.0812461,28,David,2,David,7♦ Q♦,17,False,10♦,J♥ 4♣ A♠ 7♠ K♦ 3♠ 7♦ Q♦ 10♦,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782587212.1918933,29,David,1,Rob,3♣ J♥,13,False,2♥,3♠ 9♥ 10♣ 5♦ 3♣ J♥ A♣ 8♣ 2♥,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587212.5031083,29,David,2,Rob,A♣ 8♣,19,True,2♥,3♠ 9♥ 10♣ 5♦ 3♣ J♥ A♣ 8♣ 2♥,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587214.5208156,29,Rob,1,Rob,3♠ 9♥,12,False,2♥,3♠ 9♥ 10♣ 5♦ 3♣ J♥ A♣ 8♣ 2♥,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782587215.6786945,29,Rob,2,Rob,10♣ 5♦,15,False,2♥,3♠ 9♥ K♠ 10♣ 5♦ 3♣ J♥ A♣ 8♣ 2♥,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587249.4981887,30,David,1,Rob,3♠ A♠,14,True,9♠,2♠ 7♥ 9♥ J♠ 3♠ A♠ 10♠ 6♠ 9♠,42,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782587250.1480055,30,David,2,Rob,10♠ 6♠,16,False,9♠,2♠ 7♥ 9♥ J♠ 3♠ A♠ 10♠ 6♠ 9♠,42,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782587252.1938674,30,Rob,1,Rob,2♠ 7♥,9,False,9♠,2♠ 7♥ 9♥ J♠ 3♠ A♠ 10♠ 6♠ 9♠,42,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782587253.0936933,30,Rob,2,Rob,9♥ J♠,19,False,9♠,2♠ 7♥ K♥ 9♥ J♠ 3♠ A♠ 10♠ 6♠ 9♠,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587308.3359663,31,Rob,1,David,8♠ K♥,18,False,A♣,8♠ K♥ J♠ 10♣ 5♣ 6♠ 3♠ 6♣ A♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782587309.5868974,31,Rob,2,David,J♠ 10♣,20,False,A♣,8♠ K♥ J♠ 10♣ 5♣ 6♠ 3♠ 6♣ A♣,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782587313.2362256,31,Rob,2,David,J♠ 2♣,12,False,A♣,8♠ K♥ J♠ 2♣ 10♣ 5♣ 6♠ 3♠ 6♣ A♣,41,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782587321.586483,31,Rob,2,David,J♠ 2♣ A♥,13,False,A♣,8♠ K♥ J♠ 2♣ A♥ 10♣ 5♣ 6♠ 3♠ 6♣ A♣,40,1,"h,s",s,h,True,digital,,1,False,loss
+Heart54,1782587324.207686,31,Rob,3,David,10♣ 9♠,19,False,A♣,8♠ K♥ J♠ 2♣ A♥ 10♣ 9♠ 5♣ 6♠ 3♠ 6♣ A♣,39,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782587326.2419498,31,David,1,David,5♣ 6♠,11,False,A♣,8♠ K♥ J♠ 2♣ A♥ 10♣ 9♠ 5♣ 6♠ 3♠ 6♣ A♣,39,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782587327.598402,31,David,2,David,3♠ 6♣,9,False,A♣,8♠ K♥ J♠ 2♣ A♥ 10♣ 9♠ 5♣ 6♠ 2♥ 3♠ 6♣ A♣,38,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782587371.9184697,32,David,1,Rob,5♦ 8♥,13,False,3♣,6♠ 10♠ K♦ 8♣ 5♦ 8♥ 3♦ J♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587372.3774652,32,David,2,Rob,3♦ J♦,13,False,3♣,6♠ 10♠ K♦ 8♣ 5♦ 8♥ 3♦ J♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587373.1407316,32,Rob,1,Rob,6♠ 10♠,16,False,3♣,6♠ 10♠ K♦ 8♣ 5♦ 8♥ 3♦ J♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587373.4913034,32,Rob,2,Rob,K♦ 8♣,18,False,3♣,6♠ 10♠ K♦ 8♣ 5♦ 8♥ 3♦ J♦ 3♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587471.9526656,33,Rob,1,David,K♦ 8♣,18,False,K♠,K♦ 8♣ 8♥ 3♥ 7♠ 4♣ 2♣ 9♥ K♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782587473.0652373,33,Rob,2,David,8♥ 3♥,11,False,K♠,K♦ 8♣ 8♥ 3♥ 7♠ 4♣ 2♣ 9♥ K♠,42,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782587473.9340532,33,David,1,David,7♠ 4♣,11,False,K♠,K♦ 8♣ 8♥ 3♥ 5♥ 7♠ 4♣ 2♣ 9♥ K♠,41,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782587474.4132466,33,David,2,David,2♣ 9♥,11,False,K♠,K♦ 8♣ 8♥ 3♥ 5♥ 7♠ 4♣ J♣ 2♣ 9♥ K♠,40,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782587606.2570848,34,David,1,Rob,3♥ 8♣,11,False,A♥,6♥ 3♠ 10♥ Q♦ 3♥ 8♣ 7♠ 6♠ A♥,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782587607.4884374,34,David,2,Rob,7♠ 6♠,13,False,A♥,6♥ 3♠ 10♥ Q♦ 3♥ 8♣ 2♦ 7♠ 6♠ A♥,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587609.391926,34,Rob,1,Rob,6♥ 3♠,9,False,A♥,6♥ 3♠ 10♥ Q♦ 3♥ 8♣ 2♦ 7♠ 6♠ A♥,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782587610.6462479,34,Rob,2,Rob,10♥ Q♦,20,False,A♥,6♥ 3♠ K♠ 10♥ Q♦ 3♥ 8♣ 2♦ 7♠ 6♠ A♥,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+Heart54,1782587614.0046582,34,Rob,3,Rob,Q♦ 5♥,15,False,A♥,6♥ 3♠ K♠ 10♥ A♣ Q♦ 5♥ 3♥ 8♣ 2♦ 7♠ 6♠ A♥,38,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587864.4749777,35,David,1,Rob,5♠ 7♦,12,False,J♠,2♠ 8♠ J♦ 6♠ 5♠ 7♦ 5♦ 3♠ J♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587867.733938,35,David,2,Rob,5♦ 3♠,8,False,J♠,2♠ 8♠ J♦ 6♠ 5♠ 7♦ 5♦ 3♠ J♠,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782587875.7762399,35,David,2,Rob,5♦ 3♠ 4♣,12,False,J♠,2♠ 8♠ J♦ 6♠ 5♠ 7♦ 5♦ 3♠ 4♣ J♠,41,1,"h,s",s,h,True,digital,,1,False,loss
+Heart54,1782587876.590269,35,Rob,1,Rob,2♠ 8♠,10,False,J♠,2♠ 8♠ J♦ 6♠ 5♠ 7♦ 5♦ 3♠ 4♣ J♠,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782587877.6608045,35,Rob,2,Rob,J♦ 6♠,16,False,J♠,2♠ 8♠ 4♠ J♦ 6♠ 5♠ 7♦ 5♦ 3♠ 4♣ J♠,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587942.1658938,36,Rob,1,David,5♥ 3♥,8,False,Q♣,5♥ 3♥ 7♠ 7♣ 10♣ A♠ 9♠ 10♦ Q♣,42,1,"h,s,d",d,h,True,digital,,1,False,loss
+Heart54,1782587943.5711439,36,Rob,2,David,7♠ 7♣,14,False,Q♣,5♥ 3♥ 4♥ 7♠ 7♣ 10♣ A♠ 9♠ 10♦ Q♣,41,1,"h,s,d,sp",sp,h,True,digital,,1,False,push
+Heart54,1782587946.4776697,36,Rob,2,David,7♠ 2♣,9,False,Q♣,5♥ 3♥ 4♥ 7♠ 2♣ 7♣ 10♣ A♠ 9♠ 10♦ Q♣,40,1,"h,s,d",d,d,True,digital,,1,False,push
+Heart54,1782587949.8471377,36,Rob,3,David,7♣ 8♥,15,False,Q♣,5♥ 3♥ 4♥ 7♠ 2♣ A♣ 7♣ 8♥ 10♣ A♠ 9♠ 10♦ Q♣,38,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782587951.892605,36,David,2,David,9♠ 10♦,19,False,Q♣,5♥ 3♥ 4♥ 7♠ 2♣ A♣ 7♣ 8♥ 10♣ A♠ 9♠ 10♦ Q♣,38,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588204.3739216,37,Rob,1,David,Q♠ Q♥,20,False,4♥,Q♠ Q♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782588205.8261657,37,Rob,1,David,Q♠ J♦,20,False,4♥,Q♠ J♦ Q♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782588208.6336057,37,Rob,1,David,Q♠ 7♣,17,False,4♥,Q♠ 7♣ J♦ Q♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,40,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588211.3739972,37,Rob,2,David,J♦ 5♣,15,False,4♥,Q♠ 7♣ J♦ 5♣ Q♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,39,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588213.9733622,37,Rob,3,David,Q♥ J♠,20,False,4♥,Q♠ 7♣ J♦ 5♣ Q♥ J♠ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,38,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+Heart54,1782588216.0123715,37,Rob,3,David,Q♥ 9♠,19,False,4♥,Q♠ 7♣ J♦ 5♣ Q♥ 9♠ J♠ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,37,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588221.7486212,37,Rob,4,David,J♠ 3♥,13,False,4♥,Q♠ 7♣ J♦ 5♣ Q♥ 9♠ J♠ 3♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,36,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588223.4995422,37,Rob,5,David,9♣ 10♦,19,False,4♥,Q♠ 7♣ J♦ 5♣ Q♥ 9♠ J♠ 3♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,36,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588225.547417,37,David,1,David,7♥ K♥,17,False,4♥,Q♠ 7♣ J♦ 5♣ Q♥ 9♠ J♠ 3♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,36,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588225.9673994,37,David,2,David,6♥ K♣,16,False,4♥,Q♠ 7♣ J♦ 5♣ Q♥ 9♠ J♠ 3♥ 9♣ 10♦ 7♥ K♥ 6♥ K♣ 4♥,36,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588272.3702948,38,David,1,Rob,2♣ 3♦,5,False,2♦,J♠ 6♦ J♥ 4♠ 2♣ 3♦ 6♠ 5♥ 2♦,42,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782588276.5698633,38,David,1,Rob,2♣ 3♦ 9♥,14,False,2♦,J♠ 6♦ J♥ 4♠ 2♣ 3♦ 9♥ 6♠ 5♥ 2♦,41,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782588277.7167954,38,David,2,Rob,6♠ 5♥,11,False,2♦,J♠ 6♦ J♥ 4♠ 2♣ 3♦ 9♥ 6♠ 5♥ 2♦,41,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782588280.537316,38,Rob,1,Rob,J♠ 6♦,16,False,2♦,J♠ 6♦ J♥ 4♠ 2♣ 3♦ 9♥ 6♠ 5♥ 5♣ 2♦,40,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588280.7648373,38,Rob,2,Rob,J♥ 4♠,14,False,2♦,J♠ 6♦ J♥ 4♠ 2♣ 3♦ 9♥ 6♠ 5♥ 5♣ 2♦,40,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588335.9878855,39,Rob,2,David,Q♣ 6♦,16,False,K♠,A♦ 10♠ Q♣ 6♦ 9♦ 4♥ J♣ 9♥ K♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588342.3291435,39,David,1,David,9♦ 4♥,13,False,K♠,A♦ 10♠ Q♣ 6♦ 9♦ 4♥ J♣ 9♥ K♠,42,1,"h,s,d",h,h,True,digital,,1,False,push
+Heart54,1782588344.2053115,39,David,1,David,9♦ 4♥ 5♥,18,False,K♠,A♦ 10♠ Q♣ 6♦ 9♦ 4♥ 5♥ J♣ 9♥ K♠,41,1,"h,s",s,s,True,digital,,1,False,push
+Heart54,1782588344.8005075,39,David,2,David,J♣ 9♥,19,False,K♠,A♦ 10♠ Q♣ 6♦ 9♦ 4♥ 5♥ J♣ 9♥ K♠,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588380.5423608,40,Rob,1,David,Q♥ 5♠,15,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ K♥ 10♠ 7♦,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588381.2320983,40,Rob,2,David,4♦ 9♦,13,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ K♥ 10♠ 7♦,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588382.6574037,40,David,1,David,4♠ 6♣,10,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ K♥ 10♠ 7♦,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782588384.146865,40,David,2,David,K♥ 10♠,20,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ 6♦ K♥ 10♠ 7♦,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782588386.0932753,40,David,2,David,K♥ 7♥,17,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ 6♦ K♥ 7♥ 10♠ 7♦,40,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588389.308944,40,David,3,David,10♠ Q♣,20,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ 6♦ K♥ 7♥ 10♠ Q♣ 7♦,39,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782588394.0796885,40,David,3,David,10♠ 3♥,13,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ 6♦ K♥ 7♥ 10♠ 3♥ Q♣ 7♦,38,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588445.5636163,40,David,4,David,Q♣ 6♥,16,False,7♦,Q♥ 5♠ 4♦ 9♦ 4♠ 6♣ 6♦ K♥ 7♥ 10♠ 3♥ Q♣ 6♥ 7♦,37,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588497.7849202,41,David,1,Rob,6♠ 6♥,12,False,10♣,A♦ J♣ 7♥ 9♥ 6♠ 6♥ 2♥ K♠ 10♣,42,1,"h,s,d,sp",sp,h,True,digital,,1,False,loss
+Heart54,1782588505.284729,41,David,1,Rob,6♠ 10♥,16,False,10♣,A♦ J♣ 7♥ 9♥ 6♠ 10♥ 6♥ 2♥ K♠ 10♣,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588507.8759215,41,David,2,Rob,6♥ 5♥,11,False,10♣,A♦ J♣ 7♥ 9♥ 6♠ 10♥ 6♥ 5♥ 2♥ K♠ 10♣,40,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782588516.0502212,41,David,3,Rob,2♥ K♠,12,False,10♣,A♦ J♣ 7♥ 9♥ 6♠ 10♥ 6♥ 5♥ Q♠ 2♥ K♠ 10♣,39,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588516.681622,41,Rob,2,Rob,7♥ 9♥,16,False,10♣,A♦ J♣ 7♥ 9♥ 6♠ 10♥ 6♥ 5♥ Q♠ 2♥ K♠ 10♣,39,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588545.739513,42,David,1,Rob,8♦ 7♥,15,False,10♥,8♥ K♣ 9♥ K♦ 8♦ 7♥ 5♥ 6♠ 10♥,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588546.6077971,42,David,2,Rob,5♥ 6♠,11,False,10♥,8♥ K♣ 9♥ K♦ 8♦ 7♥ 5♥ 6♠ 10♥,42,1,"h,s,d",d,d,True,digital,,1,False,push
+Heart54,1782588548.2366931,42,Rob,1,Rob,8♥ K♣,18,False,10♥,8♥ K♣ 9♥ K♦ 8♦ 7♥ 5♥ 6♠ 7♣ 10♥,41,1,"h,s,d",s,s,True,digital,,1,False,push
+Heart54,1782588548.5012875,42,Rob,2,Rob,9♥ K♦,19,False,10♥,8♥ K♣ 9♥ K♦ 8♦ 7♥ 5♥ 6♠ 7♣ 10♥,41,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588582.9977458,43,Rob,1,David,2♣ 6♦,8,False,4♣,2♣ 6♦ 7♠ 8♥ 8♠ 5♦ 6♠ 5♥ 4♣,42,1,"h,s,d",d,h,True,digital,,1,False,loss
+Heart54,1782588585.026897,43,Rob,2,David,7♠ 8♥,15,False,4♣,2♣ 6♦ K♥ 7♠ 8♥ 8♠ 5♦ 6♠ 5♥ 4♣,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588586.6323225,43,David,1,David,8♠ 5♦,13,False,4♣,2♣ 6♦ K♥ 7♠ 8♥ 8♠ 5♦ 6♠ 5♥ 4♣,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588587.8662243,43,David,2,David,6♠ 5♥,11,False,4♣,2♣ 6♦ K♥ 7♠ 8♥ 8♠ 5♦ 6♠ 5♥ 4♣,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782588642.5541928,44,David,1,Rob,4♠ J♥,14,False,2♣,Q♣ 6♥ K♦ Q♠ 4♠ J♥ 4♦ 3♦ 2♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588644.988584,44,David,2,Rob,4♦ 3♦,7,False,2♣,Q♣ 6♥ K♦ Q♠ 4♠ J♥ 4♦ 3♦ 2♣,42,1,"h,s,d",d,h,True,digital,,1,False,loss
+Heart54,1782588647.4650903,44,Rob,1,Rob,Q♣ 6♥,16,False,2♣,Q♣ 6♥ K♦ Q♠ 4♠ J♥ 4♦ 3♦ J♠ 2♣,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588648.0010803,44,Rob,2,Rob,K♦ Q♠,20,False,2♣,Q♣ 6♥ K♦ Q♠ 4♠ J♥ 4♦ 3♦ J♠ 2♣,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+Heart54,1782588649.0587842,44,Rob,2,Rob,K♦ K♥,20,False,2♣,Q♣ 6♥ K♦ K♥ Q♠ 4♠ J♥ 4♦ 3♦ J♠ 2♣,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+Heart54,1782588650.2342172,44,Rob,2,Rob,K♦ 8♦,18,False,2♣,Q♣ 6♥ K♦ 8♦ K♥ Q♠ 4♠ J♥ 4♦ 3♦ J♠ 2♣,39,1,"h,s,d",s,s,True,digital,,1,False,push
+Heart54,1782588654.5014117,44,Rob,3,Rob,K♥ 2♦,12,False,2♣,Q♣ 6♥ K♦ 8♦ K♥ 2♦ Q♠ 4♠ J♥ 4♦ 3♦ J♠ 2♣,38,1,"h,s,d",h,h,True,digital,,1,False,push
+Heart54,1782588655.5630996,44,Rob,3,Rob,K♥ 2♦ 6♣,18,False,2♣,Q♣ 6♥ K♦ 8♦ K♥ 2♦ 6♣ Q♠ 4♠ J♥ 4♦ 3♦ J♠ 2♣,37,1,"h,s",s,s,True,digital,,1,False,push
+Heart54,1782588656.562663,44,Rob,4,Rob,Q♠ 7♦,17,False,2♣,Q♣ 6♥ K♦ 8♦ K♥ 2♦ 6♣ Q♠ 7♦ 4♠ J♥ 4♦ 3♦ J♠ 2♣,36,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588686.1819346,45,David,1,Rob,5♦ 6♥,11,False,A♠,7♣ 5♠ 3♠ 9♥ 5♦ 6♥ K♥ 3♦ A♠,42,1,"h,s,d",d,d,True,digital,,1,False,win
+Heart54,1782588686.9487112,45,David,2,Rob,K♥ 3♦,13,False,A♠,7♣ 5♠ 3♠ 9♥ 5♦ 6♥ K♦ K♥ 3♦ A♠,41,1,"h,s,d",s,h,True,digital,,1,False,win
+Heart54,1782588697.690055,45,Rob,1,Rob,7♣ 5♠,12,False,A♠,7♣ 5♠ 3♠ 9♥ 5♦ 6♥ K♦ K♥ 3♦ A♠,41,1,"h,s,d",h,h,True,digital,,1,False,win
+Heart54,1782588698.9742315,45,Rob,1,Rob,7♣ 5♠ 5♥,17,False,A♠,7♣ 5♠ 5♥ 3♠ 9♥ 5♦ 6♥ K♦ K♥ 3♦ A♠,40,1,"h,s",s,s,True,digital,,1,False,win
+Heart54,1782588699.516506,45,Rob,2,Rob,3♠ 9♥,12,False,A♠,7♣ 5♠ 5♥ 3♠ 9♥ 5♦ 6♥ K♦ K♥ 3♦ A♠,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+Heart54,1782588759.0752547,46,Rob,1,David,5♦ 7♦,12,False,10♣,5♦ 7♦ J♥ 9♠ J♦ A♥ 6♦ K♠ 10♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588759.5444868,46,Rob,2,David,J♥ 9♠,19,False,10♣,5♦ 7♦ J♥ 9♠ J♦ A♥ 6♦ K♠ 10♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+Heart54,1782588760.1050117,46,David,2,David,6♦ K♠,16,False,10♣,5♦ 7♦ J♥ 9♠ J♦ A♥ 6♦ K♠ 10♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588787.0417004,47,Rob,1,David,K♦ J♥,20,False,Q♠,K♦ J♥ J♣ K♠ 2♥ 3♦ 4♦ 10♣ Q♠,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782588794.8126807,47,Rob,1,David,K♦ 5♠,15,False,Q♠,K♦ 5♠ J♥ J♣ K♠ 2♥ 3♦ 4♦ 10♣ Q♠,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588797.001512,47,Rob,2,David,J♥ 6♥,16,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ K♠ 2♥ 3♦ 4♦ 10♣ Q♠,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588798.4396605,47,Rob,3,David,J♣ K♠,20,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ K♠ 2♥ 3♦ 4♦ 10♣ Q♠,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+Heart54,1782588800.4937901,47,Rob,3,David,J♣ 3♥,13,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ 3♥ K♠ 2♥ 3♦ 4♦ 10♣ Q♠,39,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588804.1354206,47,Rob,4,David,K♠ 5♣,15,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ 3♥ K♠ 5♣ 2♥ 3♦ 4♦ 10♣ Q♠,38,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588805.710135,47,David,1,David,2♥ 3♦,5,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ 3♥ K♠ 5♣ 2♥ 3♦ 4♦ 10♣ Q♠,38,1,"h,s,d",h,h,True,digital,,1,False,push
+Heart54,1782588808.5782661,47,David,1,David,2♥ 3♦ 6♣,11,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ 3♥ K♠ 5♣ 2♥ 3♦ 6♣ 4♦ 10♣ Q♠,37,1,"h,s",h,h,True,digital,,1,False,push
+Heart54,1782588827.7981615,47,David,1,David,2♥ 3♦ 6♣ 2♠,13,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ 3♥ K♠ 5♣ 2♥ 3♦ 6♣ 2♠ 4♦ 10♣ Q♠,36,1,"h,s",h,h,True,digital,,1,False,push
+Heart54,1782588835.7849011,47,David,1,David,2♥ 3♦ 6♣ 2♠ 6♦,19,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ 3♥ K♠ 5♣ 2♥ 3♦ 6♣ 2♠ 6♦ 4♦ 10♣ Q♠,35,1,"h,s",s,s,True,digital,,1,False,push
+Heart54,1782588836.466157,47,David,2,David,4♦ 10♣,14,False,Q♠,K♦ 5♠ J♥ 6♥ J♣ 3♥ K♠ 5♣ 2♥ 3♦ 6♣ 2♠ 6♦ 4♦ 10♣ Q♠,35,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588894.2135468,48,David,1,Rob,4♦ 5♥,9,False,8♦,7♥ K♣ 7♦ 6♦ 4♦ 5♥ 6♣ 10♥ 8♦,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+Heart54,1782588895.3848743,48,David,2,Rob,6♣ 10♥,16,False,8♦,7♥ K♣ 7♦ 6♦ 4♦ 5♥ 2♦ 6♣ 10♥ 8♦,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+Heart54,1782588896.5048125,48,Rob,1,Rob,7♥ K♣,17,False,8♦,7♥ K♣ 7♦ 6♦ 4♦ 5♥ 2♦ 6♣ 10♥ 8♦,41,1,"h,s,d",s,s,True,digital,,1,False,loss
+Heart54,1782588896.9252756,48,Rob,2,Rob,7♦ 6♦,13,False,8♦,7♥ K♣ 7♦ 6♦ 4♦ 5♥ 2♦ 6♣ 10♥ 8♦,41,1,"h,s,d",s,h,True,digital,,1,False,loss
