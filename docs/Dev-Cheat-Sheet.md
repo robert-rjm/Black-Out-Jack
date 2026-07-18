@@ -100,7 +100,7 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
    ```bash
    python scripts/compare_bot_styles.py                              # all mined profiles vs. basic
    python scripts/compare_bot_styles.py --personalities rob marko
-   python scripts/compare_bot_styles.py --decks 2 --rounds 20000 --seed 7
+   python scripts/compare_bot_styles.py --decks 2 --rounds 100000 --seed 7
    ```
    Runs basic-strategy bots and named personas on the **same seed** (identical shoes/cards),
    then prints a side-by-side stats table (avg sips/round, bust/blackjack/win rates, etc.)
