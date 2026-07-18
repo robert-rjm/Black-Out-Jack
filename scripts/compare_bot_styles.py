@@ -14,12 +14,18 @@ prints a comparison table.
 Usage:
     python scripts/compare_bot_styles.py
     python scripts/compare_bot_styles.py --personalities rob marko
-    python scripts/compare_bot_styles.py --decks 2 --rounds 20000 --seed 7
+    python scripts/compare_bot_styles.py --decks 2 --rounds 100000 --seed 7
+    python scripts/compare_bot_styles.py --out scripts/bot_style_comparison.txt
+
+Always writes the comparison report to scripts/bot_style_comparison.txt
+(override with --out), in addition to printing it -- pass --no-save to skip
+the file entirely.
 """
 import os
 import sys
 import random
 import argparse
+from datetime import datetime
 from collections import defaultdict
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -71,18 +77,25 @@ def _run(num_players, num_decks, num_rounds, seed, personalities):
     return stats, player_sips, dealer_sips
 
 
+DEFAULT_OUT = os.path.join(HERE, "bot_style_comparison.txt")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--personalities", nargs="+", default=None,
                          help="Profile names to compare against basic strategy "
                               "(default: every profile in engine/player_profiles/)")
     parser.add_argument("--decks", type=int, default=1)
-    parser.add_argument("--rounds", type=int, default=20000,
-                         help="Rounds per run (default 20000 -- lower than "
+    parser.add_argument("--rounds", type=int, default=100000,
+                         help="Rounds per run (default 100000 -- lower than "
                               "simulation.py's full 100k default for faster iteration)")
     parser.add_argument("--seed", type=int, default=None,
                          help="Seed shared by both runs so they see identical "
                               "shoes/cards. Default: a fresh random seed each run.")
+    parser.add_argument("--out", default=DEFAULT_OUT,
+                         help=f"Report file path (default: {DEFAULT_OUT})")
+    parser.add_argument("--no-save", action="store_true",
+                         help="Print the report but don't write it to a file")
     args = parser.parse_args()
 
     personalities = [p.lower() for p in (args.personalities or available_profiles())]
@@ -100,10 +113,20 @@ def main():
     basic_names   = [f"Player{i + 1}" for i in range(num_players)]
     persona_names = [p.capitalize() for p in personalities]
 
+    print(f"=== Run 1/2: basic strategy ({', '.join(basic_names)}) ===")
     basic_stats, basic_player_sips, basic_dealer_sips = _run(
         num_players, args.decks, args.rounds, seed, None)
+
+    print(f"\n=== Run 2/2: personalities ({', '.join(persona_names)}) ===")
     persona_stats, persona_player_sips, persona_dealer_sips = _run(
         num_players, args.decks, args.rounds, seed, personalities)
+
+    L = [
+        f"Basic-strategy bots  vs.  personalities: {', '.join(personalities)}",
+        f"{num_players} players | {args.decks} deck(s) | {args.rounds:,} rounds/run | seed={seed}",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        "",
+    ]
 
     headers = ["Metric", "Basic", "Personas", "Delta"]
     rows = []
@@ -116,12 +139,12 @@ def main():
 
     widths = [max(len(str(h)), *(len(str(r[i])) for r in rows)) for i, h in enumerate(headers)]
     fmt_row = "  ".join(f"{{:<{w}}}" for w in widths)
-    print(fmt_row.format(*headers))
-    print("  ".join("-" * w for w in widths))
+    L.append(fmt_row.format(*headers))
+    L.append("  ".join("-" * w for w in widths))
     for row in rows:
-        print(fmt_row.format(*row))
+        L.append(fmt_row.format(*row))
 
-    print(f"\n  Per-seat sips/round ({args.rounds:,} rounds, same seed/shoe both runs):")
+    L.append(f"\nPer-seat sips/round ({args.rounds:,} rounds, same seed/shoe both runs):")
     seat_headers = ["Seat", "Basic name", "Basic sips/rd", "Persona name", "Persona sips/rd", "Delta"]
     seat_rows = []
     for i, (bname, pname) in enumerate(zip(basic_names, persona_names)):
@@ -130,10 +153,18 @@ def main():
         seat_rows.append([str(i + 1), bname, f"{b_total:.2f}", pname, f"{p_total:.2f}", f"{p_total - b_total:+.2f}"])
     seat_widths = [max(len(str(h)), *(len(str(r[i])) for r in seat_rows)) for i, h in enumerate(seat_headers)]
     seat_fmt = "  ".join(f"{{:<{w}}}" for w in seat_widths)
-    print("  " + seat_fmt.format(*seat_headers))
-    print("  " + "  ".join("-" * w for w in seat_widths))
+    L.append(seat_fmt.format(*seat_headers))
+    L.append("  ".join("-" * w for w in seat_widths))
     for row in seat_rows:
-        print("  " + seat_fmt.format(*row))
+        L.append(seat_fmt.format(*row))
+
+    print()
+    print("\n".join(L))
+
+    if not args.no_save:
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.write("\n".join(L) + "\n")
+        print(f"\n  Report -> {args.out}")
 
 
 if __name__ == "__main__":
