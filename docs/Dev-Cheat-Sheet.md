@@ -65,7 +65,9 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
 
 1. Play sessions and download decision logs via the web UI's `/export_decisions` route
    (`GET /export_decisions?room_code=<code>&player=<name optional>`), saving the `.xlsx`
-   files into `data/decisions/`.
+   files into `data/decisions/` (tracked in git — no longer gitignored, so these can't be
+   silently lost the way a local-only folder can be). Older `decision_log_*.csv` exports
+   (pre-dating the two-sheet xlsx format) are also picked up from the same directory.
 2. (Optional) Take a first look at what's been collected:
    ```bash
    python scripts/load_decision_logs.py                    # summary across all logs
@@ -77,9 +79,15 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
    python scripts/build_player_profiles.py                  # all players → engine/player_profiles/<name>.json
    python scripts/build_player_profiles.py --player Rob      # just rob.json
    python scripts/build_player_profiles.py --min-samples 3 --min-majority 0.60   # tune thresholds
+   python scripts/build_player_profiles.py --merge           # fold in each player's EXISTING
+                                                                # profile instead of overwriting —
+                                                                # use this for a normal incremental
+                                                                # update so past sessions aren't lost
    ```
    Writes/updates `engine/player_profiles/rob.json` (etc.), consumed by
-   `engine/style_strategy.py`.
+   `engine/style_strategy.py`. Without `--merge`, a rebuild only reflects whatever raw
+   `decision_log_*` files are currently in `--dir` (default `data/decisions/`) — `--merge`
+   combines that with the target file's already-recorded deviations instead.
 
 ## Other exports (web UI)
 
