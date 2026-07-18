@@ -372,21 +372,21 @@ If the **same Player** is flagged "worst" for **two milestones in a row**, they 
 
 If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards) — the only way this can happen is as the dealt starting hand, since the Dealer always stands on 17+ — every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
 
-Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule — and if a hand's new card itself forms another matching pair, it splits again the same way a Player's hand would, so a hot run of 9s or tens can turn this into three, four, or more hands (capped the same way Player re-splits are):
+Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule — and if a hand's new card itself forms another matching pair, it splits again the same way a Player's hand would, so a hot run of 9s or tens can turn this into three, four, or more hands, up to **5 hands total across both branches combined** (not per branch).
 
 | Result | Effect |
 | --- | --- |
-| 2 or more hands bust | Credit yourself up to X sips off what you owe this round (never below 0), and hand out X sips to another Player |
+| 2 or more hands bust | Credit yourself up to X sips off what you owe this round (never below 0), and hand out ceil(X/2) sips to another Player |
 | Exactly 1 hand busts | Nothing happens |
 | No hand busts | Drink X × (hands − 1) sips |
 
 The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive.
 
-Only the handout amount is halved (rounded up) under 4+ players or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1), and the self-credit is never halved either.
+The handout amount is always halved (rounded up), regardless of player count or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1), and the self-credit is never halved either.
 
-> **Example:** Dealer stands on K♠ Q♥ (20). Alice enters with X=4, Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice credits herself up to 4 sips off her own total this round and hands 4 sips (2 if halving is active) to another Player of her choice. Bob, having entered 0, is unaffected either way.
+> **Example:** Dealer stands on K♠ Q♥ (20). Alice enters with X=5, Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice credits herself up to 5 sips off her own total this round and hands ceil(5/2) = 3 sips to another Player of her choice. Bob, having entered 0, is unaffected either way.
 >
-> **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 4 × (3 − 1) = 8 sips instead of the base 4.
+> **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 5 × (3 − 1) = 10 sips instead of the base 5.
 
 The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side-bet-dealer-bust).
 
@@ -455,8 +455,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | All-hands sweep | 5-card handouts |
 | Insurance resolution | Bust vote penalty/credit (+1/−1) |
 | Four aces at end of round | Targeted Drinking Mode wrong-guess penalty (+1) |
-| Dealer Lottery handout only (never the drink or self-credit) | |
-| RoundEndEvent drinks (wins-all, immunity breakers) | |
+| RoundEndEvent drinks (wins-all, immunity breakers) | Dealer Lottery handout (always halved, unconditionally — see §5.9) |
 
 
 ### 6.2 Easy Mode
