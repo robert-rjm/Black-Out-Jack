@@ -870,12 +870,14 @@ shown standalone rather than folded into a round above:
 > Had **2 or more** of the new hands busted instead (not necessarily
 > both — a re-split only ever makes this easier to reach), Alice would
 > credit herself up to 4 sips off what she owes this round (floored at
-> 0) and hand 4 sips (2 if halved) to a Player of her choice. Had
-> exactly **1** hand busted, nothing would happen — no drink, no
-> credit. (Neither new card here happened to pair up again — K♠+5♣ and
-> Q♥+9♦ don't match — but if one had, that hand would split again the
-> same way a Player's would, same 4-splits cap and all, and a
-> none-bust outcome would then drink X × 2 = 8 sips instead of 4.)
+> 0) and hand ceil(4/2) = 2 sips to a Player of her choice — the
+> handout is always halved, rounded up, regardless of player count or
+> Easy Mode. Had exactly **1** hand busted, nothing would happen — no
+> drink, no credit. (Neither new card here happened to pair up again —
+> K♠+5♣ and Q♥+9♦ don't match — but if one had, that hand would split
+> again the same way a Player's would, up to 5 hands total across both
+> branches combined, and a none-bust outcome would then drink X × 2 =
+> 8 sips instead of 4.)
 
 ---
 

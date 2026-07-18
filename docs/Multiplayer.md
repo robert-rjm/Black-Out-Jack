@@ -136,10 +136,10 @@ If the Dealer's final hand happens to be a **paired 18** (two 9s) or **paired 20
 ### How it works
 - Each player picks a stake **X = 0-5** (20-second window; no answer defaults to 0)
 - If everyone picks 0, nothing happens — no draw, nothing logged
-- Otherwise the dealer's pair splits into fresh hands from a new shuffled deck, played out under the normal dealer-hits-to-17 rule — shown as a real card-by-card reveal animation. If a new card itself forms another matching pair, that hand splits again the same way a player's hand would (same 4-splits cap), so a hot run of 9s or tens can turn this into three or more hands
-- **2 or more hands bust** (not necessarily all of them): credit yourself up to X sips off what you owe this round, and hand X sips out to another player (picker window mirrors the Bust Vote's)
+- Otherwise the dealer's pair splits into fresh hands from a new shuffled deck, played out under the normal dealer-hits-to-17 rule — shown as a real card-by-card reveal animation. If a new card itself forms another matching pair, that hand splits again the same way a player's hand would, so a hot run of 9s or tens can turn this into three or more hands, up to **5 hands total across both branches combined**
+- **2 or more hands bust** (not necessarily all of them): credit yourself up to X sips off what you owe this round, and hand ceil(X/2) sips out to another player — always halved, rounded up, regardless of player count or Easy Mode (picker window mirrors the Bust Vote's)
 - **Exactly 1 hand busts**: nothing happens
-- **No hand busts**: drink X × (hands − 1) — scales with how many hands the redeal produced, so a re-split costs more to stand clean through, not just easier to credit off of. Never halved regardless of player count or Easy Mode (only the bust handout scales with those)
+- **No hand busts**: drink X × (hands − 1) — scales with how many hands the redeal produced, so a re-split costs more to stand clean through, not just easier to credit off of. Never halved regardless of player count or Easy Mode
 
 ### Rules
 - The dealer is eligible to enter too, same as the Bust Vote

@@ -153,11 +153,11 @@ Cross a multiple of **50 cumulative sips** → earn bonus sips to hand out (5 at
 
 ## Dealer Lottery
 
-Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value cards) → everyone picks a stake **X = 0-5** and the pair redeals into fresh hands (re-splits again on another matching pair):
+Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value cards) → everyone picks a stake **X = 0-5** and the pair redeals into fresh hands (re-splits again on another matching pair, capped at 5 hands total across both branches):
 
 | Result | Effect |
 |--------|--------|
-| 2+ hands bust | Credit up to X sips off what you owe, hand X out to another Player |
+| 2+ hands bust | Credit up to X sips off what you owe, hand ceil(X/2) out to another Player (always halved) |
 | Exactly 1 busts | Nothing happens |
 | No hand busts | Drink X × (hands − 1) sips (never halved) |
 

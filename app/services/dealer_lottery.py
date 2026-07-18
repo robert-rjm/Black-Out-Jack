@@ -21,7 +21,7 @@ import time
 
 from engine.blackjack import Card, Deck, Hand
 from app.models.game_room import GameRoom
-from app.config import DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
+from app.config import DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_HANDS
 from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card
@@ -136,16 +136,23 @@ def _draw(deck) -> Card:
     return deck.cards.pop()
 
 
-def _deal_and_resolve_hand(hand: Hand, deck, parent: Hand | None) -> list[tuple[Hand, Hand | None]]:
+def _deal_and_resolve_hand(hand: Hand, deck, parent: Hand | None,
+                            hand_count: list[int]) -> list[tuple[Hand, Hand | None]]:
     """Deal `hand`'s second card (assumes exactly one card so far) and
     resolve it: hit from `deck` until standing at 17+ (matches the real
     dealer's soft-17 stand behavior -- Hand.score() already resolves the
     best ace interpretation), unless the new card forms another matching
     pair -- then it re-splits instead of standing on the pair, exactly like
-    a real player hand (Hand.split()/can_split(), same MAX_SPLITS=4 cap the
-    main game already uses, so a hot run of 9s/tens can't spin out an
-    unbounded hand tree -- capped at 5 hands per original starting card,
-    10 total across both).
+    a real player hand (Hand.split()/can_split()). Hand's own MAX_SPLITS=4
+    cap still applies per branch, but `hand_count` enforces the tighter
+    DEALER_LOTTERY_MAX_HANDS cap across *both* branches combined (a hot run
+    of 9s/tens split independently on each side could otherwise reach
+    MAX_SPLITS on each and total far more hands than intended).
+
+    `hand_count` is a single-element list shared by both original branches'
+    recursion trees (mutable so every recursive call sees the running total
+    from either branch), starting at 2 for the two original branch roots
+    and incremented once per split -- a split turns 1 hand into 2, net +1.
 
     `parent` is the Hand this one was split off from (None for the two
     original branch roots) -- threaded through so the frontend reveal
@@ -159,22 +166,23 @@ def _deal_and_resolve_hand(hand: Hand, deck, parent: Hand | None) -> list[tuple[
     `parent` it was called with, since it's still the same lineage/branch;
     only the newly split-off `sibling` gets `hand` itself as its parent."""
     hand.cards.append(_draw(deck))
-    if hand.can_split():
+    if hand.can_split() and hand_count[0] < DEALER_LOTTERY_MAX_HANDS:
         sibling = hand.split()  # pops hand's 2nd card into sibling; both now hold 1 card
-        return (_deal_and_resolve_hand(hand, deck, parent)
-                + _deal_and_resolve_hand(sibling, deck, hand))
+        hand_count[0] += 1
+        return (_deal_and_resolve_hand(hand, deck, parent, hand_count)
+                + _deal_and_resolve_hand(sibling, deck, hand, hand_count))
     while hand.score() < 17:
         hand.cards.append(_draw(deck))
     return [(hand, parent)]
 
 
-def _play_out_new_hand(first_card, deck) -> list[tuple[Hand, Hand | None]]:
+def _play_out_new_hand(first_card, deck, hand_count: list[int]) -> list[tuple[Hand, Hand | None]]:
     """Deal one dealer-style hand starting from `first_card` -- see
     _deal_and_resolve_hand for the hit/stand/re-split logic. Returns a list
     since a re-split branch can produce more than one hand."""
     hand = Hand()
     hand.cards.append(first_card)
-    return _deal_and_resolve_hand(hand, deck, None)
+    return _deal_and_resolve_hand(hand, deck, None, hand_count)
 
 
 def resolve_dealer_lottery(session: GameRoom) -> None:
@@ -189,9 +197,8 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
       - 2 or more hands bust (regardless of how many hands total -- a
         re-split just makes this easier to reach): credit yourself
         min(X, your current owed sips this round) -- floored at 0, never
-        negative -- and open a handout window to give ceil(X/2) (if
-        halving is active) or X to another player, mirroring
-        /give_bust_sip's exact pattern.
+        negative -- and open a handout window to give ceil(X/2) to another
+        player, mirroring /give_bust_sip's exact pattern.
       - No hand busts: drink X * (n_hands - 1) -- never halved. Only the
         handout (above) is halved; halving softens what you hand to
         someone else, not what you owe yourself. n_hands - 1 is 1 for the
@@ -200,6 +207,11 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
       - Anything in between (exactly 1 hand busts): nothing happens -- no
         drink, no credit.
 
+    Total hands across both split branches combined are capped at
+    DEALER_LOTTERY_MAX_HANDS (see _deal_and_resolve_hand) -- keeps a hot
+    run of 9s/tens from ballooning both the credit odds and the drink
+    multiplier at once.
+
     Simplified from the original all-bust/none-bust binary rule (see git
     history): that version required every single hand to bust for a
     credit, which got sharply rarer as re-splits piled up hands. The
@@ -207,9 +219,9 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     easier (and thus relatively better for the entrant) as re-splits make
     it rarer to land on the same side across every hand.
 
-    halving_active reuses the exact flag DrinkTracker.apply_end_of_round
-    already uses: easy_mode or 4+ players -- but only for the handout here,
-    unlike apply_end_of_round where it halves everything.
+    The handout (never the drink or self-credit) is always halved,
+    rounded up -- unconditionally, not just under the 4+-player/Easy Mode
+    halving DrinkTracker.apply_end_of_round uses elsewhere.
     """
     pending = session.round._pending_dealer_lottery
     if not pending:
@@ -228,7 +240,9 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     deck = Deck()
     random.shuffle(deck.cards)
 
-    resolved = _play_out_new_hand(original_cards[0], deck) + _play_out_new_hand(original_cards[1], deck)
+    hand_count = [2]  # the two original branch roots, before either splits
+    resolved = (_play_out_new_hand(original_cards[0], deck, hand_count)
+                + _play_out_new_hand(original_cards[1], deck, hand_count))
     hands   = [h for h, _parent in resolved]
     # Map each hand's parent (the Hand object it split off from, or None for
     # the two original branch roots) to an index into `hands`, by identity --
@@ -239,8 +253,6 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     ]
     n_hands = len(hands)
     busted = sum(1 for h in hands if h.is_bust())
-
-    halving_active = session.easy_mode or len(session.all_players) >= 4
 
     # Reset handout tracking for this draw (mirrors the bust-vote's reset
     # of _bust_handouts_given / _bust_handout_log at resolution time).
@@ -262,7 +274,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
                     reason=f"Dealer Lottery: {busted}/{n_hands} split hands busted -- -{credit} sip credit",
                 )
                 credit_amounts[name] = credit
-            handout_amt = math.ceil(x / 2) if halving_active else x
+            handout_amt = math.ceil(x / 2)
             if handout_amt > 0:
                 pending_handouts[name] = handout_amt
         elif busted == 0:
