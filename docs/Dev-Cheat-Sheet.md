@@ -88,6 +88,24 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
    `engine/style_strategy.py`. Without `--merge`, a rebuild only reflects whatever raw
    `decision_log_*` files are currently in `--dir` (default `data/decisions/`) — `--merge`
    combines that with the target file's already-recorded deviations instead.
+4. Simulate with those profiles instead of generic basic-strategy bots, and compare:
+   ```bash
+   python scripts/simulation.py --personalities rob marko david   # 1 deck; full 100k-round run
+   python scripts/simulation.py 3 2 --personalities rob marko david   # explicit players/decks
+   ```
+   Player count is taken from the number of names given (must match `<players>` if that's
+   also passed). Writes `simulation_results_personas.txt` / `simulation_log_personas.csv`
+   and deliberately does **not** touch `benchmarks.json`/`benchmarks.js` — those are the
+   basic-strategy baseline `kpi.js` compares live sessions against.
+   ```bash
+   python scripts/compare_bot_styles.py                              # all mined profiles vs. basic
+   python scripts/compare_bot_styles.py --personalities rob marko
+   python scripts/compare_bot_styles.py --decks 2 --rounds 20000 --seed 7
+   ```
+   Runs basic-strategy bots and named personas on the **same seed** (identical shoes/cards),
+   then prints a side-by-side stats table (avg sips/round, bust/blackjack/win rates, etc.)
+   plus a per-seat sips/round breakdown — isolating the effect of the mined profile from
+   ordinary card-luck variance.
 
 ## Other exports (web UI)
 
