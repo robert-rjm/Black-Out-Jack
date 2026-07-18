@@ -44,6 +44,14 @@ class RoundState:
     switch_this_round: str | None = None
     _drink_log_harvested: bool = False
 
+    # Snapshot of DrinkLedger.clean_streak as it stood *before* this round's
+    # own harvest update (see drink_tracker._snapshot_round) -- lets a later
+    # post-harvest event (Dealer Lottery, Milestone, bust-vote handout) that
+    # retroactively turns a dirty round clean reconstruct what the streak
+    # should become, since harvest already overwrote it to 0 believing the
+    # round was dirty at the time.
+    _pre_round_clean_streak: dict = field(default_factory=dict)
+
     # Log
     _log_entries: list = field(default_factory=list)
     _last_peeked: dict | None = None

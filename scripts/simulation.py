@@ -4,7 +4,19 @@ Prompts for player count and deck count, 2 hands each, dealer rotates
 every N rounds (N = player count).
 Outputs: simulation_results.txt, simulation_log.csv, benchmarks.json,
 static/js/benchmarks.js (per-config, see BENCHMARKS_BY_CONFIG).
-Run: python simulation.py
+
+Usage:
+    python scripts/simulation.py                        # interactive prompts
+    python scripts/simulation.py <players> <decks>       # non-interactive, basic-strategy bots
+    python scripts/simulation.py --personalities rob marko david          # 1 deck (default)
+    python scripts/simulation.py <players> <decks> --personalities rob marko david
+        # NPCs play mined player-mimicry profiles (engine/player_profiles/<name>.json)
+        # instead of plain basic strategy; player count = number of names given
+        # (if <players> is also given, it must match that count). Writes
+        # simulation_results_personas.txt / simulation_log_personas.csv and
+        # deliberately skips benchmarks.json/benchmarks.js (those are the
+        # basic-strategy baseline kpi.js compares live sessions against --
+        # see scripts/compare_bot_styles.py to diff personas vs. basic instead).
 """
 import sys as _sys
 import os as _os
@@ -16,6 +28,7 @@ import os  # noqa: E402
 import csv  # noqa: E402
 import json  # noqa: E402
 import random  # noqa: E402
+import argparse  # noqa: E402
 import contextlib  # noqa: E402
 from collections import defaultdict  # noqa: E402
 from datetime import datetime  # noqa: E402
@@ -53,41 +66,88 @@ def _ask_int(prompt, default, lo, hi):
     return max(lo, min(hi, v))
 
 
+def _parse_cli_args(argv):
+    """Parse `players decks [--personalities NAME ...]`, all optional.
+
+    `--personalities` lets each NPC play as a mined player-mimicry profile
+    (engine/player_profiles/<name>.json, e.g. rob/marko/david) instead of
+    plain basic strategy; player count is then taken from the number of
+    names given (if `players` is also given, it must match that count).
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("players", nargs="?", type=int, default=None)
+    parser.add_argument("decks", nargs="?", type=int, default=None)
+    parser.add_argument("--personalities", nargs="+", default=None, metavar="NAME")
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
     # Allow non-interactive use: `python scripts/simulation.py <players> <decks>`
     # (used by scripts/run_all_configs.py to batch multiple configs without
     # prompting). Falls back to interactive prompts if no args are given.
-    if len(_sys.argv) >= 3:
-        NUM_PLAYERS = max(2, min(6, int(_sys.argv[1])))
-        NUM_DECKS   = max(1, min(8, int(_sys.argv[2])))
+    _args = _parse_cli_args(_sys.argv[1:])
+    if _args.personalities:
+        PERSONALITIES = [p.lower() for p in _args.personalities]
+        if _args.players is not None and _args.players != len(PERSONALITIES):
+            print(f"Error: --personalities has {len(PERSONALITIES)} names but "
+                  f"players={_args.players} was given; they must match "
+                  f"(players is inferred from --personalities, so it can "
+                  f"usually just be omitted).", file=_sys.stderr)
+            _sys.exit(1)
+        NUM_PLAYERS   = len(PERSONALITIES)
+        NUM_DECKS     = max(1, min(8, _args.decks)) if _args.decks is not None else 1
+    elif _args.players is not None and _args.decks is not None:
+        NUM_PLAYERS   = max(2, min(6, _args.players))
+        NUM_DECKS     = max(1, min(8, _args.decks))
+        PERSONALITIES = None
     else:
-        NUM_PLAYERS = _ask_int("Number of players (2-6, default 3): ", 3, 2, 6)
-        NUM_DECKS   = _ask_int("Number of decks (1-8, default 1): ", 1, 1, 8)
+        NUM_PLAYERS   = _ask_int("Number of players (2-6, default 3): ", 3, 2, 6)
+        NUM_DECKS     = _ask_int("Number of decks (1-8, default 1): ", 1, 1, 8)
+        PERSONALITIES = None
 else:
-    NUM_PLAYERS = 3
-    NUM_DECKS   = 1
+    NUM_PLAYERS   = 3
+    NUM_DECKS     = 1
+    PERSONALITIES = None
 
-PLAYER_NAMES = [f"Player{i + 1}" for i in range(NUM_PLAYERS)]
+PLAYER_NAMES = ([p.capitalize() for p in PERSONALITIES] if PERSONALITIES
+                else [f"Player{i + 1}" for i in range(NUM_PLAYERS)])
 CONFIG_KEY   = f"{NUM_PLAYERS}p_{NUM_DECKS}d"
 
 
-def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None):
+def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None,
+                    personalities=None):
     """Run the drinking-blackjack simulation and return aggregate stats.
 
     Parameters are optional and default to the module-level NUM_PLAYERS /
-    NUM_DECKS / NUM_ROUNDS (set from CLI args or interactive prompts) so the
-    existing `__main__` behavior is unchanged. Passing explicit values lets
-    callers (e.g. regression tests) run smaller/seeded simulations for other
-    configs without touching module globals.
+    NUM_DECKS / NUM_ROUNDS / PERSONALITIES (set from CLI args or interactive
+    prompts) so the existing `__main__` behavior is unchanged. Passing
+    explicit values lets callers (e.g. regression tests, compare_bot_styles.py)
+    run smaller/seeded simulations, or with named personalities, without
+    touching module globals.
 
     `seed`, if given, seeds the shared `random` module before shuffling the
     shoe, making the run reproducible. Default `None` leaves production
     behavior (unseeded) unchanged.
+
+    `personalities`, if given, is a list of profile names (e.g.
+    ["rob", "marko", "david"]) of length `num_players` — each NPC plays that
+    mined profile (engine/player_profiles/<name>.json) instead of plain
+    basic strategy. Default `None` (or the module-level PERSONALITIES,
+    itself usually `None`) uses generic "Player1..N" basic-strategy bots.
     """
     num_players = NUM_PLAYERS if num_players is None else num_players
     num_decks   = NUM_DECKS if num_decks is None else num_decks
     num_rounds  = NUM_ROUNDS if num_rounds is None else num_rounds
-    player_names = [f"Player{i + 1}" for i in range(num_players)]
+    personalities = PERSONALITIES if personalities is None else personalities
+    if personalities is not None:
+        if len(personalities) != num_players:
+            raise ValueError(
+                f"personalities has {len(personalities)} names but "
+                f"num_players is {num_players}"
+            )
+        player_names = [p.capitalize() for p in personalities]
+    else:
+        player_names = [f"Player{i + 1}" for i in range(num_players)]
 
     if seed is not None:
         random.seed(seed)
@@ -113,7 +173,11 @@ def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None)
     round_sips_sumsq = 0.0
 
     for round_num in range(1, num_rounds + 1):
-        players       = [NPC_Player(name) for name in player_names]
+        if personalities is not None:
+            players = [NPC_Player(name, personality=persona)
+                       for name, persona in zip(player_names, personalities)]
+        else:
+            players = [NPC_Player(name) for name in player_names]
         dealer_name   = player_names[dealer_idx % len(player_names)]
         dealer_player = next(p for p in players if p.name == dealer_name)
         dealer_player.is_dealer = True
@@ -342,20 +406,30 @@ def write_csv(event_log, path):
 
 if __name__ == "__main__":
     print(f"\nRunning {NUM_ROUNDS:,}-round simulation... [{CONFIG_KEY}]")
-    print(f"Players : {', '.join(PLAYER_NAMES)}  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
+    if PERSONALITIES:
+        print(f"Players : {', '.join(PLAYER_NAMES)}  (personalities: {', '.join(PERSONALITIES)})"
+              f"  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
+    else:
+        print(f"Players : {', '.join(PLAYER_NAMES)}  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
     print(f"Shoe    : {NUM_DECKS} deck(s)  |  Dealer rotates every {len(PLAYER_NAMES)} rounds")
     print()
 
     player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds, std_sips_per_round = run_simulation()
 
     print("\nDone. Writing output files...")
-    write_summary(player_sips, dealer_sips, os.path.join(HERE, "simulation_results.txt"))
-    write_csv(event_log,                    os.path.join(HERE, "simulation_log.csv"))
-    write_benchmarks(
-        player_sips, dealer_sips, hand_totals, dealer_bust_rounds, std_sips_per_round,
-        json_path=os.path.join(HERE, "benchmarks.json"),
-        js_path=os.path.join(os.path.dirname(HERE), "static", "js", "benchmarks.js"),
-    )
+    suffix = "_personas" if PERSONALITIES else ""
+    write_summary(player_sips, dealer_sips, os.path.join(HERE, f"simulation_results{suffix}.txt"))
+    write_csv(event_log,                    os.path.join(HERE, f"simulation_log{suffix}.csv"))
+    if PERSONALITIES:
+        print("  Benchmarks        -> skipped (personalities run; would corrupt the "
+              "basic-strategy baseline kpi.js compares live sessions against — use "
+              "scripts/compare_bot_styles.py instead)")
+    else:
+        write_benchmarks(
+            player_sips, dealer_sips, hand_totals, dealer_bust_rounds, std_sips_per_round,
+            json_path=os.path.join(HERE, "benchmarks.json"),
+            js_path=os.path.join(os.path.dirname(HERE), "static", "js", "benchmarks.js"),
+        )
 
     print("\n  GRAND TOTALS")
     print("  " + "-" * 40)

@@ -8,11 +8,17 @@ Each decision_log_*.xlsx (downloaded from GET /export_decisions and saved
 into data/decisions/) has two sheets: "Hand Decisions" (hit/stand/double/
 split/insurance) and "Dealer Lottery Entries" (the 0-5 stake decision) --
 both get mined here into the same profile JSON, under "deviations" and
-"lottery_stakes" respectively.
+"lottery_stakes" respectively. Older decision_log_*.csv exports (single
+"Hand Decisions" sheet, from before the two-sheet xlsx format existed) are
+also read -- same columns, no Dealer Lottery data.
 
 Usage:
     python scripts/build_player_profiles.py [--dir data/decisions] [--out engine/player_profiles]
     python scripts/build_player_profiles.py --player Rob  # one player only
+    python scripts/build_player_profiles.py --merge       # fold in the existing
+                                                            # profile's own recorded
+                                                            # deviations instead of
+                                                            # overwriting from scratch
 
 Thresholds (adjustable via flags):
     --min-samples   Minimum decisions at a spot to record anything  (default: 3)
@@ -20,11 +26,20 @@ Thresholds (adjustable via flags):
 
 Only deviations from basic_strategy_action are stored; spots where the player
 agrees with basic strategy are omitted (the fallback handles those).
+
+--merge: a profile JSON only ever records spots that already qualified as a
+deviation -- it has no memory of spots where the player agreed with basic
+strategy, so this can only ever recover *some* of what a from-scratch build
+over the original raw logs would have shown, but it exactly preserves every
+recorded action_counts and folds them in with whatever the current raw logs
+produce, so a spot's sample size/majority reflects the true combined history
+rather than being reset to whatever's newly available.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import sys
@@ -99,8 +114,99 @@ def _load_xlsx_sheet(directory: str, sheet_name: str,
     return rows
 
 
+def _load_csv_sheet(directory: str, pattern: str = "decision_log_*.csv") -> list[dict]:
+    """
+    Load every row across every decision_log_*.csv file in `directory` --
+    the older single-sheet "Hand Decisions" export format, from before
+    /export_decisions became a two-sheet xlsx workbook (see reports.py's
+    own docstring: "was /export_decisions as a standalone CSV"). Same
+    columns as the "Hand Decisions" xlsx sheet, so the returned rows are
+    interchangeable with _load_xlsx_sheet's. There's no CSV equivalent of
+    the "Dealer Lottery Entries" sheet -- that was a separate export this
+    old format never had, so lottery_stakes simply can't be recovered from
+    these files.
+    """
+    rows = []
+    d = Path(directory)
+    for path in sorted(d.glob(pattern)):
+        # utf-8-sig strips a leading BOM if present (Excel/PowerShell-style
+        # CSV exports commonly have one) so the first header key isn't
+        # mangled into "﻿session_id".
+        with open(path, "r", encoding="utf-8-sig", newline="") as f:
+            for row in csv.DictReader(f):
+                rows.append({k: (v if v is not None else "") for k, v in row.items()})
+        print(f"  loaded {path.name} [csv]")
+    return rows
+
+
 def _parse_bool(val: str) -> bool:
     return val.strip().lower() == "true"
+
+
+# ---------------------------------------------------------------------------
+# Merge support -- fold an existing profile's own recorded deviations back
+# in as if they were extra raw rows (see --merge in the module docstring)
+# ---------------------------------------------------------------------------
+
+def _counts_from_deviations(deviations: list[dict]) -> tuple[dict, dict, dict, dict]:
+    """
+    Reconstruct per-key action counts from a profile's already-recorded
+    deviations -- the only place old per-spot data survives once the raw
+    decision_log_*.xlsx/csv files that produced them are gone. Returns
+    (coarse_counts, coarse_basic, fine_counts, fine_basic), the same shape
+    build_profile builds internally from raw rows, so the two can be
+    combined by simple dict-of-dict addition.
+
+    Only spots that were ALREADY a deviation carry any historical weight
+    this way -- a spot where the player agreed with basic strategy (or
+    that never reached min_samples/min_majority) was never recorded in the
+    first place and can't be recovered from the profile alone.
+    """
+    coarse_counts: dict[tuple, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    coarse_basic: dict[tuple, str] = {}
+    fine_counts: dict[tuple, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    fine_basic: dict[tuple, str] = {}
+
+    for d in deviations:
+        base_key = (d["hand_total"], d["is_soft"], d["dealer_upcard_rank"],
+                    d["can_split"], d["can_double"])
+        if "table_bias" in d:
+            fine_key = base_key + (d["table_bias"], d["sibling_awaiting_deal"])
+            for action, n in d["action_counts"].items():
+                fine_counts[fine_key][action] += n
+            fine_basic[fine_key] = d["basic_strategy"]
+        else:
+            for action, n in d["action_counts"].items():
+                coarse_counts[base_key][action] += n
+            coarse_basic[base_key] = d["basic_strategy"]
+
+    return dict(coarse_counts), coarse_basic, dict(fine_counts), fine_basic
+
+
+def merge_lottery_stakes(old_stakes: list[dict], new_stakes: list[dict]) -> list[dict]:
+    """
+    Combine two lottery_stakes lists (each {owed_bucket, avg_stake, samples})
+    per bucket, reconstructing each side's sum from avg_stake * samples
+    (exact, modulo the 2-decimal rounding already baked into avg_stake) so
+    the merged average is a true weighted combination rather than a naive
+    average-of-averages.
+    """
+    totals: dict[str, dict[str, float]] = defaultdict(lambda: {"sum": 0.0, "samples": 0})
+    for s in (old_stakes or []) + (new_stakes or []):
+        t = totals[s["owed_bucket"]]
+        t["sum"]     += s["avg_stake"] * s["samples"]
+        t["samples"] += s["samples"]
+
+    merged = [
+        {
+            "owed_bucket": bucket,
+            "avg_stake":   round(t["sum"] / t["samples"], 2),
+            "samples":     t["samples"],
+        }
+        for bucket, t in totals.items() if t["samples"] > 0
+    ]
+    merged.sort(key=lambda s: s["owed_bucket"])
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +214,9 @@ def _parse_bool(val: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def build_profile(rows: list[dict], player_name: str,
-                  min_samples: int = 3, min_majority: float = 0.60) -> dict:
+                  min_samples: int = 3, min_majority: float = 0.60,
+                  extra_counts: tuple | None = None,
+                  extra_source_decisions: int = 0) -> dict:
     """
     Return a profile dict for one player.
 
@@ -123,6 +231,14 @@ def build_profile(rows: list[dict], player_name: str,
     when its majority action differs from what the coarser (plain 5-field)
     grouping would already produce -- otherwise the extra context is noise
     and the coarser deviation (or basic strategy) already covers the spot.
+
+    `extra_counts` (see --merge / _counts_from_deviations) is folded in by
+    extending each key's action list with the extra counts BEFORE any
+    majority/threshold logic runs -- extending a key's list with N copies
+    of an action is exactly equivalent to having N more raw rows at that
+    spot, so every existing computation below runs unmodified over the
+    combined history. `extra_source_decisions` is just added to the
+    reported `source_decisions` count for an honest cumulative total.
     """
     # Filter: this player, human only, non-insurance, has a basic_strategy_action
     player_rows = [
@@ -172,6 +288,17 @@ def build_profile(rows: list[dict], player_name: str,
         fine_key = base_key + (bias, sibling)
         fine_groups[fine_key].append(action)
         fine_basic_for_key[fine_key] = bs_action
+
+    if extra_counts:
+        extra_coarse, extra_coarse_basic, extra_fine, extra_fine_basic = extra_counts
+        for key, counts in extra_coarse.items():
+            for action, n in counts.items():
+                groups[key].extend([action] * n)
+            basic_for_key.setdefault(key, extra_coarse_basic[key])
+        for key, counts in extra_fine.items():
+            for action, n in counts.items():
+                fine_groups[key].extend([action] * n)
+            fine_basic_for_key.setdefault(key, extra_fine_basic[key])
 
     # --- Coarse (5-field) deviations -- unchanged behavior ---
     deviations = []
@@ -241,7 +368,7 @@ def build_profile(rows: list[dict], player_name: str,
     return {
         "player":           player_name,
         "generated":        str(date.today()),
-        "source_decisions": len(player_rows),
+        "source_decisions": len(player_rows) + extra_source_decisions,
         "thresholds": {
             "min_samples":  min_samples,
             "min_majority": min_majority,
@@ -300,7 +427,7 @@ def build_lottery_stakes(rows: list[dict], player_name: str,
 def main():
     parser = argparse.ArgumentParser(description="Build player deviation profiles.")
     parser.add_argument("--dir",          default="data/decisions",
-                        help="Directory containing decision_log_*.xlsx files "
+                        help="Directory containing decision_log_*.xlsx/.csv files "
                              "(downloaded from /export_decisions)")
     parser.add_argument("--out",          default="engine/player_profiles",
                         help="Output directory for <name>.json profiles")
@@ -308,10 +435,15 @@ def main():
                         help="Build profile for one player only")
     parser.add_argument("--min-samples",  type=int,   default=3)
     parser.add_argument("--min-majority", type=float, default=0.60)
+    parser.add_argument("--merge", action="store_true",
+                        help="Fold each player's EXISTING profile (if any) in "
+                             "as extra history instead of overwriting from "
+                             "scratch -- see the --merge note in this file's "
+                             "module docstring for what it can and can't recover.")
     args = parser.parse_args()
 
     print(f"Loading decision logs from {args.dir} ...")
-    rows = _load_xlsx_sheet(args.dir, "Hand Decisions")
+    rows = _load_xlsx_sheet(args.dir, "Hand Decisions") + _load_csv_sheet(args.dir)
     if not rows:
         print("No rows loaded — check --dir path.")
         sys.exit(1)
@@ -326,11 +458,31 @@ def main():
     os.makedirs(args.out, exist_ok=True)
 
     for name in targets:
-        profile = build_profile(rows, name, args.min_samples, args.min_majority)
-        profile["lottery_stakes"] = build_lottery_stakes(lottery_rows, name, args.min_samples)
+        out_path = Path(args.out) / f"{name.lower()}.json"
+
+        extra_counts = None
+        extra_source_decisions = 0
+        old_lottery_stakes = []
+        if args.merge and out_path.exists():
+            with open(out_path, encoding="utf-8") as f:
+                old_profile = json.load(f)
+            extra_counts = _counts_from_deviations(old_profile.get("deviations", []))
+            extra_source_decisions = old_profile.get("source_decisions", 0)
+            old_lottery_stakes = old_profile.get("lottery_stakes", [])
+            print(f"  merging with existing {out_path.name} "
+                  f"({extra_source_decisions} prior decisions, "
+                  f"{len(old_profile.get('deviations', []))} recorded deviation(s))")
+
+        profile = build_profile(rows, name, args.min_samples, args.min_majority,
+                                 extra_counts=extra_counts,
+                                 extra_source_decisions=extra_source_decisions)
+        new_lottery_stakes = build_lottery_stakes(lottery_rows, name, args.min_samples)
+        profile["lottery_stakes"] = (
+            merge_lottery_stakes(old_lottery_stakes, new_lottery_stakes)
+            if args.merge else new_lottery_stakes
+        )
         n_dev   = len(profile["deviations"])
         n_stake = len(profile["lottery_stakes"])
-        out_path = Path(args.out) / f"{name.lower()}.json"
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(profile, f, indent=2)
         print(f"\n{name}: {profile['source_decisions']} decisions, "

@@ -364,7 +364,7 @@ function processTableEvents(state) {
 }
 
 // ============================================================
-// WILD CARD EASTER EGG  (logo press -> 40 % self / 10 % dud / 50 % random)
+// WILD CARD EASTER EGG  (logo press -> 35% self / 15% targeted / 50% random)
 // ============================================================
 let _lastWildCardSeq = 0;
 
@@ -375,7 +375,7 @@ function processWildCardEvent(state) {
   _lastWildCardSeq = seq;
 
   const text    = state.wild_card_text;
-  const outcome = state.wild_card_outcome; // "self" | "random" | "dud"
+  const outcome = state.wild_card_outcome; // "self" | "random" | "targeted" | "dud"
   if (!text) return;
 
   const el = document.getElementById("player-toast");

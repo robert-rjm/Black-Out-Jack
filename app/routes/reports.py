@@ -130,6 +130,7 @@ def export_xlsx():
     milestones   = session.drinks.milestones_claimed
     dealer_stats = session.stats.dealer_hand_stats
     wc_presses   = session.drinks.wild_card_presses
+    clean_rounds = session.stats.total_clean_rounds
 
     num_rounds = max((r["round"] for r in rows), default=1)
     players_seen: list[str] = []
@@ -174,9 +175,9 @@ def export_xlsx():
     # Wild Card
     if wc_presses:
         _xlsx_section(ws, "WILD CARD 🃏")
-        _xlsx_header(ws, ["Player", "Total presses", "Self", "Random", "Dud"])
+        _xlsx_header(ws, ["Player", "Total presses", "Self", "Random", "Targeted", "Dud"])
         for name, s in sorted(wc_presses.items(), key=lambda x: -x[1]["presses"]):
-            ws.append([name, s["presses"], s["self"], s["random"], s["dud"]])
+            ws.append([name, s["presses"], s["self"], s["random"], s.get("targeted", 0), s["dud"]])
         ws.append([])
 
     # Per-player sections
@@ -187,9 +188,12 @@ def export_xlsx():
         hs = hand_stats.get(name)
         h  = hs["hands"] if hs else 0
 
+        cr = clean_rounds.get(name, 0)
+
         _xlsx_section(ws, name)
         ws.append([f"Total sips: {gt}", f"As player: {pt}", f"As dealer: {dt}",
-                   f"Sips/round: {gt/num_rounds:.2f}", f"Hands: {h}" if h else "Hands: 0"])
+                   f"Sips/round: {gt/num_rounds:.2f}", f"Hands: {h}" if h else "Hands: 0",
+                   f"Clean rounds: {cr}/{num_rounds} ({_pct(cr, num_rounds)})"])
         if hs and h:
             ws.append([
                 f"Won: {hs['wins']} ({_pct(hs['wins'], h)})",
