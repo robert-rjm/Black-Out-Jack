@@ -43,6 +43,12 @@ def test_all_hands_sweep_still_pays_dealer_on_hard_switch():
     room = GameRoom(session=raw_session, config=GameConfig(mode="digital", drinking_mode=True))
     room.shoe = Shoe(1)
     room.shoe.cards = [Card(Rank.SEVEN, Suit.SPADES)]  # dealer's one hit -> 17, stands
+    # Without this, needs_reshuffle() sees 1 card against a 52-card
+    # penetration threshold and silently reshuffles in a fresh random deck
+    # before the queued card is ever dealt (mirrors _load_shoe() in
+    # test_round_manager_integration.py).
+    room.shoe.penetration = 1.0
+    room.shoe.total_cards = len(room.shoe.cards)
 
     dealer_turn(room)
 

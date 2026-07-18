@@ -5,11 +5,19 @@ Easter egg: the Wild Card button (logo press).
 
 POST /wild_card
     A player presses the logo to activate the Wild Card.  The server rolls
-    a 45 / 5 / 50 split:
+    a 35 / 15 / 50 split:
 
-      45 % → presser drinks 1 sip  ("self")
-       5 % → nothing happens       ("dud")
-      50 % → a random other player drinks 1 sip  ("random")
+      35 % → presser drinks 1 sip                    ("self")
+      15 % → launches Targeted Drinking Mode          ("targeted")
+              -- 1/3 of that (5% overall) targets the presser,
+                 2/3 of that (10% overall) targets a random player
+      50 % → a random other player drinks 1 sip       ("random")
+
+    The "targeted" roll can fail to actually start the subgame (it's
+    already running, or still on its post-subgame cooldown -- see
+    start_targeted_drinking's guards) -- that falls back to a dud
+    ("nothing happens") for this press rather than stacking a second
+    subgame or drinking anyone.
 
     Guards (returning ok=False on failure):
       - Only connected players (not spectators/admins-without-seat) may trigger.
@@ -26,9 +34,10 @@ import logging
 
 from flask import Blueprint, jsonify, request
 
-from app.services.session_store import game_sessions
-from app.services.serializer    import serialize_state, compute_sip_totals, round_phase
-from app.config                 import MILESTONE_STEP
+from app.services.session_store     import game_sessions
+from app.services.serializer        import serialize_state, compute_sip_totals, round_phase
+from app.services.targeted_drinking import start_targeted_drinking
+from app.config                     import MILESTONE_STEP
 
 log = logging.getLogger(__name__)
 
@@ -59,9 +68,13 @@ _WILD_NAMES = [
 ]
 
 # ── Wild Card probability configuration ──────────────────────────────────────
-WILD_CARD_PROB_SELF = 0.45                                              # probability presser drinks
-WILD_CARD_PROB_RANDOM = 0.50                                            # probability a random player drinks
-WILD_CARD_PROB_DUD  = 1.0 - WILD_CARD_PROB_SELF - WILD_CARD_PROB_RANDOM # probability Targeted Drinking Mode
+WILD_CARD_PROB_SELF     = 0.35                                             # probability presser drinks
+WILD_CARD_PROB_RANDOM   = 0.50                                             # probability a random player drinks
+WILD_CARD_PROB_TARGETED = 1.0 - WILD_CARD_PROB_SELF - WILD_CARD_PROB_RANDOM  # probability Targeted Drinking launches
+
+# Within the "targeted" roll: how often the presser themselves becomes the
+# target vs. a random player (mirrors the "random" branch's own candidate pool).
+WILD_CARD_TARGETED_SELF_FRACTION = 1 / 3
 
 _WILD_CARD_COOLDOWN = 3   # rounds that must pass before the same player can press again
 
@@ -131,10 +144,26 @@ def wild_card():
         outcome = "self"
         player.add_drink(1, f"Wild Card 🃏 — {label}", "player")
         text = f"🃏 {action_tmpl.format(name=player_name)}"
-    elif roll < WILD_CARD_PROB_SELF + WILD_CARD_PROB_DUD:
-        # Dud
-        outcome = "dud"
-        text = f"🃏 {dud_t}"
+    elif roll < WILD_CARD_PROB_SELF + WILD_CARD_PROB_TARGETED:
+        # Launch Targeted Drinking Mode -- target the presser 1/3 of the
+        # time, otherwise a random player (same candidate pool as "random").
+        candidates = [
+            p for p in session.all_players
+            if not getattr(p, "is_npc", False)
+        ]
+        if random.random() < WILD_CARD_TARGETED_SELF_FRACTION or not candidates:
+            target_name = player_name
+        else:
+            target_name = random.choice(candidates).name
+
+        if start_targeted_drinking(session, [target_name]):
+            outcome = "targeted"
+            text = f"🃏 {label} marks {target_name} for Targeted Drinking!"
+        else:
+            # Already running / still cooling down from a prior subgame --
+            # fall back to a dud rather than stacking a second one.
+            outcome = "dud"
+            text = f"🃏 {dud_t}"
     else:
         # Random player drinks (including the presser)
         candidates = [
@@ -152,7 +181,8 @@ def wild_card():
             text = f"\U0001f0cf {action_tmpl.format(name=target.name)}"
 
     # ── Record result ─────────────────────────────────────────────────────
-    wc = session.drinks.wild_card_presses.setdefault(player_name, {"presses": 0, "self": 0, "random": 0, "dud": 0})
+    wc = session.drinks.wild_card_presses.setdefault(
+        player_name, {"presses": 0, "self": 0, "random": 0, "dud": 0, "targeted": 0})
     wc["presses"] += 1
     wc[outcome]   += 1
     session._wild_card_last_used[player_name] = session.round_count
