@@ -89,14 +89,47 @@ def award_sips(
                     session.drinks.sip_ticker_excl_round_avg.get(player_name, 0) + sips
                 )
         if count_toward_round:
-            session.drinks.last_round_sips[player_name] = (
-                session.drinks.last_round_sips.get(player_name, 0) + sips
-            )
+            before = session.drinks.last_round_sips.get(player_name, 0)
+            after  = before + sips
+            session.drinks.last_round_sips[player_name] = after
             session.drinks.last_round_drinks.append({
                 "name":   player_name,
                 "sips":   sips,
                 "reason": reason if reason is not None else rule,
             })
+
+            # _snapshot_round's clean-round tally (total_clean_rounds, feeding
+            # compute_trophy_holder, and clean_streak, feeding the crown
+            # badge) is taken at harvest time, before this round's own
+            # Milestone handout / Dealer Lottery / bust-vote handout have
+            # resolved -- those are async windows that settle afterward and
+            # call award_sips too. Without this reconciliation, a round that
+            # looked clean at harvest (crediting a clean round immediately)
+            # could go on to make that player drink via one of those, and
+            # the tallies would never be corrected back -- the trophy/crown
+            # could show (or persist) for a round that, once everything
+            # settled, wasn't actually clean. Only reconcile post-harvest
+            # (session.round._drink_log_harvested) -- award_sips is
+            # documented as always being called after harvest anyway, so
+            # this is a defensive no-op guard, not a real branch.
+            if session.round._drink_log_harvested and (before <= 0) != (after <= 0):
+                if after <= 0:
+                    session.stats.total_clean_rounds[player_name] = (
+                        session.stats.total_clean_rounds.get(player_name, 0) + 1
+                    )
+                    # Reconstruct the streak this round would have earned had
+                    # harvest seen it as clean -- pre_round_clean_streak holds
+                    # the value from BEFORE this round's own update, since
+                    # harvest already zeroed clean_streak believing it dirty.
+                    pre_round = session.round._pre_round_clean_streak.get(player_name, 0)
+                    session.stats.clean_streak[player_name] = pre_round + 1
+                else:
+                    session.stats.total_clean_rounds[player_name] = max(
+                        0, session.stats.total_clean_rounds.get(player_name, 0) - 1
+                    )
+                    # A round turning dirty always fully breaks the streak --
+                    # never a decrement-by-one, regardless of what it was.
+                    session.stats.clean_streak[player_name] = 0
     if sips > 0:
         check_and_set_milestone(session)
 
@@ -370,6 +403,10 @@ def _snapshot_round(session: GameRoom) -> None:
     # Update clean-round streak and session total for each player
     clean_streak       = session.stats.clean_streak
     total_clean_rounds = session.stats.total_clean_rounds
+    # Snapshot pre-update streaks so a later post-harvest event that flips
+    # this round's clean/dirty verdict (see award_sips) can reconstruct the
+    # correct streak instead of just resetting to 0 or guessing.
+    session.round._pre_round_clean_streak = dict(clean_streak)
     for p in session.all_players:
         if last.get(p.name, 1) <= 0:   # 0 or negative net sips → clean round (negative = bust-vote credit)
             clean_streak[p.name]       = clean_streak.get(p.name, 0) + 1
