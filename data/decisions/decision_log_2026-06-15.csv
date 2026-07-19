@@ -1,0 +1,257 @@
+﻿session_id,timestamp,round,player,hand_index,dealer_name,hand_cards_before,hand_total_before,is_soft,dealer_upcard,visible_cards,cards_remaining,decks_in_play,valid_actions,action_taken,basic_strategy_action,drinking_mode,mode,bet_amount,wager,is_npc,hand_result
+,1781551335.7207775,1,Marko,1,Rob,J♣ 9♦,19,False,7♣,3♠ K♦ A♠ 5♦ J♣ 9♦ 8♠ 5♥ 7♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781551340.2391942,1,Marko,2,Rob,8♠ 5♥,13,False,7♣,3♠ K♦ A♠ 5♦ J♣ 9♦ 8♠ 5♥ 7♣,42,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781551342.481058,1,Rob,1,Rob,3♠ K♦,13,False,7♣,3♠ K♦ A♠ 5♦ J♣ 9♦ 8♠ 5♥ 7♣,42,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781551343.34918,1,Rob,2,Rob,A♠ 5♦,16,True,7♣,3♠ K♦ A♠ 5♦ J♣ 9♦ 8♠ 5♥ 7♣,42,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781551440.1524057,2,Rob,1,Marko,9♦ 3♦,12,False,6♥,9♦ 3♦ 8♣ 10♣ 8♦ 6♦ A♥ 10♥ 6♥,42,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781551443.959145,2,Rob,2,Marko,8♣ 10♣,18,False,6♥,9♦ 3♦ J♠ 8♣ 10♣ 8♦ 6♦ A♥ 10♥ 6♥,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781551446.8327339,2,Marko,1,Marko,8♦ 6♦,14,False,6♥,9♦ 3♦ J♠ 8♣ 10♣ 8♦ 6♦ A♥ 10♥ 6♥,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781551878.116858,3,Rob,1,Marko,3♠ 2♥,5,False,2♠,3♠ 2♥ 4♥ J♦ A♣ J♣ 10♣ 3♦ 2♠,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781551892.005237,3,Rob,1,Marko,3♠ 2♥ 10♦,15,False,2♠,3♠ 2♥ 10♦ 4♥ J♦ A♣ J♣ 10♣ 3♦ 2♠,41,1,"h,s",s,s,True,digital,,1,False,loss
+,1781551892.572773,3,Rob,2,Marko,4♥ J♦,14,False,2♠,3♠ 2♥ 10♦ 4♥ J♦ A♣ J♣ 10♣ 3♦ 2♠,41,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781551896.9512568,3,Marko,2,Marko,10♣ 3♦,13,False,2♠,3♠ 2♥ 10♦ 4♥ J♦ J♥ A♣ J♣ 10♣ 3♦ 2♠,40,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781551950.6658597,4,Marko,1,Rob,6♦ Q♠,16,False,J♠,8♥ 8♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ J♠,42,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781551952.5068526,4,Marko,2,Rob,5♦ 3♣,8,False,J♠,8♥ 8♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ J♠,42,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781551955.1464775,4,Marko,2,Rob,5♦ 3♣ 10♥,18,False,J♠,8♥ 8♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ 10♥ J♠,41,1,"h,s",s,s,True,digital,,1,False,win
+,1781551956.509172,4,Rob,1,Rob,8♥ 8♦,16,False,J♠,8♥ 8♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ 10♥ J♠,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781551964.2130806,4,Rob,1,Rob,8♥ 7♣,15,False,J♠,8♥ 7♣ 8♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ 10♥ J♠,40,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781551965.5361779,4,Rob,1,Rob,8♥ 7♣ 4♥,19,False,J♠,8♥ 7♣ 4♥ 8♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ 10♥ J♠,39,1,"h,s",s,s,True,digital,,1,False,win
+,1781551974.2848063,4,Rob,2,Rob,8♦ A♦,19,True,J♠,8♥ 7♣ 4♥ 8♦ A♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ 10♥ J♠,38,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781551976.8135533,4,Rob,3,Rob,6♠ 7♦,13,False,J♠,8♥ 7♣ 4♥ 8♦ A♦ 6♠ 7♦ 6♦ Q♠ 5♦ 3♣ 10♥ J♠,38,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781552048.2743177,5,Rob,1,Marko,5♥ J♠,15,False,K♠,5♥ J♠ 7♥ 9♦ 10♣ 7♠ 2♥ A♥ K♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781552048.5112095,5,Rob,2,Marko,7♥ 9♦,16,False,K♠,5♥ J♠ 7♥ 9♦ 10♣ 7♠ 2♥ A♥ K♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781552051.9523044,5,Marko,1,Marko,10♣ 7♠,17,False,K♠,5♥ J♠ 7♥ 9♦ 10♣ 7♠ 2♥ A♥ K♠,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781552054.649395,5,Marko,2,Marko,2♥ A♥,13,True,K♠,5♥ J♠ 7♥ 9♦ 10♣ 7♠ 2♥ A♥ K♠,42,1,"h,s,d",d,h,True,digital,,1,False,loss
+,1781552314.82501,6,Marko,1,Rob,6♥ 3♦,9,False,6♦,8♣ J♣ 5♦ A♦ 6♥ 3♦ J♠ K♦ 6♦,42,1,"h,s,d",d,d,True,digital,,1,False,push
+,1781552329.7677054,6,Marko,2,Rob,J♠ K♦,20,False,6♦,8♣ J♣ 5♦ A♦ 6♥ 3♦ Q♦ J♠ K♦ 6♦,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+,1781552345.8923109,6,Marko,2,Rob,J♠ 9♥,19,False,6♦,8♣ J♣ 5♦ A♦ 6♥ 3♦ Q♦ J♠ 9♥ K♦ 6♦,40,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781552354.2691913,6,Marko,3,Rob,K♦ J♦,20,False,6♦,8♣ J♣ 5♦ A♦ 6♥ 3♦ Q♦ J♠ 9♥ K♦ J♦ 6♦,39,1,"h,s,d,sp",s,s,True,digital,,1,False,win
+,1781552356.1788027,6,Rob,1,Rob,8♣ J♣,18,False,6♦,8♣ J♣ 5♦ A♦ 6♥ 3♦ Q♦ J♠ 9♥ K♦ J♦ 6♦,39,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781552360.8395054,6,Rob,2,Rob,5♦ A♦,16,True,6♦,8♣ J♣ 5♦ A♦ 6♥ 3♦ Q♦ J♠ 9♥ K♦ J♦ 6♦,39,1,"h,s,d",s,d,True,digital,,1,False,loss
+,1781552429.9105685,7,Marko,1,Rob,J♠ 2♠,12,False,5♠,6♥ K♠ 7♠ 4♦ J♠ 2♠ 3♣ Q♣ 5♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781552430.45389,7,Marko,2,Rob,3♣ Q♣,13,False,5♠,6♥ K♠ 7♠ 4♦ J♠ 2♠ 3♣ Q♣ 5♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781552431.826929,7,Rob,1,Rob,6♥ K♠,16,False,5♠,6♥ K♠ 7♠ 4♦ J♠ 2♠ 3♣ Q♣ 5♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781552432.5433502,7,Rob,2,Rob,7♠ 4♦,11,False,5♠,6♥ K♠ 7♠ 4♦ J♠ 2♠ 3♣ Q♣ 5♠,42,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781552478.350848,8,Rob,1,Marko,5♣ 7♣,12,False,J♥,5♣ 7♣ 10♦ 7♦ 2♥ 6♣ 9♠ 10♥ J♥,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781552481.4980783,8,Rob,2,Marko,10♦ 7♦,17,False,J♥,5♣ 7♣ J♠ 10♦ 7♦ 2♥ 6♣ 9♠ 10♥ J♥,41,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781552490.7612247,8,Marko,1,Marko,2♥ 6♣,8,False,J♥,5♣ 7♣ J♠ 10♦ 7♦ 2♥ 6♣ 9♠ 10♥ J♥,41,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781552491.9775348,8,Marko,1,Marko,2♥ 6♣ 4♥,12,False,J♥,5♣ 7♣ J♠ 10♦ 7♦ 2♥ 6♣ 4♥ 9♠ 10♥ J♥,40,1,"h,s",h,h,True,digital,,1,False,win
+,1781552498.0023837,8,Marko,1,Marko,2♥ 6♣ 4♥ A♠,13,False,J♥,5♣ 7♣ J♠ 10♦ 7♦ 2♥ 6♣ 4♥ A♠ 9♠ 10♥ J♥,39,1,"h,s",h,h,True,digital,,1,False,win
+,1781552500.6311173,8,Marko,2,Marko,9♠ 10♥,19,False,J♥,5♣ 7♣ J♠ 10♦ 7♦ 2♥ 6♣ 4♥ A♠ 8♦ 9♠ 10♥ J♥,38,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781552629.2191186,9,Rob,1,Marko,5♣ A♣,16,True,Q♣,5♣ A♣ 2♣ 6♠ 2♠ 4♣ K♥ A♥ Q♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781552632.9290173,9,Rob,2,Marko,2♣ 6♠,8,False,Q♣,5♣ A♣ 2♣ 6♠ 2♠ 4♣ K♥ A♥ Q♣,42,1,"h,s,d",d,h,True,digital,,1,False,loss
+,1781552636.7788632,9,Marko,1,Marko,2♠ 4♣,6,False,Q♣,5♣ A♣ 2♣ 6♠ J♠ 2♠ 4♣ K♥ A♥ Q♣,41,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781552638.3385742,9,Marko,1,Marko,2♠ 4♣ 5♦,11,False,Q♣,5♣ A♣ 2♣ 6♠ J♠ 2♠ 4♣ 5♦ K♥ A♥ Q♣,40,1,"h,s",h,h,True,digital,,1,False,loss
+,1781552641.6255503,9,Marko,1,Marko,2♠ 4♣ 5♦ 7♣,18,False,Q♣,5♣ A♣ 2♣ 6♠ J♠ 2♠ 4♣ 5♦ 7♣ K♥ A♥ Q♣,39,1,"h,s",s,s,True,digital,,1,False,loss
+,1781553376.1596127,10,Marko,1,Rob,Q♥ 6♠,16,False,2♦,Q♦ 5♣ 6♥ 2♥ Q♥ 6♠ J♦ 3♣ 2♦,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553385.9385905,10,Marko,2,Rob,J♦ 3♣,13,False,2♦,Q♦ 5♣ 6♥ 2♥ Q♥ 6♠ J♦ 3♣ 2♦,42,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781553388.4448788,10,Rob,1,Rob,Q♦ 5♣,15,False,2♦,Q♦ 5♣ 6♥ 2♥ Q♥ 6♠ J♦ 3♣ 10♣ 2♦,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553389.4873352,10,Rob,2,Rob,6♥ 2♥,8,False,2♦,Q♦ 5♣ 6♥ 2♥ Q♥ 6♠ J♦ 3♣ 10♣ 2♦,41,1,"h,s,d",d,h,True,digital,,1,False,win
+,1781553442.966773,11,Marko,1,Rob,2♥ 5♣,7,False,K♠,10♦ 7♥ 10♠ 8♠ 2♥ 5♣ 9♥ Q♠ K♠,42,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781553447.9007506,11,Marko,1,Rob,2♥ 5♣ 6♠,13,False,K♠,10♦ 7♥ 10♠ 8♠ 2♥ 5♣ 6♠ 9♥ Q♠ K♠,41,1,"h,s",h,h,True,digital,,1,False,win
+,1781553453.7080474,11,Marko,1,Rob,2♥ 5♣ 6♠ 2♦,15,False,K♠,10♦ 7♥ 10♠ 8♠ 2♥ 5♣ 6♠ 2♦ 9♥ Q♠ K♠,40,1,"h,s",h,h,True,digital,,1,False,win
+,1781553455.599637,11,Marko,1,Rob,2♥ 5♣ 6♠ 2♦ 5♦,20,False,K♠,10♦ 7♥ 10♠ 8♠ 2♥ 5♣ 6♠ 2♦ 5♦ 9♥ Q♠ K♠,39,1,"h,s",s,s,True,digital,,1,False,win
+,1781553458.296194,11,Marko,2,Rob,9♥ Q♠,19,False,K♠,10♦ 7♥ 10♠ 8♠ 2♥ 5♣ 6♠ 2♦ 5♦ 9♥ Q♠ K♠,39,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553459.194855,11,Rob,1,Rob,10♦ 7♥,17,False,K♠,10♦ 7♥ 10♠ 8♠ 2♥ 5♣ 6♠ 2♦ 5♦ 9♥ Q♠ K♠,39,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781553459.7179666,11,Rob,2,Rob,10♠ 8♠,18,False,K♠,10♦ 7♥ 10♠ 8♠ 2♥ 5♣ 6♠ 2♦ 5♦ 9♥ Q♠ K♠,39,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781553492.033716,12,Rob,1,Marko,K♥ 2♥,12,False,2♠,K♥ 2♥ 10♠ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,42,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781553492.9144568,12,Rob,2,Marko,10♠ Q♥,20,False,2♠,K♥ 2♥ 10♠ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781553494.9711795,12,Rob,2,Marko,10♠ 10♥,20,False,2♠,K♥ 2♥ 10♠ 10♥ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781553497.192957,12,Rob,2,Marko,10♠ 4♦,14,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,40,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553499.5021489,12,Rob,3,Marko,10♥ Q♠,20,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ Q♠ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,39,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781553502.130348,12,Rob,3,Marko,10♥ J♣,20,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ J♣ Q♠ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,38,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781553517.971541,12,Rob,3,Marko,10♥ Q♣,20,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ Q♣ J♣ Q♠ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,37,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553526.32838,12,Rob,5,Marko,Q♠ 2♣,12,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ Q♣ J♣ A♠ Q♠ 2♣ Q♥ 5♦ J♠ 9♥ 6♦ 2♠,35,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781553532.2155929,12,Rob,6,Marko,Q♥ 9♠,19,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ Q♣ J♣ A♠ Q♠ 2♣ Q♥ 9♠ 5♦ J♠ 9♥ 6♦ 2♠,34,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553545.343677,12,Marko,1,Marko,5♦ J♠,15,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ Q♣ J♣ A♠ Q♠ 2♣ Q♥ 9♠ 5♦ J♠ 9♥ 6♦ 2♠,34,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553545.70925,12,Marko,2,Marko,9♥ 6♦,15,False,2♠,K♥ 2♥ 10♠ 4♦ 10♥ Q♣ J♣ A♠ Q♠ 2♣ Q♥ 9♠ 5♦ J♠ 9♥ 6♦ 2♠,34,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553653.02521,13,Marko,1,Rob,8♥ 8♠,16,False,Q♠,2♠ 2♣ 4♥ 10♣ 8♥ 8♠ J♠ 5♠ Q♠,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781553660.0004187,13,Marko,1,Rob,8♥ 4♦,12,False,Q♠,2♠ 2♣ 4♥ 10♣ 8♥ 4♦ 8♠ J♠ 5♠ Q♠,41,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781553668.5254166,13,Marko,2,Rob,8♠ 4♠,12,False,Q♠,2♠ 2♣ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ J♠ 5♠ Q♠,39,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781553678.1968727,13,Marko,3,Rob,J♠ 5♠,15,False,Q♠,2♠ 2♣ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ K♠ J♠ 5♠ Q♠,38,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781553680.7842376,13,Rob,1,Rob,2♠ 2♣,4,False,Q♠,2♠ 2♣ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ K♠ J♠ 5♠ 10♥ Q♠,37,1,"h,s,d,sp",sp,h,True,digital,,1,False,win
+,1781553682.8607874,13,Rob,1,Rob,2♠ 9♣,11,False,Q♠,2♠ 9♣ 2♣ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ K♠ J♠ 5♠ 10♥ Q♠,36,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781553690.288299,13,Rob,2,Rob,2♣ A♣,13,True,Q♠,2♠ 9♣ 10♠ 2♣ A♣ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ K♠ J♠ 5♠ 10♥ Q♠,34,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781553692.7509625,13,Rob,2,Rob,2♣ A♣ J♦,13,False,Q♠,2♠ 9♣ 10♠ 2♣ A♣ J♦ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ K♠ J♠ 5♠ 10♥ Q♠,33,1,"h,s",h,h,True,digital,,1,False,loss
+,1781553694.479389,13,Rob,2,Rob,2♣ A♣ J♦ 6♥,19,False,Q♠,2♠ 9♣ 10♠ 2♣ A♣ J♦ 6♥ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ K♠ J♠ 5♠ 10♥ Q♠,32,1,"h,s",s,s,True,digital,,1,False,loss
+,1781553695.9288616,13,Rob,3,Rob,4♥ 10♣,14,False,Q♠,2♠ 9♣ 10♠ 2♣ A♣ J♦ 6♥ 4♥ 10♣ 8♥ 4♦ 9♦ 8♠ 4♠ K♠ J♠ 5♠ 10♥ Q♠,32,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781553839.5985093,14,Marko,1,Rob,7♠ 2♠,9,False,5♣,3♣ J♠ 5♦ Q♥ 7♠ 2♠ A♣ 5♥ 5♣,42,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781553843.363235,14,Marko,2,Rob,A♣ 5♥,16,True,5♣,3♣ J♠ 5♦ Q♥ 7♠ 2♠ 8♥ A♣ 5♥ 5♣,41,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781553853.5228674,14,Rob,1,Rob,3♣ J♠,13,False,5♣,3♣ J♠ 5♦ Q♥ 7♠ 2♠ 8♥ A♣ 5♥ 6♣ 5♣,40,1,"h,s,d",h,s,True,digital,,1,False,win
+,1781553855.498975,14,Rob,1,Rob,3♣ J♠ 6♠,19,False,5♣,3♣ J♠ 6♠ 5♦ Q♥ 7♠ 2♠ 8♥ A♣ 5♥ 6♣ 5♣,39,1,"h,s",s,s,True,digital,,1,False,win
+,1781553855.7982714,14,Rob,2,Rob,5♦ Q♥,15,False,5♣,3♣ J♠ 6♠ 5♦ Q♥ 7♠ 2♠ 8♥ A♣ 5♥ 6♣ 5♣,39,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781553892.0139647,15,Rob,1,Marko,A♥ 4♥,15,True,5♦,A♥ 4♥ 2♠ 8♥ A♣ 7♣ 3♥ 4♣ 5♦,42,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781553892.337275,15,Rob,2,Marko,2♠ 8♥,10,False,5♦,A♥ 4♥ 7♥ 2♠ 8♥ A♣ 7♣ 3♥ 4♣ 5♦,41,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781553896.188133,15,Marko,1,Marko,A♣ 7♣,18,True,5♦,A♥ 4♥ 7♥ 2♠ 8♥ 3♦ A♣ 7♣ 3♥ 4♣ 5♦,40,1,"h,s,d",s,d,True,digital,,1,False,win
+,1781553898.2364662,15,Marko,2,Marko,3♥ 4♣,7,False,5♦,A♥ 4♥ 7♥ 2♠ 8♥ 3♦ A♣ 7♣ 3♥ 4♣ 5♦,40,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781553903.1475601,15,Marko,2,Marko,3♥ 4♣ 8♣,15,False,5♦,A♥ 4♥ 7♥ 2♠ 8♥ 3♦ A♣ 7♣ 3♥ 4♣ 8♣ 5♦,39,1,"h,s",s,s,True,digital,,1,False,win
+,1781554124.0582185,16,Marko,1,Rob,9♥ 10♦,19,False,Q♠,J♦ K♦ Q♥ 8♥ 9♥ 10♦ 9♦ 2♣ Q♠,42,1,"h,s,d",s,s,True,digital,,1,False,
+,1781554124.820115,16,Marko,2,Rob,9♦ 2♣,11,False,Q♠,J♦ K♦ Q♥ 8♥ 9♥ 10♦ 9♦ 2♣ Q♠,42,1,"h,s,d",d,d,True,digital,,1,False,
+,1781554126.8280942,16,Rob,1,Rob,J♦ K♦,20,False,Q♠,J♦ K♦ Q♥ 8♥ 9♥ 10♦ 9♦ 2♣ K♥ Q♠,41,1,"h,s,d,sp",s,s,True,digital,,1,False,
+,1781554127.9007678,16,Rob,2,Rob,Q♥ 8♥,18,False,Q♠,J♦ K♦ Q♥ 8♥ 9♥ 10♦ 9♦ 2♣ K♥ Q♠,41,1,"h,s,d",s,s,True,digital,,1,False,
+,1781554177.524219,17,Rob,1,Marko,Q♣ 4♣,14,False,2♥,Q♣ 4♣ 6♣ K♠ 7♥ 2♦ J♠ 8♠ 2♥,42,1,"h,s,d",s,s,True,digital,,1,False,
+,1781554177.6982188,17,Rob,2,Marko,6♣ K♠,16,False,2♥,Q♣ 4♣ 6♣ K♠ 7♥ 2♦ J♠ 8♠ 2♥,42,1,"h,s,d",s,s,True,digital,,1,False,
+,1781554179.5637193,17,Marko,1,Marko,7♥ 2♦,9,False,2♥,Q♣ 4♣ 6♣ K♠ 7♥ 2♦ J♠ 8♠ 2♥,42,1,"h,s,d",d,d,True,digital,,1,False,
+,1781554181.7059846,17,Marko,2,Marko,J♠ 8♠,18,False,2♥,Q♣ 4♣ 6♣ K♠ 7♥ 2♦ 2♠ J♠ 8♠ 2♥,41,1,"h,s,d",s,s,True,digital,,1,False,
+,1781554228.158136,18,Rob,1,Marko,9♠ 5♥,14,False,5♣,9♠ 5♥ 9♣ 6♦ 7♥ 8♣ 2♦ J♥ 5♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781554228.3888912,18,Rob,2,Marko,9♣ 6♦,15,False,5♣,9♠ 5♥ 9♣ 6♦ 7♥ 8♣ 2♦ J♥ 5♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781554232.2685213,18,Marko,1,Marko,7♥ 8♣,15,False,5♣,9♠ 5♥ 9♣ 6♦ 7♥ 8♣ 2♦ J♥ 5♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781554233.0715191,18,Marko,2,Marko,2♦ J♥,12,False,5♣,9♠ 5♥ 9♣ 6♦ 7♥ 8♣ 2♦ J♥ 5♣,42,1,"h,s,d",h,s,True,digital,,1,False,win
+,1781554235.280857,18,Marko,2,Marko,2♦ J♥ 8♦,20,False,5♣,9♠ 5♥ 9♣ 6♦ 7♥ 8♣ 2♦ J♥ 8♦ 5♣,41,1,"h,s",s,s,True,digital,,1,False,win
+,1781554417.9489057,19,Marko,1,Rob,Q♠ K♥,20,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ K♥ J♥ 3♥ K♠,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+,1781554431.1096013,19,Marko,1,Rob,Q♠ 6♥,16,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ J♥ 3♥ K♠,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781554432.468575,19,Marko,2,Rob,K♥ J♣,20,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ J♣ J♥ 3♥ K♠,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+,1781554436.422825,19,Marko,2,Rob,K♥ 4♣,14,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ 4♣ J♣ J♥ 3♥ K♠,39,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781554440.3154204,19,Marko,3,Rob,J♣ 6♦,16,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ 4♣ K♣ J♣ 6♦ J♥ 3♥ K♠,37,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781554444.8667295,19,Marko,4,Rob,J♥ 3♥,13,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ 4♣ K♣ J♣ 6♦ J♥ 3♥ K♠,37,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781554459.4910908,19,Marko,4,Rob,J♥ 3♥ 3♠,16,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ 4♣ K♣ J♣ 6♦ J♥ 3♥ 3♠ K♠,36,1,"h,s",h,h,True,digital,,1,False,loss
+,1781554463.6984868,19,Rob,1,Rob,9♣ 10♣,19,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ 4♣ K♣ J♣ 6♦ J♥ 3♥ 3♠ 8♣ K♠,35,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781554464.2629242,19,Rob,2,Rob,8♠ J♦,18,False,K♠,9♣ 10♣ 8♠ J♦ Q♠ 6♥ K♥ 4♣ K♣ J♣ 6♦ J♥ 3♥ 3♠ 8♣ K♠,35,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781554551.8724084,20,Rob,1,Marko,10♣ Q♠,20,False,J♠,10♣ Q♠ A♠ 7♦ 6♣ 3♥ 8♠ 4♠ J♠,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781554554.5626056,20,Rob,1,Marko,10♣ 9♥,19,False,J♠,10♣ 9♥ Q♠ A♠ 7♦ 6♣ 3♥ 8♠ 4♠ J♠,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781554558.4828713,20,Rob,2,Marko,Q♠ 2♠,12,False,J♠,10♣ 9♥ Q♠ 2♠ A♠ 7♦ 6♣ 3♥ 8♠ 4♠ J♠,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781554570.6903384,20,Rob,3,Marko,A♠ 7♦,18,True,J♠,10♣ 9♥ Q♠ 2♠ J♥ A♠ 7♦ 6♣ 3♥ 8♠ 4♠ J♠,39,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781554573.465656,20,Rob,3,Marko,A♠ 7♦ 2♣,20,True,J♠,10♣ 9♥ Q♠ 2♠ J♥ A♠ 7♦ 2♣ 6♣ 3♥ 8♠ 4♠ J♠,38,1,"h,s",s,s,True,digital,,1,False,win
+,1781554575.638468,20,Marko,1,Marko,6♣ 3♥,9,False,J♠,10♣ 9♥ Q♠ 2♠ J♥ A♠ 7♦ 2♣ 6♣ 3♥ 8♠ 4♠ J♠,38,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781554577.3986464,20,Marko,2,Marko,8♠ 4♠,12,False,J♠,10♣ 9♥ Q♠ 2♠ J♥ A♠ 7♦ 2♣ 6♣ 3♥ 4♣ 8♠ 4♠ J♠,37,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781554579.0968962,20,Marko,2,Marko,8♠ 4♠ 6♥,18,False,J♠,10♣ 9♥ Q♠ 2♠ J♥ A♠ 7♦ 2♣ 6♣ 3♥ 4♣ 8♠ 4♠ 6♥ J♠,36,1,"h,s",s,s,True,digital,,1,False,win
+,1781554614.6251354,21,Rob,1,Marko,J♦ 6♠,16,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 10♦ A♠ 6♥ Q♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781554614.9298332,21,Rob,2,Marko,9♦ 7♠,16,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 10♦ A♠ 6♥ Q♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781554616.7222714,21,Marko,1,Marko,K♥ 10♦,20,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 10♦ A♠ 6♥ Q♠,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+,1781554618.3658733,21,Marko,1,Marko,K♥ J♣,20,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ J♣ 10♦ A♠ 6♥ Q♠,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+,1781554620.1763456,21,Marko,1,Marko,K♥ 5♦,15,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 5♦ J♣ 10♦ A♠ 6♥ Q♠,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781554622.2601712,21,Marko,2,Marko,J♣ 9♣,19,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 5♦ J♠ J♣ 9♣ 10♦ A♠ 6♥ Q♠,38,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781554627.633231,21,Marko,3,Marko,10♦ 2♦,12,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 5♦ J♠ J♣ 9♣ 10♦ 2♦ A♠ 6♥ Q♠,37,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781554628.9259188,21,Marko,3,Marko,10♦ 2♦ A♣,13,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 5♦ J♠ J♣ 9♣ 10♦ 2♦ A♣ A♠ 6♥ Q♠,36,1,"h,s",h,h,True,digital,,1,False,win
+,1781554630.3905869,21,Marko,3,Marko,10♦ 2♦ A♣ 6♦,19,False,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 5♦ J♠ J♣ 9♣ 10♦ 2♦ A♣ 6♦ A♠ 6♥ Q♠,35,1,"h,s",s,s,True,digital,,1,False,win
+,1781554642.837554,21,Marko,4,Marko,A♠ 6♥,17,True,Q♠,J♦ 6♠ 9♦ 7♠ K♥ 5♦ J♠ J♣ 9♣ 10♦ 2♦ A♣ 6♦ A♠ 6♥ Q♠,35,1,"h,s,d",d,h,True,digital,,1,False,loss
+,1781554709.5779552,22,Marko,1,Rob,6♦ 4♠,10,False,3♠,6♠ A♥ 4♦ 3♣ 6♦ 4♠ Q♣ 8♥ 3♠,42,1,"h,s,d",d,d,True,digital,,1,False,
+,1781554710.9171672,22,Marko,2,Rob,Q♣ 8♥,18,False,3♠,6♠ A♥ 4♦ 3♣ 6♦ 4♠ J♦ Q♣ 8♥ 3♠,41,1,"h,s,d",s,s,True,digital,,1,False,
+,1781554713.0309713,22,Rob,1,Rob,6♠ A♥,17,True,3♠,6♠ A♥ 4♦ 3♣ 6♦ 4♠ J♦ Q♣ 8♥ 3♠,41,1,"h,s,d",s,d,True,digital,,1,False,
+,1781554714.0655196,22,Rob,2,Rob,4♦ 3♣,7,False,3♠,6♠ A♥ 4♦ 3♣ 6♦ 4♠ J♦ Q♣ 8♥ 3♠,41,1,"h,s,d",d,h,True,digital,,1,False,
+,1781554771.3719382,23,Marko,1,Rob,6♠ 7♣,13,False,6♣,8♥ K♠ J♥ Q♠ 6♠ 7♣ K♦ 4♣ 6♣,42,1,"h,s,d",h,s,True,digital,,1,False,win
+,1781554773.7409723,23,Marko,1,Rob,6♠ 7♣ 7♥,20,False,6♣,8♥ K♠ J♥ Q♠ 6♠ 7♣ 7♥ K♦ 4♣ 6♣,41,1,"h,s",s,s,True,digital,,1,False,win
+,1781554775.6275804,23,Marko,2,Rob,K♦ 4♣,14,False,6♣,8♥ K♠ J♥ Q♠ 6♠ 7♣ 7♥ K♦ 4♣ 6♣,41,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781554778.8868432,23,Rob,1,Rob,8♥ K♠,18,False,6♣,8♥ K♠ J♥ Q♠ 6♠ 7♣ 7♥ K♦ 4♣ K♥ 6♣,40,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781554780.1433663,23,Rob,2,Rob,J♥ Q♠,20,False,6♣,8♥ K♠ J♥ Q♠ 6♠ 7♣ 7♥ K♦ 4♣ K♥ 6♣,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781554781.664535,23,Rob,2,Rob,J♥ 2♠,12,False,6♣,8♥ K♠ J♥ 2♠ Q♠ 6♠ 7♣ 7♥ K♦ 4♣ K♥ 6♣,39,1,"h,s,d",h,s,True,digital,,1,False,win
+,1781554785.4158819,23,Rob,2,Rob,J♥ 2♠ A♥,13,False,6♣,8♥ K♠ J♥ 2♠ A♥ Q♠ 6♠ 7♣ 7♥ K♦ 4♣ K♥ 6♣,38,1,"h,s",s,s,True,digital,,1,False,win
+,1781555025.654954,24,Rob,1,Marko,3♥ J♣,13,False,7♦,3♥ J♣ 10♠ 4♣ 3♠ A♣ 7♥ 3♦ 7♦,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781555033.167869,24,Rob,2,Marko,10♠ 4♣,14,False,7♦,3♥ J♣ K♠ 10♠ 4♣ 3♠ A♣ 7♥ 3♦ 7♦,41,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781555037.7507572,24,Marko,1,Marko,3♠ A♣,14,True,7♦,3♥ J♣ K♠ 10♠ 4♣ 10♣ 3♠ A♣ 7♥ 3♦ 7♦,40,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781555040.1755865,24,Marko,1,Marko,3♠ A♣ 8♥,12,False,7♦,3♥ J♣ K♠ 10♠ 4♣ 10♣ 3♠ A♣ 8♥ 7♥ 3♦ 7♦,39,1,"h,s",h,h,True,digital,,1,False,win
+,1781555041.3532023,24,Marko,1,Marko,3♠ A♣ 8♥ 7♠,19,False,7♦,3♥ J♣ K♠ 10♠ 4♣ 10♣ 3♠ A♣ 8♥ 7♠ 7♥ 3♦ 7♦,38,1,"h,s",s,s,True,digital,,1,False,win
+,1781555043.9682732,24,Marko,2,Marko,7♥ 3♦,10,False,7♦,3♥ J♣ K♠ 10♠ 4♣ 10♣ 3♠ A♣ 8♥ 7♠ 7♥ 3♦ 7♦,38,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781555286.2946563,25,Rob,1,Marko,K♣ 8♠,18,False,10♦,K♣ 8♠ 10♥ Q♥ 3♠ 8♦ 2♠ 7♦ 10♦,42,1,"h,s,d",s,s,True,digital,,1,False,
+,1781555286.4841416,25,Rob,2,Marko,10♥ Q♥,20,False,10♦,K♣ 8♠ 10♥ Q♥ 3♠ 8♦ 2♠ 7♦ 10♦,42,1,"h,s,d,sp",s,s,True,digital,,1,False,
+,1781555288.1416214,25,Marko,1,Marko,3♠ 8♦,11,False,10♦,K♣ 8♠ 10♥ Q♥ 3♠ 8♦ 2♠ 7♦ 10♦,42,1,"h,s,d",d,d,True,digital,,1,False,
+,1781555291.0378296,25,Marko,2,Marko,2♠ 7♦,9,False,10♦,K♣ 8♠ 10♥ Q♥ 3♠ 8♦ A♥ 2♠ 7♦ 10♦,41,1,"h,s,d",d,d,True,digital,,1,False,
+,1781555341.1238093,26,Marko,1,Rob,5♥ 4♣,9,False,5♦,8♥ A♦ 7♠ 10♠ 5♥ 4♣ 7♣ K♣ 5♦,42,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781555341.877409,26,Marko,2,Rob,7♣ K♣,17,False,5♦,8♥ A♦ 7♠ 10♠ 5♥ 4♣ 10♣ 7♣ K♣ 5♦,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781555344.4354186,26,Rob,1,Rob,8♥ A♦,19,True,5♦,8♥ A♦ 7♠ 10♠ 5♥ 4♣ 10♣ 7♣ K♣ 5♦,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781555345.9443748,26,Rob,2,Rob,7♠ 10♠,17,False,5♦,8♥ A♦ 7♠ 10♠ 5♥ 4♣ 10♣ 7♣ K♣ 5♦,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781555828.1439557,27,Rob,2,Marko,6♠ J♥,16,False,A♣,A♦ J♣ 6♠ J♥ Q♠ 7♦ 8♥ 5♠ A♣,42,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781555832.9402668,27,Marko,1,Marko,Q♠ 7♦,17,False,A♣,A♦ J♣ 6♠ J♥ Q♠ 7♦ 8♥ 5♠ A♣,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781555835.0282333,27,Marko,2,Marko,8♥ 5♠,13,False,A♣,A♦ J♣ 6♠ J♥ Q♠ 7♦ 8♥ 5♠ A♣,42,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781556157.7860174,28,Marko,1,Rob,8♥ 6♥,14,False,9♣,5♥ Q♦ 2♥ 3♥ 8♥ 6♥ 3♣ 6♣ 9♣,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781556158.370367,28,Marko,2,Rob,3♣ 6♣,9,False,9♣,5♥ Q♦ 2♥ 3♥ 8♥ 6♥ 3♣ 6♣ 9♣,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+,1781556160.728715,28,Rob,1,Rob,5♥ Q♦,15,False,9♣,5♥ Q♦ 2♥ 3♥ 8♥ 6♥ 3♣ 6♣ 9♦ 9♣,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781556161.3968585,28,Rob,2,Rob,2♥ 3♥,5,False,9♣,5♥ Q♦ 2♥ 3♥ 8♥ 6♥ 3♣ 6♣ 9♦ 9♣,41,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781556162.3664615,28,Rob,2,Rob,2♥ 3♥ 7♠,12,False,9♣,5♥ Q♦ 2♥ 3♥ 7♠ 8♥ 6♥ 3♣ 6♣ 9♦ 9♣,40,1,"h,s",h,h,True,digital,,1,False,loss
+,1781556204.8716595,29,Rob,1,Marko,5♥ J♥,15,False,2♣,5♥ J♥ 4♥ 8♣ 5♣ 3♥ 10♠ 8♦ 2♣,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781556208.2921314,29,Rob,2,Marko,4♥ 8♣,12,False,2♣,5♥ J♥ 4♥ 8♣ 5♣ 3♥ 10♠ 8♦ 2♣,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781556211.192713,29,Rob,2,Marko,4♥ 8♣ 2♦,14,False,2♣,5♥ J♥ 4♥ 8♣ 2♦ 5♣ 3♥ 10♠ 8♦ 2♣,41,1,"h,s",s,s,True,digital,,1,False,loss
+,1781556215.7985194,29,Marko,1,Marko,5♣ 3♥,8,False,2♣,5♥ J♥ 4♥ 8♣ 2♦ 5♣ 3♥ 10♠ 8♦ 2♣,41,1,"h,s,d",d,h,True,digital,,1,False,push
+,1781556217.2958264,29,Marko,2,Marko,10♠ 8♦,18,False,2♣,5♥ J♥ 4♥ 8♣ 2♦ 5♣ 3♥ 9♣ 10♠ 8♦ 2♣,40,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556434.2809463,30,Rob,1,Marko,10♣ 9♥,19,False,4♠,10♣ 9♥ 3♦ 4♥ K♥ Q♠ A♥ 3♠ 4♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556489.780974,30,Rob,2,Marko,3♦ 4♥,7,False,4♠,10♣ 9♥ 3♦ 4♥ K♥ Q♠ A♥ 3♠ 4♠,42,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781556493.250559,30,Rob,2,Marko,3♦ 4♥ Q♦,17,False,4♠,10♣ 9♥ 3♦ 4♥ Q♦ K♥ Q♠ A♥ 3♠ 4♠,41,1,"h,s",s,s,True,digital,,1,False,win
+,1781556495.0595193,30,Marko,1,Marko,K♥ Q♠,20,False,4♠,10♣ 9♥ 3♦ 4♥ Q♦ K♥ Q♠ A♥ 3♠ 4♠,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781556497.1469352,30,Marko,1,Marko,K♥ 7♥,17,False,4♠,10♣ 9♥ 3♦ 4♥ Q♦ K♥ 7♥ Q♠ A♥ 3♠ 4♠,40,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556498.774558,30,Marko,2,Marko,Q♠ 9♦,19,False,4♠,10♣ 9♥ 3♦ 4♥ Q♦ K♥ 7♥ Q♠ 9♦ A♥ 3♠ 4♠,39,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556505.854836,30,Marko,3,Marko,A♥ 3♠,14,True,4♠,10♣ 9♥ 3♦ 4♥ Q♦ K♥ 7♥ Q♠ 9♦ A♥ 3♠ 4♠,39,1,"h,s,d",d,h,True,digital,,1,False,win
+,1781556570.1616783,31,Marko,1,Rob,3♦ 4♠,7,False,Q♠,10♥ J♠ 5♣ K♣ 3♦ 4♠ 5♠ 9♣ Q♠,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781556582.6132407,31,Marko,1,Rob,3♦ 4♠ 8♦,15,False,Q♠,10♥ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ Q♠,41,1,"h,s",s,h,True,digital,,1,False,loss
+,1781556583.696413,31,Marko,2,Rob,5♠ 9♣,14,False,Q♠,10♥ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ Q♠,41,1,"h,s,d",h,h,True,digital,,1,False,push
+,1781556586.3333476,31,Marko,2,Rob,5♠ 9♣ 6♠,20,False,Q♠,10♥ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,40,1,"h,s",s,s,True,digital,,1,False,push
+,1781556588.0782113,31,Rob,1,Rob,10♥ J♠,20,False,Q♠,10♥ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+,1781556589.4798987,31,Rob,1,Rob,10♥ J♣,20,False,Q♠,10♥ J♣ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,39,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+,1781556590.5498588,31,Rob,1,Rob,10♥ J♦,20,False,Q♠,10♥ J♦ J♣ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,38,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+,1781556591.825208,31,Rob,1,Rob,10♥ 10♠,20,False,Q♠,10♥ 10♠ J♦ J♣ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,37,1,"h,s,d,sp",sp,sp,True,digital,,1,False,push
+,1781556594.3707297,31,Rob,1,Rob,10♥ K♠,20,False,Q♠,10♥ K♠ 10♠ J♦ J♣ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,36,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781556595.6834693,31,Rob,2,Rob,10♠ 7♦,17,False,Q♠,10♥ K♠ 10♠ 7♦ J♦ J♣ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,35,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781556600.5895452,31,Rob,4,Rob,J♣ 4♦,14,False,Q♠,10♥ K♠ 10♠ 7♦ J♦ A♦ J♣ 4♦ J♠ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,33,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781556602.6562128,31,Rob,5,Rob,J♠ 2♣,12,False,Q♠,10♥ K♠ 10♠ 7♦ J♦ A♦ J♣ 4♦ J♠ 2♣ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,32,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781556604.750312,31,Rob,5,Rob,J♠ 2♣ 4♥,16,False,Q♠,10♥ K♠ 10♠ 7♦ J♦ A♦ J♣ 4♦ J♠ 2♣ 4♥ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,31,1,"h,s",s,h,True,digital,,1,False,loss
+,1781556605.2729542,31,Rob,6,Rob,5♣ K♣,15,False,Q♠,10♥ K♠ 10♠ 7♦ J♦ A♦ J♣ 4♦ J♠ 2♣ 4♥ 5♣ K♣ 3♦ 4♠ 8♦ 5♠ 9♣ 6♠ Q♠,31,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781556838.3568337,32,Marko,1,Rob,Q♥ 4♥,14,False,2♠,4♦ 9♦ 10♥ 3♣ Q♥ 4♥ A♦ 9♠ 2♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556838.8713734,32,Marko,2,Rob,A♦ 9♠,20,True,2♠,4♦ 9♦ 10♥ 3♣ Q♥ 4♥ A♦ 9♠ 2♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556841.153807,32,Rob,1,Rob,4♦ 9♦,13,False,2♠,4♦ 9♦ 10♥ 3♣ Q♥ 4♥ A♦ 9♠ 2♠,42,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556841.9792047,32,Rob,2,Rob,10♥ 3♣,13,False,2♠,4♦ 9♦ 10♥ 3♣ Q♥ 4♥ A♦ 9♠ 2♠,42,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781556927.7019296,33,Rob,1,Marko,8♠ 9♥,17,False,7♥,8♠ 9♥ A♣ A♦ K♥ A♥ 2♥ 10♥ 7♥,42,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781556929.631351,33,Rob,2,Marko,A♣ A♦,12,False,7♥,8♠ 9♥ A♣ A♦ K♥ A♥ 2♥ 10♥ 7♥,42,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+,1781556934.7166672,33,Rob,2,Marko,A♣ 5♣,16,True,7♥,8♠ 9♥ A♣ 5♣ A♦ K♥ A♥ 2♥ 10♥ 7♥,41,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781556938.6379442,33,Rob,3,Marko,A♦ 9♦,20,True,7♥,8♠ 9♥ A♣ 5♣ A♦ 9♦ K♥ A♥ 2♥ 10♥ 7♥,40,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781556943.1252685,33,Marko,2,Marko,2♥ 10♥,12,False,7♥,8♠ 9♥ A♣ 5♣ A♦ 9♦ K♥ A♥ 2♥ 10♥ 7♥,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781557035.8629515,34,Rob,2,Marko,4♠ 10♦,14,False,6♦,K♠ A♥ 4♠ 10♦ 8♣ K♣ Q♠ J♥ 6♦,42,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781557039.8235242,34,Marko,1,Marko,8♣ K♣,18,False,6♦,K♠ A♥ 4♠ 10♦ 8♠ 8♣ K♣ Q♠ J♥ 6♦,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781557041.2255485,34,Marko,2,Marko,Q♠ J♥,20,False,6♦,K♠ A♥ 4♠ 10♦ 8♠ 8♣ K♣ Q♠ J♥ 6♦,41,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781557043.7417684,34,Marko,2,Marko,Q♠ 5♦,15,False,6♦,K♠ A♥ 4♠ 10♦ 8♠ 8♣ K♣ Q♠ 5♦ J♥ 6♦,40,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781557046.5594134,34,Marko,3,Marko,J♥ K♥,20,False,6♦,K♠ A♥ 4♠ 10♦ 8♠ 8♣ K♣ Q♠ 5♦ J♥ K♥ 6♦,39,1,"h,s,d,sp",s,s,True,digital,,1,False,win
+,1781557138.632788,35,Marko,2,Rob,2♣ K♠,12,False,7♣,8♦ 9♦ 8♥ 5♥ Q♠ A♠ 2♣ K♠ 7♣,42,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781557149.331937,35,Marko,2,Rob,2♣ K♠ A♣,13,False,7♣,8♦ 9♦ 8♥ 5♥ Q♠ A♠ 2♣ K♠ A♣ 7♣,41,1,"h,s",h,h,True,digital,,1,False,win
+,1781557152.2630336,35,Rob,1,Rob,8♦ 9♦,17,False,7♣,8♦ 9♦ 8♥ 5♥ Q♠ A♠ 2♣ K♠ A♣ 8♠ 7♣,40,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781557155.0175526,35,Rob,2,Rob,8♥ 5♥,13,False,7♣,8♦ 9♦ 8♥ 5♥ Q♠ A♠ 2♣ K♠ A♣ 8♠ 7♣,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781557433.24749,36,Marko,1,Rob,K♥ 9♦,19,False,J♠,K♠ 3♠ 3♥ 5♦ K♥ 9♦ J♦ A♥ J♠,42,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781557439.2522185,36,Rob,1,Rob,K♠ 3♠,13,False,J♠,K♠ 3♠ 3♥ 5♦ K♥ 9♦ J♦ A♥ J♠,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781557440.3806343,36,Rob,2,Rob,3♥ 5♦,8,False,J♠,K♠ 3♠ 3♥ 5♦ K♥ 9♦ J♦ A♥ J♠,42,1,"h,s,d",d,h,True,digital,,1,False,loss
+,1781557515.013792,37,Rob,1,Marko,5♣ 4♠,9,False,Q♥,5♣ 4♠ 7♦ 5♠ 4♣ 7♠ 6♦ 8♣ Q♥,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+,1781557516.7310092,37,Rob,2,Marko,7♦ 5♠,12,False,Q♥,5♣ 4♠ 9♠ 7♦ 5♠ 4♣ 7♠ 6♦ 8♣ Q♥,41,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781557519.6201723,37,Rob,2,Marko,7♦ 5♠ 8♥,20,False,Q♥,5♣ 4♠ 9♠ 7♦ 5♠ 8♥ 4♣ 7♠ 6♦ 8♣ Q♥,40,1,"h,s",s,s,True,digital,,1,False,win
+,1781557521.7258224,37,Marko,1,Marko,4♣ 7♠,11,False,Q♥,5♣ 4♠ 9♠ 7♦ 5♠ 8♥ 4♣ 7♠ 6♦ 8♣ Q♥,40,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781557523.123796,37,Marko,2,Marko,6♦ 8♣,14,False,Q♥,5♣ 4♠ 9♠ 7♦ 5♠ 8♥ 4♣ 7♠ 10♥ 6♦ 8♣ Q♥,39,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781557673.2389493,38,Rob,1,Marko,J♠ 5♠,15,False,6♦,J♠ 5♠ 9♠ 4♣ 3♠ 8♦ 6♣ 10♥ 6♦,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781557673.764699,38,Rob,2,Marko,9♠ 4♣,13,False,6♦,J♠ 5♠ 9♠ 4♣ 3♠ 8♦ 6♣ 10♥ 6♦,42,1,"h,s,d",d,s,True,digital,,1,False,loss
+,1781557682.9655206,38,Marko,1,Marko,3♠ 8♦,11,False,6♦,J♠ 5♠ 9♠ 4♣ 3♣ 3♠ 8♦ 6♣ 10♥ 6♦,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+,1781557685.2638109,38,Marko,2,Marko,6♣ 10♥,16,False,6♦,J♠ 5♠ 9♠ 4♣ 3♣ 3♠ 8♦ 4♦ 6♣ 10♥ 6♦,40,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781557819.0957558,39,Marko,1,Rob,6♥ 7♣,13,False,9♦,8♣ Q♠ Q♣ 3♦ 6♥ 7♣ 2♦ 5♣ 9♦,42,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781557829.8060224,39,Marko,1,Rob,6♥ 7♣ A♥,14,False,9♦,8♣ Q♠ Q♣ 3♦ 6♥ 7♣ A♥ 2♦ 5♣ 9♦,41,1,"h,s",h,h,True,digital,,1,False,loss
+,1781557836.3154712,39,Marko,2,Rob,2♦ 5♣,7,False,9♦,8♣ Q♠ Q♣ 3♦ 6♥ 7♣ A♥ J♦ 2♦ 5♣ 9♦,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781557860.0349228,39,Marko,2,Rob,2♦ 5♣ Q♦,17,False,9♦,8♣ Q♠ Q♣ 3♦ 6♥ 7♣ A♥ J♦ 2♦ 5♣ Q♦ 9♦,39,1,"h,s",s,s,True,digital,,1,False,loss
+,1781557872.1813807,39,Rob,1,Rob,8♣ Q♠,18,False,9♦,8♣ Q♠ Q♣ 3♦ 6♥ 7♣ A♥ J♦ 2♦ 5♣ Q♦ 9♦,39,1,"h,s,d",s,s,True,digital,,1,False,push
+,1781557874.0992723,39,Rob,2,Rob,Q♣ 3♦,13,False,9♦,8♣ Q♠ Q♣ 3♦ 6♥ 7♣ A♥ J♦ 2♦ 5♣ Q♦ 9♦,39,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781559189.1043506,40,Marko,1,Rob,A♦ 5♦,16,True,7♥,3♠ 7♦ 6♦ 9♦ A♦ 5♦ 5♣ 6♣ 7♥,42,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781559190.4049983,40,Marko,2,Rob,5♣ 6♣,11,False,7♥,3♠ 7♦ 6♦ 9♦ A♦ 5♦ 5♣ 6♣ 7♥,42,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781559193.3527572,40,Rob,1,Rob,3♠ 7♦,10,False,7♥,3♠ 7♦ 6♦ 9♦ A♦ 5♦ 5♣ 6♣ Q♦ 7♥,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+,1781559194.8796682,40,Rob,2,Rob,6♦ 9♦,15,False,7♥,3♠ 7♦ 4♥ 6♦ 9♦ A♦ 5♦ 5♣ 6♣ Q♦ 7♥,40,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781559234.2052107,41,Rob,1,Marko,A♦ 6♠,17,True,8♣,A♦ 6♠ 4♦ 6♥ J♠ 9♠ 6♦ 2♣ 8♣,42,1,"h,s,d",s,h,True,digital,,1,False,win
+,1781559235.7767742,41,Rob,2,Marko,4♦ 6♥,10,False,8♣,A♦ 6♠ 4♦ 6♥ J♠ 9♠ 6♦ 2♣ 8♣,42,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781559239.5035882,41,Marko,1,Marko,J♠ 9♠,19,False,8♣,A♦ 6♠ 4♦ 6♥ 5♥ J♠ 9♠ 6♦ 2♣ 8♣,41,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781559242.1485636,41,Marko,2,Marko,6♦ 2♣,8,False,8♣,A♦ 6♠ 4♦ 6♥ 5♥ J♠ 9♠ 6♦ 2♣ 8♣,41,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781559243.0701873,41,Marko,2,Marko,6♦ 2♣ 3♣,11,False,8♣,A♦ 6♠ 4♦ 6♥ 5♥ J♠ 9♠ 6♦ 2♣ 3♣ 8♣,40,1,"h,s",h,h,True,digital,,1,False,win
+,1781559311.3341098,42,Marko,2,Rob,8♣ 3♥,11,False,7♠,2♥ J♣ 10♣ 10♥ A♦ K♠ 8♣ 3♥ 7♠,42,1,"h,s,d",d,d,True,digital,,1,False,loss
+,1781559317.9673011,42,Rob,1,Rob,2♥ J♣,12,False,7♠,2♥ J♣ 10♣ 10♥ A♦ K♠ 8♣ 3♥ 4♦ 7♠,41,1,"h,s,d",h,h,True,digital,,1,False,win
+,1781559320.3962717,42,Rob,2,Rob,10♣ 10♥,20,False,7♠,2♥ J♣ 9♦ 10♣ 10♥ A♦ K♠ 8♣ 3♥ 4♦ 7♠,40,1,"h,s,d,sp",sp,sp,True,digital,,1,False,loss
+,1781559325.1286445,42,Rob,2,Rob,10♣ 3♦,13,False,7♠,2♥ J♣ 9♦ 10♣ 3♦ 10♥ A♦ K♠ 8♣ 3♥ 4♦ 7♠,39,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781559326.5258176,42,Rob,3,Rob,10♥ J♠,20,False,7♠,2♥ J♣ 9♦ 10♣ 3♦ 10♥ J♠ A♦ K♠ 8♣ 3♥ 4♦ 7♠,38,1,"h,s,d,sp",sp,sp,True,digital,,1,False,win
+,1781559327.761697,42,Rob,3,Rob,10♥ 8♥,18,False,7♠,2♥ J♣ 9♦ 10♣ 3♦ 10♥ 8♥ J♠ A♦ K♠ 8♣ 3♥ 4♦ 7♠,37,1,"h,s,d",s,s,True,digital,,1,False,win
+,1781559328.6675177,42,Rob,4,Rob,J♠ 6♥,16,False,7♠,2♥ J♣ 9♦ 10♣ 3♦ 10♥ 8♥ J♠ 6♥ A♦ K♠ 8♣ 3♥ 4♦ 7♠,36,1,"h,s,d",s,h,True,digital,,1,False,loss
+,1781559355.6753995,43,Marko,1,Rob,5♠ 9♣,14,False,10♥,Q♣ 7♣ 10♣ 4♦ 5♠ 9♣ Q♥ 9♠ 10♥,42,1,"h,s,d",h,h,True,digital,,1,False,
+,1781559358.5990586,43,Marko,2,Rob,Q♥ 9♠,19,False,10♥,Q♣ 7♣ 10♣ 4♦ 5♠ 9♣ 8♠ Q♥ 9♠ 10♥,41,1,"h,s,d",s,s,True,digital,,1,False,
+,1781559359.975017,43,Rob,1,Rob,Q♣ 7♣,17,False,10♥,Q♣ 7♣ 10♣ 4♦ 5♠ 9♣ 8♠ Q♥ 9♠ 10♥,41,1,"h,s,d",s,s,True,digital,,1,False,
+,1781559360.568827,43,Rob,2,Rob,10♣ 4♦,14,False,10♥,Q♣ 7♣ 10♣ 4♦ 5♠ 9♣ 8♠ Q♥ 9♠ 10♥,41,1,"h,s,d",s,h,True,digital,,1,False,
+,1781559401.2112167,44,Rob,1,Marko,9♣ 4♦,13,False,6♠,9♣ 4♦ 2♥ 8♦ 7♦ A♦ Q♠ 7♣ 6♠,42,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781559403.9287474,44,Rob,2,Marko,2♥ 8♦,10,False,6♠,9♣ 4♦ K♣ 2♥ 8♦ 7♦ A♦ Q♠ 7♣ 6♠,41,1,"h,s,d",d,d,True,digital,,1,False,loss
+,1781559406.5055883,44,Marko,1,Marko,7♦ A♦,18,True,6♠,9♣ 4♦ K♣ 2♥ 8♦ 5♥ 7♦ A♦ Q♠ 7♣ 6♠,40,1,"h,s,d",s,d,True,digital,,1,False,loss
+,1781559407.8528638,44,Marko,2,Marko,Q♠ 7♣,17,False,6♠,9♣ 4♦ K♣ 2♥ 8♦ 5♥ 7♦ A♦ Q♠ 7♣ 6♠,40,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781559430.0291805,45,Marko,1,Rob,5♥ 5♦,10,False,7♠,A♣ 7♥ 6♦ 3♠ 5♥ 5♦ A♥ 8♣ 7♠,42,1,"h,s,d,sp",d,d,True,digital,,1,False,
+,1781559431.0947542,45,Marko,2,Rob,A♥ 8♣,19,True,7♠,A♣ 7♥ 6♦ 3♠ 5♥ 5♦ 6♠ A♥ 8♣ 7♠,41,1,"h,s,d",s,s,True,digital,,1,False,
+,1781559432.210531,45,Rob,1,Rob,A♣ 7♥,18,True,7♠,A♣ 7♥ 6♦ 3♠ 5♥ 5♦ 6♠ A♥ 8♣ 7♠,41,1,"h,s,d",s,s,True,digital,,1,False,
+,1781559433.1566732,45,Rob,2,Rob,6♦ 3♠,9,False,7♠,A♣ 7♥ 6♦ 3♠ 5♥ 5♦ 6♠ A♥ 8♣ 7♠,41,1,"h,s,d",d,d,True,digital,,1,False,
+,1781559461.5587738,46,Rob,1,Marko,8♠ Q♦,18,False,6♥,8♠ Q♦ 3♣ K♥ 6♦ 5♥ 2♦ 5♦ 6♥,42,1,"h,s,d",s,s,True,digital,,1,False,loss
+,1781559463.0182264,46,Rob,2,Marko,3♣ K♥,13,False,6♥,8♠ Q♦ 3♣ K♥ 6♦ 5♥ 2♦ 5♦ 6♥,42,1,"h,s,d",h,s,True,digital,,1,False,loss
+,1781559465.7044058,46,Rob,2,Marko,3♣ K♥ 2♠,15,False,6♥,8♠ Q♦ 3♣ K♥ 2♠ 6♦ 5♥ 2♦ 5♦ 6♥,41,1,"h,s",s,s,True,digital,,1,False,loss
+,1781559467.3136668,46,Marko,1,Marko,6♦ 5♥,11,False,6♥,8♠ Q♦ 3♣ K♥ 2♠ 6♦ 5♥ 2♦ 5♦ 6♥,41,1,"h,s,d",d,d,True,digital,,1,False,win
+,1781559470.3793912,46,Marko,2,Marko,2♦ 5♦,7,False,6♥,8♠ Q♦ 3♣ K♥ 2♠ 6♦ 5♥ 10♠ 2♦ 5♦ 6♥,40,1,"h,s,d",h,h,True,digital,,1,False,loss
+,1781559471.3647761,46,Marko,2,Marko,2♦ 5♦ 2♣,9,False,6♥,8♠ Q♦ 3♣ K♥ 2♠ 6♦ 5♥ 10♠ 2♦ 5♦ 2♣ 6♥,39,1,"h,s",h,h,True,digital,,1,False,loss
+,1781559473.071262,46,Marko,2,Marko,2♦ 5♦ 2♣ 5♠,14,False,6♥,8♠ Q♦ 3♣ K♥ 2♠ 6♦ 5♥ 10♠ 2♦ 5♦ 2♣ 5♠ 6♥,38,1,"h,s",s,s,True,digital,,1,False,loss

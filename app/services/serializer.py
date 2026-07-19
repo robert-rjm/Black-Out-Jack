@@ -591,6 +591,7 @@ def compute_kpi_stats(session: GameRoom, sip_ticker: dict | None = None,
         scored_h  = hs.get("scored_hands",0)
 
         sips_p   = sip_ticker.get(name, 0)
+        rounds_p = session.stats.player_rounds_played.get(name, 0)
         balance  = None if drinking else session._bankrolls.get(name)
 
         sd_total   = sd.get("total",   0)
@@ -614,7 +615,7 @@ def compute_kpi_stats(session: GameRoom, sip_ticker: dict | None = None,
             "avg_hv":         round(tot_score / scored_h, 1) if scored_h > 0 else None,
             "dbl_pct":        _pct(dw, dh),
             "sp_pct":         _pct(sw, sh),
-            "avg_sips":       round(sips_p / n_rounds, 1) if (drinking and n_rounds > 0) else None,
+            "avg_sips":       round(sips_p / rounds_p, 1) if (drinking and rounds_p > 0) else None,
             "max_sips":       max_round_sips.get(name, 0),
             "total_sips":     sips_p,
             "longest_win":    sk.get("longest_win",  0),

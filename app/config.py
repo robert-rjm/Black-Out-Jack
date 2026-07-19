@@ -54,6 +54,7 @@ INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) a
 # ---------------------------------------------------------------------------
 
 DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-responders default to 0
+DEALER_LOTTERY_MAX_HANDS            = 5   # cap on total hands across both split branches combined
 
 # ---------------------------------------------------------------------------
 # Targeted Drinking Mode — admin-started subgame targeting specific players

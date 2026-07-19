@@ -522,11 +522,19 @@ Could consider to have Ace of:
 - Hearts everyone drinks (also spectators)
 - Diamond only targeted players drink
 
-### 8.8 [ ] Easter Egg integration
+### 8.8 [x] Easter Egg integration
 
-Link the Easter Egg "dud" outcome to Targeted Drinking Mini-Game.
-Either have the 5% be the presser, or random between all, or 75% presser bias.
-Should consider to have a limit of 10 mini-rounds
+Linked the Easter Egg "dud" outcome to Targeted Drinking Mini-Game --
+see `app/routes/wild_card.py`. Split is now 35% self / 15% targeted /
+50% random (was 45/5/50); within the 15% targeted roll, 1/3 targets the
+presser and 2/3 targets a random player. If the subgame can't actually
+start (already running, or on its post-subgame cooldown), that falls
+back to a dud for the press rather than stacking a second subgame.
+
+Still open: no cap on how many mini-rounds a single subgame can chain
+through before ending on its own (only ends via graduation or admin
+cancel) -- "limit of 10 mini-rounds" from the original note is not
+implemented.
 
 ### 8.9 [ ] Admin controls
 
