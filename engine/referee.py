@@ -640,6 +640,12 @@ class RefereeSession:
 
         # All-hands sweep (same suit or all-21 across split hands).
         # Skipped in digital mode — dealer_turn() already fired it before cmd_endround().
+        # Unlike the per-hand win events above, this bonus is never covered by
+        # the Hard Switch payout (on_hard_dealer_switch only tallies
+        # blackjack/doubled/regular wins, nothing about all-same-suit or
+        # all-21) -- so the dealer must stay a valid recipient even on a hard
+        # switch, or the bonus silently disappears whenever the sweeping
+        # player is also the one who swept the dealer (e.g. heads-up).
         if not skip_sweep:
             for p in players:
                 if p.is_dealer:
@@ -647,8 +653,7 @@ class RefereeSession:
                 try:
                     eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                         player_name=p.name, player_hands=p.hands, all_names=self._all_names,
-                        wager=self.wager, dealer_name=self.dealer_name if hard_switch else "",
-                        dealer_bj=dealer_bj,
+                        wager=self.wager, dealer_bj=dealer_bj,
                     )))
                 except Exception as e:
                     self._log(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
