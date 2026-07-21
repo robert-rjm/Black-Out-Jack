@@ -312,6 +312,7 @@ class TargetedDrinkingResultOut(_StrictModel):
     correct:     dict[str, bool]           # per target: was their vote right?
     streaks:     dict[str, int]            # graduation streak after this mini-round
     graduated:   list[str]                 # targets who graduated out this mini-round
+    capped_out:  list[str]                 # easter-egg targets who hit the sip cap without graduating
     sips:        dict[str, int]            # target -> sips this mini-round cost them
     seconds_ago: int
 
@@ -328,7 +329,7 @@ class TargetedDrinkingStatsOut(_StrictModel):
 
 
 class TargetedDrinkingSummaryOut(_StrictModel):
-    reason: str             # "all_graduated" | "admin_cancelled"
+    reason: str             # "all_graduated" | "capped_out" | "admin_cancelled"
     totals: dict[str, int]  # target -> total sips drunk across the whole subgame run
     stats:  TargetedDrinkingStatsOut
 

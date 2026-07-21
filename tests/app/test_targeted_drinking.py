@@ -435,6 +435,104 @@ def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
     assert room.drinks.last_targeted_drinking_result["graduated"] == ["Bob"]
 
 
+# ---------------------------------------------------------------------------
+# Easter egg (Wild Card) launch: 5-sip cap + graduation-backfire payback
+# ---------------------------------------------------------------------------
+
+def test_easter_egg_cap_ends_run_as_loss_with_penalty(monkeypatch):
+    """A target who never graduates and racks up 5 wrong-guess sips is
+    force-ended right at the cap with one extra +1 penalty sip (6 total),
+    and removed from the target list without graduating."""
+    room = _make_room(num_players=3)   # Alice (dealer), Bob, Carol
+    start_targeted_drinking(room, ["Bob"], presser_name="Carol")
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    for _ in range(5):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong every time
+        resolve_targeted_drinking_round(room)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    assert room._targeted_drinking_active is False
+    assert room.drinks.last_targeted_drinking_summary["reason"] == "capped_out"
+    assert room.drinks.sip_ticker["Bob"] == 6   # 5-sip cap + 1 penalty for not managing
+    assert room.drinks.sip_ticker.get("Carol", 0) == 0   # presser untouched on a loss
+
+
+def test_easter_egg_graduation_backfires_on_presser(monkeypatch):
+    """A target who graduates before hitting the cap makes the easter egg
+    backfire: the presser drinks whatever the target drank over the run."""
+    room = _make_room(num_players=3)
+    start_targeted_drinking(room, ["Bob"], presser_name="Carol")
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    # One wrong guess first (1 sip), then 3 correct in a row to graduate.
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+    submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong
+    resolve_targeted_drinking_round(room)
+    room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    for _ in range(3):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "stand")   # correct
+        resolve_targeted_drinking_round(room)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    assert room._targeted_drinking_active is False
+    assert room.drinks.last_targeted_drinking_summary["reason"] == "all_graduated"
+    assert room.drinks.sip_ticker["Bob"] == 1     # only the one wrong guess before graduating
+    assert room.drinks.sip_ticker["Carol"] == 1   # backfire: presser drinks what Bob drank
+
+
+def test_easter_egg_graduation_with_no_misses_awards_presser_nothing(monkeypatch):
+    """A target who graduates without ever missing owes the presser 0 --
+    award_sips is never called for a zero payback."""
+    room = _make_room(num_players=3)
+    start_targeted_drinking(room, ["Bob"], presser_name="Carol")
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    for _ in range(3):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "stand")
+        resolve_targeted_drinking_round(room)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    assert room._targeted_drinking_active is False
+    assert room.drinks.sip_ticker.get("Bob", 0) == 0
+    assert room.drinks.sip_ticker.get("Carol", 0) == 0
+
+
+def test_admin_started_subgame_has_no_cap_or_backfire(monkeypatch):
+    """Without a presser (admin-started via the admin panel), wrong
+    guesses never cap out or force-end the run early -- flat 1 sip each,
+    same as before this mechanic existed."""
+    room = _make_room(num_players=3)
+    start_targeted_drinking(room, ["Bob"])   # no presser_name -> admin-started
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    for _ in range(6):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong every time
+        resolve_targeted_drinking_round(room)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    assert room._targeted_drinking_active is True   # never capped, still running
+    assert room.drinks.sip_ticker["Bob"] == 6        # flat 1 sip per wrong guess, no cap penalty
+
+
 def test_stats_table_accumulates_across_mini_rounds(monkeypatch):
     """The statistics table (correct/wrong per target, dealer bust rate)
     is a running tally across the whole subgame run, not reset each
