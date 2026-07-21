@@ -97,7 +97,7 @@ def test_round_end_dispatch():
     with patch.object(DrinkingRules, "on_round_end", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
-        [p], 1, dealer_bj=False, hard_switch_dealer="", num_hands=0,
+        [p], 1, dealer_bj=False, dealer_shows_ace=False, hard_switch_dealer="", num_hands=0,
     )
     assert result == "SENTINEL"
 

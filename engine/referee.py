@@ -567,6 +567,13 @@ class RefereeSession:
         # Resolve dealer BJ early — needed by both hard-switch and round-end logic below.
         dealer    = self._get_dealer()
         dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+        # Real insurance is only ever offered on an Ace up-card; a dealer BJ made
+        # from a 10-value up-card hiding an Ace never gave the group a chance to
+        # insure, so auto-insurance must not apply in that case.
+        dealer_shows_ace = bool(
+            dealer and dealer.dealer_hand and dealer.dealer_hand.cards
+            and dealer.dealer_hand.cards[0].rank.label == "A"
+        )
 
         # Fire buffered BJ bonus events — now we know exempt_dealer (hard switch)
         for p_name, hand in self._pending_bj_hands:
@@ -663,10 +670,11 @@ class RefereeSession:
                 f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards "
                 f"— wager doubled to {w} sip(s) this round!"
                 )
-        if dealer_bj:
+        if dealer_bj and dealer_shows_ace:
             self._log("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         eor_msgs.extend(DrinkingRules.handle(RoundEndEvent(
             players=players, wager=w, dealer_bj=dealer_bj,
+            dealer_shows_ace=dealer_shows_ace,
             hard_switch_dealer=self.dealer_name if hard_switch else "",
             num_hands=self.num_hands,
         )))

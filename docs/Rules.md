@@ -104,9 +104,11 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 
 ### 3.2 Insurance
 
-#### Auto-Insurance (Always Active)
+#### Auto-Insurance (Ace Up-Card Only)
 
-When the Dealer has Blackjack, each Player's maximum penalty is **capped at wager × number of hands**. Doubles, splits, and suited bonuses do not increase it beyond this cap.
+When the Dealer shows an **Ace** as their first (up) card and ends up with Blackjack, each Player's maximum penalty is **capped at wager × number of hands**. Doubles, splits, and suited bonuses do not increase it beyond this cap.
+
+If the Dealer's Blackjack instead comes from a 10-value up-card hiding an Ace, the group never had a chance to insure against it — normal net-loss rules apply instead, with no cap.
 
 #### Player Blackjack Insurance (Optional)
 
