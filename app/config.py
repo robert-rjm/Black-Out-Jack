@@ -65,6 +65,9 @@ TARGETED_DRINKING_VOTE_WINDOW_SECONDS = 15   # per-round bust/stand vote timer
 TARGETED_DRINKING_STREAK_TO_GRADUATE  = 3    # consecutive correct guesses to opt out
 TARGETED_DRINKING_COOLDOWN_ROUNDS     = 3    # rounds before a new subgame can start
 TARGETED_DRINKING_REVEAL_PAUSE_SECONDS = 4   # breather after a mini-round's reveal before the next one opens
+# Easter-egg-launched subgames only (Wild Card 🃏): total sips a target can
+# drink before their run is force-ended as a loss (+1 penalty sip on top).
+TARGETED_DRINKING_EASTER_EGG_SIP_CAP  = 5
 
 # ---------------------------------------------------------------------------
 # Registration / connection limits

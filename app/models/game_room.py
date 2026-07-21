@@ -292,6 +292,10 @@ class GameRoom:
     _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
     _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
     _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
+    # Set only when this subgame was launched by the Wild Card easter egg
+    # (name of the player who pressed it) -- None for admin-started subgames.
+    # Gates the easter-egg-only 5-sip cap/graduation-payback mechanic below.
+    _targeted_drinking_presser: str | None = None
     # name -> total sips drunk across every mini-round of this subgame run
     # (unlike _targeted_drinking_streaks, never loses a name when someone
     # graduates -- this is the running tally end_targeted_drinking snapshots
