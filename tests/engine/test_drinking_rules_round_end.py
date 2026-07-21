@@ -28,7 +28,9 @@ def test_dealer_bj_num_hands_fallback_counts_nonsplit_hands():
         make_hand(("K", "S"), ("9", "H"), result="loss"),
         make_hand(("Q", "S"), ("8", "H"), result="loss"),
     ])
-    msgs = DrinkingRules.on_round_end([p], wager=1, dealer_bj=True, num_hands=0)
+    msgs = DrinkingRules.on_round_end(
+        [p], wager=1, dealer_bj=True, dealer_shows_ace=True, num_hands=0
+    )
     assert len(msgs) == 1
     recipient, sips, reason = msgs[0]
     assert recipient == "Alice"
@@ -41,7 +43,9 @@ def test_dealer_bj_pushes_reduce_charge():
         make_hand(("A", "H"), ("K", "D"), result="push"),  # BJ push
         make_hand(("Q", "S"), ("8", "H"), result="loss"),
     ])
-    msgs = DrinkingRules.on_round_end([p], wager=1, dealer_bj=True, num_hands=0)
+    msgs = DrinkingRules.on_round_end(
+        [p], wager=1, dealer_bj=True, dealer_shows_ace=True, num_hands=0
+    )
     assert len(msgs) == 1
     assert msgs[0][1] == 1  # base=2, bj_pushes=1 -> starting_losses=1
 
@@ -51,7 +55,9 @@ def test_dealer_bj_starting_losses_zero_no_message():
         make_hand(("A", "H"), ("K", "D"), result="push"),
         make_hand(("A", "S"), ("K", "C"), result="push"),
     ])
-    msgs = DrinkingRules.on_round_end([p], wager=1, dealer_bj=True, num_hands=0)
+    msgs = DrinkingRules.on_round_end(
+        [p], wager=1, dealer_bj=True, dealer_shows_ace=True, num_hands=0
+    )
     assert msgs == []
 
 
@@ -60,7 +66,8 @@ def test_dealer_bj_hard_switch_dealer_excluded():
         make_hand(("K", "S"), ("9", "H"), result="loss"),
     ])
     msgs = DrinkingRules.on_round_end(
-        [p], wager=1, dealer_bj=True, num_hands=0, hard_switch_dealer="Alice"
+        [p], wager=1, dealer_bj=True, dealer_shows_ace=True, num_hands=0,
+        hard_switch_dealer="Alice"
     )
     assert msgs == []
 
@@ -73,9 +80,27 @@ def test_dealer_bj_splits_do_not_reduce_charge():
         make_hand(("8", "S"), ("9", "H"), result="loss", from_split=True),
         make_hand(("Q", "S"), ("8", "H"), result="loss"),
     ])
-    msgs = DrinkingRules.on_round_end([p], wager=1, dealer_bj=True, num_hands=2)
+    msgs = DrinkingRules.on_round_end(
+        [p], wager=1, dealer_bj=True, dealer_shows_ace=True, num_hands=2
+    )
     assert len(msgs) == 1
     assert msgs[0][1] == 2  # num_hands=2, no BJ pushes
+
+
+def test_dealer_bj_without_ace_upcard_falls_back_to_normal_branch():
+    """Dealer blackjack from a 10-value up-card hiding an Ace never offered
+    insurance, so auto-insurance must not apply -- normal net-loss math runs."""
+    p = make_player("Alice", hands=[
+        make_hand(("K", "S"), ("9", "H"), result="loss"),
+        make_hand(("Q", "S"), ("8", "H"), result="loss"),
+    ])
+    msgs = DrinkingRules.on_round_end(
+        [p], wager=1, dealer_bj=True, dealer_shows_ace=False, num_hands=0
+    )
+    net_msgs = _msgs_for(msgs, "Alice", "net loss")
+    assert len(net_msgs) == 1
+    assert net_msgs[0][1] == 2
+    assert all("auto-insurance" not in m[2] for m in msgs)
 
 
 # ---------------------------------------------------------------------------

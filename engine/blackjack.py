@@ -793,15 +793,20 @@ class RoundManager:
         from engine.events import RoundEndEvent
         d_hand    = self.dealer_player.dealer_hand
         dealer_bj = d_hand.is_blackjack()
+        # Real insurance is only ever offered on an Ace up-card; a dealer BJ made
+        # from a 10-value up-card hiding an Ace never gave the group a chance to
+        # insure, so auto-insurance must not apply in that case.
+        dealer_shows_ace = bool(d_hand.cards) and d_hand.cards[0].rank.label == "A"
         w         = self.wager
         if DrinkingRules.dealer_21_five_cards(d_hand):
             w *= 2
             print(f"  ★ Dealer 21 with {len(d_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
-        if dealer_bj:
+        if dealer_bj and dealer_shows_ace:
             print("  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         hard_switch = getattr(self, "_hard_switch", False)
         self.tracker.apply(DrinkingRules.handle(RoundEndEvent(
             players=self.players, wager=w, dealer_bj=dealer_bj,
+            dealer_shows_ace=dealer_shows_ace,
             hard_switch_dealer=self.dealer_player.name if hard_switch else "",
             num_hands=self.num_hands,
         )))

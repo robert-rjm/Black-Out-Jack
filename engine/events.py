@@ -95,6 +95,7 @@ class RoundEndEvent:
     players:            list[Player]
     wager:              int
     dealer_bj:          bool = False
+    dealer_shows_ace:   bool = False
     hard_switch_dealer: str  = ""
     num_hands:          int  = 0   # configured starting hands per player
 
