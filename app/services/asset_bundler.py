@@ -20,6 +20,7 @@ nothing about how the code runs.
 """
 
 import os
+import time
 
 JS_SOURCES = [
     "static/js/utils.js",
@@ -61,8 +62,25 @@ def _concat(root: str, sources: list[str], dest_rel: str) -> None:
     for rel in sources:
         with open(os.path.join(root, rel), "r", encoding="utf-8") as f:
             chunks.append(f"/* ==== {rel} ==== */\n" + f.read())
-    with open(os.path.join(root, dest_rel), "w", encoding="utf-8") as f:
-        f.write("\n\n".join(chunks))
+    content  = "\n\n".join(chunks)
+    dest_abs = os.path.join(root, dest_rel)
+
+    # This project's dev folder lives under OneDrive sync (see server.py's
+    # startup path), which occasionally holds a transient lock on a file
+    # it's mid-upload/scan -- surfaces as PermissionError or a stray
+    # OSError from the write. Retry a few times before giving up rather
+    # than crashing app startup over a lock that clears itself in well
+    # under a second.
+    attempts = 5
+    for attempt in range(1, attempts + 1):
+        try:
+            with open(dest_abs, "w", encoding="utf-8") as f:
+                f.write(content)
+            return
+        except OSError:
+            if attempt == attempts:
+                raise
+            time.sleep(0.2 * attempt)
 
 
 def build_bundles(root: str) -> None:
