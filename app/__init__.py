@@ -64,6 +64,10 @@ def create_app() -> Flask:
     def index():
         return render_template("index.html")
 
+    @app.route("/terms")
+    def terms():
+        return render_template("terms.html")
+
     # -- Blueprints ----------------------------------------------------
     from app.routes.reports       import bp as reports_bp
     from app.routes.polling       import bp as polling_bp
