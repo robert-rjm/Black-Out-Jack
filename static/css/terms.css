@@ -1,0 +1,99 @@
+/* ============================================================
+   terms.css — standalone Terms & Disclaimer page
+   Not part of the game bundle (see asset_bundler.py) -- this page
+   is only ever loaded on its own via /terms, so it's linked directly.
+   ============================================================ */
+
+.terms-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.terms-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.terms-header img {
+  width: 40px;
+  height: 40px;
+}
+
+.terms-header h1 {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.terms-updated {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+.terms-notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--yellow);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 28px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.terms-notice strong { color: var(--yellow); }
+
+section.terms-section {
+  margin-bottom: 24px;
+}
+
+.terms-section h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.terms-section p,
+.terms-section li {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.terms-section ul {
+  padding-left: 20px;
+  margin-top: 4px;
+}
+
+.terms-section p + p { margin-top: 8px; }
+
+.terms-back {
+  display: inline-block;
+  margin-top: 12px;
+  margin-bottom: 24px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.terms-back:hover { text-decoration: underline; }
+
+.terms-footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.terms-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.terms-footer a:hover { text-decoration: underline; }
