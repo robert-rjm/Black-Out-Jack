@@ -46,6 +46,13 @@
 
 .terms-notice strong { color: var(--yellow); }
 
+.terms-notice-source {
+  border-left-color: var(--accent);
+}
+
+.terms-notice-source strong { color: var(--accent); }
+.terms-notice-source a { color: var(--accent); }
+
 section.terms-section {
   margin-bottom: 24px;
 }
