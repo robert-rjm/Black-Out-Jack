@@ -43,19 +43,28 @@ from app.config import (
     TARGETED_DRINKING_REVEAL_PAUSE_SECONDS,
     TARGETED_DRINKING_STREAK_TO_GRADUATE,
     TARGETED_DRINKING_COOLDOWN_ROUNDS,
+    TARGETED_DRINKING_EASTER_EGG_SIP_CAP,
 )
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card, round_phase
 
 
-def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
-    """Admin-only entry point. Returns False (no-op) if the subgame is
+def start_targeted_drinking(
+    session: GameRoom, target_names: list[str], presser_name: str | None = None,
+) -> bool:
+    """Admin-only entry point (also called from the Wild Card easter egg --
+    see app/routes/wild_card.py). Returns False (no-op) if the subgame is
     already running, the cooldown hasn't elapsed yet, no targets were
     given, or any name isn't a currently-connected, non-kicked player.
     On success, marks the subgame active with a fresh (zeroed) graduation
     streak for each target. The first mini-round doesn't open until the
     current normal round ends (see check_targeted_drinking_trigger) -- this
     never interrupts a round already in progress.
+
+    presser_name: set only when the Wild Card easter egg launched this
+    subgame (the name of whoever pressed it) -- gates the easter-egg-only
+    5-sip cap and graduation payback mechanic in resolve_targeted_drinking_round.
+    None for admin-started subgames, which have no cap or payback.
 
     check_targeted_drinking_trigger only ever fires once, at the moment a
     round *transitions into* round-over (called from the end-round
@@ -86,6 +95,7 @@ def start_targeted_drinking(session: GameRoom, target_names: list[str]) -> bool:
     session._targeted_drinking_wrong_counts = {name: 0 for name in target_names}
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
+    session._targeted_drinking_presser = presser_name
     if round_phase(session) == "round-over":
         session.round._targeted_drinking_eligible = True
     return True
@@ -232,6 +242,15 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
     streak to 0 and costs them a flat 1 sip (no escalating penalty tiers
     in the MVP). Ends the subgame once every target has graduated.
 
+    Easter-egg-launched subgames only (session._targeted_drinking_presser
+    set -- see start_targeted_drinking): a target who reaches
+    TARGETED_DRINKING_EASTER_EGG_SIP_CAP total sips is force-ended right
+    here as a loss -- one extra +1 penalty sip on top of the cap, removed
+    from the target list without graduating. Conversely, a target who
+    graduates before ever hitting the cap makes the mechanic backfire on
+    whoever pressed the easter egg: the presser drinks however many sips
+    the target drank over the whole run (0 if the target never missed).
+
     Also updates the run-wide statistics table (Rules.md §5.10):
     _targeted_drinking_correct_counts/_wrong_counts per target, and
     _targeted_drinking_dealer_hands/_dealer_busts for the isolated dealer
@@ -268,9 +287,11 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
     if dealer_busted:
         session._targeted_drinking_dealer_busts += 1
 
+    presser = session._targeted_drinking_presser
     correct: dict[str, bool] = {}
     sips: dict[str, int] = {}
     graduated: list[str] = []
+    capped_out: list[str] = []
 
     for name in list(session._targeted_drinking_targets):
         vote = votes.get(name) or "stand"
@@ -291,19 +312,50 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                     f"({streak} correct in a row)\n"
                 )
                 session._log_version += 1
+                if presser:
+                    payback = session._targeted_drinking_total_sips.get(name, 0)
+                    if payback > 0:
+                        award_sips(
+                            session, presser, payback,
+                            "Targeted Drinking easter egg backfire",
+                            reason=f"Targeted Drinking: {name} graduated -- "
+                                   f"backfires on {presser} for {payback} sip(s)",
+                            count_toward_round=False,
+                        )
+                        session.round._log_entries.append(
+                            f"  🃏 Easter egg backfires on {presser} — "
+                            f"drinks {payback} sip(s) ({name} graduated)\n"
+                        )
+                        session._log_version += 1
         else:
             session._targeted_drinking_wrong_counts[name] = (
                 session._targeted_drinking_wrong_counts.get(name, 0) + 1
             )
             session._targeted_drinking_streaks[name] = 0
-            sips[name] = 1
+            wrong_sips = 1
             session._targeted_drinking_total_sips[name] = (
                 session._targeted_drinking_total_sips.get(name, 0) + 1
             )
+            capped = (
+                presser is not None
+                and session._targeted_drinking_total_sips[name] >= TARGETED_DRINKING_EASTER_EGG_SIP_CAP
+            )
+            if capped:
+                wrong_sips += 1   # +1 penalty for not managing to graduate before the cap
+                session._targeted_drinking_total_sips[name] += 1
+                session._targeted_drinking_targets.remove(name)
+                capped_out.append(name)
+                session.round._log_entries.append(
+                    f"  🃏 {name} hit the {TARGETED_DRINKING_EASTER_EGG_SIP_CAP}-sip "
+                    f"easter egg cap without graduating — +1 penalty sip\n"
+                )
+                session._log_version += 1
+            sips[name] = wrong_sips
             award_sips(
-                session, name, 1, "Targeted Drinking wrong guess",
+                session, name, wrong_sips, "Targeted Drinking wrong guess",
                 reason=f"Targeted Drinking: guessed {vote}, dealer "
-                       f"{'busted' if dealer_busted else 'stood'} -- +1 sip",
+                       f"{'busted' if dealer_busted else 'stood'} -- "
+                       f"+{wrong_sips} sip(s)" + (" (cap penalty)" if capped else ""),
                 count_toward_round=False,
             )
 
@@ -313,17 +365,19 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
             "score": hand.score(),
             "bust":  dealer_busted,
         },
-        "votes":     dict(votes),
-        "correct":   correct,
-        "streaks":   dict(session._targeted_drinking_streaks),
-        "graduated": graduated,
-        "sips":      sips,
-        "set_at":    time.monotonic(),
+        "votes":      dict(votes),
+        "correct":    correct,
+        "streaks":    dict(session._targeted_drinking_streaks),
+        "graduated":  graduated,
+        "capped_out": capped_out,
+        "sips":       sips,
+        "set_at":     time.monotonic(),
     }
     session.drinks._targeted_drinking_result_seq += 1
 
     if not session._targeted_drinking_targets:
-        end_targeted_drinking(session, reason="all_graduated")
+        reason = "capped_out" if capped_out else "all_graduated"
+        end_targeted_drinking(session, reason=reason)
     else:
         # Still running -- re-arm eligibility immediately so the next
         # mini-round opens as soon as the reveal breather elapses (see
@@ -368,6 +422,7 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_total_sips = {}
     session._targeted_drinking_correct_counts = {}
     session._targeted_drinking_wrong_counts = {}
+    session._targeted_drinking_presser = None
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
     session._targeted_drinking_cooldown_until_round = (

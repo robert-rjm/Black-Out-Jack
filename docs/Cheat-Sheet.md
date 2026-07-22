@@ -9,7 +9,7 @@
 
 ## Insurance
 
-**Auto-Insurance (always on)** — when Dealer has Blackjack, each Player's max penalty is capped at wager × hand count. Doubles/splits/suited don't push it higher.
+**Auto-Insurance (Ace up-card only)** — when Dealer shows an Ace and ends up with Blackjack, each Player's max penalty is capped at wager × hand count. Doubles/splits/suited don't push it higher. A Dealer Blackjack from a 10-value up-card (hidden Ace) never offered insurance, so normal net-loss rules apply instead.
 
 **Player Blackjack Insurance (optional vote)** — Dealer shows an Ace + a Player has Blackjack → everyone else votes Insure/Decline (tie = Decline):
 

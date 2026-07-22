@@ -156,7 +156,7 @@ def wild_card():
         else:
             target_name = random.choice(candidates).name
 
-        if start_targeted_drinking(session, [target_name]):
+        if start_targeted_drinking(session, [target_name], presser_name=player_name):
             outcome = "targeted"
             text = f"🃏 {label} marks {target_name} for Targeted Drinking!"
         else:

@@ -507,6 +507,7 @@ class DrinkingRules:
     @staticmethod
     def on_round_end(players: list, wager: int,
                      dealer_bj: bool = False,
+                     dealer_shows_ace: bool = False,
                      hard_switch_dealer: str = "",
                      num_hands: int = 0) -> list:
         """
@@ -517,18 +518,24 @@ class DrinkingRules:
         - Split wins break immunity (aggregated as winning_split_hands - 1)
         - Other-player-wins-all rule (with immunity tiers)
 
-        dealer_bj: when True (dealer natural blackjack) players are charged for
-                   every starting hand (num_hands) minus any BJ pushes x wager.
-                   Splits do not reduce the charge -- a player who started with 2
-                   hands and split one still pays for 2 starting hands.
-                   All bonus/penalty extras are suppressed (auto-insurance).
+        dealer_bj: when True (dealer natural blackjack) AND dealer_shows_ace is
+                   True, players are charged for every starting hand (num_hands)
+                   minus any BJ pushes x wager. Splits do not reduce the charge --
+                   a player who started with 2 hands and split one still pays for
+                   2 starting hands. All bonus/penalty extras are suppressed
+                   (auto-insurance).
+        dealer_shows_ace: whether the dealer's up-card (first card) was an Ace --
+                   real insurance is only ever offered on an Ace up-card. When the
+                   dealer's blackjack instead came from a 10-value up-card hiding
+                   an Ace, the group never had a chance to insure, so the normal
+                   (uncapped) net-loss rules apply instead of auto-insurance.
         num_hands: configured hands per player (used for dealer BJ charge).
                    Falls back to counting non-split hands if not supplied.
         hard_switch_dealer: name of the dealer-player on a hard switch -- they are
                             fully exempt from all player-role drinks this round
                             (they already drink via the Hard Switch dealer rule).
         """
-        if dealer_bj:
+        if dealer_bj and dealer_shows_ace:
             return DrinkingRules._dealer_bj_drinks(players, wager, num_hands, hard_switch_dealer)
 
         msgs = []
@@ -642,6 +649,7 @@ class DrinkingRules:
                 return DrinkingRules.on_round_end(
                     event.players, event.wager,
                     dealer_bj=event.dealer_bj,
+                    dealer_shows_ace=event.dealer_shows_ace,
                     hard_switch_dealer=event.hard_switch_dealer,
                     num_hands=event.num_hands,
                 )

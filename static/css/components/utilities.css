@@ -109,9 +109,11 @@ body.no-drinking .drink-only {
   background: var(--border);
 }
 .lobby-github-link:hover,
+.lobby-terms-link:hover,
 .gate-btn-decline:hover { color: var(--text); }
 
-.lobby-github-link {
+.lobby-github-link,
+.lobby-terms-link {
   color: var(--muted);
   text-decoration: none;
   font-size: 11px;

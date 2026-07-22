@@ -104,9 +104,11 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 
 ### 3.2 Insurance
 
-#### Auto-Insurance (Always Active)
+#### Auto-Insurance (Ace Up-Card Only)
 
-When the Dealer has Blackjack, each Player's maximum penalty is **capped at wager × number of hands**. Doubles, splits, and suited bonuses do not increase it beyond this cap.
+When the Dealer shows an **Ace** as their first (up) card and ends up with Blackjack, each Player's maximum penalty is **capped at wager × number of hands**. Doubles, splits, and suited bonuses do not increase it beyond this cap.
+
+If the Dealer's Blackjack instead comes from a 10-value up-card hiding an Ace, the group never had a chance to insure against it — normal net-loss rules apply instead, with no cap.
 
 #### Player Blackjack Insurance (Optional)
 
@@ -438,6 +440,23 @@ be started again.
 
 Started and cancelled by the host from **Settings → Players** — see
 [Multiplayer.md](Multiplayer.md#targeted-drinking-mode).
+
+#### Easter Egg Launch (Wild Card 🃏)
+
+When the Wild Card 🃏 logo-press easter egg launches Targeted Drinking Mode
+instead of the host (a 15% roll on press — see `app/routes/wild_card.py`),
+two extra rules apply that don't exist for a host-started run:
+
+| Outcome | Effect |
+| --- | --- |
+| Target hits **5 total sips** without graduating | Run ends immediately as a loss — **+1 penalty sip** on top (6 total) |
+| Target **graduates** before hitting the cap | The prank backfires: whoever pressed the easter egg drinks however many sips the target drank over the run (0 if the target never missed) |
+
+> **Example:** Carol presses the Wild Card and it targets Bob. Bob misses once
+> (1 sip) then calls it right three times in a row and graduates — the
+> backfire hits Carol for 1 sip. Had Bob instead missed his way to 5 sips
+> without ever stringing 3 corrects together, his run would end there and
+> then with a 6th, final penalty sip — Carol drinks nothing.
 
 
 ## 6. Relaxed Drinking Rules

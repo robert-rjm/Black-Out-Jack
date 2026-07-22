@@ -29,9 +29,15 @@ def create_app() -> Flask:
 
     # Regenerate the JS/CSS bundles from source on every startup (this app's
     # only "deploy" step is a process restart, so there's no separate build
-    # phase to run this from -- see app/services/asset_bundler.py).
-    from app.services.asset_bundler import build_bundles
-    build_bundles(_ROOT)
+    # phase to run this from -- see app/services/asset_bundler.py). Skipped
+    # under pytest: the test suite calls create_app() hundreds of times (once
+    # per test's `app` fixture) and never reads bundle.js/bundle.css, so
+    # rebuilding it every time is both wasted work and, in a OneDrive-synced
+    # project folder, a real source of transient PermissionError/OSError
+    # flakiness from repeatedly rewriting the same file out from under sync.
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        from app.services.asset_bundler import build_bundles
+        build_bundles(_ROOT)
 
     # -- Global after_request ------------------------------------------
     @app.after_request
@@ -63,6 +69,10 @@ def create_app() -> Flask:
     @app.route("/")
     def index():
         return render_template("index.html")
+
+    @app.route("/terms")
+    def terms():
+        return render_template("terms.html")
 
     # -- Blueprints ----------------------------------------------------
     from app.routes.reports       import bp as reports_bp

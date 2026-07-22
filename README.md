@@ -73,6 +73,7 @@ python server.py
 | [Comprehensive-Example.md](docs/Comprehensive-Example.md) | Full round walkthrough|
 | [Architecture.md](docs/Architecture.md) | Project structure, file dependencies, simulation |
 | [Dev-Cheat-Sheet.md](docs/Dev-Cheat-Sheet.md) | Quick reference for dev CLI commands (tests, simulation, snapshots, player profiles) |
+| [Terms.md](docs/Terms.md) | Terms & Disclaimer — age/alcohol, liability, data handling |
 
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!

@@ -126,6 +126,7 @@ def _serialize_last_targeted_drinking_result(result: dict | None) -> dict | None
         "correct":     dict(result["correct"]),
         "streaks":     dict(result["streaks"]),
         "graduated":   list(result["graduated"]),
+        "capped_out":  list(result.get("capped_out", [])),
         "sips":        dict(result["sips"]),
         "seconds_ago": max(0, round(time.monotonic() - result["set_at"])),
     }
