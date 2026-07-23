@@ -649,14 +649,15 @@ class TargetedDrinkingPanel {
     }
   }
 
-  // Admin: end the whole subgame immediately (cancelTargetedDrinking itself
-  // confirms first), same effect as the Settings → Players "Cancel Targeted
-  // Drinking" button, just reachable straight from the mini-game itself.
+  // Host/dealer: end the whole subgame immediately (cancelTargetedDrinking
+  // itself confirms first), same effect as the Settings → Players "Cancel
+  // Targeted Drinking" button, just reachable straight from the mini-game
+  // itself (server-enforced too -- see /targeted_drinking/cancel).
   // Anyone else: just stop showing this mini-round's modal to me locally --
   // doesn't submit a vote or touch server state, so an unvoted target still
   // defaults to STAND at the timer exactly as if they'd ignored the app.
   _onCloseClick() {
-    if (myRole === ROLE.ADMIN) {
+    if (myRole === ROLE.ADMIN || isMyDealerClient) {
       cancelTargetedDrinking({ reopenSettings: false });
       return;
     }
@@ -672,7 +673,18 @@ class TargetedDrinkingPanel {
   // should show next (a queued end-of-subgame recap, the "waiting for next
   // mini-round" filler, or a full close) from the latest state, so there's
   // never a moment where the modal closes only to immediately reopen.
+  //
+  // On the *reveal* phase specifically (not summary -- the subgame's
+  // already over by then, nothing left to unblock), the host/dealer's tap
+  // also unblocks the server-side pacing for the whole table (see
+  // continueTargetedDrinkingRound) -- fixes laggy clients getting swept
+  // into the next mini-round before they've actually seen this one's hand
+  // play out, by letting whoever's watching for everyone drive the pace.
+  // Everyone else's tap stays a purely personal, ungated dismiss.
   _onContinueClick() {
+    if (this.phase === "reveal" && (myRole === ROLE.ADMIN || isMyDealerClient)) {
+      continueTargetedDrinkingRound();
+    }
     if (this._revealTimer) { clearTimeout(this._revealTimer); this._revealTimer = null; }
     this.phase = null;
     if (typeof lastState !== "undefined" && lastState) this.render(lastState);
@@ -793,13 +805,19 @@ class TargetedDrinkingPanel {
       // tapped "Start Targeting Now" yet -- let the table finish drinking
       // for that round first instead of dropping the mini-game's modal on
       // them immediately. Compact banner + button, not the blocking modal.
+      // Only the host or current dealer can actually operate this button
+      // (server-enforced too -- see /targeted_drinking/begin) -- everyone
+      // else just sees the status text while they wait.
       this.phase = null;
       this.close();
       if (banner) {
-        const cancelBtn = myRole === ROLE.ADMIN
+        const canControl = myRole === ROLE.ADMIN || isMyDealerClient;
+        const cancelBtn  = canControl
           ? `<button class="td-banner-cancel" data-td-cancel title="End targeting">✕</button>`
           : "";
-        banner.innerHTML = `<button class="td-start-btn" data-td-start>🎯 Start Targeting Now</button>${cancelBtn}`;
+        banner.innerHTML = canControl
+          ? `<button class="td-start-btn" data-td-start>🎯 Start Targeting Now</button>${cancelBtn}`
+          : `<span>🎯 Targeted Drinking is about to start…</span>`;
         banner.style.display = "block";
       }
     } else if (isRoundOver && !this._dismissed && td.eligible) {
@@ -1098,7 +1116,7 @@ async function submitTargetedDrinkingVote(vote, playerName) {
   }
 }
 
-// Any registered player taps this to open the mini-round that's waiting
+// Host or current dealer taps this to open the mini-round that's waiting
 // on "Start Targeting Now" -- lets the table finish drinking for the
 // round that just ended before the mini-game's modal takes over.
 async function beginTargetedDrinkingRound() {
@@ -1114,6 +1132,23 @@ async function beginTargetedDrinkingRound() {
   } catch (_) {} finally {
     _requestDone();
   }
+}
+
+// Host or current dealer's "Continue" tap on the mini-round reveal skips
+// the remaining reveal-pause breather so the next mini-round can open for
+// the whole table right away, instead of everyone waiting out the flat
+// safety-net timeout -- see _onContinueClick below and
+// TARGETED_DRINKING_REVEAL_PAUSE_SECONDS (app/config.py). Fire-and-forget:
+// the local dismiss (_onContinueClick's own phase reset) happens either
+// way, this just also unblocks the server side for everyone else.
+async function continueTargetedDrinkingRound() {
+  try {
+    await fetch("/targeted_drinking/continue", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+  } catch (_) {}
 }
 
 // Builds one target's outcome line for the reveal modal's payout list --

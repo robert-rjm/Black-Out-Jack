@@ -96,6 +96,11 @@ def start_targeted_drinking(
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
     session._targeted_drinking_presser = presser_name
+    # Clear any in-flight majority-vote proposals -- a subgame is now
+    # active (whichever of the three start paths triggered it), so a
+    # leftover proposal from before could otherwise re-fire the moment the
+    # post-subgame cooldown clears without anyone re-voting.
+    session._targeted_drinking_start_votes = {}
     if round_phase(session) == "round-over":
         session.round._targeted_drinking_eligible = True
     return True
@@ -425,6 +430,9 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_presser = None
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
+    # Clear so a stale pre-cooldown vote can't instantly re-fire the
+    # moment the cooldown below lifts -- players re-vote fresh after.
+    session._targeted_drinking_start_votes = {}
     session._targeted_drinking_cooldown_until_round = (
         session.round_count + TARGETED_DRINKING_COOLDOWN_ROUNDS
     )

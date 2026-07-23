@@ -507,6 +507,62 @@ function renderKickVoteBanner(state) {
 }
 
 // ============================================================
+// TARGETED DRINKING — vote-to-target banner (one of three ways a subgame
+// can start: this majority vote, the host's direct override in
+// _renderTargetedDrinkingAdmin above, or the Wild Card easter egg)
+// ============================================================
+async function doVoteTargeted(targetName) {
+  try {
+    const res  = await fetch("/targeted_drinking/vote_target", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else alert(data.error || "Could not cast vote.");
+  } catch (_) { alert("Network error."); }
+}
+
+function renderTargetedDrinkingVoteBanner(state) {
+  const banner = document.getElementById("targeted-drinking-vote-banner");
+  if (!banner) return;
+  const td = (state && state.targeted_drinking) || {};
+
+  const cooldownRemaining = (td.cooldown_until_round || 0) - (state.round || 0);
+  const myNamesLc = new Set(myNames.map(n => n.toLowerCase()));
+  const eligible = (state.table || []).filter(p =>
+    !p.is_npc && !myNamesLc.has(p.name.toLowerCase())
+  );
+
+  if (!state.drinking_mode || myRole === null || td.active
+      || cooldownRemaining > 0 || eligible.length < 1) {
+    banner.style.display = "none";
+    return;
+  }
+
+  const votes     = td.start_votes || {};
+  const votesMine = new Set((td.start_votes_mine || []).map(n => n.toLowerCase()));
+
+  banner.style.display = "block";
+  banner.innerHTML =
+    `<div class="td-vote-title">🎯 Vote to target someone:</div>` +
+    `<div class="banner-td-vote-list">` +
+    eligible.map(p => {
+      const lc    = p.name.toLowerCase();
+      const count = votes[lc] || 0;
+      const mine  = votesMine.has(lc);
+      return `<button class="td-vote-pill${mine ? " mine" : ""}" data-td-vote-target="${escapeHtml(p.name)}">` +
+             `${escapeHtml(p.name)} <span class="td-vote-count">${count}</span></button>`;
+    }).join("") +
+    `</div>`;
+
+  banner.querySelectorAll("[data-td-vote-target]").forEach(btn => {
+    btn.onclick = () => doVoteTargeted(btn.dataset.tdVoteTarget);
+  });
+}
+
+// ============================================================
 // RULES MODAL
 // ============================================================
 let _rulesCached = null;

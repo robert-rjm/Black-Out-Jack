@@ -908,6 +908,14 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "targets":              list(session._targeted_drinking_targets),
             "streaks":              dict(session._targeted_drinking_streaks),
             "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
+            # Majority-vote-to-target tallies (mirrors kick_votes/
+            # kick_votes_mine/kick_votes_detail's shape, nested here
+            # instead of top-level since it's specifically part of this
+            # feature's state).
+            "start_votes":          {k: len(v) for k, v in session._targeted_drinking_start_votes.items()},
+            "start_votes_mine":     [k for k, v in session._targeted_drinking_start_votes.items()
+                                      if (_ci.get("name") or "").lower() in v],
+            "start_votes_detail":   {k: sorted(v) for k, v in session._targeted_drinking_start_votes.items()},
             "pending":              _serialize_pending_targeted_drinking(
                                         session.round._pending_targeted_drinking, _ci),
             "last_result":          _serialize_last_targeted_drinking_result(

@@ -214,6 +214,46 @@ body.no-drinking .drink-only {
   color: var(--red);
   line-height: 1.6;
 }
+.banner-td-vote {
+  padding: 7px 14px;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--purple) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--purple) 22%, transparent);
+  color: var(--purple);
+}
+.banner-td-vote .td-vote-title {
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+.banner-td-vote-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.td-vote-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--purple) 35%, transparent);
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+.td-vote-pill.mine {
+  background: color-mix(in srgb, var(--purple) 20%, transparent);
+  border-color: var(--purple);
+  color: var(--purple);
+  font-weight: 700;
+}
+.td-vote-pill .td-vote-count {
+  color: var(--muted);
+}
+.td-vote-pill.mine .td-vote-count { color: var(--purple); }
+
 .banner-rejoin {
   padding: 7px 14px;
   font-size: 12px;

@@ -339,6 +339,9 @@ class TargetedDrinkingOut(_StrictModel):
     targets:              list[str]
     streaks:              dict[str, int]   # graduation streak, per target (live, between mini-rounds too)
     cooldown_until_round: int
+    start_votes:          dict[str, int]        # target -> vote count (majority-vote-to-target proposals)
+    start_votes_mine:     list[str]             # targets this client has voted for
+    start_votes_detail:   dict[str, list[str]]  # target -> sorted voter names
     pending:              Optional[TargetedDrinkingPendingOut]
     last_result:          Optional[TargetedDrinkingResultOut]
     result_seq:           int
