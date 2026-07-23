@@ -182,6 +182,9 @@
   border-radius: 18px;
   padding: 24px 20px 20px;
   width: 100%; max-width: 340px;
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   margin: 16px;
 }
 
@@ -292,6 +295,9 @@
   border-radius: 18px;
   padding: 22px 20px 18px;
   width: min(360px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
   text-align: center;
@@ -534,6 +540,9 @@
   border-radius: 18px;
   padding: 22px 20px 18px;
   width: min(340px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
