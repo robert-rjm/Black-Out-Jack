@@ -507,6 +507,7 @@ function _syncModals(state) {
 
   updateRegisterOverlay(state);
   renderKickVoteBanner(state);
+  renderTargetedDrinkingVoteBanner(state);
 
   // Wild Card logo: pointer cursor only when Easter egg is enabled AND round is active
   const logo = document.getElementById("header-logo");

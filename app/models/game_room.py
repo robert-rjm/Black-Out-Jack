@@ -292,6 +292,11 @@ class GameRoom:
     _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
     _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
     _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
+    # Majority-vote-to-target: target_name_lower -> set of voter_name_lower.
+    # Session-lifetime (not RoundState) like the rest of this block, since
+    # a proposal should survive across rounds until it hits majority or the
+    # subgame starts/ends -- unlike _kick_votes, which resets every round.
+    _targeted_drinking_start_votes: dict = field(default_factory=dict)
     # Set only when this subgame was launched by the Wild Card easter egg
     # (name of the player who pressed it) -- None for admin-started subgames.
     # Gates the easter-egg-only 5-sip cap/graduation-payback mechanic below.

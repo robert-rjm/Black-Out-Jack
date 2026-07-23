@@ -13,8 +13,9 @@ POST /vote_insurance          — Player casts their insurance vote
 POST /give_bust_sip           — Bust vote winner hands out their 1-sip reward
 POST /dealer_lottery/enter    — Player submits their Dealer Lottery entry (0-5)
 POST /dealer_lottery/give_sip — Dealer Lottery credit-winner hands out their sip(s)
-POST /targeted_drinking/vote  — Targeted player casts their bust/stand vote
-POST /targeted_drinking/begin — Any player kicks off the waiting mini-round
+POST /targeted_drinking/vote        — Targeted player casts their bust/stand vote
+POST /targeted_drinking/begin       — Host or dealer kicks off the waiting mini-round
+POST /targeted_drinking/vote_target — Any player casts/retracts a vote to target someone
 """
 
 import logging
@@ -27,7 +28,7 @@ from app.services.session_store import (
     mark_waiting_client, get_waiting_clients,
 )
 from app.services.validators import sanitize_name, is_dealer_client
-from app.routes.admin import _require_admin
+from app.routes.admin import _require_admin, _require_host_or_dealer
 from app.services.serializer import (
     serialize_state, round_phase, current_turn, hand_done,
     compute_mandatory_split10,
@@ -41,6 +42,7 @@ from app.services.dealer_lottery import (
 from app.services.targeted_drinking import (
     submit_targeted_drinking_vote,
     request_targeted_drinking_start,
+    start_targeted_drinking,
 )
 from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
@@ -950,25 +952,91 @@ def targeted_drinking_vote():
 
 @bp.route("/targeted_drinking/begin", methods=["POST"])
 def targeted_drinking_begin():
-    """Any registered (non-spectator) player kicks off the mini-round that's
-    waiting on "Start Targeting Now" -- lets the table finish drinking for
-    the round that just ended before the mini-game's modal takes over.
+    """Host or current dealer kicks off the mini-round that's waiting on
+    "Start Targeting Now" -- lets the table finish drinking for the round
+    that just ended before the mini-game's modal takes over.
     Body: { room_code, client_id }. No-op (still returns ok) if nothing is
-    actually waiting to start, e.g. a race with another player's tap.
+    actually waiting to start, e.g. a race with another tap.
     """
-    data      = request.json or {}
-    room_code = (data.get("room_code") or "").strip()
-    client_id = (data.get("client_id") or "").strip()
+    data = request.json or {}
+    session, client_id, _, err = _require_host_or_dealer(data)
+    if err:
+        return jsonify({"ok": False, "error": err})
+
+    request_targeted_drinking_start(session)
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/vote_target", methods=["POST"])
+def targeted_drinking_vote_target():
+    """Any registered non-spectator player casts or retracts a vote to
+    target a player for Targeted Drinking Mode -- one of three ways a
+    subgame can start (alongside the host's direct override and the Wild
+    Card easter egg). Toggles; auto-starts at strict majority, mirroring
+    vote_kick's exact math (app/routes/admin.py).
+    Body: { room_code, client_id, target_name }
+    """
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = sanitize_name(data.get("target_name") or "")
 
     session = game_sessions.get(room_code)
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    client_info = session._room_clients.get(client_id, {})
-    if not client_info.get("name"):
+    clients = session._room_clients
+    info    = clients.get(client_id, {})
+    if not info or info.get("kicked"):
         return jsonify({"ok": False, "error": "Not registered."})
+    voter_name = (info.get("name") or "").lower()
+    if not voter_name:
+        return jsonify({"ok": False, "error": "Spectators cannot vote."})
+    if voter_name == target_name.lower():
+        return jsonify({"ok": False, "error": "Cannot vote to target yourself."})
 
-    request_targeted_drinking_start(session)
-    return jsonify({**serialize_state(session, client_id), "ok": True})
+    if session._targeted_drinking_active:
+        return jsonify({"ok": False, "error": "Targeted Drinking Mode is already running."})
+    if session.round_count < session._targeted_drinking_cooldown_until_round:
+        return jsonify({"ok": False, "error": "Targeted Drinking Mode is on cooldown."})
 
-    return jsonify({**serialize_state(session, client_id), "ok": True})
+    # Verify target is a real player in this game (bots included in
+    # all_players but excluded below) -- mirrors start_targeted_drinking's
+    # own validation, not vote_kick's _room_clients connectivity check:
+    # unlike a kick target, a Targeted Drinking target doesn't need an
+    # active browser session of their own to be voted for.
+    target_player = session._get_player(target_name)
+    if target_player is None:
+        return jsonify({"ok": False, "error": f"'{target_name}' is not in the session."})
+    if getattr(target_player, "is_npc", False):
+        return jsonify({"ok": False, "error": "Cannot vote to target a bot."})
+
+    key   = target_name.lower()
+    votes = session._targeted_drinking_start_votes.setdefault(key, set())
+
+    # Toggle
+    if voter_name in votes:
+        votes.discard(voter_name)
+    else:
+        votes.add(voter_name)
+
+    # Count eligible voters: connected, named, non-spectator, non-bot, excluding the target
+    all_players_lc = {
+        (v.get("name") or "").lower()
+        for v in clients.values()
+        if not v.get("kicked") and v.get("name") and v.get("role") != "spectator"
+    }
+    npc_names_lc = {p.name.lower() for p in session.all_players if getattr(p, "is_npc", False)}
+    eligible = all_players_lc - npc_names_lc - {key}
+
+    started = False
+    if len(eligible) > 0 and len(votes) > len(eligible) / 2:
+        started = start_targeted_drinking(session, [target_name])
+        # start_targeted_drinking clears _targeted_drinking_start_votes on
+        # success; if it somehow failed (race with another start path
+        # between the checks above and here), leave the vote in place.
+
+    state = serialize_state(session, client_id)
+    state["ok"]      = True
+    state["started"] = started
+    return jsonify(state)

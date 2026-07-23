@@ -31,6 +31,7 @@ from app.services.targeted_drinking import (
     resolve_targeted_drinking_round,
     end_targeted_drinking,
 )
+from app.config import TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
 
 
 # ---------------------------------------------------------------------------
@@ -855,16 +856,33 @@ def test_start_route_rejects_while_already_active(client, room_setup):
 # /targeted_drinking/cancel
 # ---------------------------------------------------------------------------
 
-def test_cancel_route_requires_admin(client, room_setup):
+def test_cancel_route_rejects_plain_player(client, room_setup):
     room_code, room = room_setup
     start_targeted_drinking(room, ["Carol"])
 
     resp = client.post("/targeted_drinking/cancel", json={
-        "room_code": room_code, "client_id": "client-2",  # Carol is not admin
+        "room_code": room_code, "client_id": "client-2",  # Carol is not admin/dealer
     })
     data = resp.get_json()
     assert data["ok"] is False
     assert room._targeted_drinking_active is True
+
+
+def test_cancel_route_dealer_can_cancel(client, room_setup):
+    """Alice is the room's dealer (see _make_room) but not admin -- still
+    allowed to cancel."""
+    room_code, room = room_setup
+    room._room_clients["client-3"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "player", "kicked": False,
+    }
+    start_targeted_drinking(room, ["Carol"])
+
+    resp = client.post("/targeted_drinking/cancel", json={
+        "room_code": room_code, "client_id": "client-3",  # Alice, dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room._targeted_drinking_active is False
 
 
 def test_cancel_route_ends_active_subgame(client, room_setup):
@@ -907,19 +925,50 @@ def test_begin_route_rejects_unregistered_client(client, room_setup):
     assert targeted_drinking_awaiting_start(room) is True   # unaffected by the rejected attempt
 
 
-def test_begin_route_any_registered_player_can_start(client, room_setup):
-    """Not admin-only -- Carol (a plain player, not Bob the admin) can tap
-    "Start Targeting Now" for herself."""
+def test_begin_route_rejects_plain_player(client, room_setup):
+    """Host/dealer-only -- Carol (a plain player, not Bob the admin, and
+    not the dealer) cannot tap "Start Targeting Now"."""
     room_code, room = room_setup
     start_targeted_drinking(room, ["Carol"])
     check_targeted_drinking_trigger(room)
 
     resp = client.post("/targeted_drinking/begin", json={
-        "room_code": room_code, "client_id": "client-2",   # Carol, not admin
+        "room_code": room_code, "client_id": "client-2",   # Carol, not admin/dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room.round._targeted_drinking_start_requested is False
+
+
+def test_begin_route_admin_can_start(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+
+    resp = client.post("/targeted_drinking/begin", json={
+        "room_code": room_code, "client_id": "client-1",   # Bob, admin
     })
     data = resp.get_json()
     assert data["ok"] is True
     assert data["targeted_drinking"]["awaiting_start"] is False
+    assert room.round._targeted_drinking_start_requested is True
+
+
+def test_begin_route_dealer_can_start(client, room_setup):
+    """Alice is the room's dealer (see _make_room) but not admin -- still
+    allowed to tap "Start Targeting Now"."""
+    room_code, room = room_setup
+    room._room_clients["client-3"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "player", "kicked": False,
+    }
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+
+    resp = client.post("/targeted_drinking/begin", json={
+        "room_code": room_code, "client_id": "client-3",   # Alice, dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
     assert room.round._targeted_drinking_start_requested is True
 
 
@@ -931,6 +980,217 @@ def test_begin_route_noop_when_nothing_waiting(client, room_setup):
     data = resp.get_json()
     assert data["ok"] is True   # still succeeds -- just a no-op
     assert room.round._targeted_drinking_start_requested is False
+
+
+# ---------------------------------------------------------------------------
+# /targeted_drinking/continue
+# ---------------------------------------------------------------------------
+
+def test_continue_route_rejects_plain_player(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-2",  # Carol, not admin/dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_continue_route_noop_without_in_flight_result(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-1",  # Bob, admin
+    })
+    data = resp.get_json()
+    assert data["ok"] is True   # no-op, still succeeds
+
+
+def test_continue_route_admin_unblocks_next_round(client, room_setup, monkeypatch):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+    submit_targeted_drinking_vote(room, "Carol", "bust")   # wrong -- keeps her targeted
+    resolve_targeted_drinking_round(room)
+
+    result = room.drinks.last_targeted_drinking_result
+    assert result is not None
+    original_set_at = result["set_at"]
+    # Not enough time has passed yet for the safety-net to have opened the
+    # next round on its own.
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is None
+
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-1",  # Bob, admin
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert result["set_at"] < original_set_at   # rewound into the past
+    assert time.monotonic() - result["set_at"] >= TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
+
+    # The next tick can now open the next mini-round without waiting out
+    # the full safety-net timeout.
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is not None
+
+
+def test_continue_route_dealer_can_unblock(client, room_setup, monkeypatch):
+    room_code, room = room_setup
+    room._room_clients["client-3"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "player", "kicked": False,
+    }
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+    submit_targeted_drinking_vote(room, "Carol", "bust")
+    resolve_targeted_drinking_round(room)
+
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-3",  # Alice, dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# /targeted_drinking/vote_target (majority vote to target someone)
+# ---------------------------------------------------------------------------
+
+def test_vote_target_route_toggle_cast_and_retract(client, room_setup):
+    # Target Alice (not Carol): with only Bob + Carol registered as
+    # clients, eligible = {bob, carol} for an Alice target, so Bob's lone
+    # vote (1 of 2) doesn't accidentally hit strict majority on its own.
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",   # Bob votes
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert data["started"] is False
+    assert "bob" in room._targeted_drinking_start_votes.get("alice", set())
+
+    # Retract
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert "bob" not in room._targeted_drinking_start_votes.get("alice", set())
+
+
+def test_vote_target_route_rejects_self_vote(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-2", "target_name": "Carol",   # Carol votes for herself
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_rejects_spectator(client, room_setup):
+    room_code, room = room_setup
+    room._room_clients["client-4"] = {"name": None, "role": "spectator", "kicked": False}
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-4", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_vote_target_route_rejects_bot_target(client, room_setup):
+    room_code, room = room_setup
+    room.all_players[2].is_npc = True   # Carol -> bot
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_rejects_unknown_target(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Nobody",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_vote_target_route_rejects_while_active(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_rejects_during_cooldown(client, room_setup):
+    room_code, room = room_setup
+    room._targeted_drinking_cooldown_until_round = room.round_count + 5
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_vote_target_route_majority_auto_starts(client, room_setup):
+    """3-player room: Bob (admin) + Carol vote to target Alice -- 2 of the
+    2 eligible voters (Alice herself excluded as the target) is a strict
+    majority, so the subgame starts immediately."""
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    assert resp.get_json()["started"] is False
+    assert room._targeted_drinking_active is False
+
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-2", "target_name": "Alice",
+    })
+    data = resp.get_json()
+    assert data["started"] is True
+    assert room._targeted_drinking_active is True
+    assert room._targeted_drinking_targets == ["Alice"]
+    # Votes cleared once the subgame actually starts
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_no_majority_vote_persists(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    data = resp.get_json()
+    assert data["started"] is False
+    assert room._targeted_drinking_active is False
+    assert "bob" in room._targeted_drinking_start_votes.get("alice", set())
+
+
+def test_vote_target_route_votes_cleared_after_subgame_ends(client, room_setup):
+    room_code, room = room_setup
+    # Bob votes for Alice, doesn't reach majority yet
+    client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    assert room._targeted_drinking_start_votes != {}
+
+    # A separate direct-start (host override) against Carol starts a
+    # subgame, which should clear out the stale Alice proposal too
+    start_targeted_drinking(room, ["Carol"])
+    assert room._targeted_drinking_start_votes == {}
+
+    end_targeted_drinking(room, reason="admin_cancelled")
+    assert room._targeted_drinking_start_votes == {}
 
 
 # ---------------------------------------------------------------------------
