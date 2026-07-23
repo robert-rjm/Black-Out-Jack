@@ -710,6 +710,13 @@ class TargetedDrinkingPanel {
     const resultSeq   = td.result_seq || 0;
     const summarySeq  = td.summary_seq || 0;
 
+    // Give-panel: called first (not at the end) because several branches
+    // below return early (reveal/summary own the modal until dismissed),
+    // and a perfect-graduation handout specifically appears *during* the
+    // reveal phase -- it needs a chance to render on every poll regardless
+    // of which branch this method takes.
+    targetedDrinkingGivePanel.render(state);
+
     // Queue an ending recap -- may arrive alongside a fresh mini-round
     // result (the last target graduated on this very resolve) or entirely
     // on its own (the admin cancelled outside of any mini-round). Shown
@@ -918,15 +925,22 @@ class TargetedDrinkingPanel {
     const wrap = document.getElementById("td-players-wrap");
     if (!wrap) return;
 
-    const votesCast  = pending.votes_cast || {};
-    const streaks    = (lastState && lastState.targeted_drinking && lastState.targeted_drinking.streaks) || {};
-    const multiLocal = myTargets.length > 1;
+    const votesCast     = pending.votes_cast || {};
+    const streaks       = (lastState && lastState.targeted_drinking && lastState.targeted_drinking.streaks) || {};
+    const losingStreaks = (lastState && lastState.targeted_drinking && lastState.targeted_drinking.losing_streaks) || {};
+    const multiLocal    = myTargets.length > 1;
 
     // No addEventListener here -- mount()'s delegated listener handles clicks.
     wrap.innerHTML = myTargets.map(name => {
       const nameLbl   = multiLocal ? `<span class="dl-name-lbl">${escapeHtml(name)}</span>` : "";
       const streak    = streaks[name] || 0;
-      const streakLbl = `<span class="td-streak">${streak}/3 correct</span>`;
+      const losing    = losingStreaks[name] || 0;
+      // Next miss costs (losing + 1) sips -- shown so a target on a bad
+      // run knows exactly what's riding on this call.
+      const warnLbl   = losing > 0
+        ? `<span class="td-streak-warning">⚠️ ${losing} wrong in a row — next miss: ${losing + 1} sips</span>`
+        : "";
+      const streakLbl = `<span class="td-streak">${streak}/3 correct</span>${warnLbl}`;
       const myVote    = votesCast[name];
 
       if (myVote) {

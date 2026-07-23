@@ -44,6 +44,8 @@ function buildDigitalUI() {
   if (giveOverlay) bustGivePanel.mount(giveOverlay);
   const dlGiveOverlay = document.getElementById("dealer-lottery-give-overlay");
   if (dlGiveOverlay) dealerLotteryGivePanel.mount(dlGiveOverlay);
+  const tdGiveOverlay = document.getElementById("targeted-drinking-give-overlay");
+  if (tdGiveOverlay) targetedDrinkingGivePanel.mount(tdGiveOverlay);
   const bustVoteOverlay = document.getElementById("bust-vote-modal-overlay");
   if (bustVoteOverlay) bustVotePanel.mount(bustVoteOverlay);
   const insModal  = document.getElementById("insurance-modal-overlay");

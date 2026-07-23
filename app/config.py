@@ -70,6 +70,12 @@ TARGETED_DRINKING_REVEAL_PAUSE_SECONDS = 12  # safety-net breather after a mini-
 # Easter-egg-launched subgames only (Wild Card 🃏): total sips a target can
 # drink before their run is force-ended as a loss (+1 penalty sip on top).
 TARGETED_DRINKING_EASTER_EGG_SIP_CAP  = 5
+# A target who graduates without ever missing (the minimum possible
+# TARGETED_DRINKING_STREAK_TO_GRADUATE attempts, all correct) gets to hand
+# out this many sips to another player -- mirrors the Dealer Lottery /
+# Bust Vote give-sip pattern, including its claim window.
+TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS = 3
+TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS          = 20
 
 # ---------------------------------------------------------------------------
 # Registration / connection limits

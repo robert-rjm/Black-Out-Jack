@@ -395,24 +395,37 @@ The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side
 
 ### 5.10 Targeted Drinking Mode
 
-The host can single out one or more Players and put them on the spot with
-their own standalone mini-game, played **between** normal rounds — never
-during one. Once a normal round ends, the mode waits for any Player to tap
-**Start Targeting Now** (so the table can finish drinking for that round
-first) before dealing a **fresh, isolated Dealer hand** (a new shuffled
-deck, unrelated to the actual table — nobody's real cards or the shoe are
-touched); every targeted Player must then call whether it will **bust** or
-**stand** before it's dealt. Once everyone's answered (or the 15-second
-window runs out), the hand is played out and revealed — and if the mode is
-still running (nobody's cleared it yet), the next mini-hand starts right
-away, back-to-back, without waiting for another normal round — or another
-tap of Start Targeting Now — in between.
+One or more Players get singled out and put on the spot with their own
+standalone mini-game, played **between** normal rounds — never during one.
+A subgame can start three ways: the **host** picks target(s) and force-starts
+it immediately; a **majority vote** among the table (any Player can vote to
+target someone; it auto-starts once more than half of the eligible voters
+agree — same math as a kick vote); or the **Wild Card 🃏 easter egg** (see
+below) picks a target at random.
+
+Once a normal round ends, the mode waits for the **host or current dealer**
+to tap **Start Targeting Now** (so the table can finish drinking for that
+round first) before dealing a **fresh, isolated Dealer hand** (a new
+shuffled deck, unrelated to the actual table — nobody's real cards or the
+shoe are touched); every targeted Player must then call whether it will
+**bust** or **stand** before it's dealt. Once everyone's answered (or the
+15-second window runs out), the hand is played out and revealed — and if
+the mode is still running, the next mini-hand starts right away,
+back-to-back, once the host or dealer taps **Continue** (or a 12-second
+safety-net timeout elapses on its own) — never before, so a slower
+connection doesn't get swept into the next hand before seeing this one play
+out. Targeted Players can only vote; everyone else can only watch.
 
 | Outcome | Effect |
 | --- | --- |
 | Correct call | Counts toward a 3-in-a-row streak |
-| Wrong call | Streak resets to 0, **+1 sip penalty** |
+| Wrong call | Graduation streak resets to 0; costs sips equal to the *current losing streak* — 1st consecutive wrong call = 1 sip, 2nd = 2, 3rd = 3, and so on. A correct call breaks the losing streak back to 0. |
 | No answer within 15 seconds | Defaults to STAND |
+
+> **Example:** Bob calls it wrong three times in a row: 1 sip, then 2, then
+> 3 (6 total) — a rough stretch. He finally calls it right on the fourth
+> mini-hand: streak toward graduation ticks up to 1, and his losing streak
+> resets to 0. His next wrong call (if any) starts back at 1 sip, not 4.
 
 The wrong-call penalty still counts toward a Player's overall session total
 and milestone progress, but never toward "worst average sips/round" or any
@@ -431,32 +444,50 @@ cancels the mode early — the statistics table's final numbers are shown
 one last time in a recap, then a **3-round cooldown** starts before it can
 be started again.
 
+**Perfect graduation:** since 3-in-a-row is the minimum possible, a Player
+who's *never* missed by the time they graduate — 3 attempts, 3 corrects —
+gets to hand out **3 sips** to any other Player, same claim-window/forfeit
+mechanic as Dealer Lottery's own handout (20 seconds to assign them, or the
+graduate keeps/drinks them instead). This applies no matter how the subgame
+started — host, vote, or Wild Card — and blocks the next mini-hand (for any
+other still-targeted Player) from opening until it's claimed or forfeited.
+A graduation that took longer than 3 attempts (i.e. included at least one
+miss along the way) doesn't qualify.
+
 > **Example:** The host targets Bob for playing it too safe all night. Round
 > 1 ends, and Bob is dealt into his own isolated mini-hand: he calls STAND,
 > the hand plays out to 19 — correct (streak: 1). Round 2 ends and it
 > happens again: he calls BUST, but the isolated hand stands — wrong call,
-> streak resets to 0 and he drinks a sip. Rounds 3 and 4 he calls it right
-> twice in a row (streak: 2)... one more correct call and he's off the hook.
+> graduation streak resets to 0 and he drinks 1 sip (his losing streak is
+> now 1). Rounds 3 and 4 he calls it right twice in a row (streak: 2)... one
+> more correct call and he's off the hook, and that earlier miss no longer
+> costs him anything extra since his losing streak reset back to 0.
 
-Started and cancelled by the host from **Settings → Players** — see
-[Multiplayer.md](Multiplayer.md#targeted-drinking-mode).
+Started by host override or majority vote, and cancelled, from **Settings →
+Players** (host) or the mini-game's own controls (host or current dealer) —
+see [Multiplayer.md](Multiplayer.md#targeted-drinking-mode).
 
 #### Easter Egg Launch (Wild Card 🃏)
 
 When the Wild Card 🃏 logo-press easter egg launches Targeted Drinking Mode
 instead of the host (a 15% roll on press — see `app/routes/wild_card.py`),
-two extra rules apply that don't exist for a host-started run:
+two extra rules apply that don't exist for a host- or vote-started run:
 
 | Outcome | Effect |
 | --- | --- |
-| Target hits **5 total sips** without graduating | Run ends immediately as a loss — **+1 penalty sip** on top (6 total) |
-| Target **graduates** before hitting the cap | The prank backfires: whoever pressed the easter egg drinks however many sips the target drank over the run (0 if the target never missed) |
+| Target's running total crosses **5 sips** without graduating | Run ends immediately as a loss, right at the mini-hand that crosses it — **+1 penalty sip** on top |
+| Target **graduates** before crossing the cap | The prank backfires: whoever pressed the easter egg drinks however many sips the target drank over the run (0 if the target never missed) |
+
+Because wrong calls are streak-scaled (see the table above), the cap
+usually arrives faster on a bad run than a flat count would suggest — three
+consecutive misses alone total 1 + 2 + 3 = 6, already past a cap of 5.
 
 > **Example:** Carol presses the Wild Card and it targets Bob. Bob misses once
 > (1 sip) then calls it right three times in a row and graduates — the
-> backfire hits Carol for 1 sip. Had Bob instead missed his way to 5 sips
-> without ever stringing 3 corrects together, his run would end there and
-> then with a 6th, final penalty sip — Carol drinks nothing.
+> backfire hits Carol for 1 sip. Had Bob instead missed three calls in a row
+> (1 + 2 + 3 = 6 sips, already past the 5-sip cap), his run would end right
+> there with a 3rd-miss penalty sip on top — 7 sips total, no graduation,
+> and Carol drinks nothing.
 
 
 ## 6. Relaxed Drinking Rules
@@ -473,8 +504,9 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | Hard Dealer Switch | Four aces on first deal |
 | All-hands sweep | 5-card handouts |
 | Insurance resolution | Bust vote penalty/credit (+1/−1) |
-| Four aces at end of round | Targeted Drinking Mode wrong-guess penalty (+1) |
+| Four aces at end of round | Targeted Drinking Mode wrong-guess penalty (streak-scaled) |
 | RoundEndEvent drinks (wins-all, immunity breakers) | Dealer Lottery handout (always halved, unconditionally — see §5.9) |
+|  | Targeted Drinking perfect-graduation handout (never halved — flat 3 sips, unlike Dealer Lottery's) |
 
 
 ### 6.2 Easy Mode

@@ -888,7 +888,9 @@ function _renderTargetedDrinkingAdmin(state, isAdmin) {
     _tdSelectedTargets.clear();
     const streakRows = (td.targets || []).map(name => {
       const streak = (td.streaks && td.streaks[name]) || 0;
-      return `<div class="kick-row"><span class="kick-name">${escapeHtml(name)}</span><span class="kick-role">${streak}/3 correct</span></div>`;
+      const losing  = (td.losing_streaks && td.losing_streaks[name]) || 0;
+      const losingLbl = losing > 0 ? ` · ${losing} wrong in a row` : "";
+      return `<div class="kick-row"><span class="kick-name">${escapeHtml(name)}</span><span class="kick-role">${streak}/3 correct${losingLbl}</span></div>`;
     }).join("");
     section.innerHTML =
       `<div class="modal-section-title modal-gap-top">🎯 TARGETED DRINKING MODE</div>` +

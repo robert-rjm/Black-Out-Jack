@@ -424,36 +424,24 @@ add complexity on top of a core loop that hasn't been validated by an
 actual playtest yet (see the scope note in §2). Build only the ones that
 turn out to matter once the MVP has been played for real.
 
-### 8.1 [ ] Majority-vote start/end (`app/routes/admin.py`, mirrors `vote_kick`)
+### 8.1 [x] Majority-vote start/end (`app/routes/admin.py`, mirrors `vote_kick`)
 
-Reuse `vote_kick`'s exact majority math (`admin.py`, strict majority:
-`len(votes) > len(eligible) / 2`) for two new votes:
+**Done, start half only** — see §12. Shipped `POST /targeted_drinking/vote_target`
+(`polling.py`, not `admin.py` — grouped with the other player-facing
+Targeted Drinking routes instead) using `vote_kick`'s exact majority math.
+`vote_end` was **not** built — the brainstorm's "button that ends the
+subgame now" instead became a straight host/dealer permission (§8.9), not
+a vote; nobody asked for a vote-to-end and it would have added a second
+majority-math surface for no clear benefit yet. Revisit if it's requested.
 
-- `POST /targeted_drinking/vote_start` — body: proposed target name(s).
-  Toggles a vote in a new `session.round._targeted_drinking_start_votes`
-  dict (keyed by proposed target set, so different simultaneous proposals
-  don't collide); auto-starts once a majority of eligible (non-spectator,
-  non-target) voters agree.
-- `POST /targeted_drinking/vote_end` — toggles a vote in a new
-  `RoundState._targeted_drinking_end_votes` set; auto-ends once a strict
-  majority of *all* connected non-spectator players agree — matches the
-  brainstorm's "have a button that ends the subgame now, majority vote
-  based."
+### 8.2 [x] Staggered loss-penalty tiers
 
-Frontend: a majority-vote banner reusing the kick-vote banner's visual
-style (`renderKickVoteBanner`, `admin.js`) for both the vote-to-start and
-vote-to-end flows.
-
-### 8.2 [ ] Staggered loss-penalty tiers
-
-Track a separate *losing*-streak counter (consecutive wrong guesses,
-distinct from the graduation streak) on `GameRoom` — at 3 wrong in a row,
-award 1 extra sip; at 5 wrong in a row, award a bigger extra penalty.
-Reuse the milestone-repeat-offender pattern in `_apply_worst_player_streak`
-(`drink_tracker.py:515`) as the style reference for "streak-gated bonus
-penalty, logged with its own reason string." New config constants:
-`TARGETED_DRINKING_LOSS_PENALTY_AT = 3`, `TARGETED_DRINKING_LOSS_PENALTY_AT_5 = 5`.
-OR consider to have streak be amount of sips (2 consecutive wrong = 2 sips, 4 = 4 sips)
+**Done, the streak-scaled variant (the "OR" option below)** — see §12.
+Wrong-guess sips now equal the current losing-streak length (1st miss = 1,
+2nd = 2, 3rd = 3, ...) instead of the flat-threshold design originally
+sketched (`TARGETED_DRINKING_LOSS_PENALTY_AT`/`_AT_5`) — those constants
+were never added; the streak-scaled approach doesn't need fixed
+thresholds.
 
 ### 8.3 [ ] Cooldown consent-override + repeat-target cooldown
 
@@ -536,11 +524,14 @@ through before ending on its own (only ends via graduation or admin
 cancel) -- "limit of 10 mini-rounds" from the original note is not
 implemented.
 
-### 8.9 [ ] Admin controls
+### 8.9 [x] Admin controls
 
-Until §8.1 with majority vote is not integrated, only the admin (or potentially
-dealer) can start the mini game. same for exiting, should be guarded behing host
-admin powers
+**Done** — see §12. `/targeted_drinking/begin` (open each mini-round) and
+`/targeted_drinking/cancel` (end the subgame) now require host **or**
+current dealer (`_require_host_or_dealer`, `admin.py`). The host's own
+direct target-pick-and-launch override (`/targeted_drinking/start`)
+deliberately stayed host-only — picking targets and force-launching is a
+stronger power than just operating an already-running subgame's windows.
 
 ## 9. Testing plan additions for §8
 
@@ -1038,3 +1029,89 @@ assertion added to the existing pre-deal `start_targeted_drinking` test
 confirming eligibility is *not* armed when a round is still in progress
 (the original "never interrupts a round already in progress" guarantee).
 Full suite: 484 passing.
+
+
+## 12. [x] Majority-vote start, host/dealer lockdown, streak-scaled loss, perfect-graduation handout
+
+Four features shipped in one session, closing out §8.1 (start half), §8.2,
+and §8.9, plus one mechanic not scoped anywhere in this doc (the reveal
+pacing fix) and one genuinely new feature (perfect-graduation handout).
+
+**Majority vote to target someone (§8.1 start half).** A third way to
+start a subgame, alongside the host's direct override and the Wild Card
+easter egg — `POST /targeted_drinking/vote_target` (`polling.py`), any
+non-spectator player, toggles a vote in `GameRoom._targeted_drinking_start_votes`
+(`dict[target_lower, set[voter_lower]]`), auto-starts at strict majority
+via `vote_kick`'s exact math. Deliberately placed on `GameRoom` (session-
+lifetime) rather than `RoundState` like `_kick_votes` — a proposal should
+survive across rounds until it hits majority, not reset every round. Votes
+clear on any successful start (whichever path) or on `end_targeted_drinking`,
+so a stale pre-cooldown vote can't instantly re-fire once cooldown lifts.
+Frontend: a new always-visible banner (`#targeted-drinking-vote-banner`,
+`renderTargetedDrinkingVoteBanner` in `admin-settings.js`) with a
+per-player vote pill and live tally — deliberately *not* the kick-vote
+pattern (cast button buried in Settings, only the tally banner on the main
+table); this one puts the actual vote button on the main table too, so
+it's reachable during normal play.
+
+**Host/dealer-only flow controls (§8.9).** New `_require_host_or_dealer`
+helper (`admin.py`, mirrors `_require_admin`'s shape, OR's in
+`is_dealer_client`). Applied to `/targeted_drinking/begin` (previously
+*any* registered player — now host or dealer) and `/targeted_drinking/cancel`
+(previously admin-only — now also allows the dealer). `/targeted_drinking/start`
+(the host's target-pick override) intentionally kept admin-only — see the
+§8.9 note above.
+
+**Reveal pacing fix (not scoped in this doc).** Investigating "continue"
+surfaced a real bug: the server's flat 4s reveal-pause and each client's
+independent 8s local auto-dismiss timer weren't synced, so a laggy client's
+poll could fall behind while the server had already opened the next
+mini-round — some players could get swept past a hand they never actually
+saw. Fixed by giving the host/dealer's "Continue" tap a real backend hook:
+`POST /targeted_drinking/continue` rewinds
+`last_targeted_drinking_result["set_at"]` far enough into the past that
+the existing `_targeted_drinking_ready_to_open` wait check passes
+immediately — zero changes to the eligibility state machine itself. The
+flat timeout (bumped 4s → 12s, `TARGETED_DRINKING_REVEAL_PAUSE_SECONDS`)
+becomes a safety net instead of the only mechanism. Everyone else's
+"Continue" stays exactly what it was: a personal, ungated local dismiss.
+
+**Streak-scaled wrong-guess penalty (§8.2, the "OR" variant).** New
+`GameRoom._targeted_drinking_losing_streaks` dict (consecutive wrong
+guesses, independent of the graduation streak — each resets only on the
+other's outcome). Wrong-guess sips now equal the current losing-streak
+length: 1st consecutive miss = 1 sip, 2nd = 2, 3rd = 3. Interacts with the
+existing easter-egg 5-sip cap (§8.8) faster than before: three consecutive
+misses alone total 1+2+3=6, already past a cap of 5, where the old flat-1
+rule needed five actual misses to get there.
+
+**Perfect-graduation handout (new, not scoped here).** Since 3-in-a-row is
+the minimum possible graduation, a target who never misses on the way
+there (checked via `wrong_counts == 0` at the graduation moment) gets to
+hand out `TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS` (3) sips to
+another player — any start path, not just easter-egg. Built by mirroring
+Dealer Lottery's own handout almost line-for-line: `give_targeted_drinking_sip`
+/ `apply_targeted_drinking_handout_forfeit` (`targeted_drinking.py`), new
+`RoundState` tracking fields, a new `POST /targeted_drinking/give_sip`
+route, wired into `tick.py`, and a new `TargetedDrinkingGivePanel`
+frontend class reusing the existing shared `.bgp-*` give-panel CSS/markup
+(`#targeted-drinking-give-overlay`, added to the same selector group as
+`#bust-give-overlay`/`#dealer-lottery-give-overlay`). Blocks the next
+mini-round from opening (`_targeted_drinking_ready_to_open` gates on
+`_targeted_drinking_handout_expires_at`) until claimed or forfeited, same
+as the reveal-pause gate above. Unlike Dealer Lottery's own handout, this
+one is never halved — a flat 3, not `ceil(x/2)`.
+
+All four changes propagated to `docs/Rules.md` §5.10 (rewritten: three
+start paths, host/dealer-only controls, streak-scaled table + example,
+perfect-graduation subsection) and `docs/Cheat-Sheet.md`'s Targeted
+Drinking section, plus `docs/Architecture.md` where relevant. Re-pinned
+`docs/.rules_sync.json` each time (Rules.md changed, `drinking_rules.py`
+didn't — expected, same reasoning as §10 above).
+
+Verified via `preview_start`/browser JS execution for every frontend
+piece (vote banner render/hide across all four gating conditions, correct
+fetch payload shapes, the give-panel's render/defer logic, the loss-streak
+warning badge) plus a live end-to-end majority vote and a scripted
+3-correct-in-a-row perfect graduation run through the real serializer
+pipeline. Full suite: 555 passing (up from 484).
