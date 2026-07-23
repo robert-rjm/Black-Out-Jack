@@ -902,11 +902,21 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     }
 
     # ---- Targeted Drinking Mode data (Rules.md §5.10) ----
+    # Perfect-graduation handout -- exclude givers who already gave, same
+    # "n not in ..._given" filter as Dealer Lottery's own pending_handouts
+    # (see the comment above _dl_pending_handouts).
+    _td_pending_handouts = {
+        n: a for n, a in (session.drinks.last_targeted_drinking_result or {}).get(
+            "pending_handouts", {}).items()
+        if n not in session.round._targeted_drinking_handouts_given
+    }
+    _td_my_names = set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
     _targeted_drinking_data = {
         "targeted_drinking": {
             "active":               session._targeted_drinking_active,
             "targets":              list(session._targeted_drinking_targets),
             "streaks":              dict(session._targeted_drinking_streaks),
+            "losing_streaks":       dict(session._targeted_drinking_losing_streaks),
             "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
             # Majority-vote-to-target tallies (mirrors kick_votes/
             # kick_votes_mine/kick_votes_detail's shape, nested here
@@ -947,6 +957,13 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                 "dealer_hands": session._targeted_drinking_dealer_hands,
                 "dealer_busts": session._targeted_drinking_dealer_busts,
             },
+            "pending_handouts":     dict(_td_pending_handouts),
+            "my_pending_handouts":  {n: a for n, a in _td_pending_handouts.items()
+                                     if n in _td_my_names},
+            "handout_seconds_left": (
+                max(0, round(session.round._targeted_drinking_handout_expires_at - time.monotonic()))
+                if session.round._targeted_drinking_handout_expires_at else 0
+            ),
         },
     }
 

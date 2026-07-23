@@ -16,6 +16,7 @@ POST /dealer_lottery/give_sip — Dealer Lottery credit-winner hands out their s
 POST /targeted_drinking/vote        — Targeted player casts their bust/stand vote
 POST /targeted_drinking/begin       — Host or dealer kicks off the waiting mini-round
 POST /targeted_drinking/vote_target — Any player casts/retracts a vote to target someone
+POST /targeted_drinking/give_sip    — Perfect-graduation winner hands out their sip(s)
 """
 
 import logging
@@ -43,6 +44,7 @@ from app.services.targeted_drinking import (
     submit_targeted_drinking_vote,
     request_targeted_drinking_start,
     start_targeted_drinking,
+    give_targeted_drinking_sip,
 )
 from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
@@ -856,6 +858,47 @@ def dealer_lottery_give_sip():
         return jsonify({"ok": False, "error": "Could not give sip — check the recipient."})
 
     log_line = f"  🎰 Dealer Lottery: {giver_name} gives their sip(s) to {recipient_name}\n"
+    session.round._log_entries.append(log_line)
+    session._log_version = session._log_version + 1
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/give_sip", methods=["POST"])
+def targeted_drinking_give_sip():
+    """Perfect-graduation winner hands their bonus sip(s) to a chosen
+    player. Body: { room_code, client_id, giver_name, recipient_name }
+    giver_name must be one of the client's local_names and have a pending
+    handout. Mirrors /dealer_lottery/give_sip exactly.
+    """
+    data           = request.json or {}
+    room_code      = (data.get("room_code")      or "").strip()
+    client_id      = (data.get("client_id")      or "").strip()
+    giver_name     = sanitize_name(data.get("giver_name")     or "")
+    recipient_name = sanitize_name(data.get("recipient_name") or "")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    client_info = session._room_clients.get(client_id, {})
+    if not client_info.get("name"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    local_names = client_info.get("local_names") or [client_info["name"]]
+    if giver_name not in local_names:
+        return jsonify({"ok": False, "error": "Not one of your local players."})
+
+    result = session.drinks.last_targeted_drinking_result or {}
+    if giver_name not in result.get("pending_handouts", {}):
+        return jsonify({"ok": False, "error": "No pending handout for this player."})
+    if giver_name in session.round._targeted_drinking_handouts_given:
+        return jsonify({"ok": False, "error": "Already given."})
+
+    if not give_targeted_drinking_sip(session, giver_name, recipient_name):
+        return jsonify({"ok": False, "error": "Could not give sip — check the recipient."})
+
+    log_line = f"  🏆 Targeted Drinking: {giver_name} gives their sip(s) to {recipient_name}\n"
     session.round._log_entries.append(log_line)
     session._log_version = session._log_version + 1
 

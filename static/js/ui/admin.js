@@ -1148,6 +1148,95 @@ class DealerLotteryGivePanel {
 
 const dealerLotteryGivePanel = new DealerLotteryGivePanel();
 
+async function giveTargetedDrinkingSip(giverName, recipientName) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/targeted_drinking/give_sip", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        giver_name: giverName, recipient_name: recipientName,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else appendLog(`  Targeted Drinking handout failed: ${data.error || "unknown"}\n`);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+// ── Targeted Drinking perfect-graduation handout give-panel — same
+// class-based pattern as DealerLotteryGivePanel above (mount() attaches one
+// delegated click listener, render(state) rebuilds from scratch). ─────────
+class TargetedDrinkingGivePanel {
+  mount(el) {
+    if (this.el) return;
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bgp-give-btn");
+      if (btn) giveTargetedDrinkingSip(btn.dataset.giver, btn.dataset.recipient);
+    });
+  }
+
+  render(state) {
+    if (!this.el) return;
+    const overlay = this.el;
+    const body    = overlay.querySelector("#targeted-drinking-give-body");
+    if (!body) return;
+
+    const td      = state.targeted_drinking || {};
+    const pending = td.my_pending_handouts || {};
+    const givers  = Object.keys(pending);
+    if (!givers.length) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    // Defer behind the milestone prompt, the bust-vote handout prompt, the
+    // Dealer Lottery reveal, and the Targeted Drinking mini-round's own
+    // reveal modal, so popups appear one after another, never stacked.
+    if (state.pending_milestone || (state.my_bust_handout_pending || []).length
+        || _dealerLotteryRevealOpen
+        || (typeof targetedDrinkingPanel !== "undefined" && targetedDrinkingPanel.phase === "reveal")) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    const allPlayers = state.players || [];
+    const secsLeft    = td.handout_seconds_left || 0;
+    overlay.style.display = "flex";
+
+    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerStr = secsLeft > 0
+      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      : "";
+
+    // No onclick= here -- mount()'s delegated listener handles taps.
+    body.innerHTML = givers.map(giverName => {
+      const amount = pending[giverName];
+      const label = `🏆 <strong>${escapeHtml(giverName)}</strong> graduated flawlessly! Give ${amount} sip(s) to:`;
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== giverName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const mb = givers.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        ${timerStr}
+        <div class="bgp-btns-col">${btns}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
+  }
+}
+
+const targetedDrinkingGivePanel = new TargetedDrinkingGivePanel();
+
 
 // Shared toast helper — sets content, applies drink/clean class, triggers show animation.
 function _firePlayerToast(text, iDrink, ms) {
