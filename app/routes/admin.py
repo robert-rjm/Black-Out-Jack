@@ -31,7 +31,7 @@ from app.services.serializer    import serialize_state, round_phase
 from app.services.drink_tracker import award_sips, check_and_set_milestone
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
-from app.services.validators    import sanitize_name, is_dealer_client
+from app.services.validators    import sanitize_name, is_dealer_client, is_offensive_name
 from app.services.targeted_drinking import (
     start_targeted_drinking,
     end_targeted_drinking,
@@ -436,6 +436,8 @@ def request_rejoin():
     room_code    = (data.get("room_code") or "").strip()
     client_id    = (data.get("client_id") or "").strip()
     display_name = sanitize_name((data.get("display_name") or "").strip()) or "Unknown"
+    if is_offensive_name(display_name):
+        display_name = "Unknown"
 
     session = game_sessions.get(room_code)
     if not session:
@@ -552,6 +554,8 @@ def update_settings():
     if "add_player" in data:
         name   = sanitize_name(str(data.get("add_player") or ""))
         is_npc = bool(data.get("add_player_npc", False))
+        if name and is_offensive_name(name):
+            return jsonify({"ok": False, "error": f"Name not allowed: {name}. Please choose something else."})
         if name:
             adds = queued.get("add_players", [])
             if not any(a["name"] == name for a in adds):

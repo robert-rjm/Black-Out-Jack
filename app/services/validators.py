@@ -9,6 +9,10 @@ They do not write to the session store or produce side-effects.
 
 import re
 
+from better_profanity import profanity
+
+profanity.load_censor_words()
+
 # ---------------------------------------------------------------------------
 # Name sanitisation
 # ---------------------------------------------------------------------------
@@ -41,6 +45,18 @@ def sanitize_name(raw: str) -> str:
     if not name:
         return ""
     return name.capitalize()[:20]
+
+
+def is_offensive_name(name: str) -> bool:
+    """True if `name` (already run through sanitize_name) contains
+    profanity, per better-profanity's wordlist + leetspeak normalization.
+
+    Call this only at the handful of entry points where a brand-new
+    free-text name is created (room setup, add player, rejoin display
+    name) -- not at routes that just match an existing player/seat name,
+    since that name was already checked when it was first created.
+    """
+    return bool(name) and profanity.contains_profanity(name)
 
 
 # ---------------------------------------------------------------------------
