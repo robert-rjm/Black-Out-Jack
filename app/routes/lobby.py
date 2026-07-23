@@ -21,7 +21,7 @@ from app.services.session_store import (
     is_join_rate_limited,
     mark_waiting_client, get_waiting_clients,
 )
-from app.services.validators  import sanitize_name
+from app.services.validators  import sanitize_name, is_offensive_name
 from app.services.serializer  import serialize_state
 from app.services.room_manager import NullTracker, patch_tracker, capture
 from app.services.payout_tracker import init_bankrolls
@@ -149,6 +149,10 @@ def setup():
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
         return jsonify({"ok": False, "error": "No player names provided."})
+    offensive = [n for n in names if is_offensive_name(n)]
+    if offensive:
+        return jsonify({"ok": False,
+                        "error": f"Name not allowed: {', '.join(offensive)}. Please choose something else."})
 
     try:
         mode       = data.get("mode", DEFAULT_MODE)
