@@ -1200,3 +1200,161 @@ function _tdRevealLine(name, result) {
          `<strong style="color:${color}">${vote.toUpperCase()}</strong> — ${text}</li>`;
 }
 
+
+// ── Target Proposal panel (majority-vote-to-target: tap a player's name
+// at the table) ───────────────────────────────────────────────────────────
+// A table-wide, timed Yes/No modal -- one specific proposed target,
+// everyone votes, passes at strict majority or fails (and freezes the
+// proposer) when the window runs out. Broadcast to every client via
+// state.targeted_drinking.pending_proposal, same polling-driven pattern as
+// every other modal here. After it resolves, briefly shows the pass/fail
+// outcome (state.targeted_drinking.last_proposal_result) before
+// auto-closing, so the whole table sees what happened without needing a
+// separate toast surface.
+class TargetProposalPanel {
+  constructor() {
+    this.modalKey       = null;   // "target:proposer" for the currently shown pending vote
+    this._resultShownFor = null;  // "target:proposer:passed" for the currently shown outcome flash
+    this._resultTimer    = null;
+  }
+
+  mount(modalEl) {
+    if (this.modalEl) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.modalEl = modalEl;
+    modalEl.addEventListener("click", e => {
+      const btn = e.target.closest("[data-target-proposal-vote]");
+      if (!btn) return;
+      castTargetProposalVote(btn.dataset.targetProposalVote === "true");
+    });
+  }
+
+  render(state) {
+    if (!this.modalEl) return;
+    const td      = (state && state.targeted_drinking) || {};
+    const pending = td.pending_proposal;
+    const result  = td.last_proposal_result;
+
+    if (pending) {
+      this._resultShownFor = null;   // a fresh proposal supersedes any lingering outcome flash
+      if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
+      const key = `${pending.target}:${pending.proposer}`;
+      if (this.modalKey !== key) {
+        this.modalKey = key;
+        openModal("target-proposal-modal-overlay", { useClass: true });
+      }
+      this._renderVoteState(pending);
+      return;
+    }
+
+    if (result) {
+      const key = `${result.target}:${result.proposer}:${result.passed}`;
+      if (this._resultShownFor !== key) {
+        this._resultShownFor = key;
+        this.modalKey = null;
+        openModal("target-proposal-modal-overlay", { useClass: true });
+        this._renderResultState(result);
+      }
+      return;
+    }
+
+    this.modalKey = null;
+    closeModal("target-proposal-modal-overlay", { useClass: true });
+  }
+
+  _renderVoteState(pending) {
+    const titleEl  = document.getElementById("target-proposal-modal-title");
+    const subEl    = document.getElementById("target-proposal-modal-sub");
+    const tallyEl  = document.getElementById("target-proposal-modal-tally");
+    const btnsEl   = document.getElementById("target-proposal-modal-btns");
+    const statusEl = document.getElementById("target-proposal-modal-status");
+    const timerEl  = document.getElementById("target-proposal-modal-timer");
+
+    if (titleEl) titleEl.textContent = "🎯 Target Proposal";
+    if (subEl) subEl.innerHTML =
+      `<strong>${escapeHtml(pending.proposer)}</strong> wants to target ` +
+      `<strong>${escapeHtml(pending.target)}</strong> for Targeted Drinking Mode.`;
+    if (tallyEl) tallyEl.innerHTML =
+      `Yes: <strong style="color:var(--green)">${pending.yes_count}</strong> &nbsp;·&nbsp; ` +
+      `No: <strong style="color:var(--red)">${pending.no_count}</strong> &nbsp;·&nbsp; ` +
+      `Needed to pass: ${pending.needed}/${pending.total_voters}`;
+
+    const hasVoted = pending.my_vote !== null && pending.my_vote !== undefined;
+    if (btnsEl) {
+      btnsEl.innerHTML = (!pending.eligible || hasVoted) ? "" :
+        `<button class="btn green wide" data-target-proposal-vote="true">YES</button>` +
+        `<button class="btn red wide"   data-target-proposal-vote="false">NO</button>`;
+    }
+    const iAmTheTarget = (myNames || []).some(n => n.toLowerCase() === pending.target.toLowerCase());
+    if (statusEl) statusEl.innerHTML = !pending.eligible
+      ? `<span style="color:var(--muted)">${iAmTheTarget
+          ? "This one's about you — you don't get a vote."
+          : "You're not eligible to vote on this one."}</span>`
+      : hasVoted
+      ? `Your vote: <strong style="color:${pending.my_vote ? "var(--green)" : "var(--red)"}">` +
+        `${pending.my_vote ? "YES" : "NO"}</strong> &nbsp;· waiting on the rest of the table…`
+      : `<span style="color:var(--muted)">Cast your vote below.</span>`;
+    if (timerEl) {
+      const s = pending.seconds_left || 0;
+      timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up!";
+      timerEl.style.color = s <= 5 ? "var(--red)" : "var(--muted)";
+    }
+  }
+
+  _renderResultState(result) {
+    const titleEl  = document.getElementById("target-proposal-modal-title");
+    const subEl    = document.getElementById("target-proposal-modal-sub");
+    const tallyEl  = document.getElementById("target-proposal-modal-tally");
+    const btnsEl   = document.getElementById("target-proposal-modal-btns");
+    const statusEl = document.getElementById("target-proposal-modal-status");
+    const timerEl  = document.getElementById("target-proposal-modal-timer");
+
+    if (titleEl) titleEl.textContent = result.passed ? "✅ Targeting Approved!" : "❌ Vote Failed";
+    if (subEl) subEl.innerHTML = result.passed
+      ? `<strong>${escapeHtml(result.target)}</strong> has been targeted for Targeted Drinking Mode!`
+      : `Not enough votes — <strong>${escapeHtml(result.proposer)}</strong> can't propose again for a few rounds.`;
+    if (tallyEl) tallyEl.innerHTML = "";
+    if (btnsEl) btnsEl.innerHTML = "";
+    if (statusEl) statusEl.innerHTML = "";
+    if (timerEl) timerEl.textContent = "";
+
+    if (this._resultTimer) clearTimeout(this._resultTimer);
+    this._resultTimer = setTimeout(() => {
+      closeModal("target-proposal-modal-overlay", { useClass: true });
+    }, 3000);
+  }
+}
+
+const targetProposalPanel = new TargetProposalPanel();
+
+async function castTargetProposalVote(vote) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/targeted_drinking/vote_proposal", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, vote }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+// Called from table-render.js's _tryProposeTarget once the presser confirms.
+async function proposeTargetedDrinkingTarget(targetName) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/targeted_drinking/propose_target", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target_name: targetName }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else alert(data.error || "Could not propose a target.");
+  } catch (_) { alert("Network error."); } finally {
+    _requestDone();
+  }
+}
+

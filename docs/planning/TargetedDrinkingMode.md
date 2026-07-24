@@ -426,12 +426,12 @@ turn out to matter once the MVP has been played for real.
 
 ### 8.1 [x] Majority-vote start/end (`app/routes/admin.py`, mirrors `vote_kick`)
 
-**Done, start half only** — see §12. Shipped `POST /targeted_drinking/vote_target`
-(`polling.py`, not `admin.py` — grouped with the other player-facing
-Targeted Drinking routes instead) using `vote_kick`'s exact majority math.
-`vote_end` was **not** built — the brainstorm's "button that ends the
-subgame now" instead became a straight host/dealer permission (§8.9), not
-a vote; nobody asked for a vote-to-end and it would have added a second
+**Done, start half only** — originally shipped as an always-open, untimed
+multi-target tally (see §12's write-up), then redesigned into a single-
+target, timed Yes/No proposal with a failed-vote freeze on the proposer
+(see §13). `vote_end` was **not** built — the brainstorm's "button that ends
+the subgame now" instead became a straight host/dealer permission (§8.9),
+not a vote; nobody asked for a vote-to-end and it would have added a second
 majority-math surface for no clear benefit yet. Revisit if it's requested.
 
 ### 8.2 [x] Staggered loss-penalty tiers
@@ -1115,3 +1115,75 @@ fetch payload shapes, the give-panel's render/defer logic, the loss-streak
 warning badge) plus a live end-to-end majority vote and a scripted
 3-correct-in-a-row perfect graduation run through the real serializer
 pipeline. Full suite: 555 passing (up from 484).
+
+
+## 13. [x] Majority-vote-to-target redesign: single-target proposal, timed Yes/No, proposer freeze on failure
+
+Replaced §12's always-open, untimed, multi-target tally banner with a
+single-target, timed proposal -- requested explicitly: tap a player's name
+at the table to propose them, everyone gets one Yes/No vote on that one
+proposal, and a failed vote punishes the *proposer* specifically instead of
+just silently expiring.
+
+**Why replace instead of add alongside.** The old mechanic let any number
+of players independently toggle votes for any number of different targets
+simultaneously (a `dict[target_lower, set[voter_lower]]` tally with no
+timer, no explicit No, and no failure state -- it just sat there
+indefinitely until majority or a fresh subgame start cleared it). That's a
+fundamentally different shape from "one specific target, one timed
+table-wide vote, a real pass/fail outcome" -- running both in parallel
+would have meant two independently racing ways to reach majority on
+(possibly different) targets. Replaced cleanly rather than bolted on.
+
+**Backend (`app/services/targeted_drinking.py`).** New trio:
+`propose_targeted_drinking_target` (opens `RoundState._pending_target_proposal`
+-- `{target, proposer, votes: {name: bool|None}, expires_at}`, eligible
+voters = connected/non-spectator/non-bot minus the target, mirrors
+`vote_kick`'s own eligibility math; the proposer's own vote is pre-filled
+`True` since proposing it *is* their Yes), `submit_target_proposal_vote`
+(records a vote, resolves immediately the instant strict majority says
+Yes -- doesn't wait out the timer on a decided Yes), and
+`apply_target_proposal_vote_forfeit` (tick-driven; on timeout, tallies
+whatever votes were actually cast -- unanswered voters simply don't count
+toward Yes, same math as the early-resolve check -- and either starts the
+subgame or freezes the proposer). Freeze lives on `GameRoom`
+(`_targeted_drinking_propose_cooldowns: dict[proposer_lower, round_count]`,
+session-lifetime, same reasoning as `_targeted_drinking_cooldown_until_round`)
+so it survives the per-round `RoundState` wipe; it blocks only that
+specific proposer from opening another proposal, not from voting on
+someone else's. New config: `TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS`
+(15) and `TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS` (3).
+
+**Routes.** `POST /targeted_drinking/vote_target` removed. Replaced by
+`POST /targeted_drinking/propose_target` (open a proposal) and
+`POST /targeted_drinking/vote_proposal` (cast a Yes/No). `start_targeted_drinking`
+now clears any stray `_pending_target_proposal` on success (mirrors the old
+`_targeted_drinking_start_votes` clear it replaced).
+
+**Frontend.** The always-visible vote-pill banner
+(`#targeted-drinking-vote-banner`, `renderTargetedDrinkingVoteBanner` /
+`doVoteTargeted` in `admin-settings.js`) is gone. In its place: clicking a
+player's `.seat-name` at the table (`table-render.js`, a new
+`.seat-name-targetable` class + delegated click handler, mirroring the
+existing bot-personality-pill delegate) opens a `confirm()` prompt, then
+`POST /targeted_drinking/propose_target`. The resulting vote is a real
+modal broadcast to the whole table (`#target-proposal-modal-overlay`, new
+`TargetProposalPanel` class in `table-modals.js`, mirrors `InsurancePanel`'s
+mount/render shape) showing live Yes/No tallies and a countdown, with a
+brief pass/fail flash (`last_proposal_result`, a 15-second one-shot seq
+field) before auto-closing -- everyone sees the outcome, not just the
+proposer.
+
+**Serializer/schema.** `start_votes`/`start_votes_mine`/`start_votes_detail`
+removed from the `targeted_drinking` block; replaced with `pending_proposal`
+(target, proposer, yes/no counts, needed-to-pass, seconds left, my own
+vote), `propose_cooldown_remaining` (this client's own freeze, 0 if none),
+and `last_proposal_result`. `state_schema.py` updated to match
+(`TargetProposalPendingOut`, `TargetProposalResultOut`).
+
+Propagated to `docs/Rules.md` §5.10 (rewrote the majority-vote start path)
+and `docs/Cheat-Sheet.md`. `docs/.rules_sync.json` untouched --
+`drinking_rules.py` (the file that hash tracks) wasn't touched by this
+change.
+
+Full suite: 575 passing (up from 555).

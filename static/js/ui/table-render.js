@@ -50,6 +50,49 @@ function _ensurePersonalityClickDelegate() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Targeted Drinking: click a player's name to propose them as a target
+// (opens a table-wide Yes/No vote -- see targetProposalPanel in table-modals.js)
+// ---------------------------------------------------------------------------
+function _ensureTargetProposeClickDelegate() {
+  const root = document.getElementById("left-col");
+  if (!root || root.dataset.targetProposeDelegate) return;
+  root.dataset.targetProposeDelegate = "1";
+  root.addEventListener("click", e => {
+    if (e.target.closest(".bot-personality-pill")) return;   // that click delegate owns this
+    const nameEl = e.target.closest(".seat-name-targetable");
+    if (!nameEl) return;
+    const seat = nameEl.closest(".seat[data-player]");
+    if (!seat) return;
+    _tryProposeTarget(seat.dataset.player);
+  });
+}
+
+// Re-validates against the live state at click time (the render-time
+// .seat-name-targetable class is only a coarse "could this ever make
+// sense" affordance) and confirms before sending the request -- proposing
+// opens a table-wide vote, not a silent action.
+function _tryProposeTarget(targetName) {
+  if (typeof lastState === "undefined" || !lastState) return;
+  if (myRole === null || myRole === ROLE.SPECTATOR) return;
+
+  const td = lastState.targeted_drinking || {};
+  if (td.active) { alert("Targeted Drinking Mode is already running."); return; }
+  if (td.pending_proposal) { alert("A target proposal is already being voted on."); return; }
+  const cooldownRemaining = (td.cooldown_until_round || 0) - (lastState.round || 0);
+  if (cooldownRemaining > 0) {
+    alert(`Targeted Drinking is on cooldown for ${cooldownRemaining} more round(s).`);
+    return;
+  }
+  if (td.propose_cooldown_remaining > 0) {
+    alert(`Your last proposal was voted down -- you can't propose again for ${td.propose_cooldown_remaining} more round(s).`);
+    return;
+  }
+
+  if (!confirm(`Propose targeting ${targetName} for Targeted Drinking Mode? Everyone gets a Yes/No vote.`)) return;
+  proposeTargetedDrinkingTarget(targetName);
+}
+
 function _personalityLabel(personality) {
   if (!personality || personality === "basic") return "BOT";
   return personality.charAt(0).toUpperCase() + personality.slice(1) + "-bot";
@@ -158,6 +201,7 @@ function renderPlayers(state) {
   const root = document.getElementById("left-col");
   if (!root) return;
   _ensurePersonalityClickDelegate();
+  _ensureTargetProposeClickDelegate();
   const savedScroll = root.scrollTop;
 
   // Save each player's horizontal hand scroll before wiping DOM
@@ -182,6 +226,12 @@ function renderPlayers(state) {
   const maxRoundSipsAll = state.max_round_sips || {};
   const worstRoundPeak  = Math.max(0, ...Object.values(maxRoundSipsAll));
 
+  // Targeted Drinking proposal: which seats can be clicked to propose them
+  // as a target (bots and your own local seats can't be proposed) --
+  // _tryProposeTarget re-checks everything else (subgame state, cooldowns)
+  // live at click time against lastState, this just decides the affordance.
+  const myNamesLc = new Set((typeof myNames !== "undefined" ? myNames : []).map(n => n.toLowerCase()));
+
   order.forEach(name => {
     const s = byName[name];
     if (!s) return;
@@ -203,6 +253,9 @@ function renderPlayers(state) {
             >${_personalityLabel(s.personality)}</span>`
       : "";
     const tag      = (showTurn && s.is_turn) ? `<div class="turn-tag">${s.is_npc ? "BOT playing…" : "Turn"}</div>` : "";
+    const canPropose  = state.drinking_mode !== false && !s.is_npc && !myNamesLc.has(s.name.toLowerCase());
+    const nameCls      = canPropose ? " seat-name-targetable" : "";
+    const nameTitle    = canPropose ? ` title="Click to propose targeting ${escapeHtml(s.name)}"` : "";
     const sips     = (state.sip_totals || {})[s.name] || 0;
     const sipBadge = (state.drinking_mode !== false && sips > 0)
       ? `<span class="seat-sip-badge">🍺 ${sips}</span>` : "";
@@ -260,7 +313,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name">${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name${nameCls}"${nameTitle}>${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");

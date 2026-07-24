@@ -30,6 +30,7 @@ from app.services.targeted_drinking import (
     maybe_start_targeted_drinking_round,
     apply_targeted_drinking_vote_forfeit,
     apply_targeted_drinking_handout_forfeit,
+    apply_target_proposal_vote_forfeit,
 )
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
 from app.services.round_pipeline import apply_endround_pipeline
@@ -62,26 +63,30 @@ def tick(session) -> None:
     Side effects (in order):
     1. Auto-resolve expired or complete insurance votes.
     2. Freeze the bust-vote countdown while any insurance vote is open.
-    3. Apply milestone-handout forfeit if the claim window has expired.
-    4. Pause the bust-handout countdown while a milestone handout is pending.
-    5. Apply bust-vote handout forfeit if that window has expired.
-    6. Start the Dealer Lottery's entry window, now that any milestone has
+    3. Apply the majority-vote-to-target proposal's forfeit (fails +
+       freezes the proposer) if its Yes/No window has expired without
+       reaching majority -- a live-play vote, unrelated to the round-over
+       pipeline below, so it's checked unconditionally every tick.
+    4. Apply milestone-handout forfeit if the claim window has expired.
+    5. Pause the bust-handout countdown while a milestone handout is pending.
+    6. Apply bust-vote handout forfeit if that window has expired.
+    7. Start the Dealer Lottery's entry window, now that any milestone has
        cleared (no-op unless this round was flagged eligible).
-    7. Apply Dealer Lottery entry-window forfeit (defaults unset entries to
+    8. Apply Dealer Lottery entry-window forfeit (defaults unset entries to
        0 and resolves) if that window has expired.
-    8. Apply Dealer Lottery handout-window forfeit if that window has
+    9. Apply Dealer Lottery handout-window forfeit if that window has
        expired (mirrors the bust-vote handout forfeit).
-    9. Start the Targeted Drinking Mode mini-round's vote window, now that
-       any milestone and Dealer Lottery draw have cleared (no-op unless the
-       subgame is active).
-    10. Apply Targeted Drinking Mode vote-window forfeit (defaults unset
+    10. Start the Targeted Drinking Mode mini-round's vote window, now that
+        any milestone and Dealer Lottery draw have cleared (no-op unless the
+        subgame is active).
+    11. Apply Targeted Drinking Mode vote-window forfeit (defaults unset
         votes to "stand") and resolve the mini-round -- deals its isolated
         dealer hand and scores every target -- if that window has expired.
-    11. Apply Targeted Drinking perfect-graduation handout forfeit if that
+    12. Apply Targeted Drinking perfect-graduation handout forfeit if that
         window has expired (mirrors the Dealer Lottery handout forfeit).
-    12. Unblock NPC turns and trigger deferred dealer play when the bust-vote
+    13. Unblock NPC turns and trigger deferred dealer play when the bust-vote
         window closes (or all eligible players have voted).
-    13. Safety-net: trigger dealer play when stuck at dealer-ready with no
+    14. Safety-net: trigger dealer play when stuck at dealer-ready with no
         bust-vote window (e.g. bust-vote disabled, or all-BJ deal).
     """
     now = _time.monotonic()
@@ -111,10 +116,14 @@ def tick(session) -> None:
             now + BUST_VOTE_WINDOW_SECONDS,
         )
 
-    # 3. Milestone-handout forfeit
+    # 3. Majority-vote-to-target proposal forfeit (live-play, not gated on
+    # round-over -- a proposal can be open at any time during a round)
+    apply_target_proposal_vote_forfeit(session)
+
+    # 4. Milestone-handout forfeit
     apply_milestone_forfeit(session)
 
-    # 4. Pause bust-handout countdown while milestone handout is pending
+    # 5. Pause bust-handout countdown while milestone handout is pending
     if session.round._pending_milestone and session.round._bust_handout_expires_at is not None:
         ms_expires = session.round._pending_milestone.get("expires_at")
         if ms_expires is not None:
@@ -123,33 +132,33 @@ def tick(session) -> None:
                 ms_expires + BUST_HANDOUT_WINDOW_SECONDS,
             )
 
-    # 5. Bust-vote handout forfeit
+    # 6. Bust-vote handout forfeit
     apply_bust_handout_forfeit(session)
 
-    # 6. Start the Dealer Lottery entry window (waits for milestone to clear)
+    # 7. Start the Dealer Lottery entry window (waits for milestone to clear)
     maybe_start_dealer_lottery(session)
 
-    # 7. Dealer Lottery entry-window forfeit
+    # 8. Dealer Lottery entry-window forfeit
     apply_dealer_lottery_entry_forfeit(session)
 
-    # 8. Dealer Lottery handout-window forfeit
+    # 9. Dealer Lottery handout-window forfeit
     apply_dealer_lottery_handout_forfeit(session)
 
-    # 9. Start the Targeted Drinking mini-round's vote window
+    # 10. Start the Targeted Drinking mini-round's vote window
     maybe_start_targeted_drinking_round(session)
 
-    # 10. Targeted Drinking vote-window forfeit + resolve
+    # 11. Targeted Drinking vote-window forfeit + resolve
     apply_targeted_drinking_vote_forfeit(session)
 
-    # 11. Targeted Drinking perfect-graduation handout forfeit
+    # 12. Targeted Drinking perfect-graduation handout forfeit
     apply_targeted_drinking_handout_forfeit(session)
 
-    # 12. Bust-vote window closed — unblock NPCs and run dealer if ready
+    # 13. Bust-vote window closed — unblock NPCs and run dealer if ready
     if (session.round._bust_vote_expires_at is not None
             and now >= session.round._bust_vote_expires_at):
         if round_phase(session) == "playing":
             auto_play_npc_turns(session)
         _run_deferred_dealer_play(session)
-    # 13. Safety net: dealer-ready with no bust-vote window
+    # 14. Safety net: dealer-ready with no bust-vote window
     elif round_phase(session) == "dealer-ready" and session.round._bust_vote_expires_at is None:
         _run_deferred_dealer_play(session)

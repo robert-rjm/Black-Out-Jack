@@ -98,6 +98,15 @@ class RoundState:
     _targeted_drinking_handouts_given: set = field(default_factory=set)
     _targeted_drinking_handout_log: list = field(default_factory=list)
 
+    # Majority-vote-to-target proposal (tapping a player's name at the
+    # table) -- one specific target, a timed Yes/No vote for the whole
+    # table, resolved via targeted_drinking.py's propose/vote/forfeit
+    # trio. Per-round (a proposal that's still open when a new round
+    # starts is simply discarded, same as an in-flight mini-round vote).
+    # The proposer's post-failure freeze cooldown lives on GameRoom below
+    # instead, since it must survive across rounds.
+    _pending_target_proposal: dict | None = None
+
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
     # The frontend resets its local pointer when it detects a new round via
@@ -229,6 +238,12 @@ class DrinkLedger:
     # session-lifetime placement/seq reasoning as _targeted_drinking_result_seq.
     last_targeted_drinking_summary: dict | None = None
     _targeted_drinking_summary_seq: int = 0
+    # Majority-vote-to-target proposal outcome (pass/fail) -- one-shot,
+    # same session-lifetime/seq placement reasoning as the fields above
+    # (RoundState resets every round, so a per-round seq would silently
+    # stop firing "new result" after the first round).
+    last_target_proposal_result: dict | None = None
+    _target_proposal_result_seq: int = 0
 
 
 @dataclass
@@ -304,11 +319,15 @@ class GameRoom:
     # correct guess, same as the graduation streak resets on any wrong one.
     _targeted_drinking_losing_streaks: dict = field(default_factory=dict)
     _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
-    # Majority-vote-to-target: target_name_lower -> set of voter_name_lower.
-    # Session-lifetime (not RoundState) like the rest of this block, since
-    # a proposal should survive across rounds until it hits majority or the
-    # subgame starts/ends -- unlike _kick_votes, which resets every round.
-    _targeted_drinking_start_votes: dict = field(default_factory=dict)
+    # Majority-vote-to-target proposal freeze: proposer_name_lower ->
+    # round_count below which that specific player can't open another
+    # proposal (set when their proposal fails to reach majority before its
+    # vote window expires -- see targeted_drinking.py's
+    # apply_target_proposal_vote_forfeit). Session-lifetime since it must
+    # survive across rounds, same reasoning as _targeted_drinking_cooldown_
+    # until_round above. Doesn't stop the frozen player from voting on
+    # someone else's proposal, only from starting a new one themselves.
+    _targeted_drinking_propose_cooldowns: dict = field(default_factory=dict)
     # Set only when this subgame was launched by the Wild Card easter egg
     # (name of the player who pressed it) -- None for admin-started subgames.
     # Gates the easter-egg-only 5-sip cap/graduation-payback mechanic below.

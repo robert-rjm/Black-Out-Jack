@@ -398,10 +398,14 @@ The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side
 One or more Players get singled out and put on the spot with their own
 standalone mini-game, played **between** normal rounds — never during one.
 A subgame can start three ways: the **host** picks target(s) and force-starts
-it immediately; a **majority vote** among the table (any Player can vote to
-target someone; it auto-starts once more than half of the eligible voters
-agree — same math as a kick vote); or the **Wild Card 🃏 easter egg** (see
-below) picks a target at random.
+it immediately; a **majority-vote proposal** (any Player taps another
+Player's name at the table to propose them as a target, opening a **15-second
+Yes/No vote** for the whole table — the proposer's own vote counts as an
+automatic Yes; it passes the instant more than half of the eligible voters
+say Yes, same math as a kick vote, but if the window runs out without
+reaching majority it fails, and the *proposer* — not the target, not the
+other voters — is frozen from proposing again for **3 rounds**); or the
+**Wild Card 🃏 easter egg** (see below) picks a target at random.
 
 Once a normal round ends, the mode waits for the **host or current dealer**
 to tap **Start Targeting Now** (so the table can finish drinking for that
