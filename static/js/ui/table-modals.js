@@ -784,6 +784,15 @@ class TargetedDrinkingPanel {
     // as Dealer Lottery/Milestone never popping a modal over live play.
     const isRoundOver = state && state.phase === PHASE.ROUND_OVER;
 
+    // td.eligible stays true while genuinely blocked by the milestone or
+    // Dealer Lottery gate (see its own comment in serializer.py) -- so
+    // without this check, the "waiting" filler modal below would pop open
+    // right alongside whichever of those two is actually occupying the
+    // screen right now. Fall through to the plain non-blocking banner
+    // instead whenever one of them owns the modal.
+    const otherModalBlocking = !!(state && state.pending_milestone) ||
+      !!(state && state.dealer_lottery && state.dealer_lottery.pending);
+
     if (pending && !this._dismissed && myRole !== null && !_dealAnimating) {
       this.phase = "vote";
       if (banner) banner.style.display = "none";
@@ -827,18 +836,21 @@ class TargetedDrinkingPanel {
           : `<span>🎯 Targeted Drinking is about to start…</span>`;
         banner.style.display = "block";
       }
-    } else if (isRoundOver && !this._dismissed && td.eligible) {
+    } else if (isRoundOver && !this._dismissed && td.eligible && !otherModalBlocking) {
       // Between mini-rounds (subgame still active, current round already
       // over, and the backend has genuinely armed the next mini-round --
-      // just temporarily gated by the reveal-pause breather, a pending
-      // milestone/Dealer Lottery, or the Start Targeting Now button) --
-      // keep the SAME modal open with a lightweight waiting state instead
-      // of closing it, so there's no flicker before the next mini-round's
-      // vote phase takes over. Gated on td.eligible (not just isRoundOver)
-      // so this never shows when nothing is actually queued -- e.g. the
-      // subgame was started while already between rounds, so nothing will
-      // arm it until a whole new round ends; that falls through to the
-      // plain banner below instead of promising a mini-round that isn't coming.
+      // just temporarily gated by the reveal-pause breather or the Start
+      // Targeting Now button) -- keep the SAME modal open with a
+      // lightweight waiting state instead of closing it, so there's no
+      // flicker before the next mini-round's vote phase takes over. Gated
+      // on td.eligible (not just isRoundOver) so this never shows when
+      // nothing is actually queued -- e.g. the subgame was started while
+      // already between rounds, so nothing will arm it until a whole new
+      // round ends; that falls through to the plain banner below instead
+      // of promising a mini-round that isn't coming. Also skipped entirely
+      // while the milestone or Dealer Lottery modal is up (otherModalBlocking)
+      // so the two never stack -- falls through to the plain banner until
+      // that other modal clears.
       this.phase = "waiting";
       this.open();
       this._showPhase("vote");
