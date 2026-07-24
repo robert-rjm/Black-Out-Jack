@@ -210,6 +210,30 @@ def test_sweep_cancellation_for_winning_doubled_nonsuited_hands():
         assert sips == -1
 
 
+def test_sweep_cancellation_skips_hard_switch_dealer():
+    """Regression: on a hard-switch round, on_hand_resolved never credits the
+    exempt dealer the doubled-hand immunity +1 in the first place (their
+    payout comes from HardDealerSwitchEvent instead) -- so the sweep's own
+    cancellation of that +1 must not charge that dealer either, or they lose
+    a sip they were never given. Bob is both a regular sweep recipient (from
+    the main bonus) and the hard-switch-exempt dealer here -- only Carol
+    should see the doubled-hand cancellation."""
+    hands = [
+        make_hand(("A", "S"), ("K", "D")),                                            # 21, not suited
+        make_hand(("7", "D"), ("4", "C"), ("K", "H"), doubled=True, result="win"),    # 21, doubled, not suited
+    ]
+    msgs = DrinkingRules.check_all_hands_sweep(
+        "Alice", hands, ALL, 1, hard_switch_dealer="Bob",
+    )
+    # Main sweep bonus still includes Bob -- the dealer must stay a valid
+    # recipient of the sweep itself even on a hard switch.
+    main = [m for m in msgs if "drinks" in m[2]]
+    assert {m[0] for m in main} == {"Bob", "Carol"}
+
+    cancel_msgs = [m for m in msgs if "Sweep cancels" in m[2]]
+    assert {m[0] for m in cancel_msgs} == {"Carol"}
+
+
 def test_sweep_excludes_dealer_and_player():
     hands = [make_hand(("2", "H"), ("3", "H")), make_hand(("4", "H"), ("6", "H"))]
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1, dealer_name="Bob")
