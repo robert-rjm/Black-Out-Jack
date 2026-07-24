@@ -97,3 +97,18 @@ def test_worst_streak_penalty_uses_round_average_not_raw_ticker():
     # affect the winner's average at all here, but confirms the helper
     # uses round_avg() uniformly rather than raw ticker division anywhere).
     assert sum(e[0] for e in bob.drink_log if e) == 10
+
+
+def test_worst_streak_penalty_always_rounds_up():
+    """Regression: the penalty must round UP, never to nearest -- a winner
+    average of 9/4=2.25 used to round() down to 2; it must now ceil to 3."""
+    room = _make_room(num_players=3)
+    room.stats.player_rounds_played = {"Alice": 4, "Bob": 4, "Carol": 4}
+    room.drinks.last_milestone_worst = "Bob"   # already flagged worst once
+
+    room.drinks.sip_ticker = {"Alice": 9, "Bob": 8, "Carol": 8}
+
+    _apply_worst_player_streak(room, winner="Alice", ticker=room.drinks.sip_ticker)
+
+    bob = room._get_player("Bob")
+    assert sum(e[0] for e in bob.drink_log if e) == 3   # ceil(2.25), not round(2.25)=2

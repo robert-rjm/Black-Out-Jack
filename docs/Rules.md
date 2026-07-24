@@ -367,7 +367,7 @@ Every time a Player's cumulative sip total crosses a multiple of 50, they earn b
 
 At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."
 
-If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (rounded, minimum 1). The streak then resets.
+If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (always rounded up, minimum 1). The streak then resets.
 
 ### Losing Streak ("L" Badge)
 
