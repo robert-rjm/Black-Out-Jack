@@ -15,9 +15,10 @@ POST /wild_card
 
     The "targeted" roll can fail to actually start the subgame (it's
     already running, or still on its post-subgame cooldown -- see
-    start_targeted_drinking's guards) -- that falls back to a dud
-    ("nothing happens") for this press rather than stacking a second
-    subgame or drinking anyone.
+    start_targeted_drinking's guards) -- that falls back to a random drink
+    ("random") for this press rather than stacking a second subgame or
+    wasting the press on a no-op. Every successful press therefore lands
+    on one of "self" / "random" / "targeted" -- there is no "dud" outcome.
 
     Guards (returning ok=False on failure):
       - Only connected players (not spectators/admins-without-seat) may trigger.
@@ -44,27 +45,17 @@ log = logging.getLogger(__name__)
 bp = Blueprint("wild_card", __name__)
 
 # ── Blackjack-themed anonymous names shown in the toast ──────────────────────
-# Each entry: (action_template, dud_text)
+# Each entry: (action_template, name)
 # action_template: f-string with {name} for the player who drinks (self or random)
-# dud_text: shown when nothing happens
 _WILD_NAMES = [
-    # (action_template, dud_text, name)
-    ("Dealer's Ghost haunts {name} — 1 sip!",           "Dealer's Ghost drifts past harmlessly.",
-     "Dealer's Ghost"),
-    ("The Joker deals {name} an extra sip!",            "The Joker keeps the trick to itself.",
-     "The Joker"),
-    ("House Edge catches up with {name} — 1 sip!",      "House Edge favours the table tonight.",
-     "House Edge"),
-    ("Blind Bet costs {name} — 1 sip!",                 "Blind Bet folds — nothing happens.",
-     "Blind Bet"),
-    ("Lucky Draw isn't so lucky for {name} — 1 sip!",   "Lucky Draw is actually lucky — nothing happens!",
-     "Lucky Draw"),
-    ("The Pit Boss flags {name} for a sip!",            "The Pit Boss looks the other way.",
-     "The Pit Boss"),
-    ("High Roller bets against {name} — 1 sip!",        "High Roller passes on this one.",
-     "High Roller"),
-    ("Dead Man's Hand falls to {name} — 1 sip!",        "Dead Man's Hand belongs to nobody tonight.",
-     "Dead Man's Hand"),
+    ("Dealer's Ghost haunts {name} — 1 sip!",         "Dealer's Ghost"),
+    ("The Joker deals {name} an extra sip!",          "The Joker"),
+    ("House Edge catches up with {name} — 1 sip!",    "House Edge"),
+    ("Blind Bet costs {name} — 1 sip!",               "Blind Bet"),
+    ("Lucky Draw isn't so lucky for {name} — 1 sip!", "Lucky Draw"),
+    ("The Pit Boss flags {name} for a sip!",          "The Pit Boss"),
+    ("High Roller bets against {name} — 1 sip!",      "High Roller"),
+    ("Dead Man's Hand falls to {name} — 1 sip!",      "Dead Man's Hand"),
 ]
 
 # ── Wild Card probability configuration ──────────────────────────────────────
@@ -137,8 +128,22 @@ def wild_card():
         })
 
     # ── Roll ─────────────────────────────────────────────────────────────────
-    roll                       = random.random()
-    action_tmpl, dud_t, label = random.choice(_WILD_NAMES)
+    # Every press lands on a real outcome -- self, random, or targeted --
+    # never a no-op "dud". Candidates always include the presser (already
+    # confirmed seated and non-NPC above), so a random drink is always
+    # available as the fallback when a rolled outcome can't go through.
+    roll                 = random.random()
+    action_tmpl, label   = random.choice(_WILD_NAMES)
+    candidates = [
+        p for p in session.all_players
+        if not getattr(p, "is_npc", False)
+    ]
+
+    def _random_drink():
+        target = random.choice(candidates)
+        target.add_drink(1, f"Wild Card 🃏 — {label}", "player")
+        return "random", f"\U0001f0cf {action_tmpl.format(name=target.name)}"
+
     if roll < WILD_CARD_PROB_SELF:
         # Self drinks
         outcome = "self"
@@ -147,10 +152,6 @@ def wild_card():
     elif roll < WILD_CARD_PROB_SELF + WILD_CARD_PROB_TARGETED:
         # Launch Targeted Drinking Mode -- target the presser 1/3 of the
         # time, otherwise a random player (same candidate pool as "random").
-        candidates = [
-            p for p in session.all_players
-            if not getattr(p, "is_npc", False)
-        ]
         if random.random() < WILD_CARD_TARGETED_SELF_FRACTION or not candidates:
             target_name = player_name
         else:
@@ -161,24 +162,12 @@ def wild_card():
             text = f"🃏 {label} marks {target_name} for Targeted Drinking!"
         else:
             # Already running / still cooling down from a prior subgame --
-            # fall back to a dud rather than stacking a second one.
-            outcome = "dud"
-            text = f"🃏 {dud_t}"
+            # fall back to a random drink rather than wasting the press on
+            # a no-op.
+            outcome, text = _random_drink()
     else:
         # Random player drinks (including the presser)
-        candidates = [
-            p for p in session.all_players
-            if not getattr(p, "is_npc", False)
-        ]
-        if not candidates:
-            # No valid targets → fall back to dud
-            outcome = "dud"
-            text = f"\U0001f0cf {dud_t}"
-        else:
-            target  = random.choice(candidates)
-            outcome = "random"
-            target.add_drink(1, f"Wild Card 🃏 — {label}", "player")
-            text = f"\U0001f0cf {action_tmpl.format(name=target.name)}"
+        outcome, text = _random_drink()
 
     # ── Record result ─────────────────────────────────────────────────────
     wc = session.drinks.wild_card_presses.setdefault(

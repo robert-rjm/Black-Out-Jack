@@ -91,7 +91,10 @@ def test_targeted_roll_targets_random_player(client, wild_card_room, monkeypatch
     assert room._targeted_drinking_targets == [room.all_players[0].name]
 
 
-def test_targeted_roll_falls_back_to_dud_when_subgame_already_active(client, wild_card_room, monkeypatch):
+def test_targeted_roll_falls_back_to_random_drink_when_subgame_already_active(client, wild_card_room, monkeypatch):
+    """A "targeted" roll that can't actually start the subgame (already
+    running) must not waste the press on a no-op dud -- it falls back to a
+    random drink instead, so every press always lands on self/random/targeted."""
     room_code, room = wild_card_room
     room._targeted_drinking_active = True   # a subgame is already running
     room._targeted_drinking_targets = ["Bob"]
@@ -106,8 +109,9 @@ def test_targeted_roll_falls_back_to_dud_when_subgame_already_active(client, wil
     resp = client.post("/wild_card", json={"room_code": room_code, "client_id": "client-1"})
     data = resp.get_json()
 
-    assert data["wild_card_outcome"] == "dud"
+    assert data["wild_card_outcome"] == "random"
     # The already-running subgame's targets are untouched, not overwritten.
     assert room._targeted_drinking_targets == ["Bob"]
-    assert room.drinks.wild_card_presses["Alice"]["dud"] == 1
+    assert room.drinks.wild_card_presses["Alice"]["dud"] == 0
+    assert room.drinks.wild_card_presses["Alice"]["random"] == 1
     assert room.drinks.wild_card_presses["Alice"]["targeted"] == 0
