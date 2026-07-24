@@ -40,6 +40,19 @@ MILESTONE_HANDOUT_SIPS = 5    # sips the winner gets to hand out
 MILESTONE_TTL          = 60   # seconds before an unclaimed handout is forfeited
 
 # ---------------------------------------------------------------------------
+# Losing-streak "L" badge
+# A player who racks up this many consecutive round losses (net hands lost
+# > net hands won, tracked the same way session.stats.streaks already does)
+# holds the L badge -- only one player at a time, whoever's active losing
+# streak is currently the single longest at the table. If another player's
+# streak overtakes them, the L transfers and the outgoing holder drinks 1
+# sip as a hand-off penalty (earning it for the first time, or simply
+# breaking your own streak with nobody else worse yet, never costs a sip).
+# ---------------------------------------------------------------------------
+
+WORST_STREAK_THRESHOLD = 5
+
+# ---------------------------------------------------------------------------
 # Side-bet / vote timing windows
 # ---------------------------------------------------------------------------
 

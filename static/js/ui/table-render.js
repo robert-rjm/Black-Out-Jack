@@ -292,6 +292,14 @@ function renderPlayers(state) {
       ? `<span class="seat-worst-badge" title="Worst average sips/round at the last milestone">🐌</span>`
       : "";
 
+    // L: holds the single longest active losing streak at the table (5+
+    // consecutive rounds lost) -- only one player at a time; overtaking the
+    // current holder hands them a 1-sip penalty (see drink_tracker.py's
+    // _update_worst_streak_holder).
+    const lBadge = (isDrinking && state.worst_streak_holder === s.name)
+      ? `<span class="seat-l-badge" title="On a 5+ round losing streak">L</span>`
+      : "";
+
     // Strategy-hint badge: visible to all players when that seat has hints on
     const hintBadge = s.strategy_hint_enabled
       ? `<span class="seat-hint-badge" title="${s.name} is playing with basic strategy hints">📘</span>`
@@ -313,7 +321,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name${nameCls}"${nameTitle}>${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name${nameCls}"${nameTitle}>${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${lBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");

@@ -485,6 +485,7 @@ class AppState(_StrictModel):
     clean_streaks:      dict[str, int]
     total_clean_rounds: dict[str, int]
     trophy_holder:      Optional[str]
+    worst_streak_holder: Optional[str]   # whoever currently holds the "L" badge (5+ round losing streak)
     last_round_drinks:  list[DrinkEntryOut]
     round_notices:      list[str]
     prev_round_sips:    dict[str, int]
