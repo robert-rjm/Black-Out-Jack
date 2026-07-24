@@ -291,7 +291,13 @@ body.no-drinking .drink-only {
   gap: 4px;
   flex-shrink: 0;
   align-items: start;
-  padding-right: 8px;
+  /* overflow-x: auto alone computes overflow-y to auto too (per the CSS
+     overflow spec), so this container clips vertically as well -- every
+     side needs enough padding to fit .drinks-card.selected's outline
+     (2px + 1px offset = 3px reach), not just the right edge (originally
+     padded only for horizontal scroll clearance), or the outline gets
+     clipped on whichever sides sit flush against the container. */
+  padding: 4px 8px 4px 4px;
   overflow-x: auto;
 }
 .drinks-card {
