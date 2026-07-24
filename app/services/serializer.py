@@ -177,6 +177,58 @@ def _serialize_targeted_drinking_summary(summary: dict | None) -> dict | None:
     }
 
 
+def _serialize_pending_target_proposal(pending: dict | None, client_info: dict) -> dict | None:
+    """Serialize a pending majority-vote-to-target proposal (tap a
+    player's name at the table). Returns None once its vote window has
+    expired -- apply_target_proposal_vote_forfeit clears it on the very
+    next tick, so this is mostly a belt-and-suspenders check."""
+    if not pending or time.monotonic() >= pending["expires_at"]:
+        return None
+    votes = pending["votes"]
+    total = len(votes)
+    yes   = sum(1 for v in votes.values() if v is True)
+    no    = sum(1 for v in votes.values() if v is False)
+    my_names_lc = {n.lower() for n in (client_info.get("local_names") or
+                   ([client_info["name"]] if client_info.get("name") else []))}
+    my_vote  = None
+    eligible = False
+    for name, v in votes.items():
+        if name.lower() in my_names_lc:
+            my_vote  = v
+            eligible = True
+            break
+    return {
+        "target":       pending["target"],
+        "proposer":     pending["proposer"],
+        "yes_count":    yes,
+        "no_count":     no,
+        "total_voters": total,
+        "needed":       total // 2 + 1,
+        "seconds_left": max(0, round(pending["expires_at"] - time.monotonic())),
+        "my_vote":      my_vote,
+        # False for the proposed target themselves (excluded from voting on
+        # their own proposal) or anyone not in the eligible-voter pool (e.g.
+        # a spectator, or a client that connected after the vote opened) --
+        # lets the frontend show a read-only view instead of Yes/No buttons
+        # it would just reject.
+        "eligible":     eligible,
+    }
+
+
+def _serialize_last_target_proposal_result(result: dict | None) -> dict | None:
+    """Serialize the most recently resolved target proposal (pass/fail).
+    Returns None if there is none yet or it's older than 15 seconds -- this
+    is a brief pass/fail flash, not a lasting result like the mini-round
+    reveal, so it dismisses itself much sooner."""
+    if not result or time.monotonic() - result["set_at"] >= 15:
+        return None
+    return {
+        "target":     result["target"],
+        "proposer":   result["proposer"],
+        "passed":     result["passed"],
+        "seconds_ago": max(0, round(time.monotonic() - result["set_at"])),
+    }
+
 
 # ---------------------------------------------------------------------------
 # Turn / phase helpers
@@ -918,14 +970,17 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "streaks":              dict(session._targeted_drinking_streaks),
             "losing_streaks":       dict(session._targeted_drinking_losing_streaks),
             "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
-            # Majority-vote-to-target tallies (mirrors kick_votes/
-            # kick_votes_mine/kick_votes_detail's shape, nested here
-            # instead of top-level since it's specifically part of this
-            # feature's state).
-            "start_votes":          {k: len(v) for k, v in session._targeted_drinking_start_votes.items()},
-            "start_votes_mine":     [k for k, v in session._targeted_drinking_start_votes.items()
-                                      if (_ci.get("name") or "").lower() in v],
-            "start_votes_detail":   {k: sorted(v) for k, v in session._targeted_drinking_start_votes.items()},
+            # Majority-vote-to-target proposal (tap a player's name at the
+            # table): the pending Yes/No vote (if any), how many more
+            # rounds *this* client is frozen from opening a new proposal
+            # (0 if not frozen), and the most recent proposal's pass/fail
+            # outcome (a brief one-shot flash, not a lasting result).
+            "pending_proposal":     _serialize_pending_target_proposal(
+                                        session.round._pending_target_proposal, _ci),
+            "propose_cooldown_remaining": max(0, session._targeted_drinking_propose_cooldowns.get(
+                                        (_ci.get("name") or "").lower(), 0) - session.round_count),
+            "last_proposal_result": _serialize_last_target_proposal_result(
+                                        session.drinks.last_target_proposal_result),
             "pending":              _serialize_pending_targeted_drinking(
                                         session.round._pending_targeted_drinking, _ci),
             "last_result":          _serialize_last_targeted_drinking_result(

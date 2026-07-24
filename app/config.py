@@ -77,6 +77,14 @@ TARGETED_DRINKING_EASTER_EGG_SIP_CAP  = 5
 TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS = 3
 TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS          = 20
 
+# Majority-vote-to-target proposal (tapping a player's name at the table):
+# a single Yes/No vote on one proposed target, open for this long -- passes
+# early the instant strict majority says Yes, otherwise fails when the timer
+# runs out. A failed vote freezes the proposer from opening another proposal
+# for this many rounds (doesn't stop them voting on someone else's).
+TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS = 15
+TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS        = 3
+
 # ---------------------------------------------------------------------------
 # Registration / connection limits
 # ---------------------------------------------------------------------------

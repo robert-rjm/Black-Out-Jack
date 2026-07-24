@@ -165,7 +165,7 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 
 ## Targeted Drinking Mode
 
-Starts three ways: **host** picks target(s) from Settings → Players and force-starts; **majority vote** (any Player votes to target someone, auto-starts past 50%); or the **Wild Card 🃏** easter egg picks a random target. Once a normal round ends, the **host or current dealer** taps **Start Targeting Now** (lets the table finish drinking for that round first) — then a fresh isolated Dealer hand is dealt and targeted Players must call **BUST** or **STAND** on it before it's played out (15s window; no answer defaults to STAND):
+Starts three ways: **host** picks target(s) from Settings → Players and force-starts; tapping a Player's **name at the table** to **propose** them opens a 15s table-wide Yes/No vote (proposer auto-votes Yes; passes past 50%, or fails and freezes the proposer from proposing again for 3 rounds); or the **Wild Card 🃏** easter egg picks a random target. Once a normal round ends, the **host or current dealer** taps **Start Targeting Now** (lets the table finish drinking for that round first) — then a fresh isolated Dealer hand is dealt and targeted Players must call **BUST** or **STAND** on it before it's played out (15s window; no answer defaults to STAND):
 
 | Outcome | Effect |
 |---------|--------|

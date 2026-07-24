@@ -56,6 +56,8 @@ function buildDigitalUI() {
   const tdOverlay = document.getElementById("targeted-drinking-modal-overlay");
   const tdBanner  = document.getElementById("td-status-banner");
   if (tdOverlay) targetedDrinkingPanel.mount(tdOverlay, tdBanner);
+  const targetProposalOverlay = document.getElementById("target-proposal-modal-overlay");
+  if (targetProposalOverlay) targetProposalPanel.mount(targetProposalOverlay);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -509,7 +511,6 @@ function _syncModals(state) {
 
   updateRegisterOverlay(state);
   renderKickVoteBanner(state);
-  renderTargetedDrinkingVoteBanner(state);
 
   // Wild Card logo: pointer cursor only when Easter egg is enabled AND round is active
   const logo = document.getElementById("header-logo");
@@ -545,6 +546,7 @@ function _syncDigitalUI(state) {
   bustVotePanel.render(state);
   dealerLotteryEntryPanel.render(state);
   targetedDrinkingPanel.render(state);
+  targetProposalPanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.

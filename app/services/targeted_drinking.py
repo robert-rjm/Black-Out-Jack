@@ -46,6 +46,8 @@ from app.config import (
     TARGETED_DRINKING_EASTER_EGG_SIP_CAP,
     TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
     TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS,
+    TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS,
+    TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS,
 )
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card, round_phase
@@ -99,11 +101,11 @@ def start_targeted_drinking(
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
     session._targeted_drinking_presser = presser_name
-    # Clear any in-flight majority-vote proposals -- a subgame is now
-    # active (whichever of the three start paths triggered it), so a
-    # leftover proposal from before could otherwise re-fire the moment the
-    # post-subgame cooldown clears without anyone re-voting.
-    session._targeted_drinking_start_votes = {}
+    # Clear any in-flight majority-vote-to-target proposal -- a subgame is
+    # now active (whichever of the three start paths triggered it), so a
+    # leftover pending proposal from before could otherwise re-resolve later
+    # and try to start a second subgame on top of this one.
+    session.round._pending_target_proposal = None
     if round_phase(session) == "round-over":
         session.round._targeted_drinking_eligible = True
     return True
@@ -485,9 +487,6 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_presser = None
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
-    # Clear so a stale pre-cooldown vote can't instantly re-fire the
-    # moment the cooldown below lifts -- players re-vote fresh after.
-    session._targeted_drinking_start_votes = {}
     session._targeted_drinking_cooldown_until_round = (
         session.round_count + TARGETED_DRINKING_COOLDOWN_ROUNDS
     )
@@ -497,6 +496,178 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
         f"  🎯 Targeted Drinking Mode ended ({reason})\n"
     )
     session._log_version += 1
+
+
+# ---------------------------------------------------------------------------
+# Majority-vote-to-target proposal (tap a player's name at the table)
+# ---------------------------------------------------------------------------
+#
+# One of three ways a subgame can start (alongside the host's direct
+# override in start_targeted_drinking and the Wild Card easter egg): any
+# connected, non-spectator, non-bot player taps another player's name to
+# propose them as the target, opening a table-wide Yes/No vote (mirrors
+# vote_kick's eligible-voter math, minus the target themselves). The
+# proposer's own vote is pre-filled Yes -- they wouldn't have proposed
+# otherwise. Passes the instant strict majority says Yes; otherwise fails
+# when TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS runs out, freezing the
+# proposer (not the target, and not the other voters) from opening another
+# proposal for TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS rounds.
+
+
+def _target_proposal_eligible_names(session: GameRoom, target_name: str) -> list[str]:
+    """Connected, non-spectator, non-bot players who can vote on a target
+    proposal -- everyone except bots and the proposed target themselves
+    (mirrors vote_kick / the old vote_target's own eligible-voter math),
+    returned with each player's canonical roster casing."""
+    connected_lc = {
+        (v.get("name") or "").lower()
+        for v in session._room_clients.values()
+        if not v.get("kicked") and v.get("name") and v.get("role") != "spectator"
+    }
+    target_lc = target_name.lower()
+    return [
+        p.name for p in session.all_players
+        if not getattr(p, "is_npc", False)
+        and p.name.lower() in connected_lc
+        and p.name.lower() != target_lc
+    ]
+
+
+def propose_targeted_drinking_target(
+    session: GameRoom, proposer_name: str, target_name: str,
+) -> tuple[bool, str | None]:
+    """Open a Yes/No vote to target `target_name`, proposed by
+    `proposer_name`. Returns (True, None) on success, or (False, reason)
+    if the subgame is already running/on cooldown, a proposal is already
+    open, the proposer is currently frozen from a prior failed proposal,
+    or the target is invalid (a bot, not in the session, or the proposer
+    themselves)."""
+    if session._targeted_drinking_active:
+        return False, "Targeted Drinking Mode is already running."
+    if session.round_count < session._targeted_drinking_cooldown_until_round:
+        return False, "Targeted Drinking Mode is on cooldown."
+    if session.round._pending_target_proposal is not None:
+        return False, "A target proposal is already being voted on."
+
+    proposer_lc  = proposer_name.lower()
+    frozen_until = session._targeted_drinking_propose_cooldowns.get(proposer_lc, 0)
+    if session.round_count < frozen_until:
+        remaining = frozen_until - session.round_count
+        return False, (
+            f"Your last proposal was voted down -- you can't propose again "
+            f"for {remaining} more round(s)."
+        )
+
+    if proposer_lc == target_name.lower():
+        return False, "Cannot propose yourself as a target."
+    target_player = session._get_player(target_name)
+    if target_player is None:
+        return False, f"'{target_name}' is not in the session."
+    if getattr(target_player, "is_npc", False):
+        return False, "Cannot propose a bot as a target."
+
+    eligible = _target_proposal_eligible_names(session, target_name)
+    proposer_canonical = next(
+        (n for n in eligible if n.lower() == proposer_lc), None,
+    )
+    if proposer_canonical is None:
+        return False, "You must be a connected, non-spectator player to propose a target."
+
+    votes = {name: None for name in eligible}
+    votes[proposer_canonical] = True   # proposing it is an automatic Yes
+
+    session.round._pending_target_proposal = {
+        "target":     target_player.name,
+        "proposer":   proposer_canonical,
+        "votes":      votes,
+        "expires_at": time.monotonic() + TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS,
+    }
+    # The proposer's own auto-Yes can already be strict majority on its own
+    # (e.g. they're the only other connected player) -- don't make that case
+    # wait out the full window for a foregone conclusion.
+    _maybe_resolve_target_proposal(session)
+    return True, None
+
+
+def submit_target_proposal_vote(session: GameRoom, voter_name: str, vote: bool) -> bool:
+    """Records `voter_name`'s Yes/No vote on the pending target proposal,
+    resolving it immediately if strict majority is now reached. Returns
+    False if there's no open proposal or the voter isn't eligible."""
+    pending = session.round._pending_target_proposal
+    if not pending:
+        return False
+    key = next((k for k in pending["votes"] if k.lower() == voter_name.lower()), None)
+    if key is None:
+        return False
+    pending["votes"][key] = bool(vote)
+    _maybe_resolve_target_proposal(session)
+    return True
+
+
+def _finish_target_proposal(session: GameRoom, *, passed: bool) -> None:
+    """Shared resolution path for both an early-majority pass and a
+    timed-out fail. Clears the pending proposal, starts the subgame on a
+    pass, or freezes the proposer on a fail, and records a one-shot result
+    for the frontend."""
+    pending = session.round._pending_target_proposal
+    if not pending:
+        return
+    target   = pending["target"]
+    proposer = pending["proposer"]
+    session.round._pending_target_proposal = None
+
+    if passed:
+        start_targeted_drinking(session, [target])
+        session.round._log_entries.append(
+            f"  🎯 Majority voted to target {target} (proposed by {proposer})\n"
+        )
+    else:
+        session._targeted_drinking_propose_cooldowns[proposer.lower()] = (
+            session.round_count + TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS
+        )
+        session.round._log_entries.append(
+            f"  🎯 Vote to target {target} failed -- {proposer} can't propose "
+            f"again for {TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS} round(s)\n"
+        )
+    session._log_version += 1
+
+    session.drinks.last_target_proposal_result = {
+        "target":   target,
+        "proposer": proposer,
+        "passed":   passed,
+        "set_at":   time.monotonic(),
+    }
+    session.drinks._target_proposal_result_seq += 1
+
+
+def _maybe_resolve_target_proposal(session: GameRoom) -> None:
+    """Resolve the pending proposal early the instant strict majority says
+    Yes -- doesn't wait for every voter to answer, same "resolve the moment
+    it's decided" precedent submit_targeted_drinking_vote uses for mini-round
+    votes."""
+    pending = session.round._pending_target_proposal
+    if not pending:
+        return
+    votes = pending["votes"]
+    total = len(votes)
+    yes   = sum(1 for v in votes.values() if v is True)
+    if total > 0 and yes > total / 2:
+        _finish_target_proposal(session, passed=True)
+
+
+def apply_target_proposal_vote_forfeit(session: GameRoom) -> None:
+    """If the proposal's vote window has expired without reaching majority,
+    resolve it as a fail (freezing the proposer) based on whatever votes
+    were actually cast -- unanswered voters simply don't count toward Yes,
+    same math as the majority check above. Safe to call every tick."""
+    pending = session.round._pending_target_proposal
+    if not pending or time.monotonic() < pending["expires_at"]:
+        return
+    votes  = pending["votes"]
+    total  = len(votes)
+    yes    = sum(1 for v in votes.values() if v is True)
+    passed = total > 0 and yes > total / 2
+    _finish_target_proposal(session, passed=passed)
 
 
 def give_targeted_drinking_sip(session: GameRoom, giver_name: str, recipient_name: str) -> bool:
