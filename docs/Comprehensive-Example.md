@@ -846,7 +846,7 @@ it's shown with assumed totals rather than folded into Round 5:
 > average (excluding Alice, the winner) and is flagged "worst." If
 > Bob is *also* flagged "worst" at the **next** milestone (200), he
 > takes a one-time penalty: drink sips equal to Alice's average
-> sips/round at that milestone (rounded, minimum 1). The "worst"
+> sips/round at that milestone (always rounded up, minimum 1). The "worst"
 > streak then resets.
 
 ### Bonus illustration: Dealer Lottery (→ Rule 5.9)

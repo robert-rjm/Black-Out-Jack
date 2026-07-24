@@ -10,6 +10,7 @@ session down.
 """
 
 import logging
+import math
 import time
 
 from app.models.game_room import GameRoom
@@ -674,7 +675,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     at each milestone, excluding the milestone winner. If the SAME player is
     "worst" for two consecutive milestones, they take a one-time penalty —
     drinking a number of sips equal to the milestone winner's avg sips/round
-    (rounded to the nearest whole sip, minimum 1).
+    (always rounded up, minimum 1).
 
     Sips awarded with ``count_toward_round=False`` (Targeted Drinking Mode
     penalties, which happen between rounds rather than as part of any
@@ -704,7 +705,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     if session.drinks.last_milestone_worst and session.drinks.last_milestone_worst.lower() == worst_name.lower():
         # Second consecutive milestone as "worst" — apply the one-time penalty.
         winner_avg = round_avg(winner)
-        penalty    = max(1, round(winner_avg))
+        penalty    = max(1, math.ceil(winner_avg))
 
         worst_p = session._get_player(worst_name)
         if worst_p:
