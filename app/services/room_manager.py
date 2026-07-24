@@ -111,6 +111,16 @@ def reset_round_state(session: GameRoom, *, digital: bool = False) -> None:
     # (now-reset) exclusion set.
     if session.drinks.last_dealer_lottery_result is not None:
         session.drinks.last_dealer_lottery_result["pending_handouts"] = {}
+    # Same reasoning as last_dealer_lottery_result above, for Targeted
+    # Drinking's own perfect-graduation handout: last_targeted_drinking_result
+    # lives on DrinkLedger (session-lifetime) so it survives this wholesale
+    # RoundState reset, but _targeted_drinking_handouts_given (the
+    # round-scoped filter that excludes already-given/forfeited names) does
+    # not. Without this, a graduation handout left unclaimed when a new
+    # normal round starts would reappear in the give-sip panel every round
+    # after, and could be given out again and again.
+    if session.drinks.last_targeted_drinking_result is not None:
+        session.drinks.last_targeted_drinking_result["pending_handouts"] = {}
 
 
 def apply_queued_settings(session: GameRoom) -> list[str]:

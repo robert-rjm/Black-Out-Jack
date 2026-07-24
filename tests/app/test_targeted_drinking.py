@@ -612,6 +612,28 @@ def test_give_sip_assigns_and_closes_window(monkeypatch):
     assert room.round._targeted_drinking_handout_expires_at is None
 
 
+def test_newround_clears_stale_pending_handouts(monkeypatch):
+    """Regression: a perfect-graduation handout that's still unclaimed when
+    a new normal round starts must not become givable again. reset_round_state()
+    replaces RoundState wholesale every newround, wiping the round-scoped
+    _targeted_drinking_handouts_given exclusion set -- but
+    last_targeted_drinking_result lives on DrinkLedger (session-lifetime) and
+    survives the reset untouched. Without also clearing its pending_handouts,
+    the stale handout reappeared every round after, and give_targeted_drinking_sip
+    would happily award it again and again since the fresh round's exclusion
+    set no longer remembered it had already been given."""
+    from app.services.room_manager import reset_round_state
+
+    room = _perfect_graduation_room(monkeypatch)
+    result = room.drinks.last_targeted_drinking_result
+    assert result["pending_handouts"] == {"Bob": TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS}
+
+    reset_round_state(room, digital=True)
+
+    assert room.drinks.last_targeted_drinking_result["pending_handouts"] == {}
+    assert give_targeted_drinking_sip(room, "Bob", "Carol") is False
+
+
 def test_give_sip_rejects_self_assignment(monkeypatch):
     room = _perfect_graduation_room(monkeypatch)
     assert give_targeted_drinking_sip(room, "Bob", "Bob") is False
