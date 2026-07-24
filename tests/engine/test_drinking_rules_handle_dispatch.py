@@ -78,6 +78,7 @@ def test_all_hands_sweep_dispatch():
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
         "Alice", hands, ["Alice", "Bob"], 1, dealer_name="", dealer_bj=False,
+        hard_switch_dealer="",
     )
     assert result == "SENTINEL"
 

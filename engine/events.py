@@ -81,6 +81,12 @@ class AllHandsSweepEvent:
     wager:        int
     dealer_name:  str  = ""
     dealer_bj:    bool = False
+    # The hard-switch-exempt dealer (mirrors HandResolvedEvent.dealer_name) --
+    # NOT the same as dealer_name above, which (if ever set) would exclude the
+    # dealer from the sweep bonus itself; this one only gates the doubled-hand
+    # immunity-exception cancellation below, since on_hand_resolved already
+    # skipped crediting that dealer the +1 being cancelled.
+    hard_switch_dealer: str = ""
 
 
 @dataclass

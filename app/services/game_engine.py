@@ -492,6 +492,7 @@ def dealer_turn(session: GameRoom) -> None:
             eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                 player_name=p.name, player_hands=p.hands, all_names=all_names,
                 wager=session.wager, dealer_bj=dealer_bj,
+                hard_switch_dealer=exempt_dealer,
             )))
 
         # Four-aces end-of-round check
