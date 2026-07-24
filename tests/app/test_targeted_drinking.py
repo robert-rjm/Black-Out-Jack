@@ -30,6 +30,12 @@ from app.services.targeted_drinking import (
     apply_targeted_drinking_vote_forfeit,
     resolve_targeted_drinking_round,
     end_targeted_drinking,
+    give_targeted_drinking_sip,
+    apply_targeted_drinking_handout_forfeit,
+)
+from app.config import (
+    TARGETED_DRINKING_REVEAL_PAUSE_SECONDS,
+    TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
 )
 
 
@@ -410,6 +416,77 @@ def test_resolve_wrong_guess_resets_streak_and_awards_sip(monkeypatch):
     assert room._targeted_drinking_correct_counts.get("Bob", 0) == 0
     assert room._targeted_drinking_dealer_hands == 1
     assert room._targeted_drinking_dealer_busts == 0
+    assert room._targeted_drinking_losing_streaks["Bob"] == 1
+
+
+def test_resolve_wrong_guess_streak_scales_sips(monkeypatch):
+    """Consecutive wrong guesses cost 1, then 2, then 3 sips -- the losing
+    streak, not a flat per-guess amount."""
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    seen_sips = []
+    for _ in range(3):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong every time
+        resolve_targeted_drinking_round(room)
+        seen_sips.append(room.drinks.last_targeted_drinking_result["sips"]["Bob"])
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    assert seen_sips == [1, 2, 3]
+    assert room._targeted_drinking_losing_streaks["Bob"] == 3
+    assert room.drinks.sip_ticker["Bob"] == 6   # 1 + 2 + 3
+    assert room._targeted_drinking_total_sips["Bob"] == 6
+
+
+def test_resolve_correct_guess_resets_losing_streak(monkeypatch):
+    """A correct guess breaks the losing streak -- the next wrong guess
+    starts back at 1 sip, not where the old streak left off."""
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    # Two wrong guesses (1 + 2 = 3 sips), dealer stands both times.
+    for _ in range(2):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong
+        resolve_targeted_drinking_round(room)
+        room.drinks.last_targeted_drinking_result["set_at"] = 0
+    assert room._targeted_drinking_losing_streaks["Bob"] == 2
+
+    # One correct guess (dealer busts, Bob correctly calls bust) resets it.
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("5", "H"), make_card("K", "D")])  # busts
+    submit_targeted_drinking_vote(room, "Bob", "bust")   # correct
+    resolve_targeted_drinking_round(room)
+    room.drinks.last_targeted_drinking_result["set_at"] = 0
+    assert room._targeted_drinking_losing_streaks["Bob"] == 0
+
+    # Next wrong guess costs 1 sip again, not 3.
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+    submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong
+    resolve_targeted_drinking_round(room)
+
+    assert room.drinks.last_targeted_drinking_result["sips"]["Bob"] == 1
+    assert room._targeted_drinking_losing_streaks["Bob"] == 1
+    assert room.drinks.sip_ticker["Bob"] == 4   # 1 + 2 + 0 (correct) + 1
+
+
+def test_losing_streaks_cleared_on_start_and_end():
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    assert room._targeted_drinking_losing_streaks == {"Bob": 0}
+
+    room._targeted_drinking_losing_streaks["Bob"] = 3
+    end_targeted_drinking(room, reason="admin_cancelled")
+    assert room._targeted_drinking_losing_streaks == {}
 
 
 def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
@@ -436,19 +513,176 @@ def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Perfect-graduation handout (3 correct in a row, never missed)
+# ---------------------------------------------------------------------------
+
+def _perfect_graduation_room(monkeypatch):
+    """3 correct guesses in a row from the very first attempt -- graduates
+    with a perfect record, triggering the handout."""
+    room = _make_room(num_players=3)   # Alice, Bob, Carol
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    for _ in range(3):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "stand")  # correct every time
+        resolve_targeted_drinking_round(room)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+    return room
+
+
+def test_perfect_graduation_opens_handout(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    result = room.drinks.last_targeted_drinking_result
+    assert result["graduated"] == ["Bob"]
+    assert result["pending_handouts"] == {"Bob": TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS}
+    assert room.round._targeted_drinking_handout_expires_at is not None
+    assert room.round._targeted_drinking_handouts_given == set()
+
+
+def test_imperfect_graduation_gets_no_handout(monkeypatch):
+    """Graduates eventually (3 correct in a row), but only after an earlier
+    miss -- not a perfect run, so no handout."""
+    room = _make_room(num_players=3)
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    # 1 wrong guess first.
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+    submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong
+    resolve_targeted_drinking_round(room)
+    room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    # Then 3 correct in a row to graduate.
+    for _ in range(3):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "stand")  # correct
+        resolve_targeted_drinking_round(room)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    result = room.drinks.last_targeted_drinking_result
+    assert result["graduated"] == ["Bob"]
+    assert result["pending_handouts"] == {}
+    assert room.round._targeted_drinking_handout_expires_at is None
+
+
+def test_next_mini_round_blocked_until_handout_resolved(monkeypatch):
+    """_targeted_drinking_ready_to_open waits for a perfect-graduation
+    handout to clear -- checked here via a second target still active
+    after the first's perfect graduation."""
+    room = _make_room(num_players=3)
+    start_targeted_drinking(room, ["Bob", "Carol"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+
+    for _ in range(3):
+        maybe_start_targeted_drinking_round(room)
+        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+        submit_targeted_drinking_vote(room, "Bob", "stand")    # correct -> graduates perfectly
+        submit_targeted_drinking_vote(room, "Carol", "bust")   # wrong every time -- stays targeted
+        resolve_targeted_drinking_round(room)
+        if room.drinks.last_targeted_drinking_result:
+            room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+    assert room._targeted_drinking_active is True   # Carol still targeted
+    assert room.drinks.last_targeted_drinking_result["pending_handouts"] == {"Bob": 3}
+
+    # Next mini-round can't open while Bob's handout is unclaimed, even
+    # though the reveal-pause breather has elapsed (set_at reset to 0 above).
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is None
+
+    give_targeted_drinking_sip(room, "Bob", "Alice")
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is not None
+
+
+def test_give_sip_assigns_and_closes_window(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    assert give_targeted_drinking_sip(room, "Bob", "Carol") is True
+    assert room.drinks.sip_ticker["Carol"] == TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS
+    assert "Bob" in room.round._targeted_drinking_handouts_given
+    assert room.round._targeted_drinking_handout_expires_at is None
+
+
+def test_give_sip_rejects_self_assignment(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    assert give_targeted_drinking_sip(room, "Bob", "Bob") is False
+
+
+def test_give_sip_rejects_double_give(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    give_targeted_drinking_sip(room, "Bob", "Carol")
+    assert give_targeted_drinking_sip(room, "Bob", "Alice") is False
+
+
+def test_give_sip_rejects_unknown_recipient(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    assert give_targeted_drinking_sip(room, "Bob", "Zach") is False
+
+
+def test_give_sip_noop_when_nothing_pending(monkeypatch):
+    room = _make_room(num_players=3)
+    assert give_targeted_drinking_sip(room, "Bob", "Carol") is False
+
+
+def test_handout_forfeit_noop_before_expiry(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    apply_targeted_drinking_handout_forfeit(room)
+    assert "Bob" not in room.round._targeted_drinking_handouts_given
+
+
+def test_handout_forfeit_gives_sips_to_self_after_expiry(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    room.round._targeted_drinking_handout_expires_at = time.monotonic() - 1
+    apply_targeted_drinking_handout_forfeit(room)
+    assert room.drinks.sip_ticker["Bob"] == TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS
+    assert "Bob" in room.round._targeted_drinking_handouts_given
+    assert room.round._targeted_drinking_handout_expires_at is None
+
+
+def test_serialize_state_exposes_pending_handouts(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    room._room_clients["client-1"] = {
+        "name": "Bob", "local_names": ["Bob"], "role": "player", "kicked": False,
+    }
+    state = serialize_state(room, "client-1")
+    td = state["targeted_drinking"]
+    assert td["pending_handouts"] == {"Bob": TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS}
+    assert td["my_pending_handouts"] == {"Bob": TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS}
+    assert td["handout_seconds_left"] > 0
+
+    give_targeted_drinking_sip(room, "Bob", "Carol")
+    after = serialize_state(room, "client-1")
+    # Excluded the instant it's given, same regression guard as Dealer
+    # Lottery's own pending_handouts filter.
+    assert after["targeted_drinking"]["pending_handouts"] == {}
+    assert after["targeted_drinking"]["my_pending_handouts"] == {}
+
+
+# ---------------------------------------------------------------------------
 # Easter egg (Wild Card) launch: 5-sip cap + graduation-backfire payback
 # ---------------------------------------------------------------------------
 
 def test_easter_egg_cap_ends_run_as_loss_with_penalty(monkeypatch):
-    """A target who never graduates and racks up 5 wrong-guess sips is
-    force-ended right at the cap with one extra +1 penalty sip (6 total),
-    and removed from the target list without graduating."""
+    """A target who never graduates racks up streak-scaled wrong-guess
+    sips (1, 2, 3, ...) and is force-ended the moment the running total
+    crosses the cap, with one extra +1 penalty sip on top, removed from
+    the target list without graduating. With a cap of 5, that's the 3rd
+    consecutive miss: 1 + 2 + 3 = 6 (already past 5) + 1 penalty = 7."""
     room = _make_room(num_players=3)   # Alice (dealer), Bob, Carol
     start_targeted_drinking(room, ["Bob"], presser_name="Carol")
     check_targeted_drinking_trigger(room)
     request_targeted_drinking_start(room)
 
-    for _ in range(5):
+    for _ in range(5):   # extra iterations after the cap hits are no-ops
         maybe_start_targeted_drinking_round(room)
         _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
         submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong every time
@@ -458,7 +692,7 @@ def test_easter_egg_cap_ends_run_as_loss_with_penalty(monkeypatch):
 
     assert room._targeted_drinking_active is False
     assert room.drinks.last_targeted_drinking_summary["reason"] == "capped_out"
-    assert room.drinks.sip_ticker["Bob"] == 6   # 5-sip cap + 1 penalty for not managing
+    assert room.drinks.sip_ticker["Bob"] == 7   # 1 + 2 + (3 + 1 cap penalty)
     assert room.drinks.sip_ticker.get("Carol", 0) == 0   # presser untouched on a loss
 
 
@@ -514,8 +748,8 @@ def test_easter_egg_graduation_with_no_misses_awards_presser_nothing(monkeypatch
 
 def test_admin_started_subgame_has_no_cap_or_backfire(monkeypatch):
     """Without a presser (admin-started via the admin panel), wrong
-    guesses never cap out or force-end the run early -- flat 1 sip each,
-    same as before this mechanic existed."""
+    guesses never cap out or force-end the run early -- still streak-scaled
+    (1, 2, 3, 4, 5, 6 for 6 consecutive misses = 21), just no cap penalty."""
     room = _make_room(num_players=3)
     start_targeted_drinking(room, ["Bob"])   # no presser_name -> admin-started
     check_targeted_drinking_trigger(room)
@@ -530,7 +764,7 @@ def test_admin_started_subgame_has_no_cap_or_backfire(monkeypatch):
             room.drinks.last_targeted_drinking_result["set_at"] = 0
 
     assert room._targeted_drinking_active is True   # never capped, still running
-    assert room.drinks.sip_ticker["Bob"] == 6        # flat 1 sip per wrong guess, no cap penalty
+    assert room.drinks.sip_ticker["Bob"] == 21       # 1+2+3+4+5+6, no cap penalty
 
 
 def test_stats_table_accumulates_across_mini_rounds(monkeypatch):
@@ -855,16 +1089,33 @@ def test_start_route_rejects_while_already_active(client, room_setup):
 # /targeted_drinking/cancel
 # ---------------------------------------------------------------------------
 
-def test_cancel_route_requires_admin(client, room_setup):
+def test_cancel_route_rejects_plain_player(client, room_setup):
     room_code, room = room_setup
     start_targeted_drinking(room, ["Carol"])
 
     resp = client.post("/targeted_drinking/cancel", json={
-        "room_code": room_code, "client_id": "client-2",  # Carol is not admin
+        "room_code": room_code, "client_id": "client-2",  # Carol is not admin/dealer
     })
     data = resp.get_json()
     assert data["ok"] is False
     assert room._targeted_drinking_active is True
+
+
+def test_cancel_route_dealer_can_cancel(client, room_setup):
+    """Alice is the room's dealer (see _make_room) but not admin -- still
+    allowed to cancel."""
+    room_code, room = room_setup
+    room._room_clients["client-3"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "player", "kicked": False,
+    }
+    start_targeted_drinking(room, ["Carol"])
+
+    resp = client.post("/targeted_drinking/cancel", json={
+        "room_code": room_code, "client_id": "client-3",  # Alice, dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room._targeted_drinking_active is False
 
 
 def test_cancel_route_ends_active_subgame(client, room_setup):
@@ -907,19 +1158,50 @@ def test_begin_route_rejects_unregistered_client(client, room_setup):
     assert targeted_drinking_awaiting_start(room) is True   # unaffected by the rejected attempt
 
 
-def test_begin_route_any_registered_player_can_start(client, room_setup):
-    """Not admin-only -- Carol (a plain player, not Bob the admin) can tap
-    "Start Targeting Now" for herself."""
+def test_begin_route_rejects_plain_player(client, room_setup):
+    """Host/dealer-only -- Carol (a plain player, not Bob the admin, and
+    not the dealer) cannot tap "Start Targeting Now"."""
     room_code, room = room_setup
     start_targeted_drinking(room, ["Carol"])
     check_targeted_drinking_trigger(room)
 
     resp = client.post("/targeted_drinking/begin", json={
-        "room_code": room_code, "client_id": "client-2",   # Carol, not admin
+        "room_code": room_code, "client_id": "client-2",   # Carol, not admin/dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room.round._targeted_drinking_start_requested is False
+
+
+def test_begin_route_admin_can_start(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+
+    resp = client.post("/targeted_drinking/begin", json={
+        "room_code": room_code, "client_id": "client-1",   # Bob, admin
     })
     data = resp.get_json()
     assert data["ok"] is True
     assert data["targeted_drinking"]["awaiting_start"] is False
+    assert room.round._targeted_drinking_start_requested is True
+
+
+def test_begin_route_dealer_can_start(client, room_setup):
+    """Alice is the room's dealer (see _make_room) but not admin -- still
+    allowed to tap "Start Targeting Now"."""
+    room_code, room = room_setup
+    room._room_clients["client-3"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "player", "kicked": False,
+    }
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+
+    resp = client.post("/targeted_drinking/begin", json={
+        "room_code": room_code, "client_id": "client-3",   # Alice, dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
     assert room.round._targeted_drinking_start_requested is True
 
 
@@ -931,6 +1213,217 @@ def test_begin_route_noop_when_nothing_waiting(client, room_setup):
     data = resp.get_json()
     assert data["ok"] is True   # still succeeds -- just a no-op
     assert room.round._targeted_drinking_start_requested is False
+
+
+# ---------------------------------------------------------------------------
+# /targeted_drinking/continue
+# ---------------------------------------------------------------------------
+
+def test_continue_route_rejects_plain_player(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-2",  # Carol, not admin/dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_continue_route_noop_without_in_flight_result(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-1",  # Bob, admin
+    })
+    data = resp.get_json()
+    assert data["ok"] is True   # no-op, still succeeds
+
+
+def test_continue_route_admin_unblocks_next_round(client, room_setup, monkeypatch):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+    submit_targeted_drinking_vote(room, "Carol", "bust")   # wrong -- keeps her targeted
+    resolve_targeted_drinking_round(room)
+
+    result = room.drinks.last_targeted_drinking_result
+    assert result is not None
+    original_set_at = result["set_at"]
+    # Not enough time has passed yet for the safety-net to have opened the
+    # next round on its own.
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is None
+
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-1",  # Bob, admin
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert result["set_at"] < original_set_at   # rewound into the past
+    assert time.monotonic() - result["set_at"] >= TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
+
+    # The next tick can now open the next mini-round without waiting out
+    # the full safety-net timeout.
+    maybe_start_targeted_drinking_round(room)
+    assert room.round._pending_targeted_drinking is not None
+
+
+def test_continue_route_dealer_can_unblock(client, room_setup, monkeypatch):
+    room_code, room = room_setup
+    room._room_clients["client-3"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "player", "kicked": False,
+    }
+    start_targeted_drinking(room, ["Carol"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
+    submit_targeted_drinking_vote(room, "Carol", "bust")
+    resolve_targeted_drinking_round(room)
+
+    resp = client.post("/targeted_drinking/continue", json={
+        "room_code": room_code, "client_id": "client-3",  # Alice, dealer
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# /targeted_drinking/vote_target (majority vote to target someone)
+# ---------------------------------------------------------------------------
+
+def test_vote_target_route_toggle_cast_and_retract(client, room_setup):
+    # Target Alice (not Carol): with only Bob + Carol registered as
+    # clients, eligible = {bob, carol} for an Alice target, so Bob's lone
+    # vote (1 of 2) doesn't accidentally hit strict majority on its own.
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",   # Bob votes
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert data["started"] is False
+    assert "bob" in room._targeted_drinking_start_votes.get("alice", set())
+
+    # Retract
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert "bob" not in room._targeted_drinking_start_votes.get("alice", set())
+
+
+def test_vote_target_route_rejects_self_vote(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-2", "target_name": "Carol",   # Carol votes for herself
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_rejects_spectator(client, room_setup):
+    room_code, room = room_setup
+    room._room_clients["client-4"] = {"name": None, "role": "spectator", "kicked": False}
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-4", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_vote_target_route_rejects_bot_target(client, room_setup):
+    room_code, room = room_setup
+    room.all_players[2].is_npc = True   # Carol -> bot
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_rejects_unknown_target(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Nobody",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_vote_target_route_rejects_while_active(client, room_setup):
+    room_code, room = room_setup
+    start_targeted_drinking(room, ["Carol"])
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_rejects_during_cooldown(client, room_setup):
+    room_code, room = room_setup
+    room._targeted_drinking_cooldown_until_round = room.round_count + 5
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+
+
+def test_vote_target_route_majority_auto_starts(client, room_setup):
+    """3-player room: Bob (admin) + Carol vote to target Alice -- 2 of the
+    2 eligible voters (Alice herself excluded as the target) is a strict
+    majority, so the subgame starts immediately."""
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    assert resp.get_json()["started"] is False
+    assert room._targeted_drinking_active is False
+
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-2", "target_name": "Alice",
+    })
+    data = resp.get_json()
+    assert data["started"] is True
+    assert room._targeted_drinking_active is True
+    assert room._targeted_drinking_targets == ["Alice"]
+    # Votes cleared once the subgame actually starts
+    assert room._targeted_drinking_start_votes == {}
+
+
+def test_vote_target_route_no_majority_vote_persists(client, room_setup):
+    room_code, room = room_setup
+    resp = client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    data = resp.get_json()
+    assert data["started"] is False
+    assert room._targeted_drinking_active is False
+    assert "bob" in room._targeted_drinking_start_votes.get("alice", set())
+
+
+def test_vote_target_route_votes_cleared_after_subgame_ends(client, room_setup):
+    room_code, room = room_setup
+    # Bob votes for Alice, doesn't reach majority yet
+    client.post("/targeted_drinking/vote_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    assert room._targeted_drinking_start_votes != {}
+
+    # A separate direct-start (host override) against Carol starts a
+    # subgame, which should clear out the stale Alice proposal too
+    start_targeted_drinking(room, ["Carol"])
+    assert room._targeted_drinking_start_votes == {}
+
+    end_targeted_drinking(room, reason="admin_cancelled")
+    assert room._targeted_drinking_start_votes == {}
 
 
 # ---------------------------------------------------------------------------
@@ -1172,6 +1665,7 @@ def test_serialize_state_targeted_drinking_inactive_defaults():
     assert td["active"] is False
     assert td["targets"] == []
     assert td["streaks"] == {}
+    assert td["losing_streaks"] == {}
     assert td["pending"] is None
     assert td["last_result"] is None
     assert td["result_seq"] == 0
@@ -1179,6 +1673,9 @@ def test_serialize_state_targeted_drinking_inactive_defaults():
     assert td["summary_seq"] == 0
     assert td["awaiting_start"] is False
     assert td["stats"] == {"correct": {}, "wrong": {}, "dealer_hands": 0, "dealer_busts": 0}
+    assert td["pending_handouts"] == {}
+    assert td["my_pending_handouts"] == {}
+    assert td["handout_seconds_left"] == 0
 
 
 def test_serialize_state_awaiting_start_before_and_after_request():

@@ -44,6 +44,8 @@ from app.config import (
     TARGETED_DRINKING_STREAK_TO_GRADUATE,
     TARGETED_DRINKING_COOLDOWN_ROUNDS,
     TARGETED_DRINKING_EASTER_EGG_SIP_CAP,
+    TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
+    TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS,
 )
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card, round_phase
@@ -90,12 +92,18 @@ def start_targeted_drinking(
     session._targeted_drinking_active = True
     session._targeted_drinking_targets = list(target_names)
     session._targeted_drinking_streaks = {name: 0 for name in target_names}
+    session._targeted_drinking_losing_streaks = {name: 0 for name in target_names}
     session._targeted_drinking_total_sips = {name: 0 for name in target_names}
     session._targeted_drinking_correct_counts = {name: 0 for name in target_names}
     session._targeted_drinking_wrong_counts = {name: 0 for name in target_names}
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
     session._targeted_drinking_presser = presser_name
+    # Clear any in-flight majority-vote proposals -- a subgame is now
+    # active (whichever of the three start paths triggered it), so a
+    # leftover proposal from before could otherwise re-fire the moment the
+    # post-subgame cooldown clears without anyone re-voting.
+    session._targeted_drinking_start_votes = {}
     if round_phase(session) == "round-over":
         session.round._targeted_drinking_eligible = True
     return True
@@ -134,6 +142,8 @@ def _targeted_drinking_ready_to_open(session: GameRoom) -> bool:
         return False
     if session.round._dealer_lottery_eligible or session.round._pending_dealer_lottery is not None:
         return False
+    if session.round._targeted_drinking_handout_expires_at is not None:
+        return False   # a perfect-graduation handout from this run is still unclaimed
     last_result = session.drinks.last_targeted_drinking_result
     if last_result and time.monotonic() - last_result["set_at"] < TARGETED_DRINKING_REVEAL_PAUSE_SECONDS:
         return False
@@ -238,18 +248,34 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
 
     For each target: a correct guess advances their graduation streak
     (removing them from the target list once it reaches
-    TARGETED_DRINKING_STREAK_TO_GRADUATE); a wrong guess resets their
-    streak to 0 and costs them a flat 1 sip (no escalating penalty tiers
-    in the MVP). Ends the subgame once every target has graduated.
+    TARGETED_DRINKING_STREAK_TO_GRADUATE) and resets their losing streak to
+    0; a wrong guess resets the graduation streak to 0 and costs them
+    sips equal to their current losing streak (1st consecutive miss = 1
+    sip, 2nd = 2, 3rd = 3, ...) -- the two streaks are independent
+    counters, each reset only by the other's outcome. Ends the subgame
+    once every target has graduated.
+
+    A target who graduates with a perfect record -- zero wrong guesses
+    ever this run, i.e. exactly TARGETED_DRINKING_STREAK_TO_GRADUATE total
+    attempts, the minimum possible -- gets to hand out
+    TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS sips to another
+    player (any start path, not just easter-egg). Opens a claim window
+    (mirrors Dealer Lottery's own handout: give_targeted_drinking_sip /
+    apply_targeted_drinking_handout_forfeit) that blocks the next
+    mini-round from opening until it's claimed or forfeited, snapshotted
+    onto this result's "pending_handouts".
 
     Easter-egg-launched subgames only (session._targeted_drinking_presser
     set -- see start_targeted_drinking): a target who reaches
     TARGETED_DRINKING_EASTER_EGG_SIP_CAP total sips is force-ended right
     here as a loss -- one extra +1 penalty sip on top of the cap, removed
-    from the target list without graduating. Conversely, a target who
-    graduates before ever hitting the cap makes the mechanic backfire on
-    whoever pressed the easter egg: the presser drinks however many sips
-    the target drank over the whole run (0 if the target never missed).
+    from the target list without graduating. The streak-scaling above
+    means this now arrives faster on a bad run (e.g. 3 consecutive misses
+    = 1+2+3 = 6 sips, already past a cap of 5) than it did under the old
+    flat-1-sip rule. Conversely, a target who graduates before ever
+    hitting the cap makes the mechanic backfire on whoever pressed the
+    easter egg: the presser drinks however many sips the target drank
+    over the whole run (0 if the target never missed).
 
     Also updates the run-wide statistics table (Rules.md §5.10):
     _targeted_drinking_correct_counts/_wrong_counts per target, and
@@ -292,6 +318,7 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
     sips: dict[str, int] = {}
     graduated: list[str] = []
     capped_out: list[str] = []
+    graduation_handouts: dict[str, int] = {}
 
     for name in list(session._targeted_drinking_targets):
         vote = votes.get(name) or "stand"
@@ -304,6 +331,9 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
             )
             streak = session._targeted_drinking_streaks.get(name, 0) + 1
             session._targeted_drinking_streaks[name] = streak
+            # A correct guess breaks a losing streak, same as a wrong guess
+            # breaks the graduation streak below.
+            session._targeted_drinking_losing_streaks[name] = 0
             if streak >= TARGETED_DRINKING_STREAK_TO_GRADUATE:
                 session._targeted_drinking_targets.remove(name)
                 graduated.append(name)
@@ -312,6 +342,19 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                     f"({streak} correct in a row)\n"
                 )
                 session._log_version += 1
+                # Perfect run: graduated in the minimum possible number of
+                # attempts (exactly TARGETED_DRINKING_STREAK_TO_GRADUATE),
+                # never once guessing wrong this whole subgame run. Reward:
+                # hand out a fixed number of sips to another player, same
+                # claim-window/forfeit mechanic as Dealer Lottery's handout.
+                if session._targeted_drinking_wrong_counts.get(name, 0) == 0:
+                    graduation_handouts[name] = TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS
+                    session.round._log_entries.append(
+                        f"  🏆 {name} graduated flawlessly ({streak}/{streak}, "
+                        f"never missed) — gets to hand out "
+                        f"{TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS} sip(s)!\n"
+                    )
+                    session._log_version += 1
                 if presser:
                     payback = session._targeted_drinking_total_sips.get(name, 0)
                     if payback > 0:
@@ -332,9 +375,14 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                 session._targeted_drinking_wrong_counts.get(name, 0) + 1
             )
             session._targeted_drinking_streaks[name] = 0
-            wrong_sips = 1
+            # Streak-scaled: the Nth consecutive wrong guess costs N sips
+            # (1, 2, 3, ...) instead of a flat 1 -- breaks the moment a
+            # correct guess resets it to 0 above.
+            losing_streak = session._targeted_drinking_losing_streaks.get(name, 0) + 1
+            session._targeted_drinking_losing_streaks[name] = losing_streak
+            wrong_sips = losing_streak
             session._targeted_drinking_total_sips[name] = (
-                session._targeted_drinking_total_sips.get(name, 0) + 1
+                session._targeted_drinking_total_sips.get(name, 0) + wrong_sips
             )
             capped = (
                 presser is not None
@@ -355,7 +403,8 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                 session, name, wrong_sips, "Targeted Drinking wrong guess",
                 reason=f"Targeted Drinking: guessed {vote}, dealer "
                        f"{'busted' if dealer_busted else 'stood'} -- "
-                       f"+{wrong_sips} sip(s)" + (" (cap penalty)" if capped else ""),
+                       f"{losing_streak} wrong in a row, +{wrong_sips} sip(s)"
+                       + (" (cap penalty)" if capped else ""),
                 count_toward_round=False,
             )
 
@@ -371,9 +420,19 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
         "graduated":  graduated,
         "capped_out": capped_out,
         "sips":       sips,
+        "pending_handouts": dict(graduation_handouts),
         "set_at":     time.monotonic(),
     }
     session.drinks._targeted_drinking_result_seq += 1
+
+    # Reset handout tracking for this resolve (mirrors Dealer Lottery's own
+    # reset at the top of its payout section).
+    session.round._targeted_drinking_handouts_given = set()
+    session.round._targeted_drinking_handout_log = []
+    session.round._targeted_drinking_handout_expires_at = (
+        time.monotonic() + TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS
+        if graduation_handouts else None
+    )
 
     if not session._targeted_drinking_targets:
         reason = "capped_out" if capped_out else "all_graduated"
@@ -419,12 +478,16 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_active = False
     session._targeted_drinking_targets = []
     session._targeted_drinking_streaks = {}
+    session._targeted_drinking_losing_streaks = {}
     session._targeted_drinking_total_sips = {}
     session._targeted_drinking_correct_counts = {}
     session._targeted_drinking_wrong_counts = {}
     session._targeted_drinking_presser = None
     session._targeted_drinking_dealer_hands = 0
     session._targeted_drinking_dealer_busts = 0
+    # Clear so a stale pre-cooldown vote can't instantly re-fire the
+    # moment the cooldown below lifts -- players re-vote fresh after.
+    session._targeted_drinking_start_votes = {}
     session._targeted_drinking_cooldown_until_round = (
         session.round_count + TARGETED_DRINKING_COOLDOWN_ROUNDS
     )
@@ -434,3 +497,63 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
         f"  🎯 Targeted Drinking Mode ended ({reason})\n"
     )
     session._log_version += 1
+
+
+def give_targeted_drinking_sip(session: GameRoom, giver_name: str, recipient_name: str) -> bool:
+    """Giver (a target who just graduated with a perfect record) assigns
+    their handout sips to `recipient_name`. Mirrors give_dealer_lottery_sip
+    exactly. Returns False if there's nothing pending for this giver or the
+    recipient is invalid."""
+    result = session.drinks.last_targeted_drinking_result or {}
+    pending_handouts = result.get("pending_handouts", {})
+    amount = pending_handouts.get(giver_name)
+    if not amount:
+        return False
+    if giver_name in session.round._targeted_drinking_handouts_given:
+        return False
+    if recipient_name.lower() == giver_name.lower():
+        return False
+    if not any(p.name == recipient_name for p in session.all_players):
+        return False
+
+    award_sips(
+        session, recipient_name, amount, "Targeted Drinking perfect graduation handout",
+        reason=f"Targeted Drinking handout (from {giver_name}): +{amount} sip(s)",
+        count_toward_round=False,
+    )
+    session.round._targeted_drinking_handouts_given.add(giver_name)
+    session.round._targeted_drinking_handout_log.append({
+        "giver": giver_name, "recipient": recipient_name, "forfeited": False,
+    })
+    if all(g in session.round._targeted_drinking_handouts_given for g in pending_handouts):
+        session.round._targeted_drinking_handout_expires_at = None
+    return True
+
+
+def apply_targeted_drinking_handout_forfeit(session: GameRoom) -> None:
+    """If the handout window expires before a giver assigns their sip(s),
+    they keep (drink) them instead. Mirrors
+    apply_dealer_lottery_handout_forfeit. Safe to call on every /state tick."""
+    expires_at = session.round._targeted_drinking_handout_expires_at
+    if not expires_at or time.monotonic() < expires_at:
+        return
+
+    result = session.drinks.last_targeted_drinking_result or {}
+    pending_handouts = result.get("pending_handouts", {})
+    for giver_name, amount in pending_handouts.items():
+        if giver_name in session.round._targeted_drinking_handouts_given:
+            continue
+        award_sips(
+            session, giver_name, amount, "Targeted Drinking handout forfeit",
+            reason=(
+                f"Targeted Drinking handout forfeited -- {giver_name} didn't "
+                f"assign in time: +{amount} sip(s)"
+            ),
+            count_toward_round=False,
+        )
+        session.round._targeted_drinking_handouts_given.add(giver_name)
+        session.round._targeted_drinking_handout_log.append({
+            "giver": giver_name, "recipient": None, "forfeited": True,
+        })
+
+    session.round._targeted_drinking_handout_expires_at = None

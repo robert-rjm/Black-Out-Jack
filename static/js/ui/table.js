@@ -44,6 +44,8 @@ function buildDigitalUI() {
   if (giveOverlay) bustGivePanel.mount(giveOverlay);
   const dlGiveOverlay = document.getElementById("dealer-lottery-give-overlay");
   if (dlGiveOverlay) dealerLotteryGivePanel.mount(dlGiveOverlay);
+  const tdGiveOverlay = document.getElementById("targeted-drinking-give-overlay");
+  if (tdGiveOverlay) targetedDrinkingGivePanel.mount(tdGiveOverlay);
   const bustVoteOverlay = document.getElementById("bust-vote-modal-overlay");
   if (bustVoteOverlay) bustVotePanel.mount(bustVoteOverlay);
   const insModal  = document.getElementById("insurance-modal-overlay");
@@ -507,6 +509,7 @@ function _syncModals(state) {
 
   updateRegisterOverlay(state);
   renderKickVoteBanner(state);
+  renderTargetedDrinkingVoteBanner(state);
 
   // Wild Card logo: pointer cursor only when Easter egg is enabled AND round is active
   const logo = document.getElementById("header-logo");

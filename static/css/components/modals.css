@@ -167,21 +167,27 @@
 #rules-body th, #rules-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 #rules-body th { background: rgba(255,255,255,.06); font-weight: 700; }
 
-/* ---- BUST GIVE OVERLAY (also used by the Dealer Lottery handout picker) ---- */
+/* ---- BUST GIVE OVERLAY (also used by the Dealer Lottery and Targeted
+   Drinking handout pickers) ---- */
 #bust-give-overlay,
-#dealer-lottery-give-overlay {
+#dealer-lottery-give-overlay,
+#targeted-drinking-give-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,.72);
   z-index: 910;
   align-items: center; justify-content: center;
 }
 #bust-give-card,
-#dealer-lottery-give-card {
+#dealer-lottery-give-card,
+#targeted-drinking-give-card {
   background: var(--surface);
   border: 1.5px solid var(--green);
   border-radius: 18px;
   padding: 24px 20px 20px;
   width: 100%; max-width: 340px;
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   margin: 16px;
 }
 
@@ -224,6 +230,7 @@
    entry cards reuse .dl-entry-card/.dl-entry-top/.dl-name-lbl/.dl-status
    above -- only the vote-button row and streak badge are new) ---- */
 .td-streak        { font-size: 12px; font-weight: 600; color: var(--muted); }
+.td-streak-warning { font-size: 11px; font-weight: 600; color: var(--red); margin-left: 6px; }
 .td-vote-row      { display: flex; gap: 8px; }
 .td-vote-btn      { flex: 1; }
 
@@ -292,6 +299,9 @@
   border-radius: 18px;
   padding: 22px 20px 18px;
   width: min(360px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
   text-align: center;
@@ -534,6 +544,9 @@
   border-radius: 18px;
   padding: 22px 20px 18px;
   width: min(340px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }

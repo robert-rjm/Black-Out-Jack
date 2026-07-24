@@ -165,14 +165,16 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 
 ## Targeted Drinking Mode
 
-Host targets one or more Players from **Settings → Players**. Once a normal round ends, anyone taps **Start Targeting Now** (lets the table finish drinking for that round first) — then a fresh isolated Dealer hand is dealt and targeted Players must call **BUST** or **STAND** on it before it's played out (15s window; no answer defaults to STAND):
+Starts three ways: **host** picks target(s) from Settings → Players and force-starts; **majority vote** (any Player votes to target someone, auto-starts past 50%); or the **Wild Card 🃏** easter egg picks a random target. Once a normal round ends, the **host or current dealer** taps **Start Targeting Now** (lets the table finish drinking for that round first) — then a fresh isolated Dealer hand is dealt and targeted Players must call **BUST** or **STAND** on it before it's played out (15s window; no answer defaults to STAND):
 
 | Outcome | Effect |
 |---------|--------|
-| Correct | Streak +1 — 3 in a row and you're released |
-| Wrong | Streak resets to 0, +1 sip (counts toward your total, not toward "worst average/round") |
+| Correct | Graduation streak +1 — 3 in a row and you're released. Losing streak resets to 0. |
+| Wrong | Graduation streak resets to 0. Drink sips = current losing streak (1st miss = 1, 2nd = 2, 3rd = 3, ...) — counts toward your total, not toward "worst average/round" |
 
-A live stats table (correct/wrong per Player, dealer bust %) runs the whole time so you can call it smarter, not blind. Still running after a mini-hand resolves? The next one starts right away, back-to-back — no normal round in between. 3-round cooldown once everyone's released or the host cancels.
+A live stats table (correct/wrong per Player, dealer bust %) runs the whole time so you can call it smarter, not blind. Still running after a mini-hand resolves? The host/dealer taps **Continue** to open the next one right away, back-to-back (or a 12s safety-net timeout does it automatically) — no normal round in between. 3-round cooldown once everyone's released or it's cancelled.
+
+**Perfect run bonus:** graduate without ever missing (3 attempts, 3 corrects — the fastest possible) and you get to hand out **3 sips** to anyone (20s to pick, or you keep them) — blocks the next mini-hand until claimed.
 
 ---
 

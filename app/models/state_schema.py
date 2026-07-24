@@ -338,7 +338,11 @@ class TargetedDrinkingOut(_StrictModel):
     active:               bool
     targets:              list[str]
     streaks:              dict[str, int]   # graduation streak, per target (live, between mini-rounds too)
+    losing_streaks:       dict[str, int]   # consecutive wrong guesses, per target (drives the streak-scaled penalty)
     cooldown_until_round: int
+    start_votes:          dict[str, int]        # target -> vote count (majority-vote-to-target proposals)
+    start_votes_mine:     list[str]             # targets this client has voted for
+    start_votes_detail:   dict[str, list[str]]  # target -> sorted voter names
     pending:              Optional[TargetedDrinkingPendingOut]
     last_result:          Optional[TargetedDrinkingResultOut]
     result_seq:           int
@@ -347,6 +351,9 @@ class TargetedDrinkingOut(_StrictModel):
     awaiting_start:       bool   # eligible + ready, waiting on someone to tap "Start Targeting Now"
     eligible:             bool   # raw flag -- a mini-round could be queued right now (open, gated, or awaiting_start)
     stats:                TargetedDrinkingStatsOut   # live running tally, not seq-gated
+    pending_handouts:     dict[str, int]   # perfect-graduation winner -> sips they get to hand out
+    my_pending_handouts:  dict[str, int]   # subset of the above this client can act on
+    handout_seconds_left: int
 
 
 # ---------------------------------------------------------------------------

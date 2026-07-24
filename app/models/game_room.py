@@ -90,6 +90,13 @@ class RoundState:
     # ends; back-to-back continuations re-set this for themselves (see
     # resolve_targeted_drinking_round), so the chain never needs a repeat tap.
     _targeted_drinking_start_requested: bool = False
+    # Perfect-graduation handout (mirrors the Dealer Lottery handout fields
+    # just below) -- pending_handouts itself is a snapshot on
+    # session.drinks.last_targeted_drinking_result, these three just track
+    # the claim window and who's already given.
+    _targeted_drinking_handout_expires_at: float | None = None
+    _targeted_drinking_handouts_given: set = field(default_factory=set)
+    _targeted_drinking_handout_log: list = field(default_factory=list)
 
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
@@ -291,7 +298,17 @@ class GameRoom:
     _targeted_drinking_active: bool = False
     _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
     _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
+    # name -> consecutive WRONG guesses (distinct from the graduation streak
+    # above, which it doesn't affect). Drives the streak-scaled wrong-guess
+    # penalty in resolve_targeted_drinking_round -- resets to 0 on any
+    # correct guess, same as the graduation streak resets on any wrong one.
+    _targeted_drinking_losing_streaks: dict = field(default_factory=dict)
     _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
+    # Majority-vote-to-target: target_name_lower -> set of voter_name_lower.
+    # Session-lifetime (not RoundState) like the rest of this block, since
+    # a proposal should survive across rounds until it hits majority or the
+    # subgame starts/ends -- unlike _kick_votes, which resets every round.
+    _targeted_drinking_start_votes: dict = field(default_factory=dict)
     # Set only when this subgame was launched by the Wild Card easter egg
     # (name of the player who pressed it) -- None for admin-started subgames.
     # Gates the easter-egg-only 5-sip cap/graduation-payback mechanic below.

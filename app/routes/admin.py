@@ -16,8 +16,9 @@ POST /update_settings  — Admin queues game settings for next round
 POST /claim_milestone  — Winner distributes their milestone-handout sips
 POST /rotate_dealer    — Admin immediately rotates the dealer seat
 POST /take_back_seat   — Admin reclaims a remote seat, moving them to spectator
-POST /targeted_drinking/start  — Admin starts Targeted Drinking Mode against target(s)
-POST /targeted_drinking/cancel — Admin ends Targeted Drinking Mode immediately
+POST /targeted_drinking/start    — Admin picks target(s) and force-starts Targeted Drinking Mode
+POST /targeted_drinking/cancel   — Host or dealer ends Targeted Drinking Mode immediately
+POST /targeted_drinking/continue — Host or dealer skips the reveal-pause breather to open the next mini-round now
 """
 
 import time
@@ -30,11 +31,12 @@ from app.services.serializer    import serialize_state, round_phase
 from app.services.drink_tracker import award_sips, check_and_set_milestone
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
-from app.services.validators    import sanitize_name
+from app.services.validators    import sanitize_name, is_dealer_client, is_offensive_name
 from app.services.targeted_drinking import (
     start_targeted_drinking,
     end_targeted_drinking,
 )
+from app.config import TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
 
 bp = Blueprint("admin", __name__)
 
@@ -59,6 +61,28 @@ def _require_admin(data: dict):
     if admin_info.get("role") != "admin":
         return None, None, None, "Admin only."
     return session, client_id, admin_info, None
+
+
+def _require_host_or_dealer(data: dict):
+    """Same shape as _require_admin, but also passes for the current
+    dealer (is_dealer_client already folds in admin-with-god-mode) --
+    used by Targeted Drinking flow-control routes (begin/cancel/continue)
+    where the host-override power (/targeted_drinking/start, which picks
+    targets and force-launches) should stay stricter than just operating
+    the mini-round windows of an already-running subgame.
+
+    Returns (session, client_id, info, None) on success, or
+    (None, None, None, error_message) on failure.
+    """
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    session   = game_sessions.get(room_code)
+    if not session:
+        return None, None, None, "Room not found."
+    info = session._room_clients.get(client_id, {})
+    if info.get("role") != "admin" and not is_dealer_client(session, client_id):
+        return None, None, None, "Host or dealer only."
+    return session, client_id, info, None
 
 
 # ---------------------------------------------------------------------------
@@ -412,6 +436,8 @@ def request_rejoin():
     room_code    = (data.get("room_code") or "").strip()
     client_id    = (data.get("client_id") or "").strip()
     display_name = sanitize_name((data.get("display_name") or "").strip()) or "Unknown"
+    if is_offensive_name(display_name):
+        display_name = "Unknown"
 
     session = game_sessions.get(room_code)
     if not session:
@@ -528,6 +554,8 @@ def update_settings():
     if "add_player" in data:
         name   = sanitize_name(str(data.get("add_player") or ""))
         is_npc = bool(data.get("add_player_npc", False))
+        if name and is_offensive_name(name):
+            return jsonify({"ok": False, "error": f"Name not allowed: {name}. Please choose something else."})
         if name:
             adds = queued.get("add_players", [])
             if not any(a["name"] == name for a in adds):
@@ -853,12 +881,36 @@ def targeted_drinking_start():
 
 @bp.route("/targeted_drinking/cancel", methods=["POST"])
 def targeted_drinking_cancel():
-    """Admin ends Targeted Drinking Mode immediately.
+    """Host or current dealer ends Targeted Drinking Mode immediately.
     Body: { room_code, client_id }"""
     data = request.json or {}
-    session, client_id, _, err = _require_admin(data)
+    session, client_id, _, err = _require_host_or_dealer(data)
     if err:
         return jsonify({"ok": False, "error": escape(err)})
 
     end_targeted_drinking(session, reason="admin_cancelled")
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/continue", methods=["POST"])
+def targeted_drinking_continue():
+    """Host or current dealer skips the remaining reveal-pause breather so
+    the next mini-round can open immediately instead of waiting out the
+    flat safety-net timeout (TARGETED_DRINKING_REVEAL_PAUSE_SECONDS) --
+    fixes laggy clients getting swept into the next mini-round before
+    they've actually seen the current one's hand play out, by letting
+    whoever's watching the table for everyone drive the pace explicitly.
+    No-op (still ok) if there's no in-flight reveal to advance past, or if
+    the breather has already elapsed naturally.
+    Body: { room_code, client_id }"""
+    data = request.json or {}
+    session, client_id, _, err = _require_host_or_dealer(data)
+    if err:
+        return jsonify({"ok": False, "error": escape(err)})
+
+    result = session.drinks.last_targeted_drinking_result
+    if result:
+        earliest = time.monotonic() - TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
+        result["set_at"] = min(result["set_at"], earliest)
+
     return jsonify({**serialize_state(session, client_id), "ok": True})
