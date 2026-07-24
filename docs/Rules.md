@@ -369,6 +369,14 @@ At each milestone, the Player with the **lowest average sips/round overall** (to
 
 If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (rounded, minimum 1). The streak then resets.
 
+### Losing Streak ("L" Badge)
+
+A Player who racks up **5 or more consecutive round losses** (net hands lost outweighing net hands won that round, the same win/loss streak already tracked for the session stats table) holds the **L** badge next to their name. Only one Player holds it at a time — whoever currently has the single longest active losing streak at the table.
+
+If another Player's losing streak grows **strictly longer** than the current holder's, the L transfers to them, and the **outgoing holder drinks 1 sip** as a hand-off penalty. Earning the L for the first time never costs a sip, and neither does simply losing it because your own streak broke (nobody else has overtaken you) — only a genuine hand-off does. A tie doesn't dethrone the incumbent.
+
+> **Example:** Alice is on a 5-round losing streak and holds the L. Bob then loses his 6th round in a row, overtaking her — the L moves to Bob, and Alice drinks 1 sip. If Alice's very next round is a win instead (streak broken, nobody else at 5+), the L simply vacates with no one drinking.
+
 
 ### 5.9 Dealer Lottery
 

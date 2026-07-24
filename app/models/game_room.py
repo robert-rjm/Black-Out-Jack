@@ -171,6 +171,10 @@ class SessionStats:
     session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
     clean_streak: dict       = field(default_factory=dict)   # player -> current consecutive clean rounds
     total_clean_rounds: dict = field(default_factory=dict)   # player -> total clean rounds this session
+    # Whoever currently holds the "L" badge -- the single longest active
+    # consecutive-round-loss streak at the table, once it reaches
+    # WORST_STREAK_THRESHOLD. None if nobody currently qualifies.
+    worst_streak_holder: str | None = None
 
 
 @dataclass

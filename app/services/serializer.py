@@ -857,6 +857,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "clean_streaks":          dict(session.stats.clean_streak),
         "total_clean_rounds":     dict(session.stats.total_clean_rounds),
         "trophy_holder":          compute_trophy_holder(session),
+        "worst_streak_holder":    session.stats.worst_streak_holder,
         "last_round_drinks":      session.drinks.last_round_drinks,
         "round_notices":          session.drinks.round_notices,
         "prev_round_sips":        {k: max(0, v) for k, v in session.drinks.prev_round_sips.items()},
