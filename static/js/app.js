@@ -46,7 +46,6 @@ setBustVoteSetupToggle(true);                 // bust-vote toggle starts ON in s
       isMyDealerClient = data.is_dealer_client || false;
       updateHeader(data);
       buildGameUI();
-      appendLog("  (Reconnected to room " + roomCode + ")\n");
       applyState(data);
       document.getElementById("lobby").style.display = "none";
       document.getElementById("app").style.display   = "flex";

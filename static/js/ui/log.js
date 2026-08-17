@@ -1,9 +1,7 @@
 // ============================================================
 // TOAST QUEUE — suppress mid-round toasts during bust vote window
 // ============================================================
-// Toast state, consolidated under one namespaced object (was 4 separate
-// module-level globals: ToastUI.queue, ToastUI.dealerTimer, ToastUI.playerTimer,
-// ToastUI.switchTimer). Same values, same mutation patterns as before.
+// Toast state, namespaced so queue and timer handles stay together.
 const ToastUI = {
   queue:        [],   // queued toast-show callbacks, flushed after bust vote closes
   dealerTimer:  null, // setTimeout handle for the dealer toast auto-hide
@@ -25,10 +23,6 @@ function flushToastQueue() {
   const q = ToastUI.queue.splice(0);
   q.forEach((fn, i) => setTimeout(fn, i * 3500));
 }
-
-// Log removed — stub so existing call sites don't throw
-// ============================================================
-function appendLog() {}
 
 function updateSipTicker(state) {
   const el = document.getElementById("sip-ticker");

@@ -288,10 +288,7 @@ async function castInsuranceVote(bjPlayer, handIdx, vote, voterName = null) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-    else appendLog(`  Insurance vote failed: ${data.error || "unknown error"}\n`);
-  } catch (_) {
-    appendLog("  Insurance vote failed: network error\n");
-  } finally {
+  } catch (_) {} finally {
     _requestDone();
   }
 }

@@ -63,9 +63,7 @@ var TRIVIA_CATS = [
 var CAT_LABELS = { strategy:"Strategy", probability:"Odds", history:"History", drinking:"Drinking", game:"This game" };
 var CAT_COLORS = { strategy:"var(--accent)", probability:"var(--yellow)", history:"var(--purple)", drinking:"var(--red)", game:"var(--green)" };
 
-// Trivia panel state, consolidated under one namespaced object (was 5
-// separate module-level globals). Same values, same mutation patterns —
-// all belong to the trivia panel feature area.
+// Trivia panel state.
 const TriviaUI = {
   filter:    "all", // selected category filter ("all" or a TRIVIA_CATS key)
   index:     0,     // index of the currently shown fact within `list`

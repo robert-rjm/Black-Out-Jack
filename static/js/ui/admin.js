@@ -354,16 +354,7 @@ async function requestLocalSeat(name) {
 }
 
 
-// ── Bust-vote panel component (Improvements.md item 7, Option A:
-// class-based, no framework) ─────────────────────────────────────────────
-// Encapsulates the bust-vote confirmation modal (countdown timer,
-// per-player vote cards, tally) and the post-round status indicator.
-// mount() attaches one delegated click listener for vote-card buttons --
-// previously re-attached via addEventListener every time
-// #bust-vote-players-wrap's innerHTML was rebuilt, which is the "listeners
-// re-added on every render" anti-pattern Improvements.md item 7 flags, even
-// though it wasn't an onclick= string. render(state) is the per-poll entry
-// point, replacing the old updateBustVoteUI() function.
+// Bust-vote confirmation modal + post-round status indicator; mount() uses one delegated click listener so it survives #bust-vote-players-wrap being rebuilt on every render (Improvements.md item 7).
 class BustVotePanel {
   constructor() {
     this.modalOpen   = false;
@@ -619,7 +610,6 @@ async function giveBustSip(winnerName, recipientName) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-    else appendLog(`  Bust handout failed: ${data.error || "unknown"}\n`);
   } catch (_) {} finally {
     _requestDone();
   }
@@ -1068,7 +1058,6 @@ async function giveDealerLotterySip(giverName, recipientName) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-    else appendLog(`  Dealer Lottery handout failed: ${data.error || "unknown"}\n`);
   } catch (_) {} finally {
     _requestDone();
   }
@@ -1161,7 +1150,6 @@ async function giveTargetedDrinkingSip(giverName, recipientName) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-    else appendLog(`  Targeted Drinking handout failed: ${data.error || "unknown"}\n`);
   } catch (_) {} finally {
     _requestDone();
   }
