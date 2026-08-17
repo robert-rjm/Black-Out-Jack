@@ -1273,6 +1273,25 @@ function showBustHandoutToast(results) {
   _firePlayerToast(parts.join(" · "), iDrink, 6000);
 }
 
+// Mirrors showBustHandoutToast exactly, for Targeted Drinking's own
+// perfect-graduation handout -- without this the recipient of a graduate's
+// handout had no clear indication they now owe sips (only a silent bump in
+// their session sip total).
+function showTargetedDrinkingHandoutToast(results) {
+  if (!results || !results.length) return;
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const parts = results.map(r => {
+    if (r.forfeited) return `⏱️ ${r.giver} didn't choose in time — drinks it themselves`;
+    return `🏆 ${r.giver} gave a sip to ${r.recipient}`;
+  });
+  // Red if I gave away a sip or forfeited (drink), green otherwise.
+  const iDrink = results.some(r =>
+    (r.forfeited && _myNames.includes(r.giver)) ||
+    (!r.forfeited && _myNames.includes(r.recipient))
+  );
+  _firePlayerToast(parts.join(" · "), iDrink, 6000);
+}
+
 function showInsuranceToast(results) {
   if (!results || !results.length) return;
   const parts = results.map(r => {

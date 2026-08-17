@@ -307,6 +307,12 @@ class GameRoom:
     # handouts for a round resolve — never reset between rounds)
     _bust_handout_seq: int = 0
 
+    # Targeted Drinking perfect-graduation handout sequence counter (mirrors
+    # _bust_handout_seq exactly) -- bumped once every pending giver for a
+    # mini-round has given or forfeited, so the frontend can detect a fresh
+    # give/forfeit and toast the recipient, same as the bust-vote handout.
+    _targeted_drinking_handout_seq: int = 0
+
     # Wild Card Easter egg — cooldown tracker (session-lifetime so it
     # persists across rounds).  Maps player_name → round_count when last used.
     _wild_card_last_used: dict = field(default_factory=dict)

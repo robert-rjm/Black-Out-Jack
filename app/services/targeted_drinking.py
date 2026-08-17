@@ -698,6 +698,7 @@ def give_targeted_drinking_sip(session: GameRoom, giver_name: str, recipient_nam
     })
     if all(g in session.round._targeted_drinking_handouts_given for g in pending_handouts):
         session.round._targeted_drinking_handout_expires_at = None
+        session._targeted_drinking_handout_seq += 1
     return True
 
 
@@ -728,3 +729,5 @@ def apply_targeted_drinking_handout_forfeit(session: GameRoom) -> None:
         })
 
     session.round._targeted_drinking_handout_expires_at = None
+    if pending_handouts:
+        session._targeted_drinking_handout_seq += 1

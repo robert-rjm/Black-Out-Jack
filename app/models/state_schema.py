@@ -205,6 +205,12 @@ class BustHandoutLogEntryOut(_StrictModel):
     forfeited: bool
 
 
+class TargetedDrinkingHandoutLogEntryOut(_StrictModel):
+    giver:     str
+    recipient: Optional[str]
+    forfeited: bool
+
+
 class DrinkEntryOut(_StrictModel):
     """One line-item in the last-/prev-round Drinks pane detail list."""
     name:   str
@@ -377,6 +383,8 @@ class TargetedDrinkingOut(_StrictModel):
     pending_handouts:     dict[str, int]   # perfect-graduation winner -> sips they get to hand out
     my_pending_handouts:  dict[str, int]   # subset of the above this client can act on
     handout_seconds_left: int
+    handout_seq:          int   # bumped once a mini-round's handouts all resolve -- drives the recipient toast
+    handout_results:      list[TargetedDrinkingHandoutLogEntryOut]
 
 
 # ---------------------------------------------------------------------------
