@@ -1020,6 +1020,12 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                 max(0, round(session.round._targeted_drinking_handout_expires_at - time.monotonic()))
                 if session.round._targeted_drinking_handout_expires_at else 0
             ),
+            # Bumped once every pending giver for a mini-round has given or
+            # forfeited (mirrors bust_handout_seq) -- the frontend gates the
+            # recipient toast on this advancing, so it fires exactly once per
+            # resolved handout batch rather than once per give_sip call.
+            "handout_seq":          session._targeted_drinking_handout_seq,
+            "handout_results":      list(session.round._targeted_drinking_handout_log),
         },
     }
 

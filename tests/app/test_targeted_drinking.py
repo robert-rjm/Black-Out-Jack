@@ -617,6 +617,30 @@ def test_give_sip_assigns_and_closes_window(monkeypatch):
     assert room.round._targeted_drinking_handout_expires_at is None
 
 
+def test_give_sip_bumps_handout_seq_and_logs_recipient(monkeypatch):
+    """The recipient toast (table.js) is gated on handout_seq advancing and
+    reads giver/recipient off handout_results -- both must be populated the
+    moment the last pending giver actually gives."""
+    room = _perfect_graduation_room(monkeypatch)
+    before = room._targeted_drinking_handout_seq
+    give_targeted_drinking_sip(room, "Bob", "Carol")
+    assert room._targeted_drinking_handout_seq == before + 1
+    assert room.round._targeted_drinking_handout_log == [
+        {"giver": "Bob", "recipient": "Carol", "forfeited": False}
+    ]
+
+
+def test_handout_forfeit_bumps_handout_seq(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    before = room._targeted_drinking_handout_seq
+    room.round._targeted_drinking_handout_expires_at = time.monotonic() - 1
+    apply_targeted_drinking_handout_forfeit(room)
+    assert room._targeted_drinking_handout_seq == before + 1
+    assert room.round._targeted_drinking_handout_log == [
+        {"giver": "Bob", "recipient": None, "forfeited": True}
+    ]
+
+
 def test_newround_clears_stale_pending_handouts(monkeypatch):
     """Regression: a perfect-graduation handout that's still unclaimed when
     a new normal round starts must not become givable again. reset_round_state()
@@ -692,6 +716,12 @@ def test_serialize_state_exposes_pending_handouts(monkeypatch):
     # Lottery's own pending_handouts filter.
     assert after["targeted_drinking"]["pending_handouts"] == {}
     assert after["targeted_drinking"]["my_pending_handouts"] == {}
+    # handout_seq/handout_results drive the recipient toast (table.js) --
+    # must be populated the instant the give resolves, not just internally.
+    assert after["targeted_drinking"]["handout_seq"] == 1
+    assert after["targeted_drinking"]["handout_results"] == [
+        {"giver": "Bob", "recipient": "Carol", "forfeited": False}
+    ]
 
 
 # ---------------------------------------------------------------------------

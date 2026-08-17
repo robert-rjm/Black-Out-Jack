@@ -462,6 +462,17 @@ function _syncRoundEffects(state, drinkingOn) {
     DrinkUI.lastBustHandoutSeq = newBustHandoutSeq;
   }
 
+  // Targeted Drinking perfect-graduation handout reveal — gated on
+  // targeted_drinking.handout_seq, mirrors the bust-handout block above.
+  const tdHandoutSeq = (state.targeted_drinking && state.targeted_drinking.handout_seq) || 0;
+  if (tdHandoutSeq > DrinkUI.lastTargetedDrinkingHandoutSeq) {
+    const tdHandoutResults = state.targeted_drinking && state.targeted_drinking.handout_results;
+    if (tdHandoutResults && tdHandoutResults.length) {
+      showTargetedDrinkingHandoutToast(tdHandoutResults);
+    }
+    DrinkUI.lastTargetedDrinkingHandoutSeq = tdHandoutSeq;
+  }
+
   // Dealer Lottery draw reveal — gated on dealer_lottery.result_seq.
   const dl = state.dealer_lottery || {};
   const newDealerLotterySeq = dl.result_seq || 0;
