@@ -1,11 +1,8 @@
 // LAST ROUND DRINK SUMMARY
 // ============================================================
-// Drink-summary and milestone-toast tracking state, consolidated under one
-// namespaced object (was 10 separate module-level globals). Same values,
-// same mutation patterns as before — grouping them here just makes it clear
-// they all belong to the same feature area (Drinks pane + milestone toasts/
-// modal). Referenced from table.js and table-modals.js, both of which load
-// after this file.
+// Drink-summary and milestone-toast tracking state (Drinks pane + milestone
+// toasts/modal). Referenced from table.js and table-modals.js, both of
+// which load after this file.
 const DrinkUI = {
   lastRoundSips:      {},   // current completed round — shown in Drinks pane
   lastRoundDrinks:    [],   // detailed drink entries for the Drinks pane
@@ -99,7 +96,6 @@ function startWaiting() {
         updateHeader(data);
         buildGameUI();
         applyState(data);
-        appendLog("  (Game started! Joined room " + roomCode + ")\n");
         document.getElementById("waiting").style.display = "none";
         document.getElementById("app").style.display     = "flex";
         startPolling();

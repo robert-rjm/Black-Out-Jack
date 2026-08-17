@@ -206,7 +206,7 @@ function tryDeal() {
   if (!selRank || !selSuit) return;
   const player = sel.deal.player;
   const hand   = sel.deal.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
 
   const pToken = (player === DEALER_SENTINEL) ? "dealer" : player;
   const card   = selRank.toLowerCase() + selSuit;
@@ -222,7 +222,7 @@ function tryDeal() {
 function sendResult(outcome) {
   const player = sel.result.player;
   const hand   = sel.result.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
   sendCmd(player === DEALER_SENTINEL
     ? `result dealer ${outcome}`
     : `result ${player} ${outcome} ${hand}`);
@@ -231,7 +231,7 @@ function sendResult(outcome) {
 function sendAction(action) {
   const player = sel.action.player;
   const hand   = sel.action.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
   sendCmd(`action ${player} ${action} ${hand}`);
 }
 
@@ -269,7 +269,7 @@ function sendDigitalPlay(action) {
 
   const player = sel.digital.player;
   const hand   = sel.digital.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
   // Belt-and-suspenders: reject if somehow a different player slipped through
   if (lastState && lastState.phase === PHASE.PLAYING && lastState.current_turn &&
       player.toLowerCase() !== lastState.current_turn.toLowerCase()) return;
@@ -326,13 +326,9 @@ async function sendCmd(cmd) {
       body: JSON.stringify({ cmd, room_code: roomCode, client_id: clientId }),
     });
     const data = await res.json();
-    // Log and peeked card are handled inside applyState so all players
-    // see them via polling — no direct appendLog/showPeekedCard here.
     if (data.dealer || data.players) updateHeader(data);
     applyState(data);
-  } catch (_) {
-    appendLog("  Command failed — server unreachable.\n");
-  } finally {
+  } catch (_) {} finally {
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
     _requestDone();
   }
@@ -756,9 +752,7 @@ async function honorResolve(choice) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-  } catch (_) {
-    appendLog("  Honor resolve failed — server unreachable.\n");
-  } finally {
+  } catch (_) {} finally {
     _requestDone();
   }
 }
@@ -800,9 +794,7 @@ async function bankRebuy() {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-  } catch (_) {
-    appendLog("  Rebuy failed — server unreachable.\n");
-  } finally {
+  } catch (_) {} finally {
     _requestDone();
   }
 }
