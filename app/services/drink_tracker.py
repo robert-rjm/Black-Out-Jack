@@ -11,6 +11,7 @@ session down.
 
 import logging
 import math
+import random
 import time
 
 from app.models.game_room import GameRoom
@@ -727,14 +728,38 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     session.drinks.last_milestone_worst = worst_name
 
 
+def _resolve_milestone_tie(session: GameRoom, candidates: list[tuple[int, str]]) -> str:
+    """
+    Pick the milestone winner among players who crossed the same boundary
+    with the same THIS-round sip count. Falls back to the previous round's
+    sip count (when tracked for all tied names), then to a random pick --
+    never alphabetical, so no player has a standing structural edge.
+    """
+    lowest = min(t[0] for t in candidates)
+    tied   = [name for round_sips, name in candidates if round_sips == lowest]
+    if len(tied) == 1:
+        return tied[0]
+
+    prev = session.drinks.prev_round_sips
+    if all(name in prev for name in tied):
+        lowest_prev = min(prev[name] for name in tied)
+        tied = [name for name in tied if prev[name] == lowest_prev]
+        if len(tied) == 1:
+            return tied[0]
+
+    return random.choice(tied)
+
+
 def check_and_set_milestone(session: GameRoom) -> None:
     """
     After harvesting a round's drink log, check whether any player has newly
     crossed a MILESTONE_STEP boundary. If so, record the winner in
     session.round._pending_milestone so the frontend can display the handout UI.
 
-    Tiebreak: fewest sips THIS round wins (prevents gaming). Alphabetical
-    name order breaks any remaining tie.
+    Tiebreak: fewest sips THIS round wins (prevents gaming). If still tied,
+    fewest sips in the PREVIOUS round wins (when tracked); any remaining tie
+    is broken randomly rather than alphabetically, so the same-named player
+    doesn't get a structural edge every time.
 
     Each boundary fires only once (tracked in session.drinks.milestones_claimed).
     """
@@ -765,8 +790,7 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     boundary   = min(newly_hit.keys())
     candidates = newly_hit[boundary]
-    candidates.sort(key=lambda t: (t[0], t[1].lower()))
-    _round_sips, winner = candidates[0]
+    winner     = _resolve_milestone_tie(session, candidates)
 
     # Handout scales: MILESTONE_HANDOUT_SIPS at the first boundary, +1 sip
     # for each additional MILESTONE_STEP boundary crossed (e.g. with the

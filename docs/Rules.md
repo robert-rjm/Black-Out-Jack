@@ -363,6 +363,8 @@ On a Hard Switch, the Dealer's player-role drinking is **replaced entirely** by 
 
 Every time a Player's cumulative sip total crosses a multiple of 50, they earn bonus sips to hand out to other Players (5 sips at 50, 6 at 100, 7 at 150, +1 per additional milestone). The winner has 60 seconds to distribute the sips; unassigned sips return to them. Only one milestone can be active at a time.
 
+**If multiple Players cross the same boundary in the same round:** the Player who drank the *fewest* sips that round wins (prevents gaming the crossing). If still tied, the fewest sips in the *previous* round wins. If still tied, the winner is picked at random — never alphabetically.
+
 ### "Worst Average" Penalty
 
 At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."
