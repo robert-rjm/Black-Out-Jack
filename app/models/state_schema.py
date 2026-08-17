@@ -205,6 +205,12 @@ class BustHandoutLogEntryOut(_StrictModel):
     forfeited: bool
 
 
+class TargetedDrinkingHandoutLogEntryOut(_StrictModel):
+    giver:     str
+    recipient: Optional[str]
+    forfeited: bool
+
+
 class DrinkEntryOut(_StrictModel):
     """One line-item in the last-/prev-round Drinks pane detail list."""
     name:   str
@@ -334,15 +340,38 @@ class TargetedDrinkingSummaryOut(_StrictModel):
     stats:  TargetedDrinkingStatsOut
 
 
+class TargetProposalPendingOut(_StrictModel):
+    """A pending majority-vote-to-target proposal (tap a player's name at
+    the table) -- one specific target, a table-wide timed Yes/No vote."""
+    target:       str
+    proposer:     str
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    needed:       int                    # strict-majority threshold to pass
+    seconds_left: int
+    my_vote:      Optional[bool]         # this client's own vote, if cast
+    eligible:     bool                   # False for the target themselves, or a non-voter
+
+
+class TargetProposalResultOut(_StrictModel):
+    """The most recently resolved proposal's pass/fail outcome -- a brief
+    one-shot flash (dismisses after 15s), not a lasting result."""
+    target:      str
+    proposer:    str
+    passed:      bool
+    seconds_ago: int
+
+
 class TargetedDrinkingOut(_StrictModel):
     active:               bool
     targets:              list[str]
     streaks:              dict[str, int]   # graduation streak, per target (live, between mini-rounds too)
     losing_streaks:       dict[str, int]   # consecutive wrong guesses, per target (drives the streak-scaled penalty)
     cooldown_until_round: int
-    start_votes:          dict[str, int]        # target -> vote count (majority-vote-to-target proposals)
-    start_votes_mine:     list[str]             # targets this client has voted for
-    start_votes_detail:   dict[str, list[str]]  # target -> sorted voter names
+    pending_proposal:     Optional[TargetProposalPendingOut]
+    propose_cooldown_remaining: int   # rounds until this client can propose again (0 if not frozen)
+    last_proposal_result: Optional[TargetProposalResultOut]
     pending:              Optional[TargetedDrinkingPendingOut]
     last_result:          Optional[TargetedDrinkingResultOut]
     result_seq:           int
@@ -354,6 +383,8 @@ class TargetedDrinkingOut(_StrictModel):
     pending_handouts:     dict[str, int]   # perfect-graduation winner -> sips they get to hand out
     my_pending_handouts:  dict[str, int]   # subset of the above this client can act on
     handout_seconds_left: int
+    handout_seq:          int   # bumped once a mini-round's handouts all resolve -- drives the recipient toast
+    handout_results:      list[TargetedDrinkingHandoutLogEntryOut]
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +493,7 @@ class AppState(_StrictModel):
     clean_streaks:      dict[str, int]
     total_clean_rounds: dict[str, int]
     trophy_holder:      Optional[str]
+    worst_streak_holder: Optional[str]   # whoever currently holds the "L" badge (5+ round losing streak)
     last_round_drinks:  list[DrinkEntryOut]
     round_notices:      list[str]
     prev_round_sips:    dict[str, int]

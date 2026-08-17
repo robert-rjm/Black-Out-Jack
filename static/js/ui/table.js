@@ -56,6 +56,8 @@ function buildDigitalUI() {
   const tdOverlay = document.getElementById("targeted-drinking-modal-overlay");
   const tdBanner  = document.getElementById("td-status-banner");
   if (tdOverlay) targetedDrinkingPanel.mount(tdOverlay, tdBanner);
+  const targetProposalOverlay = document.getElementById("target-proposal-modal-overlay");
+  if (targetProposalOverlay) targetProposalPanel.mount(targetProposalOverlay);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -204,7 +206,7 @@ function tryDeal() {
   if (!selRank || !selSuit) return;
   const player = sel.deal.player;
   const hand   = sel.deal.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
 
   const pToken = (player === DEALER_SENTINEL) ? "dealer" : player;
   const card   = selRank.toLowerCase() + selSuit;
@@ -220,7 +222,7 @@ function tryDeal() {
 function sendResult(outcome) {
   const player = sel.result.player;
   const hand   = sel.result.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
   sendCmd(player === DEALER_SENTINEL
     ? `result dealer ${outcome}`
     : `result ${player} ${outcome} ${hand}`);
@@ -229,7 +231,7 @@ function sendResult(outcome) {
 function sendAction(action) {
   const player = sel.action.player;
   const hand   = sel.action.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
   sendCmd(`action ${player} ${action} ${hand}`);
 }
 
@@ -267,7 +269,7 @@ function sendDigitalPlay(action) {
 
   const player = sel.digital.player;
   const hand   = sel.digital.hand;
-  if (!player) { appendLog("  Select a player first.\n"); return; }
+  if (!player) return;
   // Belt-and-suspenders: reject if somehow a different player slipped through
   if (lastState && lastState.phase === PHASE.PLAYING && lastState.current_turn &&
       player.toLowerCase() !== lastState.current_turn.toLowerCase()) return;
@@ -324,13 +326,9 @@ async function sendCmd(cmd) {
       body: JSON.stringify({ cmd, room_code: roomCode, client_id: clientId }),
     });
     const data = await res.json();
-    // Log and peeked card are handled inside applyState so all players
-    // see them via polling — no direct appendLog/showPeekedCard here.
     if (data.dealer || data.players) updateHeader(data);
     applyState(data);
-  } catch (_) {
-    appendLog("  Command failed — server unreachable.\n");
-  } finally {
+  } catch (_) {} finally {
     document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
     _requestDone();
   }
@@ -460,6 +458,17 @@ function _syncRoundEffects(state, drinkingOn) {
     DrinkUI.lastBustHandoutSeq = newBustHandoutSeq;
   }
 
+  // Targeted Drinking perfect-graduation handout reveal — gated on
+  // targeted_drinking.handout_seq, mirrors the bust-handout block above.
+  const tdHandoutSeq = (state.targeted_drinking && state.targeted_drinking.handout_seq) || 0;
+  if (tdHandoutSeq > DrinkUI.lastTargetedDrinkingHandoutSeq) {
+    const tdHandoutResults = state.targeted_drinking && state.targeted_drinking.handout_results;
+    if (tdHandoutResults && tdHandoutResults.length) {
+      showTargetedDrinkingHandoutToast(tdHandoutResults);
+    }
+    DrinkUI.lastTargetedDrinkingHandoutSeq = tdHandoutSeq;
+  }
+
   // Dealer Lottery draw reveal — gated on dealer_lottery.result_seq.
   const dl = state.dealer_lottery || {};
   const newDealerLotterySeq = dl.result_seq || 0;
@@ -509,7 +518,6 @@ function _syncModals(state) {
 
   updateRegisterOverlay(state);
   renderKickVoteBanner(state);
-  renderTargetedDrinkingVoteBanner(state);
 
   // Wild Card logo: pointer cursor only when Easter egg is enabled AND round is active
   const logo = document.getElementById("header-logo");
@@ -545,6 +553,7 @@ function _syncDigitalUI(state) {
   bustVotePanel.render(state);
   dealerLotteryEntryPanel.render(state);
   targetedDrinkingPanel.render(state);
+  targetProposalPanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.
@@ -743,9 +752,7 @@ async function honorResolve(choice) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-  } catch (_) {
-    appendLog("  Honor resolve failed — server unreachable.\n");
-  } finally {
+  } catch (_) {} finally {
     _requestDone();
   }
 }
@@ -787,9 +794,7 @@ async function bankRebuy() {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-  } catch (_) {
-    appendLog("  Rebuy failed — server unreachable.\n");
-  } finally {
+  } catch (_) {} finally {
     _requestDone();
   }
 }

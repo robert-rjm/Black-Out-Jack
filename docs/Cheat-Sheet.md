@@ -147,7 +147,9 @@ Players drink their sips. Dealer drinks nothing. Role passes.
 
 Cross a multiple of **50 cumulative sips** → earn bonus sips to hand out (5 at 50, 6 at 100, 7 at 150, +1 per milestone after). 60-second window; unassigned sips return to you.
 
-**Worst-average penalty**: the Player with the lowest average sips/round (excluding the winner) is flagged "worst." Flagged **two milestones in a row** → one-time penalty, drink the winner's average sips/round (rounded, min 1).
+**Worst-average penalty**: the Player with the lowest average sips/round (excluding the winner) is flagged "worst." Flagged **two milestones in a row** → one-time penalty, drink the winner's average sips/round (always rounded up, min 1).
+
+**"L" badge**: 5+ consecutive round losses → holds the L (only one Player at a time — whoever's losing streak is currently longest). Another Player's streak strictly overtaking the holder's transfers the L and costs the outgoing holder 1 sip; earning it or losing it to your own streak breaking never costs a sip, and ties don't dethrone.
 
 ---
 
@@ -157,7 +159,7 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 
 | Result | Effect |
 |--------|--------|
-| 2+ hands bust | Credit up to X sips off what you owe, hand ceil(X/2) out to another Player (always halved) |
+| 2+ hands bust | Credit = min(X, what you owe) sips, hand ceil(credit/2) out to another Player (always halved) |
 | Exactly 1 busts | Nothing happens |
 | No hand busts | Drink X × (hands − 1) sips (never halved) |
 
@@ -165,7 +167,7 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 
 ## Targeted Drinking Mode
 
-Starts three ways: **host** picks target(s) from Settings → Players and force-starts; **majority vote** (any Player votes to target someone, auto-starts past 50%); or the **Wild Card 🃏** easter egg picks a random target. Once a normal round ends, the **host or current dealer** taps **Start Targeting Now** (lets the table finish drinking for that round first) — then a fresh isolated Dealer hand is dealt and targeted Players must call **BUST** or **STAND** on it before it's played out (15s window; no answer defaults to STAND):
+Starts three ways: **host** picks target(s) from Settings → Players and force-starts; tapping a Player's **name at the table** to **propose** them opens a 15s table-wide Yes/No vote (proposer auto-votes Yes; passes past 50%, or fails and freezes the proposer from proposing again for 3 rounds); or the **Wild Card 🃏** easter egg picks a random target. Once a normal round ends, the **host or current dealer** taps **Start Targeting Now** (lets the table finish drinking for that round first) — then a fresh isolated Dealer hand is dealt and targeted Players must call **BUST** or **STAND** on it before it's played out (15s window; no answer defaults to STAND):
 
 | Outcome | Effect |
 |---------|--------|

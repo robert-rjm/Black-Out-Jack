@@ -10,6 +10,8 @@ session down.
 """
 
 import logging
+import math
+import random
 import time
 
 from app.models.game_room import GameRoom
@@ -19,6 +21,7 @@ from app.config import (
     MILESTONE_TTL,
     MILESTONE_HANDOUT_SIPS,
     BUST_HANDOUT_WINDOW_SECONDS,
+    WORST_STREAK_THRESHOLD,
 )
 
 log = logging.getLogger(__name__)
@@ -581,6 +584,56 @@ def _update_streaks(session: GameRoom) -> None:
     session.stats.streaks = streaks
 
 
+def _update_worst_streak_holder(session: GameRoom) -> None:
+    """Track who currently holds the "L" badge -- the single longest active
+    consecutive-round-loss streak at the table, once it reaches
+    WORST_STREAK_THRESHOLD. Only one player holds it at a time (ties keep
+    the incumbent rather than dethroning them). When another player's
+    streak strictly overtakes the current holder's, the L transfers and the
+    outgoing holder drinks 1 sip as a hand-off penalty -- earning the L for
+    the first time, or simply losing it because your own streak broke
+    (nobody else has overtaken you), never costs a sip.
+
+    Must run after _update_streaks (reads session.stats.streaks) and while
+    the round is still "current" for last_round_sips purposes -- call from
+    harvest_drink_log, same as _update_streaks itself.
+    """
+    streaks        = session.stats.streaks
+    current_holder = session.stats.worst_streak_holder
+
+    def loss_len(name: str | None) -> int:
+        if not name:
+            return 0
+        s = streaks.get(name)
+        return -s["current"] if s and s["current"] < 0 else 0
+
+    best_name, best_len = current_holder, loss_len(current_holder)
+    for name in streaks:
+        if name == current_holder:
+            continue
+        ln = loss_len(name)
+        if ln > best_len:
+            best_name, best_len = name, ln
+
+    new_holder = best_name if best_len >= WORST_STREAK_THRESHOLD else None
+    if new_holder == current_holder:
+        return
+
+    if current_holder is not None and new_holder is not None:
+        penalty_p = session._get_player(current_holder)
+        reason = (
+            f"{new_holder}'s losing streak overtook {current_holder}'s -- "
+            f"{current_holder} drinks 1 sip"
+        )
+        if penalty_p:
+            penalty_p.add_drink(1, reason, "player")
+        award_sips(session, current_holder, 1, "Losing-streak hand-off", reason=reason)
+        session.round._log_entries.append(f"  📉 {reason}\n")
+        session._log_version += 1
+
+    session.stats.worst_streak_holder = new_holder
+
+
 def harvest_drink_log(session: GameRoom) -> None:
     """
     Copy the current round's drink_log entries from every player into the
@@ -605,6 +658,13 @@ def harvest_drink_log(session: GameRoom) -> None:
     session.round._drink_log_harvested = True
     session.drinks.round_over_seq += 1   # seq-based trigger so clients never miss the toast
 
+    # Runs after the harvested flag flips, not before: it may call
+    # award_sips() for the hand-off penalty, and that function's own
+    # clean-streak/trophy reconciliation only fires once
+    # session.round._drink_log_harvested is True (see its docstring) --
+    # calling it any earlier would silently skip that correction.
+    _update_worst_streak_holder(session)
+
 
 # ---------------------------------------------------------------------------
 # Milestone checking
@@ -616,7 +676,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     at each milestone, excluding the milestone winner. If the SAME player is
     "worst" for two consecutive milestones, they take a one-time penalty —
     drinking a number of sips equal to the milestone winner's avg sips/round
-    (rounded to the nearest whole sip, minimum 1).
+    (always rounded up, minimum 1).
 
     Sips awarded with ``count_toward_round=False`` (Targeted Drinking Mode
     penalties, which happen between rounds rather than as part of any
@@ -646,7 +706,7 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     if session.drinks.last_milestone_worst and session.drinks.last_milestone_worst.lower() == worst_name.lower():
         # Second consecutive milestone as "worst" — apply the one-time penalty.
         winner_avg = round_avg(winner)
-        penalty    = max(1, round(winner_avg))
+        penalty    = max(1, math.ceil(winner_avg))
 
         worst_p = session._get_player(worst_name)
         if worst_p:
@@ -668,14 +728,38 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     session.drinks.last_milestone_worst = worst_name
 
 
+def _resolve_milestone_tie(session: GameRoom, candidates: list[tuple[int, str]]) -> str:
+    """
+    Pick the milestone winner among players who crossed the same boundary
+    with the same THIS-round sip count. Falls back to the previous round's
+    sip count (when tracked for all tied names), then to a random pick --
+    never alphabetical, so no player has a standing structural edge.
+    """
+    lowest = min(t[0] for t in candidates)
+    tied   = [name for round_sips, name in candidates if round_sips == lowest]
+    if len(tied) == 1:
+        return tied[0]
+
+    prev = session.drinks.prev_round_sips
+    if all(name in prev for name in tied):
+        lowest_prev = min(prev[name] for name in tied)
+        tied = [name for name in tied if prev[name] == lowest_prev]
+        if len(tied) == 1:
+            return tied[0]
+
+    return random.choice(tied)
+
+
 def check_and_set_milestone(session: GameRoom) -> None:
     """
     After harvesting a round's drink log, check whether any player has newly
     crossed a MILESTONE_STEP boundary. If so, record the winner in
     session.round._pending_milestone so the frontend can display the handout UI.
 
-    Tiebreak: fewest sips THIS round wins (prevents gaming). Alphabetical
-    name order breaks any remaining tie.
+    Tiebreak: fewest sips THIS round wins (prevents gaming). If still tied,
+    fewest sips in the PREVIOUS round wins (when tracked); any remaining tie
+    is broken randomly rather than alphabetically, so the same-named player
+    doesn't get a structural edge every time.
 
     Each boundary fires only once (tracked in session.drinks.milestones_claimed).
     """
@@ -706,8 +790,7 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     boundary   = min(newly_hit.keys())
     candidates = newly_hit[boundary]
-    candidates.sort(key=lambda t: (t[0], t[1].lower()))
-    _round_sips, winner = candidates[0]
+    winner     = _resolve_milestone_tie(session, candidates)
 
     # Handout scales: MILESTONE_HANDOUT_SIPS at the first boundary, +1 sip
     # for each additional MILESTONE_STEP boundary crossed (e.g. with the

@@ -305,9 +305,36 @@ def test_resolve_both_bust_credits_and_opens_handout(monkeypatch):
     assert result["busted"] == 2
     # Credit floored at current owed (3), even though X=5
     assert room.drinks.last_round_sips["Alice"] == 0
-    # Handout amount is always halved (rounded up): ceil(5/2) = 3, pending a recipient
-    assert result["pending_handouts"] == {"Alice": 3}
+    assert result["credit_amounts"] == {"Alice": 3}
+    # Handout is derived from the credit actually received (3), not the raw
+    # stake (5) -- ceil(3/2) = 2, pending a recipient.
+    assert result["pending_handouts"] == {"Alice": 2}
     assert room.round._dealer_lottery_handout_expires_at is not None
+
+
+def test_resolve_handout_scales_with_credit_not_raw_stake(monkeypatch):
+    """Regression: staking more than you currently owe must not buy outsized
+    handout power. Alice owes nothing this round but stakes X=5 and wins --
+    credit floors at 0 (nothing to offset), so the handout must be 0 too,
+    not ceil(5/2) from the raw stake."""
+    room = _nine_pair_room()
+    room.drinks.last_round_sips["Alice"] = 0   # nothing owed this round
+    submit_dealer_lottery_entry(room, "Alice", 5)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert result["busted"] == 2
+    assert room.drinks.last_round_sips["Alice"] == 0
+    assert result["credit_amounts"] == {}
+    assert result["pending_handouts"] == {}
+    assert room.round._dealer_lottery_handout_expires_at is None
 
 
 def test_resolve_neither_bust_drinks_stake(monkeypatch):

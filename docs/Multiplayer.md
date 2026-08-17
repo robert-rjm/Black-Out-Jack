@@ -107,7 +107,7 @@ When a player's cumulative sip total crosses a **multiple of 50**, they earn bon
 
 At each milestone, the player with the **lowest average sips/round overall** (total sips ÷ rounds played, excluding the milestone winner) is flagged as the "worst" player.
 
-- If the **same player** is flagged as worst for **two milestones in a row**, they take a **one-time penalty**: drink a number of sips equal to the milestone **winner's average sips/round** (rounded, minimum 1).
+- If the **same player** is flagged as worst for **two milestones in a row**, they take a **one-time penalty**: drink a number of sips equal to the milestone **winner's average sips/round** (always rounded up, minimum 1).
 - After the penalty fires, the streak resets — they need to be "worst" two more times in a row to trigger it again.
 
 ---

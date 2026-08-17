@@ -15,7 +15,9 @@ from app.services.drink_tracker import (
     _update_max_round_sips,
     _update_dealer_stats,
     _update_streaks,
+    _update_worst_streak_holder,
 )
+from app.config import WORST_STREAK_THRESHOLD
 from engine.referee import RefereeSession
 from app.models.game_room import GameRoom, GameConfig
 from tests.conftest import make_hand, make_player
@@ -268,6 +270,78 @@ def test_streaks_unresolved_hands_player_skipped():
     room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result=None)]
     _update_streaks(room)
     assert "Alice" not in room.stats.streaks
+
+
+# ---------------------------------------------------------------------------
+# _update_worst_streak_holder ("L" badge)
+# ---------------------------------------------------------------------------
+
+def test_worst_streak_holder_none_below_threshold():
+    room = _make_room()
+    room.stats.streaks["Alice"] = {"current": -(WORST_STREAK_THRESHOLD - 1), "longest_win": 0, "longest_loss": 0}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder is None
+
+
+def test_worst_streak_holder_set_at_threshold_no_penalty_first_time():
+    """Earning the L for the first time (nobody held it before) never costs
+    a sip -- only a hand-off from an existing holder does."""
+    room = _make_room()
+    room.stats.streaks["Alice"] = {"current": -WORST_STREAK_THRESHOLD, "longest_win": 0, "longest_loss": WORST_STREAK_THRESHOLD}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder == "Alice"
+    assert room.drinks.sip_ticker == {}
+    alice = room._get_player("Alice")
+    assert alice.drink_log == []
+
+
+def test_worst_streak_holder_tie_keeps_incumbent():
+    room = _make_room()
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": -6, "longest_win": 0, "longest_loss": 6}
+    room.stats.streaks["Bob"]   = {"current": -6, "longest_win": 0, "longest_loss": 6}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder == "Alice"   # tie doesn't dethrone
+    assert room.drinks.sip_ticker == {}
+
+
+def test_worst_streak_holder_overtake_hands_off_with_penalty():
+    room = _make_room(names=["Alice", "Bob"])
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": -5, "longest_win": 0, "longest_loss": 5}
+    room.stats.streaks["Bob"]   = {"current": -7, "longest_win": 0, "longest_loss": 7}
+
+    _update_worst_streak_holder(room)
+
+    assert room.stats.worst_streak_holder == "Bob"
+    assert room.drinks.sip_ticker["Alice"] == 1
+    assert room.drinks.last_round_sips["Alice"] == 1
+    alice = room._get_player("Alice")
+    assert len(alice.drink_log) == 1
+    assert "Bob" in alice.drink_log[0][1]   # reason mentions who overtook them
+
+
+def test_worst_streak_holder_vacates_without_penalty_when_holder_recovers():
+    """The holder's own streak breaking (they finally won) with nobody else
+    worse yet clears the L with no sip -- winning back a round is never
+    punished."""
+    room = _make_room()
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": 1, "longest_win": 1, "longest_loss": 5}   # streak just broke
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder is None
+    assert room.drinks.sip_ticker == {}
+
+
+def test_worst_streak_holder_unchanged_when_holder_extends_further():
+    """The incumbent's own streak growing longer (still the worst) is a
+    no-op -- no duplicate sip, no log entry."""
+    room = _make_room()
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": -6, "longest_win": 0, "longest_loss": 6}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder == "Alice"
+    assert room.drinks.sip_ticker == {}
 
 
 # ---------------------------------------------------------------------------

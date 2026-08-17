@@ -846,7 +846,7 @@ it's shown with assumed totals rather than folded into Round 5:
 > average (excluding Alice, the winner) and is flagged "worst." If
 > Bob is *also* flagged "worst" at the **next** milestone (200), he
 > takes a one-time penalty: drink sips equal to Alice's average
-> sips/round at that milestone (rounded, minimum 1). The "worst"
+> sips/round at that milestone (always rounded up, minimum 1). The "worst"
 > streak then resets.
 
 ### Bonus illustration: Dealer Lottery (→ Rule 5.9)
@@ -869,11 +869,14 @@ shown standalone rather than folded into a round above:
 >
 > Had **2 or more** of the new hands busted instead (not necessarily
 > both — a re-split only ever makes this easier to reach), Alice would
-> credit herself up to 4 sips off what she owes this round (floored at
-> 0) and hand ceil(4/2) = 2 sips to a Player of her choice — the
-> handout is always halved, rounded up, regardless of player count or
-> Easy Mode. Had exactly **1** hand busted, nothing would happen — no
-> drink, no credit. (Neither new card here happened to pair up again —
+> credit herself min(4, what she owes this round) sips (floored at 0)
+> and hand ceil(credit/2) sips to a Player of her choice — e.g. if she
+> owed 4 or more, that's a 4-sip credit and a ceil(4/2) = 2-sip handout;
+> but if she only owed, say, 2, the credit floors at 2 and the handout
+> shrinks to ceil(2/2) = 1 with it, since staking more than she owes
+> can't buy extra handout power. The handout is always halved, rounded
+> up, regardless of player count or Easy Mode. Had exactly **1** hand
+> busted, nothing would happen — no drink, no credit. (Neither new card here happened to pair up again —
 > K♠+5♣ and Q♥+9♦ don't match — but if one had, that hand would split
 > again the same way a Player's would, up to 5 hands total across both
 > branches combined, and a none-bust outcome would then drink X × 2 =

@@ -90,7 +90,6 @@ async function joinRoom() {
     updateHeader(data);
     buildGameUI();
     applyState(data);
-    appendLog("  (Joined room " + roomCode + ")\n");
     document.getElementById("lobby").style.display = "none";
     document.getElementById("app").style.display   = "flex";
     startPolling();

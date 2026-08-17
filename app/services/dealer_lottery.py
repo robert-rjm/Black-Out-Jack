@@ -197,8 +197,13 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
       - 2 or more hands bust (regardless of how many hands total -- a
         re-split just makes this easier to reach): credit yourself
         min(X, your current owed sips this round) -- floored at 0, never
-        negative -- and open a handout window to give ceil(X/2) to another
-        player, mirroring /give_bust_sip's exact pattern.
+        negative -- and open a handout window to give ceil(credit/2) to
+        another player, mirroring /give_bust_sip's exact pattern. The
+        handout is derived from the credit actually received, not the raw
+        stake X, so staking more than you currently owe can't buy outsized
+        handout power on the side -- your whole win (credit + handout)
+        tops out at what X could actually offset, or nothing if you
+        didn't owe anything this round to begin with.
       - No hand busts: drink X * (n_hands - 1) -- never halved. Only the
         handout (above) is halved; halving softens what you hand to
         someone else, not what you owe yourself. n_hands - 1 is 1 for the
@@ -274,9 +279,12 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
                     reason=f"Dealer Lottery: {busted}/{n_hands} split hands busted -- -{credit} sip credit",
                 )
                 credit_amounts[name] = credit
-            handout_amt = math.ceil(x / 2)
-            if handout_amt > 0:
-                pending_handouts[name] = handout_amt
+                # Derived from the credit actually received, not the raw
+                # stake -- a stake that outstrips what you owed shouldn't
+                # buy handout power you never actually earned.
+                handout_amt = math.ceil(credit / 2)
+                if handout_amt > 0:
+                    pending_handouts[name] = handout_amt
         elif busted == 0:
             # Drink is never halved -- only the handout is (halving softens
             # what you hand to someone else, not what you owe yourself).

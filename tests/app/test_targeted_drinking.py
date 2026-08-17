@@ -32,10 +32,15 @@ from app.services.targeted_drinking import (
     end_targeted_drinking,
     give_targeted_drinking_sip,
     apply_targeted_drinking_handout_forfeit,
+    propose_targeted_drinking_target,
+    submit_target_proposal_vote,
+    apply_target_proposal_vote_forfeit,
 )
 from app.config import (
     TARGETED_DRINKING_REVEAL_PAUSE_SECONDS,
     TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
+    TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS,
+    TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS,
 )
 
 
@@ -612,6 +617,52 @@ def test_give_sip_assigns_and_closes_window(monkeypatch):
     assert room.round._targeted_drinking_handout_expires_at is None
 
 
+def test_give_sip_bumps_handout_seq_and_logs_recipient(monkeypatch):
+    """The recipient toast (table.js) is gated on handout_seq advancing and
+    reads giver/recipient off handout_results -- both must be populated the
+    moment the last pending giver actually gives."""
+    room = _perfect_graduation_room(monkeypatch)
+    before = room._targeted_drinking_handout_seq
+    give_targeted_drinking_sip(room, "Bob", "Carol")
+    assert room._targeted_drinking_handout_seq == before + 1
+    assert room.round._targeted_drinking_handout_log == [
+        {"giver": "Bob", "recipient": "Carol", "forfeited": False}
+    ]
+
+
+def test_handout_forfeit_bumps_handout_seq(monkeypatch):
+    room = _perfect_graduation_room(monkeypatch)
+    before = room._targeted_drinking_handout_seq
+    room.round._targeted_drinking_handout_expires_at = time.monotonic() - 1
+    apply_targeted_drinking_handout_forfeit(room)
+    assert room._targeted_drinking_handout_seq == before + 1
+    assert room.round._targeted_drinking_handout_log == [
+        {"giver": "Bob", "recipient": None, "forfeited": True}
+    ]
+
+
+def test_newround_clears_stale_pending_handouts(monkeypatch):
+    """Regression: a perfect-graduation handout that's still unclaimed when
+    a new normal round starts must not become givable again. reset_round_state()
+    replaces RoundState wholesale every newround, wiping the round-scoped
+    _targeted_drinking_handouts_given exclusion set -- but
+    last_targeted_drinking_result lives on DrinkLedger (session-lifetime) and
+    survives the reset untouched. Without also clearing its pending_handouts,
+    the stale handout reappeared every round after, and give_targeted_drinking_sip
+    would happily award it again and again since the fresh round's exclusion
+    set no longer remembered it had already been given."""
+    from app.services.room_manager import reset_round_state
+
+    room = _perfect_graduation_room(monkeypatch)
+    result = room.drinks.last_targeted_drinking_result
+    assert result["pending_handouts"] == {"Bob": TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS}
+
+    reset_round_state(room, digital=True)
+
+    assert room.drinks.last_targeted_drinking_result["pending_handouts"] == {}
+    assert give_targeted_drinking_sip(room, "Bob", "Carol") is False
+
+
 def test_give_sip_rejects_self_assignment(monkeypatch):
     room = _perfect_graduation_room(monkeypatch)
     assert give_targeted_drinking_sip(room, "Bob", "Bob") is False
@@ -665,6 +716,12 @@ def test_serialize_state_exposes_pending_handouts(monkeypatch):
     # Lottery's own pending_handouts filter.
     assert after["targeted_drinking"]["pending_handouts"] == {}
     assert after["targeted_drinking"]["my_pending_handouts"] == {}
+    # handout_seq/handout_results drive the recipient toast (table.js) --
+    # must be populated the instant the give resolves, not just internally.
+    assert after["targeted_drinking"]["handout_seq"] == 1
+    assert after["targeted_drinking"]["handout_results"] == [
+        {"giver": "Bob", "recipient": "Carol", "forfeited": False}
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -995,6 +1052,253 @@ def test_end_discards_an_in_flight_mini_round_without_scoring(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Majority-vote-to-target proposal (tap a player's name at the table):
+# propose_targeted_drinking_target / submit_target_proposal_vote /
+# apply_target_proposal_vote_forfeit
+# ---------------------------------------------------------------------------
+
+def _connect(room, *names):
+    """Register each name as a connected, non-spectator client -- the
+    proposal's eligible-voter pool is derived from _room_clients, same as
+    vote_kick's own connectivity check."""
+    for i, name in enumerate(names):
+        room._room_clients[f"conn-{name}"] = {
+            "name": name, "local_names": [name], "role": "player", "kicked": False,
+        }
+
+
+def test_propose_target_opens_pending_with_proposer_auto_yes():
+    room = _make_room(num_players=3)   # Alice, Bob, Carol
+    _connect(room, "Bob", "Carol")
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert ok is True
+    assert err is None
+    pending = room.round._pending_target_proposal
+    assert pending["target"] == "Alice"
+    assert pending["proposer"] == "Bob"
+    assert pending["votes"] == {"Bob": True, "Carol": None}
+
+
+def test_propose_target_resolves_immediately_when_proposer_is_sole_voter():
+    """Regression: found via live browser testing -- when the proposer is
+    the only other connected, non-bot player (eligible = {proposer}), their
+    own auto-Yes vote is already strict majority on its own. Proposing must
+    start the subgame immediately rather than sitting pending for the full
+    15-second window until the timeout forfeit eventually catches up."""
+    room = _make_room(num_players=3)   # Alice, Bob, Carol
+    _connect(room, "Bob")   # Carol never connects -- Bob is the sole eligible voter
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert ok is True
+    assert err is None
+    assert room.round._pending_target_proposal is None   # resolved immediately, not left pending
+    assert room._targeted_drinking_active is True
+    assert room._targeted_drinking_targets == ["Alice"]
+    assert room.drinks.last_target_proposal_result["passed"] is True
+
+
+def test_serialized_pending_proposal_marks_target_ineligible():
+    """Regression: the target of a proposal isn't in the votes dict (can't
+    vote on their own targeting), but must still see the proposal -- just
+    as a read-only view, not Yes/No buttons the backend would reject anyway.
+    The proposer and other connected voters must see eligible=True."""
+    room = _make_room(num_players=3)   # Alice, Bob, Carol
+    _connect(room, "Bob", "Carol")
+    room._room_clients["conn-Alice"] = {
+        "name": "Alice", "local_names": ["Alice"], "role": "player", "kicked": False,
+    }
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+
+    proposer_view = serialize_state(room, "conn-Bob")["targeted_drinking"]["pending_proposal"]
+    assert proposer_view["eligible"] is True
+    assert proposer_view["my_vote"] is True
+
+    voter_view = serialize_state(room, "conn-Carol")["targeted_drinking"]["pending_proposal"]
+    assert voter_view["eligible"] is True
+    assert voter_view["my_vote"] is None
+
+    target_view = serialize_state(room, "conn-Alice")["targeted_drinking"]["pending_proposal"]
+    assert target_view["eligible"] is False
+    assert target_view["my_vote"] is None
+
+
+def test_propose_target_rejects_self_target():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Bob")
+    assert ok is False
+    assert "yourself" in err.lower()
+    assert room.round._pending_target_proposal is None
+
+
+def test_propose_target_rejects_unknown_target():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Nobody")
+    assert ok is False
+    assert room.round._pending_target_proposal is None
+
+
+def test_propose_target_rejects_bot_target():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    room.all_players[2].is_npc = True   # Carol -> bot
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Carol")
+    assert ok is False
+    assert "bot" in err.lower()
+
+
+def test_propose_target_rejects_disconnected_proposer():
+    room = _make_room(num_players=3)
+    _connect(room, "Carol")   # Bob never registered a client
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert ok is False
+    assert room.round._pending_target_proposal is None
+
+
+def test_propose_target_rejects_while_subgame_active():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    start_targeted_drinking(room, ["Carol"])
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert ok is False
+    assert "already running" in err.lower()
+
+
+def test_propose_target_rejects_during_subgame_cooldown():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    room._targeted_drinking_cooldown_until_round = room.session.round_count + 5
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert ok is False
+    assert "cooldown" in err.lower()
+
+
+def test_propose_target_rejects_while_another_proposal_pending():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+    ok, err = propose_targeted_drinking_target(room, "Carol", "Bob")
+    assert ok is False
+    assert "already being voted on" in err.lower()
+    # The original proposal is untouched
+    assert room.round._pending_target_proposal["target"] == "Alice"
+
+
+def test_vote_passes_immediately_at_strict_majority():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")   # Bob's own vote: Yes (1/2)
+    assert room._targeted_drinking_active is False
+
+    assert submit_target_proposal_vote(room, "Carol", True) is True   # 2/2 -> majority
+    assert room._targeted_drinking_active is True
+    assert room._targeted_drinking_targets == ["Alice"]
+    assert room.round._pending_target_proposal is None   # resolved and cleared
+    assert room.drinks.last_target_proposal_result == {
+        "target": "Alice", "proposer": "Bob", "passed": True,
+        "set_at": room.drinks.last_target_proposal_result["set_at"],
+    }
+
+
+def test_vote_no_does_not_resolve_early():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert submit_target_proposal_vote(room, "Carol", False) is True
+    # Still pending -- a No vote doesn't fail it early, only the timeout does
+    assert room.round._pending_target_proposal is not None
+    assert room._targeted_drinking_active is False
+
+
+def test_submit_vote_rejects_ineligible_voter():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert submit_target_proposal_vote(room, "Dave", True) is False   # not even in the room
+
+
+def test_submit_vote_rejects_when_nothing_pending():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    assert submit_target_proposal_vote(room, "Bob", True) is False
+
+
+def test_forfeit_noop_before_expiry():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+    apply_target_proposal_vote_forfeit(room)
+    assert room.round._pending_target_proposal is not None
+
+
+def test_forfeit_fails_and_freezes_proposer_on_timeout():
+    """Regression for the actual feature request: a proposal that never
+    reaches majority before its window expires fails (doesn't start the
+    subgame) and freezes the proposer -- not the target, not the other
+    voters -- from proposing again for TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS
+    rounds."""
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")   # Bob: Yes (1/2), Carol never votes
+    room.round._pending_target_proposal["expires_at"] = time.monotonic() - 1
+
+    apply_target_proposal_vote_forfeit(room)
+
+    assert room.round._pending_target_proposal is None
+    assert room._targeted_drinking_active is False   # never started
+    assert room.drinks.last_target_proposal_result["passed"] is False
+    frozen_until = room._targeted_drinking_propose_cooldowns["bob"]
+    assert frozen_until == room.session.round_count + TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS
+
+    # Bob is frozen -- can't open another proposal yet...
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Carol")
+    assert ok is False
+    assert "voted down" in err.lower()
+    # ...but Carol (an uninvolved voter) can propose freely.
+    ok, err = propose_targeted_drinking_target(room, "Carol", "Alice")
+    assert ok is True
+
+
+def test_propose_target_allowed_again_once_freeze_expires():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+    room.round._pending_target_proposal["expires_at"] = time.monotonic() - 1
+    apply_target_proposal_vote_forfeit(room)
+
+    room.session.round_count += TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS
+    ok, err = propose_targeted_drinking_target(room, "Bob", "Carol")
+    assert ok is True
+
+
+def test_forfeit_passes_on_timeout_if_majority_already_reached():
+    """Belt-and-suspenders: if majority was somehow reached without the
+    early-resolve path firing, the forfeit tick still passes it rather than
+    treating an already-decided Yes as a fail."""
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+    room.round._pending_target_proposal["votes"]["Carol"] = True
+    room.round._pending_target_proposal["expires_at"] = time.monotonic() - 1
+
+    apply_target_proposal_vote_forfeit(room)
+
+    assert room._targeted_drinking_active is True
+    assert room.drinks.last_target_proposal_result["passed"] is True
+    assert "bob" not in room._targeted_drinking_propose_cooldowns
+
+
+def test_starting_a_subgame_another_way_clears_a_stray_pending_proposal():
+    room = _make_room(num_players=3)
+    _connect(room, "Bob", "Carol")
+    propose_targeted_drinking_target(room, "Bob", "Alice")
+    assert room.round._pending_target_proposal is not None
+
+    start_targeted_drinking(room, ["Carol"])   # host override, a different path entirely
+    assert room.round._pending_target_proposal is None
+
+
+# ---------------------------------------------------------------------------
 # Flask app + route fixtures
 # ---------------------------------------------------------------------------
 
@@ -1290,140 +1594,141 @@ def test_continue_route_dealer_can_unblock(client, room_setup, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# /targeted_drinking/vote_target (majority vote to target someone)
+# /targeted_drinking/propose_target + /targeted_drinking/vote_proposal
+# (majority-vote-to-target: tap a player's name at the table)
 # ---------------------------------------------------------------------------
 
-def test_vote_target_route_toggle_cast_and_retract(client, room_setup):
-    # Target Alice (not Carol): with only Bob + Carol registered as
-    # clients, eligible = {bob, carol} for an Alice target, so Bob's lone
-    # vote (1 of 2) doesn't accidentally hit strict majority on its own.
+def test_propose_target_route_opens_proposal(client, room_setup):
     room_code, room = room_setup
-    resp = client.post("/targeted_drinking/vote_target", json={
-        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",   # Bob votes
+    resp = client.post("/targeted_drinking/propose_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",   # Bob proposes
     })
     data = resp.get_json()
     assert data["ok"] is True
-    assert data["started"] is False
-    assert "bob" in room._targeted_drinking_start_votes.get("alice", set())
-
-    # Retract
-    resp = client.post("/targeted_drinking/vote_target", json={
-        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
-    })
-    data = resp.get_json()
-    assert data["ok"] is True
-    assert "bob" not in room._targeted_drinking_start_votes.get("alice", set())
+    pending = room.round._pending_target_proposal
+    assert pending["target"] == "Alice"
+    assert pending["proposer"] == "Bob"
+    assert pending["votes"]["Bob"] is True   # Bob's own vote is an automatic Yes
 
 
-def test_vote_target_route_rejects_self_vote(client, room_setup):
+def test_propose_target_route_rejects_self_target(client, room_setup):
     room_code, room = room_setup
-    resp = client.post("/targeted_drinking/vote_target", json={
-        "room_code": room_code, "client_id": "client-2", "target_name": "Carol",   # Carol votes for herself
+    resp = client.post("/targeted_drinking/propose_target", json={
+        "room_code": room_code, "client_id": "client-2", "target_name": "Carol",   # Carol proposes herself
     })
     data = resp.get_json()
     assert data["ok"] is False
-    assert room._targeted_drinking_start_votes == {}
+    assert room.round._pending_target_proposal is None
 
 
-def test_vote_target_route_rejects_spectator(client, room_setup):
+def test_propose_target_route_rejects_spectator(client, room_setup):
     room_code, room = room_setup
     room._room_clients["client-4"] = {"name": None, "role": "spectator", "kicked": False}
-    resp = client.post("/targeted_drinking/vote_target", json={
+    resp = client.post("/targeted_drinking/propose_target", json={
         "room_code": room_code, "client_id": "client-4", "target_name": "Carol",
     })
     data = resp.get_json()
     assert data["ok"] is False
 
 
-def test_vote_target_route_rejects_bot_target(client, room_setup):
+def test_propose_target_route_rejects_bot_target(client, room_setup):
     room_code, room = room_setup
     room.all_players[2].is_npc = True   # Carol -> bot
-    resp = client.post("/targeted_drinking/vote_target", json={
+    resp = client.post("/targeted_drinking/propose_target", json={
         "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
     })
     data = resp.get_json()
     assert data["ok"] is False
-    assert room._targeted_drinking_start_votes == {}
+    assert room.round._pending_target_proposal is None
 
 
-def test_vote_target_route_rejects_unknown_target(client, room_setup):
+def test_propose_target_route_rejects_unknown_target(client, room_setup):
     room_code, room = room_setup
-    resp = client.post("/targeted_drinking/vote_target", json={
+    resp = client.post("/targeted_drinking/propose_target", json={
         "room_code": room_code, "client_id": "client-1", "target_name": "Nobody",
     })
     data = resp.get_json()
     assert data["ok"] is False
 
 
-def test_vote_target_route_rejects_while_active(client, room_setup):
+def test_propose_target_route_rejects_while_active(client, room_setup):
     room_code, room = room_setup
     start_targeted_drinking(room, ["Carol"])
-    resp = client.post("/targeted_drinking/vote_target", json={
-        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    resp = client.post("/targeted_drinking/propose_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
     })
     data = resp.get_json()
     assert data["ok"] is False
-    assert room._targeted_drinking_start_votes == {}
+    assert room.round._pending_target_proposal is None
 
 
-def test_vote_target_route_rejects_during_cooldown(client, room_setup):
+def test_propose_target_route_rejects_during_cooldown(client, room_setup):
     room_code, room = room_setup
     room._targeted_drinking_cooldown_until_round = room.round_count + 5
-    resp = client.post("/targeted_drinking/vote_target", json={
+    resp = client.post("/targeted_drinking/propose_target", json={
         "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
     })
     data = resp.get_json()
     assert data["ok"] is False
 
 
-def test_vote_target_route_majority_auto_starts(client, room_setup):
-    """3-player room: Bob (admin) + Carol vote to target Alice -- 2 of the
-    2 eligible voters (Alice herself excluded as the target) is a strict
-    majority, so the subgame starts immediately."""
+def test_vote_proposal_route_majority_starts_subgame(client, room_setup):
+    """3-player room: Bob proposes Alice (auto-Yes), Carol votes Yes too --
+    2 of the 2 eligible voters (Alice herself excluded as the target) is a
+    strict majority, so the subgame starts immediately."""
     room_code, room = room_setup
-    resp = client.post("/targeted_drinking/vote_target", json={
+    client.post("/targeted_drinking/propose_target", json={
         "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
     })
-    assert resp.get_json()["started"] is False
     assert room._targeted_drinking_active is False
 
-    resp = client.post("/targeted_drinking/vote_target", json={
-        "room_code": room_code, "client_id": "client-2", "target_name": "Alice",
+    resp = client.post("/targeted_drinking/vote_proposal", json={
+        "room_code": room_code, "client_id": "client-2", "vote": True,
     })
     data = resp.get_json()
-    assert data["started"] is True
+    assert data["ok"] is True
     assert room._targeted_drinking_active is True
     assert room._targeted_drinking_targets == ["Alice"]
-    # Votes cleared once the subgame actually starts
-    assert room._targeted_drinking_start_votes == {}
+    assert room.round._pending_target_proposal is None
 
 
-def test_vote_target_route_no_majority_vote_persists(client, room_setup):
+def test_vote_proposal_route_rejects_when_nothing_pending(client, room_setup):
     room_code, room = room_setup
-    resp = client.post("/targeted_drinking/vote_target", json={
-        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    resp = client.post("/targeted_drinking/vote_proposal", json={
+        "room_code": room_code, "client_id": "client-2", "vote": True,
     })
     data = resp.get_json()
-    assert data["started"] is False
-    assert room._targeted_drinking_active is False
-    assert "bob" in room._targeted_drinking_start_votes.get("alice", set())
+    assert data["ok"] is False
 
 
-def test_vote_target_route_votes_cleared_after_subgame_ends(client, room_setup):
+def test_vote_proposal_route_no_vote_does_not_start_it(client, room_setup):
     room_code, room = room_setup
-    # Bob votes for Alice, doesn't reach majority yet
-    client.post("/targeted_drinking/vote_target", json={
+    client.post("/targeted_drinking/propose_target", json={
         "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
     })
-    assert room._targeted_drinking_start_votes != {}
+    resp = client.post("/targeted_drinking/vote_proposal", json={
+        "room_code": room_code, "client_id": "client-2", "vote": False,
+    })
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert room._targeted_drinking_active is False
+    assert room.round._pending_target_proposal is not None   # still open -- only the timeout fails it
 
-    # A separate direct-start (host override) against Carol starts a
-    # subgame, which should clear out the stale Alice proposal too
-    start_targeted_drinking(room, ["Carol"])
-    assert room._targeted_drinking_start_votes == {}
 
-    end_targeted_drinking(room, reason="admin_cancelled")
-    assert room._targeted_drinking_start_votes == {}
+def test_propose_target_route_rejects_while_proposer_frozen(client, room_setup):
+    room_code, room = room_setup
+    client.post("/targeted_drinking/propose_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Alice",
+    })
+    room.round._pending_target_proposal["expires_at"] = time.monotonic() - 1
+    apply_target_proposal_vote_forfeit(room)   # Carol never voted -- fails, freezes Bob
+
+    resp = client.post("/targeted_drinking/propose_target", json={
+        "room_code": room_code, "client_id": "client-1", "target_name": "Carol",
+    })
+    data = resp.get_json()
+    assert data["ok"] is False
+    assert "voted down" in data["error"].lower()
 
 
 # ---------------------------------------------------------------------------

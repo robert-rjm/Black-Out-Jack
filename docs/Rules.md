@@ -363,11 +363,21 @@ On a Hard Switch, the Dealer's player-role drinking is **replaced entirely** by 
 
 Every time a Player's cumulative sip total crosses a multiple of 50, they earn bonus sips to hand out to other Players (5 sips at 50, 6 at 100, 7 at 150, +1 per additional milestone). The winner has 60 seconds to distribute the sips; unassigned sips return to them. Only one milestone can be active at a time.
 
+**If multiple Players cross the same boundary in the same round:** the Player who drank the *fewest* sips that round wins (prevents gaming the crossing). If still tied, the fewest sips in the *previous* round wins. If still tied, the winner is picked at random — never alphabetically.
+
 ### "Worst Average" Penalty
 
 At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."
 
-If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (rounded, minimum 1). The streak then resets.
+If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (always rounded up, minimum 1). The streak then resets.
+
+### Losing Streak ("L" Badge)
+
+A Player who racks up **5 or more consecutive round losses** (net hands lost outweighing net hands won that round, the same win/loss streak already tracked for the session stats table) holds the **L** badge next to their name. Only one Player holds it at a time — whoever currently has the single longest active losing streak at the table.
+
+If another Player's losing streak grows **strictly longer** than the current holder's, the L transfers to them, and the **outgoing holder drinks 1 sip** as a hand-off penalty. Earning the L for the first time never costs a sip, and neither does simply losing it because your own streak broke (nobody else has overtaken you) — only a genuine hand-off does. A tie doesn't dethrone the incumbent.
+
+> **Example:** Alice is on a 5-round losing streak and holds the L. Bob then loses his 6th round in a row, overtaking her — the L moves to Bob, and Alice drinks 1 sip. If Alice's very next round is a win instead (streak broken, nobody else at 5+), the L simply vacates with no one drinking.
 
 
 ### 5.9 Dealer Lottery
@@ -378,15 +388,15 @@ Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults
 
 | Result | Effect |
 | --- | --- |
-| 2 or more hands bust | Credit yourself up to X sips off what you owe this round (never below 0), and hand out ceil(X/2) sips to another Player |
+| 2 or more hands bust | Credit yourself `credit` = min(X, what you owe this round) sips (never below 0), and hand out ceil(credit/2) sips to another Player |
 | Exactly 1 hand busts | Nothing happens |
 | No hand busts | Drink X × (hands − 1) sips |
 
 The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive.
 
-The handout amount is always halved (rounded up), regardless of player count or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1), and the self-credit is never halved either.
+The handout amount is always halved (rounded up), regardless of player count or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1), and the self-credit is never halved either. The handout is derived from the **credit actually received**, not the raw stake X — staking more than you currently owe can't buy outsized handout power on the side; the whole win (credit + handout) tops out at what X could actually offset, or nothing at all if you didn't owe anything this round to begin with.
 
-> **Example:** Dealer stands on K♠ Q♥ (20). Alice enters with X=5, Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice credits herself up to 5 sips off her own total this round and hands ceil(5/2) = 3 sips to another Player of her choice. Bob, having entered 0, is unaffected either way.
+> **Example:** Dealer stands on K♠ Q♥ (20). Alice, who owes 3 sips this round, enters with X=5; Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice's credit floors at what she owed (3, not the full 5), so she credits herself 3 sips and hands ceil(3/2) = 2 sips to another Player of her choice. Bob, having entered 0, is unaffected either way.
 >
 > **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 5 × (3 − 1) = 10 sips instead of the base 5.
 
@@ -398,10 +408,14 @@ The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side
 One or more Players get singled out and put on the spot with their own
 standalone mini-game, played **between** normal rounds — never during one.
 A subgame can start three ways: the **host** picks target(s) and force-starts
-it immediately; a **majority vote** among the table (any Player can vote to
-target someone; it auto-starts once more than half of the eligible voters
-agree — same math as a kick vote); or the **Wild Card 🃏 easter egg** (see
-below) picks a target at random.
+it immediately; a **majority-vote proposal** (any Player taps another
+Player's name at the table to propose them as a target, opening a **15-second
+Yes/No vote** for the whole table — the proposer's own vote counts as an
+automatic Yes; it passes the instant more than half of the eligible voters
+say Yes, same math as a kick vote, but if the window runs out without
+reaching majority it fails, and the *proposer* — not the target, not the
+other voters — is frozen from proposing again for **3 rounds**); or the
+**Wild Card 🃏 easter egg** (see below) picks a target at random.
 
 Once a normal round ends, the mode waits for the **host or current dealer**
 to tap **Start Targeting Now** (so the table can finish drinking for that

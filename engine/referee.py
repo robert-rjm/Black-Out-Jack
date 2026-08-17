@@ -661,6 +661,7 @@ class RefereeSession:
                     eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                         player_name=p.name, player_hands=p.hands, all_names=self._all_names,
                         wager=self.wager, dealer_bj=dealer_bj,
+                        hard_switch_dealer=exempt_dealer,
                     )))
                 except Exception as e:
                     self._log(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")

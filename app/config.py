@@ -40,6 +40,19 @@ MILESTONE_HANDOUT_SIPS = 5    # sips the winner gets to hand out
 MILESTONE_TTL          = 60   # seconds before an unclaimed handout is forfeited
 
 # ---------------------------------------------------------------------------
+# Losing-streak "L" badge
+# A player who racks up this many consecutive round losses (net hands lost
+# > net hands won, tracked the same way session.stats.streaks already does)
+# holds the L badge -- only one player at a time, whoever's active losing
+# streak is currently the single longest at the table. If another player's
+# streak overtakes them, the L transfers and the outgoing holder drinks 1
+# sip as a hand-off penalty (earning it for the first time, or simply
+# breaking your own streak with nobody else worse yet, never costs a sip).
+# ---------------------------------------------------------------------------
+
+WORST_STREAK_THRESHOLD = 5
+
+# ---------------------------------------------------------------------------
 # Side-bet / vote timing windows
 # ---------------------------------------------------------------------------
 
@@ -76,6 +89,14 @@ TARGETED_DRINKING_EASTER_EGG_SIP_CAP  = 5
 # Bust Vote give-sip pattern, including its claim window.
 TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS = 3
 TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS          = 20
+
+# Majority-vote-to-target proposal (tapping a player's name at the table):
+# a single Yes/No vote on one proposed target, open for this long -- passes
+# early the instant strict majority says Yes, otherwise fails when the timer
+# runs out. A failed vote freezes the proposer from opening another proposal
+# for this many rounds (doesn't stop them voting on someone else's).
+TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS = 15
+TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS        = 3
 
 # ---------------------------------------------------------------------------
 # Registration / connection limits

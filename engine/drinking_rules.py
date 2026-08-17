@@ -319,7 +319,8 @@ class DrinkingRules:
     def check_all_hands_sweep(player_name: str, player_hands: list,
                                all_player_names: list, wager: int,
                                dealer_name: str = "",
-                               dealer_bj: bool = False) -> list:
+                               dealer_bj: bool = False,
+                               hard_switch_dealer: str = "") -> list:
         """
         Fires when a player has 2+ hands (starting hands or from a split) and EITHER:
           - Every card across every hand shares the same suit, OR
@@ -329,6 +330,12 @@ class DrinkingRules:
         Payout: wager × 2 per condition met (both = wager × 4).
         Suppressed when dealer has BJ (consistent with auto-insurance).
         Stacks with all other win-bonus rules.
+
+        hard_switch_dealer: the hard-switch-exempt dealer, if this is a hard
+        switch round -- on_hand_resolved skips crediting that dealer the
+        doubled-hand immunity-exception +1 (their payout comes from
+        HardDealerSwitchEvent instead), so the cancellation below must skip
+        them too, or they'd lose a sip they were never given.
         """
         if dealer_bj:
             return []
@@ -364,10 +371,13 @@ class DrinkingRules:
                 for p in others]
 
         # Cancel doubled-hand immunity drinks already applied in on_hand_resolved
-        # for each winning doubled hand — the sweep covers them.
+        # for each winning doubled hand — the sweep covers them. Excludes the
+        # hard-switch-exempt dealer: on_hand_resolved never credited them that
+        # +1 to begin with, so cancelling it here would take a sip they never drank.
+        cancel_recipients = [p for p in others if p != hard_switch_dealer]
         for hand in player_hands:
             if hand.result == "win" and hand.doubled and not hand.is_suited():
-                for p in others:
+                for p in cancel_recipients:
                     msgs.append((p, -1,
                         f"Sweep cancels doubled-hand drink for {p} (already covered by sweep)"))
 
@@ -642,6 +652,7 @@ class DrinkingRules:
                     event.player_name, event.player_hands, event.all_names,
                     event.wager, dealer_name=event.dealer_name,
                     dealer_bj=event.dealer_bj,
+                    hard_switch_dealer=event.hard_switch_dealer,
                 )
             case DealerHandRevealedEvent():
                 return DrinkingRules.on_dealer_hand_revealed(event.dealer_hand)

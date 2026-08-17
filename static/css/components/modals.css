@@ -619,6 +619,28 @@
   text-decoration: underline; white-space: nowrap;
 }
 
+#target-proposal-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 910;
+  align-items: center; justify-content: center;
+}
+#target-proposal-modal-overlay.open { display: flex; }
+#target-proposal-modal {
+  background: var(--surface);
+  border: 1.5px solid var(--purple);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  width: min(340px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+.target-proposal-modal-title { font-size: 17px; font-weight: 800; color: var(--purple); }
+
 /* ── Seat Transfer modal ── */
 #seat-transfer-overlay {
   display: none;
