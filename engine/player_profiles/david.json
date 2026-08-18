@@ -1,7 +1,7 @@
 {
   "player": "David",
-  "generated": "2026-07-25",
-  "source_decisions": 1977,
+  "generated": "2026-08-18",
+  "source_decisions": 2698,
   "thresholds": {
     "min_samples": 3,
     "min_majority": 0.6
@@ -15,10 +15,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "d",
-      "samples": 3,
+      "samples": 6,
       "majority": 1.0,
       "action_counts": {
-        "d": 3
+        "d": 6
       }
     },
     {
@@ -29,10 +29,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 3,
+      "samples": 6,
       "majority": 1.0,
       "action_counts": {
-        "s": 3
+        "s": 6
       }
     },
     {
@@ -43,11 +43,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 3,
+      "samples": 6,
       "majority": 0.667,
       "action_counts": {
-        "s": 2,
-        "h": 1
+        "s": 4,
+        "h": 2
       }
     },
     {
@@ -58,11 +58,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 15,
-      "majority": 0.733,
+      "samples": 20,
+      "majority": 0.7,
       "action_counts": {
-        "s": 11,
-        "h": 4
+        "s": 14,
+        "h": 6
       }
     },
     {
@@ -73,10 +73,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 13,
+      "samples": 18,
       "majority": 1.0,
       "action_counts": {
-        "s": 13
+        "s": 18
       }
     },
     {
@@ -87,10 +87,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 11,
+      "samples": 15,
       "majority": 1.0,
       "action_counts": {
-        "s": 11
+        "s": 15
       }
     },
     {
@@ -103,11 +103,11 @@
       "sibling_awaiting_deal": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 3,
+      "samples": 6,
       "majority": 0.667,
       "action_counts": {
-        "h": 1,
-        "s": 2
+        "h": 2,
+        "s": 4
       }
     },
     {
@@ -118,11 +118,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 22,
-      "majority": 0.864,
+      "samples": 30,
+      "majority": 0.867,
       "action_counts": {
-        "s": 19,
-        "h": 3
+        "s": 26,
+        "h": 4
       }
     },
     {
@@ -133,11 +133,11 @@
       "can_double": false,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 9,
+      "samples": 12,
       "majority": 0.667,
       "action_counts": {
-        "s": 6,
-        "h": 3
+        "s": 8,
+        "h": 4
       }
     },
     {
@@ -148,10 +148,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 15,
+      "samples": 20,
       "majority": 1.0,
       "action_counts": {
-        "s": 15
+        "s": 20
       }
     },
     {
@@ -162,11 +162,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 9,
+      "samples": 12,
       "majority": 0.667,
       "action_counts": {
-        "s": 6,
-        "h": 3
+        "s": 8,
+        "h": 4
       }
     },
     {
@@ -179,11 +179,11 @@
       "sibling_awaiting_deal": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 9,
+      "samples": 12,
       "majority": 0.667,
       "action_counts": {
-        "s": 6,
-        "h": 3
+        "s": 8,
+        "h": 4
       }
     },
     {
@@ -194,11 +194,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 10,
-      "majority": 0.7,
+      "samples": 14,
+      "majority": 0.714,
       "action_counts": {
-        "s": 7,
-        "h": 3
+        "s": 10,
+        "h": 4
       }
     },
     {
@@ -209,11 +209,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 28,
-      "majority": 0.929,
+      "samples": 38,
+      "majority": 0.921,
       "action_counts": {
-        "s": 26,
-        "h": 2
+        "s": 35,
+        "h": 3
       }
     },
     {
@@ -224,17 +224,31 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 19,
-      "majority": 0.842,
+      "samples": 26,
+      "majority": 0.846,
       "action_counts": {
-        "h": 3,
-        "s": 16
+        "h": 4,
+        "s": 22
       }
     },
     {
       "hand_total": 16,
       "is_soft": false,
       "dealer_upcard_rank": "8",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 12,
+      "majority": 1.0,
+      "action_counts": {
+        "s": 12
+      }
+    },
+    {
+      "hand_total": 16,
+      "is_soft": false,
+      "dealer_upcard_rank": "9",
       "can_split": false,
       "can_double": true,
       "basic_strategy": "h",
@@ -248,7 +262,7 @@
     {
       "hand_total": 16,
       "is_soft": false,
-      "dealer_upcard_rank": "9",
+      "dealer_upcard_rank": "K",
       "can_split": false,
       "can_double": true,
       "basic_strategy": "h",
@@ -262,30 +276,16 @@
     {
       "hand_total": 16,
       "is_soft": false,
-      "dealer_upcard_rank": "K",
-      "can_split": false,
-      "can_double": true,
-      "basic_strategy": "h",
-      "player_action": "s",
-      "samples": 3,
-      "majority": 1.0,
-      "action_counts": {
-        "s": 3
-      }
-    },
-    {
-      "hand_total": 16,
-      "is_soft": false,
       "dealer_upcard_rank": "Q",
       "can_split": false,
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 3,
+      "samples": 6,
       "majority": 0.667,
       "action_counts": {
-        "s": 2,
-        "h": 1
+        "s": 4,
+        "h": 2
       }
     },
     {
@@ -296,28 +296,28 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 3,
+      "samples": 6,
       "majority": 1.0,
       "action_counts": {
-        "s": 3
+        "s": 6
       }
     }
   ],
   "lottery_stakes": [
     {
       "owed_bucket": "high",
-      "avg_stake": 4.0,
-      "samples": 27
+      "avg_stake": 4.03,
+      "samples": 38
     },
     {
       "owed_bucket": "low",
-      "avg_stake": 2.64,
-      "samples": 14
+      "avg_stake": 2.6,
+      "samples": 20
     },
     {
       "owed_bucket": "none",
       "avg_stake": 0.0,
-      "samples": 3
+      "samples": 6
     }
   ]
 }
