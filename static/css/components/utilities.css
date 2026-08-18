@@ -110,10 +110,12 @@ body.no-drinking .drink-only {
 }
 .lobby-github-link:hover,
 .lobby-terms-link:hover,
+.lobby-donate-link:hover,
 .gate-btn-decline:hover { color: var(--text); }
 
 .lobby-github-link,
-.lobby-terms-link {
+.lobby-terms-link,
+.lobby-donate-link {
   color: var(--muted);
   text-decoration: none;
   font-size: 11px;
@@ -510,6 +512,14 @@ body.no-drinking .drink-only {
   font-size: 12px; color: var(--muted); cursor: pointer;
 }
 .auto-export-label input[type="checkbox"] { cursor: pointer; }
+
+.modal-donate {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--muted);
+  text-align: center; line-height: 1.7;
+}
+.modal-donate a { color: var(--muted); text-decoration: none; }
+.modal-donate a:hover { color: var(--text); }
 
 .local-seat-switcher {
   display: flex; align-items: center; gap: 8px;

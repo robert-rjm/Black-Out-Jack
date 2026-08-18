@@ -88,6 +88,14 @@ Rule ideas are especially welcome — if it made the game more fun, it probably 
 > **Fork** → **Branch** → **Commit** → **Push** → **PR**
 
 
+## Support this project
+
+Black(Out)Jack is a free hobby project. If it made your night better and
+you'd like to buy us a beer, get in touch via
+[GitHub Issues](https://github.com/robert-rjm/Black-Out-Jack/issues).
+A proper donation link is coming soon.
+
+
 ## License
 
 [![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
