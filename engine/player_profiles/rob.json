@@ -1,7 +1,7 @@
 {
   "player": "Rob",
-  "generated": "2026-07-25",
-  "source_decisions": 2568,
+  "generated": "2026-08-18",
+  "source_decisions": 3543,
   "thresholds": {
     "min_samples": 3,
     "min_majority": 0.6
@@ -15,10 +15,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "sp",
-      "samples": 3,
+      "samples": 6,
       "majority": 1.0,
       "action_counts": {
-        "sp": 3
+        "sp": 6
       }
     },
     {
@@ -29,31 +29,17 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "d",
-      "samples": 6,
+      "samples": 9,
       "majority": 0.667,
       "action_counts": {
-        "d": 4,
-        "h": 2
+        "d": 6,
+        "h": 3
       }
     },
     {
       "hand_total": 8,
       "is_soft": false,
       "dealer_upcard_rank": "9",
-      "can_split": false,
-      "can_double": true,
-      "basic_strategy": "h",
-      "player_action": "d",
-      "samples": 6,
-      "majority": 1.0,
-      "action_counts": {
-        "d": 6
-      }
-    },
-    {
-      "hand_total": 8,
-      "is_soft": false,
-      "dealer_upcard_rank": "Q",
       "can_split": false,
       "can_double": true,
       "basic_strategy": "h",
@@ -65,6 +51,37 @@
       }
     },
     {
+      "hand_total": 8,
+      "is_soft": false,
+      "dealer_upcard_rank": "Q",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "d",
+      "samples": 12,
+      "majority": 1.0,
+      "action_counts": {
+        "d": 12
+      }
+    },
+    {
+      "hand_total": 12,
+      "is_soft": false,
+      "dealer_upcard_rank": "4",
+      "can_split": false,
+      "can_double": true,
+      "table_bias": "medium",
+      "sibling_awaiting_deal": true,
+      "basic_strategy": "s",
+      "player_action": "h",
+      "samples": 3,
+      "majority": 0.667,
+      "action_counts": {
+        "h": 2,
+        "d": 1
+      }
+    },
+    {
       "hand_total": 12,
       "is_soft": false,
       "dealer_upcard_rank": "6",
@@ -72,11 +89,11 @@
       "can_double": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 14,
-      "majority": 0.857,
+      "samples": 19,
+      "majority": 0.842,
       "action_counts": {
-        "h": 12,
-        "s": 2
+        "h": 16,
+        "s": 3
       }
     },
     {
@@ -87,11 +104,11 @@
       "can_double": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 16,
-      "majority": 0.688,
+      "samples": 23,
+      "majority": 0.696,
       "action_counts": {
-        "h": 11,
-        "s": 5
+        "h": 16,
+        "s": 7
       }
     },
     {
@@ -102,10 +119,11 @@
       "can_double": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 13,
-      "majority": 1.0,
+      "samples": 20,
+      "majority": 0.95,
       "action_counts": {
-        "h": 13
+        "h": 19,
+        "s": 1
       }
     },
     {
@@ -116,11 +134,11 @@
       "can_double": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 6,
+      "samples": 12,
       "majority": 0.667,
       "action_counts": {
-        "h": 4,
-        "s": 2
+        "h": 8,
+        "s": 4
       }
     },
     {
@@ -133,10 +151,10 @@
       "sibling_awaiting_deal": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 4,
+      "samples": 8,
       "majority": 1.0,
       "action_counts": {
-        "h": 4
+        "h": 8
       }
     },
     {
@@ -147,11 +165,11 @@
       "can_double": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 18,
-      "majority": 0.778,
+      "samples": 25,
+      "majority": 0.8,
       "action_counts": {
-        "d": 4,
-        "h": 14
+        "h": 20,
+        "d": 5
       }
     },
     {
@@ -162,11 +180,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 33,
+      "samples": 44,
       "majority": 0.636,
       "action_counts": {
-        "h": 12,
-        "s": 21
+        "h": 16,
+        "s": 28
       }
     },
     {
@@ -177,11 +195,26 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 15,
+      "samples": 20,
       "majority": 0.6,
       "action_counts": {
-        "h": 6,
-        "s": 9
+        "h": 8,
+        "s": 12
+      }
+    },
+    {
+      "hand_total": 13,
+      "is_soft": false,
+      "dealer_upcard_rank": "A",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 3,
+      "majority": 0.667,
+      "action_counts": {
+        "s": 2,
+        "h": 1
       }
     },
     {
@@ -192,11 +225,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 21,
+      "samples": 27,
       "majority": 0.667,
       "action_counts": {
-        "h": 7,
-        "s": 14
+        "h": 9,
+        "s": 18
       }
     },
     {
@@ -207,11 +240,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 16,
-      "majority": 0.812,
+      "samples": 20,
+      "majority": 0.8,
       "action_counts": {
-        "h": 3,
-        "s": 13
+        "h": 4,
+        "s": 16
       }
     },
     {
@@ -224,11 +257,11 @@
       "sibling_awaiting_deal": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 3,
+      "samples": 6,
       "majority": 0.667,
       "action_counts": {
-        "h": 2,
-        "s": 1
+        "h": 4,
+        "s": 2
       }
     },
     {
@@ -239,11 +272,26 @@
       "can_double": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 20,
-      "majority": 0.7,
+      "samples": 28,
+      "majority": 0.679,
       "action_counts": {
-        "h": 14,
-        "s": 6
+        "h": 19,
+        "s": 9
+      }
+    },
+    {
+      "hand_total": 14,
+      "is_soft": false,
+      "dealer_upcard_rank": "4",
+      "can_split": false,
+      "can_double": false,
+      "basic_strategy": "s",
+      "player_action": "h",
+      "samples": 3,
+      "majority": 0.667,
+      "action_counts": {
+        "h": 2,
+        "s": 1
       }
     },
     {
@@ -256,11 +304,11 @@
       "sibling_awaiting_deal": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 3,
+      "samples": 6,
       "majority": 0.667,
       "action_counts": {
-        "s": 1,
-        "h": 2
+        "s": 2,
+        "h": 4
       }
     },
     {
@@ -271,11 +319,11 @@
       "can_double": true,
       "basic_strategy": "s",
       "player_action": "h",
-      "samples": 3,
+      "samples": 6,
       "majority": 0.667,
       "action_counts": {
-        "s": 1,
-        "h": 2
+        "s": 2,
+        "h": 4
       }
     },
     {
@@ -286,11 +334,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 13,
-      "majority": 0.769,
+      "samples": 20,
+      "majority": 0.8,
       "action_counts": {
-        "s": 10,
-        "h": 3
+        "s": 16,
+        "h": 4
       }
     },
     {
@@ -301,11 +349,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 13,
-      "majority": 0.692,
+      "samples": 18,
+      "majority": 0.667,
       "action_counts": {
-        "s": 9,
-        "h": 4
+        "s": 12,
+        "h": 6
       }
     },
     {
@@ -316,25 +364,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 9,
-      "majority": 1.0,
+      "samples": 13,
+      "majority": 0.923,
       "action_counts": {
-        "s": 9
-      }
-    },
-    {
-      "hand_total": 14,
-      "is_soft": false,
-      "dealer_upcard_rank": "K",
-      "can_split": false,
-      "can_double": true,
-      "basic_strategy": "h",
-      "player_action": "s",
-      "samples": 3,
-      "majority": 0.667,
-      "action_counts": {
-        "h": 1,
-        "s": 2
+        "s": 12,
+        "h": 1
       }
     },
     {
@@ -345,11 +379,26 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 11,
-      "majority": 0.636,
+      "samples": 18,
+      "majority": 0.611,
       "action_counts": {
-        "h": 4,
-        "s": 7
+        "h": 7,
+        "s": 11
+      }
+    },
+    {
+      "hand_total": 14,
+      "is_soft": true,
+      "dealer_upcard_rank": "8",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "d",
+      "samples": 3,
+      "majority": 0.667,
+      "action_counts": {
+        "d": 2,
+        "h": 1
       }
     },
     {
@@ -360,11 +409,25 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 4,
+      "samples": 8,
       "majority": 0.75,
       "action_counts": {
-        "s": 3,
-        "h": 1
+        "s": 6,
+        "h": 2
+      }
+    },
+    {
+      "hand_total": 15,
+      "is_soft": false,
+      "dealer_upcard_rank": "10",
+      "can_split": false,
+      "can_double": false,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 3,
+      "majority": 1.0,
+      "action_counts": {
+        "s": 3
       }
     },
     {
@@ -375,11 +438,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 24,
-      "majority": 0.708,
+      "samples": 34,
+      "majority": 0.706,
       "action_counts": {
-        "s": 17,
-        "h": 7
+        "s": 24,
+        "h": 10
       }
     },
     {
@@ -388,6 +451,35 @@
       "dealer_upcard_rank": "8",
       "can_split": false,
       "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 12,
+      "majority": 1.0,
+      "action_counts": {
+        "s": 12
+      }
+    },
+    {
+      "hand_total": 15,
+      "is_soft": false,
+      "dealer_upcard_rank": "9",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 21,
+      "majority": 0.667,
+      "action_counts": {
+        "h": 7,
+        "s": 14
+      }
+    },
+    {
+      "hand_total": 15,
+      "is_soft": false,
+      "dealer_upcard_rank": "9",
+      "can_split": false,
+      "can_double": false,
       "basic_strategy": "h",
       "player_action": "s",
       "samples": 6,
@@ -399,24 +491,9 @@
     {
       "hand_total": 15,
       "is_soft": false,
-      "dealer_upcard_rank": "9",
+      "dealer_upcard_rank": "A",
       "can_split": false,
       "can_double": true,
-      "basic_strategy": "h",
-      "player_action": "s",
-      "samples": 15,
-      "majority": 0.667,
-      "action_counts": {
-        "h": 5,
-        "s": 10
-      }
-    },
-    {
-      "hand_total": 15,
-      "is_soft": false,
-      "dealer_upcard_rank": "9",
-      "can_split": false,
-      "can_double": false,
       "basic_strategy": "h",
       "player_action": "s",
       "samples": 3,
@@ -433,11 +510,11 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 16,
-      "majority": 0.75,
+      "samples": 21,
+      "majority": 0.762,
       "action_counts": {
-        "s": 12,
-        "h": 4
+        "s": 16,
+        "h": 5
       }
     },
     {
@@ -448,10 +525,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 20,
-      "majority": 0.95,
+      "samples": 27,
+      "majority": 0.963,
       "action_counts": {
-        "s": 19,
+        "s": 26,
         "h": 1
       }
     },
@@ -463,10 +540,10 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 21,
+      "samples": 28,
       "majority": 1.0,
       "action_counts": {
-        "s": 21
+        "s": 28
       }
     },
     {
@@ -477,30 +554,16 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 7,
+      "samples": 11,
       "majority": 1.0,
       "action_counts": {
-        "s": 7
+        "s": 11
       }
     },
     {
       "hand_total": 16,
       "is_soft": false,
       "dealer_upcard_rank": "7",
-      "can_split": false,
-      "can_double": true,
-      "basic_strategy": "h",
-      "player_action": "s",
-      "samples": 10,
-      "majority": 1.0,
-      "action_counts": {
-        "s": 10
-      }
-    },
-    {
-      "hand_total": 16,
-      "is_soft": false,
-      "dealer_upcard_rank": "9",
       "can_split": false,
       "can_double": true,
       "basic_strategy": "h",
@@ -514,22 +577,7 @@
     {
       "hand_total": 16,
       "is_soft": false,
-      "dealer_upcard_rank": "A",
-      "can_split": false,
-      "can_double": true,
-      "basic_strategy": "h",
-      "player_action": "s",
-      "samples": 3,
-      "majority": 0.667,
-      "action_counts": {
-        "s": 2,
-        "h": 1
-      }
-    },
-    {
-      "hand_total": 16,
-      "is_soft": false,
-      "dealer_upcard_rank": "J",
+      "dealer_upcard_rank": "9",
       "can_split": false,
       "can_double": true,
       "basic_strategy": "h",
@@ -543,15 +591,44 @@
     {
       "hand_total": 16,
       "is_soft": false,
+      "dealer_upcard_rank": "A",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 6,
+      "majority": 0.667,
+      "action_counts": {
+        "s": 4,
+        "h": 2
+      }
+    },
+    {
+      "hand_total": 16,
+      "is_soft": false,
+      "dealer_upcard_rank": "J",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 27,
+      "majority": 1.0,
+      "action_counts": {
+        "s": 27
+      }
+    },
+    {
+      "hand_total": 16,
+      "is_soft": false,
       "dealer_upcard_rank": "K",
       "can_split": false,
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 22,
+      "samples": 29,
       "majority": 1.0,
       "action_counts": {
-        "s": 22
+        "s": 29
       }
     },
     {
@@ -562,10 +639,24 @@
       "can_double": true,
       "basic_strategy": "h",
       "player_action": "s",
-      "samples": 13,
+      "samples": 17,
       "majority": 1.0,
       "action_counts": {
-        "s": 13
+        "s": 17
+      }
+    },
+    {
+      "hand_total": 18,
+      "is_soft": true,
+      "dealer_upcard_rank": "10",
+      "can_split": false,
+      "can_double": true,
+      "basic_strategy": "h",
+      "player_action": "s",
+      "samples": 3,
+      "majority": 1.0,
+      "action_counts": {
+        "s": 3
       }
     },
     {
@@ -578,24 +669,24 @@
       "sibling_awaiting_deal": true,
       "basic_strategy": "s",
       "player_action": "sp",
-      "samples": 19,
-      "majority": 0.632,
+      "samples": 27,
+      "majority": 0.63,
       "action_counts": {
-        "sp": 12,
-        "s": 7
+        "sp": 17,
+        "s": 10
       }
     }
   ],
   "lottery_stakes": [
     {
       "owed_bucket": "high",
-      "avg_stake": 4.2,
-      "samples": 34
+      "avg_stake": 4.04,
+      "samples": 51
     },
     {
       "owed_bucket": "low",
-      "avg_stake": 2.7,
-      "samples": 10
+      "avg_stake": 2.59,
+      "samples": 17
     }
   ]
 }
