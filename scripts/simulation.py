@@ -1,8 +1,22 @@
 """
-scripts/simulation.py -- 10,000-round Drinking Blackjack simulation.
-3 NPC players, 2 hands each, dealer rotates every 3 rounds.
-Outputs: simulation_results.txt, simulation_log.csv
-Run: python simulation.py
+scripts/simulation.py -- 100,000-round Drinking Blackjack simulation.
+Prompts for player count and deck count, 2 hands each, dealer rotates
+every N rounds (N = player count).
+Outputs: simulation_results.txt, simulation_log.csv, benchmarks.json,
+static/js/benchmarks.js (per-config, see BENCHMARKS_BY_CONFIG).
+
+Usage:
+    python scripts/simulation.py                        # interactive prompts
+    python scripts/simulation.py <players> <decks>       # non-interactive, basic-strategy bots
+    python scripts/simulation.py --personalities rob marko david          # 1 deck (default)
+    python scripts/simulation.py <players> <decks> --personalities rob marko david
+        # NPCs play mined player-mimicry profiles (engine/player_profiles/<name>.json)
+        # instead of plain basic strategy; player count = number of names given
+        # (if <players> is also given, it must match that count). Writes
+        # simulation_results_personas.txt / simulation_log_personas.csv and
+        # deliberately skips benchmarks.json/benchmarks.js (those are the
+        # basic-strategy baseline kpi.js compares live sessions against --
+        # see scripts/compare_bot_styles.py to diff personas vs. basic instead).
 """
 import sys as _sys
 import os as _os
@@ -12,6 +26,9 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 import io  # noqa: E402
 import os  # noqa: E402
 import csv  # noqa: E402
+import json  # noqa: E402
+import random  # noqa: E402
+import argparse  # noqa: E402
 import contextlib  # noqa: E402
 from collections import defaultdict  # noqa: E402
 from datetime import datetime  # noqa: E402
@@ -19,62 +36,149 @@ from datetime import datetime  # noqa: E402
 _buf = io.StringIO()
 with contextlib.redirect_stdout(_buf):
     from engine.blackjack import NPC_Player, Shoe, RoundManager
-    from drinking_rules import DrinkTracker
+    from engine.drinking_rules import DrinkTracker
+    from app.services.utils import classify_rule
 
-NUM_ROUNDS   = 10000
-PLAYER_NAMES = ["Alice", "Bob", "Charlie"]
+NUM_ROUNDS   = 100000
 NUM_HANDS    = 2
 WAGER        = 1
-NUM_DECKS    = 2
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-
-def classify_rule(reason):
-    r = reason
-    if "A♣" in r and "credit" in r:           return None
-    if "protects" in r:                         return None
-    if "exempt" in r:                           return None
-    if "Hard Dealer Switch (A♣ half protection)" in r: return "Hard Dealer Switch (half, A♣)"
-    if "Hard Dealer Switch" in r:              return "Hard Dealer Switch"
-    if "net loss" in r:                        return "Net hand losses"
-    if "lost a doubled hand" in r:             return "Lost doubled hand"
-    if "lost a suited hand" in r:              return "Lost suited hand"
-    if "immunity exception" in r:              return "Doubled win (immunity break)"
-    if "won suited hand" in r:                 return "Suited winning hand"
-    if "split hand" in r:                      return "Split win (immunity break)"
-    if "swept all hands" in r:                 return "Other-player sweep"
-    if "all-hands sweep" in r:                 return "All-hands sweep"
-    if "auto-insurance" in r:                  return "Dealer BJ (auto-insurance)"
-    if "Insurance" in r and "dealer BJ" in r and "own bonus" in r: return "Insurance: BJ holder drinks own bonus"
-    if "Insurance" in r and "no dealer BJ" in r:                   return "Insurance: group drinks double BJ bonus"
-    if "Blackjack by" in r:                    return "Blackjack bonus"
-    if "4 Aces" in r and "first deal" in r:   return "Four Aces (first deal)"
-    if "4 Aces" in r and "end of round" in r:  return "Four Aces (end of round)"
-    if "Dealer hand is all" in r:              return "Dealer suited hand"
-    if "handed" in r and "5-card 21" in r:    return "5-card 21 handout received"
-    if "won with" in r and "cards" in r:       return "5+ card win"
-    if "A♠" in r and "to dealer" in r:   return "Ace dealt: A♠ (dealer hand)"
-    if "A♥" in r and "dealer" in r:       return "Ace dealt: A♥ (dealer hand)"
-    if "A♦" in r and "dealer" in r:       return "Ace dealt: A♦ (dealer hand)"
-    if "A♠" in r:                         return "Ace dealt: A♠ (player hand)"
-    if "A♥" in r:                         return "Ace dealt: A♥ (player hand)"
-    if "A♦" in r:                         return "Ace dealt: A♦ (player hand)"
-    return "Other"
+# single source of truth (also used by app/services/drink_tracker.py for the
+# live web CSV export). A local copy here previously drifted out of sync with
+# the engine's rule set (missing A♣ protection/credit cases, "Other" buckets
+# for newer reason strings, etc.) — see docs/TODO.md.
 
 
-def run_simulation():
-    shoe = Shoe(NUM_DECKS)
+def _ask_int(prompt, default, lo, hi):
+    """Prompt for an int within [lo, hi], falling back to `default` on
+    blank input, non-numeric input, or non-interactive runs (EOF)."""
+    try:
+        raw = input(prompt).strip()
+    except EOFError:
+        raw = ""
+    if not raw:
+        return default
+    try:
+        v = int(raw)
+    except ValueError:
+        return default
+    return max(lo, min(hi, v))
+
+
+def _parse_cli_args(argv):
+    """Parse `players decks [--personalities NAME ...]`, all optional.
+
+    `--personalities` lets each NPC play as a mined player-mimicry profile
+    (engine/player_profiles/<name>.json, e.g. rob/marko/david) instead of
+    plain basic strategy; player count is then taken from the number of
+    names given (if `players` is also given, it must match that count).
+    """
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("players", nargs="?", type=int, default=None)
+    parser.add_argument("decks", nargs="?", type=int, default=None)
+    parser.add_argument("--personalities", nargs="+", default=None, metavar="NAME")
+    return parser.parse_args(argv)
+
+
+if __name__ == "__main__":
+    # Allow non-interactive use: `python scripts/simulation.py <players> <decks>`
+    # (used by scripts/run_all_configs.py to batch multiple configs without
+    # prompting). Falls back to interactive prompts if no args are given.
+    _args = _parse_cli_args(_sys.argv[1:])
+    if _args.personalities:
+        PERSONALITIES = [p.lower() for p in _args.personalities]
+        if _args.players is not None and _args.players != len(PERSONALITIES):
+            print(f"Error: --personalities has {len(PERSONALITIES)} names but "
+                  f"players={_args.players} was given; they must match "
+                  f"(players is inferred from --personalities, so it can "
+                  f"usually just be omitted).", file=_sys.stderr)
+            _sys.exit(1)
+        NUM_PLAYERS   = len(PERSONALITIES)
+        NUM_DECKS     = max(1, min(8, _args.decks)) if _args.decks is not None else 1
+    elif _args.players is not None and _args.decks is not None:
+        NUM_PLAYERS   = max(2, min(6, _args.players))
+        NUM_DECKS     = max(1, min(8, _args.decks))
+        PERSONALITIES = None
+    else:
+        NUM_PLAYERS   = _ask_int("Number of players (2-6, default 3): ", 3, 2, 6)
+        NUM_DECKS     = _ask_int("Number of decks (1-8, default 1): ", 1, 1, 8)
+        PERSONALITIES = None
+else:
+    NUM_PLAYERS   = 3
+    NUM_DECKS     = 1
+    PERSONALITIES = None
+
+PLAYER_NAMES = ([p.capitalize() for p in PERSONALITIES] if PERSONALITIES
+                else [f"Player{i + 1}" for i in range(NUM_PLAYERS)])
+CONFIG_KEY   = f"{NUM_PLAYERS}p_{NUM_DECKS}d"
+
+
+def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None,
+                    personalities=None):
+    """Run the drinking-blackjack simulation and return aggregate stats.
+
+    Parameters are optional and default to the module-level NUM_PLAYERS /
+    NUM_DECKS / NUM_ROUNDS / PERSONALITIES (set from CLI args or interactive
+    prompts) so the existing `__main__` behavior is unchanged. Passing
+    explicit values lets callers (e.g. regression tests, compare_bot_styles.py)
+    run smaller/seeded simulations, or with named personalities, without
+    touching module globals.
+
+    `seed`, if given, seeds the shared `random` module before shuffling the
+    shoe, making the run reproducible. Default `None` leaves production
+    behavior (unseeded) unchanged.
+
+    `personalities`, if given, is a list of profile names (e.g.
+    ["rob", "marko", "david"]) of length `num_players` — each NPC plays that
+    mined profile (engine/player_profiles/<name>.json) instead of plain
+    basic strategy. Default `None` (or the module-level PERSONALITIES,
+    itself usually `None`) uses generic "Player1..N" basic-strategy bots.
+    """
+    num_players = NUM_PLAYERS if num_players is None else num_players
+    num_decks   = NUM_DECKS if num_decks is None else num_decks
+    num_rounds  = NUM_ROUNDS if num_rounds is None else num_rounds
+    personalities = PERSONALITIES if personalities is None else personalities
+    if personalities is not None:
+        if len(personalities) != num_players:
+            raise ValueError(
+                f"personalities has {len(personalities)} names but "
+                f"num_players is {num_players}"
+            )
+        player_names = [p.capitalize() for p in personalities]
+    else:
+        player_names = [f"Player{i + 1}" for i in range(num_players)]
+
+    if seed is not None:
+        random.seed(seed)
+
+    shoe = Shoe(num_decks)
     with contextlib.redirect_stdout(io.StringIO()):
         shoe.shuffle()
 
-    player_sips = {n: defaultdict(int) for n in PLAYER_NAMES}
-    dealer_sips = {n: defaultdict(int) for n in PLAYER_NAMES}
+    player_sips = {n: defaultdict(int) for n in player_names}
+    dealer_sips = {n: defaultdict(int) for n in player_names}
     event_log   = []
     dealer_idx  = 0
 
-    for round_num in range(1, NUM_ROUNDS + 1):
-        players       = [NPC_Player(name) for name in PLAYER_NAMES]
-        dealer_name   = PLAYER_NAMES[dealer_idx % len(PLAYER_NAMES)]
+    # Hand-outcome tallies, used to derive benchmark rates (blackjack %,
+    # bust %, win/loss/push %, dealer bust %) for the live web UI.
+    hand_totals = {"hands": 0, "blackjacks": 0, "busts": 0,
+                   "wins": 0, "losses": 0, "pushes": 0}
+    dealer_bust_rounds = 0
+
+    # Running sum / sum-of-squares of total sips per round, used to derive
+    # std_sips_per_round (for z-score-based benchmark coloring in kpi.js).
+    round_sips_sum   = 0.0
+    round_sips_sumsq = 0.0
+
+    for round_num in range(1, num_rounds + 1):
+        if personalities is not None:
+            players = [NPC_Player(name, personality=persona)
+                       for name, persona in zip(player_names, personalities)]
+        else:
+            players = [NPC_Player(name) for name in player_names]
+        dealer_name   = player_names[dealer_idx % len(player_names)]
         dealer_player = next(p for p in players if p.name == dealer_name)
         dealer_player.is_dealer = True
         tracker = DrinkTracker(players, dealer_player)
@@ -83,6 +187,21 @@ def run_simulation():
         with contextlib.redirect_stdout(io.StringIO()):
             rm.play_round()
 
+        for p in players:
+            for hand in p.hands:
+                hand_totals["hands"] += 1
+                if hand.is_blackjack():
+                    hand_totals["blackjacks"] += 1
+                if hand.is_bust():
+                    hand_totals["busts"] += 1
+                if hand.result == "win":
+                    hand_totals["wins"] += 1
+                elif hand.result == "loss":
+                    hand_totals["losses"] += 1
+                elif hand.result == "push":
+                    hand_totals["pushes"] += 1
+
+        round_total_sips = 0
         for p in players:
             for sips, reason, role in p.drink_log:
                 if sips <= 0:
@@ -94,12 +213,25 @@ def run_simulation():
                 event_log.append({"round": round_num, "dealer": dealer_name,
                                    "player": p.name, "role": role,
                                    "rule": rule, "sips": sips})
+                round_total_sips += sips
 
-        dealer_idx = (dealer_idx + 1) % len(PLAYER_NAMES)
-        if round_num % 1000 == 0:
-            print(f"  [{round_num:>5}/{NUM_ROUNDS}] rounds complete...", flush=True)
+        round_sips_sum   += round_total_sips
+        round_sips_sumsq += round_total_sips ** 2
 
-    return player_sips, dealer_sips, event_log
+        if dealer_player.dealer_hand and dealer_player.dealer_hand.is_bust():
+            dealer_bust_rounds += 1
+
+        dealer_idx = (dealer_idx + 1) % len(player_names)
+        if num_rounds >= 10 and round_num % (num_rounds // 10) == 0:
+            pct = round_num * 100 // num_rounds
+            print(f"  [{round_num:>5}/{num_rounds}] rounds complete... ({pct}%)", flush=True)
+
+    n = num_rounds
+    mean_sips = round_sips_sum / n
+    var_sips  = max(0.0, round_sips_sumsq / n - mean_sips ** 2)
+    std_sips_per_round = var_sips ** 0.5
+
+    return player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds, std_sips_per_round
 
 
 SESSION = 10  # rounds per session — unit used throughout the summary
@@ -174,6 +306,94 @@ def write_summary(player_sips, dealer_sips, path):
     print(f"  Summary  -> {path}")
 
 
+def _load_existing_config_dict(path):
+    """Load an existing benchmarks file (.json or .js) as a dict keyed by
+    config (e.g. "3p_1d"). Returns {} if missing, unreadable, or in the old
+    single-config format (no config-keyed wrapper)."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            content = f.read()
+        if path.endswith(".js"):
+            content = content[content.index("{"): content.rindex("}") + 1]
+        data = json.loads(content)
+    except Exception:
+        return {}
+    # Old format had top-level keys like "blackjack_rate_pct" directly —
+    # discard rather than trying to migrate it under a guessed config key.
+    if "blackjack_rate_pct" in data:
+        return {}
+    return data
+
+
+def write_benchmarks(player_sips, dealer_sips, hand_totals, dealer_bust_rounds,
+                      std_sips_per_round, json_path, js_path):
+    """
+    Derive benchmark rates/averages from this run and merge them into a
+    config-keyed JSON file and `BENCHMARKS_BY_CONFIG` JS constant consumed by
+    static/js/ui/kpi.js for "vs. expected" % coloring. Each run's results are
+    stored under a key like "3p_1d" (players + decks), so results for
+    different table sizes accumulate across runs instead of overwriting
+    each other.
+
+    These replace previously hand-picked magic numbers (e.g. "expected
+    ~4.8%" blackjack rate, "casino avg ~28%" dealer bust rate) with values
+    derived from the actual current rule set / table config, so they stay
+    accurate as engine/drinking_rules.py evolves — just re-run this script.
+    """
+    N = NUM_ROUNDS
+    hands = hand_totals["hands"]
+
+    rule_totals = defaultdict(int)
+    for name in PLAYER_NAMES:
+        for rule, s in player_sips[name].items(): rule_totals[rule] += s
+        for rule, s in dealer_sips[name].items(): rule_totals[rule] += s
+
+    def pct(n, d): return round(n / d * 100, 1) if d else None
+
+    benchmarks = {
+        "generated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "config": {
+            "num_rounds": N,
+            "num_players": NUM_PLAYERS,
+            "num_decks": NUM_DECKS,
+            "hands_per_round": NUM_HANDS,
+        },
+        "blackjack_rate_pct": pct(hand_totals["blackjacks"], hands),
+        "bust_rate_pct":      pct(hand_totals["busts"], hands),
+        "win_rate_pct":       pct(hand_totals["wins"], hands),
+        "loss_rate_pct":      pct(hand_totals["losses"], hands),
+        "push_rate_pct":      pct(hand_totals["pushes"], hands),
+        "dealer_bust_pct":    pct(dealer_bust_rounds, N),
+        "avg_sips_per_round": round(sum(rule_totals.values()) / N, 3),
+        "std_sips_per_round": round(std_sips_per_round, 3),
+        "sips_per_round_by_rule": {
+            rule: round(total / N, 4) for rule, total in rule_totals.items()
+        },
+    }
+
+    all_json = _load_existing_config_dict(json_path)
+    all_json[CONFIG_KEY] = benchmarks
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(all_json, f, indent=2)
+    print(f"  Benchmarks (json) -> {json_path}  [{CONFIG_KEY}]")
+
+    all_js = _load_existing_config_dict(js_path)
+    all_js[CONFIG_KEY] = benchmarks
+    js = (
+        "// AUTO-GENERATED by scripts/simulation.py — do not edit by hand.\n"
+        "// Re-run `python scripts/simulation.py` to refresh/add a config\n"
+        "// after any change to engine/drinking_rules.py or engine/blackjack.py.\n"
+        "// Used by static/js/ui/kpi.js for benchmark-relative % coloring.\n"
+        "// Keyed by \"<players>p_<decks>d\", e.g. \"3p_1d\".\n"
+        f"const BENCHMARKS_BY_CONFIG = {json.dumps(all_js, indent=2)};\n"
+    )
+    with open(js_path, "w", encoding="utf-8") as f:
+        f.write(js)
+    print(f"  Benchmarks (js)   -> {js_path}  [{CONFIG_KEY}]")
+
+
 def write_csv(event_log, path):
     if not event_log:
         return
@@ -185,16 +405,31 @@ def write_csv(event_log, path):
 
 
 if __name__ == "__main__":
-    print(f"Running {NUM_ROUNDS:,}-round simulation...")
-    print(f"Players : {', '.join(PLAYER_NAMES)}  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
-    print(f"Shoe    : {NUM_DECKS} decks  |  Dealer rotates every {len(PLAYER_NAMES)} rounds")
+    print(f"\nRunning {NUM_ROUNDS:,}-round simulation... [{CONFIG_KEY}]")
+    if PERSONALITIES:
+        print(f"Players : {', '.join(PLAYER_NAMES)}  (personalities: {', '.join(PERSONALITIES)})"
+              f"  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
+    else:
+        print(f"Players : {', '.join(PLAYER_NAMES)}  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
+    print(f"Shoe    : {NUM_DECKS} deck(s)  |  Dealer rotates every {len(PLAYER_NAMES)} rounds")
     print()
 
-    player_sips, dealer_sips, event_log = run_simulation()
+    player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds, std_sips_per_round = run_simulation()
 
     print("\nDone. Writing output files...")
-    write_summary(player_sips, dealer_sips, os.path.join(HERE, "simulation_results.txt"))
-    write_csv(event_log,                    os.path.join(HERE, "simulation_log.csv"))
+    suffix = "_personas" if PERSONALITIES else ""
+    write_summary(player_sips, dealer_sips, os.path.join(HERE, f"simulation_results{suffix}.txt"))
+    write_csv(event_log,                    os.path.join(HERE, f"simulation_log{suffix}.csv"))
+    if PERSONALITIES:
+        print("  Benchmarks        -> skipped (personalities run; would corrupt the "
+              "basic-strategy baseline kpi.js compares live sessions against — use "
+              "scripts/compare_bot_styles.py instead)")
+    else:
+        write_benchmarks(
+            player_sips, dealer_sips, hand_totals, dealer_bust_rounds, std_sips_per_round,
+            json_path=os.path.join(HERE, "benchmarks.json"),
+            js_path=os.path.join(os.path.dirname(HERE), "static", "js", "benchmarks.js"),
+        )
 
     print("\n  GRAND TOTALS")
     print("  " + "-" * 40)

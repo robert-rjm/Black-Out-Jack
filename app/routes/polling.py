@@ -4,27 +4,54 @@ app/routes/polling.py
 Read-mostly player-interaction routes: state polling, client registration,
 pre-selections, dealer suggestions, and insurance votes.
 
-GET  /state           — Full game-state snapshot (SSE-style polling)
-POST /register        — Joining client claims a seat or becomes spectator
-POST /preselect       — Player pre-votes their intended action
-POST /suggest_action  — Dealer suggests a different action to a player
-POST /respond_suggest — Player accepts or declines a dealer suggestion
-POST /vote_insurance  — Player casts their insurance vote
-POST /give_bust_sip   — Bust vote winner hands out their 1-sip reward
+GET  /state                  — Full game-state snapshot (SSE-style polling)
+POST /register               — Joining client claims a seat or becomes spectator
+POST /preselect               — Player pre-votes their intended action
+POST /suggest_action          — Dealer suggests a different action to a player
+POST /respond_suggest         — Player accepts or declines a dealer suggestion
+POST /vote_insurance          — Player casts their insurance vote
+POST /give_bust_sip           — Bust vote winner hands out their 1-sip reward
+POST /dealer_lottery/enter    — Player submits their Dealer Lottery entry (0-5)
+POST /dealer_lottery/give_sip — Dealer Lottery credit-winner hands out their sip(s)
+POST /targeted_drinking/vote            — Targeted player casts their bust/stand vote
+POST /targeted_drinking/begin           — Host or dealer kicks off the waiting mini-round
+POST /targeted_drinking/propose_target  — Any player proposes another as a target, opening a Yes/No vote
+POST /targeted_drinking/vote_proposal   — Any player casts their Yes/No vote on the pending proposal
+POST /targeted_drinking/give_sip        — Perfect-graduation winner hands out their sip(s)
 """
 
-import contextlib
-import io
 import logging
 import time as _time
 
 from flask import Blueprint, jsonify, request
 
-from app.services.session_store import game_sessions, _room_last_access, cleanup_stale_sessions
+from app.services.session_store import (
+    game_sessions, _room_last_access, cleanup_stale_sessions,
+    mark_waiting_client, get_waiting_clients,
+)
 from app.services.validators import sanitize_name, is_dealer_client
-from app.services.serializer import serialize_state, round_phase
-from app.services.drink_tracker import check_and_set_milestone, harvest_drink_log, apply_bust_vote_penalties, apply_milestone_forfeit
-from app.services.game_engine import dealer_turn, auto_play_npc_turns
+from app.routes.admin import _require_admin, _require_host_or_dealer
+from app.services.serializer import (
+    serialize_state, round_phase, current_turn, hand_done,
+    compute_mandatory_split10,
+)
+from app.services.drink_tracker import award_sips
+from app.services.dealer_lottery import (
+    submit_dealer_lottery_entry,
+    resolve_dealer_lottery,
+    give_dealer_lottery_sip,
+)
+from app.services.targeted_drinking import (
+    submit_targeted_drinking_vote,
+    request_targeted_drinking_start,
+    give_targeted_drinking_sip,
+    propose_targeted_drinking_target,
+    submit_target_proposal_vote,
+)
+from app.services.payout_tracker import init_bankrolls
+from app.services.game_engine import auto_play_npc_turns
+from app.services.tick import tick, _run_deferred_dealer_play
+from app.config import MAX_REG_DENIALS
 
 log = logging.getLogger(__name__)
 
@@ -32,26 +59,6 @@ _last_cleanup: float = 0.0
 _CLEANUP_INTERVAL = 3600   # run cleanup at most once per hour
 
 bp = Blueprint("polling", __name__)
-
-
-def _run_deferred_dealer_play(session):
-    """Run the dealer sequence when bust vote window has just closed.
-
-    Safe to call speculatively — checks round_phase and window state before acting.
-    """
-    if round_phase(session) != "dealer-ready":
-        return
-    # Don't fire if window is still open
-    if (session._bust_vote_expires_at is not None
-            and _time.monotonic() < session._bust_vote_expires_at):
-        return
-    log.debug("\n  (Bust vote closed — dealer plays automatically)")
-    dealer_turn(session)
-    with contextlib.redirect_stdout(io.StringIO()):
-        session.cmd_endround()
-    apply_bust_vote_penalties(session)
-    harvest_drink_log(session)
-    check_and_set_milestone(session)
 
 
 # ---------------------------------------------------------------------------
@@ -71,40 +78,18 @@ def state():
     if now - _last_cleanup > _CLEANUP_INTERVAL:
         _last_cleanup = now
         cleanup_stale_sessions()
-        # Auto-resolve expired insurance votes (treat as decline)
     if session is not None:
-        _now = _time.monotonic()
-        any_insurance_pending = False
-        for _v in session._insurance_votes:
-            if not _v.get("resolved"):
-                if _now - _v.get("started_at", _now) >= 60:
-                    _v["resolved"] = True   # auto-resolve expired vote as decline
-                else:
-                    any_insurance_pending = True
+        tick(session)
 
-        # Pause the bust-vote countdown while insurance voting is open.
-        # Extend the expiry so it doesn't tick down while players are occupied.
-        if any_insurance_pending and session._bust_vote_expires_at is not None:
-            session._bust_vote_expires_at = max(
-                session._bust_vote_expires_at,
-                _now + 5,   # keep at least 5 s on the clock while insurance is unresolved
-            )
-
-        # Milestone forfeit: if the handout window expired without the winner submitting,
-        # the full handout sip total comes back on them.
-        apply_milestone_forfeit(session)
-
-        # When the bust-vote window expires (or all players have voted), unblock
-        # any NPC turns that were held and then let the dealer play if ready.
-        if (session._bust_vote_expires_at is not None
-                and _now >= session._bust_vote_expires_at):
-            if round_phase(session) == "playing":
-                auto_play_npc_turns(session)   # unblock NPCs held by pending vote
-            _run_deferred_dealer_play(session)
-        # Safety net: dealer stuck at "dealer-ready" with no bust-vote window
-        # (e.g. bust vote disabled, or all-BJ deal where no hit/stand fires).
-        elif round_phase(session) == "dealer-ready" and session._bust_vote_expires_at is None:
-            _run_deferred_dealer_play(session)
+    if session is None:
+        if room_code in game_sessions:
+            mark_waiting_client(room_code, client_id)
+            return jsonify({
+                "ok": True,
+                "waiting": True,
+                "waiting_count": len(get_waiting_clients(room_code)),
+            })
+        return jsonify({"ok": False})
 
     return jsonify(serialize_state(session, client_id))
 
@@ -126,69 +111,72 @@ def register():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    existing = session._room_clients.get(client_id, {})
-    if existing.get("kicked"):
+    # Guards the whole check-then-mutate sequence below (seat-claimed check,
+    # pending-slot cap, then the writes) against a concurrent /register call
+    # for the same seat -- see docs/planning/Code-Audit-2026-07.md #4.
+    with session._registry_lock:
+        existing = session._room_clients.get(client_id, {})
+        if existing.get("kicked"):
+            if not name:
+                # Kicked player wants to spectate — allow it, clear kicked flag
+                session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
+                # Remove any pending rejoin request for this client
+                session._rejoin_requests = [r for r in session._rejoin_requests
+                                            if r["client_id"] != client_id]
+                return jsonify({**serialize_state(session, client_id), "ok": True})
+            return jsonify({"ok": False, "error": "You have been removed from this session."})
+
         if not name:
-            # Kicked player wants to spectate — allow it, clear kicked flag
+            # Spectating — no approval needed
             session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
-            # Remove any pending rejoin request for this client
-            session._rejoin_requests = [r for r in session._rejoin_requests
-                                        if r["client_id"] != client_id]
             return jsonify({**serialize_state(session, client_id), "ok": True})
-        return jsonify({"ok": False, "error": "You have been removed from this session."})
 
-    if not name:
-        # Spectating — no approval needed
-        session._room_clients[client_id] = {"name": None, "role": "spectator", "kicked": False}
-        return jsonify({**serialize_state(session, client_id), "ok": True})
+        valid_names = [p.name for p in session.all_players]
+        if name not in valid_names:
+            return jsonify({"ok": False,
+                            "error": f"'{name}' is not a seat. Available: {', '.join(valid_names)}"})
 
-    valid_names = [p.name for p in session.all_players]
-    if name not in valid_names:
-        return jsonify({"ok": False,
-                        "error": f"'{name}' is not a seat. Available: {', '.join(valid_names)}"})
+        # Check seat is not already claimed
+        for cid, info in session._room_clients.items():
+            if (cid != client_id and not info.get("kicked")
+                    and (info.get("name") or "").lower() == name.lower()):
+                return jsonify({"ok": False, "error": f"'{name}' is already taken."})
 
-    # Check seat is not already claimed
-    for cid, info in session._room_clients.items():
-        if (cid != client_id and not info.get("kicked")
-                and (info.get("name") or "").lower() == name.lower()):
-            return jsonify({"ok": False, "error": f"'{name}' is already taken."})
+        # Admin registering their own seat — immediate, no approval needed
+        if existing.get("role") == "admin":
+            # Preserve existing local_names; ensure the newly claimed name is in it
+            local_names = existing.get("local_names") or []
+            if name not in local_names:
+                local_names = [name] + [n for n in local_names if n != name]
+            session._room_clients[client_id] = {
+                **existing, "name": name, "role": "admin", "kicked": False,
+                "local_names": local_names,
+            }
+            return jsonify({**serialize_state(session, client_id), "ok": True})
 
-    # Admin registering their own seat — immediate, no approval needed
-    if existing.get("role") == "admin":
-        # Preserve existing local_names; ensure the newly claimed name is in it
-        local_names = existing.get("local_names") or []
-        if name not in local_names:
-            local_names = [name] + [n for n in local_names if n != name]
-        session._room_clients[client_id] = {
-            **existing, "name": name, "role": "admin", "kicked": False,
-            "local_names": local_names,
-        }
-        return jsonify({**serialize_state(session, client_id), "ok": True})
+        # Block clients who have been denied too many times
+        if existing.get("reg_denials", 0) >= MAX_REG_DENIALS:
+            return jsonify({"ok": False,
+                            "error": "You have been denied too many times and cannot request to join."})
 
-    # Block clients who have been denied too many times
-    MAX_REG_DENIALS = 2
-    if existing.get("reg_denials", 0) >= MAX_REG_DENIALS:
-        return jsonify({"ok": False,
-                        "error": "You have been denied too many times and cannot request to join."})
+        # Cancel any previous pending request from this client (counts as one slot)
+        prev_pending = [r for r in session._pending_registrations if r["client_id"] != client_id]
 
-    # Cancel any previous pending request from this client (counts as one slot)
-    prev_pending = [r for r in session._pending_registrations if r["client_id"] != client_id]
+        # Cap: no more pending requests than there are unclaimed seats
+        total_seats   = len(session.all_players)
+        claimed_seats = sum(
+            1 for info in session._room_clients.values()
+            if info.get("name") and not info.get("kicked")
+        )
+        available_seats = total_seats - claimed_seats
+        if len(prev_pending) >= available_seats:
+            return jsonify({"ok": False,
+                            "error": "Too many pending requests — wait for the host to review."})
 
-    # Cap: no more pending requests than there are unclaimed seats
-    total_seats   = len(session.all_players)
-    claimed_seats = sum(
-        1 for info in session._room_clients.values()
-        if info.get("name") and not info.get("kicked")
-    )
-    available_seats = total_seats - claimed_seats
-    if len(prev_pending) >= available_seats:
-        return jsonify({"ok": False,
-                        "error": "Too many pending requests — wait for the host to review."})
-
-    session._pending_registrations = prev_pending
-    session._pending_registrations.append({"client_id": client_id, "name": name})
-    session._room_clients[client_id] = {**existing, "name": None, "role": "pending", "kicked": False}
-    return jsonify({**serialize_state(session, client_id), "ok": True, "pending": True})
+        session._pending_registrations = prev_pending
+        session._pending_registrations.append({"client_id": client_id, "name": name})
+        session._room_clients[client_id] = {**existing, "name": None, "role": "pending", "kicked": False}
+        return jsonify({**serialize_state(session, client_id), "ok": True, "pending": True})
 
 
 # ---------------------------------------------------------------------------
@@ -225,27 +213,128 @@ def request_local_seat():
     if name not in valid_names:
         return jsonify({"ok": False, "error": f"'{name}' is not a seat in this game."})
 
-    # Seat must be unclaimed
-    for cid, info in session._room_clients.items():
-        if (cid != client_id and not info.get("kicked")
-                and (info.get("name") or "").lower() == name.lower()):
-            return jsonify({"ok": False, "error": f"'{name}' is already taken."})
+    # Guards the whole check-then-mutate sequence below (seat-claimed check,
+    # then queueing a transfer/registration or auto-approving) against a
+    # concurrent request for the same seat -- see
+    # docs/planning/Code-Audit-2026-07.md #4.
+    with session._registry_lock:
+        # Check if seat is claimed by another client's primary registration or local_names
+        name_lower = name.lower()
+        for cid, info in session._room_clients.items():
+            if cid == client_id or info.get("kicked"):
+                continue
+            if (info.get("name") or "").lower() == name_lower:
+                return jsonify({"ok": False, "error": f"'{name}' is already taken."})
+            if any(n.lower() == name_lower for n in (info.get("local_names") or [])):
+                # Seat is locally controlled by someone else — queue a transfer request
+                # (remove any previous request for this same seat first)
+                session._pending_seat_transfers = [
+                    t for t in session._pending_seat_transfers if t["target"].lower() != name_lower
+                ]
+                requester_display = existing.get("name") or "Someone"
+                session._pending_seat_transfers.append({
+                    "requester_cid":  client_id,
+                    "requester_name": requester_display,
+                    "target":         name,
+                    "controller_cid": cid,
+                })
+                return jsonify({**serialize_state(session, client_id), "ok": True, "transfer_pending": True})
 
-    # Already a local name for this client
-    local_names = existing.get("local_names") or []
-    if name.lower() in {(n or "").lower() for n in local_names}:
-        return jsonify({"ok": False, "error": f"'{name}' is already a local seat."})
+        # Already a local name for this client
+        local_names = existing.get("local_names") or []
+        if name.lower() in {(n or "").lower() for n in local_names}:
+            return jsonify({"ok": False, "error": f"'{name}' is already a local seat."})
 
-    # Queue as pending with add_to_local flag
-    session._pending_registrations = [
-        r for r in session._pending_registrations if r["client_id"] != client_id
-    ]
-    session._pending_registrations.append({
-        "client_id":    client_id,
-        "name":         name,
-        "add_to_local": True,
-    })
-    return jsonify({**serialize_state(session, client_id), "ok": True, "pending": True})
+        # Admin requesting an unclaimed seat: auto-approve immediately (no popup needed —
+        # the admin IS the approver, so routing their own request through the queue just
+        # blocks the game with the register overlay).
+        if existing.get("role") == "admin":
+            local_names = list(existing.get("local_names") or [])
+            if not any(n.lower() == name.lower() for n in local_names):
+                local_names.append(name)
+            existing["local_names"] = local_names
+            session._room_clients[client_id] = existing
+            # If the seat was NPC, convert to human
+            claimed = next((p for p in session.all_players if p.name.lower() == name.lower()), None)
+            if claimed and getattr(claimed, "is_npc", False):
+                claimed.is_npc = False
+            return jsonify({**serialize_state(session, client_id), "ok": True})
+
+        # Non-admin: queue as pending with add_to_local flag, await admin approval
+        session._pending_registrations = [
+            r for r in session._pending_registrations if r["client_id"] != client_id
+        ]
+        session._pending_registrations.append({
+            "client_id":    client_id,
+            "name":         name,
+            "add_to_local": True,
+        })
+        return jsonify({**serialize_state(session, client_id), "ok": True, "pending": True})
+
+
+
+@bp.route("/handle_seat_transfer", methods=["POST"])
+def handle_seat_transfer():
+    """Current local-seat controller approves or denies a seat transfer request.
+    Body: { room_code, client_id (controller), target, approve: bool }
+    On approval: removes seat from controller's local_names, adds to requester's.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    target    = sanitize_name((data.get("target") or "").strip())
+    approve   = bool(data.get("approve"))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    existing = session._room_clients.get(client_id, {})
+    if existing.get("role") not in ("player", "admin"):
+        return jsonify({"ok": False, "error": "Not authorised."})
+
+    target_lower = target.lower()
+
+    # Guards the whole check-then-mutate sequence below (transfer lookup,
+    # then removing it and applying local_names) against a concurrent
+    # approval for the same transfer -- see
+    # docs/planning/Code-Audit-2026-07.md #4.
+    with session._registry_lock:
+        # Find the matching pending transfer (this client must be the controller)
+        transfer = next(
+            (t for t in session._pending_seat_transfers
+             if t["target"].lower() == target_lower and t["controller_cid"] == client_id),
+            None,
+        )
+        if not transfer:
+            return jsonify({"ok": False, "error": "No pending transfer found."})
+
+        # Remove the request regardless of outcome
+        session._pending_seat_transfers = [
+            t for t in session._pending_seat_transfers
+            if not (t["target"].lower() == target_lower and t["controller_cid"] == client_id)
+        ]
+
+        if approve:
+            # Remove seat from controller's local_names
+            ctrl_locals = existing.get("local_names") or []
+            existing["local_names"] = [n for n in ctrl_locals if n.lower() != target_lower]
+            session._room_clients[client_id] = existing
+
+            # Add seat to requester's local_names.
+            # Seed list with their primary name first so my_names always includes
+            # their own seat (serializer uses local_names when non-empty).
+            req_cid  = transfer["requester_cid"]
+            req_info = session._room_clients.get(req_cid, {})
+            req_locals = list(req_info.get("local_names") or [])
+            if not req_locals and req_info.get("name"):
+                req_locals = [req_info["name"]]
+            if not any(n.lower() == target_lower for n in req_locals):
+                req_locals.append(target)
+            req_info["local_names"] = req_locals
+            session._room_clients[req_cid] = req_info
+
+        return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @bp.route("/handle_registration", methods=["POST"])
@@ -253,79 +342,82 @@ def handle_registration():
     """Admin approves or denies a pending player registration.
     Body: { room_code, client_id (admin), target_client_id, approve: bool }"""
     data             = request.json or {}
-    room_code        = (data.get("room_code") or "").strip()
-    client_id        = (data.get("client_id") or "").strip()
     target_client_id = (data.get("target_client_id") or "").strip()
     approve          = bool(data.get("approve", False))
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": err})
 
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-    if session._room_clients.get(client_id, {}).get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
-
-    pending = next(
-        (r for r in session._pending_registrations if r["client_id"] == target_client_id),
-        None,
-    )
-    if not pending:
-        return jsonify({"ok": False, "error": "No pending request found."})
-
-    session._pending_registrations = [
-        r for r in session._pending_registrations if r["client_id"] != target_client_id
-    ]
-
-    target_existing = session._room_clients.get(target_client_id, {})
-
-    if approve:
-        name = pending["name"]
-        # Ensure seat is still unclaimed before approving
-        for cid, info in session._room_clients.items():
-            if (cid != target_client_id and not info.get("kicked")
-                    and (info.get("name") or "").lower() == name.lower()):
-                # Seat taken while pending — count as a denial
-                denials = target_existing.get("reg_denials", 0) + 1
-                session._room_clients[target_client_id] = {
-                    **target_existing, "name": None, "role": "denied",
-                    "kicked": False, "reg_denials": denials,
-                }
-                return jsonify({**serialize_state(session, client_id), "ok": True})
-        if pending.get("add_to_local"):
-            # Append to requester local_names without changing primary name/role
-            existing_local = list(target_existing.get("local_names") or [])
-            if name not in existing_local:
-                existing_local.append(name)
-            session._room_clients[target_client_id] = {
-                **target_existing, "local_names": existing_local, "kicked": False
-            }
-        else:
-            session._room_clients[target_client_id] = {
-                **target_existing, "name": name, "role": "player", "kicked": False
-            }
-        # If the claimed seat was an NPC, convert them to human so auto-play stops
-        claimed_player = next(
-            (p for p in session.all_players if p.name.lower() == name.lower()), None
+    # Guards the whole check-then-mutate sequence below (pending lookup,
+    # seat-still-unclaimed check, then the writes) against a concurrent
+    # approval/denial for the same request -- see
+    # docs/planning/Code-Audit-2026-07.md #4.
+    with session._registry_lock:
+        pending = next(
+            (r for r in session._pending_registrations if r["client_id"] == target_client_id),
+            None,
         )
-        if claimed_player and getattr(claimed_player, "is_npc", False):
-            claimed_player.is_npc = False
-            # Clear the bot's auto-voted "pass" so the new human can vote
-            # if the bust-vote window is still open.
-            if session._bust_votes.get(claimed_player.name) == "pass":
-                session._bust_votes.pop(claimed_player.name, None)
-        # Seat is now claimed — remove from admin's local_names
-        for info in session._room_clients.values():
-            if info.get("role") == "admin":
-                local_names = info.get("local_names") or []
-                info["local_names"] = [n for n in local_names if n.lower() != name.lower()]
-                break
-    else:
-        denials = target_existing.get("reg_denials", 0) + 1
-        session._room_clients[target_client_id] = {
-            **target_existing, "name": None, "role": "denied",
-            "kicked": False, "reg_denials": denials,
-        }
+        if not pending:
+            return jsonify({"ok": False, "error": "No pending request found."})
 
-    return jsonify({**serialize_state(session, client_id), "ok": True})
+        session._pending_registrations = [
+            r for r in session._pending_registrations if r["client_id"] != target_client_id
+        ]
+
+        target_existing = session._room_clients.get(target_client_id, {})
+
+        if approve:
+            name = pending["name"]
+            # Ensure seat is still unclaimed before approving
+            for cid, info in session._room_clients.items():
+                if (cid != target_client_id and not info.get("kicked")
+                        and (info.get("name") or "").lower() == name.lower()):
+                    # Seat taken while pending — count as a denial
+                    denials = target_existing.get("reg_denials", 0) + 1
+                    session._room_clients[target_client_id] = {
+                        **target_existing, "name": None, "role": "denied",
+                        "kicked": False, "reg_denials": denials,
+                    }
+                    return jsonify({**serialize_state(session, client_id), "ok": True})
+            if pending.get("add_to_local"):
+                # Append to requester local_names without changing primary name/role.
+                # Seed with primary name first so my_names always includes own seat.
+                existing_local = list(target_existing.get("local_names") or [])
+                if not existing_local and target_existing.get("name"):
+                    existing_local = [target_existing["name"]]
+                if not any(n.lower() == name.lower() for n in existing_local):
+                    existing_local.append(name)
+                session._room_clients[target_client_id] = {
+                    **target_existing, "local_names": existing_local, "kicked": False
+                }
+            else:
+                session._room_clients[target_client_id] = {
+                    **target_existing, "name": name, "role": "player", "kicked": False
+                }
+            # If the claimed seat was an NPC, convert them to human so auto-play stops
+            claimed_player = next(
+                (p for p in session.all_players if p.name.lower() == name.lower()), None
+            )
+            if claimed_player and getattr(claimed_player, "is_npc", False):
+                claimed_player.is_npc = False
+                # Clear the bot's auto-voted "pass" so the new human can vote
+                # if the bust-vote window is still open.
+                if session.round._bust_votes.get(claimed_player.name) == "pass":
+                    session.round._bust_votes.pop(claimed_player.name, None)
+            # Seat is now claimed — remove from admin's local_names
+            for info in session._room_clients.values():
+                if info.get("role") == "admin":
+                    local_names = info.get("local_names") or []
+                    info["local_names"] = [n for n in local_names if n.lower() != name.lower()]
+                    break
+        else:
+            denials = target_existing.get("reg_denials", 0) + 1
+            session._room_clients[target_client_id] = {
+                **target_existing, "name": None, "role": "denied",
+                "kicked": False, "reg_denials": denials,
+            }
+
+        return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @bp.route("/reset_registration", methods=["POST"])
@@ -333,15 +425,10 @@ def reset_registration():
     """Admin clears a client's denial count, allowing them to request again.
     Body: { room_code, client_id (admin), target_client_id }"""
     data             = request.json or {}
-    room_code        = (data.get("room_code") or "").strip()
-    client_id        = (data.get("client_id") or "").strip()
     target_client_id = (data.get("target_client_id") or "").strip()
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return jsonify({"ok": False, "error": "Room not found."})
-    if session._room_clients.get(client_id, {}).get("role") != "admin":
-        return jsonify({"ok": False, "error": "Admin only."})
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": err})
 
     target = session._room_clients.get(target_client_id)
     if not target:
@@ -383,13 +470,34 @@ def preselect():
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
 
-    session._preselections[f"{name.lower()}:{hand}"] = action
+    # House rule: pre-selecting HIT, STAND, or DOUBLE on a hand the
+    # "mandatory split 10s" rule applies to opens the "Play with honor /
+    # <action> without honor (1 sip)" prompt (state.honor_pending) instead
+    # of recording a plain action vote.
+    _ACTION_NAMES = {"h": "hit", "s": "stand", "d": "double"}
+    if (action in _ACTION_NAMES and session.drinking_mode
+            and current_turn(session)
+            and current_turn(session).lower() == name.lower()
+            and compute_mandatory_split10(session, current_turn(session), round_phase(session))):
+        player      = session._get_player(name)
+        active_hand = next((h for h in player.hands if not hand_done(h)), None)
+        if player and active_hand:
+            session.round._honor_pending = {
+                "player":  player.name,
+                "hand_id": id(active_hand),
+                "action":  _ACTION_NAMES[action],
+                "reason":  "tens",
+            }
+            return jsonify({**serialize_state(session, client_id), "ok": True})
+
+    session.round._preselections[f"{name.lower()}:{hand}"] = action
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 @bp.route("/suggest_action", methods=["POST"])
 def suggest_action():
-    """Dealer suggests a different action to a player.
+    """Dealer suggests a different action to a player, or any player suggests
+    a move for an NPC bot's turn (the bot will play it automatically).
     Body: { room_code, client_id, player_name, hand, action }  action: h|s|d|sp"""
     data        = request.json or {}
     room_code   = (data.get("room_code") or "").strip()
@@ -402,13 +510,20 @@ def suggest_action():
     if not session:
         return jsonify({"ok": False, "error": "Room not found."})
 
-    if not is_dealer_client(session, client_id):
+    target_player = session._get_player(target_name)
+    target_is_npc = bool(target_player and getattr(target_player, "is_npc", False))
+
+    info = session._room_clients.get(client_id, {})
+    if info.get("kicked") or (info.get("role") or "spectator") == "spectator":
+        return jsonify({"ok": False, "error": "Spectators can't suggest actions."})
+
+    if not target_is_npc and not is_dealer_client(session, client_id):
         return jsonify({"ok": False, "error": "Only the dealer can suggest actions."})
 
     if action not in ("h", "s", "d", "sp"):
         return jsonify({"ok": False, "error": f"Invalid action '{action}'."})
 
-    session._suggestions[f"{target_name.lower()}:{hand}"] = action
+    session.round._suggestions[f"{target_name.lower()}:{hand}"] = action
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
@@ -434,14 +549,14 @@ def respond_suggest():
     name = info.get("name", "")
     key  = f"{name.lower()}:{hand}"
 
-    suggestion  = session._suggestions.get(key)
+    suggestion  = session.round._suggestions.get(key)
     if not suggestion:
         return jsonify({"ok": False, "error": "No pending suggestion."})
 
     if accept:
-        session._preselections[key] = suggestion
+        session.round._preselections[key] = suggestion
 
-    session._suggestions.pop(key, None)
+    session.round._suggestions.pop(key, None)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
@@ -459,7 +574,7 @@ def vote_insurance():
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
-    bj_player = (data.get("bj_player") or "").strip().capitalize()
+    bj_player = sanitize_name(data.get("bj_player") or "")
     try:
         hand_idx = int(data.get("hand_idx", 0))
     except (ValueError, TypeError):
@@ -488,7 +603,7 @@ def vote_insurance():
         return jsonify({"ok": False, "error": "You cannot vote on your own blackjack."})
 
     vote_entry = next(
-        (v for v in session._insurance_votes
+        (v for v in session.round._insurance_votes
          if v["player"].lower() == bj_player.lower() and v["hand_idx"] == hand_idx),
         None,
     )
@@ -526,7 +641,7 @@ def cast_bust_vote():
         return jsonify({"ok": False, "error": "Bust vote not enabled."})
 
     # Reject if window is expired (simple timestamp check — avoids double-calling serializer helper)
-    expires = session._bust_vote_expires_at
+    expires = session.round._bust_vote_expires_at
     if not expires or _time.monotonic() >= expires:
         return jsonify({"ok": False, "error": "Vote window is closed."})
 
@@ -547,7 +662,26 @@ def cast_bust_vote():
             return jsonify({"ok": False, "error": "Player not found."})
         voter_name = player_name
 
-    session._bust_votes[voter_name] = vote
+    prev_vote = session.round._bust_votes.get(voter_name)
+    session.round._bust_votes[voter_name] = vote
+
+    # Normal mode: side bet is opt-in via the "bust" vote.
+    # Deduct half the main bet when a player commits to the bet, refund it
+    # immediately if they switch back to "pass".  Drinking mode uses sips only.
+    if not session.drinking_mode and session.mode == "digital":
+        _pbets   = getattr(session, "_player_bets", {})
+        side_bet = _pbets.get(voter_name, session.bet_amount) / 2
+        init_bankrolls(session)   # safe no-op for players already seeded
+        if vote == "bust" and prev_vote != "bust":
+            # Player is placing the side bet — deduct now
+            session._bankrolls[voter_name] = (
+                session._bankrolls.get(voter_name, session.starting_bankroll) - side_bet
+            )
+        elif vote == "pass" and prev_vote == "bust":
+            # Player withdrew their bet — refund
+            session._bankrolls[voter_name] = (
+                session._bankrolls.get(voter_name, session.starting_bankroll) + side_bet
+            )
 
     # If every human non-dealer player has now voted, unblock NPC auto-play
     # (NPCs were holding off waiting for humans) then let the dealer run if ready.
@@ -555,7 +689,7 @@ def cast_bust_vote():
         p for p in session.all_players
         if not getattr(p, "is_npc", False)
     ]
-    if _human_players and all(session._bust_votes.get(p.name) is not None for p in _human_players):
+    if _human_players and all(session.round._bust_votes.get(p.name) is not None for p in _human_players):
         if round_phase(session) == "playing":
             auto_play_npc_turns(session)
         _run_deferred_dealer_play(session)
@@ -579,7 +713,6 @@ def give_bust_sip():
     client_id      = (data.get("client_id")      or "").strip()
     winner_name    = sanitize_name(data.get("winner_name")    or "")
     recipient_name = sanitize_name(data.get("recipient_name") or "")
-    forfeit        = bool(data.get("forfeit", False))
 
     session = game_sessions.get(room_code)
     if not session:
@@ -594,64 +727,350 @@ def give_bust_sip():
     if winner_name not in local_names:
         return jsonify({"ok": False, "error": "Not one of your local players."})
 
-    result = session._bust_vote_result or {}
+    result = session.round._bust_vote_result or {}
     if not result.get("dealer_busted") or winner_name not in result.get("winners", []):
         return jsonify({"ok": False, "error": "No pending handout for this player."})
 
-    if winner_name in session._bust_handouts_given:
+    if winner_name in session.round._bust_handouts_given:
         return jsonify({"ok": False, "error": "Already given."})
 
-    # Recipient must be a player in the game.
-    # Self-assignment is allowed only on forfeit (timer expired).
+    # Recipient must be a player in the game (no self-assignment).
     valid_names = {p.name for p in session.all_players}
     if recipient_name not in valid_names:
         return jsonify({"ok": False, "error": "Recipient not found."})
-    if recipient_name.lower() == winner_name.lower() and not forfeit:
+    if recipient_name.lower() == winner_name.lower():
         return jsonify({"ok": False, "error": "Cannot give to yourself."})
 
     recipient = session._get_player(recipient_name)
     if recipient:
-        if forfeit:
-            recipient.add_drink(1, f"Bust vote forfeited — {winner_name} didn't assign in time: +1 sip", "player")
-            log.debug(f"  [bust vote] {winner_name} forfeited — drinks 1 sip themselves")
-        else:
-            recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
-            log.debug(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
+        recipient.add_drink(1, f"Bust vote handout from {winner_name}: +1 sip", "player")
+        log.debug(f"  [bust vote] {winner_name} gives 1 sip to {recipient_name}")
 
-    session._bust_handouts_given.add(winner_name)
+    session.round._bust_handouts_given.add(winner_name)
+    session.round._bust_handout_log.append({
+        "winner":    winner_name,
+        "recipient": recipient_name,
+        "forfeited": False,
+    })
+    if all(w in session.round._bust_handouts_given for w in result.get("winners", [])):
+        session.round._bust_handout_expires_at = None
+        session._bust_handout_seq += 1
 
     # harvest_drink_log already ran — patch the round snapshots directly so
     # the sip shows up in the drinks panel and cumulative ticker without waiting
     # for the next round.
-    reason_label = f"Bust bet handout (from {winner_name}): +1 sip"
-    session._last_round_drinks.append({
-        "name":   recipient_name,
-        "sips":   1,
-        "reason": reason_label,
-    })
-    session._last_round_sips[recipient_name] = (
-        session._last_round_sips.get(recipient_name, 0) + 1
-    )
-    session._sip_ticker[recipient_name] = (
-        session._sip_ticker.get(recipient_name, 0) + 1
-    )
-    check_and_set_milestone(session)
-    session._drink_csv_rows.append({
-        "round":  session.round_count,
-        "dealer": session.dealer_name,
-        "player": recipient_name,
-        "role":   "player",
-        "rule":   "Bust vote handout",
-        "sips":   1,
-    })
+    award_sips(session, recipient_name, 1, "Bust vote handout",
+               reason=f"Bust bet handout (from {winner_name}): +1 sip")
 
     # Log entry visible to all players
-    log_line = (
-        f"  💥 Bust bet: {winner_name} didn't assign in time — drinks 1 sip (forfeited)\n"
-        if forfeit else
-        f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
-    )
-    session._log_entries.append(log_line)
+    log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks 1 sip\n"
+    session.round._log_entries.append(log_line)
     session._log_version = session._log_version + 1
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Dealer Lottery (Rules.md §5.9)
+# ---------------------------------------------------------------------------
+
+@bp.route("/dealer_lottery/enter", methods=["POST"])
+def dealer_lottery_enter():
+    """Player submits their Dealer Lottery entry (0-5 sips).
+    Body: { room_code, client_id, x, player_name? }
+    Can be re-submitted any time before the entry window closes — last
+    value wins. `player_name` optionally submits on behalf of one of this
+    client's local players (shared-device seats), mirroring /cast_bust_vote.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+
+    try:
+        x = int(data.get("x"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "x must be a number."})
+    if not (0 <= x <= 5):
+        return jsonify({"ok": False, "error": "x must be between 0 and 5."})
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    if not session.round._pending_dealer_lottery:
+        return jsonify({"ok": False, "error": "No dealer lottery is open."})
+    if _time.monotonic() >= session.round._pending_dealer_lottery["expires_at"]:
+        return jsonify({"ok": False, "error": "Entry window is closed."})
+
+    client_info = session._room_clients.get(client_id, {})
+    entrant_name = client_info.get("name")
+    if not entrant_name:
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    player_name = sanitize_name((data.get("player_name") or "").strip())
+    if player_name:
+        local_names = client_info.get("local_names") or [entrant_name]
+        if player_name not in local_names:
+            return jsonify({"ok": False, "error": "Not one of your local players."})
+        entrant_name = player_name
+
+    if not submit_dealer_lottery_entry(session, entrant_name, x):
+        return jsonify({"ok": False, "error": "Not an entrant in this lottery."})
+
+    # If every entry is in (no one still awaiting a submission), resolve
+    # immediately rather than making the table wait out the full window.
+    pending = session.round._pending_dealer_lottery
+    if pending and all(v is not None for v in pending["entries"].values()):
+        resolve_dealer_lottery(session)
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/dealer_lottery/give_sip", methods=["POST"])
+def dealer_lottery_give_sip():
+    """Dealer Lottery credit-winner hands their sip(s) to a chosen player.
+    Body: { room_code, client_id, giver_name, recipient_name }
+    giver_name must be one of the client's local_names and have a pending
+    handout. Mirrors /give_bust_sip exactly.
+    """
+    data           = request.json or {}
+    room_code      = (data.get("room_code")      or "").strip()
+    client_id      = (data.get("client_id")      or "").strip()
+    giver_name     = sanitize_name(data.get("giver_name")     or "")
+    recipient_name = sanitize_name(data.get("recipient_name") or "")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    client_info = session._room_clients.get(client_id, {})
+    if not client_info.get("name"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    local_names = client_info.get("local_names") or [client_info["name"]]
+    if giver_name not in local_names:
+        return jsonify({"ok": False, "error": "Not one of your local players."})
+
+    result = session.drinks.last_dealer_lottery_result or {}
+    if giver_name not in result.get("pending_handouts", {}):
+        return jsonify({"ok": False, "error": "No pending handout for this player."})
+    if giver_name in session.round._dealer_lottery_handouts_given:
+        return jsonify({"ok": False, "error": "Already given."})
+
+    if not give_dealer_lottery_sip(session, giver_name, recipient_name):
+        return jsonify({"ok": False, "error": "Could not give sip — check the recipient."})
+
+    log_line = f"  🎰 Dealer Lottery: {giver_name} gives their sip(s) to {recipient_name}\n"
+    session.round._log_entries.append(log_line)
+    session._log_version = session._log_version + 1
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/give_sip", methods=["POST"])
+def targeted_drinking_give_sip():
+    """Perfect-graduation winner hands their bonus sip(s) to a chosen
+    player. Body: { room_code, client_id, giver_name, recipient_name }
+    giver_name must be one of the client's local_names and have a pending
+    handout. Mirrors /dealer_lottery/give_sip exactly.
+    """
+    data           = request.json or {}
+    room_code      = (data.get("room_code")      or "").strip()
+    client_id      = (data.get("client_id")      or "").strip()
+    giver_name     = sanitize_name(data.get("giver_name")     or "")
+    recipient_name = sanitize_name(data.get("recipient_name") or "")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    client_info = session._room_clients.get(client_id, {})
+    if not client_info.get("name"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    local_names = client_info.get("local_names") or [client_info["name"]]
+    if giver_name not in local_names:
+        return jsonify({"ok": False, "error": "Not one of your local players."})
+
+    result = session.drinks.last_targeted_drinking_result or {}
+    if giver_name not in result.get("pending_handouts", {}):
+        return jsonify({"ok": False, "error": "No pending handout for this player."})
+    if giver_name in session.round._targeted_drinking_handouts_given:
+        return jsonify({"ok": False, "error": "Already given."})
+
+    if not give_targeted_drinking_sip(session, giver_name, recipient_name):
+        return jsonify({"ok": False, "error": "Could not give sip — check the recipient."})
+
+    log_line = f"  🏆 Targeted Drinking: {giver_name} gives their sip(s) to {recipient_name}\n"
+    session.round._log_entries.append(log_line)
+    session._log_version = session._log_version + 1
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/set_player_bet", methods=["POST"])
+def set_player_bet():
+    """Let a player change their own bet before the round is dealt.
+
+    Only allowed during the pre-deal phase.  Each client may only set bets
+    for seats they own (primary or local names).  The amount is stored in
+    session._player_bets[player_name] and read by deduct_bets() at deal time.
+    """
+    data       = request.json or {}
+    room_code  = (data.get("room_code")   or "").strip()
+    client_id  = data.get("client_id")
+    player_name = (data.get("player_name") or "").strip()
+    raw_bet    = data.get("bet")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "room not found"})
+
+    if round_phase(session) not in ("pre-deal", "round-over"):
+        return jsonify({"ok": False, "error": "betting phase is over"})
+
+    info = session._room_clients.get(client_id, {})
+    my_names = {
+        n.lower() for n in
+        (info.get("local_names") or []) + ([info.get("name")] if info.get("name") else [])
+        if n
+    }
+    if player_name.lower() not in my_names:
+        return jsonify({"ok": False, "error": "not your seat"})
+
+    # Validate and clamp: multiples of 2.5, min 2.5, max 10× default
+    try:
+        bet = float(raw_bet)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "invalid bet"})
+
+    step = 2.5
+    bet  = round(round(bet / step) * step, 2)   # snap to nearest step
+    bet  = max(2.5, min(bet, session.bet_amount * 20))
+
+    if not hasattr(session, "_player_bets"):
+        session._player_bets = {}
+    session._player_bets[player_name] = bet
+
+
+# ---------------------------------------------------------------------------
+# Targeted Drinking Mode (Rules.md §5.10, MVP scope)
+# ---------------------------------------------------------------------------
+
+@bp.route("/targeted_drinking/vote", methods=["POST"])
+def targeted_drinking_vote():
+    """Targeted player casts or updates their mandatory bust/stand vote for
+    the current mini-round. Body: { room_code, client_id, vote: "bust" | "stand", player_name? }
+    Can be re-cast any time before the mini-round's vote window closes --
+    last vote wins. `player_name` optionally votes on behalf of one of this
+    client's local players (shared-device seats), mirroring /cast_bust_vote.
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    vote      = (data.get("vote") or "").strip()
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    pending = session.round._pending_targeted_drinking
+    if not pending or _time.monotonic() >= pending["expires_at"]:
+        return jsonify({"ok": False, "error": "Vote window is closed."})
+
+    client_info = session._room_clients.get(client_id, {})
+    voter_name  = client_info.get("name")
+    if not voter_name:
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    player_name = sanitize_name((data.get("player_name") or "").strip())
+    if player_name:
+        local_names = client_info.get("local_names") or [voter_name]
+        if player_name not in local_names:
+            return jsonify({"ok": False, "error": "Not one of your local players."})
+        voter_name = player_name
+
+    if not submit_targeted_drinking_vote(session, voter_name, vote):
+        return jsonify({"ok": False, "error": "Invalid vote, or not a current target."})
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/begin", methods=["POST"])
+def targeted_drinking_begin():
+    """Host or current dealer kicks off the mini-round that's waiting on
+    "Start Targeting Now" -- lets the table finish drinking for the round
+    that just ended before the mini-game's modal takes over.
+    Body: { room_code, client_id }. No-op (still returns ok) if nothing is
+    actually waiting to start, e.g. a race with another tap.
+    """
+    data = request.json or {}
+    session, client_id, _, err = _require_host_or_dealer(data)
+    if err:
+        return jsonify({"ok": False, "error": err})
+
+    request_targeted_drinking_start(session)
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/propose_target", methods=["POST"])
+def targeted_drinking_propose_target():
+    """A registered non-spectator player taps another player's name to
+    propose them as a Targeted Drinking target -- one of three ways a
+    subgame can start (alongside the host's direct override and the Wild
+    Card easter egg). Opens a table-wide Yes/No vote (see
+    propose_targeted_drinking_target); fails if the proposer is currently
+    frozen from a prior failed proposal, the subgame is already running or
+    on cooldown, a proposal is already open, or the target is invalid.
+    Body: { room_code, client_id, target_name }
+    """
+    data        = request.json or {}
+    room_code   = (data.get("room_code") or "").strip()
+    client_id   = (data.get("client_id") or "").strip()
+    target_name = sanitize_name(data.get("target_name") or "")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    info = session._room_clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered."})
+    proposer_name = info.get("name") or ""
+    if not proposer_name:
+        return jsonify({"ok": False, "error": "Spectators cannot propose a target."})
+
+    ok, error = propose_targeted_drinking_target(session, proposer_name, target_name)
+    if not ok:
+        return jsonify({"ok": False, "error": error})
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/targeted_drinking/vote_proposal", methods=["POST"])
+def targeted_drinking_vote_proposal():
+    """Any eligible voter casts their Yes/No vote on the pending target
+    proposal -- resolves immediately (starting the subgame) the instant
+    strict majority says Yes; otherwise resolves on timeout via the tick's
+    apply_target_proposal_vote_forfeit.
+    Body: { room_code, client_id, vote: bool }
+    """
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    vote      = bool(data.get("vote"))
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    info = session._room_clients.get(client_id, {})
+    if not info or info.get("kicked"):
+        return jsonify({"ok": False, "error": "Not registered."})
+    voter_name = info.get("name") or ""
+    if not voter_name:
+        return jsonify({"ok": False, "error": "Spectators cannot vote."})
+
+    if not submit_target_proposal_vote(session, voter_name, vote):
+        return jsonify({"ok": False, "error": "No proposal is currently open for you to vote on."})
 
     return jsonify({**serialize_state(session, client_id), "ok": True})

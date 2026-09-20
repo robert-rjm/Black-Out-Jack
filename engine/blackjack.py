@@ -15,9 +15,11 @@ import random
 from enum import Enum
 from tabulate import tabulate
 
-# ANSI colour helpers (terminal only — harmless on web)
-_BLUE  = "\033[94m"
-_RESET = "\033[0m"
+# NOTE: DrinkingRules and all engine.events imports are intentionally deferred
+# to the call sites (lazy imports inside methods) to avoid a circular import:
+#   blackjack.py → drinking_rules.py → blackjack.py (Rank, Suit, Hand, Player)
+# Python caches modules after the first import so the per-call overhead is
+# just a dict lookup — there is no re-execution penalty.
 
 
 # =============================================================================
@@ -110,6 +112,11 @@ class Shoe:
         self.cards       = []
         self.penetration = random.uniform(0.70, 0.85)
         self.total_cards = num_decks * 52
+        # Set by deal_card() when a reshuffle happened *because the shoe ran
+        # low mid-deal* (as opposed to a routine reshuffle the caller
+        # triggers explicitly between rounds). Callers can check + clear
+        # this to surface a toast to players.
+        self.just_reshuffled = False
         for _ in range(num_decks):
             self.cards.extend(Deck().cards)
 
@@ -140,6 +147,7 @@ class Shoe:
             if not quiet:
                 print("Reshuffling shoe...")
             self.reset(quiet=quiet)
+            self.just_reshuffled = True
         return self.cards.pop()
 
 
@@ -158,11 +166,23 @@ class Hand:
         self.cards:     list = []
         self.doubled    = doubled
         self.from_split = from_split
-        self.split_count = 0   # inherited from parent on split so limit tracks the whole chain
+        # Shared mutable counter so the split limit applies to the WHOLE
+        # split tree descended from one starting hand, not just one branch's
+        # depth. New hands created by split() share this same list with
+        # their sibling/parent hands (see split() below).
+        self._split_chain = [0]
         self.stood      = False
         self.bust       = False
         self.insured    = False
         self.result     = None   # "win" | "loss" | "push"
+
+    @property
+    def split_count(self) -> int:
+        return self._split_chain[0]
+
+    @split_count.setter
+    def split_count(self, value: int) -> None:
+        self._split_chain[0] = value
 
     # --- scoring ---
     def score(self) -> int:
@@ -182,7 +202,7 @@ class Hand:
         return (self.cards[0].rank.blackjack_value == self.cards[1].rank.blackjack_value
                 and self.split_count < self.MAX_SPLITS)
 
-    def split(self, shoe) -> "Hand":
+    def split(self) -> "Hand":
         """
         Remove second card into a new Hand.  Second cards are NOT dealt here —
         _play_hand deals each hand's second card just before that hand is played,
@@ -191,8 +211,8 @@ class Hand:
         new_hand = Hand(from_split=True)
         new_hand.cards.append(self.cards.pop())
         self.from_split   = True
-        self.split_count += 1
-        new_hand.split_count = self.split_count   # child inherits count so chain limit holds
+        new_hand._split_chain = self._split_chain  # share counter across the whole chain
+        self.split_count += 1   # increments the shared counter for both hands
         return new_hand
 
     # --- display ---
@@ -226,7 +246,6 @@ class Player:
         self.total_wins   = 0
         self.total_losses = 0
         self.total_pushes = 0
-        self.total_drinks = 0
 
     def reset_round(self, num_hands: int = 2):
         self.hands       = [Hand() for _ in range(num_hands)]
@@ -238,10 +257,8 @@ class Player:
     def round_pushes(self) -> int: return sum(1 for h in self.hands if h.result == "push")
 
     def net_losses(self)   -> int:
-        # Blackjack counts as 2 wins — it offsets two net-loss hands
-        effective_wins = sum(2 if h.is_blackjack() else 1
-                             for h in self.hands if h.result == "win")
-        return max(0, self.round_losses() - effective_wins)
+        """Raw net hand losses: losses minus wins, clamped to zero."""
+        return max(0, self.round_losses() - self.round_wins())
 
     def drinks_owed(self)  -> int: return sum(e[0] for e in self.drink_log if e[0] > 0)
 
@@ -258,17 +275,46 @@ class Player:
 from engine.strategy import best_play as _strategy_best_play  # noqa: E402
 
 
+def get_player_hand(player: Player, hand_label: str) -> "Hand":
+    """Resolve a player's betting hand by label ('hand1', 'hand2', …).
+
+    Extends ``player.hands`` with empty Hand objects if the requested index
+    doesn't exist yet. Always targets ``player.hands`` directly — never
+    redirects to a dealer hand — so the dealer-player can still act on their
+    own betting hands via this helper.
+    """
+    try:
+        idx = int(hand_label.lower().replace("hand", "").strip()) - 1
+    except (ValueError, AttributeError):
+        idx = 0
+    while len(player.hands) <= idx:
+        player.hands.append(Hand())
+    return player.hands[idx]
+
+
 class NPC_Player(Player):
     """
-    Computer-controlled seat using standard basic strategy.
-    Participates fully in drinking rules when drinking mode is active.
-    Can hold the dealer role like any human seat.
-    """
-    def __init__(self, name: str = "Bot"):
-        super().__init__(name)
-        self.is_npc = True
+    Computer-controlled seat using standard basic strategy, or a player-style
+    profile when ``personality`` is set.
 
-    def __repr__(self): return f"NPC_Player({self.name})"
+    personality: "basic" (default) | any name with a profile in
+                 engine/player_profiles/<name>.json (e.g. "rob", "marko", "david").
+    """
+    def __init__(self, name: str = "Bot", personality: str = "basic"):
+        super().__init__(name)
+        self.is_npc      = True
+        self.personality = personality.lower()
+        self._style_profile: dict | None = None  # loaded lazily on first decide()
+
+    def _get_profile(self) -> dict | None:
+        if self.personality == "basic":
+            return None
+        if self._style_profile is None:
+            from engine.style_strategy import load_profile
+            self._style_profile = load_profile(self.personality)
+        return self._style_profile
+
+    def __repr__(self): return f"NPC_Player({self.name}, personality={self.personality!r})"
 
     @staticmethod
     def best_play(hand, dealer_up_card, valid_actions: list,
@@ -277,8 +323,27 @@ class NPC_Player(Player):
         return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
 
     def decide(self, hand, dealer_up_card, valid_actions: list,
-               drinking_mode: bool = False) -> str:
+               drinking_mode: bool = False, visible_cards: list | None = None,
+               sibling_hands: list | None = None) -> str:
+        profile = self._get_profile()
+        if profile is not None:
+            from engine.style_strategy import best_play_for
+            return best_play_for(profile, hand, dealer_up_card,
+                                 valid_actions, drinking_mode,
+                                 visible_cards=visible_cards,
+                                 sibling_hands=sibling_hands)
         return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
+
+    def decide_dealer_lottery_stake(self, current_owed: int) -> int:
+        """Choose this NPC's Dealer Lottery entry (0-5), per its profile's
+        mined lottery_stakes tendency. "basic" personality (or a profile with
+        no mined lottery data) always opts out (0) -- same as before this
+        was a real decision."""
+        profile = self._get_profile()
+        if profile is None:
+            return 0
+        from engine.style_strategy import decide_dealer_lottery_stake
+        return decide_dealer_lottery_stake(profile, current_owed)
 
 
 # =============================================================================
@@ -328,7 +393,7 @@ class RoundManager:
         self.drinking_mode  = drinking_mode
         self._all_names     = [p.name for p in players]
         self._ace_credits   = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag = {"partial_protected": False, "half_protected": False}
         self._four_aces_fd  = False
         # List of (player, hand, insured:bool) — populated after deal, resolved in _evaluate
         self._insurance_votes: list = []
@@ -369,7 +434,7 @@ class RoundManager:
             self.dealer_player.reset_round(0)
             self.dealer_player.dealer_hand = Hand()
         self._ace_credits    = []
-        self._ace_clubs_flag = {"protected": False, "partial_protected": False, "half_protected": False}
+        self._ace_clubs_flag = {"partial_protected": False, "half_protected": False}
         self._four_aces_fd   = False
         self._insurance_votes = []
 
@@ -381,7 +446,7 @@ class RoundManager:
         hand.cards.append(card)
 
         if self.drinking_mode:
-            from drinking_rules import DrinkingRules
+            from engine.drinking_rules import DrinkingRules
             from engine.events import CardDealtEvent
             is_dealer_hand = (hand is self.dealer_player.dealer_hand)
             msgs = DrinkingRules.handle(CardDealtEvent(
@@ -417,7 +482,7 @@ class RoundManager:
     # ---------------------------------------------------------------- four aces
 
     def _check_four_aces(self, phase):
-        from drinking_rules import DrinkingRules
+        from engine.drinking_rules import DrinkingRules
         all_cards = ([c for p in self.players for h in p.hands for c in h.cards]
                      + self.dealer_player.dealer_hand.cards)
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
@@ -486,6 +551,8 @@ class RoundManager:
                 idx += 1
 
     def _play_hand(self, player, hand, hand_idx):
+        _BLUE  = "\033[94m"   # terminal-only colour helpers
+        _RESET = "\033[0m"
         # Split hands start with 1 card; deal their second card now (after H1 is fully played)
         if hand.from_split and len(hand.cards) == 1:
             card = self._deal_card_to(hand, player.name)
@@ -513,7 +580,7 @@ class RoundManager:
             hand.stood = True
             print(f"  BLACKJACK! {hand}")
             if self.drinking_mode:
-                from drinking_rules import DrinkingRules
+                from engine.drinking_rules import DrinkingRules
                 from engine.events import BlackjackEvent
                 self._drink(DrinkingRules.handle(BlackjackEvent(
                     player_name=player.name, hand=hand, all_names=self._all_names,
@@ -572,7 +639,7 @@ class RoundManager:
                     print("  BUST on double!")
 
             elif action == "sp":
-                new_hand = hand.split(self.shoe)
+                new_hand = hand.split()
                 player.hands.insert(hand_idx + 1, new_hand)
                 print(f"  Split! This hand: {hand}  |  New hand: {new_hand}")
                 is_ace_split = (hand.cards[0].rank == Rank.ACE)
@@ -587,7 +654,7 @@ class RoundManager:
                     hand.stood = True
                     print(f"  BLACKJACK! {hand}")
                     if self.drinking_mode:
-                        from drinking_rules import DrinkingRules
+                        from engine.drinking_rules import DrinkingRules
                         from engine.events import BlackjackEvent
                         self._drink(DrinkingRules.handle(BlackjackEvent(
                             player_name=player.name, hand=hand, all_names=self._all_names,
@@ -624,7 +691,7 @@ class RoundManager:
                 print(f"  Dealer stands at {d_hand.score()}.")
 
         if self.drinking_mode:
-            from drinking_rules import DrinkingRules
+            from engine.drinking_rules import DrinkingRules
             from engine.events import DealerHandRevealedEvent
             self._drink(DrinkingRules.handle(DealerHandRevealedEvent(dealer_hand=d_hand)))
 
@@ -660,7 +727,7 @@ class RoundManager:
 
         # Pass 2 — fire drinking events with conditional dealer exemption
         if self.drinking_mode:
-            from drinking_rules import DrinkingRules
+            from engine.drinking_rules import DrinkingRules
             from engine.events import (
                 BlackjackEvent, HandResolvedEvent,
                 InsuranceResolvedEvent, HardDealerSwitchEvent,
@@ -700,25 +767,46 @@ class RoundManager:
                     [h for h in winning_hds if h[0].lower() != self.dealer_player.name.lower()]
                     if partial_protected else winning_hds
                 )
+                # Insurance Case 2, sub-case B: dealer-player IS the BJ holder,
+                # group voted insure, no dealer BJ → their BJ hand is covered by the
+                # insurance rule (they drink nothing from insurance; group drinks double).
+                # Exclude dealer's BJ hand from the Hard Switch penalty to avoid
+                # double-counting.
+                dealer_bj_insured = any(
+                    p.name.lower() == self.dealer_player.name.lower()
+                    and h.is_blackjack() and vote_insured and not dealer_bj
+                    for (p, h, vote_insured) in self._insurance_votes
+                )
+                if dealer_bj_insured:
+                    hs_for_penalty = [
+                        (pn, h) for (pn, h) in hs_for_penalty
+                        if not (pn.lower() == self.dealer_player.name.lower()
+                                and h.is_blackjack())
+                    ]
                 self._drink(DrinkingRules.handle(HardDealerSwitchEvent(
                     dealer_name=self.dealer_player.name, winning_hands=hs_for_penalty,
                     half_protected=half_protected,
                 )))
 
     def _round_end_drinks(self):
-        from drinking_rules import DrinkingRules
+        from engine.drinking_rules import DrinkingRules
         from engine.events import RoundEndEvent
         d_hand    = self.dealer_player.dealer_hand
         dealer_bj = d_hand.is_blackjack()
+        # Real insurance is only ever offered on an Ace up-card; a dealer BJ made
+        # from a 10-value up-card hiding an Ace never gave the group a chance to
+        # insure, so auto-insurance must not apply in that case.
+        dealer_shows_ace = bool(d_hand.cards) and d_hand.cards[0].rank.label == "A"
         w         = self.wager
         if DrinkingRules.dealer_21_five_cards(d_hand):
             w *= 2
             print(f"  ★ Dealer 21 with {len(d_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
-        if dealer_bj:
+        if dealer_bj and dealer_shows_ace:
             print("  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         hard_switch = getattr(self, "_hard_switch", False)
         self.tracker.apply(DrinkingRules.handle(RoundEndEvent(
             players=self.players, wager=w, dealer_bj=dealer_bj,
+            dealer_shows_ace=dealer_shows_ace,
             hard_switch_dealer=self.dealer_player.name if hard_switch else "",
             num_hands=self.num_hands,
         )))
@@ -740,184 +828,3 @@ class RoundManager:
                      "BJ" if dh.is_blackjack() else "BUST" if dh.is_bust() else str(dh.score())])
         print(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
         print("="*52)
-
-
-# =============================================================================
-# BlackJackGame — top-level controller
-# =============================================================================
-
-class BlackJackGame:
-    """
-    Supports 1-4 human/NPC players.
-    Mode 1: Normal Blackjack  (drinking_rules.py not needed)
-    Mode 2: Drinking Blackjack (drinking_rules.py activated)
-
-    Multi-player: dealer role rotates every n rounds (n = seat count).
-    Single-player: House is always dealer.
-    """
-
-    def __init__(self):
-        self.all_seats     = []
-        self.players       = []
-        self.dealer_player = None
-        self.shoe          = None
-        self.wager         = 1
-        self.num_hands     = 2
-        self.round_count   = 0
-        self._dealer_idx   = 0
-        self._house_mode   = False
-        self._drinking     = False
-        self._npc_seats    = set()
-
-    # ---------------------------------------------------------------- setup
-
-    def setup(self):
-        print("\n" + "="*52)
-        print("  BLACKJACK")
-        print("="*52)
-
-        mode = self._ask_int("Game mode — 1: Normal  2: Drinking: ", 1, 2)
-        self._drinking = (mode == 2)
-        if self._drinking:
-            from drinking_rules import verify_rules
-            verify_rules()
-
-        n = self._ask_int("Number of players (1-4): ", 1, 4)
-        names = []
-        self._npc_seats = set()
-        for i in range(n):
-            name = input(f"  Name for player {i+1} (Enter = NPC Bot {i+1}): ").strip()
-            if name == "":
-                name = f"Bot {i+1}"
-                self._npc_seats.add(name)
-                print(f"  -> NPC: {name}")
-            else:
-                if input(f"  Is {name} an NPC? [y/n]: ").strip().lower() == "y":
-                    self._npc_seats.add(name)
-                    print(f"  -> {name} set as NPC")
-            names.append(name)
-
-        if self._drinking:
-            self.wager = self._ask_int("  Wager sips per hand (default 1): ", 1, 20, default=1)
-        num_decks = self._ask_int("  Number of decks 1-8 (default 1): ", 1, 8, default=1)
-
-        self.all_seats   = names
-        self._house_mode = (n == 1)
-        self._dealer_idx = 0
-        self._assign_dealer()
-
-        self.shoe = Shoe(num_decks)
-        self.shoe.shuffle()
-
-        mode_label = "Drinking Blackjack" if self._drinking else "Normal Blackjack"
-        print(f"\n  Mode: {mode_label}")
-        if self._house_mode:
-            print("  Single-player vs House")
-        else:
-            total_hands = n * self.num_hands + 1
-            print(f"  {n} players | dealer rotates every {n} round(s)")
-            print(f"  First dealer: {self.dealer_player.name}")
-            print(f"  Hands per round: {n} x {self.num_hands} + 1 dealer = {total_hands}")
-
-    def _make_player(self, name):
-        return NPC_Player(name) if name in self._npc_seats else Player(name)
-
-    def _assign_dealer(self):
-        prev = {p.name: (p.total_wins, p.total_losses, p.total_pushes, p.total_drinks)
-                for p in self.players}
-
-        if self._house_mode:
-            human        = self._make_player(self.all_seats[0])
-            house        = Player("House")
-            house.is_dealer   = True
-            house.dealer_hand = Hand()
-            self.players      = [human]
-            self.dealer_player = house
-        else:
-            dealer_name  = self.all_seats[self._dealer_idx]
-            self.players = [self._make_player(n) for n in self.all_seats]
-            for p in self.players:
-                if p.name in prev:
-                    p.total_wins, p.total_losses, p.total_pushes, p.total_drinks = prev[p.name]
-                if p.name.lower() == dealer_name.lower():
-                    p.is_dealer        = True
-                    self.dealer_player = p
-
-    def _rotate_dealer(self):
-        if self._house_mode: return
-        self._dealer_idx = (self._dealer_idx + 1) % len(self.all_seats)
-        self._assign_dealer()
-        print(f"  Dealer rotates => {self.dealer_player.name} is now dealer.")
-
-    # ---------------------------------------------------------------- main loop
-
-    def play(self):
-        self.setup()
-
-        while True:
-            self.round_count += 1
-            dealer_label = "House" if self._house_mode else self.dealer_player.name
-            print(f"\n{'='*52}")
-            print(f"  ROUND {self.round_count}  |  Dealer: {dealer_label}")
-            print("="*52)
-
-            tracker = None
-            if self._drinking:
-                from drinking_rules import DrinkTracker
-                all_for_tracker = self.players + ([self.dealer_player] if self._house_mode else [])
-                tracker = DrinkTracker(all_for_tracker, self.dealer_player)
-
-            rm = RoundManager(
-                self.players, self.dealer_player,
-                self.shoe, tracker, self.wager, self.num_hands,
-                drinking_mode=self._drinking
-            )
-            rm.play_round()
-
-            if not self._house_mode and self.round_count % len(self.all_seats) == 0:
-                self._rotate_dealer()
-
-            if input("\nPlay another round? [y/n]: ").strip().lower() != "y":
-                self._final_summary()
-                break
-
-    # ---------------------------------------------------------------- summary
-
-    def _final_summary(self):
-        print("\n" + "="*52)
-        print("  FINAL SUMMARY")
-        print("="*52)
-        headers = ["Player", "Wins", "Losses", "Pushes"]
-        if self._drinking:
-            headers.append("Total Drinks")
-        rows = []
-        for p in self.players:
-            row = [p.name, p.total_wins, p.total_losses, p.total_pushes]
-            if self._drinking:
-                row.append(p.total_drinks)
-            rows.append(row)
-        print(tabulate(rows, headers=headers, tablefmt="pretty"))
-        print("\nThanks for playing!")
-
-    # ---------------------------------------------------------------- helpers
-
-    @staticmethod
-    def _ask_int(prompt, lo, hi, default=None):
-        while True:
-            try:
-                raw = input(f"  {prompt}").strip()
-                if raw == "" and default is not None: return default
-                val = int(raw)
-                if lo <= val <= hi: return val
-                print(f"  Enter a number between {lo} and {hi}.")
-            except ValueError:
-                print("  Invalid input.")
-
-
-# =============================================================================
-# Entry point
-# =============================================================================
-
-if __name__ == "__main__":
-    game = BlackJackGame()
-    game.play()

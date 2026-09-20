@@ -1,7 +1,13 @@
 // ============================================================
 // TOAST QUEUE — suppress mid-round toasts during bust vote window
 // ============================================================
-let _toastQueue = [];
+// Toast state, namespaced so queue and timer handles stay together.
+const ToastUI = {
+  queue:        [],   // queued toast-show callbacks, flushed after bust vote closes
+  dealerTimer:  null, // setTimeout handle for the dealer toast auto-hide
+  playerTimer:  null, // setTimeout handle for the player drink toast auto-hide
+  switchTimer:  null, // setTimeout handle for the dealer switch toast auto-hide
+};
 
 /** True while the bust vote window is open (reads lastState set in table.js). */
 function _bustVoteOpen() {
@@ -13,53 +19,9 @@ function _bustVoteOpen() {
  * Called by table.js when bust_vote_window_open transitions true → false.
  */
 function flushToastQueue() {
-  if (!_toastQueue.length) return;
-  const q = _toastQueue.splice(0);
+  if (!ToastUI.queue.length) return;
+  const q = ToastUI.queue.splice(0);
   q.forEach((fn, i) => setTimeout(fn, i * 3500));
-}
-
-// ============================================================
-// LOG SECTION — collapsible
-// ============================================================
-const _LOG_COLLAPSED_KEY = "boj_log_collapsed";
-
-function toggleLog() {
-  const section = document.getElementById("log-section");
-  if (!section) return;
-  const collapsed = section.classList.toggle("collapsed");
-  try { localStorage.setItem(_LOG_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch (_) {}
-}
-
-function initLogCollapse() {
-  const section = document.getElementById("log-section");
-  if (!section) return;
-  // Default: collapsed (leave space for future KPI panel)
-  const stored = localStorage.getItem(_LOG_COLLAPSED_KEY);
-  const shouldCollapse = stored === null ? true : stored === "1";
-  if (shouldCollapse) section.classList.add("collapsed");
-}
-
-// CHAT LOG
-// ============================================================
-function appendLog(text, clear = false) {
-  const log = document.getElementById("log");
-  if (clear) log.innerHTML = "";
-  if (!text) return;
-
-  text.split("\n").forEach(line => {
-    if (!line.trim()) return;
-    const div = document.createElement("div");
-    div.className = "chat-msg";
-    const l = line.toLowerCase();
-    if (l.includes("drink") || l.includes("sip"))                           div.classList.add("msg-drink");
-    else if (l.includes("blackjack") || l.includes("***"))                  div.classList.add("msg-bj");
-    else if (l.includes("win") || l.includes("dealer") && l.includes("bust")) div.classList.add("msg-ok");
-    else if (l.includes("bust"))                                             div.classList.add("msg-drink");
-    else if (l.includes("===") || l.includes("---") || l.includes("round")) div.classList.add("msg-header");
-    div.textContent = line.trim();
-    log.appendChild(div);
-  });
-  log.scrollTop = log.scrollHeight;
 }
 
 function updateSipTicker(state) {
@@ -95,7 +57,7 @@ function showPeekedCard(card) {
   display.appendChild(cardEl(card));
   // Also add a text label next to the card
   const lbl = document.createElement("span");
-  lbl.style.cssText = "font-size:13px;font-weight:700;color:var(--text);align-self:center";
+  lbl.classList.add("peeked-card-label");
   lbl.textContent = `${card.rank}${card.symbol || ""}`;
   display.appendChild(lbl);
   wrap.style.display = "block";
@@ -104,28 +66,26 @@ function showPeekedCard(card) {
 // ============================================================
 // DEALER TOAST
 // ============================================================
-let _dealerToastTimer = null;
 function showDealerToast() {
   const el = document.getElementById("dealer-toast");
   if (!el) return;
   // Cross-dismiss: hide drink toast if it's still up
   _dismissPlayerToast();
-  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
+  if (ToastUI.dealerTimer) { clearTimeout(ToastUI.dealerTimer); ToastUI.dealerTimer = null; }
   el.classList.add("show");
-  _dealerToastTimer = setTimeout(() => {
+  ToastUI.dealerTimer = setTimeout(() => {
     el.classList.remove("show");
-    _dealerToastTimer = null;
+    ToastUI.dealerTimer = null;
   }, 10000);
 }
 
 // ============================================================
 // PLAYER DRINK TOAST
 // ============================================================
-let _playerToastTimer = null;
 function _dismissPlayerToast() {
   const el = document.getElementById("player-toast");
   if (el) el.classList.remove("show");
-  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+  if (ToastUI.playerTimer) { clearTimeout(ToastUI.playerTimer); ToastUI.playerTimer = null; }
 }
 function showPlayerDrinkToast(sips, playerName) {
   const el = document.getElementById("player-toast");
@@ -133,8 +93,8 @@ function showPlayerDrinkToast(sips, playerName) {
   // Cross-dismiss: hide dealer toast if it's still up
   const dt = document.getElementById("dealer-toast");
   if (dt) dt.classList.remove("show");
-  if (_dealerToastTimer) { clearTimeout(_dealerToastTimer); _dealerToastTimer = null; }
-  if (_playerToastTimer) { clearTimeout(_playerToastTimer); _playerToastTimer = null; }
+  if (ToastUI.dealerTimer) { clearTimeout(ToastUI.dealerTimer); ToastUI.dealerTimer = null; }
+  if (ToastUI.playerTimer) { clearTimeout(ToastUI.playerTimer); ToastUI.playerTimer = null; }
   const prefix = playerName ? escapeHtml(playerName) + " — " : "";
   if (sips > 0) {
     el.textContent = `🍺 ${prefix}drink ${sips} sip${sips !== 1 ? "s" : ""}!`;
@@ -143,9 +103,9 @@ function showPlayerDrinkToast(sips, playerName) {
     el.textContent = playerName ? `🎉 ${prefix}clean round!` : "🎉 Clean round!";
     el.className   = "clean show";
   }
-  _playerToastTimer = setTimeout(() => {
+  ToastUI.playerTimer = setTimeout(() => {
     el.classList.remove("show");
-    _playerToastTimer = null;
+    ToastUI.playerTimer = null;
   }, 6000);
 }
 
@@ -164,25 +124,18 @@ const _SOFT_MSGS = [
   "🤑 Table wrecked by the Dealer. Soft Switch!",
 ];
 
-let _switchToastTimer = null;
 function showSwitchToast(switchType, dealerName) {
   const el = document.getElementById("switch-toast");
   if (!el) return;
-  if (_switchToastTimer) { clearTimeout(_switchToastTimer); _switchToastTimer = null; }
+  if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
   const pool = switchType === "hard" ? _HARD_MSGS : _SOFT_MSGS;
   const tmpl = pool[Math.floor(Math.random() * pool.length)];
   el.textContent = tmpl;
-  if (switchType === "hard") {
-    el.style.background = "var(--red)";
-    el.style.color      = "#fff";
-  } else {
-    el.style.background = "var(--green)";
-    el.style.color      = "#000";
-  }
+  // Dealer switches are purely informational — always yellow (set in log.css).
   el.classList.add("show");
-  _switchToastTimer = setTimeout(() => {
+  ToastUI.switchTimer = setTimeout(() => {
     el.classList.remove("show");
-    _switchToastTimer = null;
+    ToastUI.switchTimer = null;
   }, 4500);
 }
 
@@ -208,16 +161,9 @@ function updateHeader(data) {
 // ============================================================
 // TABS
 // ============================================================
-function switchRefTab(name, el) {
-  document.querySelectorAll("#ref-tabs .tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("#ref-panel .pane").forEach(p => p.classList.remove("active"));
-  el.classList.add("active");
-  document.getElementById(`pane-${name}`).classList.add("active");
-}
-
-function switchDigTab(name, el) {
-  document.querySelectorAll("#dig-tabs .tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("#dig-panel .pane").forEach(p => p.classList.remove("active"));
+function switchTab(tabsId, panelId, name, el) {
+  document.querySelectorAll(`#${tabsId} .tab`).forEach(t => t.classList.remove("active"));
+  document.querySelectorAll(`#${panelId} .pane`).forEach(p => p.classList.remove("active"));
   el.classList.add("active");
   document.getElementById(`pane-${name}`).classList.add("active");
 }
@@ -233,20 +179,31 @@ function clearPeekedCard() {
 }
 
 async function doNewRound() {
-  const state       = lastState || {};
-  const switchType  = state.switch_this_round;        // "hard" | "soft" | null
-  const roundsTD    = state.rounds_this_dealer || 1;
-  const rotateEvery = state.dealer_rotate_every || 1;
-  // Auto-rotate when hard/soft switch fired, or when rotation interval is reached
-  const rotate = !!(switchType || roundsTD >= rotateEvery);
+  // newround wholesale-replaces RoundState (see room_manager.reset_round_state),
+  // silently discarding a Targeted Drinking mini-round that hasn't started
+  // yet (awaiting_start) or is actively being voted on (pending) -- the
+  // subgame itself stays active and re-triggers at the *next* round's end,
+  // but this round's mini-hand is skipped without anyone noticing unless
+  // warned first.
+  const td = lastState && lastState.targeted_drinking;
+  if (td && td.active && (td.awaiting_start || td.pending)) {
+    const msg = td.pending
+      ? "A Targeted Drinking mini-round is still being voted on — starting a new round now will discard it without scoring anyone. Continue?"
+      : "Targeted Drinking hasn't started this mini-round yet — starting a new round now will skip it. Continue?";
+    if (!confirm(msg)) return;
+  }
+
+  // Rotation is decided server-side: in drinking mode the backend auto-rotates
+  // when a hard/soft switch fired or the interval is reached. Always send bare
+  // "newround" — the frontend no longer makes this game-logic decision.
   clearPeekedCard();
-  await sendCmd(rotate ? "newround rotate" : "newround");
+  await sendCmd("newround");
   buildGameUI();
   if (gameMode === "digital") {
     await sendCmd("deal");
   } else {
     const firstTab = document.querySelector("#ref-tabs .tab");
-    if (firstTab) switchRefTab("deal", firstTab);
+    if (firstTab) switchTab("ref-tabs", "ref-panel", "deal", firstTab);
   }
 }
 
@@ -272,7 +229,7 @@ function processAceDrinkEvents(state) {
   // myName / myRole are module-level vars set in table.js (same bundle scope)
   const _myName   = (typeof myName  !== "undefined") ? myName  : null;
   const _myRole   = (typeof myRole  !== "undefined") ? myRole  : null;
-  const _isDealer = _myRole === "dealer" || _myRole === "admin";
+  const _isDealer = _myRole === ROLE.DEALER || _myRole === ROLE.ADMIN;
 
   // Shown to ALL players — ace drink events are social info everyone should see.
   // Separate into events that affect the current client vs others.
@@ -309,16 +266,161 @@ function processAceDrinkEvents(state) {
     const dtEl = document.getElementById("dealer-toast");
     if (dtEl) dtEl.classList.remove("show");
     toastEl.textContent = text;
-    toastEl.className   = "drink show";
-    if (typeof _playerToastTimer !== "undefined" && _playerToastTimer) {
-      clearTimeout(_playerToastTimer);
+    // Red if I'm one of the players drinking from this ace effect, green
+    // if someone else is drinking instead.
+    toastEl.className   = (mine.length > 0 ? "drink" : "clean") + " show";
+    if (ToastUI.playerTimer) {
+      clearTimeout(ToastUI.playerTimer);
     }
     setTimeout(() => toastEl.classList.remove("show"), duration);
   };
 
   if (_bustVoteOpen()) {
-    _toastQueue.push(_showAceToast);
+    ToastUI.queue.push(_showAceToast);
   } else {
     _showAceToast();
+  }
+}
+
+// ============================================================
+// SHOE RESHUFFLE TOAST (fires mid-round if the shoe runs low
+// and auto-reshuffles before the next card is dealt)
+// ============================================================
+let _lastReshuffleSeq = 0;
+
+function processReshuffleEvents(state) {
+  const events = state.reshuffle_events || [];
+  const seq    = state.reshuffle_seq    || 0;
+  // Reset if server started a new round (seq went back to 0 or below our last seen)
+  if (seq < _lastReshuffleSeq) _lastReshuffleSeq = 0;
+  if (seq <= _lastReshuffleSeq || !events.length) return;
+
+  const newEvents = events.filter(e => e.seq > _lastReshuffleSeq);
+  _lastReshuffleSeq = seq;
+  if (!newEvents.length) return;
+
+  const el = document.getElementById("switch-toast");
+  if (!el) return;
+
+  const _showReshuffleToast = () => {
+    if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
+    el.textContent = "🔀 Shoe ran low — reshuffled mid-round!";
+    // Colour set in log.css (#switch-toast always yellow).
+    el.classList.remove("show");
+    void el.offsetWidth;
+    el.classList.add("show");
+    ToastUI.switchTimer = setTimeout(() => {
+      el.classList.remove("show");
+      ToastUI.switchTimer = null;
+    }, 4500);
+  };
+
+  if (_bustVoteOpen()) {
+    ToastUI.queue.push(_showReshuffleToast);
+  } else {
+    _showReshuffleToast();
+  }
+}
+
+// ============================================================
+// DEVIL'S HAND (666) / LUCKY SEVENS (777) TABLE EVENTS
+// ============================================================
+let _lastTableEventSeq = 0;
+
+function processTableEvents(state) {
+  const events = state.table_events || [];
+  const seq    = state.table_event_seq || 0;
+  if (seq < _lastTableEventSeq) _lastTableEventSeq = 0;
+  if (seq <= _lastTableEventSeq || !events.length) return;
+
+  const newEvents = events.filter(e => e.seq > _lastTableEventSeq);
+  _lastTableEventSeq = seq;
+  if (!newEvents.length) return;
+
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+
+  newEvents.forEach(ev => {
+    const _show = () => {
+      el.textContent = ev.text;
+      // curse: red if you're the target, green if someone else drinks
+      // lucky: green always (credit is good news for everyone)
+      const _isMine = ev.target && myNames.includes(ev.target);
+      const _cls = ev.outcome === "lucky"
+        ? "clean"
+        : (_isMine ? "drink" : "clean");
+      el.className = _cls + " show";
+      if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
+      ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
+    };
+    if (_bustVoteOpen()) { ToastUI.queue.push(_show); } else { _show(); }
+  });
+}
+
+// ============================================================
+// WILD CARD EASTER EGG  (logo press -> 35% self / 15% targeted / 50% random)
+// ============================================================
+let _lastWildCardSeq = 0;
+
+function processWildCardEvent(state) {
+  const seq = state.wild_card_seq || 0;
+  if (seq < _lastWildCardSeq) _lastWildCardSeq = 0;
+  if (seq <= _lastWildCardSeq) return;
+  _lastWildCardSeq = seq;
+
+  const text    = state.wild_card_text;
+  const outcome = state.wild_card_outcome; // "self" | "random" | "targeted" | "dud"
+  if (!text) return;
+
+  const el = document.getElementById("player-toast");
+  if (!el) return;
+  const dt = document.getElementById("dealer-toast");
+  if (dt) dt.classList.remove("show");
+
+  const _showWildToast = () => {
+    el.textContent = text;
+    // gold for drink outcomes, clean (green) for dud
+    el.className = (outcome === "dud" ? "clean" : "wild-card") + " show";
+    if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
+    ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
+  };
+
+  const logo = document.getElementById("header-logo");
+  if (logo) {
+    logo.classList.add("wild-card-flash");
+    setTimeout(() => logo.classList.remove("wild-card-flash"), 900);
+  }
+
+  if (_bustVoteOpen()) { ToastUI.queue.push(_showWildToast); } else { _showWildToast(); }
+}
+
+async function triggerWildCard() {
+  if (typeof roomCode === "undefined" || typeof clientId === "undefined") return;
+
+  const logo = document.getElementById("header-logo");
+  if (logo) logo.classList.add("wild-card-spin");
+
+  try {
+    const res  = await fetch("/wild_card", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (logo) logo.classList.remove("wild-card-spin");
+
+    if (data.ok) {
+      if (typeof applyState === "function") applyState(data);
+    } else {
+      const el = document.getElementById("player-toast");
+      if (el) {
+        el.textContent = "\u{1F0CF} " + (data.output || "Wild Card unavailable right now.");
+        el.className   = "clean show";
+        if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
+        ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 4500);
+      }
+    }
+  } catch (_) {
+    if (logo) logo.classList.remove("wild-card-spin");
   }
 }

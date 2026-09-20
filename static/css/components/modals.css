@@ -25,11 +25,19 @@
 #register-seats   { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 
 /* ---- KICK / SUMMARY OVERLAY ---- */
+/* z-index above the game-event modals (bust vote / Dealer Lottery /
+   Targeted Drinking, all z-index 500) and below #rules-overlay (600,
+   opened from within this one) -- so Settings can always be opened on
+   top of a still-open game-event modal. Without this, a targeted player
+   who is also admin couldn't reach the Targeted Drinking Cancel button
+   (buried in Settings -> Players) while their own vote modal was showing,
+   since it's a same-z-index full-viewport overlay that would otherwise
+   paint on top by DOM order. */
 #kick-overlay, #summary-overlay {
   display: none;
   position: fixed; inset: 0;
   background: rgba(0,0,0,.75);
-  z-index: 500;
+  z-index: 550;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -42,8 +50,18 @@
   width: 100%; max-width: 380px;
   border: 1px solid var(--border);
   max-height: 80vh; overflow-y: auto;
+  position: relative;
 }
 #kick-card h3, #summary-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+
+#summary-close-btn {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+  width: 28px; height: 28px; line-height: 1;
+  padding: 0; cursor: pointer;
+}
+#summary-close-btn:hover { background: rgba(255,255,255,.18); }
 
 /* Summary table */
 #summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
@@ -58,7 +76,9 @@
 .kick-row:last-child { border-bottom: none; }
 .kick-name     { font-size: 14px; font-weight: 600; }
 .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
-.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: rgba(224,92,92,.15); color: var(--red); border-color: rgba(224,92,92,.3); }
+.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); }
+/* Shared "approve" styling — accept/undo-kick/allow-back/rejoin buttons in admin-settings.js */
+.btn-approve   { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
 
 /* ---- SETTINGS IN KICK CARD ---- */
 .settings-row {
@@ -79,11 +99,29 @@
   border-radius: 6px; color: var(--text); font-size: 13px; padding: 6px 10px;
 }
 
+/* ---- SETTINGS MODAL: Players sub-view ---- */
+.settings-players-nav-btn {
+  margin: 4px 0 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.settings-players-badge {
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+}
+.settings-subview-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 10px;
+}
+.settings-back-btn { flex-shrink: 0; height: 32px; padding: 0 12px; font-size: 12px; }
+.settings-subview-title { font-size: 15px; font-weight: 700; }
+
 /* ---- QUEUED SETTINGS BANNER ---- */
 #queued-settings-banner {
   display: none; margin-top: 12px; padding: 10px 12px;
   border-radius: 8px; font-size: 12px;
-  background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   color: var(--accent);
 }
 #queued-settings-banner ul { padding-left: 16px; margin: 4px 0 0; }
@@ -129,21 +167,103 @@
 #rules-body th, #rules-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 #rules-body th { background: rgba(255,255,255,.06); font-weight: 700; }
 
-/* ---- BUST GIVE OVERLAY ---- */
-#bust-give-overlay {
+/* ---- BUST GIVE OVERLAY (also used by the Dealer Lottery and Targeted
+   Drinking handout pickers) ---- */
+#bust-give-overlay,
+#dealer-lottery-give-overlay,
+#targeted-drinking-give-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,.72);
   z-index: 910;
   align-items: center; justify-content: center;
 }
-#bust-give-card {
+#bust-give-card,
+#dealer-lottery-give-card,
+#targeted-drinking-give-card {
   background: var(--surface);
   border: 1.5px solid var(--green);
   border-radius: 18px;
   padding: 24px 20px 20px;
   width: 100%; max-width: 340px;
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   margin: 16px;
 }
+
+/* ---- BUST VOTE CARDS (_renderBustVoteCards in admin.js) ---- */
+.bv-vote-card    { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.bv-name-lbl     { font-size: 14px; font-weight: 700; min-width: 60px; color: var(--text); }
+.bv-status       { font-size: 13px; font-weight: 600; }
+.bv-status--bust { color: var(--red); }
+.bv-status--pass { color: var(--muted); }
+.bv-btn-row      { display: flex; gap: 8px; flex: 1; }
+.bv-vote-btn     { flex: 1; }
+
+/* ---- DEALER LOTTERY ENTRY CARDS (_renderDealerLotteryCards in admin.js) ---- */
+.dl-entry-card    { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.dl-entry-card:last-child { border-bottom: none; }
+.dl-entry-top     { display: flex; align-items: center; justify-content: space-between; }
+.dl-name-lbl      { font-size: 14px; font-weight: 700; color: var(--text); }
+.dl-status        { font-size: 13px; font-weight: 600; color: var(--green); }
+.dl-x-value       { font-size: 15px; font-weight: 800; color: var(--green); min-width: 20px; text-align: right; }
+.dl-entry-row     { display: flex; gap: 10px; align-items: center; }
+.dl-x-slider {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 6px; border-radius: 3px; background: var(--border); outline: none;
+}
+.dl-x-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--green); cursor: pointer; border: 2px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.dl-x-slider::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--green); cursor: pointer; border: 2px solid var(--surface);
+  box-shadow: 0 1px 4px rgba(0,0,0,.4);
+}
+.dl-enter-btn     { flex-shrink: 0; }
+.dl-answered      { font-size: 11px; color: var(--muted); min-height: 16px; margin-top: 4px; }
+
+/* ---- TARGETED DRINKING MODE (TargetedDrinkingPanel in table-modals.js;
+   entry cards reuse .dl-entry-card/.dl-entry-top/.dl-name-lbl/.dl-status
+   above -- only the vote-button row and streak badge are new) ---- */
+.td-streak        { font-size: 12px; font-weight: 600; color: var(--muted); }
+.td-streak-warning { font-size: 11px; font-weight: 600; color: var(--red); margin-left: 6px; }
+.td-vote-row      { display: flex; gap: 8px; }
+.td-vote-btn      { flex: 1; }
+
+/* Admin's target-select checkboxes (_renderTargetedDrinkingAdmin in
+   admin-settings.js) -- main.css resets all inputs to appearance:none with
+   no fallback box, which collapses an unstyled checkbox to 0x0. Restore
+   native checkbox rendering explicitly since this list has no custom
+   slider visual like the .pill-toggle switches elsewhere. */
+#targeted-drinking-admin-section input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  width: 18px; height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ---- BUST GIVE PANEL (BustGivePanel in admin.js) ---- */
+.bgp-winner-label { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 10px; text-align: center; }
+.bgp-btns-col     { display: flex; flex-direction: column; }
+.bgp-give-btn     { margin-bottom: 8px; }
+.bgp-multi-entry  { margin-bottom: 16px; }
+.bgp-divider      { border-color: var(--border); margin: 8px 0; }
+
+/* ---- REGISTER OVERLAY (showRegisterOverlay in admin.js) ---- */
+.reg-no-seats { color: var(--muted); font-size: 13px; padding: 4px 0; }
+.reg-seat-btn { height: 52px; }
+
+/* ---- LOCAL SEAT PICKER (showLocalSeatPicker in admin.js) ---- */
+.seat-pick-btn { font-size: 12px; margin-bottom: 4px; }
+
+/* ---- BUST VOTE STATUS LABEL (updateBustVoteUI inline span) ---- */
+.bust-label { color: var(--red); font-weight: 700; }
 
 /* ---- MILESTONE MODAL ---- */
 #milestone-modal-overlay {
@@ -163,6 +283,103 @@
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
+
+/* ---- DEALER LOTTERY REVEAL MODAL (shares the milestone modal's shell) ---- */
+#dealer-lottery-reveal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 910;
+  align-items: center; justify-content: center;
+}
+#dealer-lottery-reveal-overlay.open { display: flex; }
+#dealer-lottery-reveal-modal {
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  width: min(360px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+  text-align: center;
+}
+
+/* ---- TARGETED DRINKING MODAL (vote + reveal share one overlay/card so the
+   UI never closes-and-reopens between phases -- see table-modals.js
+   TargetedDrinkingPanel) ---- */
+#targeted-drinking-modal-overlay .td-modal-card {
+  position: relative;
+  max-width: 360px;
+  text-align: center;
+}
+.td-close-btn {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 13px;
+  width: 26px; height: 26px; line-height: 1;
+  padding: 0; cursor: pointer; z-index: 1;
+}
+.td-close-btn:hover { background: rgba(255,255,255,.18); }
+.td-spectator-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 2px; border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.td-spectator-row:last-child { border-bottom: none; }
+.td-spectator-vote { font-weight: 700; color: var(--text); }
+.td-spectator-vote.pending { color: var(--muted); font-weight: 500; }
+.td-banner-cancel {
+  margin-left: 8px;
+  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-size: 11px;
+  width: 20px; height: 20px; line-height: 1;
+  padding: 0; cursor: pointer; vertical-align: middle;
+}
+.td-banner-cancel:hover { background: rgba(255,255,255,.18); }
+.td-stats-panel {
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+.td-stats-dealer-bust {
+  font-size: 12px; color: var(--muted); text-align: center;
+  margin-bottom: 6px;
+}
+.td-stats-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 2px; font-size: 12px;
+}
+.td-stats-correct { color: var(--green); font-weight: 700; }
+.td-stats-wrong   { color: var(--red);   font-weight: 700; }
+.td-start-btn {
+  background: var(--yellow); color: #000;
+  border: none; border-radius: 8px;
+  padding: 6px 14px; font-size: 13px; font-weight: 800;
+  cursor: pointer;
+}
+.td-start-btn:hover { filter: brightness(1.08); }
+.dl-reveal-hands {
+  display: flex; gap: 14px; justify-content: center;
+  margin: 14px 0 10px; flex-wrap: wrap;
+}
+.dl-reveal-payout {
+  font-size: 13px; color: var(--text); margin-bottom: 14px; line-height: 1.5;
+}
+.dl-reveal-payout strong { color: var(--purple); }
+.dl-reveal-headline { font-weight: 700; margin-bottom: 8px; text-align: center; }
+.dl-reveal-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px; text-align: left;
+}
+.dl-reveal-list li {
+  background: color-mix(in srgb, var(--purple) 10%, transparent);
+  border-radius: 8px; padding: 6px 10px;
+}
+.dl-reveal-name { font-weight: 700; color: var(--text); }
+#dealer-lottery-reveal-modal .btn:disabled { opacity: .5; cursor: not-allowed; }
 .ms-stepper {
   display: flex; align-items: center; gap: 10px;
   margin: 7px 0;
@@ -234,6 +451,62 @@
 }
 .ms-ack-btn:active { opacity: .8; }
 
+/* ── House rule: mandatory split on unsuited 10s ── */
+#honor-split-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 920;
+  align-items: center; justify-content: center;
+}
+#honor-split-overlay.open { display: flex; }
+#honor-split-modal {
+  background: var(--surface);
+  border: 2px solid var(--yellow);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  width: min(320px, 88vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+#honor-split-modal .btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ms-ack-btn-secondary {
+  background: transparent;
+  color: var(--yellow);
+  border: 2px solid var(--yellow);
+}
+
+/* ── Bank Run modal (Normal mode, bankroll hit $0) ── */
+#bank-run-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 920;
+  align-items: center; justify-content: center;
+}
+#bank-run-overlay.open { display: flex; }
+#bank-run-modal {
+  background: var(--surface);
+  border: 2px solid var(--green);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  width: min(320px, 88vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+#bank-run-modal .btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 /* ── Insurance vote modal ── */
 #idle-urgent-overlay {
   display: none;
@@ -271,6 +544,9 @@
   border-radius: 18px;
   padding: 22px 20px 18px;
   width: min(340px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
@@ -299,8 +575,8 @@
   margin: 6px 0 4px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: rgba(245,200,66,.1);
-  border: 1px solid rgba(245,200,66,.3);
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
   font-size: 12px; color: var(--muted);
 }
 
@@ -342,3 +618,46 @@
   font-size: 11px; color: var(--muted); cursor: pointer;
   text-decoration: underline; white-space: nowrap;
 }
+
+#target-proposal-modal-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.72);
+  z-index: 910;
+  align-items: center; justify-content: center;
+}
+#target-proposal-modal-overlay.open { display: flex; }
+#target-proposal-modal {
+  background: var(--surface);
+  border: 1.5px solid var(--purple);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  width: min(340px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+.target-proposal-modal-title { font-size: 17px; font-weight: 800; color: var(--purple); }
+
+/* ── Seat Transfer modal ── */
+#seat-transfer-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.78);
+  z-index: 960;
+  align-items: center; justify-content: center;
+}
+#seat-transfer-card {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: 18px;
+  padding: 28px 24px 22px;
+  width: min(340px, 90vw);
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
+}
+#seat-transfer-card h3 { margin: 0 0 .6rem; }
+#seat-transfer-card p  { margin: 0 0 .4rem; color: var(--text-muted); font-size:.95rem; }

@@ -6,103 +6,40 @@ Imported by blackjack.py (drinking mode) and referee.py.
 Has no game logic of its own — purely reacts to events fired by the game.
 """
 
-import hashlib
 import math
-import urllib.request
 from engine.blackjack import Rank, Suit, Hand, Player
-
-_RULES_URL   = "https://raw.githubusercontent.com/robert-rjm/Black-Out-Jack/main/docs/Rules.md"
-_RULES_HASH  = "CC092107596D44EE4068E5782E8663CF12EF360234FB8D39AE700756AEBF32CC"
-_RULES_DATE  = "2026-05-22"
-
-
-def verify_rules():
-    """
-    Fetch Rules.md from GitHub and compare its SHA256 to the known hash.
-    If changed, warn that drinking_rules.py may be out of date.
-    Silently skips on network failure.
-    """
-    try:
-        with urllib.request.urlopen(_RULES_URL, timeout=5) as r:
-            current_hash = hashlib.sha256(r.read()).hexdigest()
-    except Exception:
-        return
-
-    if current_hash != _RULES_HASH:
-        print("=" * 52)
-        print("  WARNING: Rules.md has changed on GitHub!")
-        print(f"  Last verified : {_RULES_DATE}")
-        print(f"  Expected hash : {_RULES_HASH[:16]}...")
-        print(f"  Current hash  : {current_hash[:16]}...")
-        print("  drinking_rules.py may not reflect the latest rules.")
-        review_url = (_RULES_URL
-                      .replace('raw.githubusercontent.com', 'github.com')
-                      .replace('/main/', '/blob/main/'))
-        print(f"  Review changes at: {review_url}")
-        print("  Update _RULES_HASH and _RULES_DATE in drinking_rules.py.")
-        print("=" * 52 + "\n")
 
 
 # =============================================================================
 # Internal helpers
 # =============================================================================
 
-def _bj_multiplier(hand: Hand) -> int:
-    """Cumulative x2 multiplier for blackjack bonus sips."""
+def _bj_breakdown(hand: Hand) -> tuple[int, list[str]]:
+    """Return (multiplier, label_parts) for a blackjack bonus hand.
+
+    Single source of truth for the suited/A+J/both-black x2 conditions so
+    callers that need the breakdown (on_blackjack label) and callers that
+    only need the multiplier (serializer, resolve_insurance_vote) both derive
+    from the same computation.
+    """
     mult  = 1
+    parts: list[str] = []
     ranks = {c.rank for c in hand.cards}
     suits = {c.suit for c in hand.cards}
     black = {Suit.SPADES, Suit.CLUBS}
-    if hand.is_suited():                          mult *= 2
-    if {Rank.ACE, Rank.JACK}.issubset(ranks):     mult *= 2
-    if suits.issubset(black):                     mult *= 2
+    if hand.is_suited():
+        mult *= 2; parts.append("suited x2")
+    if {Rank.ACE, Rank.JACK}.issubset(ranks):
+        mult *= 2; parts.append("A+J x2")
+    if suits.issubset(black):
+        mult *= 2; parts.append("both black x2")
+    return mult, parts
+
+
+def _bj_multiplier(hand: Hand) -> int:
+    """Cumulative x2 multiplier for blackjack bonus sips."""
+    mult, _ = _bj_breakdown(hand)
     return mult
-
-
-# =============================================================================
-# Rule classifier — canonical name for a raw drink-reason string.
-# Used by drink_tracker.py (CSV export) and simulation.py.
-# =============================================================================
-
-def classify_rule(reason: str) -> str | None:
-    """
-    Normalise a raw drink-reason string to a short canonical rule name.
-    Returns None for bookkeeping entries that should not appear in the CSV.
-    """
-    r = reason
-    if "A\u2663" in r and "credit" in r:           return None   # A♣ credit
-    if "A\u2663 protected" in r:                   return None   # display-only waived entry
-    if "A\u2663 protection credit" in r:           return None   # display-only waived credit
-    if "bust vote correct" in r:                    return None   # bust vote credit
-    if "protects" in r:                              return None
-    if "exempt" in r:                                return None
-    if "Bust vote" in r and "wrong" in r:           return "Bust vote wrong call"
-    if "Insurance" in r and "dealer BJ" in r and "own bonus" in r: return "Insurance: BJ holder drinks own bonus"
-    if "Insurance" in r and "no dealer BJ" in r:                   return "Insurance: group drinks double BJ bonus"
-    if "Hard Dealer Switch (A\u2663 half protection)" in r: return "Hard Dealer Switch (half, A\u2663)"
-    if "Hard Dealer Switch" in r:                   return "Hard Dealer Switch"
-    if "net loss" in r:                             return "Net hand losses"
-    if "lost a doubled hand" in r:                  return "Lost doubled hand"
-    if "lost a suited hand" in r:                   return "Lost suited hand"
-    if "immunity exception" in r:                   return "Doubled win (immunity break)"
-    if "won suited hand" in r:                      return "Suited winning hand"
-    if "split hand" in r:                           return "Split win (immunity break)"
-    if "swept all hands" in r:                      return "Other-player sweep"
-    if "all-hands sweep" in r:                      return "All-hands sweep"
-    if "auto-insurance" in r:                       return "Dealer BJ (auto-insurance)"
-    if "Blackjack by" in r:                         return "Blackjack bonus"
-    if "4 Aces" in r and "first deal" in r:         return "Four Aces (first deal)"
-    if "4 Aces" in r and "end of round" in r:       return "Four Aces (end of round)"
-    if "Dealer hand is all" in r:                   return "Dealer suited hand"
-    if "handed" in r and "5-card 21" in r:          return "5-card 21 handout received"
-    if "won with" in r and "cards" in r:            return "5+ card win"
-    if "A\u2660" in r and "to dealer" in r:        return "Ace dealt: Ace of Spades (dealer hand)"
-    if "A\u2665" in r and "dealer" in r:           return "Ace dealt: Ace of Hearts (dealer hand)"
-    if "A\u2666" in r and "dealer" in r:           return "Ace dealt: Ace of Diamonds (dealer hand)"
-    if "A\u2660" in r:                             return "Ace dealt: Ace of Spades (player hand)"
-    if "A\u2665" in r:                             return "Ace dealt: Ace of Hearts (player hand)"
-    if "A\u2666" in r:                             return "Ace dealt: Ace of Diamonds (player hand)"
-    return "Other"
 
 
 # =============================================================================
@@ -230,14 +167,8 @@ class DrinkingRules:
         Multipliers: suited x2, A+J x2, both black x2 — cumulative.
         hard_switch_dealer: dealer-player is exempt on a Hard Dealer Switch.
         """
-        mult   = _bj_multiplier(hand)
+        mult, parts = _bj_breakdown(hand)
         sips   = mult
-        parts  = []
-        ranks  = {c.rank for c in hand.cards}
-        suits  = {c.suit for c in hand.cards}
-        if hand.is_suited():                                parts.append("suited x2")
-        if {Rank.ACE, Rank.JACK}.issubset(ranks):           parts.append("A+J x2")
-        if suits.issubset({Suit.SPADES, Suit.CLUBS}):       parts.append("both black x2")
         detail = f" ({' '.join(parts)})" if parts else ""
         others = [p for p in all_player_names
                   if p != player_name and p != hard_switch_dealer]
@@ -255,41 +186,73 @@ class DrinkingRules:
 
         insured:    True if majority voted to insure, False if decline (tie = decline).
         dealer_bj:  True if dealer has a natural blackjack.
+        hard_switch_dealer: dealer-player name when a Hard Dealer Switch is active.
 
-        Outcomes:
-          Insure + dealer BJ:    BJ holder drinks own bonus, hand pushes, group drinks nothing.
-          Insure + dealer no BJ: Group drinks double the normal BJ bonus.
-          Decline + dealer BJ:   Existing auto-insurance handles it; no extra drinks here.
-          Decline + dealer no BJ: Normal BJ bonus (group drinks as usual).
+        Insurance rules are independent of who is the dealer.  The Hard Dealer Switch
+        only modifies the dealer-player's share in Case 2 (see below).
+
+        Case 1 — Insure + dealer BJ (group bet correctly):
+            BJ holder drinks own BJ Bonus; hand pushes. Group drinks nothing.
+
+        Case 2 — Insure + no dealer BJ (group gambled wrong):
+            BJ holder drinks nothing.
+            Group drinks double BJ Bonus.
+            Hard switch, dealer is a group member (not the BJ holder):
+              dealer drinks 1× BJ Bonus only (softened — Hard Switch is their main
+              penalty); the rest of the group still drinks double.
+            Hard switch, dealer IS the BJ holder:
+              BJ holder/dealer drinks nothing from insurance; group drinks double.
+              Calling code must exclude dealer's BJ hand from the Hard Switch penalty.
+
+        Case 3 — Decline + dealer BJ:
+            Auto-insurance already handles the net-loss cap; nothing extra here.
+
+        Case 4 — Decline + no dealer BJ:
+            Normal BJ bonus (group drinks as usual).
         """
         mult   = _bj_multiplier(hand)
+        # others: everyone except the BJ holder and (on hard switch) the dealer-player.
+        # When player_name == hard_switch_dealer they are the same person.
         others = [p for p in all_player_names
                   if p != player_name and p != hard_switch_dealer]
 
+        # ---- Case 1: insured + dealer BJ — group bet correctly ----
         if insured and dealer_bj:
-            # BJ holder drinks their own bonus; group is protected
-            sips = mult
-            msgs = [(player_name, sips,
-                     f"Insurance (group voted insure) + dealer BJ: "
-                     f"{player_name} drinks own bonus {sips} sip(s), group protected")]
-            msgs.append((None, 0, f"{player_name}'s blackjack pushes (insured vs dealer BJ)"))
-            return msgs
+            return [
+                (player_name, mult,
+                 f"Insurance (group voted insure) + dealer BJ: "
+                 f"{player_name} drinks own BJ bonus {mult} sip(s), hand pushes, "
+                 f"group protected"),
+                (None, 0, f"{player_name}'s blackjack pushes (insured vs dealer BJ)"),
+            ]
 
+        # ---- Case 2: insured + no dealer BJ — group gambled wrong ----
         if insured and not dealer_bj:
-            # Group gambled wrong — drinks double
             sips = mult * 2
-            return [(p, sips,
+            # Group (excl. BJ holder and dealer-player when hard switch) drinks double.
+            msgs = [(p, sips,
                      f"Insurance (group voted insure) + no dealer BJ: "
                      f"{p} drinks double BJ bonus {sips} sip(s)")
                     for p in others]
+            if hard_switch_dealer and hard_switch_dealer.lower() != player_name.lower():
+                # Sub-case A: dealer is in the group but not the BJ holder.
+                # Soften their insurance share to 1× — Hard Switch is their main penalty.
+                msgs.append((hard_switch_dealer, mult,
+                             f"Insurance (insured + no dealer BJ) + Hard Dealer Switch: "
+                             f"{hard_switch_dealer} drinks BJ bonus {mult} sip(s) "
+                             f"(not doubled — hard switch penalty applies separately)"))
+            # Sub-case B: dealer IS the BJ holder (hard_switch_dealer == player_name).
+            # BJ holder drinks nothing; group (others) already drinks double above.
+            # Calling code is responsible for excluding dealer's BJ from Hard Switch.
+            return msgs
 
+        # ---- Case 3: declined + dealer BJ ----
         if not insured and dealer_bj:
-            # Decline + dealer BJ: auto-insurance already handles net-loss cap
             return [(None, 0,
                      f"{player_name} blackjack: group declined insurance, dealer has BJ "
                      f"=> auto-insurance applies, normal max sips only")]
 
-        # Decline + no dealer BJ: normal BJ bonus
+        # ---- Case 4: declined + no dealer BJ — normal BJ bonus ----
         return DrinkingRules.on_blackjack(player_name, hand, all_player_names,
                                           hard_switch_dealer=hard_switch_dealer)
 
@@ -356,7 +319,8 @@ class DrinkingRules:
     def check_all_hands_sweep(player_name: str, player_hands: list,
                                all_player_names: list, wager: int,
                                dealer_name: str = "",
-                               dealer_bj: bool = False) -> list:
+                               dealer_bj: bool = False,
+                               hard_switch_dealer: str = "") -> list:
         """
         Fires when a player has 2+ hands (starting hands or from a split) and EITHER:
           - Every card across every hand shares the same suit, OR
@@ -366,6 +330,12 @@ class DrinkingRules:
         Payout: wager × 2 per condition met (both = wager × 4).
         Suppressed when dealer has BJ (consistent with auto-insurance).
         Stacks with all other win-bonus rules.
+
+        hard_switch_dealer: the hard-switch-exempt dealer, if this is a hard
+        switch round -- on_hand_resolved skips crediting that dealer the
+        doubled-hand immunity-exception +1 (their payout comes from
+        HardDealerSwitchEvent instead), so the cancellation below must skip
+        them too, or they'd lose a sip they were never given.
         """
         if dealer_bj:
             return []
@@ -401,10 +371,13 @@ class DrinkingRules:
                 for p in others]
 
         # Cancel doubled-hand immunity drinks already applied in on_hand_resolved
-        # for each winning doubled hand — the sweep covers them.
+        # for each winning doubled hand — the sweep covers them. Excludes the
+        # hard-switch-exempt dealer: on_hand_resolved never credited them that
+        # +1 to begin with, so cancelling it here would take a sip they never drank.
+        cancel_recipients = [p for p in others if p != hard_switch_dealer]
         for hand in player_hands:
             if hand.result == "win" and hand.doubled and not hand.is_suited():
-                for p in others:
+                for p in cancel_recipients:
                     msgs.append((p, -1,
                         f"Sweep cancels doubled-hand drink for {p} (already covered by sweep)"))
 
@@ -433,71 +406,57 @@ class DrinkingRules:
     # ---------------------------------------------------------------- round end
 
     @staticmethod
-    def on_round_end(players: list, wager: int,
-                     dealer_bj: bool = False,
-                     hard_switch_dealer: str = "",
-                     num_hands: int = 0) -> list:
-        """
-        Called once all hands are resolved.
-        Fires:
-        - Net hand losses (wins offset losses; only net negative costs sips)
-        - Extra sip for each lost double or lost suited hand
-        - Split wins break immunity (aggregated as winning_split_hands - 1)
-        - Other-player-wins-all rule (with immunity tiers)
+    def _dealer_bj_drinks(players: list, wager: int, num_hands: int,
+                           hard_switch_dealer: str) -> list:
+        """Auto-insurance charge when dealer has a natural blackjack.
 
-        dealer_bj: when True (dealer natural blackjack) players are charged for
-                   every starting hand (num_hands) minus any BJ pushes × wager.
-                   Splits do not reduce the charge — a player who started with 2
-                   hands and split one still pays for 2 starting hands.
-                   All bonus/penalty extras are suppressed (auto-insurance).
-        num_hands: configured hands per player (used for dealer BJ charge).
-                   Falls back to counting non-split hands if not supplied.
-        hard_switch_dealer: name of the dealer-player on a hard switch — they are
-                            fully exempt from all player-role drinks this round
-                            (they already drink via the Hard Switch dealer rule).
+        Every player pays for starting hands lost (num_hands minus BJ pushes).
+        Splits don't reduce the charge.  The new hard-switch dealer is exempt.
         """
         msgs = []
-
-        # On a hard switch the dealer drinks via the Hard Switch rule only —
-        # skip all player-role charges for them.
-        def _excluded(player_name: str) -> bool:
-            return bool(hard_switch_dealer) and player_name == hard_switch_dealer
-
-        # Dealer blackjack = auto-insurance:
-        # charge num_hands × wager minus any BJ pushes (player BJ vs dealer BJ).
-        # Splits do not reduce the charge — starting hand count is always num_hands.
-        if dealer_bj:
-            for p in players:
-                if _excluded(p.name):
-                    continue
-                # BJ pushes: player had BJ on a starting hand → pushes vs dealer BJ
-                bj_pushes = sum(
-                    1 for h in p.hands
-                    if not h.from_split and h.result == "push" and h.is_blackjack()
-                )
-                # Base = num_hands if supplied; otherwise count non-split hands
-                base = num_hands if num_hands > 0 else sum(
-                    1 for h in p.hands if not h.from_split
-                )
-                starting_losses = max(0, base - bj_pushes)
-                if starting_losses > 0:
-                    msgs.append((p.name, starting_losses * wager,
-                        f"{p.name} dealer BJ — {starting_losses} starting hand(s) lost "
-                        f"=> drinks {starting_losses * wager} sip(s) (auto-insurance)"))
-            return msgs
-
-        # Net losses — always fire (skip dealer on hard switch)
         for p in players:
-            if _excluded(p.name):
+            if bool(hard_switch_dealer) and p.name == hard_switch_dealer:
                 continue
-            net = p.net_losses()
+            bj_pushes = sum(
+                1 for h in p.hands
+                if not h.from_split and h.result == "push" and h.is_blackjack()
+            )
+            base = num_hands if num_hands > 0 else sum(
+                1 for h in p.hands if not h.from_split
+            )
+            starting_losses = max(0, base - bj_pushes)
+            if starting_losses > 0:
+                msgs.append((p.name, starting_losses * wager,
+                    f"{p.name} dealer BJ \u2014 {starting_losses} starting hand(s) lost "
+                    f"=> drinks {starting_losses * wager} sip(s) (auto-insurance)"))
+        return msgs
+
+    @staticmethod
+    def _net_loss_drinks(players: list, wager: int, hard_switch_dealer: str) -> list:
+        """Sips for net hand losses.
+
+        Wins offset losses; only a net negative total costs sips.
+        Blackjack counts as 2 wins (house rule) -- it can offset two lost hands.
+        """
+        msgs = []
+        for p in players:
+            if bool(hard_switch_dealer) and p.name == hard_switch_dealer:
+                continue
+            # BJ = 2 wins: a natural offsets two net-loss hands (drinking house rule)
+            effective_wins = sum(2 if h.is_blackjack() else 1
+                                 for h in p.hands if h.result == "win")
+            net = max(0, p.round_losses() - effective_wins)
             if net > 0:
                 msgs.append((p.name, net * wager,
                     f"{p.name} net -{net} hand(s) => drinks {net * wager} sip(s) (net loss)"))
+        return msgs
 
-        # Extra sip for each lost double or lost suited hand (skip dealer on hard switch)
+    @staticmethod
+    def _extra_loss_drinks(players: list, wager: int, hard_switch_dealer: str) -> list:
+        """Extra sip for each lost doubled or lost suited hand."""
+        msgs = []
         for p in players:
-            if _excluded(p.name):
+            if bool(hard_switch_dealer) and p.name == hard_switch_dealer:
                 continue
             for hand in p.hands:
                 if hand.result != "loss":
@@ -508,8 +467,12 @@ class DrinkingRules:
                 if hand.is_suited():
                     msgs.append((p.name, wager,
                         f"{p.name} lost a suited hand => +{wager} sip(s)"))
+        return msgs
 
-        # Split wins break immunity: sips = (winning split hands) - 1, per winner
+    @staticmethod
+    def _split_win_drinks(players: list, hard_switch_dealer: str) -> list:
+        """Split wins break immunity: sips = (winning split hands) - 1, charged to all others."""
+        msgs = []
         for winner in players:
             split_wins = sum(1 for h in winner.hands if h.from_split and h.result == "win")
             sips = max(0, split_wins - 1)
@@ -518,30 +481,78 @@ class DrinkingRules:
             for other in players:
                 if other is winner:
                     continue
-                if _excluded(other.name):   # dealer exempt on hard switch
+                if bool(hard_switch_dealer) and other.name == hard_switch_dealer:
                     continue
                 msgs.append((other.name, sips,
                     f"{winner.name} won {split_wins} split hand(s) => {other.name} drinks {sips} sip(s)"))
+        return msgs
 
-        # Other-player-wins-all
+    @staticmethod
+    def _wins_all_drinks(players: list, hard_switch_dealer: str) -> list:
+        """Other-player-wins-all rule with immunity tiers."""
+        msgs = []
         for winner in players:
             if winner.round_losses() > 0 or winner.round_pushes() > 0:
                 continue
             w_wins = winner.round_wins()
             for other in players:
-                if other is winner: continue
-                if _excluded(other.name):   # dealer exempt on hard switch
+                if other is winner:
+                    continue
+                if bool(hard_switch_dealer) and other.name == hard_switch_dealer:
                     continue
                 o_wins   = other.round_wins()
                 o_losses = other.round_losses()
                 o_pushes = other.round_pushes()
-                if o_losses == 0 and o_pushes == 0: sips = 0       # immune
-                elif o_losses == 0:                   sips = max(0, w_wins - o_wins)
-                else:                                 sips = w_wins
+                if o_losses == 0 and o_pushes == 0:
+                    sips = 0          # fully immune
+                elif o_losses == 0:
+                    sips = max(0, w_wins - o_wins)
+                else:
+                    sips = w_wins
                 if sips > 0:
                     msgs.append((other.name, sips,
                         f"{winner.name} swept all hands => {other.name} drinks {sips} sip(s)"))
+        return msgs
 
+    @staticmethod
+    def on_round_end(players: list, wager: int,
+                     dealer_bj: bool = False,
+                     dealer_shows_ace: bool = False,
+                     hard_switch_dealer: str = "",
+                     num_hands: int = 0) -> list:
+        """
+        Called once all hands are resolved.
+        Fires:
+        - Net hand losses (wins offset losses; only net negative costs sips)
+        - Extra sip for each lost double or lost suited hand
+        - Split wins break immunity (aggregated as winning_split_hands - 1)
+        - Other-player-wins-all rule (with immunity tiers)
+
+        dealer_bj: when True (dealer natural blackjack) AND dealer_shows_ace is
+                   True, players are charged for every starting hand (num_hands)
+                   minus any BJ pushes x wager. Splits do not reduce the charge --
+                   a player who started with 2 hands and split one still pays for
+                   2 starting hands. All bonus/penalty extras are suppressed
+                   (auto-insurance).
+        dealer_shows_ace: whether the dealer's up-card (first card) was an Ace --
+                   real insurance is only ever offered on an Ace up-card. When the
+                   dealer's blackjack instead came from a 10-value up-card hiding
+                   an Ace, the group never had a chance to insure, so the normal
+                   (uncapped) net-loss rules apply instead of auto-insurance.
+        num_hands: configured hands per player (used for dealer BJ charge).
+                   Falls back to counting non-split hands if not supplied.
+        hard_switch_dealer: name of the dealer-player on a hard switch -- they are
+                            fully exempt from all player-role drinks this round
+                            (they already drink via the Hard Switch dealer rule).
+        """
+        if dealer_bj and dealer_shows_ace:
+            return DrinkingRules._dealer_bj_drinks(players, wager, num_hands, hard_switch_dealer)
+
+        msgs = []
+        msgs += DrinkingRules._net_loss_drinks(players, wager, hard_switch_dealer)
+        msgs += DrinkingRules._extra_loss_drinks(players, wager, hard_switch_dealer)
+        msgs += DrinkingRules._split_win_drinks(players, hard_switch_dealer)
+        msgs += DrinkingRules._wins_all_drinks(players, hard_switch_dealer)
         return msgs
 
     # ---------------------------------------------------------------- hard dealer switch
@@ -641,6 +652,7 @@ class DrinkingRules:
                     event.player_name, event.player_hands, event.all_names,
                     event.wager, dealer_name=event.dealer_name,
                     dealer_bj=event.dealer_bj,
+                    hard_switch_dealer=event.hard_switch_dealer,
                 )
             case DealerHandRevealedEvent():
                 return DrinkingRules.on_dealer_hand_revealed(event.dealer_hand)
@@ -648,6 +660,7 @@ class DrinkingRules:
                 return DrinkingRules.on_round_end(
                     event.players, event.wager,
                     dealer_bj=event.dealer_bj,
+                    dealer_shows_ace=event.dealer_shows_ace,
                     hard_switch_dealer=event.hard_switch_dealer,
                     num_hands=event.num_hands,
                 )
@@ -720,12 +733,12 @@ class DrinkTracker:
             if self.verbose:
                 print(f"    [drink] {reason}")
 
-    def apply_end_of_round(self, *msg_lists):
+    def apply_end_of_round(self, msgs: list):
         """Apply all end-of-round drink messages.
         4-player rule (4+ players): sum positive sips per player across the
         entire round, then apply a halving credit so net = ceil(total/2).
         Mid-round events (aces, first-deal four-aces) use apply() -- NOT halved."""
-        all_msgs = [msg for msgs in msg_lists for msg in msgs]
+        all_msgs = list(msgs)
         halving_active = self.easy_mode or len(self.players) >= 4
 
         if not halving_active:
@@ -767,11 +780,15 @@ class DrinkTracker:
 
     # ---------------------------------------------------------------- handout
 
-    def _handle_handout(self, giver: str, total: int, reason: str):
+    def _handle_handout(self, giver: str, total: int, reason: str, label: str = "5-card 21"):
         """
-        Handle 5-card-21 sip handout.
+        Handle a sip handout (5-card-21 win, or a bust-vote reward).
         NPC givers distribute round-robin automatically.
         Human givers are prompted interactively.
+
+        label: short tag appended to each per-sip reason string, e.g.
+               "5-card 21" or "bust vote".
+               distinguish handout sources in the CSV export.
         """
         if self.verbose:
             print(f"    [drink] {reason}")
@@ -784,34 +801,54 @@ class DrinkTracker:
         if getattr(giver_player, "is_npc", False):
             for i in range(remaining):
                 t = others[i % len(others)]
-                t.add_drink(1, f"{giver} (NPC) handed 1 sip to {t.name} (5-card 21)", "player")
+                t.add_drink(1, f"{giver} (NPC) handed 1 sip to {t.name} ({label})", "player")
                 if self.verbose:
                     print(f"    -> {t.name} +1 sip (NPC auto-distributed)")
             return
 
-        other_names = [p.name for p in others]
+        other_names   = [p.name for p in others]
+        max_attempts  = 5  # consecutive invalid/blank entries before auto-distributing the rest
+        bad_attempts  = 0
         if self.verbose:
             print(f"    {giver}, hand out {remaining} sip(s) among: {', '.join(other_names)}")
+        i = 0
         while remaining > 0:
-            raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
-            t   = self._map.get(raw.lower())
+            try:
+                raw = input(f"    Who gets a sip? ({remaining} left): ").strip().capitalize()
+            except EOFError:
+                raw = ""
+                bad_attempts = max_attempts  # no terminal to read from — stop asking
+
+            t = self._map.get(raw.lower())
             if t and t.name.lower() != giver.lower():
-                t.add_drink(1, f"{giver} handed 1 sip to {t.name} (5-card 21)", "player")
+                t.add_drink(1, f"{giver} handed 1 sip to {t.name} ({label})", "player")
                 remaining -= 1
+                bad_attempts = 0
                 if self.verbose:
                     print(f"    -> {t.name} +1 sip")
             else:
-                if self.verbose:
-                    print(f"    Invalid. Choose from: {', '.join(other_names)}")
+                bad_attempts += 1
+                if bad_attempts >= max_attempts:
+                    if self.verbose:
+                        print(f"    No valid choice after {max_attempts} tries — "
+                              f"auto-distributing remaining {remaining} sip(s) round-robin.")
+                    for j in range(remaining):
+                        t = others[(i + j) % len(others)]
+                        t.add_drink(1, f"{giver} handed 1 sip to {t.name} ({label}, auto)", "player")
+                        if self.verbose:
+                            print(f"    -> {t.name} +1 sip (auto-distributed)")
+                    remaining = 0
+                else:
+                    if self.verbose:
+                        print(f"    Invalid. Choose from: {', '.join(other_names)}")
+            i += 1
 
     # ---------------------------------------------------------------- summary
 
     def print_round_summary(self):
         if self.verbose:
             print("\n" + "="*52)
-        if self.verbose:
             print("  DRINK SUMMARY")
-        if self.verbose:
             print("="*52)
         for p in self.players:
             if p.name == "House": continue

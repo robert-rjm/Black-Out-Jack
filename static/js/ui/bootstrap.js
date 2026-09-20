@@ -12,7 +12,10 @@
   function invokeAction(action, args, el, event) {
     if (!action || typeof window[action] !== "function") return;
 
-    if (action === "setGameType" || action === "switchRefTab" || action === "switchDigTab" || action === "switchKpiTab") {
+    if (action === "switchTab") {
+      return window.switchTab(args[0], args[1], args[2], el);
+    }
+    if (action === "setGameType" || action === "switchKpiTab") {
       return window[action](args[0], el);
     }
     if (action === "setAnimToggle") {
@@ -23,6 +26,12 @@
     }
     if (action === "setEasyModeAdmin") {
       return window.setEasyModeAdmin(!!el.checked);
+    }
+    if (action === "setStrategyHintEnabled") {
+      return window.setStrategyHintEnabled(!!el.checked);
+    }
+    if (action === "setWildCardEnabled") {
+      return window.setWildCardEnabled(!!el.checked);
     }
     if (action === "setEasyModeSetup") {
       return window.setEasyModeSetup(!!el.checked);
@@ -52,6 +61,11 @@
 
   window.exportDrinksAndClose = function exportDrinksAndClose() {
     exportDrinkCSV();
+    closeSummaryModal();
+  };
+
+  window.exportDecisionLogAndClose = function exportDecisionLogAndClose() {
+    exportDecisionLog();
     closeSummaryModal();
   };
 

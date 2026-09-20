@@ -2,6 +2,15 @@
 
 .is-hidden { display: none; }
 
+/* Normal mode: hide every drink/sip-related element regardless of any
+   inline styles JS may set (last-round button/modal, sip ticker, drinks
+   tab panel, milestone toasts, sip columns in KPI panel, drinking trivia
+   category, "Sips/hand" settings, Easy Mode toggle, etc.). Toggled via the
+   `no-drinking` class on <body>, set from `state.drinking_mode` in table.js. */
+body.no-drinking .drink-only {
+  display: none !important;
+}
+
 .pressable:active { transform: scale(.97); }
 
 /* Hidden by default; shown by JS when needed */
@@ -22,6 +31,9 @@
 #dig-insurance-row,
 #bust-vote-status,
 #bust-vote-modal-overlay,
+#dealer-lottery-modal-overlay,
+#targeted-drinking-modal-overlay,
+#td-status-banner,
 #insurance-vote-banner,
 #dig-drinks-progress,
 #dig-drinks-panel,
@@ -97,9 +109,13 @@
   background: var(--border);
 }
 .lobby-github-link:hover,
+.lobby-terms-link:hover,
+.lobby-donate-link:hover,
 .gate-btn-decline:hover { color: var(--text); }
 
-.lobby-github-link {
+.lobby-github-link,
+.lobby-terms-link,
+.lobby-donate-link {
   color: var(--muted);
   text-decoration: none;
   font-size: 11px;
@@ -137,8 +153,8 @@
 .banner-pending-reg {
   padding: 0 14px 6px;
   font-size: 12px;
-  background: rgba(79,142,247,.06);
-  border-bottom: 1px solid rgba(79,142,247,.2);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
 }
 .banner-pending-reg .pending-reg-row {
@@ -147,7 +163,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px solid rgba(79,142,247,.1);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .banner-pending-reg .pending-reg-row:last-child { border-bottom: none; }
 .banner-pending-reg .pending-reg-name { font-weight: 700; }
@@ -177,13 +193,13 @@
   transition: background .3s, border-color .3s, color .3s;
 }
 .idle-warning-banner.idle-soft {
-  background: rgba(245,200,66,.08);
-  border-bottom-color: rgba(245,200,66,.2);
+  background: color-mix(in srgb, var(--yellow) 8%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--yellow) 20%, transparent);
   color: var(--yellow);
 }
 .idle-warning-banner.idle-urgent {
-  background: rgba(224,92,92,.12);
-  border-bottom-color: rgba(224,92,92,.3);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--red) 30%, transparent);
   color: var(--red);
   animation: idle-pulse 1.2s ease-in-out infinite;
 }
@@ -195,16 +211,16 @@
 .banner-kick {
   padding: 6px 14px;
   font-size: 12px;
-  background: rgba(224,92,92,.1);
-  border-bottom: 1px solid rgba(224,92,92,.25);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--red) 25%, transparent);
   color: var(--red);
   line-height: 1.6;
 }
 .banner-rejoin {
   padding: 7px 14px;
   font-size: 12px;
-  background: rgba(245,200,66,.08);
-  border-bottom: 1px solid rgba(245,200,66,.2);
+  background: color-mix(in srgb, var(--yellow) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--yellow) 20%, transparent);
   color: var(--yellow);
   display: flex;
   align-items: center;
@@ -221,8 +237,8 @@
   margin: 6px 8px 0;
   padding: 9px 14px;
   border-radius: 12px;
-  background: rgba(245,200,66,.12);
-  border: 1.5px solid rgba(245,200,66,.4);
+  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--yellow) 40%, transparent);
   color: var(--yellow);
   font-size: 13px;
   font-weight: 700;
@@ -233,8 +249,8 @@
   margin: 8px 0;
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(245,200,66,.13);
-  border: 1px solid rgba(245,200,66,.4);
+  background: color-mix(in srgb, var(--yellow) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 40%, transparent);
   color: var(--yellow);
   font-size: 13px;
 }
@@ -277,13 +293,35 @@
   gap: 4px;
   flex-shrink: 0;
   align-items: start;
-  padding-right: 8px;
+  /* overflow-x: auto alone computes overflow-y to auto too (per the CSS
+     overflow spec), so this container clips vertically as well -- every
+     side needs enough padding to fit .drinks-card.selected's outline
+     (2px + 1px offset = 3px reach), not just the right edge (originally
+     padded only for horizontal scroll clearance), or the outline gets
+     clipped on whichever sides sit flush against the container. */
+  padding: 4px 8px 4px 4px;
   overflow-x: auto;
 }
 .drinks-card {
   flex-shrink: 0;
   width: 96px;
+  /* layout / interaction — replaces inline style on each generated button */
+  padding: 7px 4px;
+  border-radius: 9px;
+  text-align: center;
+  cursor: pointer;
+  transition: outline .1s;
+  -webkit-tap-highlight-color: transparent;
 }
+/* Selected state — toggled by DrinksPanel._selectPlayer(); replaces inline style.outline */
+.drinks-card.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Inner elements of a drinks card (background/border/color remain inline — dynamic) */
+.dc-name  { font-size: 10px; color: var(--muted); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0 2px; }
+.dc-count { font-size: 21px; font-weight: 800; line-height: 1.2; }
+.dc-unit  { font-size: 10px; opacity: .85; }
+.dc-diff  { font-size: 9px;  line-height: 1.3; }
+
 .drinks-divider {
   width: 1px;
   background: var(--border);
@@ -297,9 +335,20 @@
   max-height: 160px;
 }
 
+/* Drinks detail panel states (DrinksPanel._renderDetail) */
+.drinks-detail-empty  { color: var(--muted); font-size: 12px; text-align: center; padding: 20px 8px; opacity: .55; line-height: 1.5; }
+.drinks-detail-clean  { color: var(--green); font-size: 12px; text-align: center; padding: 10px 4px; }
+.drinks-detail-header { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px; }
+/* Static layout per drink entry (color/border-left/bg stay inline — dynamic per credit/debit) */
+.drinks-entry        { font-size: 11px; line-height: 1.45; padding: 4px 6px; border-radius: 6px; margin-bottom: 3px; }
+.drinks-entry-label  { font-weight: 700; }
+.drinks-entry-reason { color: var(--muted); }
+
 .peeked-wrap { margin-bottom: 8px; }
 .peeked-label { margin-bottom: 6px; }
 .peeked-display { display: flex; gap: 6px; align-items: center; }
+/* Label element next to the peeked card chip */
+.peeked-card-label { font-size: 13px; font-weight: 700; color: var(--text); align-self: center; }
 
 .register-error {
   color: var(--red);
@@ -345,16 +394,27 @@
   height: 32px;
   padding: 0 12px;
   font-size: 12px;
-  background: rgba(79,142,247,.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);
-  border-color: rgba(79,142,247,.3);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
+.npc-toggle-btn { white-space: nowrap; flex-shrink: 0; }
+.npc-toggle-btn.npc-toggle-active { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, transparent); }
 .npc-label {
   font-size: 12px;
   white-space: nowrap;
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;         /* prevent the label from being squeezed by flex: 1 on the text input */
+  min-height: 36px;       /* ensure tappable touch target */
+  padding: 0 4px;
+  cursor: pointer;
+}
+.npc-label input[type=checkbox] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 .settings-select {
   flex: 1;
@@ -436,6 +496,7 @@
   font-weight: 800;
   cursor: pointer;
 }
+.milestone-submit:disabled { opacity: .5; cursor: not-allowed; }
 
 .summary-meta {
   font-size: 12px;
@@ -443,13 +504,126 @@
   margin-bottom: 12px;
 }
 .summary-actions { margin-top: 4px; }
+.auto-export-row {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+}
+.auto-export-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted); cursor: pointer;
+}
+.auto-export-label input[type="checkbox"] { cursor: pointer; }
+
+.modal-donate {
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--muted);
+  text-align: center; line-height: 1.7;
+}
+.modal-donate a { color: var(--muted); text-decoration: none; }
+.modal-donate a:hover { color: var(--text); }
 
 .local-seat-switcher {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 10px; margin: 4px 0;
-  background: rgba(245,200,66,.1);
-  border: 1px solid rgba(245,200,66,.3);
+  background: color-mix(in srgb, var(--yellow) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--yellow) 30%, transparent);
   border-radius: 8px; font-size: 12px;
 }
 .seat-switcher-label { color: var(--muted); }
 .seat-switcher-name  { font-weight: 700; color: var(--yellow); flex: 1; }
+
+/* ------------------------------------------------------------------ */
+/* Server-disconnected overlay                                          */
+/* ------------------------------------------------------------------ */
+.server-disconnect-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.server-disconnect-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  width: min(320px, 88vw);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.server-disconnect-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: disconnect-spin 0.8s linear infinite;
+  margin-bottom: 4px;
+}
+@keyframes disconnect-spin {
+  to { transform: rotate(360deg); }
+}
+.server-disconnect-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+.server-disconnect-msg {
+  font-size: 14px;
+  color: var(--muted);
+}
+.server-disconnect-note {
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.server-disconnect-elapsed {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--muted);
+  min-height: 1.2em;
+  letter-spacing: 0.02em;
+}
+.server-disconnect-giveup {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--red);
+  background: transparent;
+  border: 1px solid var(--red);
+  opacity: 0.8;
+}
+.server-disconnect-giveup:hover {
+  opacity: 1;
+}
+.server-disconnect-tryagain {
+  margin-top: 8px;
+}
+.tryagain-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--red);
+  transition: opacity 0.6s ease;
+}
+.server-disconnect-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  margin-bottom: 4px;
+  opacity: 0.9;
+}
+.server-disconnect-github {
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0.6;
+}
+.server-disconnect-github:hover {
+  opacity: 1;
+  text-decoration: underline;
+}

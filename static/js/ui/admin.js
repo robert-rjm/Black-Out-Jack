@@ -47,10 +47,10 @@ function updateRoleUI(state) {
   // Drinks tab is visible to all; dealer-only actions inside the pane are toggled separately
   const dealerActions = document.getElementById("dig-drinks-dealer-actions");
   const waitingHint   = document.getElementById("dig-drinks-waiting");
-  const isRoundOver   = state.phase === "round-over";
+  const isRoundOver   = state.phase === PHASE.ROUND_OVER;
   // NEW ROUND is only relevant at round-over; during pre-deal the DEAL button takes over
   if (dealerActions) dealerActions.style.display = (isMyDealerClient && isRoundOver) ? "block" : "none";
-  if (waitingHint)   waitingHint.style.display   = (!isMyDealerClient && myRole !== "spectator" && isRoundOver) ? "block" : "none";
+  if (waitingHint)   waitingHint.style.display   = (!isMyDealerClient && myRole !== ROLE.SPECTATOR && isRoundOver) ? "block" : "none";
 
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
@@ -61,12 +61,14 @@ function updateRoleUI(state) {
   const predealPanel   = document.getElementById("dig-predeal-panel");
   const playContent    = document.getElementById("dig-play-content");
   const phase          = state.phase;
-  const isPreDeal      = phase === "pre-deal";
+  const isPreDeal      = phase === PHASE.PRE_DEAL;
 
   // Waiting-room deal panel: above tabs, dealer only
   if (predealPanel) {
     predealPanel.style.display = (isPreDeal && isMyDealerClient) ? "block" : "none";
   }
+  // Per-player bet panel: shown to non-dealer players in pre-deal (normal/digital mode only)
+  _updateBetPanel(state, isPreDeal);
   // Hide all play actions until cards are on the table
   if (playContent) {
     playContent.style.display = isPreDeal ? "none" : "block";
@@ -75,11 +77,9 @@ function updateRoleUI(state) {
   const presel       = state.preselections || {};
   const suggestions  = state.suggestions   || {};
 
-  const actionSel = "#dig-action-row1 .btn, #dig-action-row2 .btn";
-
   // Clear all highlights
-  document.querySelectorAll("#dig-action-row1 .btn.voted,       #dig-action-row2 .btn.voted").forEach(b => b.classList.remove("voted"));
-  document.querySelectorAll("#dig-action-row1 .btn.voted-dealer, #dig-action-row2 .btn.voted-dealer").forEach(b => b.classList.remove("voted-dealer"));
+  digActionButtons().forEach(b => b.classList.remove("voted"));
+  digActionButtons().forEach(b => b.classList.remove("voted-dealer"));
 
   // Hide suggest UI by default
   if (suggestBanner) suggestBanner.style.display = "none";
@@ -87,28 +87,39 @@ function updateRoleUI(state) {
   if (suggestToggle) suggestToggle.style.display  = "none";
   if (voteDisp)      voteDisp.style.display       = "none";
 
-  // Local seat switcher
+  // Local seat switcher (play panel)
   _updateLocalSeatSwitcher();
-  const addLocalRow = document.getElementById("add-local-seat-row");
-  if (addLocalRow) addLocalRow.style.display = (state.can_add_local_seat && myRole !== "spectator") ? "block" : "none";
 
   // Role hint
   if (hint) {
-    if (isMyDealerClient)                           hint.textContent = phase === "playing" ? "You are the dealer — execute the player's vote." : "";
-    else if (myRole === "player" || myRole === "admin") hint.textContent = phase === "playing" ? "Tap to vote your play — dealer carries it out." : "";
+    if (isMyDealerClient)                           hint.textContent = phase === PHASE.PLAYING ? "You are the dealer — execute the player's vote." : "";
+    else if (myRole === ROLE.PLAYER || myRole === ROLE.ADMIN) hint.textContent = phase === PHASE.PLAYING ? "Tap to vote your play — dealer carries it out." : "";
     else                                            hint.textContent = "Spectating — watching only.";
   }
 
   // Spectators: disable everything and stop
-  if (myRole === "spectator" || !myRole) {
-    document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+  if (myRole === ROLE.SPECTATOR || !myRole) {
+    digActionButtons().forEach(b => b.classList.add("disabled"));
     return;
   }
 
-  if (phase !== "playing" || !turn) return;
+  if (phase !== PHASE.PLAYING || !turn) return;
 
   // ── DEALER VIEW ──────────────────────────────────────────────
   if (isMyDealerClient) {
+    // While the bust-vote side-bet window is still open, grey out the play
+    // panel so it doesn't look "ready to go" — players are still placing
+    // their bust bets.
+    if (state.bust_vote_window_open) {
+      digActionButtons().forEach(b => b.classList.add("disabled"));
+      if (hint) hint.textContent = "⏳ Waiting on bust-vote bets...";
+      if (voteDisp) {
+        voteDisp.textContent   = "⏳ Waiting on bust-vote bets...";
+        voteDisp.style.display = "block";
+      }
+      return;
+    }
+
     const hand = (sel.digital.hand || "hand1").toLowerCase();
     const key  = `${turn.toLowerCase()}:${hand}`;
     const vote = presel[key];
@@ -120,12 +131,13 @@ function updateRoleUI(state) {
 
     if (vote) {
       // Lock dealer to voted action; highlight it yellow
-      document.querySelectorAll(actionSel).forEach(b => {
-        const lbl = b.textContent.trim();
-        if (lbl === VOTE_LABEL[vote]) {
+      // vote is the backend code (h/s/d/sp) matching data-action-code
+      digActionButtons().forEach(b => {
+        const code = b.dataset.actionCode;
+        if (code === vote) {
           b.classList.add("voted-dealer");
           b.classList.remove("disabled");
-        } else if (["HIT","STAND","DOUBLE","SPLIT"].includes(lbl)) {
+        } else if (code) {   // any action button (has data-action-code)
           b.classList.add("disabled");
         }
       });
@@ -136,13 +148,13 @@ function updateRoleUI(state) {
     // No vote → all buttons available; split/double still gated by updateActionButtons
 
   // ── PLAYER VIEW ──────────────────────────────────────────────
-  } else if (myRole === "player") {
+  } else if (myRole === ROLE.PLAYER) {
     const activeName = myActiveName || myName;
     const isMyTurn   = activeName && turn.toLowerCase() === activeName.toLowerCase();
 
     // Not your turn → grey everything out, done
     if (!isMyTurn) {
-      document.querySelectorAll(actionSel).forEach(b => b.classList.add("disabled"));
+      digActionButtons().forEach(b => b.classList.add("disabled"));
       return;
     }
 
@@ -157,15 +169,15 @@ function updateRoleUI(state) {
         suggestText.textContent = `Dealer suggests: ${VOTE_LABEL[suggestion] || suggestion} — do you agree?`;
         suggestBanner.style.display = "block";
       }
-      document.querySelectorAll(actionSel).forEach(b => {
-        if (b.textContent.trim() === VOTE_LABEL[suggestion]) b.classList.add("voted-dealer");
+      digActionButtons().forEach(b => {
+        if (b.dataset.actionCode === suggestion) b.classList.add("voted-dealer");
       });
     }
 
     if (voteDisp) {
       if (vote) {
-        document.querySelectorAll(actionSel).forEach(b => {
-          if (b.textContent.trim() === VOTE_LABEL[vote]) b.classList.add("voted");
+        digActionButtons().forEach(b => {
+          if (b.dataset.actionCode === vote) b.classList.add("voted");
         });
         voteDisp.textContent = `Your vote: ${VOTE_LABEL[vote]} — waiting for dealer`;
       } else {
@@ -179,9 +191,6 @@ function updateRoleUI(state) {
 // ============================================================
 // BUST VOTE SIDE BET
 // ============================================================
-
-let _bustVoteModalOpen   = false;
-let _bustVoteTimerHandle = null;
 
 async function submitBustVote(choice, playerName) {
   // For single-player: pass no playerName (server uses primary name).
@@ -198,7 +207,7 @@ async function submitBustVote(choice, playerName) {
     const data = await res.json();
     if (data.ok) applyState(data);
   } catch (_) {} finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 
@@ -208,6 +217,29 @@ async function setBustVoteEnabled(on) {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId, bust_vote_enabled: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+function setStrategyHintEnabled(on) {
+  // Per-player preference — stored server-side so badge and blue border are state-driven
+  window._myHintEnabled = on; // optimistic: prevent next poll from flipping the checkbox back
+  fetch("/set_hint", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
+  }).then(r => r.json()).then(data => { if (data.ok) applyState(data); })
+    .catch(() => { if (lastState) applyState(lastState); });
+}
+
+async function setWildCardEnabled(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, wild_card_enabled: on }),
     });
     const data = await res.json();
     if (data.ok) applyState(data);
@@ -261,19 +293,30 @@ function _updateLocalSeatSwitcher() {
 
 function showLocalSeatPicker() {
   const picker = document.getElementById("local-seat-picker");
-  const row    = document.getElementById("add-local-seat-row");
   if (!picker || !lastState) return;
   if (picker.style.display !== "none") { picker.style.display = "none"; return; }
 
   const clients      = lastState.connected_clients || [];
-  const claimedLower = new Set(clients.map(c => (c.name || "").toLowerCase()).filter(Boolean));
+  // Seats registered as another client's PRIMARY name are remote-owned — not requestable.
+  const remotePrimary = new Set(
+    clients.filter(c => c.name && c.role !== myRole || c.name)
+           .map(c => (c.name || "").toLowerCase()).filter(Boolean)
+  );
   const myNamesLower = new Set((myNames || []).map(n => n.toLowerCase()));
-  const available    = (lastState.players || []).filter(
-    n => !claimedLower.has(n.toLowerCase()) && !myNamesLower.has(n.toLowerCase())
+  // All seats controlled locally by OTHER clients (in their local_names but not their primary)
+  const otherLocalNames = new Set(
+    clients.flatMap(c => (c.local_names || []).filter(n => (c.name || "").toLowerCase() !== n.toLowerCase()))
+           .map(n => n.toLowerCase()).filter(Boolean)
   );
 
+  // Available = not one of my own seats AND not a remote player's primary registration
+  const available = (lastState.players || []).filter(n => {
+    const lc = n.toLowerCase();
+    return !myNamesLower.has(lc) && !remotePrimary.has(lc);
+  });
+
   if (!available.length) {
-    picker.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">No unclaimed seats available.</div>';
+    picker.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:4px 0">No seats available to claim.</div>';
     picker.style.display = "block";
     return;
   }
@@ -281,10 +324,10 @@ function showLocalSeatPicker() {
   picker.innerHTML = "";
   available.forEach(name => {
     const btn = document.createElement("button");
-    btn.className   = "btn wide";
-    btn.style.cssText = "font-size:12px;margin-bottom:4px";
-    btn.textContent = name;
-    btn.addEventListener("click", () => requestLocalSeat(name));
+    btn.className = "btn wide seat-pick-btn";
+    const needsTransfer = otherLocalNames.has(name.toLowerCase());
+    btn.textContent = name + (needsTransfer ? " (request transfer)" : "");
+    btn.addEventListener("click", (e) => { e.stopPropagation(); requestLocalSeat(name); });
     picker.appendChild(btn);
   });
   picker.style.display = "block";
@@ -300,213 +343,261 @@ async function requestLocalSeat(name) {
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name }),
     });
     const data = await res.json();
-    if (data.ok) applyState(data);
-    else alert(data.error || "Could not request seat.");
+    if (data.ok) {
+      applyState(data);
+      if (data.transfer_pending) alert(`Seat transfer requested for "${name}" — waiting for the current controller to approve.`);
+      else if (data.pending)     alert(`Seat request for "${name}" sent — waiting for admin approval.`);
+    } else {
+      alert(data.error || "Could not request seat.");
+    }
   } catch (_) { alert("Network error."); }
 }
 
 
-function _openBustVoteModal(secondsLeft) {
-  const overlay = document.getElementById("bust-vote-modal-overlay");
-  if (!overlay || _bustVoteModalOpen) return;
-  _bustVoteModalOpen    = true;
-  overlay.style.display = "flex";
+// Bust-vote confirmation modal + post-round status indicator; mount() uses one delegated click listener so it survives #bust-vote-players-wrap being rebuilt on every render (Improvements.md item 7).
+class BustVotePanel {
+  constructor() {
+    this.modalOpen   = false;
+    this.timerHandle = null;
+  }
 
-  const bar      = document.getElementById("bust-vote-timer-bar");
-  const label    = document.getElementById("bust-vote-timer-label");
-  const duration = secondsLeft || 15;   // guard against 0
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bv-vote-btn");
+      if (!btn) return;
+      submitBustVote(btn.dataset.vote, btn.dataset.name || undefined);
+    });
+  }
 
-  let secs = duration;
-  function tick() {
-    if (!_bustVoteModalOpen) return;
-    const display = Math.min(secs, 15);
-    if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
-    if (label) label.textContent = `${display}s`;
-    if (secs <= 0) {
-      // Auto-pass for all un-voted local players
-      const bustVotes = (lastState && lastState.my_bust_votes) || {};
-      const unvoted   = myNames.filter(n => !bustVotes[n]);
-      if (unvoted.length) {
-        // Submit pass for each unvoted player sequentially; close after last
-        (async () => {
-          for (const name of unvoted) await submitBustVote("pass", name);
-          _closeBustVoteModal();
-        })();
-      } else {
-        _closeBustVoteModal();
+  open(secondsLeft) {
+    if (this.modalOpen) return;
+    const overlay = openModal("bust-vote-modal-overlay");
+    if (!overlay) return;
+    this.modalOpen = true;
+
+    const bar      = document.getElementById("bust-vote-timer-bar");
+    const label    = document.getElementById("bust-vote-timer-label");
+    const duration = secondsLeft || 15;   // guard against 0
+
+    let secs = duration;
+    const tick = () => {
+      if (!this.modalOpen) return;
+
+      // Re-sync with the server's clock each tick. The server pauses/extends
+      // the bust-vote window while an insurance vote is pending, so trust
+      // bust_vote_seconds_left over our local countdown when it's available
+      // and the window is still open server-side.
+      let resynced = false;
+      if (lastState) {
+        if (lastState.bust_vote_window_open && typeof lastState.bust_vote_seconds_left === "number") {
+          secs = lastState.bust_vote_seconds_left;
+          resynced = true;
+        } else if (!lastState.bust_vote_window_open) {
+          // Server says the window already closed (e.g. all votes decided) —
+          // close the modal without re-submitting votes.
+          this.close();
+          return;
+        }
       }
-      return;
-    }
-    secs--;
-    _bustVoteTimerHandle = setTimeout(tick, 1000);
+
+      const display = Math.min(secs, 15);
+      if (bar)   bar.style.width   = `${(display / 15) * 100}%`;
+      if (label) label.textContent = `${display}s`;
+      if (secs <= 0) {
+        // Auto-pass for all un-voted local players
+        const bustVotes = (lastState && lastState.my_bust_votes) || {};
+        const unvoted   = myNames.filter(n => !bustVotes[n]);
+        if (unvoted.length) {
+          // Submit pass for each unvoted player sequentially; close after last
+          (async () => {
+            for (const name of unvoted) await submitBustVote("pass", name);
+            this.close();
+          })();
+        } else {
+          this.close();
+        }
+        return;
+      }
+      // Only decrement locally when this tick wasn't just resynced from the
+      // server — otherwise the next resync overwrites this and we end up
+      // double-decrementing (timer skips a number every poll).
+      if (!resynced) secs--;
+      this.timerHandle = setTimeout(tick, 1000);
+    };
+    tick();
   }
-  tick();
-}
 
-// Render per-player vote cards inside the modal.
-// Called whenever state updates while the modal is open.
-function _renderBustVoteCards(state) {
-  const wrap = document.getElementById("bust-vote-players-wrap");
-  if (!wrap) return;
+  // Render per-player vote cards inside the modal.
+  // Called whenever state updates while the modal is open.
+  renderVoteCards(state) {
+    const wrap = document.getElementById("bust-vote-players-wrap");
+    if (!wrap) return;
 
-  const bustVotes = state.my_bust_votes || {};
-  // Only show human local players active in the game (skip NPCs)
-  const npcSet   = new Set([...(npcPlayers || [])]);
-  const locals   = myNames.filter(n => !npcSet.has(n));
-  const multiLocal = locals.length > 1;
+    const bustVotes = state.my_bust_votes || {};
+    // Only show human local players active in the game (skip NPCs)
+    const npcSet   = new Set([...(npcPlayers || [])]);
+    const locals   = myNames.filter(n => !npcSet.has(n));
+    const multiLocal = locals.length > 1;
 
-  wrap.innerHTML = "";
-  locals.forEach(name => {
-    const voted = bustVotes[name];
-    const card  = document.createElement("div");
-    card.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)";
+    wrap.innerHTML = "";
+    locals.forEach(name => {
+      const voted = bustVotes[name];
+      const card  = document.createElement("div");
+      card.classList.add("bv-vote-card");
 
-    if (multiLocal) {
-      const nameLbl = document.createElement("span");
-      nameLbl.style.cssText = "font-size:14px;font-weight:700;min-width:60px;color:var(--text)";
-      nameLbl.textContent = name;
-      card.appendChild(nameLbl);
+      if (multiLocal) {
+        const nameLbl = document.createElement("span");
+        nameLbl.classList.add("bv-name-lbl");
+        nameLbl.textContent = name;
+        card.appendChild(nameLbl);
+      }
+
+      if (voted) {
+        // Already voted — show status
+        const statusEl = document.createElement("span");
+        statusEl.classList.add("bv-status", voted === "bust" ? "bv-status--bust" : "bv-status--pass");
+        statusEl.textContent = voted === "bust" ? "💥 Bet Bust" : "Passed";
+        card.appendChild(statusEl);
+      } else {
+        // Buttons -- no addEventListener here, mount()'s delegated
+        // listener reads these data attributes instead.
+        const btns = document.createElement("div");
+        btns.classList.add("bv-btn-row");
+
+        const bustBtn = document.createElement("button");
+        bustBtn.className = "btn green bv-vote-btn";
+        bustBtn.textContent = "💥 Bet Bust";
+        bustBtn.dataset.vote = "bust";
+        if (multiLocal) bustBtn.dataset.name = name;
+
+        const passBtn = document.createElement("button");
+        passBtn.className = "btn muted-btn bv-vote-btn";
+        passBtn.textContent = "Pass";
+        passBtn.dataset.vote = "pass";
+        if (multiLocal) passBtn.dataset.name = name;
+
+        btns.appendChild(bustBtn);
+        btns.appendChild(passBtn);
+        card.appendChild(btns);
+      }
+
+      wrap.appendChild(card);
+    });
+  }
+
+  close() {
+    if (!this.modalOpen) return;
+    this.modalOpen = false;
+    if (this.timerHandle) { clearTimeout(this.timerHandle); this.timerHandle = null; }
+    closeModal("bust-vote-modal-overlay");
+  }
+
+  render(state) {
+    // Sync modal pill toggle in settings (checkbox + ON/OFF labels)
+    const bustCb = document.getElementById("bust-vote-toggle-modal");
+    if (bustCb) {
+      const on = !!state.bust_vote_enabled;
+      bustCb.checked = on;
+      const lblOff = document.getElementById("bust-vote-lbl-modal");
+      const lblOn  = document.getElementById("bust-vote-lbl-modal-on");
+      if (lblOff) lblOff.style.display = on ? "none"   : "inline";
+      if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
     }
 
-    if (voted) {
-      // Already voted — show status
-      const statusEl = document.createElement("span");
-      statusEl.style.cssText = `font-size:13px;color:${voted === "bust" ? "var(--red)" : "var(--muted)"};font-weight:600`;
-      statusEl.textContent   = voted === "bust" ? "💥 Bet Bust" : "Passed";
-      card.appendChild(statusEl);
+    const statusEl      = document.getElementById("bust-vote-status");
+    const statusElRound = document.getElementById("bust-vote-status-round");
+
+    // Modal: open when window is open and any local player hasn't voted yet.
+    // Delay until deal animation finishes so the modal doesn't cover the cards.
+    const bustVotes  = state.my_bust_votes || {};
+    const anyUnvoted = Object.values(bustVotes).some(v => v === null || v === undefined);
+    if (state.bust_vote_window_open && anyUnvoted
+        && myRole !== null && myRole !== ROLE.SPECTATOR
+        && !_dealAnimating) {
+      this.open(state.bust_vote_seconds_left || 15);
+    } else if (!state.bust_vote_window_open) {
+      this.close();
+    }
+
+    // Re-render player cards while modal is open (handles partial local votes)
+    if (this.modalOpen) {
+      this.renderVoteCards(state);
+      // Update tally
+      const votes   = state.bust_votes || {};
+      const decided = Object.keys(votes).length;
+      const bustCnt = Object.values(votes).filter(v => v === "bust").length;
+      const tally   = document.getElementById("bust-vote-modal-tally");
+      if (tally) tally.textContent = decided
+        ? `${bustCnt} betting bust · ${decided - bustCnt} passed`
+        : "";
+      // Auto-close if all local players have now voted
+      if (!anyUnvoted) this.close();
+    }
+
+    // Give-panel: show at round-over if this client has pending handouts
+    bustGivePanel.render(state);
+
+    // Status indicator: show after window closes.
+    // For local multiplayer, represent as a summary across all local names.
+    if (!statusEl) return;
+    const phase  = state.phase;
+    const myVote = state.my_bust_vote;   // primary player's vote (backward compat)
+    const show   = state.bust_vote_enabled
+      && myRole !== null && myRole !== ROLE.SPECTATOR
+      && phase !== PHASE.PRE_DEAL
+      && !state.bust_vote_window_open;
+
+    statusEl.style.display = show ? "block" : "none";
+    if (statusElRound) statusElRound.style.display = show ? "block" : "none";
+    if (!show) return;
+
+    const allVotes = state.bust_votes || {};
+    const bustCnt  = Object.values(allVotes).filter(v => v === "bust").length;
+    const myBusters = myNames.filter(n => bustVotes[n] === "bust");
+
+    if (phase === PHASE.ROUND_OVER) {
+      const result = state.bust_vote_result;
+      if (!myBusters.length) {
+        statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
+      } else if (result) {
+        const winners    = result.winners || [];
+        const myWinners  = myBusters.filter(n => winners.includes(n));
+        const myLosers   = myBusters.filter(n => !winners.includes(n));
+        const wLabel     = result.winner_label || "called it";
+        const lLabel     = result.loser_label  || "wrong";
+        const parts = [];
+        if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.map(escapeHtml).join(", ")} ${escapeHtml(wLabel)}</span>`);
+        if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.map(escapeHtml).join(", ")} ${escapeHtml(lLabel)}</span>`);
+        statusEl.innerHTML = parts.join("<br>");
+      } else {
+        // Result not yet available — re-render from current state to avoid stale text
+        statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
+      }
     } else {
-      // Buttons
-      const btns = document.createElement("div");
-      btns.style.cssText = "display:flex;gap:8px;flex:1";
-
-      const bustBtn = document.createElement("button");
-      bustBtn.className   = "btn green";
-      bustBtn.style.cssText = "flex:1";
-      bustBtn.textContent = "💥 Bet Bust";
-      bustBtn.onclick     = () => submitBustVote("bust", multiLocal ? name : undefined);
-
-      const passBtn = document.createElement("button");
-      passBtn.className   = "btn muted-btn";
-      passBtn.style.cssText = "flex:1";
-      passBtn.textContent = "Pass";
-      passBtn.onclick     = () => submitBustVote("pass", multiLocal ? name : undefined);
-
-      btns.appendChild(bustBtn);
-      btns.appendChild(passBtn);
-      card.appendChild(btns);
+      const allBusters = Object.entries(allVotes)
+        .filter(([, v]) => v === "bust")
+        .map(([n]) => n);
+      if (allBusters.length) {
+        const label = allBusters.length === 1
+          ? `💥 ${escapeHtml(allBusters[0])} bet dealer busts`
+          : `💥 ${allBusters.map(escapeHtml).join(" & ")} bet dealer busts`;
+        statusEl.innerHTML = `<span class="bust-label">${label}</span>`;
+      } else if (myVote === "pass") {
+        statusEl.textContent = "You passed the bust bet.";
+      } else {
+        statusEl.textContent = "";
+      }
     }
-
-    wrap.appendChild(card);
-  });
+    // Mirror to the drinks-pane copy
+    if (statusElRound) statusElRound.innerHTML = statusEl.innerHTML;
+  }
 }
 
-function _closeBustVoteModal() {
-  if (!_bustVoteModalOpen) return;
-  _bustVoteModalOpen = false;
-  if (_bustVoteTimerHandle) { clearTimeout(_bustVoteTimerHandle); _bustVoteTimerHandle = null; }
-  const overlay = document.getElementById("bust-vote-modal-overlay");
-  if (overlay) overlay.style.display = "none";
-}
+const bustVotePanel = new BustVotePanel();
 
-function updateBustVoteUI(state) {
-  // Sync modal pill toggle in settings (checkbox + ON/OFF labels)
-  const bustCb = document.getElementById("bust-vote-toggle-modal");
-  if (bustCb) {
-    const on = !!state.bust_vote_enabled;
-    bustCb.checked = on;
-    const lblOff = document.getElementById("bust-vote-lbl-modal");
-    const lblOn  = document.getElementById("bust-vote-lbl-modal-on");
-    if (lblOff) lblOff.style.display = on ? "none"   : "inline";
-    if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
-  }
-
-  const statusEl      = document.getElementById("bust-vote-status");
-  const statusElRound = document.getElementById("bust-vote-status-round");
-
-  // Modal: open when window is open and any local player hasn't voted yet.
-  // Delay until deal animation finishes so the modal doesn't cover the cards.
-  const bustVotes  = state.my_bust_votes || {};
-  const anyUnvoted = Object.values(bustVotes).some(v => v === null || v === undefined);
-  if (state.bust_vote_window_open && anyUnvoted
-      && myRole !== null && myRole !== "spectator"
-      && !_dealAnimating) {
-    _openBustVoteModal(state.bust_vote_seconds_left || 15);
-  } else if (!state.bust_vote_window_open) {
-    _closeBustVoteModal();
-  }
-
-  // Re-render player cards while modal is open (handles partial local votes)
-  if (_bustVoteModalOpen) {
-    _renderBustVoteCards(state);
-    // Update tally
-    const votes   = state.bust_votes || {};
-    const decided = Object.keys(votes).length;
-    const bustCnt = Object.values(votes).filter(v => v === "bust").length;
-    const tally   = document.getElementById("bust-vote-modal-tally");
-    if (tally) tally.textContent = decided
-      ? `${bustCnt} betting bust · ${decided - bustCnt} passed`
-      : "";
-    // Auto-close if all local players have now voted
-    if (!anyUnvoted) _closeBustVoteModal();
-  }
-
-  // Give-panel: show at round-over if this client has pending handouts
-  _renderBustGivePanel(state);
-
-  // Status indicator: show after window closes.
-  // For local multiplayer, represent as a summary across all local names.
-  if (!statusEl) return;
-  const phase  = state.phase;
-  const myVote = state.my_bust_vote;   // primary player's vote (backward compat)
-  const show   = state.bust_vote_enabled
-    && myRole !== null && myRole !== "spectator"
-    && phase !== "pre-deal"
-    && !state.bust_vote_window_open;
-
-  statusEl.style.display = show ? "block" : "none";
-  if (statusElRound) statusElRound.style.display = show ? "block" : "none";
-  if (!show) return;
-
-  const allVotes = state.bust_votes || {};
-  const bustCnt  = Object.values(allVotes).filter(v => v === "bust").length;
-  const myBusters = myNames.filter(n => bustVotes[n] === "bust");
-
-  if (phase === "round-over") {
-    const result = state.bust_vote_result;
-    if (!myBusters.length) {
-      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
-    } else if (result) {
-      const winners    = result.winners || [];
-      const myWinners  = myBusters.filter(n => winners.includes(n));
-      const myLosers   = myBusters.filter(n => !winners.includes(n));
-      const parts = [];
-      if (myWinners.length) parts.push(`<span class="bust-vote-result-correct">✓ ${myWinners.join(", ")} called it — -1 sip + give 1!</span>`);
-      if (myLosers.length)  parts.push(`<span class="bust-vote-result-wrong">✗ ${myLosers.join(", ")} wrong — +1 sip each</span>`);
-      statusEl.innerHTML = parts.join("<br>");
-    } else {
-      // Result not yet available — re-render from current state to avoid stale text
-      statusEl.textContent = bustCnt ? `${bustCnt} bet on bust this round.` : "";
-    }
-  } else {
-    const allBusters = Object.entries(allVotes)
-      .filter(([, v]) => v === "bust")
-      .map(([n]) => n);
-    if (allBusters.length) {
-      const label = allBusters.length === 1
-        ? `💥 ${allBusters[0]} bet dealer busts`
-        : `💥 ${allBusters.join(" & ")} bet dealer busts`;
-      statusEl.innerHTML = `<span style="color:var(--red);font-weight:700">${label}</span>`;
-    } else if (myVote === "pass") {
-      statusEl.textContent = "You passed the bust bet.";
-    } else {
-      statusEl.textContent = "";
-    }
-  }
-  // Mirror to the drinks-pane copy
-  if (statusElRound) statusElRound.innerHTML = statusEl.innerHTML;
-}
-
-async function giveBustSip(winnerName, recipientName, forfeit = false) {
+async function giveBustSip(winnerName, recipientName) {
   _requestsInFlight++;
   try {
     const res  = await fetch("/give_bust_sip", {
@@ -515,110 +606,700 @@ async function giveBustSip(winnerName, recipientName, forfeit = false) {
       body:    JSON.stringify({
         room_code: roomCode, client_id: clientId,
         winner_name: winnerName, recipient_name: recipientName,
-        forfeit,
       }),
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-    else appendLog(`  Bust handout failed: ${data.error || "unknown"}\n`);
   } catch (_) {} finally {
-    _requestsInFlight--;
+    _requestDone();
   }
 }
 
-function _renderBustGivePanel(state) {
-  const overlay = document.getElementById("bust-give-overlay");
-  const body    = document.getElementById("bust-give-body");
-  if (!overlay || !body) return;
-
-  const pending = state.my_bust_handout_pending || [];
-  if (!pending.length) {
-    overlay.style.display = "none";
-    body.innerHTML = "";
-    return;
+// ── Bust-vote handout give-panel component (Improvements.md item 7,
+// Option A: class-based, no framework) ──────────────────────────────────
+// Encapsulates #bust-give-overlay. mount() attaches one delegated click
+// listener for handout buttons (replacing the former per-button
+// onclick="giveBustSip(...)" string); render(state) rebuilds the panel
+// exactly as the old _renderBustGivePanel() function did.
+class BustGivePanel {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bgp-give-btn");
+      if (btn) giveBustSip(btn.dataset.winner, btn.dataset.recipient);
+    });
   }
 
-  const allPlayers  = (state.players || []);
-  const secsLeft    = state.bust_handout_seconds_left || 0;
-  overlay.style.display = "flex";
+  render(state) {
+    if (!this.el) return;   // not mounted yet (e.g. referee mode never mounts it)
+    const overlay = this.el;
+    const body    = overlay.querySelector("#bust-give-body");
+    if (!body) return;
 
-  // Timer expired — winner forfeits and drinks the sip themselves
-  if (secsLeft === 0 && pending.length) {
-    pending.forEach(winnerName => giveBustSip(winnerName, winnerName, true));
-    return;
+    const pending = state.my_bust_handout_pending || [];
+    if (!pending.length) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    // Defer behind the milestone handout popup so the two allocation prompts
+    // (and their countdown timers) appear one after the other, not stacked.
+    // The server gives the bust-handout window a fresh countdown once the
+    // milestone prompt clears (see polling.py), so nothing is lost by waiting.
+    if (state.pending_milestone) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    const allPlayers  = (state.players || []);
+    const secsLeft    = state.bust_handout_seconds_left || 0;
+    overlay.style.display = "flex";
+
+    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerStr    = secsLeft > 0
+      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
+      : "";
+
+    body.innerHTML = pending.map((winnerName, idx) => {
+      const label = pending.length > 1
+        ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
+        : "🎉 You called it! Give 1 sip to:";
+      // No onclick= here -- mount()'s delegated listener handles taps.
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn"
+            data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const mb = pending.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        ${timerStr}
+        <div class="bgp-btns-col">${btns}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
+  }
+}
+
+const bustGivePanel = new BustGivePanel();
+
+// ============================================================
+// DEALER LOTTERY (Rules.md §5.9)
+// ============================================================
+
+// ── Dealer Lottery entry panel component (Improvements.md item 7,
+// Option A: class-based, no framework) ───────────────────────────────────
+// Encapsulates the entry modal (countdown timer, per-player stake sliders
+// + Enter buttons). mount() attaches one delegated "input" listener (live
+// slider value) and one delegated "click" listener (Enter button) --
+// replacing addEventListener calls re-attached on every rebuild of
+// #dealer-lottery-players-wrap. render(state) is the per-poll entry point,
+// replacing the old updateDealerLotteryUI() function.
+class DealerLotteryEntryPanel {
+  constructor() {
+    this.modalOpen   = false;
+    this.timerHandle = null;
+    // Slider values persist here across the per-poll re-render in
+    // renderCards() (that render rebuilds the DOM from scratch, so without
+    // this the slider would visibly snap back to 0 on every poll tick).
+    this.pendingX = {};
   }
 
-  const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
-  const timerStr    = secsLeft > 0
-    ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
-    : "";
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
 
-  body.innerHTML = pending.map(winnerName => {
-    const label = pending.length > 1
-      ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
-      : "🎉 You called it! Give 1 sip to:";
-    const btns = allPlayers
-      .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
-      .map(n => `<button class="btn wide" style="margin-bottom:8px"
-          data-winner="${escapeHtml(winnerName)}" data-recipient="${escapeHtml(n)}"
-          onclick="giveBustSip(this.dataset.winner, this.dataset.recipient)"
-          >${escapeHtml(n)}</button>`)
-      .join("");
-    return `<div style="margin-bottom:${pending.length > 1 ? 16 : 0}px">
-      <div style="font-size:15px;font-weight:700;color:var(--green);margin-bottom:10px;text-align:center">${label}</div>
-      ${timerStr}
-      <div style="display:flex;flex-direction:column">${btns}</div>
-    </div>`;
-  }).join(`<hr style="border-color:var(--border);margin:8px 0">`);
+    el.addEventListener("input", e => {
+      const slider = e.target.closest(".dl-x-slider");
+      if (!slider) return;
+      const val = parseInt(slider.value, 10) || 0;
+      this.pendingX[slider.dataset.dlName] = val;
+      const valueLbl = slider.closest(".dl-entry-card").querySelector(".dl-x-value");
+      if (valueLbl) valueLbl.textContent = String(val);
+    });
+
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".dl-enter-btn");
+      if (!btn) return;
+      const name   = btn.dataset.dlName;
+      const slider = btn.closest(".dl-entry-row").querySelector(".dl-x-slider");
+      const x      = slider ? (parseInt(slider.value, 10) || 0) : 0;
+      delete this.pendingX[name];
+      const npcSet     = new Set([...(npcPlayers || [])]);
+      const locals     = myNames.filter(n => !npcSet.has(n));
+      const multiLocal = locals.length > 1;
+      submitDealerLotteryX(x, multiLocal ? name : undefined);
+    });
+  }
+
+  open(secondsLeft) {
+    if (this.modalOpen) return;
+    const overlay = openModal("dealer-lottery-modal-overlay");
+    if (!overlay) return;
+    this.modalOpen = true;
+
+    const bar      = document.getElementById("dealer-lottery-timer-bar");
+    const label    = document.getElementById("dealer-lottery-timer-label");
+    const duration = secondsLeft || 20;
+
+    let secs = duration;
+    const tick = () => {
+      if (!this.modalOpen) return;
+
+      let resynced = false;
+      if (lastState && lastState.dealer_lottery) {
+        const pending = lastState.dealer_lottery.pending;
+        if (pending && typeof pending.seconds_left === "number") {
+          secs = pending.seconds_left;
+          resynced = true;
+        } else if (!pending) {
+          // Server says the window already closed (resolved or expired).
+          this.close();
+          return;
+        }
+      }
+
+      const display = Math.min(secs, 20);
+      if (bar)   bar.style.width   = `${(display / 20) * 100}%`;
+      if (label) label.textContent = `${display}s`;
+      if (secs <= 0) {
+        // Auto-submit 0 for any unanswered local players
+        const myEntries = (lastState && lastState.dealer_lottery && lastState.dealer_lottery.pending)
+          ? lastState.dealer_lottery.pending.my_entries : {};
+        const unanswered = myNames.filter(n => (myEntries || {})[n] == null);
+        if (unanswered.length) {
+          (async () => {
+            for (const name of unanswered) await submitDealerLotteryX(0, name);
+            this.close();
+          })();
+        } else {
+          this.close();
+        }
+        return;
+      }
+      if (!resynced) secs--;
+      this.timerHandle = setTimeout(tick, 1000);
+    };
+    tick();
+  }
+
+  close() {
+    if (!this.modalOpen) return;
+    this.modalOpen = false;
+    if (this.timerHandle) { clearTimeout(this.timerHandle); this.timerHandle = null; }
+    this.pendingX = {};
+    closeModal("dealer-lottery-modal-overlay");
+  }
+
+  // Render per-player entry rows (stake slider 0-5 + Enter button) inside the modal.
+  renderCards(state) {
+    const wrap = document.getElementById("dealer-lottery-players-wrap");
+    if (!wrap) return;
+
+    const pending   = (state.dealer_lottery && state.dealer_lottery.pending) || {};
+    const myEntries = pending.my_entries || {};
+    const npcSet    = new Set([...(npcPlayers || [])]);
+    const locals    = myNames.filter(n => !npcSet.has(n));
+    const multiLocal = locals.length > 1;
+
+    // No addEventListener here -- mount()'s delegated listeners handle input/click.
+    wrap.innerHTML = locals.map(name => {
+      const answered = myEntries[name];
+      const nameLbl  = multiLocal ? `<span class="dl-name-lbl">${escapeHtml(name)}</span>` : "";
+
+      if (answered !== null && answered !== undefined) {
+        return `<div class="dl-entry-card">
+          <div class="dl-entry-top">${nameLbl}<span class="dl-status">Entered: ${answered}</span></div>
+        </div>`;
+      }
+
+      const startVal = this.pendingX[name] ?? 0;
+      return `<div class="dl-entry-card">
+        <div class="dl-entry-top">${nameLbl}<span class="dl-x-value">${startVal}</span></div>
+        <div class="dl-entry-row">
+          <input type="range" class="dl-x-slider" min="0" max="5" step="1" value="${startVal}" data-dl-name="${escapeHtml(name)}">
+          <button class="btn dl-enter-btn" data-dl-name="${escapeHtml(name)}">Enter</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  render(state) {
+    const dl = state.dealer_lottery || {};
+    const pending = dl.pending;
+
+    if (pending && myRole !== null && myRole !== ROLE.SPECTATOR && !_dealAnimating) {
+      this.open(pending.seconds_left || 20);
+    } else if (!pending) {
+      this.close();
+    }
+
+    if (this.modalOpen) {
+      this.renderCards(state);
+      const answered = document.getElementById("dealer-lottery-answered");
+      if (answered && pending) {
+        answered.textContent = `${pending.answered_count}/${pending.total_count} answered`;
+      }
+    }
+
+    dealerLotteryGivePanel.render(state);
+  }
+}
+
+const dealerLotteryEntryPanel = new DealerLotteryEntryPanel();
+
+async function submitDealerLotteryX(x, playerName) {
+  const body = { room_code: roomCode, client_id: clientId, x };
+  if (playerName) body.player_name = playerName;
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/dealer_lottery/enter", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+let _dealerLotteryRevealOpen = false;
+
+// Builds the score/BUST/STAND tags for a finished lottery hand, matching
+// handBlock()'s own tag markup so the mid-animation swap looks identical
+// to a normally-rendered hand-meta div.
+function _dlHandMetaHtml(score, bust) {
+  return `<span class="score">${score}</span>` +
+    (bust ? `<span class="bust">BUST</span>` : `<span class="stood">STAND</span>`);
+}
+
+// Deals the extra (post-split) cards of one hand into the DOM one at a
+// time, fading/sliding each in like the main table's animateDeal(), then
+// reveals that hand's final score/BUST/STAND tag.
+async function _dlAnimateHandCards(block, cards, score, bust) {
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+  const row = block.querySelector(".cards-row");
+  for (let i = 1; i < cards.length; i++) {
+    const el = cardEl(cards[i]);
+    el.style.transition = "none";
+    el.style.opacity = "0";
+    el.style.transform = "translateY(-16px) scale(.85)";
+    row.appendChild(el);
+    void el.offsetHeight; // force layout so the hidden state actually paints before transitioning
+    el.style.transition = "opacity .22s ease-out, transform .22s ease-out";
+    el.style.opacity = "1";
+    el.style.transform = "translateY(0) scale(1)";
+    await delay(380);
+  }
+  const meta = block.querySelector(".hand-meta");
+  if (meta) meta.innerHTML = _dlHandMetaHtml(score, bust);
+}
+
+// Visual reveal: the dealer's pair actually splitting into fresh hands --
+// always at least two, more if a hand re-split -- shown as real card
+// visuals (reuses handBlock()/cardEl() from table-render.js — the same
+// rendering the main table uses), animated in this order:
+//   1. The dealer's original pair separates into two fresh hands (H1, H2).
+//   2. H1 is played out fully -- including, if its own 2nd card pairs up
+//      again, revealing that re-split (a new hand appears) BEFORE H1's own
+//      post-split cards are dealt, then finishing H1's cards, then playing
+//      the re-split hand the same way (recursively, in case IT re-splits
+//      too) -- never H2.
+//   3. H2 is played out fully, same rule.
+// Each hand's parent_index (app/services/dealer_lottery.py) says which
+// other hand it split off from (null for H1/H2 themselves), so a hand's
+// block is only ever created at the moment it actually splits off, instead
+// of every eventual hand (including future re-splits) appearing complete
+// from the very start.
+async function _showDealerLotteryRevealModal(result) {
+  if (!result) return;
+  const hands  = document.getElementById("dealer-lottery-reveal-hands");
+  const payout = document.getElementById("dealer-lottery-reveal-payout");
+  const sub    = document.getElementById("dealer-lottery-reveal-sub");
+  const closeBtn = document.getElementById("dealer-lottery-reveal-close-btn");
+  if (!hands) return;
+
+  const handList = result.hands || [];
+  if (sub) {
+    sub.textContent = handList.length > 2
+      ? `The dealer's pair re-splits into ${handList.length} fresh hands:`
+      : "The dealer's pair splits into two fresh hands:";
+  }
+  if (payout) payout.innerHTML = "";
+  if (closeBtn) closeBtn.disabled = true;
+
+  hands.innerHTML = "";
+  _dealerLotteryRevealOpen = true;
+  openModal("dealer-lottery-reveal-overlay", { useClass: true });
+
+  const delay = ms => new Promise(r => setTimeout(r, ms));
+
+  // Group hands by parent so a re-split child is only revealed at the
+  // moment it actually splits off. Children of the same parent arrive from
+  // the backend in reverse-chronological order (the LAST re-split is
+  // listed first, since it finishes its own resolution first) -- reverse
+  // so they're revealed in the order they actually split off.
+  const childrenOf = new Map();
+  const roots = [];
+  handList.forEach((h, i) => {
+    if (h.parent_index === null || h.parent_index === undefined) {
+      roots.push(i);
+    } else {
+      if (!childrenOf.has(h.parent_index)) childrenOf.set(h.parent_index, []);
+      childrenOf.get(h.parent_index).push(i);
+    }
+  });
+  childrenOf.forEach(list => list.reverse());
+
+  let displayNum = 0;
+  const blocks = new Array(handList.length);
+
+  // Creates hand i's block showing just its first card (its "pair
+  // separated" / "split off" moment), fading in like a freshly dealt card.
+  function revealBlock(i) {
+    displayNum++;
+    const block = handBlock({ cards: [handList[i].cards[0]], score: null }, `Split Hand ${displayNum}`);
+    block.style.transition = "none";
+    block.style.opacity    = "0";
+    block.style.transform  = "translateY(-16px) scale(.85)";
+    hands.appendChild(block);
+    void block.offsetHeight; // force layout so the hidden state actually paints before transitioning
+    block.style.transition = "opacity .22s ease-out, transform .22s ease-out";
+    block.style.opacity    = "1";
+    block.style.transform  = "translateY(0) scale(1)";
+    blocks[i] = block;
+  }
+
+  // Recursively plays hand i: reveal any re-split children first (their
+  // split-off moment), then deal this hand's own remaining cards, then
+  // play each child in turn -- so a hand's own cards never appear before
+  // all of its children have had their split moment shown, and a child is
+  // never played before its parent has fully finished.
+  async function playHand(i) {
+    const children = childrenOf.get(i) || [];
+    for (const childIdx of children) {
+      revealBlock(childIdx);
+      await delay(250);
+    }
+    await _dlAnimateHandCards(blocks[i], handList[i].cards, handList[i].score, handList[i].bust);
+    await delay(children.length ? 300 : 200);
+    for (const childIdx of children) {
+      await playHand(childIdx);
+    }
+  }
+
+  // Step 1: the dealer's original pair separating into two fresh hands.
+  revealBlock(roots[0]);
+  await delay(180);
+  revealBlock(roots[1]);
+  await delay(350);
+
+  // Steps 2 & 3: play H1 fully (incl. any of its own re-splits), then H2.
+  await playHand(roots[0]);
+  await playHand(roots[1]);
+  await delay(150);
+
+  if (payout) {
+    const entries        = result.entries || {};
+    const drinkAmounts    = result.drink_amounts || {};
+    const creditAmounts   = result.credit_amounts || {};
+    const pendingHandouts = result.pending_handouts || {};
+    const participants    = Object.keys(entries).filter(n => entries[n] > 0);
+
+    const nHands = handList.length;
+    const headline = result.busted >= 2 ? `${result.busted} of ${nHands} hands busted!`
+      : result.busted === 0 ? "No hand busted." : "Mixed result — nothing happens.";
+
+    if (!participants.length) {
+      payout.innerHTML = `<div class="dl-reveal-headline">${headline}</div>Nobody entered, so nothing happens.`;
+    } else {
+      const rows = participants.map(name => {
+        const bits = [];
+        if (drinkAmounts[name]) {
+          bits.push(`drinks <strong>${drinkAmounts[name]}</strong> sip${drinkAmounts[name] === 1 ? "" : "s"}`);
+        }
+        if (creditAmounts[name]) {
+          bits.push(`credits <strong>${creditAmounts[name]}</strong> sip${creditAmounts[name] === 1 ? "" : "s"} off this round`);
+        }
+        if (pendingHandouts[name]) {
+          bits.push(`hands out <strong>${pendingHandouts[name]}</strong> sip${pendingHandouts[name] === 1 ? "" : "s"}`);
+        }
+        if (!bits.length) bits.push("nothing happens this time");
+        return `<li><span class="dl-reveal-name">${escapeHtml(name)}</span> ${bits.join(", ")}</li>`;
+      });
+      payout.innerHTML = `<div class="dl-reveal-headline">${headline}</div>` +
+        `<ul class="dl-reveal-list">${rows.join("")}</ul>`;
+    }
+  }
+
+  if (closeBtn) closeBtn.disabled = false;
+}
+
+function closeDealerLotteryRevealModal() {
+  _dealerLotteryRevealOpen = false;
+  closeModal("dealer-lottery-reveal-overlay", { useClass: true });
+}
+
+async function giveDealerLotterySip(giverName, recipientName) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/dealer_lottery/give_sip", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        giver_name: giverName, recipient_name: recipientName,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+// ── Dealer Lottery handout give-panel component (Improvements.md item 7,
+// Option A: class-based, no framework) ──────────────────────────────────
+// Same pattern as BustGivePanel above: mount() attaches one delegated click
+// listener (replacing the former per-button
+// onclick="giveDealerLotterySip(...)" string); render(state) rebuilds the
+// panel exactly as the old _renderDealerLotteryGivePanel() function did.
+class DealerLotteryGivePanel {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bgp-give-btn");
+      if (btn) giveDealerLotterySip(btn.dataset.giver, btn.dataset.recipient);
+    });
+  }
+
+  render(state) {
+    if (!this.el) return;   // not mounted yet (e.g. referee mode never mounts it)
+    const overlay = this.el;
+    const body    = overlay.querySelector("#dealer-lottery-give-body");
+    if (!body) return;
+
+    const dl      = state.dealer_lottery || {};
+    const pending = dl.my_pending_handouts || {};
+    const givers  = Object.keys(pending);
+    if (!givers.length) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    // Defer behind the milestone prompt, the bust-vote handout prompt, and
+    // this event's own reveal modal, so popups appear one after another,
+    // never stacked.
+    if (state.pending_milestone || (state.my_bust_handout_pending || []).length
+        || _dealerLotteryRevealOpen) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    const allPlayers = state.players || [];
+    const secsLeft    = dl.handout_seconds_left || 0;
+    overlay.style.display = "flex";
+
+    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerStr = secsLeft > 0
+      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      : "";
+
+    // No onclick= here -- mount()'s delegated listener handles taps.
+    body.innerHTML = givers.map(giverName => {
+      const amount = pending[giverName];
+      const label = givers.length > 1
+        ? `🎰 <strong>${escapeHtml(giverName)}</strong>'s split hands both busted! Give ${amount} sip(s) to:`
+        : `🎰 Both split hands busted! Give ${amount} sip(s) to:`;
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== giverName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const mb = givers.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        ${timerStr}
+        <div class="bgp-btns-col">${btns}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
+  }
+}
+
+const dealerLotteryGivePanel = new DealerLotteryGivePanel();
+
+async function giveTargetedDrinkingSip(giverName, recipientName) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch("/targeted_drinking/give_sip", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        room_code: roomCode, client_id: clientId,
+        giver_name: giverName, recipient_name: recipientName,
+      }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {} finally {
+    _requestDone();
+  }
+}
+
+// ── Targeted Drinking perfect-graduation handout give-panel — same
+// class-based pattern as DealerLotteryGivePanel above (mount() attaches one
+// delegated click listener, render(state) rebuilds from scratch). ─────────
+class TargetedDrinkingGivePanel {
+  mount(el) {
+    if (this.el) return;
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bgp-give-btn");
+      if (btn) giveTargetedDrinkingSip(btn.dataset.giver, btn.dataset.recipient);
+    });
+  }
+
+  render(state) {
+    if (!this.el) return;
+    const overlay = this.el;
+    const body    = overlay.querySelector("#targeted-drinking-give-body");
+    if (!body) return;
+
+    const td      = state.targeted_drinking || {};
+    const pending = td.my_pending_handouts || {};
+    const givers  = Object.keys(pending);
+    if (!givers.length) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    // Defer behind the milestone prompt, the bust-vote handout prompt, the
+    // Dealer Lottery reveal, and the Targeted Drinking mini-round's own
+    // reveal modal, so popups appear one after another, never stacked.
+    if (state.pending_milestone || (state.my_bust_handout_pending || []).length
+        || _dealerLotteryRevealOpen
+        || (typeof targetedDrinkingPanel !== "undefined" && targetedDrinkingPanel.phase === "reveal")) {
+      overlay.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    const allPlayers = state.players || [];
+    const secsLeft    = td.handout_seconds_left || 0;
+    overlay.style.display = "flex";
+
+    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerStr = secsLeft > 0
+      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      : "";
+
+    // No onclick= here -- mount()'s delegated listener handles taps.
+    body.innerHTML = givers.map(giverName => {
+      const amount = pending[giverName];
+      const label = `🏆 <strong>${escapeHtml(giverName)}</strong> graduated flawlessly! Give ${amount} sip(s) to:`;
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== giverName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const mb = givers.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        ${timerStr}
+        <div class="bgp-btns-col">${btns}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
+  }
+}
+
+const targetedDrinkingGivePanel = new TargetedDrinkingGivePanel();
+
+
+// Shared toast helper — sets content, applies drink/clean class, triggers show animation.
+function _firePlayerToast(text, iDrink, ms) {
+  const toast = document.getElementById("player-toast");
+  if (!toast) return;
+  toast.textContent = text;
+  toast.className = (iDrink ? "drink" : "clean") + " show";
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), ms);
 }
 
 function showBustVoteToast(result) {
   if (!result) return;
-  const toast = document.getElementById("player-toast");
-  if (!toast) return;
-  const parts = [];
-  const each = result.losers.length > 1 ? " each" : "";
-  if (result.dealer_busted) {
-    if (result.winners.length) parts.push(`✅ ${result.winners.join(", ")} called it (-1 sip + give 1)`);
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} wrong (+1 sip${each})`);
-  } else {
-    if (result.losers.length)  parts.push(`❌ ${result.losers.join(", ")} bet bust — wrong (+1 sip${each})`);
-  }
-  if (!parts.length) return;
-  toast.textContent = parts.join(" · ");
-  toast.classList.remove("show");
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 6000);
+  const lines = result.outcome_lines || [];
+  if (!lines.length) return;
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const iDrink = _myNames.some(n => (result.losers || []).includes(n));
+  _firePlayerToast(lines.join(" · "), iDrink, 6000);
+}
+
+function showBustHandoutToast(results) {
+  if (!results || !results.length) return;
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const parts = results.map(r => {
+    if (r.forfeited) return `⏱️ ${r.winner} didn't choose in time — drinks it themselves`;
+    return `🎁 ${r.winner} gave 1 sip to ${r.recipient}`;
+  });
+  // Red if I gave away a sip or forfeited (drink), green otherwise.
+  const iDrink = results.some(r =>
+    (r.forfeited && _myNames.includes(r.winner)) ||
+    (!r.forfeited && _myNames.includes(r.recipient))
+  );
+  _firePlayerToast(parts.join(" · "), iDrink, 6000);
+}
+
+// Mirrors showBustHandoutToast exactly, for Targeted Drinking's own
+// perfect-graduation handout -- without this the recipient of a graduate's
+// handout had no clear indication they now owe sips (only a silent bump in
+// their session sip total).
+function showTargetedDrinkingHandoutToast(results) {
+  if (!results || !results.length) return;
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const parts = results.map(r => {
+    if (r.forfeited) return `⏱️ ${r.giver} didn't choose in time — drinks it themselves`;
+    return `🏆 ${r.giver} gave a sip to ${r.recipient}`;
+  });
+  // Red if I gave away a sip or forfeited (drink), green otherwise.
+  const iDrink = results.some(r =>
+    (r.forfeited && _myNames.includes(r.giver)) ||
+    (!r.forfeited && _myNames.includes(r.recipient))
+  );
+  _firePlayerToast(parts.join(" · "), iDrink, 6000);
 }
 
 function showInsuranceToast(results) {
   if (!results || !results.length) return;
-  const toast = document.getElementById("player-toast");
-  if (!toast) return;
   const parts = results.map(r => {
-    const bj    = r.player;
-    const voted = r.insured ? "Insure" : "Decline";
-    const dBJ   = r.dealer_bj;
-    let outcome, icon;
-    if (r.group_won) {
-      icon = "✅";
-      if (r.insured && dBJ)       outcome = `dealer had BJ — BJ holder drinks own bonus, group safe`;
-      else if (!r.insured && !dBJ) outcome = `no dealer BJ — normal BJ bonus`;
-      else                         outcome = `correct call`;
-    } else {
-      icon = "❌";
-      if (r.insured && !dBJ)      outcome = `no dealer BJ — group drinks double bonus`;
-      else if (!r.insured && dBJ) outcome = `dealer had BJ — auto-insurance applies`;
-      else                         outcome = `wrong call`;
-    }
-    return `${icon} Insurance (${bj}): voted ${voted} — ${outcome}`;
+    const icon    = r.group_won ? "✅" : "❌";
+    const voted   = r.insured ? "Insure" : "Decline";
+    const outcome = r.outcome_text || (r.group_won ? "correct call" : "wrong call");
+    return `${icon} Insurance (${r.player}): voted ${voted} — ${outcome}`;
   });
-  toast.textContent = parts.join(" · ");
-  toast.classList.remove("show");
-  void toast.offsetWidth;
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 8000);
+  // Red if any insurance outcome means I personally drink, green otherwise.
+  const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
+  const iDrink = results.some(r => {
+    const amHolder = _myNames.includes(r.player);
+    if (amHolder) {
+      // BJ holder drinks their own bonus when insured & dealer had BJ.
+      return r.insured && r.dealer_bj;
+    }
+    // Rest of the group drinks double when the group's insurance call lost.
+    return !r.group_won;
+  });
+  _firePlayerToast(parts.join(" · "), iDrink, 8000);
 }
 
 // ============================================================
@@ -649,7 +1330,10 @@ function updateRegisterOverlay(state) {
   }
 
   // Admin: render pending registration approvals banner
-  renderPendingRegBanner(state);
+  pendingRegBanner.render(state);
+
+  // Seat transfer requests (current controller must approve/deny)
+  _syncSeatTransfers(state.pending_seat_transfers || []);
 }
 
 function _showRegisterPending() {
@@ -693,26 +1377,48 @@ function _showRegisterBlocked() {
   if (overlay) overlay.style.display = "flex";
 }
 
-function renderPendingRegBanner(state) {
-  const banner = document.getElementById("pending-reg-banner");
-  if (!banner) return;
-  const pending = state.pending_registrations || [];
-  if (!pending.length || myRole !== "admin") {
-    banner.style.display = "none";
-    banner.innerHTML = "";
-    return;
+// ── Pending-registration approval banner component (Improvements.md item 7,
+// Option A: class-based, no framework) ──────────────────────────────────
+// mount() attaches one delegated click listener (replacing the former
+// per-button onclick="handleRegistration('${client_id}', ...)" strings --
+// the one site in this file where server-derived data was interpolated
+// directly into an onclick= attribute rather than read back via dataset);
+// render(state) rebuilds the banner exactly as the old
+// renderPendingRegBanner() function did.
+class PendingRegBanner {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildGameUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest("[data-approve]");
+      if (btn) handleRegistration(btn.dataset.clientId, btn.dataset.approve === "true");
+    });
   }
-  banner.style.display = "block";
-  banner.innerHTML = pending.map(r =>
-    `<div class="pending-reg-row">
-      <span class="pending-reg-name">🙋 ${escapeHtml(r.name)} wants to join</span>
-      <span class="pending-reg-btns">
-        <button class="btn green btn-sm" onclick="handleRegistration('${escapeHtml(r.client_id)}', true)">✓ Accept</button>
-        <button class="btn red btn-sm"   onclick="handleRegistration('${escapeHtml(r.client_id)}', false)">✗ Deny</button>
-      </span>
-    </div>`
-  ).join("");
+
+  render(state) {
+    if (!this.el) return;
+    const banner = this.el;
+    const pending = state.pending_registrations || [];
+    if (!pending.length || myRole !== ROLE.ADMIN) {
+      banner.style.display = "none";
+      banner.innerHTML = "";
+      return;
+    }
+    banner.style.display = "block";
+    // No onclick= here -- mount()'s delegated listener handles taps.
+    banner.innerHTML = pending.map(r =>
+      `<div class="pending-reg-row">
+        <span class="pending-reg-name">🙋 ${escapeHtml(r.name)} wants to join</span>
+        <span class="pending-reg-btns">
+          <button class="btn green btn-sm" data-client-id="${escapeHtml(r.client_id)}" data-approve="true">✓ Accept</button>
+          <button class="btn red btn-sm"   data-client-id="${escapeHtml(r.client_id)}" data-approve="false">✗ Deny</button>
+        </span>
+      </div>`
+    ).join("");
+  }
 }
+
+const pendingRegBanner = new PendingRegBanner();
 
 function showRegisterOverlay(state) {
   const overlay  = document.getElementById("register-overlay");
@@ -736,14 +1442,13 @@ function showRegisterOverlay(state) {
 
   seatsEl.innerHTML = "";
   if (available.length === 0) {
-    seatsEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:4px 0">All seats are taken — you can watch as spectator.</p>`;
+    seatsEl.innerHTML = `<p class="reg-no-seats">All seats are taken — you can watch as spectator.</p>`;
   } else {
     available.forEach(name => {
-      const btn        = document.createElement("button");
-      btn.className    = "btn-big accent";
-      btn.style.height = "52px";
-      btn.textContent  = `I am ${name}`;
-      btn.onclick      = () => doRegister(name);
+      const btn     = document.createElement("button");
+      btn.className = "btn-big accent reg-seat-btn";
+      btn.textContent = `I am ${name}`;
+      btn.addEventListener("click", () => doRegister(name));
       seatsEl.appendChild(btn);
     });
   }
@@ -781,6 +1486,64 @@ async function doRegister(name) {
   }
 }
 
+// ── Seat-transfer modal ─────────────────────────────────────────────────────
+let _seatTransferQueue = [];
+
+function _processSeatTransferQueue() {
+  const overlay = document.getElementById("seat-transfer-overlay");
+  if (!overlay) return;
+  if (_seatTransferQueue.length === 0) {
+    overlay.style.display = "none";
+    return;
+  }
+  const req = _seatTransferQueue[0];
+  const msg = document.getElementById("seat-transfer-msg");
+  if (msg) msg.textContent = `${req.requester_name} wants to take control of ${req.target}. Give it up?`;
+  overlay.style.display = "flex";
+
+  const acceptBtn = document.getElementById("seat-transfer-accept");
+  const denyBtn   = document.getElementById("seat-transfer-deny");
+  // Rebind (clone to clear old listeners)
+  const newAccept = acceptBtn.cloneNode(true);
+  const newDeny   = denyBtn.cloneNode(true);
+  acceptBtn.replaceWith(newAccept);
+  denyBtn.replaceWith(newDeny);
+  newAccept.onclick = () => _handleSeatTransfer(req.target, true);
+  newDeny.onclick   = () => _handleSeatTransfer(req.target, false);
+}
+
+async function _handleSeatTransfer(target, approve) {
+  const overlay = document.getElementById("seat-transfer-overlay");
+  if (overlay) overlay.style.display = "none";
+  _seatTransferQueue = _seatTransferQueue.filter(r => r.target !== target);
+  try {
+    const res  = await fetch("/handle_seat_transfer", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, target, approve }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+  _processSeatTransferQueue();
+}
+
+function _syncSeatTransfers(transfers) {
+  // Merge incoming server list into queue (add new, remove resolved)
+  const incomingTargets = new Set((transfers || []).map(r => r.target));
+  // Remove resolved
+  _seatTransferQueue = _seatTransferQueue.filter(r => incomingTargets.has(r.target));
+  // Add new
+  for (const t of (transfers || [])) {
+    if (!_seatTransferQueue.find(r => r.target === t.target)) {
+      _seatTransferQueue.push(t);
+    }
+  }
+  // Show modal only if not currently displaying one
+  const overlay = document.getElementById("seat-transfer-overlay");
+  if (overlay && overlay.style.display !== "flex") _processSeatTransferQueue();
+}
+
 async function handleRegistration(targetClientId, approve) {
   try {
     const res  = await fetch("/handle_registration", {
@@ -809,7 +1572,7 @@ async function doSpectate() {
       body:    JSON.stringify({ room_code: roomCode, client_id: clientId, name: "" }),
     });
     const data = await res.json();
-    myRole = "spectator";
+    myRole = ROLE.SPECTATOR;
     document.getElementById("register-overlay").style.display = "none";
     if (data.ok) applyState(data);
   } catch (_) {
@@ -833,7 +1596,7 @@ function setAnimToggle(on) {
     if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
   });
   // Admin pushes preference to server so new joiners inherit it
-  if (myRole === "admin" && roomCode && clientId) {
+  if (myRole === ROLE.ADMIN && roomCode && clientId) {
     fetch("/set_anim_pref", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
@@ -842,3 +1605,121 @@ function setAnimToggle(on) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Per-player bet panel (pre-deal, normal/digital mode only)
+// ---------------------------------------------------------------------------
+
+function _updateBetPanel(state, isPreDeal) {
+  const panel     = document.getElementById("dig-bet-panel");
+  const container = document.getElementById("dig-bet-steppers");
+  if (!panel || !container) return;
+
+  const isDrinking = state.drinking_mode;
+  const isDigital  = state.mode === "digital";
+
+  // Only show in digital (normal-money) mode during pre-deal, for players who have seats
+  const isRoundOver = state.phase === PHASE.ROUND_OVER;
+  const show = (isPreDeal || isRoundOver) && isDigital && !isDrinking && myNames.length > 0;
+  panel.style.display = show ? "block" : "none";
+  if (!show) return;
+
+  // Build one stepper per seat this client controls
+  const tableMap = {};
+  (state.table || []).forEach(p => { tableMap[p.name.toLowerCase()] = p; });
+
+  const defaultBet = state.bet_amount || 5;
+
+  // Only rebuild if seats or bets changed (avoid clobbering in-progress steppers)
+  const existing = container.querySelectorAll(".player-bet-stepper");
+  const needsRebuild = existing.length !== myNames.length ||
+    myNames.some((n, i) => {
+      const el = existing[i];
+      return !el || el.dataset.seatName !== n;
+    });
+
+  if (!needsRebuild) {
+    // Still sync displayed value from server state (another client could have polled)
+    myNames.forEach(n => {
+      const p   = tableMap[n.toLowerCase()];
+      const val = p ? (p.player_bet || defaultBet) : defaultBet;
+      const row = container.querySelector(`.player-bet-stepper[data-seat-name='${n}']`);
+      if (!row) return;
+      // Only update if the stepper isn't actively being changed (no pending fetch)
+      if (!row.dataset.pending) {
+        row.dataset.value = val;
+        const disp = row.querySelector(".bet-stepper-display");
+        if (disp) disp.textContent = "$" + val.toFixed(2);
+        _syncBetStepperLimits(row, val, defaultBet);
+      }
+    });
+    return;
+  }
+
+  container.innerHTML = "";
+  myNames.forEach(name => {
+    const p   = tableMap[name.toLowerCase()];
+    const val = p ? (p.player_bet || defaultBet) : defaultBet;
+    const min = 2.5;
+    const max = defaultBet * 20;
+    const step = 2.5;
+
+    const row = document.createElement("div");
+    row.className = "player-bet-stepper";
+    row.dataset.seatName = name;
+    row.dataset.value    = val;
+    row.style.cssText    = "display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px";
+
+    row.innerHTML = `
+      <span style="font-size:13px;font-weight:600;min-width:60px">${escapeHtml(name)}</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn btn-sm bet-stepper-dec" style="width:32px;height:32px;padding:0;font-size:16px">−</button>
+        <span class="bet-stepper-display" style="min-width:60px;text-align:center;font-size:14px;font-weight:600">$${val.toFixed(2)}</span>
+        <button class="btn btn-sm bet-stepper-inc" style="width:32px;height:32px;padding:0;font-size:16px">+</button>
+      </div>
+    `;
+
+    _syncBetStepperLimits(row, val, defaultBet);
+
+    row.querySelector(".bet-stepper-dec").addEventListener("click", () => _changeBet(row, -step, min, max, step, name));
+    row.querySelector(".bet-stepper-inc").addEventListener("click", () => _changeBet(row, +step, min, max, step, name));
+    container.appendChild(row);
+  });
+}
+
+function _syncBetStepperLimits(row, val, defaultBet) {
+  const min = 2.5;
+  const max = defaultBet * 20;
+  const dec = row.querySelector(".bet-stepper-dec");
+  const inc = row.querySelector(".bet-stepper-inc");
+  if (dec) dec.disabled = val <= min;
+  if (inc) inc.disabled = val >= max;
+}
+
+function _changeBet(row, delta, min, max, step, playerName) {
+  let val = parseFloat(row.dataset.value) || 0;
+  val = Math.round((val + delta) / step) * step;
+  val = Math.max(min, Math.min(max, val));
+  val = Math.round(val * 100) / 100;
+
+  row.dataset.value = val;
+  const disp = row.querySelector(".bet-stepper-display");
+  if (disp) disp.textContent = "$" + val.toFixed(2);
+  _syncBetStepperLimits(row, val, lastState ? lastState.bet_amount : 5);
+
+  // Mark pending so poll doesn't overwrite mid-flight
+  row.dataset.pending = "1";
+  setPlayerBet(playerName, val).finally(() => { delete row.dataset.pending; });
+}
+
+async function setPlayerBet(playerName, bet) {
+  if (!roomCode || !clientId) return;
+  try {
+    const res = await fetch("/set_player_bet", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, player_name: playerName, bet }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}

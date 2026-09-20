@@ -19,6 +19,12 @@
   <div id="rules-card" data-stop-propagation="true">
     <button id="rules-close-btn" data-action="closeRulesModal" title="Close">✕</button>
     <div id="rules-body"><span class="rules-loading">Loading rules…</span></div>
+    <div class="modal-donate">
+      Black(Out)Jack &bull; Made by Robert, David &amp; Marko<br>
+      <a href="https://github.com/robert-rjm/Black-Out-Jack/issues" target="_blank" rel="noopener">
+        🍺 Buy us a beer (contact us via GitHub)
+      </a>
+    </div>
   </div>
 </div>
 
@@ -26,121 +32,170 @@
   <div id="kick-card" data-stop-propagation="true">
     <h3>⚙️ Settings</h3>
 
-    <div class="kick-toggle-row" style="border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label">Deal animation</label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="anim-toggle-modal" data-change-action="setAnimToggle">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="anim-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="anim-lbl-modal-on">ON</span>
-      </div>
-    </div>
-
-    <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
-      </div>
-    </div>
-
-    <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">Easy Mode <span style="font-size:10px;color:var(--muted)">(halve drinks every round)</span></label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle" id="easy-mode-toggle-wrap-modal">
-          <input type="checkbox" id="easy-mode-toggle-modal" data-change-action="setEasyModeAdmin">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="easy-mode-lbl-modal">OFF</span>
-        <span class="pill-label-on" id="easy-mode-lbl-modal-on">ON</span>
-      </div>
-    </div>
-
-    <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-      <label class="kick-toggle-label" style="font-size:13px">God Mode <span style="font-size:10px;color:var(--muted)">(admin bypasses turn gate)</span></label>
-      <div class="pill-toggle-wrap">
-        <label class="pill-toggle">
-          <input type="checkbox" id="god-mode-toggle-modal" data-change-action="setGodMode">
-          <span class="pill-slider"></span>
-        </label>
-        <span class="pill-label-off" id="god-mode-lbl-off">OFF</span>
-        <span class="pill-label-on" id="god-mode-lbl-on">ON</span>
-      </div>
-    </div>
-
-    <div style="border-bottom:1px solid rgba(255,255,255,.1);margin:10px 0 12px"></div>
-
-    <div class="modal-section-title">PLAYERS IN SESSION</div>
-    <div id="kick-list"></div>
-
-    <div id="transfer-admin-section">
-      <div class="modal-section-title modal-gap-top">TRANSFER ADMIN</div>
-      <div id="transfer-admin-list"></div>
-    </div>
-
-    <div id="game-settings-section">
-      <div class="modal-section-title modal-gap-lg">GAME SETTINGS</div>
-      <div class="modal-note">Changes queue for next round — never applied mid-round.</div>
-
-      <div class="settings-row">
-        <label>Sips / hand</label>
-        <input type="number" id="setting-wager" min="1" max="20" value="1" class="w-72">
-      </div>
-      <div class="settings-row">
-        <label>Hands / player</label>
-        <input type="number" id="setting-num-hands" min="1" max="10" value="2" class="w-72">
-      </div>
-      <div id="setting-decks-row" class="settings-row">
-        <label>Decks in shoe</label>
-        <input type="number" id="setting-num-decks" min="1" max="8" value="1" class="w-72">
-      </div>
-      <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
-      <div class="settings-row">
-        <label>Rotate every</label>
-        <div class="settings-inline-row">
-          <input type="number" id="setting-rotate-every" min="1" max="20" value="1" class="w-52">
-          <span class="settings-inline-note">rounds</span>
-          {{ action_btn('Save', 'saveRotateEvery', '[]', 'btn btn-sm') }}
+    <div id="settings-main-view">
+      <div class="kick-toggle-row" style="border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label">Deal animation</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="anim-toggle-modal" data-change-action="setAnimToggle">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="anim-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="anim-lbl-modal-on">ON</span>
         </div>
       </div>
-      <div class="settings-row settings-row-last">
-        <label>Force rotate now</label>
-        <button class="btn btn-rotate" data-action="rotateDealer">🔄 Rotate Now</button>
+
+      <div class="kick-toggle-row admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
+        </div>
       </div>
 
-      <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>
-      <div class="settings-add-row">
-        <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
-        <label class="npc-label"><input type="checkbox" id="setting-add-npc"> Bot</label>
-        {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
+      <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Strategy Hints <span style="font-size:10px;color:var(--muted)">(blue border on best play)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="strategy-hint-toggle-modal" data-change-action="setStrategyHintEnabled">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="strategy-hint-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="strategy-hint-lbl-modal-on">ON</span>
+        </div>
       </div>
 
-      <div class="modal-section-title modal-gap-top">REMOVE PLAYER SEAT</div>
-      <div class="settings-add-row">
-        <select id="setting-remove-name" class="settings-select"></select>
-        {{ action_btn('Remove', 'queueRemovePlayer', '[]', 'btn red btn-sm') }}
+      <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Wild Card <span style="font-size:10px;color:var(--muted)">(logo Easter egg)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="wild-card-toggle-modal" data-change-action="setWildCardEnabled">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="wild-card-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="wild-card-lbl-modal-on">ON</span>
+        </div>
       </div>
 
-      {{ action_btn('Queue for next round', 'queueSettings', '[]', 'btn wide queue-btn') }}
-
-      <div id="queued-settings-banner">
-        <strong class="queued-title">⏳ Queued for next round:</strong>
-        <ul id="queued-settings-list"></ul>
-        {{ action_btn('Clear queue', 'clearQueuedSettings', '[]', 'btn btn-clear-queue') }}
+      <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Easy Mode <span style="font-size:10px;color:var(--muted)">(halve drinks every round)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle" id="easy-mode-toggle-wrap-modal">
+            <input type="checkbox" id="easy-mode-toggle-modal" data-change-action="setEasyModeAdmin">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="easy-mode-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="easy-mode-lbl-modal-on">ON</span>
+        </div>
       </div>
+
+      <div class="kick-toggle-row admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">God Mode <span style="font-size:10px;color:var(--muted)">(admin bypasses turn gate)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="god-mode-toggle-modal" data-change-action="setGodMode">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="god-mode-lbl-off">OFF</span>
+          <span class="pill-label-on" id="god-mode-lbl-on">ON</span>
+        </div>
+      </div>
+
+      <div style="border-bottom:1px solid rgba(255,255,255,.1);margin:10px 0 12px"></div>
+
+      <button class="btn wide settings-players-nav-btn" data-action="showSettingsSubview" data-args='["players"]'>
+        👥 Players <span id="settings-players-badge" class="settings-players-badge" style="display:none"></span>
+      </button>
+
+      <div id="game-settings-section">
+        <div class="modal-section-title modal-gap-lg">GAME SETTINGS</div>
+        <div class="modal-note">Changes queue for next round — never applied mid-round.</div>
+
+        <div class="settings-row drink-only">
+          <label>Sips / hand</label>
+          <input type="number" id="setting-wager" min="1" max="20" value="1" class="w-72">
+        </div>
+        <div class="settings-row">
+          <label>Hands / player</label>
+          <input type="number" id="setting-num-hands" min="1" max="10" value="2" class="w-72">
+        </div>
+        <div id="setting-decks-row" class="settings-row">
+          <label>Decks in shoe</label>
+          <input type="number" id="setting-num-decks" min="1" max="8" value="1" class="w-72">
+        </div>
+        <div id="setting-rotation-section">
+          <div class="modal-section-title modal-gap-lg">DEALER ROTATION</div>
+          <div class="settings-row">
+            <label>Rotate every</label>
+            <div class="settings-inline-row">
+              <input type="number" id="setting-rotate-every" min="1" max="20" value="1" class="w-52">
+              <span class="settings-inline-note">rounds</span>
+              {{ action_btn('Save', 'saveRotateEvery', '[]', 'btn btn-sm') }}
+            </div>
+          </div>
+          <div class="settings-row settings-row-last">
+            <label>Force rotate now</label>
+            <button class="btn btn-rotate" data-action="rotateDealer">🔄 Rotate Now</button>
+          </div>
+        </div>
+
+        {{ action_btn('Queue for next round', 'queueSettings', '[]', 'btn wide queue-btn') }}
+      </div>
+    </div>
+
+    <div id="settings-players-view" style="display:none">
+      <div class="settings-subview-header">
+        {{ action_btn('← Back', 'showSettingsSubview', '["main"]', 'btn settings-back-btn') }}
+        <span class="settings-subview-title">👥 Players</span>
+      </div>
+
+      <div id="add-local-seat-row" style="display:none;padding:6px 0">
+        <button class="btn wide" style="font-size:12px" data-action="showLocalSeatPicker">👤 Add local player</button>
+        <div id="local-seat-picker" style="display:none;margin-top:6px"></div>
+      </div>
+
+      <div class="modal-section-title">PLAYERS IN SESSION</div>
+      <div id="kick-list"></div>
+
+      <div id="transfer-admin-section">
+        <div class="modal-section-title modal-gap-top">TRANSFER ADMIN</div>
+        <div id="transfer-admin-list"></div>
+      </div>
+
+      <div id="add-remove-seat-section">
+        <div class="modal-note">Seat changes queue for next round too.</div>
+
+        <div class="modal-section-title modal-gap-top">ADD PLAYER SEAT</div>
+        <div class="settings-add-row">
+          <input type="text" id="setting-add-name" placeholder="Player name" maxlength="20">
+          <button type="button" id="setting-add-npc-btn" class="btn btn-sm npc-toggle-btn" data-action="toggleNpcBtn">Bot</button>
+          <input type="checkbox" id="setting-add-npc" hidden>
+          {{ action_btn('Add', 'queueAddPlayer', '[]', 'btn btn-sm') }}
+        </div>
+
+        <div class="modal-section-title modal-gap-top">REMOVE PLAYER SEAT</div>
+        <div class="settings-add-row">
+          <select id="setting-remove-name" class="settings-select"></select>
+          {{ action_btn('Remove', 'queueRemovePlayer', '[]', 'btn red btn-sm') }}
+        </div>
+      </div>
+    </div>
+
+    <div id="queued-settings-banner">
+      <strong class="queued-title">⏳ Queued for next round:</strong>
+      <ul id="queued-settings-list"></ul>
+      {{ action_btn('Clear queue', 'clearQueuedSettings', '[]', 'btn btn-clear-queue') }}
     </div>
 
     {{ action_btn('Close', 'closeKickModal', '[]', 'btn wide modal-close-btn') }}
   </div>
 </div>
 
-<div id="last-round-overlay" class="overlay-last-round" data-backdrop-action="closeLastRoundModal">
+<div id="last-round-overlay" class="overlay-last-round drink-only" data-backdrop-action="closeLastRoundModal">
   <div class="last-round-card" data-stop-propagation="true">
     <h3 class="last-round-title">🍺 Last Round</h3>
     <div id="last-round-modal-body"></div>
@@ -167,14 +222,94 @@
   </div>
 </div>
 
+<div id="dealer-lottery-modal-overlay" class="drink-only bust-vote-modal-overlay">
+  <div class="bust-vote-modal-card">
+    <div class="bust-vote-modal-title">🎰 Dealer Lottery!</div>
+    <div class="bust-vote-modal-sub">Dealer stood on a paired 18/20 — enter for a shot at a split redeal.</div>
+    <div class="bust-vote-timer-bar-wrap">
+      <div id="dealer-lottery-timer-bar" class="bust-vote-timer-bar"></div>
+    </div>
+    <div id="dealer-lottery-timer-label" class="bust-vote-timer-label">20s</div>
+    <div id="dealer-lottery-players-wrap"></div>
+    <div id="dealer-lottery-answered" class="dl-answered"></div>
+  </div>
+</div>
+
+<div id="dealer-lottery-reveal-overlay" class="drink-only">
+  <div id="dealer-lottery-reveal-modal">
+    <div class="milestone-header">
+      <div class="milestone-emoji">🎰</div>
+      <div class="milestone-title">Dealer Lottery Redeal!</div>
+      <div id="dealer-lottery-reveal-sub" class="milestone-sub"></div>
+    </div>
+    <div id="dealer-lottery-reveal-hands" class="dl-reveal-hands"></div>
+    <div id="dealer-lottery-reveal-payout" class="dl-reveal-payout"></div>
+    {{ action_btn('Got it', 'closeDealerLotteryRevealModal', '[]', 'milestone-submit', 'id="dealer-lottery-reveal-close-btn"') }}
+  </div>
+</div>
+
+<div id="dealer-lottery-give-overlay" style="display:none">
+  <div id="dealer-lottery-give-card" data-stop-propagation="true">
+    <div id="dealer-lottery-give-body"></div>
+  </div>
+</div>
+
+<div id="targeted-drinking-give-overlay" style="display:none">
+  <div id="targeted-drinking-give-card" data-stop-propagation="true">
+    <div id="targeted-drinking-give-body"></div>
+  </div>
+</div>
+
+<div id="targeted-drinking-modal-overlay" class="drink-only bust-vote-modal-overlay">
+  <div class="bust-vote-modal-card td-modal-card">
+    <button id="td-close-btn" class="td-close-btn" title="End targeting">✕</button>
+
+    <div id="td-vote-phase">
+      <div class="bust-vote-modal-title">🎯 Targeted Drinking Mode</div>
+      <div id="td-modal-sub" class="bust-vote-modal-sub">Call it — will the dealer's hand bust?</div>
+      <div class="bust-vote-timer-bar-wrap">
+        <div id="td-timer-bar" class="bust-vote-timer-bar"></div>
+      </div>
+      <div id="td-timer-label" class="bust-vote-timer-label">15s</div>
+      <div id="td-players-wrap"></div>
+    </div>
+
+    <div id="td-reveal-phase" style="display:none">
+      <div class="milestone-header">
+        <div class="milestone-emoji">🎯</div>
+        <div class="milestone-title">Targeted Drinking!</div>
+        <div id="targeted-drinking-reveal-sub" class="milestone-sub"></div>
+      </div>
+      <div id="targeted-drinking-reveal-hand" class="dl-reveal-hands"></div>
+      <div id="targeted-drinking-reveal-payout" class="dl-reveal-payout"></div>
+      <button id="td-continue-btn" class="milestone-submit" data-td-continue disabled>Continue</button>
+    </div>
+
+    <div id="td-stats-panel" class="td-stats-panel">
+      <div id="td-stats-dealer-bust" class="td-stats-dealer-bust"></div>
+      <div id="td-stats-targets"></div>
+    </div>
+
+    <div id="td-summary-phase" style="display:none">
+      <div class="milestone-header">
+        <div class="milestone-emoji">🏁</div>
+        <div class="milestone-title">Targeted Drinking Ended</div>
+        <div id="td-summary-sub" class="milestone-sub"></div>
+      </div>
+      <div id="td-summary-list" class="dl-reveal-payout"></div>
+      <button class="milestone-submit" data-td-continue>Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="dealer-toast">🃏 You are the dealer now!</div>
 <div id="player-toast"></div>
 <div id="switch-toast"></div>
-<div id="milestone-toast"></div>
-<div id="ms-waiting-banner"></div>
-<div id="ms-drink-toast"></div>
+<div id="milestone-toast" class="drink-only"></div>
+<div id="ms-waiting-banner" class="drink-only"></div>
+<div id="ms-drink-toast" class="drink-only"></div>
 
-<div id="ms-ack-overlay">
+<div id="ms-ack-overlay" class="drink-only">
   <div id="ms-ack-modal">
     <div class="ms-ack-emoji">🍺</div>
     <div id="ms-ack-title" class="ms-ack-title"></div>
@@ -183,7 +318,34 @@
   </div>
 </div>
 
-<div id="milestone-modal-overlay">
+<div id="bank-run-overlay">
+  <div id="bank-run-modal">
+    <div class="ms-ack-emoji">🏃💸</div>
+    <div class="ms-ack-title">Bank Run!</div>
+    <div class="ms-ack-sub"><span id="bank-run-player-name">You</span> are tapped out — bankroll hit $0.
+      Hit the ATM for a fresh stack, or step away from the table and spectate?</div>
+    <div class="btn-row">
+      {{ action_btn('💰 Re-buy (back to start)', 'bankRebuy', '[]', 'ms-ack-btn') }}
+      {{ action_btn('🚪 Exit / Spectate', 'bankExit', '[]', 'ms-ack-btn ms-ack-btn-secondary') }}
+    </div>
+  </div>
+</div>
+
+<div id="honor-split-overlay" class="drink-only">
+  <div id="honor-split-modal">
+    <div class="ms-ack-emoji" id="honor-emoji">🃏</div>
+    <div class="ms-ack-title" id="honor-title">House Rule: Always Split 10s</div>
+    <div class="ms-ack-sub" id="honor-sub">Your hand is two unsuited 10-value cards:
+      the house rule says you must split. Do it anyway and take a 1-sip
+      penalty?</div>
+    <div class="btn-row">
+      {{ action_btn('Play with honor', 'honorResolve', '["split"]', 'ms-ack-btn') }}
+      {{ action_btn('Without honor (1 sip)', 'honorResolve', '["no"]', 'ms-ack-btn ms-ack-btn-secondary', extra_attrs='id="honor-no-btn"') }}
+    </div>
+  </div>
+</div>
+
+<div id="milestone-modal-overlay" class="drink-only">
   <div id="milestone-modal">
     <div id="milestone-modal-header" class="milestone-header">
       <div class="milestone-emoji">🎉</div>
@@ -197,14 +359,26 @@
   </div>
 </div>
 
-<div id="summary-overlay">
-  <div id="summary-card">
+<div id="summary-overlay" data-backdrop-action="closeSummaryModal">
+  <div id="summary-card" data-stop-propagation="true">
+    <button id="summary-close-btn" data-action="closeSummaryModal" title="Close">✕</button>
     <h3>🃏 Session Summary</h3>
     <div id="summary-meta" class="summary-meta"></div>
     <div id="summary-body"></div>
     <div class="btn-row summary-actions">
-      {{ action_btn('Close', 'closeSummaryModal', '[]', 'btn wide') }}
-      {{ action_btn('⬇️ Export Drinks CSV', 'exportDrinksAndClose', '[]', 'btn wide') }}
+      {{ action_btn('⬇️ Download Session Report', 'exportDrinksAndClose', '[]', 'btn wide green drink-only') }}
+      {{ action_btn('⬇️ Export Drinks Log', 'exportDecisionLogAndClose', '[]', 'btn wide') }}
+    </div>
+    <div id="auto-export-row" class="auto-export-row" style="display:none">
+      <label class="auto-export-label">
+        <input type="checkbox" id="auto-export-toggle" onchange="setAutoExportDecisions(this.checked)">
+        🤖 Auto-export both reports every 10 rounds
+      </label>
+    </div>
+    <div class="modal-donate">
+      <a href="https://github.com/robert-rjm/Black-Out-Jack/issues" target="_blank" rel="noopener">
+        🍺 Buy us a beer (contact us via GitHub)
+      </a>
     </div>
   </div>
 </div>
@@ -230,5 +404,30 @@
     <div id="insurance-modal-btns" class="btn-row"></div>
     <div id="insurance-modal-status" class="insurance-modal-status"></div>
     <div id="insurance-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="target-proposal-modal-overlay">
+  <div id="target-proposal-modal">
+    <div class="insurance-modal-header">
+      <div class="insurance-modal-emoji">🎯</div>
+      <div id="target-proposal-modal-title" class="target-proposal-modal-title">Target Proposal</div>
+      <div id="target-proposal-modal-sub" class="insurance-modal-sub"></div>
+    </div>
+    <div id="target-proposal-modal-tally" class="insurance-modal-stakes"></div>
+    <div id="target-proposal-modal-btns" class="btn-row"></div>
+    <div id="target-proposal-modal-status" class="insurance-modal-status"></div>
+    <div id="target-proposal-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="seat-transfer-overlay" style="display:none">
+  <div id="seat-transfer-card" data-stop-propagation="true">
+    <h3>🔄 Seat Transfer Request</h3>
+    <p id="seat-transfer-msg"></p>
+    <div style="display:flex;gap:.6rem;justify-content:center;margin-top:1rem">
+      <button class="btn green" id="seat-transfer-accept">✓ Give it up</button>
+      <button class="btn red"   id="seat-transfer-deny">✗ Keep it</button>
+    </div>
   </div>
 </div>

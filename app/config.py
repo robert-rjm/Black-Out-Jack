@@ -40,10 +40,74 @@ MILESTONE_HANDOUT_SIPS = 5    # sips the winner gets to hand out
 MILESTONE_TTL          = 60   # seconds before an unclaimed handout is forfeited
 
 # ---------------------------------------------------------------------------
+# Losing-streak "L" badge
+# A player who racks up this many consecutive round losses (net hands lost
+# > net hands won, tracked the same way session.stats.streaks already does)
+# holds the L badge -- only one player at a time, whoever's active losing
+# streak is currently the single longest at the table. If another player's
+# streak overtakes them, the L transfers and the outgoing holder drinks 1
+# sip as a hand-off penalty (earning it for the first time, or simply
+# breaking your own streak with nobody else worse yet, never costs a sip).
+# ---------------------------------------------------------------------------
+
+WORST_STREAK_THRESHOLD = 5
+
+# ---------------------------------------------------------------------------
+# Side-bet / vote timing windows
+# ---------------------------------------------------------------------------
+
+BUST_VOTE_WINDOW_SECONDS     = 15.5  # how long the dealer-bust side-bet vote stays open
+                                   # (frontend countdown UI displays from 15)
+BUST_HANDOUT_WINDOW_SECONDS  = 20  # window to claim a dealer-bust sip handout
+INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) after this long
+
+# ---------------------------------------------------------------------------
+# Dealer Lottery — post-round bonus event on a paired 18/20 dealer hand
+# (see Rules.md §5.9)
+# ---------------------------------------------------------------------------
+
+DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-responders default to 0
+DEALER_LOTTERY_MAX_HANDS            = 5   # cap on total hands across both split branches combined
+
+# ---------------------------------------------------------------------------
+# Targeted Drinking Mode — admin-started subgame targeting specific players
+# (see Rules.md §5.10; MVP scope only)
+# ---------------------------------------------------------------------------
+
+TARGETED_DRINKING_VOTE_WINDOW_SECONDS = 15   # per-round bust/stand vote timer
+TARGETED_DRINKING_STREAK_TO_GRADUATE  = 3    # consecutive correct guesses to opt out
+TARGETED_DRINKING_COOLDOWN_ROUNDS     = 3    # rounds before a new subgame can start
+TARGETED_DRINKING_REVEAL_PAUSE_SECONDS = 12  # safety-net breather after a mini-round's reveal before the
+                                              # next one auto-opens -- the host/dealer can skip this early via
+                                              # POST /targeted_drinking/continue (app/routes/admin.py)
+# Easter-egg-launched subgames only (Wild Card 🃏): total sips a target can
+# drink before their run is force-ended as a loss (+1 penalty sip on top).
+TARGETED_DRINKING_EASTER_EGG_SIP_CAP  = 5
+# A target who graduates without ever missing (the minimum possible
+# TARGETED_DRINKING_STREAK_TO_GRADUATE attempts, all correct) gets to hand
+# out this many sips to another player -- mirrors the Dealer Lottery /
+# Bust Vote give-sip pattern, including its claim window.
+TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS = 3
+TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS          = 20
+
+# Majority-vote-to-target proposal (tapping a player's name at the table):
+# a single Yes/No vote on one proposed target, open for this long -- passes
+# early the instant strict majority says Yes, otherwise fails when the timer
+# runs out. A failed vote freezes the proposer from opening another proposal
+# for this many rounds (doesn't stop them voting on someone else's).
+TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS = 15
+TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS        = 3
+
+# ---------------------------------------------------------------------------
+# Registration / connection limits
+# ---------------------------------------------------------------------------
+
+MAX_REG_DENIALS = 2   # times a client can be denied (re-)entry before being locked out
+
+# ---------------------------------------------------------------------------
 # Game defaults (used by /setup when the caller omits a field)
 # ---------------------------------------------------------------------------
 
 DEFAULT_WAGER     = 1
 DEFAULT_NUM_HANDS = 2
-DEFAULT_NUM_DECKS = 1
 DEFAULT_MODE      = "referee"   # "referee" | "digital"

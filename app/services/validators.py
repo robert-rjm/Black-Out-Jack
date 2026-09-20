@@ -9,28 +9,54 @@ They do not write to the session store or produce side-effects.
 
 import re
 
+from better_profanity import profanity
+
+profanity.load_censor_words()
+
 # ---------------------------------------------------------------------------
 # Name sanitisation
 # ---------------------------------------------------------------------------
 
 _NAME_STRIP_RE = re.compile(r"[<>\"'`\\]")
 
+# Unicode bidi-control characters (RTL/LTR override and embedding marks),
+# zero-width/invisible joiners, and the BOM (U+FEFF) -- these have no visible
+# glyph but could be used to visually spoof or reorder a player's name
+# wherever it's displayed (lists, kick prompts, leaderboards, etc.)
+_BIDI_CONTROL_RE = re.compile(
+    "[​-‏‪-‮⁠-⁩﻿]"
+)
+
 
 def sanitize_name(raw: str) -> str:
     """Sanitize a player name before storing it.
 
     Strips HTML tags, removes characters that could break out of HTML
-    attribute or script contexts (<>"'`\\), trims whitespace, capitalizes,
-    and caps length at 20 characters.  Returns an empty string if nothing
-    is left after sanitization.
+    attribute or script contexts (<>"'`\\), strips invisible Unicode
+    bidi-control/formatting characters that could visually spoof the name,
+    trims whitespace, capitalizes, and caps length at 20 characters.
+    Returns an empty string if nothing is left after sanitization.
     """
     raw = raw[:40]                            # cap before regex (ReDoS guard)
     name = re.sub(r"<[^>]*>", "", raw)        # strip HTML tags
     name = _NAME_STRIP_RE.sub("", name)       # strip dangerous chars
+    name = _BIDI_CONTROL_RE.sub("", name)     # strip invisible bidi/formatting chars
     name = name.strip()
     if not name:
         return ""
     return name.capitalize()[:20]
+
+
+def is_offensive_name(name: str) -> bool:
+    """True if `name` (already run through sanitize_name) contains
+    profanity, per better-profanity's wordlist + leetspeak normalization.
+
+    Call this only at the handful of entry points where a brand-new
+    free-text name is created (room setup, add player, rejoin display
+    name) -- not at routes that just match an existing player/seat name,
+    since that name was already checked when it was first created.
+    """
+    return bool(name) and profanity.contains_profanity(name)
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +85,4 @@ def get_client_info(session, client_id: str) -> dict:
 
 def is_dealer_client(session, client_id: str) -> bool:
     """True if this client is the admin or is registered as the current dealer."""
-    info = get_client_info(session, client_id)
-    god_mode = session._god_mode
-    return info["is_dealer"] or (info.get("role") == "admin" and god_mode)
+    return get_client_info(session, client_id)["is_dealer"]

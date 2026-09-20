@@ -4,12 +4,15 @@ engine/referee.py
 Real-life referee for Drinking Blackjack.
 
 Use when playing with a physical deck. You deal real cards and make real
-decisions — this script acts as a scorekeeper and drink tracker. Tell it
+decisions — this module acts as a scorekeeper and drink tracker. Tell it
 what cards were dealt and what happened, and it fires all the drinking rules
 in real time.
 
-Run:
-    python referee.py
+`RefereeSession` is the shared library used by both the web app's referee
+mode (see app/routes/lobby.py) and the standalone terminal CLI.
+
+Run the standalone CLI:
+    python scripts/play_referee.py
 
 Commands (type 'help' in-session for full reference):
     deal <player> <card> [hand<n>]   — register a card dealt
@@ -35,7 +38,7 @@ Examples:
 """
 
 from engine.blackjack import (
-    Rank, Suit, Card, Hand, Player
+    Rank, Suit, Card, Hand, Player, get_player_hand,
 )
 from engine.drinking_rules import DrinkingRules, DrinkTracker
 from engine.events import (
@@ -99,54 +102,57 @@ class RefereeSession:
     """
 
     def __init__(self, players: list, dealer_name: str,
-                 wager: int = 1, num_hands: int = 2):
+                 wager: int = 1, num_hands: int = 2, verbose: bool = True,
+                 bust_vote_enabled: bool = False):
         self.all_players   = players           # list of Player objects (includes dealer-player)
         self.dealer_name   = dealer_name
         self.wager         = wager
         self.num_hands     = num_hands
+        self.verbose       = verbose  # set False by web layer to silence terminal output
         self.round_count   = 0
         self._all_names    = [p.name for p in players]
         self._player_map   = {p.name.lower(): p for p in players}
 
         # Round state
+        # Active keys: "partial_protected", "half_protected", "dealer_player_pending_credit"
         self._ace_clubs_flag  = {
-            "protected": False, "partial_protected": False,
+            "partial_protected": False,
             "half_protected": False, "dealer_player_pending_credit": None,
         }
         self._four_aces_fd    = False
         self._ace_credits     = []    # player names who received A-clubs
         self._initial_dealt   = False  # True once all first-deal cards are entered
-        self._pending_resolved = []  # buffered (player_name, hand, dealer_bj) — fired at endround
-        self._pending_eor_msgs = []  # BJ bonuses + four-aces-endround — buffered for halving
+        self._pending_resolved  = []  # buffered (player_name, hand, dealer_bj) — fired at endround
+        self._pending_bj_hands  = []  # buffered (player_name, hand) — BJ bonus fired at endround with exempt_dealer
+        self._pending_eor_msgs  = []  # four-aces-endround and other pre-computed msgs — buffered for halving
+
+        # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
+        self.bust_vote_enabled = bust_vote_enabled
+        self._insurance_result = None
+        self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
+        self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
+
+        # Hard-switch drinking guard — True once hard-switch drinks have been applied
+        # for the current round so they are not double-fired. Reset by room_manager.py.
+        self._hard_switch_drinking_applied = False
 
         # Tracker — resolves recipients and logs drinks
         self.tracker = DrinkTracker(players, self._get_dealer())
 
     # ---------------------------------------------------------------- helpers
 
+    def _log(self, *args, **kwargs):
+        """print() that respects self.verbose — silenced by the web layer
+        so the terminal stays clean while playing online, but preserved
+        for the interactive CLI session."""
+        if self.verbose:
+            print(*args, **kwargs)
+
     def _get_dealer(self) -> Player:
         return self._player_map.get(self.dealer_name.lower())
 
     def _get_player(self, name: str) -> Player:
         return self._player_map.get(name.strip().lower())
-
-    def _get_hand(self, player: Player, hand_label: str) -> Hand:
-        """
-        Resolve a player's betting hand by label ('hand1', 'hand2', ...).
-
-        Note: the dealer-player also has their own player hands. To target
-        the dealer's *dealer hand*, use the literal 'dealer' keyword (handled
-        explicitly in cmd_deal / cmd_result / cmd_dealer); never via this
-        helper. That way clicking the "Player1" button still routes to
-        Player1's own player hands when Player1 happens to be the dealer.
-        """
-        try:
-            idx = int(hand_label.lower().replace("hand", "").strip()) - 1
-        except (ValueError, AttributeError):
-            idx = 0
-        while len(player.hands) <= idx:
-            player.hands.append(Hand())
-        return player.hands[idx]
 
     # ---------------------------------------------------------------- setup round
 
@@ -155,11 +161,11 @@ class RefereeSession:
         # Rebuild index to pick up any players added after __init__
         self._player_map = {p.name.lower(): p for p in self.all_players}
         self._all_names  = [p.name for p in self.all_players]
-        print(f"\n{'='*52}")
-        print(f"  ROUND {self.round_count}  |  Dealer: {self.dealer_name}")
-        print("="*52)
+        self._log(f"\n{'='*52}")
+        self._log(f"  ROUND {self.round_count}  |  Dealer: {self.dealer_name}")
+        self._log("="*52)
         if not digital:
-            print("  Enter cards as they are dealt. Type 'help' for commands.\n")
+            self._log("  Enter cards as they are dealt. Type 'help' for commands.\n")
 
         # Reset all player hands and drink logs
         for p in self.all_players:
@@ -173,14 +179,24 @@ class RefereeSession:
                 p.drink_log = []
 
         self._ace_clubs_flag  = {
-            "protected": False, "partial_protected": False,
+            "partial_protected": False,
             "half_protected": False, "dealer_player_pending_credit": None,
         }
         self._four_aces_fd    = False
         self._ace_credits     = []
         self._initial_dealt   = False
-        self._pending_resolved = []
-        self._pending_eor_msgs = []
+        self._pending_resolved  = []
+        if self._pending_bj_hands:
+            # Operator called `action blackjack` after `endround` already fired —
+            # these BJ bonuses were never processed and are now silently dropped.
+            self._log(
+                f"  ⚠️  WARNING: {len(self._pending_bj_hands)} pending BJ hand(s) "
+                "discarded at round start. Was 'action blackjack' called after endround?"
+            )
+        self._pending_bj_hands  = []
+        self._pending_eor_msgs  = []
+        self._bust_votes        = {}
+        self._bust_vote_result  = None
         self.tracker = DrinkTracker(self.all_players, self._get_dealer())
 
     # ---------------------------------------------------------------- command: deal
@@ -188,8 +204,8 @@ class RefereeSession:
     def cmd_deal(self, parts: list):
         """deal <player> <card> [hand<n>]"""
         if len(parts) < 3:
-            print("  Usage: deal <player> <card> [hand<n>]")
-            print("  Example: deal Rob Ah hand1   |   deal dealer 7d")
+            self._log("  Usage: deal <player> <card> [hand<n>]")
+            self._log("  Example: deal Rob Ah hand1   |   deal dealer 7d")
             return
 
         player_name = parts[1]
@@ -207,14 +223,14 @@ class RefereeSession:
             player = self._get_player(player_name)
 
         if not player:
-            print(f"  Unknown player '{player_name}'. Known: {', '.join(self._all_names)}")
+            self._log(f"  Unknown player '{player_name}'. Known: {', '.join(self._all_names)}")
             return
 
         # Parse card
         try:
             card = parse_card(card_str)
         except ValueError as e:
-            print(f"  {e}")
+            self._log(f"  {e}")
             return
 
         # Get hand
@@ -222,13 +238,17 @@ class RefereeSession:
             hand = player.dealer_hand
             recipient_name = self.dealer_name
         else:
-            hand = self._get_hand(player, hand_label)
+            hand = get_player_hand(player, hand_label)
             recipient_name = player.name
+
+        # First card of the round locks in any bust-vote side bets (Rules.md §4.4
+        # — votes are placed "before the first deal").
+        self._initial_dealt = True
 
         # Add card to hand
         card_pos = len(hand.cards) + 1
         hand.cards.append(card)
-        print(f"  {recipient_name} {'(dealer) ' if is_dealer_seat else ''}"
+        self._log(f"  {recipient_name} {'(dealer) ' if is_dealer_seat else ''}"
               f"{hand_label if not is_dealer_seat else ''}: dealt {card}  "
               f"-> {hand}")
 
@@ -243,22 +263,24 @@ class RefereeSession:
             _, s, reason = msg[0], msg[1], msg[2]
             if s == -1:
                 self._ace_credits.append(recipient_name)
-                print(f"    (i) {reason}")
+                self._log(f"    (i) {reason}")
             else:
                 self.tracker.apply([msg])   # pass full tuple; apply() extracts optional role
 
         # Check for blackjack on first two cards
         if len(hand.cards) == 2 and hand.is_blackjack() and not is_dealer_seat:
-            print(f"  *** {recipient_name} has BLACKJACK! ***")
-            print(f"  (Use 'action {recipient_name} insurance {hand_label}' if dealer shows A and they want to insure)")
+            self._log(f"  *** {recipient_name} has BLACKJACK! ***")
+            self._log(
+                f"  (Use 'action {recipient_name} insurance {hand_label}' "
+                f"if dealer shows A and they want to insure)")
 
     # ---------------------------------------------------------------- command: action
 
     def cmd_action(self, parts: list):
         """action <player> <action> [hand<n>]"""
         if len(parts) < 3:
-            print("  Usage: action <player> <action> [hand<n>]")
-            print("  Actions: double, split, insurance, blackjack")
+            self._log("  Usage: action <player> <action> [hand<n>]")
+            self._log("  Actions: double, split, insurance, blackjack")
             return
 
         player_name = parts[1]
@@ -267,50 +289,55 @@ class RefereeSession:
 
         player = self._get_player(player_name)
         if not player:
-            print(f"  Unknown player '{player_name}'.")
+            self._log(f"  Unknown player '{player_name}'.")
             return
 
-        hand = self._get_hand(player, hand_label)
+        hand = get_player_hand(player, hand_label)
 
         if action == "double":
             hand.doubled = True
-            print(f"  {player.name} {hand_label}: marked as doubled.")
+            self._log(f"  {player.name} {hand_label}: marked as doubled.")
 
         elif action == "split":
-            # Create a new hand for the split
+            # Referee mode: cards are physical, so we only create the new hand
+            # slot and share the chain counter — we do NOT pop card data or deal
+            # a replacement card (the player does that with the real deck).
+            # Digital mode uses app.services.game_engine.perform_split() instead.
             new_hand = Hand(from_split=True)
             hand.from_split   = True
+            new_hand._split_chain = hand._split_chain  # share counter across the whole chain
             hand.split_count += 1
-            idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+            try:
+                idx = int(hand_label.lower().replace("hand", "").strip() or "1") - 1
+            except (ValueError, AttributeError):
+                idx = 0
             player.hands.insert(idx + 1, new_hand)
             new_label = f"hand{idx + 2}"
-            print(f"  {player.name} splits {hand_label} -> {hand_label} + {new_label}")
-            print(f"  Now deal one card each to {hand_label} and {new_label}.")
+            self._log(f"  {player.name} splits {hand_label} -> {hand_label} + {new_label}")
+            self._log(f"  Now deal one card each to {hand_label} and {new_label}.")
 
         elif action == "insurance":
             if not hand.is_blackjack():
-                print("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
+                self._log("  Insurance only applies when the player has a Blackjack (dealer shows Ace).")
                 return
             hand.insured = True
-            print(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21, no bonus drinks.")
+            self._log(f"  {player.name} {hand_label}: insured — Blackjack plays as regular 21, no bonus drinks.")
 
         elif action in ("blackjack", "bj"):
             hand.stood = True
-            print(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
-            self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
-                player_name=player.name, hand=hand, all_names=self._all_names,
-            )))
+            self._log(f"  {player.name} {hand_label}: BLACKJACK confirmed.")
+            self._pending_bj_hands.append((player.name, hand))
 
         else:
-            print(f"  Unknown action '{action}'. Use: double, split, insurance, blackjack")
+            self._log(f"  Unknown action '{action}'. Use: double, split, insurance, blackjack")
 
     # ---------------------------------------------------------------- command: result
 
     def cmd_result(self, parts: list):
         """result <player> <win|loss|push|bust> [hand<n>]"""
         if len(parts) < 3:
-            print("  Usage: result <player> <win|loss|push|bust> [hand<n>]")
-            print("  Special: 'result dealer bust' marks dealer bust (all non-bust players win)")
+            self._log("  Usage: result <player> <win|loss|push|bust> [hand<n>]")
+            self._log("  Special: 'result dealer bust' marks dealer bust (all non-bust players win)")
             return
 
         player_name = parts[1]
@@ -322,7 +349,7 @@ class RefereeSession:
         if player_name.lower() == "dealer" and outcome == "bust":
             dealer = self._get_dealer()
             dealer.dealer_hand.bust = True
-            print("  Dealer busts. Mark each non-busted player hand as 'win'.")
+            self._log("  Dealer busts. Mark each non-busted player hand as 'win'.")
             # Check dealer suited hand
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
@@ -330,35 +357,33 @@ class RefereeSession:
 
         player = self._get_player(player_name)
         if not player:
-            print(f"  Unknown player '{player_name}'.")
+            self._log(f"  Unknown player '{player_name}'.")
             return
 
-        hand = self._get_hand(player, hand_label)
+        hand = get_player_hand(player, hand_label)
 
         if outcome in ("win", "loss", "push"):
             hand.result = outcome
-            print(f"  {player.name} {hand_label}: {outcome.upper()}")
+            self._log(f"  {player.name} {hand_label}: {outcome.upper()}")
             dealer    = self._get_dealer()
             dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
             if hand.is_blackjack() and outcome == "win" and not hand.insured:
-                self._pending_eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
-                    player_name=player.name, hand=hand, all_names=self._all_names,
-                )))
+                self._pending_bj_hands.append((player.name, hand))
             # Buffer on_hand_resolved — fired at endround once hard_switch is known
             self._pending_resolved.append((player.name, hand, dealer_bj))
         elif outcome == "bust":
             hand.result = "loss"
             hand.bust   = True
-            print(f"  {player.name} {hand_label}: BUST => LOSS")
+            self._log(f"  {player.name} {hand_label}: BUST => LOSS")
         else:
-            print(f"  Unknown outcome '{outcome}'. Use: win, loss, push, bust")
+            self._log(f"  Unknown outcome '{outcome}'. Use: win, loss, push, bust")
 
     # ---------------------------------------------------------------- command: dealer reveal
 
     def cmd_dealer(self, parts: list):
         """dealer <final|suited|bust|blackjack> — mark the dealer's final state"""
         if len(parts) < 2:
-            print("  Usage: dealer <final|suited|bust|blackjack>")
+            self._log("  Usage: dealer <final|suited|bust|blackjack>")
             return
 
         sub = parts[1].lower()
@@ -368,20 +393,20 @@ class RefereeSession:
             # Trigger dealer-suited-hand check
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
-            print(f"  Dealer final hand checked: {dealer.dealer_hand}")
+            self._log(f"  Dealer final hand checked: {dealer.dealer_hand}")
 
         elif sub == "bust":
             dealer.dealer_hand.bust = True
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
-            print("  Dealer bust registered.")
+            self._log("  Dealer bust registered.")
 
         elif sub == "blackjack":
             dealer.dealer_hand.stood = True
-            print("  Dealer blackjack registered.")
+            self._log("  Dealer blackjack registered.")
 
         else:
-            print(f"  Unknown dealer command '{sub}'. Use: final, bust, blackjack")
+            self._log(f"  Unknown dealer command '{sub}'. Use: final, bust, blackjack")
 
     # ---------------------------------------------------------------- command: four aces
 
@@ -390,7 +415,7 @@ class RefereeSession:
         phase_map = {"firstdeal": "first_deal", "endround": "end_of_round"}
         phase = phase_map.get(parts[1].lower() if len(parts) > 1 else "", "")
         if not phase:
-            print("  Usage: fouraces <firstdeal|endround>")
+            self._log("  Usage: fouraces <firstdeal|endround>")
             return
         all_cards = [c for p in self.all_players for h in p.hands for c in h.cards]
         if self._get_dealer():
@@ -402,6 +427,109 @@ class RefereeSession:
         else:
             self._pending_eor_msgs.extend(msgs)  # end-of-round, halved
 
+    # ---------------------------------------------------------------- command: bust vote
+
+    def cmd_bustvotetoggle(self, parts: list):
+        """bustvotetoggle <on|off> — host toggles the dealer-bust side bet (Rules.md §4.4).
+
+        Terminal-CLI only. The web layer uses the /bust_vote_toggle route instead.
+        """
+        if len(parts) < 2 or parts[1].lower() not in ("on", "off"):
+            self._log("  Usage: bustvotetoggle <on|off>")
+            return
+        self.bust_vote_enabled = (parts[1].lower() == "on")
+        state = "enabled" if self.bust_vote_enabled else "disabled"
+        self._log(f"  Bust vote side bet {state}.")
+        if not self.bust_vote_enabled:
+            self._bust_votes = {}
+
+    def cmd_bustvote(self, parts: list):
+        """bustvote <player> <bust|skip> — side bet on dealer bust, before the first deal.
+
+        Terminal-CLI only. The web layer uses the /cast_bust_vote route instead.
+        """
+        if not self.bust_vote_enabled:
+            self._log("  Bust vote side bet is disabled. Use 'bustvotetoggle on' first.")
+            return
+        if len(parts) < 3:
+            self._log("  Usage: bustvote <player> <bust|skip>")
+            return
+        if self._initial_dealt:
+            self._log("  Bust votes must be placed before the first deal.")
+            return
+
+        player_name = parts[1]
+        vote        = parts[2].lower()
+        player      = self._get_player(player_name)
+        if not player:
+            self._log(f"  Unknown player '{player_name}'. Known: {', '.join(self._all_names)}")
+            return
+
+        if vote in ("bust", "b"):
+            self._bust_votes[player.name] = "bust"
+            self._log(f"  {player.name} bets the Dealer will bust this round.")
+        elif vote in ("skip", "no", "n", "abstain"):
+            self._bust_votes.pop(player.name, None)
+            self._log(f"  {player.name} skips the bust side bet.")
+        else:
+            self._log("  Vote must be 'bust' or 'skip'.")
+
+    def _resolve_bust_votes(self):
+        """
+        Resolve Rules.md §4.4 — fires once per round, called from cmd_endround
+        after the dealer's final hand is known (CLI/interactive path).
+
+        Correct 'bust' voters: -1 sip credit, then hand out 1 sip to another
+        player (interactive for humans, round-robin for NPCs).
+        Incorrect 'bust' voters: +1 sip penalty.
+        Never halved (Instant Effect rule — see Rules.md §6.1).
+
+        NOTE: There is a parallel implementation for the web path:
+        ``apply_bust_vote_penalties()`` in ``app/services/drink_tracker.py``.
+        The two functions must stay in sync whenever bust-vote rules change.
+        This CLI version uses interactive handout prompts; the web version
+        opens a timed /give_bust_sip window instead.  In web sessions
+        ``bust_vote_enabled`` is always False on RefereeSession, so this
+        function is dead code for web play — it exists for the standalone
+        CLI referee mode only.
+        """
+        self._bust_vote_result = None
+        if not self.bust_vote_enabled or not self._bust_votes:
+            return
+
+        dealer = self._get_dealer()
+        if not dealer or not dealer.dealer_hand:
+            return
+
+        dealer_busted = dealer.dealer_hand.bust or dealer.dealer_hand.is_bust()
+        winners, losers = [], []
+
+        for name in list(self._bust_votes):
+            p = self._get_player(name)
+            if not p:
+                continue
+            if dealer_busted:
+                p.add_drink(-1, f"{name} bust vote correct: -1 sip credit", "player")
+                winners.append(name)
+                if self.verbose:
+                    print(f"    (i) {name} called the Dealer bust correctly "
+                          f"— -1 sip credit, hands out 1 sip")
+            else:
+                p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
+                losers.append(name)
+                if self.verbose:
+                    print(f"    [drink] {name}: Bust vote wrong — dealer didn't bust: +1 sip")
+
+        self._bust_vote_result = {
+            "dealer_busted": dealer_busted,
+            "winners":       winners,
+            "losers":        losers,
+        }
+
+        for name in winners:
+            self.tracker._handle_handout(
+                name, 1, f"{name} won the bust vote — hands out 1 sip", label="bust vote")
+
     # ---------------------------------------------------------------- command: endround
 
     def cmd_endround(self, skip_sweep: bool = False, extra_eor_msgs=None):
@@ -409,7 +537,11 @@ class RefereeSession:
         skip_sweep: pass True in digital mode (dealer_turn already fired it).
         extra_eor_msgs: msgs buffered by dealer_turn (digital mode) that must
         be combined with this round's msgs before halving is applied."""
-        print("\n--- End of Round ---")
+        self._log("\n--- End of Round ---")
+
+        # Bust vote side bet (instant effect, never halved) — resolved first so
+        # it appears in each player's drink_log alongside the round's other drinks.
+        self._resolve_bust_votes()
 
         # Hard dealer switch check
         dealer  = self._get_dealer()
@@ -432,6 +564,25 @@ class RefereeSession:
         eor_msgs = list(extra_eor_msgs or []) + list(self._pending_eor_msgs)
         self._pending_eor_msgs = []
 
+        # Resolve dealer BJ early — needed by both hard-switch and round-end logic below.
+        dealer    = self._get_dealer()
+        dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+        # Real insurance is only ever offered on an Ace up-card; a dealer BJ made
+        # from a 10-value up-card hiding an Ace never gave the group a chance to
+        # insure, so auto-insurance must not apply in that case.
+        dealer_shows_ace = bool(
+            dealer and dealer.dealer_hand and dealer.dealer_hand.cards
+            and dealer.dealer_hand.cards[0].rank.label == "A"
+        )
+
+        # Fire buffered BJ bonus events — now we know exempt_dealer (hard switch)
+        for p_name, hand in self._pending_bj_hands:
+            eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
+                player_name=p_name, hand=hand, all_names=self._all_names,
+                hard_switch_dealer=exempt_dealer,
+            )))
+        self._pending_bj_hands = []
+
         # Fire buffered on_hand_resolved calls — now we know if it's a hard switch
         for p_name, hand, dealer_bj_at_time in self._pending_resolved:
             eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
@@ -441,7 +592,7 @@ class RefereeSession:
         self._pending_resolved = []
         # _pending_eor_msgs already drained above when building eor_msgs
 
-        if hard_switch and not getattr(self, "_hard_switch_drinking_applied", False):
+        if hard_switch and not self._hard_switch_drinking_applied:
             partial_protected = self._ace_clubs_flag.get("partial_protected", False)
             half_protected    = self._ace_clubs_flag.get("half_protected", False)
             # Partial protection (player-hand A♣): exclude dealer's own hands
@@ -449,18 +600,33 @@ class RefereeSession:
                 [h for h in winning if h[0].lower() != self.dealer_name.lower()]
                 if partial_protected else winning
             )
+            # Insurance Case 2, sub-case B: dealer-player IS the BJ holder,
+            # group voted insure, no dealer BJ → exclude their BJ from Hard Switch
+            # (insurance rule covers it; they drink nothing from insurance and the
+            # group drinks double instead).
+            dealer_bj_insured = (
+                not dealer_bj
+                and any(
+                    pn.lower() == self.dealer_name.lower()
+                    and h.is_blackjack() and getattr(h, "insured", False)
+                    for (pn, h) in winning
+                )
+            )
+            if dealer_bj_insured:
+                hs_for_penalty = [
+                    (pn, h) for (pn, h) in hs_for_penalty
+                    if not (pn.lower() == self.dealer_name.lower() and h.is_blackjack())
+                ]
             eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
                 dealer_name=self.dealer_name, winning_hands=hs_for_penalty,
                 half_protected=half_protected,
             )))
 
         # Round-end rules (net losses, sweeps)
-        w         = self.wager
-        dealer    = self._get_dealer()
-        dealer_bj = bool(dealer and dealer.dealer_hand and dealer.dealer_hand.is_blackjack())
+        w = self.wager
 
         # Insurance resolution — for hands marked insured via the INSURANCE button
-        if not hasattr(self, "_insurance_result") or self._insurance_result is None:
+        if self._insurance_result is None:
             self._insurance_result = []
         for p in players:
             if p.is_dealer:
@@ -481,6 +647,12 @@ class RefereeSession:
 
         # All-hands sweep (same suit or all-21 across split hands).
         # Skipped in digital mode — dealer_turn() already fired it before cmd_endround().
+        # Unlike the per-hand win events above, this bonus is never covered by
+        # the Hard Switch payout (on_hard_dealer_switch only tallies
+        # blackjack/doubled/regular wins, nothing about all-same-suit or
+        # all-21) -- so the dealer must stay a valid recipient even on a hard
+        # switch, or the bonus silently disappears whenever the sweeping
+        # player is also the one who swept the dealer (e.g. heads-up).
         if not skip_sweep:
             for p in players:
                 if p.is_dealer:
@@ -488,21 +660,22 @@ class RefereeSession:
                 try:
                     eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                         player_name=p.name, player_hands=p.hands, all_names=self._all_names,
-                        wager=self.wager, dealer_name=self.dealer_name if hard_switch else "",
-                        dealer_bj=dealer_bj,
+                        wager=self.wager, dealer_bj=dealer_bj,
+                        hard_switch_dealer=exempt_dealer,
                     )))
                 except Exception as e:
-                    print(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
+                    self._log(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
         if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
             w *= 2
-            print(
+            self._log(
                 f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards "
                 f"— wager doubled to {w} sip(s) this round!"
                 )
-        if dealer_bj:
-            print("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
+        if dealer_bj and dealer_shows_ace:
+            self._log("\n  ★ Dealer blackjack — auto-insurance: only net-loss sips apply.")
         eor_msgs.extend(DrinkingRules.handle(RoundEndEvent(
             players=players, wager=w, dealer_bj=dealer_bj,
+            dealer_shows_ace=dealer_shows_ace,
             hard_switch_dealer=self.dealer_name if hard_switch else "",
             num_hands=self.num_hands,
         )))
@@ -523,7 +696,7 @@ class RefereeSession:
             p = self._get_player(pending_credit)
             if p:
                 self.tracker.apply_ace_clubs_credit(p)
-                print(f"    (i) A♣ credit applied to {pending_credit} (no hard switch this round)")
+                self._log(f"    (i) A♣ credit applied to {pending_credit} (no hard switch this round)")
 
         # Update cumulative stats
         for p in players:
@@ -539,7 +712,7 @@ class RefereeSession:
 
     def cmd_status(self):
         """Show the current state of all hands this round."""
-        print("\n--- Current Round State ---")
+        self._log("\n--- Current Round State ---")
         rows = []
         for p in self.all_players:
             for i, h in enumerate(p.hands):
@@ -555,14 +728,14 @@ class RefereeSession:
                     str(p.dealer_hand),
                     "BUST" if p.dealer_hand.bust else "-"
                 ])
-        print(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
+        self._log(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
 
     # ---------------------------------------------------------------- show results
 
     def _show_results(self):
-        print("\n" + "="*52)
-        print("  ROUND RESULTS")
-        print("="*52)
+        self._log("\n" + "="*52)
+        self._log("  ROUND RESULTS")
+        self._log("="*52)
         rows = []
         for p in self.all_players:
             for i, h in enumerate(p.hands):
@@ -574,8 +747,8 @@ class RefereeSession:
             rows.append([f"Dealer ({self.dealer_name})", str(dh),
                          "BJ" if dh.is_blackjack() else
                          "BUST" if dh.is_bust() else str(dh.score())])
-        print(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
-        print("="*52)
+        self._log(tabulate(rows, headers=["Seat", "Hand", "Result"], tablefmt="pretty"))
+        self._log("="*52)
 
     # ---------------------------------------------------------------- help
 
@@ -616,6 +789,15 @@ class RefereeSession:
   fouraces <firstdeal|endround>
       Manually trigger the four-aces check.
 
+  bustvotetoggle <on|off>
+      Host toggles the dealer-bust side bet on/off (can change any time).
+
+  bustvote <player> <bust|skip>
+      Before the first deal: Player bets the Dealer will bust this round.
+      Correct => -1 sip + hand out 1 sip. Wrong => +1 sip. (Rules.md §4.4)
+      Example: bustvote Rob bust
+               bustvote Markoi skip
+
   endround
       Finalise the round — fires all end-of-round drink rules
       and prints the full drink summary.
@@ -630,144 +812,3 @@ class RefereeSession:
       Exit the referee session.
 """
         print(help_text)
-
-
-# =============================================================================
-# Setup
-# =============================================================================
-
-def _safe_int(prompt: str, default: int, lo: int = 1, hi: int = 999) -> int:
-    """Input helper — accepts integers, ignores trailing punctuation, loops on bad input."""
-    while True:
-        try:
-            raw = input(prompt).strip().rstrip(".,:;")
-            val = int(raw) if raw else default
-            if lo <= val <= hi:
-                return val
-            print(f"  Please enter a number between {lo} and {hi}.")
-        except ValueError:
-            print("  Please enter a number.")
-
-
-def setup_session() -> RefereeSession:
-    print("\n" + "="*52)
-    print("  DRINKING BLACKJACK — REFEREE MODE")
-    print("="*52)
-    print("  Real-life session: you deal the cards, we track the drinks.\n")
-
-    n = _safe_int("  Number of players (1-4): ", default=2, lo=1, hi=4)
-
-    names = []
-    for i in range(n):
-        name = input(f"  Name for player {i+1}: ").strip() or f"Player {i+1}"
-        names.append(name.capitalize())
-
-    print("\n  Who is the dealer this round?")
-    for i, name in enumerate(names):
-        print(f"    {i+1}. {name}")
-
-    dealer_name = names[0]
-    while True:
-        raw = input("  Enter number or name: ").strip()
-        if not raw:
-            break
-        if raw.isdigit():
-            idx = max(0, min(n - 1, int(raw) - 1))
-            dealer_name = names[idx]
-            break
-        match = next((name for name in names if name.lower() == raw.lower()), None)
-        if match:
-            dealer_name = match
-            break
-        print(f"  '{raw}' not recognised. Enter a number (1-{n}) or a player name.")
-
-    wager     = _safe_int("  Sips per hand wager (default 1): ", default=1, lo=1, hi=20)
-    num_hands = _safe_int("  Hands per player (default 2): ",    default=2, lo=1, hi=10)
-
-    # Build Player objects — dealer-player gets is_dealer=True
-    players = []
-    for name in names:
-        p           = Player(name)
-        p.is_dealer = (name == dealer_name)
-        if p.is_dealer:
-            p.dealer_hand = Hand()
-        players.append(p)
-
-    print("\n  Session ready.")
-    print(f"  Players: {', '.join(names)}")
-    print(f"  Dealer:  {dealer_name}")
-    print(f"  Wager:   {wager} sip(s)/hand  |  {num_hands} hands/player")
-    print("  Type 'help' for command reference.\n")
-
-    return RefereeSession(players, dealer_name, wager, num_hands)
-
-
-# =============================================================================
-# Main loop
-# =============================================================================
-
-def main():
-    session = setup_session()
-    session.start_round()
-
-    while True:
-        try:
-            raw = input("referee> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\n  Exiting referee session.")
-            break
-
-        if not raw:
-            continue
-
-        parts = raw.split()
-        cmd   = parts[0].lower()
-
-        if cmd in ("quit", "exit", "q"):
-            print("  Exiting referee session. Thanks for playing!")
-            break
-
-        elif cmd == "deal":
-            session.cmd_deal(parts)
-
-        elif cmd == "action":
-            session.cmd_action(parts)
-
-        elif cmd == "result":
-            session.cmd_result(parts)
-
-        elif cmd == "dealer":
-            session.cmd_dealer(parts)
-
-        elif cmd == "fouraces":
-            session.cmd_fouraces(parts)
-
-        elif cmd == "endround":
-            session.cmd_endround()
-
-        elif cmd == "newround":
-            cont = input("  Rotate dealer? [y/n]: ").strip().lower()
-            if cont == "y":
-                all_names   = [p.name for p in session.all_players]
-                cur_idx     = all_names.index(session.dealer_name)
-                new_idx     = (cur_idx + 1) % len(all_names)
-                new_dealer  = all_names[new_idx]
-                for p in session.all_players:
-                    p.is_dealer   = (p.name == new_dealer)
-                    p.dealer_hand = Hand() if p.is_dealer else None
-                session.dealer_name = new_dealer
-                print(f"  Dealer rotates => {new_dealer} is now dealer.")
-            session.start_round()
-
-        elif cmd in ("status", "st"):
-            session.cmd_status()
-
-        elif cmd in ("help", "h"):
-            session.print_help()
-
-        else:
-            print(f"  Unknown command '{cmd}'. Type 'help' for reference.")
-
-
-if __name__ == "__main__":
-    main()

@@ -1,0 +1,471 @@
+"""
+Direct unit tests for the private harvest_drink_log helpers in
+app/services/drink_tracker.py (extracted in M1).
+
+Tests call each helper directly with a minimal GameRoom so every helper is
+testable in isolation without running a full round.
+"""
+
+from app.services.drink_tracker import (
+    _record_csv_rows,
+    _update_sip_tickers,
+    _snapshot_round,
+    _record_drinks_detail,
+    _update_hand_stats,
+    _update_max_round_sips,
+    _update_dealer_stats,
+    _update_streaks,
+    _update_worst_streak_holder,
+)
+from app.config import WORST_STREAK_THRESHOLD
+from engine.referee import RefereeSession
+from app.models.game_room import GameRoom, GameConfig
+from tests.conftest import make_hand, make_player
+
+
+# ---------------------------------------------------------------------------
+# Test fixture
+# ---------------------------------------------------------------------------
+
+def _make_room(names=None, dealer_idx=0):
+    """Minimal GameRoom for harvest-helper tests."""
+    if names is None:
+        names = ["Alice", "Bob"]
+    players = [make_player(n) for n in names]
+    players[dealer_idx].is_dealer = True
+    players[dealer_idx].dealer_hand = make_hand()   # empty, non-bust
+    raw = RefereeSession(players, players[dealer_idx].name, wager=1, num_hands=2)
+    return GameRoom(session=raw, config=GameConfig(mode="referee"))
+
+
+# ---------------------------------------------------------------------------
+# _record_csv_rows
+# ---------------------------------------------------------------------------
+
+def test_record_csv_rows_positive_sip_recorded():
+    room = _make_room()
+    alice = room.all_players[0]
+    alice.add_drink(2, "net loss", "player")           # classify_rule → "Net hand losses"
+    _record_csv_rows(room)
+    assert any(r["player"] == "Alice" and r["sips"] == 2 for r in room.drinks.csv_rows)
+
+
+def test_record_csv_rows_zero_sips_skipped():
+    room = _make_room()
+    room.all_players[0].add_drink(0, "net loss", "player")
+    _record_csv_rows(room)
+    assert room.drinks.csv_rows == []
+
+
+def test_record_csv_rows_null_classified_reason_skipped():
+    """Reasons that classify_rule maps to None (e.g. 'exempt') are not recorded."""
+    room = _make_room()
+    # "exempt" → classify_rule returns None → skip
+    room.all_players[0].add_drink(1, "exempt from drinks", "player")
+    _record_csv_rows(room)
+    assert room.drinks.csv_rows == []
+
+
+def test_record_csv_rows_negative_sips_always_recorded():
+    """Negative (credit) sips are always recorded with their canonical rule name."""
+    room = _make_room()
+    # "bust vote correct" → classify_rule now returns "Bust vote credit"
+    room.all_players[0].add_drink(-1, "bust vote correct: -1 sip credit", "player")
+    _record_csv_rows(room)
+    assert any(r["player"] == "Alice" and r["sips"] == -1 and r["rule"] == "Bust vote credit"
+               for r in room.drinks.csv_rows)
+
+
+def test_record_csv_rows_includes_round_and_dealer():
+    room = _make_room()
+    room.all_players[0].add_drink(1, "net loss", "player")
+    _record_csv_rows(room)
+    row = room.drinks.csv_rows[-1]
+    assert "round" in row and "dealer" in row
+
+
+def test_record_csv_rows_records_correct_dealer():
+    room = _make_room()
+    room.all_players[0].add_drink(1, "net loss", "player")
+    _record_csv_rows(room)
+    assert room.drinks.csv_rows[-1]["dealer"] == "Alice"   # Alice is dealer (idx 0)
+
+
+# ---------------------------------------------------------------------------
+# _update_sip_tickers
+# ---------------------------------------------------------------------------
+
+def test_update_sip_tickers_net_positive():
+    room = _make_room()
+    alice = room.all_players[0]
+    alice.add_drink(3, "net loss", "player")
+    alice.add_drink(-1, "bust vote correct: -1 sip credit", "player")  # net = 2
+    _update_sip_tickers(room)
+    assert room.drinks.sip_ticker.get("Alice") == 2
+
+
+def test_update_sip_tickers_zero_net_not_stored():
+    room = _make_room()
+    alice = room.all_players[0]
+    alice.add_drink(1, "net loss", "player")
+    alice.add_drink(-1, "bust vote correct: -1 sip credit", "player")  # net = 0
+    _update_sip_tickers(room)
+    assert room.drinks.sip_ticker.get("Alice", 0) == 0
+
+
+def test_update_sip_tickers_dealer_role_tracked_separately():
+    room = _make_room()
+    alice = room.all_players[0]
+    alice.add_drink(2, "Hard Dealer Switch", "dealer")
+    _update_sip_tickers(room)
+    assert room.drinks.dealer_role_ticker.get("Alice") == 2
+
+
+def test_update_sip_tickers_accumulates_across_calls():
+    room = _make_room()
+    alice = room.all_players[0]
+    alice.add_drink(2, "net loss", "player")
+    _update_sip_tickers(room)
+    alice.drink_log.clear()
+    alice.add_drink(3, "net loss", "player")
+    _update_sip_tickers(room)
+    assert room.drinks.sip_ticker.get("Alice") == 5
+
+
+def test_update_sip_tickers_multiple_players_independent():
+    room = _make_room()
+    alice, bob = room.all_players[0], room.all_players[1]
+    alice.add_drink(3, "net loss", "player")
+    bob.add_drink(1, "net loss", "player")
+    _update_sip_tickers(room)
+    assert room.drinks.sip_ticker.get("Alice") == 3
+    assert room.drinks.sip_ticker.get("Bob") == 1
+
+
+# ---------------------------------------------------------------------------
+# _snapshot_round
+# ---------------------------------------------------------------------------
+
+def test_snapshot_round_shifts_prev_sips():
+    room = _make_room()
+    room.drinks.last_round_sips = {"Alice": 2}
+    room.all_players[0].add_drink(5, "net loss", "player")
+    _snapshot_round(room)
+    assert room.drinks.prev_round_sips == {"Alice": 2}
+    assert room.drinks.last_round_sips.get("Alice") == 5
+
+
+def test_snapshot_round_zero_sip_player_still_recorded():
+    """Players with no drinks must appear in _last_round_sips (crown-badge logic)."""
+    room = _make_room()
+    _snapshot_round(room)
+    assert "Alice" in room.drinks.last_round_sips
+    assert room.drinks.last_round_sips["Alice"] == 0
+
+
+def test_snapshot_round_increments_rounds_played():
+    room = _make_room()
+    _snapshot_round(room)
+    assert room.stats.player_rounds_played.get("Alice") == 1
+
+
+def test_snapshot_round_appends_to_sip_history():
+    room = _make_room()
+    room.all_players[0].add_drink(3, "net loss", "player")
+    _snapshot_round(room)
+    assert len(room.stats.round_sip_history) == 1
+    assert room.stats.round_sip_history[0] == 3
+
+
+def test_snapshot_round_history_clamps_negative():
+    room = _make_room()
+    room.all_players[0].add_drink(-5, "bust vote correct: -1 sip credit", "player")
+    _snapshot_round(room)
+    assert room.stats.round_sip_history[0] == 0   # max(0, -5) = 0
+
+
+# ---------------------------------------------------------------------------
+# _update_max_round_sips
+# ---------------------------------------------------------------------------
+
+def test_update_max_sips_records_first_round():
+    room = _make_room()
+    room.drinks.last_round_sips = {"Alice": 5}
+    _update_max_round_sips(room)
+    assert room.stats.max_round_sips["Alice"] == 5
+
+
+def test_update_max_sips_keeps_previous_higher():
+    room = _make_room()
+    room.stats.max_round_sips    = {"Alice": 10}
+    room.drinks.last_round_sips   = {"Alice": 3}
+    _update_max_round_sips(room)
+    assert room.stats.max_round_sips["Alice"] == 10
+
+
+def test_update_max_sips_replaces_previous_lower():
+    room = _make_room()
+    room.stats.max_round_sips    = {"Alice": 2}
+    room.drinks.last_round_sips   = {"Alice": 7}
+    _update_max_round_sips(room)
+    assert room.stats.max_round_sips["Alice"] == 7
+
+
+def test_update_max_sips_clamps_negative():
+    room = _make_room()
+    room.drinks.last_round_sips = {"Alice": -2}
+    _update_max_round_sips(room)
+    assert room.stats.max_round_sips.get("Alice", 0) == 0
+
+
+# ---------------------------------------------------------------------------
+# _update_streaks
+# ---------------------------------------------------------------------------
+
+def test_streaks_win_round_increments():
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
+    _update_streaks(room)
+    assert room.stats.streaks["Alice"]["current"] == 1
+
+
+def test_streaks_loss_round_decrements():
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
+    _update_streaks(room)
+    assert room.stats.streaks["Alice"]["current"] == -1
+
+
+def test_streaks_neutral_resets_to_zero():
+    room = _make_room()
+    alice = room.all_players[0]
+    alice.hands = [
+        make_hand(("A", "H"), ("K", "D"), result="win"),
+        make_hand(("5", "S"), ("6", "H"), result="loss"),
+    ]
+    room.stats.streaks["Alice"] = {"current": 3, "longest_win": 3, "longest_loss": 0}
+    _update_streaks(room)
+    assert room.stats.streaks["Alice"]["current"] == 0
+
+
+def test_streaks_tracks_longest_win():
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
+    room.stats.streaks["Alice"] = {"current": 2, "longest_win": 2, "longest_loss": 0}
+    _update_streaks(room)
+    assert room.stats.streaks["Alice"]["longest_win"] == 3
+
+
+def test_streaks_tracks_longest_loss():
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
+    room.stats.streaks["Alice"] = {"current": -2, "longest_win": 0, "longest_loss": 2}
+    _update_streaks(room)
+    assert room.stats.streaks["Alice"]["longest_loss"] == 3
+
+
+def test_streaks_unresolved_hands_player_skipped():
+    """Player with only unresolved hands (result=None) is not added to _streaks."""
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result=None)]
+    _update_streaks(room)
+    assert "Alice" not in room.stats.streaks
+
+
+# ---------------------------------------------------------------------------
+# _update_worst_streak_holder ("L" badge)
+# ---------------------------------------------------------------------------
+
+def test_worst_streak_holder_none_below_threshold():
+    room = _make_room()
+    room.stats.streaks["Alice"] = {"current": -(WORST_STREAK_THRESHOLD - 1), "longest_win": 0, "longest_loss": 0}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder is None
+
+
+def test_worst_streak_holder_set_at_threshold_no_penalty_first_time():
+    """Earning the L for the first time (nobody held it before) never costs
+    a sip -- only a hand-off from an existing holder does."""
+    room = _make_room()
+    room.stats.streaks["Alice"] = {"current": -WORST_STREAK_THRESHOLD, "longest_win": 0, "longest_loss": WORST_STREAK_THRESHOLD}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder == "Alice"
+    assert room.drinks.sip_ticker == {}
+    alice = room._get_player("Alice")
+    assert alice.drink_log == []
+
+
+def test_worst_streak_holder_tie_keeps_incumbent():
+    room = _make_room()
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": -6, "longest_win": 0, "longest_loss": 6}
+    room.stats.streaks["Bob"]   = {"current": -6, "longest_win": 0, "longest_loss": 6}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder == "Alice"   # tie doesn't dethrone
+    assert room.drinks.sip_ticker == {}
+
+
+def test_worst_streak_holder_overtake_hands_off_with_penalty():
+    room = _make_room(names=["Alice", "Bob"])
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": -5, "longest_win": 0, "longest_loss": 5}
+    room.stats.streaks["Bob"]   = {"current": -7, "longest_win": 0, "longest_loss": 7}
+
+    _update_worst_streak_holder(room)
+
+    assert room.stats.worst_streak_holder == "Bob"
+    assert room.drinks.sip_ticker["Alice"] == 1
+    assert room.drinks.last_round_sips["Alice"] == 1
+    alice = room._get_player("Alice")
+    assert len(alice.drink_log) == 1
+    assert "Bob" in alice.drink_log[0][1]   # reason mentions who overtook them
+
+
+def test_worst_streak_holder_vacates_without_penalty_when_holder_recovers():
+    """The holder's own streak breaking (they finally won) with nobody else
+    worse yet clears the L with no sip -- winning back a round is never
+    punished."""
+    room = _make_room()
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": 1, "longest_win": 1, "longest_loss": 5}   # streak just broke
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder is None
+    assert room.drinks.sip_ticker == {}
+
+
+def test_worst_streak_holder_unchanged_when_holder_extends_further():
+    """The incumbent's own streak growing longer (still the worst) is a
+    no-op -- no duplicate sip, no log entry."""
+    room = _make_room()
+    room.stats.worst_streak_holder = "Alice"
+    room.stats.streaks["Alice"] = {"current": -6, "longest_win": 0, "longest_loss": 6}
+    _update_worst_streak_holder(room)
+    assert room.stats.worst_streak_holder == "Alice"
+    assert room.drinks.sip_ticker == {}
+
+
+# ---------------------------------------------------------------------------
+# _update_hand_stats
+# ---------------------------------------------------------------------------
+
+def test_hand_stats_win_and_blackjack_counted():
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
+    _update_hand_stats(room)
+    hs = room.stats.hand_stats["Alice"]
+    assert hs["hands"] == 1
+    assert hs["wins"] == 1
+    assert hs["blackjacks"] == 1
+
+
+def test_hand_stats_loss_counted():
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
+    _update_hand_stats(room)
+    assert room.stats.hand_stats["Alice"]["losses"] == 1
+
+
+def test_hand_stats_bust_counted():
+    room = _make_room()
+    room.all_players[0].hands = [
+        make_hand(("K", "S"), ("Q", "H"), ("5", "D"), result="loss", bust=True)
+    ]
+    _update_hand_stats(room)
+    assert room.stats.hand_stats["Alice"]["busts"] == 1
+
+
+def test_hand_stats_unresolved_hand_skipped():
+    room = _make_room()
+    room.all_players[0].hands = [make_hand(("A", "H"), ("K", "D"), result=None)]
+    _update_hand_stats(room)
+    assert room.stats.hand_stats.get("Alice", {}).get("hands", 0) == 0
+
+
+def test_hand_stats_split_hand_tracked():
+    room = _make_room()
+    room.all_players[0].hands = [
+        make_hand(("7", "H"), ("8", "D"), result="win", from_split=True)
+    ]
+    _update_hand_stats(room)
+    hs = room.stats.hand_stats["Alice"]
+    assert hs["split_hands"] == 1
+    assert hs["split_wins"] == 1
+
+
+def test_hand_stats_accumulates_across_rounds():
+    room = _make_room()
+    alice = room.all_players[0]
+    alice.hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
+    _update_hand_stats(room)
+    alice.hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
+    _update_hand_stats(room)
+    hs = room.stats.hand_stats["Alice"]
+    assert hs["hands"] == 2
+    assert hs["wins"] == 1
+    assert hs["losses"] == 1
+
+
+# ---------------------------------------------------------------------------
+# _update_dealer_stats
+# ---------------------------------------------------------------------------
+
+def test_dealer_stats_player_win_is_dealer_loss():
+    """A player win increments the dealer's loss counter."""
+    room = _make_room(["Alice", "Bob"])
+    room.all_players[1].hands = [make_hand(("A", "H"), ("K", "D"), result="win")]
+    _update_dealer_stats(room)
+    ds = room.stats.dealer_hand_stats["Alice"]
+    assert ds["losses"] == 1
+
+
+def test_dealer_stats_player_loss_is_dealer_win():
+    room = _make_room(["Alice", "Bob"])
+    room.all_players[1].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
+    _update_dealer_stats(room)
+    assert room.stats.dealer_hand_stats["Alice"]["wins"] == 1
+
+
+def test_dealer_stats_bust_hand_counted():
+    room = _make_room(["Alice", "Bob"])
+    # Give the dealer player a bust hand
+    room.all_players[0].dealer_hand = make_hand(("K", "S"), ("Q", "H"), ("5", "D"))
+    _update_dealer_stats(room)
+    assert room.stats.dealer_bust_rounds == 1
+
+
+def test_dealer_stats_dealer_own_hands_excluded():
+    """The dealer player's non-dealer hands are not counted in dealer stats."""
+    room = _make_room(["Alice", "Bob"])
+    # Give the dealer (Alice) a player hand — shouldn't be counted
+    room.all_players[0].hands = [make_hand(("5", "S"), ("6", "H"), result="loss")]
+    _update_dealer_stats(room)
+    assert room.stats.dealer_hand_stats.get("Alice", {}).get("wins", 0) == 0
+
+
+# ---------------------------------------------------------------------------
+# _record_drinks_detail
+# ---------------------------------------------------------------------------
+
+def test_record_drinks_detail_positive_sip_in_last_round_drinks():
+    room = _make_room()
+    room.all_players[0].add_drink(2, "net loss", "player")
+    _record_drinks_detail(room)
+    assert any(d["name"] == "Alice" and d["sips"] == 2 for d in room.drinks.last_round_drinks)
+
+
+def test_record_drinks_detail_credit_in_last_round_drinks():
+    room = _make_room()
+    room.all_players[0].add_drink(-1, "bust vote correct: -1 sip credit", "player")
+    _record_drinks_detail(room)
+    assert any(d["name"] == "Alice" and d["sips"] == -1 for d in room.drinks.last_round_drinks)
+
+
+def test_record_drinks_detail_replaces_previous_detail():
+    """Each call to _record_drinks_detail overwrites _last_round_drinks."""
+    room = _make_room()
+    room.drinks.last_round_drinks = [{"name": "Bob", "sips": 9, "reason": "stale"}]
+    room.all_players[0].add_drink(1, "net loss", "player")
+    _record_drinks_detail(room)
+    # stale entry replaced; only Alice's drink remains
+    names = [d["name"] for d in room.drinks.last_round_drinks]
+    assert "Bob" not in names or all(d["sips"] != 9 for d in room.drinks.last_round_drinks)

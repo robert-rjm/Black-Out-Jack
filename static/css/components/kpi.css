@@ -42,7 +42,7 @@
 .kpi-tab:not(.active):active                  { background: rgba(255,255,255,.08); }
 .kpi-tab.active,
 .kpi-tab.active:active,
-.kpi-tab.active:focus                 { color: var(--accent); background: rgba(79,142,247,.14); box-shadow: inset 0 0 0 1.5px rgba(79,142,247,.35); }
+.kpi-tab.active:focus                 { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent) 35%, transparent); }
 .kpi-tab.kpi-tab-disabled             { opacity: .35; cursor: default; }
 
 /* ---- PANES ---- */
@@ -109,7 +109,6 @@
 }
 
 /* ---- LEADERBOARD TABLE ---- */
-#leaderboard-content,
 #stats-content {
   width: 100%;
 }
@@ -159,44 +158,19 @@
 .lb-table tbody tr:last-child td { border-bottom: none; }
 
 /* Dealer row */
-.lb-row-dealer td { background: rgba(155,100,255,.07); }
+.lb-row-dealer td { background: color-mix(in srgb, var(--purple) 7%, transparent); }
 .lb-row-dealer .lb-name { color: var(--accent); }
+
+/* "You" row — faint yellow wash */
+.lb-row-me td { background: color-mix(in srgb, var(--yellow) 6%, transparent); }
+
+/* Column group separators */
+.lb-table .col-sep { border-left: 1px solid var(--border); }
 
 /* Win-rate cell colouring */
 .lb-wr-good  { color: var(--green)  !important; font-weight: 700; }
 .lb-wr-ok    { color: var(--yellow) !important; }
 .lb-wr-bad   { color: var(--red)    !important; }
-
-/* Rank badge */
-.lb-rank {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--muted);
-  width: 14px;
-  text-align: right;
-  margin-right: 4px;
-  vertical-align: middle;
-}
-.lb-rank-1, .lb-rank-2, .lb-rank-3 {
-  font-size: 15px;
-  width: 20px;
-}
-.lb-rank-1 { color: gold; }
-.lb-rank-2 { color: silver; }
-.lb-rank-3 { color: #cd7f32; }
-
-/* Sip cells */
-.lb-sips      { color: var(--red); vertical-align: middle; }
-.lb-sips-zero { color: var(--muted); opacity: .45; vertical-align: middle; }
-
-/* Sub-label */
-.lb-meta {
-  font-size: 9px;
-  color: var(--muted);
-  padding: 4px 8px 6px;
-  opacity: .7;
-}
 
 /* ---- STATS TABLE ---- */
 .stats-table th { font-size: 8px; padding: 5px 4px; }
@@ -220,8 +194,57 @@
   padding: 8px 10px;
 }
 .stat-card-primary {
-  border-color: rgba(255,215,0,.45);
+  border-color: color-mix(in srgb, var(--yellow) 45%, transparent);
 }
+
+/* ---- MOBILE SHEET OVERLAY (_mobileSheet in kpi.js) ---- */
+.mobile-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(0,0,0,.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.mobile-sheet {
+  background: var(--bg);
+  border-radius: 16px;
+  padding: 16px 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: _lb-slide-up .2s ease;
+}
+
+/* ---- MOBILE RANKING MODAL ---- */
+@keyframes _lb-slide-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ---- MOBILE: swap full table + desktop rankings for compact card ---- */
+.stat-card-mobile-lb { display: none; }
+
+/* ---- MOBILE: compact cards replace banner + table + desktop rankings ---- */
+.stat-card-mobile-kpi { display: none; }
+
+@media (max-width: 640px) {
+  .stat-session-banner  { display: none; }
+  .stats-table          { display: none; }
+  .stat-card-primary    { display: none; }
+  .stat-card-mobile-lb  { display: flex; }
+  .stat-card-mobile-kpi { display: flex; }
+  .kpi-tab[data-args='["trivia"]'],
+  #pane-kpi-trivia      { display: none; }
+}
+
+#mobile-lb-overlay .stats-table        { display: table; }
+#mobile-kpi-overlay .stat-session-banner { display: block; }
 
 .stat-card-icon {
   font-size: 18px;

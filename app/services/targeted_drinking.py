@@ -1,0 +1,733 @@
+"""
+app/services/targeted_drinking.py
+===================================
+Targeted Drinking Mode (Rules.md §5.10): an admin-started subgame that
+forces one or more specific players into a standalone bust/stand mini-game,
+played between normal rounds, until they "graduate" (enough correct
+guesses in a row) or the subgame is cancelled. This is the MVP scope only
+-- majority-vote start/end, escalating loss penalties, cooldown
+consent-override, and AFK handling are deliberately deferred.
+
+Unlike Bust Vote (opt-in, single round, guesses against that round's real
+dealer hand), this deals its own isolated dealer-only hand from a fresh
+shuffled deck -- same "never touches session.shoe" isolation Dealer
+Lottery uses, for the same reason (this event shouldn't skew the main
+game's card economy). It does NOT ride alongside normal play: it's its own
+mini-round, triggered once a normal round ends (`check_targeted_drinking_trigger`,
+called from round_pipeline.py, mirrors `check_dealer_lottery_trigger`) and
+opened on the next tick once milestone/Dealer Lottery are clear
+(`maybe_start_targeted_drinking_round`, mirrors `maybe_start_dealer_lottery`)
+-- so it never stacks with those either. Targets vote blind (the isolated
+hand isn't dealt until the vote window closes), then the hand is dealt and
+resolved in one shot (`resolve_targeted_drinking_round`) for the frontend
+to reveal card-by-card, the same way Dealer Lottery's redeal is.
+
+Once triggered, mini-rounds chain back-to-back until the subgame ends
+(every target graduates, or the admin cancels) -- resolve_targeted_drinking_round
+re-arms `_targeted_drinking_eligible` immediately if the subgame is still
+running, instead of waiting for an entire normal round to play out before
+the next one. A short TARGETED_DRINKING_REVEAL_PAUSE_SECONDS breather after
+each result keeps the next vote prompt from popping over the previous
+reveal before anyone's had a chance to see it.
+"""
+
+from __future__ import annotations
+
+import random
+import time
+
+from engine.blackjack import Card, Deck, Hand
+from app.models.game_room import GameRoom
+from app.config import (
+    TARGETED_DRINKING_VOTE_WINDOW_SECONDS,
+    TARGETED_DRINKING_REVEAL_PAUSE_SECONDS,
+    TARGETED_DRINKING_STREAK_TO_GRADUATE,
+    TARGETED_DRINKING_COOLDOWN_ROUNDS,
+    TARGETED_DRINKING_EASTER_EGG_SIP_CAP,
+    TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
+    TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS,
+    TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS,
+    TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS,
+)
+from app.services.drink_tracker import award_sips
+from app.services.serializer import serialize_card, round_phase
+
+
+def start_targeted_drinking(
+    session: GameRoom, target_names: list[str], presser_name: str | None = None,
+) -> bool:
+    """Admin-only entry point (also called from the Wild Card easter egg --
+    see app/routes/wild_card.py). Returns False (no-op) if the subgame is
+    already running, the cooldown hasn't elapsed yet, no targets were
+    given, or any name isn't a currently-connected, non-kicked player.
+    On success, marks the subgame active with a fresh (zeroed) graduation
+    streak for each target. The first mini-round doesn't open until the
+    current normal round ends (see check_targeted_drinking_trigger) -- this
+    never interrupts a round already in progress.
+
+    presser_name: set only when the Wild Card easter egg launched this
+    subgame (the name of whoever pressed it) -- gates the easter-egg-only
+    5-sip cap and graduation payback mechanic in resolve_targeted_drinking_round.
+    None for admin-started subgames, which have no cap or payback.
+
+    check_targeted_drinking_trigger only ever fires once, at the moment a
+    round *transitions into* round-over (called from the end-round
+    pipeline) -- if the subgame is started while already sitting between
+    rounds (round-over already reached, admin just hasn't dealt the next
+    one yet), that trigger has already come and gone for this round-over
+    period and won't fire again until a whole *new* round completes,
+    stranding the subgame active but never eligible. So: if the room is
+    already in round-over when this starts, arm eligibility immediately
+    instead of waiting for it.
+    """
+    if session._targeted_drinking_active:
+        return False
+    if session.round_count < session._targeted_drinking_cooldown_until_round:
+        return False
+    if not target_names:
+        return False
+
+    valid_names = {p.name.lower() for p in session.all_players}
+    if any(name.lower() not in valid_names for name in target_names):
+        return False
+
+    session._targeted_drinking_active = True
+    session._targeted_drinking_targets = list(target_names)
+    session._targeted_drinking_streaks = {name: 0 for name in target_names}
+    session._targeted_drinking_losing_streaks = {name: 0 for name in target_names}
+    session._targeted_drinking_total_sips = {name: 0 for name in target_names}
+    session._targeted_drinking_correct_counts = {name: 0 for name in target_names}
+    session._targeted_drinking_wrong_counts = {name: 0 for name in target_names}
+    session._targeted_drinking_dealer_hands = 0
+    session._targeted_drinking_dealer_busts = 0
+    session._targeted_drinking_presser = presser_name
+    # Clear any in-flight majority-vote-to-target proposal -- a subgame is
+    # now active (whichever of the three start paths triggered it), so a
+    # leftover pending proposal from before could otherwise re-resolve later
+    # and try to start a second subgame on top of this one.
+    session.round._pending_target_proposal = None
+    if round_phase(session) == "round-over":
+        session.round._targeted_drinking_eligible = True
+    return True
+
+
+def check_targeted_drinking_trigger(session: GameRoom) -> None:
+    """Mark this round eligible for a Targeted Drinking mini-round, if the
+    subgame is active. Call once per round from the end-round pipeline
+    (mirrors check_dealer_lottery_trigger) -- unlike Dealer Lottery there's
+    no rare-hand condition to check, just whether the subgame is running.
+    Only sets the *eligible* flag -- does not open the vote window yet (see
+    maybe_start_targeted_drinking_round), so a pending milestone or Dealer
+    Lottery draw doesn't eat into this window's clock, and prompts never
+    stack."""
+    if not session.drinking_mode:
+        return
+    if not session._targeted_drinking_active:
+        return
+    if session.round._pending_targeted_drinking is not None:
+        return  # already running (shouldn't happen same-round, but stay idempotent)
+    session.round._targeted_drinking_eligible = True
+
+
+def _targeted_drinking_ready_to_open(session: GameRoom) -> bool:
+    """Internal: every condition EXCEPT the "Start Targeting Now" gate has
+    cleared and a mini-round's vote window could open right now -- shared
+    by maybe_start_targeted_drinking_round (which additionally requires
+    the start-request gate) and targeted_drinking_awaiting_start (which
+    reports the opposite: ready to open, but nobody's tapped the button
+    yet)."""
+    if not session.round._targeted_drinking_eligible:
+        return False
+    if session.round._pending_targeted_drinking is not None:
+        return False
+    if session.round._pending_milestone is not None:
+        return False
+    if session.round._dealer_lottery_eligible or session.round._pending_dealer_lottery is not None:
+        return False
+    if session.round._targeted_drinking_handout_expires_at is not None:
+        return False   # a perfect-graduation handout from this run is still unclaimed
+    last_result = session.drinks.last_targeted_drinking_result
+    if last_result and time.monotonic() - last_result["set_at"] < TARGETED_DRINKING_REVEAL_PAUSE_SECONDS:
+        return False
+    return True
+
+
+def targeted_drinking_awaiting_start(session: GameRoom) -> bool:
+    """True when the *first* mini-round after a normal round's end could
+    open right now but is waiting on someone to tap "Start Targeting Now"
+    -- lets the table finish drinking for the round that just ended before
+    the mini-game takes over the screen. Never true for a back-to-back
+    continuation (resolve_targeted_drinking_round re-requests the start
+    for itself) or once the vote window is already open."""
+    return (
+        _targeted_drinking_ready_to_open(session)
+        and not session.round._targeted_drinking_start_requested
+    )
+
+
+def request_targeted_drinking_start(session: GameRoom) -> bool:
+    """Any registered player taps "Start Targeting Now" to open the
+    waiting mini-round. Returns False (no-op) if there's nothing waiting
+    to start."""
+    if not _targeted_drinking_ready_to_open(session):
+        return False
+    session.round._targeted_drinking_start_requested = True
+    return True
+
+
+def maybe_start_targeted_drinking_round(session: GameRoom) -> None:
+    """Open this mini-round's vote window, if eligible, nothing is
+    blocking it, and someone's tapped "Start Targeting Now" (or this is a
+    back-to-back continuation, which re-requests the start for itself --
+    see resolve_targeted_drinking_round). Safe to call on every /state tick.
+
+    Waits for any pending milestone AND any pending-or-not-yet-opened
+    Dealer Lottery draw to clear first, so at most one of these three
+    post-round modals is ever open at once. Also waits out a short breather
+    after the previous mini-round's reveal (if this is a back-to-back
+    continuation, not the chain's first round) so the next vote prompt
+    doesn't pop in before anyone's had a chance to see that result."""
+    if not _targeted_drinking_ready_to_open(session):
+        return
+    if not session.round._targeted_drinking_start_requested:
+        return
+
+    session.round._pending_targeted_drinking = {
+        "expires_at": time.monotonic() + TARGETED_DRINKING_VOTE_WINDOW_SECONDS,
+        "votes": {name: None for name in session._targeted_drinking_targets},
+    }
+
+
+def submit_targeted_drinking_vote(session: GameRoom, player_name: str, vote: str) -> bool:
+    """Records `player_name`'s vote ("bust" or "stand") for the current
+    mini-round. Returns False if there's no open vote window or they
+    aren't one of this mini-round's targets."""
+    if vote not in ("bust", "stand"):
+        return False
+    pending = session.round._pending_targeted_drinking
+    if not pending or player_name not in pending["votes"]:
+        return False
+    pending["votes"][player_name] = vote
+    if all(v is not None for v in pending["votes"].values()):
+        resolve_targeted_drinking_round(session)
+    return True
+
+
+def apply_targeted_drinking_vote_forfeit(session: GameRoom) -> None:
+    """If the vote window has expired, default every unanswered target to
+    "stand" -- the same "default the unset value to something safe/neutral"
+    precedent apply_dealer_lottery_entry_forfeit already uses (it defaults
+    an unset stake to 0) -- then deal and resolve the mini-round's isolated
+    dealer hand. Safe to call every tick."""
+    pending = session.round._pending_targeted_drinking
+    if not pending or time.monotonic() < pending["expires_at"]:
+        return
+    for name in pending["votes"]:
+        if pending["votes"][name] is None:
+            pending["votes"][name] = "stand"
+    resolve_targeted_drinking_round(session)
+
+
+def _draw(deck) -> Card:
+    """Pop the next card from `deck`, replenishing with a fresh shuffled
+    52-card deck if it runs dry mid-hand -- mirrors dealer_lottery.py's own
+    _draw() (a long run of low-card hits reaching 17 can plausibly exceed
+    one deck's 52 cards; without this, deck.cards.pop() would raise
+    IndexError and crash the /state poll for the whole room)."""
+    if not deck.cards:
+        deck.cards.extend(Deck().cards)
+        random.shuffle(deck.cards)
+    return deck.cards.pop()
+
+
+def resolve_targeted_drinking_round(session: GameRoom) -> None:
+    """Resolve the current mini-round: deals a fresh dealer-only hand from
+    an isolated one-off deck (never touches session.shoe, same isolation
+    Dealer Lottery's redeal uses) and plays it out under the normal
+    dealer-hits-to-17 rule -- the hand isn't dealt until this point (the
+    vote window has just closed), so nobody could have voted with
+    foreknowledge of the outcome.
+
+    For each target: a correct guess advances their graduation streak
+    (removing them from the target list once it reaches
+    TARGETED_DRINKING_STREAK_TO_GRADUATE) and resets their losing streak to
+    0; a wrong guess resets the graduation streak to 0 and costs them
+    sips equal to their current losing streak (1st consecutive miss = 1
+    sip, 2nd = 2, 3rd = 3, ...) -- the two streaks are independent
+    counters, each reset only by the other's outcome. Ends the subgame
+    once every target has graduated.
+
+    A target who graduates with a perfect record -- zero wrong guesses
+    ever this run, i.e. exactly TARGETED_DRINKING_STREAK_TO_GRADUATE total
+    attempts, the minimum possible -- gets to hand out
+    TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS sips to another
+    player (any start path, not just easter-egg). Opens a claim window
+    (mirrors Dealer Lottery's own handout: give_targeted_drinking_sip /
+    apply_targeted_drinking_handout_forfeit) that blocks the next
+    mini-round from opening until it's claimed or forfeited, snapshotted
+    onto this result's "pending_handouts".
+
+    Easter-egg-launched subgames only (session._targeted_drinking_presser
+    set -- see start_targeted_drinking): a target who reaches
+    TARGETED_DRINKING_EASTER_EGG_SIP_CAP total sips is force-ended right
+    here as a loss -- one extra +1 penalty sip on top of the cap, removed
+    from the target list without graduating. The streak-scaling above
+    means this now arrives faster on a bad run (e.g. 3 consecutive misses
+    = 1+2+3 = 6 sips, already past a cap of 5) than it did under the old
+    flat-1-sip rule. Conversely, a target who graduates before ever
+    hitting the cap makes the mechanic backfire on whoever pressed the
+    easter egg: the presser drinks however many sips the target drank
+    over the whole run (0 if the target never missed).
+
+    Also updates the run-wide statistics table (Rules.md §5.10):
+    _targeted_drinking_correct_counts/_wrong_counts per target, and
+    _targeted_drinking_dealer_hands/_dealer_busts for the isolated dealer
+    hand's own bust rate this run. These are exposed live in every state
+    poll (not gated behind a seq, unlike last_targeted_drinking_result)
+    so targeted players can factor the running dealer-bust% into their
+    next call while the mini-round is still open.
+
+    Stores the dealt hand + per-target outcome on
+    session.drinks.last_targeted_drinking_result for the frontend to
+    reveal card-by-card (mirrors last_dealer_lottery_result), and bumps
+    _targeted_drinking_result_seq so the frontend can detect a new result
+    exactly once (mirrors _dealer_lottery_result_seq).
+    """
+    pending = session.round._pending_targeted_drinking
+    if not pending:
+        return
+
+    session.round._pending_targeted_drinking = None
+    session.round._targeted_drinking_eligible = False
+
+    deck = Deck()
+    random.shuffle(deck.cards)
+    hand = Hand()
+    hand.cards.append(_draw(deck))
+    hand.cards.append(_draw(deck))
+    while hand.score() < 17:
+        hand.cards.append(_draw(deck))
+
+    dealer_busted = hand.is_bust()
+    votes = pending["votes"]
+
+    session._targeted_drinking_dealer_hands += 1
+    if dealer_busted:
+        session._targeted_drinking_dealer_busts += 1
+
+    presser = session._targeted_drinking_presser
+    correct: dict[str, bool] = {}
+    sips: dict[str, int] = {}
+    graduated: list[str] = []
+    capped_out: list[str] = []
+    graduation_handouts: dict[str, int] = {}
+
+    for name in list(session._targeted_drinking_targets):
+        vote = votes.get(name) or "stand"
+        is_correct = (vote == "bust") == dealer_busted
+        correct[name] = is_correct
+
+        if is_correct:
+            session._targeted_drinking_correct_counts[name] = (
+                session._targeted_drinking_correct_counts.get(name, 0) + 1
+            )
+            streak = session._targeted_drinking_streaks.get(name, 0) + 1
+            session._targeted_drinking_streaks[name] = streak
+            # A correct guess breaks a losing streak, same as a wrong guess
+            # breaks the graduation streak below.
+            session._targeted_drinking_losing_streaks[name] = 0
+            if streak >= TARGETED_DRINKING_STREAK_TO_GRADUATE:
+                session._targeted_drinking_targets.remove(name)
+                graduated.append(name)
+                session.round._log_entries.append(
+                    f"  🎯 {name} graduated from Targeted Drinking Mode "
+                    f"({streak} correct in a row)\n"
+                )
+                session._log_version += 1
+                # Perfect run: graduated in the minimum possible number of
+                # attempts (exactly TARGETED_DRINKING_STREAK_TO_GRADUATE),
+                # never once guessing wrong this whole subgame run. Reward:
+                # hand out a fixed number of sips to another player, same
+                # claim-window/forfeit mechanic as Dealer Lottery's handout.
+                if session._targeted_drinking_wrong_counts.get(name, 0) == 0:
+                    graduation_handouts[name] = TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS
+                    session.round._log_entries.append(
+                        f"  🏆 {name} graduated flawlessly ({streak}/{streak}, "
+                        f"never missed) — gets to hand out "
+                        f"{TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS} sip(s)!\n"
+                    )
+                    session._log_version += 1
+                if presser:
+                    payback = session._targeted_drinking_total_sips.get(name, 0)
+                    if payback > 0:
+                        award_sips(
+                            session, presser, payback,
+                            "Targeted Drinking easter egg backfire",
+                            reason=f"Targeted Drinking: {name} graduated -- "
+                                   f"backfires on {presser} for {payback} sip(s)",
+                            count_toward_round=False,
+                        )
+                        session.round._log_entries.append(
+                            f"  🃏 Easter egg backfires on {presser} — "
+                            f"drinks {payback} sip(s) ({name} graduated)\n"
+                        )
+                        session._log_version += 1
+        else:
+            session._targeted_drinking_wrong_counts[name] = (
+                session._targeted_drinking_wrong_counts.get(name, 0) + 1
+            )
+            session._targeted_drinking_streaks[name] = 0
+            # Streak-scaled: the Nth consecutive wrong guess costs N sips
+            # (1, 2, 3, ...) instead of a flat 1 -- breaks the moment a
+            # correct guess resets it to 0 above.
+            losing_streak = session._targeted_drinking_losing_streaks.get(name, 0) + 1
+            session._targeted_drinking_losing_streaks[name] = losing_streak
+            wrong_sips = losing_streak
+            session._targeted_drinking_total_sips[name] = (
+                session._targeted_drinking_total_sips.get(name, 0) + wrong_sips
+            )
+            capped = (
+                presser is not None
+                and session._targeted_drinking_total_sips[name] >= TARGETED_DRINKING_EASTER_EGG_SIP_CAP
+            )
+            if capped:
+                wrong_sips += 1   # +1 penalty for not managing to graduate before the cap
+                session._targeted_drinking_total_sips[name] += 1
+                session._targeted_drinking_targets.remove(name)
+                capped_out.append(name)
+                session.round._log_entries.append(
+                    f"  🃏 {name} hit the {TARGETED_DRINKING_EASTER_EGG_SIP_CAP}-sip "
+                    f"easter egg cap without graduating — +1 penalty sip\n"
+                )
+                session._log_version += 1
+            sips[name] = wrong_sips
+            award_sips(
+                session, name, wrong_sips, "Targeted Drinking wrong guess",
+                reason=f"Targeted Drinking: guessed {vote}, dealer "
+                       f"{'busted' if dealer_busted else 'stood'} -- "
+                       f"{losing_streak} wrong in a row, +{wrong_sips} sip(s)"
+                       + (" (cap penalty)" if capped else ""),
+                count_toward_round=False,
+            )
+
+    session.drinks.last_targeted_drinking_result = {
+        "hand": {
+            "cards": [serialize_card(c) for c in hand.cards],
+            "score": hand.score(),
+            "bust":  dealer_busted,
+        },
+        "votes":      dict(votes),
+        "correct":    correct,
+        "streaks":    dict(session._targeted_drinking_streaks),
+        "graduated":  graduated,
+        "capped_out": capped_out,
+        "sips":       sips,
+        "pending_handouts": dict(graduation_handouts),
+        "set_at":     time.monotonic(),
+    }
+    session.drinks._targeted_drinking_result_seq += 1
+
+    # Reset handout tracking for this resolve (mirrors Dealer Lottery's own
+    # reset at the top of its payout section).
+    session.round._targeted_drinking_handouts_given = set()
+    session.round._targeted_drinking_handout_log = []
+    session.round._targeted_drinking_handout_expires_at = (
+        time.monotonic() + TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS
+        if graduation_handouts else None
+    )
+
+    if not session._targeted_drinking_targets:
+        reason = "capped_out" if capped_out else "all_graduated"
+        end_targeted_drinking(session, reason=reason)
+    else:
+        # Still running -- re-arm eligibility immediately so the next
+        # mini-round opens as soon as the reveal breather elapses (see
+        # maybe_start_targeted_drinking_round), instead of waiting for an
+        # entire normal round to play out first. Mini-rounds chain
+        # back-to-back until the subgame ends -- re-request the start too,
+        # so the "Start Targeting Now" gate only ever applies to the first
+        # mini-round after a normal round ends, never mid-chain.
+        session.round._targeted_drinking_eligible = True
+        session.round._targeted_drinking_start_requested = True
+
+
+def end_targeted_drinking(session: GameRoom, reason: str) -> None:
+    """Ends the subgame (idempotent -- no-op if not active), clearing
+    active/targets/streaks and any in-flight mini-round, and setting a
+    flat cooldown before a new subgame can start (no repeat-target special
+    case in the MVP). A mini-round cancelled mid-vote is simply discarded
+    -- nobody's vote gets scored.
+
+    Snapshots the whole run's per-target sip tally AND its statistics
+    table (correct/wrong counts, dealer bust rate) into
+    last_targeted_drinking_summary first (reason + totals + stats),
+    bumping _targeted_drinking_summary_seq, so the frontend can show a
+    one-shot "here's what everyone drank" recap -- mirrors
+    last_targeted_drinking_result's own one-shot seq pattern, just for
+    the subgame's *end* rather than each mini-round."""
+    if not session._targeted_drinking_active:
+        return
+    session.drinks.last_targeted_drinking_summary = {
+        "reason": reason,
+        "totals": dict(session._targeted_drinking_total_sips),
+        "correct": dict(session._targeted_drinking_correct_counts),
+        "wrong": dict(session._targeted_drinking_wrong_counts),
+        "dealer_hands": session._targeted_drinking_dealer_hands,
+        "dealer_busts": session._targeted_drinking_dealer_busts,
+        "set_at": time.monotonic(),
+    }
+    session.drinks._targeted_drinking_summary_seq += 1
+    session._targeted_drinking_active = False
+    session._targeted_drinking_targets = []
+    session._targeted_drinking_streaks = {}
+    session._targeted_drinking_losing_streaks = {}
+    session._targeted_drinking_total_sips = {}
+    session._targeted_drinking_correct_counts = {}
+    session._targeted_drinking_wrong_counts = {}
+    session._targeted_drinking_presser = None
+    session._targeted_drinking_dealer_hands = 0
+    session._targeted_drinking_dealer_busts = 0
+    session._targeted_drinking_cooldown_until_round = (
+        session.round_count + TARGETED_DRINKING_COOLDOWN_ROUNDS
+    )
+    session.round._pending_targeted_drinking = None
+    session.round._targeted_drinking_eligible = False
+    session.round._log_entries.append(
+        f"  🎯 Targeted Drinking Mode ended ({reason})\n"
+    )
+    session._log_version += 1
+
+
+# ---------------------------------------------------------------------------
+# Majority-vote-to-target proposal (tap a player's name at the table)
+# ---------------------------------------------------------------------------
+#
+# One of three ways a subgame can start (alongside the host's direct
+# override in start_targeted_drinking and the Wild Card easter egg): any
+# connected, non-spectator, non-bot player taps another player's name to
+# propose them as the target, opening a table-wide Yes/No vote (mirrors
+# vote_kick's eligible-voter math, minus the target themselves). The
+# proposer's own vote is pre-filled Yes -- they wouldn't have proposed
+# otherwise. Passes the instant strict majority says Yes; otherwise fails
+# when TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS runs out, freezing the
+# proposer (not the target, and not the other voters) from opening another
+# proposal for TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS rounds.
+
+
+def _target_proposal_eligible_names(session: GameRoom, target_name: str) -> list[str]:
+    """Connected, non-spectator, non-bot players who can vote on a target
+    proposal -- everyone except bots and the proposed target themselves
+    (mirrors vote_kick / the old vote_target's own eligible-voter math),
+    returned with each player's canonical roster casing."""
+    connected_lc = {
+        (v.get("name") or "").lower()
+        for v in session._room_clients.values()
+        if not v.get("kicked") and v.get("name") and v.get("role") != "spectator"
+    }
+    target_lc = target_name.lower()
+    return [
+        p.name for p in session.all_players
+        if not getattr(p, "is_npc", False)
+        and p.name.lower() in connected_lc
+        and p.name.lower() != target_lc
+    ]
+
+
+def propose_targeted_drinking_target(
+    session: GameRoom, proposer_name: str, target_name: str,
+) -> tuple[bool, str | None]:
+    """Open a Yes/No vote to target `target_name`, proposed by
+    `proposer_name`. Returns (True, None) on success, or (False, reason)
+    if the subgame is already running/on cooldown, a proposal is already
+    open, the proposer is currently frozen from a prior failed proposal,
+    or the target is invalid (a bot, not in the session, or the proposer
+    themselves)."""
+    if session._targeted_drinking_active:
+        return False, "Targeted Drinking Mode is already running."
+    if session.round_count < session._targeted_drinking_cooldown_until_round:
+        return False, "Targeted Drinking Mode is on cooldown."
+    if session.round._pending_target_proposal is not None:
+        return False, "A target proposal is already being voted on."
+
+    proposer_lc  = proposer_name.lower()
+    frozen_until = session._targeted_drinking_propose_cooldowns.get(proposer_lc, 0)
+    if session.round_count < frozen_until:
+        remaining = frozen_until - session.round_count
+        return False, (
+            f"Your last proposal was voted down -- you can't propose again "
+            f"for {remaining} more round(s)."
+        )
+
+    if proposer_lc == target_name.lower():
+        return False, "Cannot propose yourself as a target."
+    target_player = session._get_player(target_name)
+    if target_player is None:
+        return False, f"'{target_name}' is not in the session."
+    if getattr(target_player, "is_npc", False):
+        return False, "Cannot propose a bot as a target."
+
+    eligible = _target_proposal_eligible_names(session, target_name)
+    proposer_canonical = next(
+        (n for n in eligible if n.lower() == proposer_lc), None,
+    )
+    if proposer_canonical is None:
+        return False, "You must be a connected, non-spectator player to propose a target."
+
+    votes = {name: None for name in eligible}
+    votes[proposer_canonical] = True   # proposing it is an automatic Yes
+
+    session.round._pending_target_proposal = {
+        "target":     target_player.name,
+        "proposer":   proposer_canonical,
+        "votes":      votes,
+        "expires_at": time.monotonic() + TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS,
+    }
+    # The proposer's own auto-Yes can already be strict majority on its own
+    # (e.g. they're the only other connected player) -- don't make that case
+    # wait out the full window for a foregone conclusion.
+    _maybe_resolve_target_proposal(session)
+    return True, None
+
+
+def submit_target_proposal_vote(session: GameRoom, voter_name: str, vote: bool) -> bool:
+    """Records `voter_name`'s Yes/No vote on the pending target proposal,
+    resolving it immediately if strict majority is now reached. Returns
+    False if there's no open proposal or the voter isn't eligible."""
+    pending = session.round._pending_target_proposal
+    if not pending:
+        return False
+    key = next((k for k in pending["votes"] if k.lower() == voter_name.lower()), None)
+    if key is None:
+        return False
+    pending["votes"][key] = bool(vote)
+    _maybe_resolve_target_proposal(session)
+    return True
+
+
+def _finish_target_proposal(session: GameRoom, *, passed: bool) -> None:
+    """Shared resolution path for both an early-majority pass and a
+    timed-out fail. Clears the pending proposal, starts the subgame on a
+    pass, or freezes the proposer on a fail, and records a one-shot result
+    for the frontend."""
+    pending = session.round._pending_target_proposal
+    if not pending:
+        return
+    target   = pending["target"]
+    proposer = pending["proposer"]
+    session.round._pending_target_proposal = None
+
+    if passed:
+        start_targeted_drinking(session, [target])
+        session.round._log_entries.append(
+            f"  🎯 Majority voted to target {target} (proposed by {proposer})\n"
+        )
+    else:
+        session._targeted_drinking_propose_cooldowns[proposer.lower()] = (
+            session.round_count + TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS
+        )
+        session.round._log_entries.append(
+            f"  🎯 Vote to target {target} failed -- {proposer} can't propose "
+            f"again for {TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS} round(s)\n"
+        )
+    session._log_version += 1
+
+    session.drinks.last_target_proposal_result = {
+        "target":   target,
+        "proposer": proposer,
+        "passed":   passed,
+        "set_at":   time.monotonic(),
+    }
+    session.drinks._target_proposal_result_seq += 1
+
+
+def _maybe_resolve_target_proposal(session: GameRoom) -> None:
+    """Resolve the pending proposal early the instant strict majority says
+    Yes -- doesn't wait for every voter to answer, same "resolve the moment
+    it's decided" precedent submit_targeted_drinking_vote uses for mini-round
+    votes."""
+    pending = session.round._pending_target_proposal
+    if not pending:
+        return
+    votes = pending["votes"]
+    total = len(votes)
+    yes   = sum(1 for v in votes.values() if v is True)
+    if total > 0 and yes > total / 2:
+        _finish_target_proposal(session, passed=True)
+
+
+def apply_target_proposal_vote_forfeit(session: GameRoom) -> None:
+    """If the proposal's vote window has expired without reaching majority,
+    resolve it as a fail (freezing the proposer) based on whatever votes
+    were actually cast -- unanswered voters simply don't count toward Yes,
+    same math as the majority check above. Safe to call every tick."""
+    pending = session.round._pending_target_proposal
+    if not pending or time.monotonic() < pending["expires_at"]:
+        return
+    votes  = pending["votes"]
+    total  = len(votes)
+    yes    = sum(1 for v in votes.values() if v is True)
+    passed = total > 0 and yes > total / 2
+    _finish_target_proposal(session, passed=passed)
+
+
+def give_targeted_drinking_sip(session: GameRoom, giver_name: str, recipient_name: str) -> bool:
+    """Giver (a target who just graduated with a perfect record) assigns
+    their handout sips to `recipient_name`. Mirrors give_dealer_lottery_sip
+    exactly. Returns False if there's nothing pending for this giver or the
+    recipient is invalid."""
+    result = session.drinks.last_targeted_drinking_result or {}
+    pending_handouts = result.get("pending_handouts", {})
+    amount = pending_handouts.get(giver_name)
+    if not amount:
+        return False
+    if giver_name in session.round._targeted_drinking_handouts_given:
+        return False
+    if recipient_name.lower() == giver_name.lower():
+        return False
+    if not any(p.name == recipient_name for p in session.all_players):
+        return False
+
+    award_sips(
+        session, recipient_name, amount, "Targeted Drinking perfect graduation handout",
+        reason=f"Targeted Drinking handout (from {giver_name}): +{amount} sip(s)",
+        count_toward_round=False,
+    )
+    session.round._targeted_drinking_handouts_given.add(giver_name)
+    session.round._targeted_drinking_handout_log.append({
+        "giver": giver_name, "recipient": recipient_name, "forfeited": False,
+    })
+    if all(g in session.round._targeted_drinking_handouts_given for g in pending_handouts):
+        session.round._targeted_drinking_handout_expires_at = None
+        session._targeted_drinking_handout_seq += 1
+    return True
+
+
+def apply_targeted_drinking_handout_forfeit(session: GameRoom) -> None:
+    """If the handout window expires before a giver assigns their sip(s),
+    they keep (drink) them instead. Mirrors
+    apply_dealer_lottery_handout_forfeit. Safe to call on every /state tick."""
+    expires_at = session.round._targeted_drinking_handout_expires_at
+    if not expires_at or time.monotonic() < expires_at:
+        return
+
+    result = session.drinks.last_targeted_drinking_result or {}
+    pending_handouts = result.get("pending_handouts", {})
+    for giver_name, amount in pending_handouts.items():
+        if giver_name in session.round._targeted_drinking_handouts_given:
+            continue
+        award_sips(
+            session, giver_name, amount, "Targeted Drinking handout forfeit",
+            reason=(
+                f"Targeted Drinking handout forfeited -- {giver_name} didn't "
+                f"assign in time: +{amount} sip(s)"
+            ),
+            count_toward_round=False,
+        )
+        session.round._targeted_drinking_handouts_given.add(giver_name)
+        session.round._targeted_drinking_handout_log.append({
+            "giver": giver_name, "recipient": None, "forfeited": True,
+        })
+
+    session.round._targeted_drinking_handout_expires_at = None
+    if pending_handouts:
+        session._targeted_drinking_handout_seq += 1

@@ -1,0 +1,141 @@
+========================================================================
+  DRINKING BLACKJACK -- 100,000-ROUND SIMULATION RESULTS
+  Generated : 2026-06-18 17:35:54
+  Players   : Player1, Player2, Player3, Player4  (2 hands each per round)
+  Wager     : 1 sip/net-loss  |  Shoe: 4 decks
+  Dealer    : rotates every 4 rounds (25,000 rounds each)
+  All averages shown per 10-round session
+========================================================================
+
+  Player1  --  55.7 sips / 10-round session  (as player: 50.6  |  as dealer: 5.1)
+  --------------------------------------------------------------
+    Rule                                           sips/10rnd  % of own
+  --------------------------------------------------------------
+    5+ card win                                          0.3      0.5%
+    5-card 21 handout received                           0.2      0.4%
+    Ace dealt: Ace of Diamonds (dealer hand)             1.6      2.9%  [player: 0.4  dealer: 1.2]
+    Ace dealt: Ace of Hearts (dealer hand)               0.6      1.0%
+    Ace dealt: Ace of Hearts (player hand)               1.2      2.1%
+    Ace dealt: Ace of Spades (dealer hand)               0.3      0.6%  [player: 0.2  dealer: 0.1]
+    Ace dealt: Ace of Spades (player hand)               1.2      2.1%
+    Blackjack bonus                                     14.8     26.6%
+    Dealer BJ (auto-insurance)                           0.9      1.6%
+    Dealer suited hand                                   2.3      4.0%
+    Doubled win (immunity break)                         3.8      6.8%
+    Four Aces (end of round)                             1.1      1.9%
+    Four Aces (first deal)                               0.8      1.4%
+    Hard Dealer Switch                                   3.8      6.8%  [player: 0.0  dealer: 3.8]
+    Hard Dealer Switch (half, A♣)                        0.1      0.1%  [player: 0.0  dealer: 0.1]
+    Lost doubled hand                                    1.2      2.1%
+    Lost suited hand                                     1.4      2.5%
+    Net hand losses                                      7.6     13.6%
+    Other-player sweep                                   4.8      8.6%
+    Split win (immunity break)                           2.8      5.0%
+    Suited winning hand                                  5.3      9.4%
+
+  Player2  --  56.1 sips / 10-round session  (as player: 50.9  |  as dealer: 5.2)
+  --------------------------------------------------------------
+    Rule                                           sips/10rnd  % of own
+  --------------------------------------------------------------
+    5+ card win                                          0.3      0.5%
+    5-card 21 handout received                           0.2      0.4%
+    Ace dealt: Ace of Diamonds (dealer hand)             1.6      2.8%  [player: 0.4  dealer: 1.2]
+    Ace dealt: Ace of Hearts (dealer hand)               0.6      1.0%
+    Ace dealt: Ace of Hearts (player hand)               1.2      2.1%
+    Ace dealt: Ace of Spades (dealer hand)               0.3      0.5%  [player: 0.2  dealer: 0.1]
+    Ace dealt: Ace of Spades (player hand)               1.2      2.1%
+    Blackjack bonus                                     14.9     26.6%
+    Dealer BJ (auto-insurance)                           0.9      1.6%
+    Dealer suited hand                                   2.3      4.0%
+    Doubled win (immunity break)                         3.8      6.7%
+    Four Aces (end of round)                             1.1      1.9%
+    Four Aces (first deal)                               0.8      1.4%
+    Hard Dealer Switch                                   3.9      6.9%  [player: 0.0  dealer: 3.9]
+    Hard Dealer Switch (half, A♣)                        0.1      0.1%  [player: 0.0  dealer: 0.1]
+    Lost doubled hand                                    1.2      2.1%
+    Lost suited hand                                     1.4      2.5%
+    Net hand losses                                      7.6     13.6%
+    Other-player sweep                                   4.9      8.8%
+    Split win (immunity break)                           2.8      5.0%
+    Suited winning hand                                  5.3      9.4%
+
+  Player3  --  55.8 sips / 10-round session  (as player: 50.6  |  as dealer: 5.2)
+  --------------------------------------------------------------
+    Rule                                           sips/10rnd  % of own
+  --------------------------------------------------------------
+    5+ card win                                          0.3      0.5%
+    5-card 21 handout received                           0.2      0.3%
+    Ace dealt: Ace of Diamonds (dealer hand)             1.6      2.9%  [player: 0.4  dealer: 1.2]
+    Ace dealt: Ace of Hearts (dealer hand)               0.6      1.0%
+    Ace dealt: Ace of Hearts (player hand)               1.2      2.1%
+    Ace dealt: Ace of Spades (dealer hand)               0.3      0.6%  [player: 0.2  dealer: 0.1]
+    Ace dealt: Ace of Spades (player hand)               1.2      2.1%
+    Blackjack bonus                                     14.8     26.5%
+    Dealer BJ (auto-insurance)                           0.9      1.6%
+    Dealer suited hand                                   2.3      4.0%
+    Doubled win (immunity break)                         3.8      6.7%
+    Four Aces (end of round)                             1.1      1.9%
+    Four Aces (first deal)                               0.8      1.4%
+    Hard Dealer Switch                                   3.8      6.9%  [player: 0.0  dealer: 3.8]
+    Hard Dealer Switch (half, A♣)                        0.1      0.1%  [player: 0.0  dealer: 0.1]
+    Lost doubled hand                                    1.2      2.1%
+    Lost suited hand                                     1.4      2.4%
+    Net hand losses                                      7.6     13.6%
+    Other-player sweep                                   4.9      8.8%
+    Split win (immunity break)                           2.8      5.0%
+    Suited winning hand                                  5.2      9.4%
+
+  Player4  --  55.8 sips / 10-round session  (as player: 50.7  |  as dealer: 5.1)
+  --------------------------------------------------------------
+    Rule                                           sips/10rnd  % of own
+  --------------------------------------------------------------
+    5+ card win                                          0.3      0.5%
+    5-card 21 handout received                           0.1      0.2%
+    Ace dealt: Ace of Diamonds (dealer hand)             1.6      2.8%  [player: 0.4  dealer: 1.2]
+    Ace dealt: Ace of Hearts (dealer hand)               0.6      1.0%
+    Ace dealt: Ace of Hearts (player hand)               1.2      2.1%
+    Ace dealt: Ace of Spades (dealer hand)               0.3      0.6%  [player: 0.2  dealer: 0.1]
+    Ace dealt: Ace of Spades (player hand)               1.2      2.1%
+    Blackjack bonus                                     14.9     26.7%
+    Dealer BJ (auto-insurance)                           0.9      1.6%
+    Dealer suited hand                                   2.3      4.0%
+    Doubled win (immunity break)                         3.8      6.8%
+    Four Aces (end of round)                             1.1      1.9%
+    Four Aces (first deal)                               0.8      1.4%
+    Hard Dealer Switch                                   3.8      6.8%  [player: 0.0  dealer: 3.8]
+    Hard Dealer Switch (half, A♣)                        0.1      0.1%  [player: 0.0  dealer: 0.1]
+    Lost doubled hand                                    1.2      2.1%
+    Lost suited hand                                     1.4      2.5%
+    Net hand losses                                      7.6     13.5%
+    Other-player sweep                                   4.9      8.8%
+    Split win (immunity break)                           2.8      5.0%
+    Suited winning hand                                  5.3      9.4%
+
+========================================================================
+  RULE BREAKDOWN -- all players combined, per 10-round session
+  Rule                                             sips/10rnd   % total
+  ------------------------------------------------------------------------
+  Blackjack bonus                                         59.5     26.6%
+  Net hand losses                                         30.3     13.6%
+  Suited winning hand                                     21.0      9.4%
+  Other-player sweep                                      19.5      8.7%
+  Hard Dealer Switch                                      15.3      6.9%
+  Doubled win (immunity break)                            15.1      6.7%
+  Split win (immunity break)                              11.1      5.0%
+  Dealer suited hand                                       9.0      4.0%
+  Ace dealt: Ace of Diamonds (dealer hand)                 6.4      2.9%
+  Lost suited hand                                         5.5      2.5%
+  Lost doubled hand                                        4.7      2.1%
+  Ace dealt: Ace of Hearts (player hand)                   4.7      2.1%
+  Ace dealt: Ace of Spades (player hand)                   4.7      2.1%
+  Four Aces (end of round)                                 4.3      1.9%
+  Dealer BJ (auto-insurance)                               3.6      1.6%
+  Four Aces (first deal)                                   3.0      1.4%
+  Ace dealt: Ace of Hearts (dealer hand)                   2.2      1.0%
+  Ace dealt: Ace of Spades (dealer hand)                   1.2      0.6%
+  5+ card win                                              1.2      0.5%
+  5-card 21 handout received                               0.8      0.3%
+  Hard Dealer Switch (half, A♣)                            0.3      0.1%
+
+  A typical 10-round session : ~223 sips across all players  (2,234,526 total over 100,000 rounds)
+========================================================================

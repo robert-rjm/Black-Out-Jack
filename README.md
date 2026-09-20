@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/Logo-BlackOutJack.png" alt="Black(Out)Jack Logo" height="200">
+  <img src="static/img/logo.png" alt="Black(Out)Jack Logo" height="200">
 </p>
 
 <h1 align="center">Black(Out)Jack</h1>
@@ -8,6 +8,12 @@
 <p align="center">
   <a href="https://black-out-jack.onrender.com">
     <img src="https://img.shields.io/badge/▶%20PLAY%20NOW-2ea44f?style=for-the-badge&labelColor=1a1a1a" alt="Play Now" height="30">
+  </a>
+</p>
+
+<p align="center">
+  <a href="docs/Rules.md">
+    <img src="https://img.shields.io/badge/📖%20RULES-orange?style=for-the-badge&labelColor=1a1a1a" alt="Rules" height="30">
   </a>
 </p>
 
@@ -24,6 +30,8 @@
 ## Quick Start
 
 **Just want to play?** → [Play online instantly](https://black-out-jack.onrender.com)
+
+**New to the rules?** → [Read the full rules](docs/Rules.md)
 
 **Want to play locally?**
 ```bash
@@ -43,8 +51,8 @@ python server.py
 | Mode | Command | Description |
 |------|---------|-------------|
 | Web UI | `python server.py`| Browser-based multiplayer (or [play online](https://black-out-jack.onrender.com)) |
-| Terminal Game | `python engine/blackjack.py` | Solo play locally in terminal |
-| Terminal Referee | `python engine/referee.py` | Physical deck, digital scorecard |
+| Terminal Game | `python scripts/play_terminal.py` | Solo or local multiplayer in terminal |
+| Terminal Referee | `python scripts/play_referee.py` | Physical deck, digital scorecard |
 
 
 ## Drink Responsibly
@@ -64,6 +72,8 @@ python server.py
 | [Multiplayer.md](docs/Multiplayer.md) | Room setup, rules, KPI panel, milestones |
 | [Comprehensive-Example.md](docs/Comprehensive-Example.md) | Full round walkthrough|
 | [Architecture.md](docs/Architecture.md) | Project structure, file dependencies, simulation |
+| [Dev-Cheat-Sheet.md](docs/Dev-Cheat-Sheet.md) | Quick reference for dev CLI commands (tests, simulation, snapshots, player profiles) |
+| [Terms.md](docs/Terms.md) | Terms & Disclaimer — age/alcohol, liability, data handling |
 
 > [!TIP]
 > These rules are not set in stone, the best rules often come mid-game!
@@ -76,6 +86,14 @@ python server.py
 Rule ideas are especially welcome — if it made the game more fun, it probably belongs here! Please:
 
 > **Fork** → **Branch** → **Commit** → **Push** → **PR**
+
+
+## Support this project
+
+Black(Out)Jack is a free hobby project. If it made your night better and
+you'd like to buy us a beer, get in touch via
+[GitHub Issues](https://github.com/robert-rjm/Black-Out-Jack/issues).
+A proper donation link is coming soon.
 
 
 ## License

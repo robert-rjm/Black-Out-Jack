@@ -6,8 +6,8 @@ function confirmAge() {
 }
 
 function declineAge() {
-  document.getElementById("age-gate-msg").textContent =
-    "Sorry — this game is for adults (18+) only.";
+  document.getElementById("age-gate-card").classList.remove("active");
+  document.querySelector(".underage-screen").classList.add("active");
 }
 
 // ============================================================
@@ -23,10 +23,31 @@ function hideLobbyMsg() {
   document.getElementById("lobby-msg").style.display = "none";
 }
 
+
+async function shuffleRoomCode() {
+  // Delete the current reserved room and create a fresh one
+  if (roomCode) {
+    try {
+      await fetch("/delete_room", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+      });
+    } catch (_) {}
+  }
+  await createRoom();
+}
+
 async function createRoom() {
   hideLobbyMsg();
-  const res  = await fetch("/create_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-  const data = await res.json();
+  let data;
+  try {
+    const res  = await fetch("/create_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    data = await res.json();
+  } catch (_) {
+    showLobbyMsg("Could not reach server — check your connection.");
+    return;
+  }
   if (!data.ok) { showLobbyMsg("Could not create room. Try again."); return; }
   roomCode = data.code;
   lsSet("bjRoomCode", roomCode);
@@ -39,14 +60,19 @@ async function createRoom() {
 async function joinRoom() {
   hideLobbyMsg();
   const input = document.getElementById("join-code");
-  const code  = (input.value || "").trim().toUpperCase();
   // Normalise: preserve original capitalisation from the server (Title-case word)
   // We'll just send whatever the user typed and let the server normalise
   const raw   = (input.value || "").trim();
   if (!raw) { showLobbyMsg("Enter a room code first."); return; }
 
-  const res  = await fetch("/join_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: raw, client_id: clientId }) });
-  const data = await res.json();
+  let data;
+  try {
+    const res  = await fetch("/join_room", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: raw, client_id: clientId }) });
+    data = await res.json();
+  } catch (_) {
+    showLobbyMsg("Could not reach server — check your connection.");
+    return;
+  }
   if (!data.ok) { showLobbyMsg(data.error || "Room not found."); return; }
 
   roomCode = data.room_code || raw;   // use canonical casing from server
@@ -64,15 +90,16 @@ async function joinRoom() {
     updateHeader(data);
     buildGameUI();
     applyState(data);
-    appendLog("  (Joined room " + roomCode + ")\n");
     document.getElementById("lobby").style.display = "none";
     document.getElementById("app").style.display   = "flex";
     startPolling();
+    startIdleWatcher();
   } else {
     // Game not started yet — show waiting screen
     document.getElementById("lobby").style.display          = "none";
     document.getElementById("waiting-code-badge").textContent = roomCode;
     document.getElementById("waiting").style.display         = "flex";
+    renderWaitingPlayers(data.waiting_count || 1);
     startWaiting();
   }
 }
@@ -105,6 +132,9 @@ function backToLobby() {
   document.getElementById("waiting").style.display = "none";
   document.getElementById("lobby").style.display   = "flex";
   document.getElementById("join-code").value = "";
+  _lastWaitingCount = 0;
+  document.getElementById("waiting-player-list").innerHTML = "";
+  document.getElementById("waiting-player-count").textContent = "1 / ?";
 }
 
 // ============================================================
@@ -118,9 +148,123 @@ const POLL_INTERVAL_SLOW = 2000;   // ms — used during "pre-deal", "round-over
 
 function _pollInterval() {
   const phase = lastState && lastState.phase;
-  return (phase === "playing" || phase === "dealer-ready")
+  return (phase === PHASE.PLAYING || phase === PHASE.DEALER_READY)
     ? POLL_INTERVAL_FAST
     : POLL_INTERVAL_SLOW;
+}
+
+// Fetch a single /state snapshot and pass the parsed response to onResult if ok.
+// Tracks consecutive failures to show/hide the server-disconnected overlay.
+async function fetchState(onResult) {
+  try {
+    const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.ok) {
+      _consecutiveFailures = 0;
+      hideDisconnected();
+      onResult(data);
+    } else {
+      _onPollFailure();
+    }
+  } catch (_) {
+    _onPollFailure();
+  }
+}
+
+function _onPollFailure() {
+  _consecutiveFailures++;
+  if (_consecutiveFailures >= 3) showDisconnected();
+}
+
+// ---------------------------------------------------------------------------
+// Server-disconnected overlay
+// ---------------------------------------------------------------------------
+
+function showDisconnected() {
+  let overlay = document.getElementById("server-disconnect-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "server-disconnect-overlay";
+    overlay.className = "server-disconnect-overlay";
+    overlay.innerHTML =
+      '<div class="server-disconnect-card">' +
+        '<div class="server-disconnect-spinner"></div>' +
+        '<div class="server-disconnect-title">Server disconnected</div>' +
+        '<div class="server-disconnect-msg">Attempting to reconnect…</div>' +
+        '<div class="server-disconnect-note">The server may be waking up or is disconnected. Please wait or try again later.</div>' +
+        '<div class="server-disconnect-elapsed" id="server-disconnect-elapsed"></div>' +
+        '<button class="btn server-disconnect-giveup" data-action="showGiveUpScreen">Give up</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = "flex";
+  if (!_disconnectedSince) {
+    _disconnectedSince = Date.now();
+    _disconnectedTimer = setInterval(_updateDisconnectElapsed, 1000);
+    _updateDisconnectElapsed();
+  }
+}
+
+function showGiveUpScreen() {
+  if (_disconnectedTimer) { clearInterval(_disconnectedTimer); _disconnectedTimer = null; }
+  const card = document.querySelector("#server-disconnect-overlay .server-disconnect-card");
+  if (!card) return;
+  card.innerHTML =
+    '<img src="/static/img/logo-transparent.png" alt="Black(Out)Jack Logo" class="server-disconnect-logo">' +
+    '<div class="server-disconnect-title" style="font-size:20px">Thanks for playing BlackOutJack!</div>' +
+    '<div class="server-disconnect-msg">Come back when the server is ready.</div>' +
+    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" data-action="tryAgainFromGiveUp">Try again</button>' +
+    '<a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener" class="server-disconnect-github">🔗 github.com/robert-rjm/Black-Out-Jack</a>';
+}
+
+async function tryAgainFromGiveUp() {
+  const btn = document.getElementById("server-disconnect-tryagain-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+  try {
+    const url = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    const data = await res.json();
+    if (data.ok) {
+      hideDisconnected();
+      resetToSetup();
+      return;
+    }
+  } catch (_) {}
+  // Still unreachable
+  if (btn) { btn.disabled = false; btn.textContent = "Try again"; }
+  const card = document.querySelector("#server-disconnect-overlay .server-disconnect-card");
+  if (!card) return;
+  let note = card.querySelector(".tryagain-note");
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "tryagain-note";
+    card.appendChild(note);
+  }
+  note.textContent = "Still unreachable.";
+  note.style.opacity = "1";
+  clearTimeout(note._hideTimer);
+  note._hideTimer = setTimeout(() => { note.style.opacity = "0"; }, 2500);
+}
+
+function _updateDisconnectElapsed() {
+  const el = document.getElementById("server-disconnect-elapsed");
+  if (!el || !_disconnectedSince) return;
+  const secs = Math.floor((Date.now() - _disconnectedSince) / 1000);
+  el.textContent = secs > 0 ? secs + "s" : "";
+}
+
+function hideDisconnected() {
+  const overlay = document.getElementById("server-disconnect-overlay");
+  if (overlay) overlay.style.display = "none";
+  if (_disconnectedTimer) { clearInterval(_disconnectedTimer); _disconnectedTimer = null; }
+  _disconnectedSince = null;
+}
+
+// Apply a /state response: update UI and header.
+function _applyStateResult(data) {
+  applyState(data);
+  if (data.dealer) updateHeader(data);
 }
 
 function startPolling() {
@@ -129,12 +273,7 @@ function startPolling() {
     // Skip the fetch while a game-action request is in flight — the command
     // response will call applyState with fresher (higher state_seq) data.
     if (roomCode && _requestsInFlight === 0) {
-      try {
-        const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-        const res  = await fetch(url);
-        const data = await res.json();
-        if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); }
-      } catch (_) {}
+      await fetchState(_applyStateResult);
     }
     // Reschedule — interval adapts automatically to the latest phase.
     pollTimer = setTimeout(tick, _pollInterval());
@@ -151,11 +290,6 @@ function stopPolling() {
 // Skip if a request is already in flight — we'll get fresh state from it.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && roomCode && _requestsInFlight === 0) {
-    fetch(`/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`)
-      .then(r => r.json())
-      .then(data => { if (data.ok) { applyState(data); if (data.dealer) updateHeader(data); } })
-      .catch(() => {});
+    fetchState(_applyStateResult);
   }
 });
-
-// ============================================================

@@ -632,39 +632,305 @@ stack** with the first-deal rule → no additional sips.
 
 ---
 
+## Round 5: Side Bets, Sixes & Sevens, and Suit Sweeps
+
+**Focus:** Side Bet Dealer Bust (**Rule 4.4**), Devil's Hand & Lucky
+Sevens (**Rule 4.5**), Dealer Suited Hand (**Rule 4.2**), Player
+All-Hand Bonus (**Rule 5.5**)
+
+**Charlie remains Dealer this round** — no Hard or Soft Switch
+(**Rule 5.7** / **Rule 2**) occurred at the end of Round 4.
+
+### Side bets placed (→ Rule 4.4: _Side Bet Dealer Bust_)
+
+Before the first card is dealt, Players may bet on whether the
+Dealer will bust. This feature is host-toggleable.
+
+| Player | Bet |
+|---|---|
+| Alice | Bust |
+| Bob | Abstains |
+| Charlie | — (Dealer doesn't bet on themself) |
+
+### Deal
+
+| | Hand 1 | Hand 2 |
+|---|---|---|
+| Dealer (Charlie) | `K♦` (face-up), `5♦` (face-down) | — |
+| Alice | `7♥`, `J♥` = 18 | `6♠`, `9♠` = 15 |
+| Bob | `6♣`, `K♣` = 16 | `7♣`, `8♣` = 15 |
+| Charlie | `7♦`, `J♦` = 17 | `6♦`, `K♥` = 16 |
+
+### Card rules triggered on deal (→ Rule 4.5: _Devil's Hand and Lucky Sevens_)
+
+Seating order (clockwise): Alice = seat 0, Bob = seat 1, Charlie =
+seat 2. Each six/seven below is the 1st card dealt into its hand
+(card position = 1).
+
+| Card | Count | Effect |
+|---|---|---|
+| `6♣` → Bob (Hand 1) | 6th #1 | tracked only |
+| `6♠` → Alice (Hand 2) | 6th #2 | tracked only |
+| `6♦` → Charlie (Hand 2) | 6th #3 → **Devil's Hand!** | Target = (seat 2 + position 1) % 3 = seat 0 → **Alice drinks 1 sip immediately** |
+| `7♥` → Alice (Hand 1) | 7th #1 | tracked only |
+| `7♦` → Charlie (Hand 1) | 7th #2 | tracked only |
+| `7♣` → Bob (Hand 2) | 7th #3 → **Lucky Sevens!** | Target = (seat 1 + position 1) % 3 = seat 2 → **Charlie gets a −1 sip credit** |
+
+### Player actions
+
+| Player | Hand | Action | Result |
+|---|---|---|---|
+| Alice | Hand 1 (18) | Hit → `5♣` | 23 → **BUST** |
+| Alice | Hand 2 (15) | Hit → `4♦` | 19 |
+| Bob | Hand 1 (16) | Hit → `3♣` | 19 |
+| Bob | Hand 2 (15) | Hit → `4♣` | 19 |
+| Charlie | Hand 1 (17) | Hit → `4♠` | 21 |
+| Charlie | Hand 2 (16) | Stand | 16 |
+
+### Dealer plays
+
+Dealer reveals: `K♦`, `5♦` = 15 → must hit
+→ Hit → `9♦` = 24 → **BUST**
+
+### Dealer Suited Hand check (→ Rule 4.2)
+
+Dealer's final hand `K♦`, `5♦`, `9♦` is **entirely diamonds** —
+triggers regardless of win/loss/bust. **All Players drink 2 sips**,
+including Charlie himself.
+
+### Side bet resolution (→ Rule 4.4)
+
+Dealer busted → Alice's "Bust" bet was **correct**:
+- Alice gets a **−1 sip credit**
+- Alice hands out **1 sip** to a Player of her choice → she picks **Charlie**
+
+Bob abstained → no effect.
+
+### Results vs Dealer (BUST)
+
+| Player | Hand 1 | Hand 2 | Net |
+|---|---|---|---|
+| Alice | BUST → **LOSS** ❌ | 19 → **WIN** ✅ | 0 |
+| Bob | 19 → **WIN** ✅ | 19 → **WIN** ✅ | +2 |
+| Charlie | 21 → **WIN** ✅ | 16 → **WIN** ✅ | +2 |
+
+Bob and Charlie both won ALL hands. Alice lost one hand (bust), so
+the Dealer did **not** lose all hands → ❌ No Hard Switch (**Rule
+5.7**). Dealer also didn't win all hands → ❌ No Soft Switch
+(**Rule 2**).
+
+### Sip calculation
+
+#### 1. Drinking based on cards
+
+| Who | Sips | Reason |
+|---|---|---|
+| Alice | 1 | Devil's Hand (**Rule 4.5**) — targeted by 3rd six |
+| Alice | −1 | Side bet correct (**Rule 4.4**) |
+| Charlie | −1 | Lucky Sevens credit (**Rule 4.5**) — no visible effect, see note below |
+| Charlie | 1 | Alice's side-bet handout (**Rule 4.4**) |
+| Everyone | 2 | Dealer Suited Hand (**Rule 4.2**) |
+
+> Charlie's Lucky Sevens credit reduces his *end-of-round net
+> total*, but his net is already +2 (positive), so there's nothing
+> for the credit to offset — a good example of why these credits
+> only matter against a negative net total.
+
+#### 2. Drinking based on hand outcome (→ Rule 5.1)
+
+| Player | Net | Sips |
+|---|---|---|
+| Alice | 0 (1W, 1L) | 0 — offsets cancel |
+| Bob | +2 | 0 — positives disregarded |
+| Charlie | +2 | 0 — positives disregarded |
+
+#### 3. Drinking based on other Players (→ Rule 5.2)
+
+**Bob won ALL his hands (2/2), both suited (all `♣`):**
+
+| Player | Base | Suited exception | Total |
+|---|---|---|---|
+| Alice | 2 (lost 1 hand → 1/hand) | 1 + 1 (both hands suited) | 4 |
+| Charlie | 0 (immune — won all hands) | 1 + 1 (suited breaks immunity) | 2 |
+
+**Charlie won ALL his hands (2/2), not suited:**
+
+| Player | Base | Total |
+|---|---|---|
+| Alice | 2 (lost 1 hand → 1/hand) | 2 |
+| Bob | 0 (immune — won all hands) | 0 |
+
+**Player All-Hand Bonus (→ Rule 5.5) — Bob's hands are entirely `♣`:**
+
+| Player | Sips |
+|---|---|
+| Alice | 2 (2× wager) |
+| Charlie | 2 (2× wager) |
+
+#### Round 5 "other Players" subtotal
+
+| Player | From Bob | From Charlie | All-Hand Bonus | Total |
+|---|---|---|---|---|
+| Alice | 4 | 2 | 2 | **8** |
+| Bob | — | 0 | — | **0** |
+| Charlie | 2 | — | 2 | **4** |
+
+### Round 5 — Final Totals 🍺
+
+| Player | Cards | Dealer Suited | Hand Outcome | Other Players | Total |
+|---|---|---|---|---|---|
+| Alice | 1 (Devil's Hand) − 1 (side bet) = 0 | 2 | 0 | 8 | **10 sips** |
+| Bob | 0 | 2 | 0 | 0 | **2 sips** |
+| Charlie | −1 (Lucky Sevens, no effect) + 1 (handout) = 1 | 2 | 0 | 4 | **7 sips** |
+
+> **Key takeaway:** Even a round with no Blackjacks or Aces can get
+> chaotic — Devil's Hand and Lucky Sevens fire off the 3rd six/seven
+> regardless of who holds them, side bets add a pre-deal wildcard,
+> and a fully suited hand (Dealer's or a Player's) keeps punishing
+> everyone even when nobody's immune to begin with.
+
+---
+
+### Bonus illustration: an incorrect side bet (→ Rule 4.4)
+
+Round 5's side bet only showed the "correct" and "abstain" outcomes,
+since the Dealer happened to bust. For contrast: in **Round 1**, the
+Dealer stood at 17 (no bust). Had a Player placed a "Bust" side bet
+that round, they'd have been wrong:
+→ **+1 sip penalty**, no handout.
+
+### Bonus illustration: Ace effects dealt to the Dealer (→ Rule 4.1)
+
+The five rounds above show every Ace effect dealt to a Player, plus `A♠`
+and `A♣` dealt to the Dealer — but not `A♥`/`A♦` dealt to the Dealer, or
+`A♠`'s *even-card* variant (Round 3 only showed the odd-card case). Three
+standalone cases to fill the gap:
+
+> **`A♠` dealt to the Dealer as the 2nd card (even)** — instead of the
+> Dealer drinking alone (the odd-card case in Round 3), **all Players
+> drink 1 sip**.
+>
+> **`A♥` dealt to the Dealer** — instead of just one Player treating
+> themselves (Rounds 1/3/4), **all Players treat themselves to a sip**
+> (1 sip each).
+>
+> **`A♦` dealt to the Dealer** — instead of the Dealer drinking (the
+> Player-dealt case in Rounds 3/4), **all Players except the Dealer**
+> drink 1 sip.
+
+### Bonus illustration: "no losses, at least one push" (→ Rule 5.2)
+
+None of the five rounds above happens to land on this exact row of
+the Other Player's Results table, so here's a compact standalone
+case:
+
+> Dealer stands on 18. Player A: Hand 1 pushes (18), Hand 2 wins
+> (20) → **no losses, one push**. Player B wins both hands (2/2).
+>
+> Per **Rule 5.2**, Player A drinks *(Player B's wins − Player A's
+> wins)* = 2 − 1 = **1 sip** — less than a full sweep would cost,
+> since the push isn't a loss, but Player A still isn't immune since
+> not *all* hands won.
+
+### Bonus illustration: Milestone Handouts & "Worst Average" (→ Rule 5.8)
+
+This rule needs many rounds of cumulative history to trigger, so
+it's shown with assumed totals rather than folded into Round 5:
+
+> Suppose that after 30 rounds, Alice's cumulative total crosses
+> **150 sips**. She earns **7 bonus sips** (5 at 50, +1 at 100, +1 at
+> 150) to hand out within 60 seconds; anything she doesn't assign
+> returns to her.
+>
+> At this same milestone, Bob has the group's lowest sips/round
+> average (excluding Alice, the winner) and is flagged "worst." If
+> Bob is *also* flagged "worst" at the **next** milestone (200), he
+> takes a one-time penalty: drink sips equal to Alice's average
+> sips/round at that milestone (always rounded up, minimum 1). The "worst"
+> streak then resets.
+
+### Bonus illustration: Dealer Lottery (→ Rule 5.9)
+
+This needs the Dealer to be dealt a specific paired hand, so it's
+shown standalone rather than folded into a round above:
+
+> The Dealer's starting hand is K♠ Q♥ — a paired 20, and (since the
+> Dealer always stands on 17+) that pair *is* the Dealer's whole hand
+> this round. After the round's own result, side bets, and Milestone
+> Handouts are all settled, the Dealer Lottery opens: Alice enters
+> with **X = 4**, Bob enters with **0**.
+>
+> The pair splits into two fresh hands from a new shuffled deck —
+> K♠+5♣ (18 → stands) and Q♥+9♦ (19 → stands). Neither busts, so per
+> **Rule 5.9** Alice drinks **X × (hands − 1) = 4 × 1 = 4 sips** — just
+> the base X since this redeal didn't re-split into a third hand. The
+> drink amount is never halved, regardless of player count or Easy
+> Mode. Bob, having entered 0, is unaffected either way.
+>
+> Had **2 or more** of the new hands busted instead (not necessarily
+> both — a re-split only ever makes this easier to reach), Alice would
+> credit herself min(4, what she owes this round) sips (floored at 0)
+> and hand ceil(credit/2) sips to a Player of her choice — e.g. if she
+> owed 4 or more, that's a 4-sip credit and a ceil(4/2) = 2-sip handout;
+> but if she only owed, say, 2, the credit floors at 2 and the handout
+> shrinks to ceil(2/2) = 1 with it, since staking more than she owes
+> can't buy extra handout power. The handout is always halved, rounded
+> up, regardless of player count or Easy Mode. Had exactly **1** hand
+> busted, nothing would happen — no drink, no credit. (Neither new card here happened to pair up again —
+> K♠+5♣ and Q♥+9♦ don't match — but if one had, that hand would split
+> again the same way a Player's would, up to 5 hands total across both
+> branches combined, and a none-bust outcome would then drink X × 2 =
+> 8 sips instead of 4.)
+
+---
+
 ## Quick Reference — Rules Triggered in These Examples
 
-| Rule | Round 1 | Round 2 | Round 3 | Round 4 |
-|---|---|---|---|---|
-| Hand outcome sips | ✅ | — | ✅ | — |
-| Other Players win all hands | ✅ | — | — | — |
-| Immunity (won all hands) | ✅ | ✅ | — | ✅ |
-| Blackjack multiplier | — | — | ✅ | ✅ |
-| Blackjack insurance | — | — | ✅ | — |
-| Doubles (exception to immunity) | — | ✅ | — | ✅ |
-| Suited winning hand | — | ✅ | — | ✅ |
-| Suited doubled hand | — | — | — | ✅ |
-| Mandatory split 10s | — | — | ✅ | — |
-| Suited 10s exception | — | — | — | ✅ |
-| Split Aces | — | — | — | ✅ |
-| 21 with 5+ cards (hand out sips) | — | — | — | ✅ |
-| Win with 5+ cards (all drink) | — | — | — | ✅ |
-| Hard Dealer Switch | — | ✅ | — | — |
-| Ace of Clubs protection | — | ✅ | — | — |
-| `A♠` Player card rule | — | ✅ | — | ✅ |
-| `A♠` Dealer card rule | — | — | ✅ | — |
-| `A♥` treat yourself | ✅ | — | ✅ | ✅ |
-| `A♦` Dealer drinks | — | — | ✅ | ✅ |
-| `A♣` subtract 1 sip | — | — | ✅ | ✅ |
-| Four Aces on first deal | — | — | — | ✅ |
-| Four Aces end of round (no stack) | — | — | — | ✅ |
-| Dealer Blackjack (doubles/splits voided) | — | — | ✅ | — |
-| Soft Dealer Switch | — | — | — | — |
-| Dealer suited hand | — | — | — | — |
+| Rule | Rule § | Round 1 | Round 2 | Round 3 | Round 4 | Round 5 | Bonus Ex. |
+|---|---|---|---|---|---|---|---|
+| Hand outcome sips | 5.1 | ✅ | — | ✅ | — | ✅ | — |
+| Other Players win all hands | 5.2 | ✅ | — | — | — | ✅ | ✅ |
+| Immunity (won all hands) | 5.2 | ✅ | ✅ | — | ✅ | ✅ | — |
+| Blackjack multiplier | 5.3 | — | — | ✅ | ✅ | — | — |
+| Blackjack insurance (optional vote) | 3.2 | — | — | ✅ | — | — | — |
+| Auto-Insurance cap (Dealer BJ) | 3.2 | — | — | ✅ | — | — | — |
+| Doubles (exception to immunity) | 5.2 | — | ✅ | — | ✅ | — | — |
+| Suited winning hand | 5.2 | — | ✅ | — | ✅ | ✅ | — |
+| Suited doubled hand | 5.2 | — | — | — | ✅ | — | — |
+| Mandatory split 10s | 3 | — | — | ✅ | — | — | — |
+| Suited 10s exception | 3 | — | — | — | ✅ | — | — |
+| Split Aces | 3.1 | — | — | — | ✅ | — | — |
+| 21 with 5+ cards (handout) | 5.4 | — | — | — | ✅ | — | — |
+| Win with 5+ cards (all drink) | 5.4 | — | — | — | ✅ | — | — |
+| Hard Dealer Switch | 5.7 | — | ✅ | — | — | — | — |
+| Ace of Clubs protection | 4.1 / 5.7 | — | ✅ | — | — | — | — |
+| `A♠` Player card rule | 4.1 | — | ✅ | — | ✅ | — | — |
+| `A♠` Dealer card rule (odd → Dealer only) | 4.1 | — | — | ✅ | — | — | — |
+| `A♠` Dealer card rule (even → all Players) | 4.1 | — | — | — | — | — | ✅ |
+| `A♥` treat yourself (Player) | 4.1 | ✅ | — | ✅ | ✅ | — | — |
+| `A♥` Dealer card rule (all Players treat themselves) | 4.1 | — | — | — | — | — | ✅ |
+| `A♦` Dealer drinks (Player-dealt) | 4.1 | — | — | ✅ | ✅ | — | — |
+| `A♦` Dealer card rule (all Players except Dealer) | 4.1 | — | — | — | — | — | ✅ |
+| `A♣` subtract 1 sip | 4.1 | — | — | ✅ | ✅ | — | — |
+| Four Aces on first deal | 4.3 | — | — | — | ✅ | — | — |
+| Four Aces end of round (no stack) | 5.6 | — | — | — | ✅ | — | — |
+| Dealer Blackjack (doubles/splits voided) | 3.2 | — | — | ✅ | — | — | — |
+| Soft Dealer Switch | 2 | — | — | — | — | — | — |
+| Dealer suited hand | 4.2 | — | — | — | — | ✅ | — |
+| Side Bet Dealer Bust (correct/abstain) | 4.4 | — | — | — | — | ✅ | — |
+| Side Bet Dealer Bust (incorrect) | 4.4 | — | — | — | — | — | ✅ |
+| Devil's Hand | 4.5 | — | — | — | — | ✅ | — |
+| Lucky Sevens | 4.5 | — | — | — | — | ✅ | — |
+| Player All-Hand Bonus | 5.5 | — | — | — | — | ✅ | — |
+| Milestone Handouts | 5.8 | — | — | — | — | — | ✅ |
+| "Worst Average" penalty | 5.8 | — | — | — | — | — | ✅ |
+| Dealer Lottery | 5.9 | — | — | — | — | — | ✅ |
 
-> **Note:** Soft Dealer Switch and Dealer suited hand did not occur
-> in these examples. See [Rules.md](docs/Rules.md) for full details on
-> these rules.
+> **Note:** Soft Dealer Switch (**Rule 2**) still hasn't occurred in
+> any example — worth building into a future round if the docs get
+> extended again. Everything else on the original checklist in
+> [`planning/Ruleset-Improvement.md`](planning/Ruleset-Improvement.md)
+> is now covered, either in a full round or a bonus illustration.
 
 ---
 

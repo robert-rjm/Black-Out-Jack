@@ -2,77 +2,11 @@
    log.css — chat log, drink toasts, switch toast, milestones
    ============================================================ */
 
-/* ---- LOG SECTION (collapsible wrapper) ---- */
-#log-section {
-  flex: 0 0 auto;        /* never grows — kpi-panel owns the flex space */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.log-toggle-bar {
-  all: unset;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 10px;
-  cursor: pointer;
-  background: #11131c;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: .5px;
-  text-transform: uppercase;
-  user-select: none;
-  flex-shrink: 0;
-}
-.log-toggle-bar:hover { background: #1a1d2b; color: var(--text); }
-
-.log-toggle-chevron {
-  font-size: 11px;
-  transition: transform .2s ease;
-}
-#log-section.collapsed .log-toggle-chevron { transform: rotate(-90deg); }
-
-#log-body {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  max-height: 130px;     /* fixed expanded height; kpi-panel gets the rest */
-  transition: max-height .25s ease;
-}
-#log-section.collapsed #log-body {
-  max-height: 0;
-}
-
-/* ---- CHAT LOG ---- */
-#log {
-  flex: 1;
-  overflow-y: auto;
-  padding: 6px 6px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.chat-msg {
-  font-size: 11px;
-  line-height: 1.45;
-  padding: 4px 7px;
-  border-radius: 7px;
-  word-break: break-word;
-  color: var(--muted);
-  border-left: 2px solid transparent;
-  flex-shrink: 0;
-}
-.chat-msg.msg-drink  { color: var(--red);    border-left-color: var(--red);    background: rgba(224,92,92,.08); }
-.chat-msg.msg-bj     { color: var(--yellow); border-left-color: var(--yellow); background: rgba(245,200,66,.08); }
-.chat-msg.msg-ok     { color: var(--green);  border-left-color: var(--green);  background: rgba(62,207,110,.08); }
-.chat-msg.msg-header { color: var(--accent); font-weight: 700; font-size: 10px; border-left: none; padding-top: 8px; }
 
 /* ---- DEALER TOAST ---- */
 #dealer-toast {
   position: fixed;
-  top: max(64px, calc(env(safe-area-inset-top) + 64px));
+  top: 64px;
   left: 50%;
   transform: translateX(-50%) translateY(-20px);
   background: var(--yellow);
@@ -96,7 +30,7 @@
 /* ---- PLAYER DRINK TOAST ---- */
 #player-toast {
   position: fixed;
-  top: max(64px, calc(env(safe-area-inset-top) + 64px));
+  top: 64px;
   left: 50%;
   transform: translateX(-50%) translateY(-16px);
   font-size: 15px; font-weight: 800;
@@ -110,14 +44,22 @@
   white-space: nowrap;
   letter-spacing: .2px;
 }
-#player-toast.drink { background: var(--red);   color: #fff; }
-#player-toast.clean { background: var(--green); color: #000; }
+#player-toast.drink      { background: var(--red);   color: #fff; }
+#player-toast.clean      { background: var(--green); color: #000; }
+#player-toast.wild-card  {
+  background: linear-gradient(135deg, #3d2b00, #5c3e00);
+  color: var(--yellow);
+  border: 2px solid var(--yellow);
+  box-shadow: 0 4px 28px color-mix(in srgb, var(--yellow) 55%, transparent), 0 0 0 1px color-mix(in srgb, var(--yellow) 20%, transparent);
+  font-size: 16px;
+  letter-spacing: .4px;
+}
 #player-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ---- SWITCH TOAST (hard/soft dealer switch — everyone sees it) ---- */
 #switch-toast {
   position: fixed;
-  top: max(120px, calc(env(safe-area-inset-top) + 120px));
+  top: 120px;
   left: 50%;
   transform: translateX(-50%) translateY(-16px);
   font-size: 14px; font-weight: 800;
@@ -127,6 +69,9 @@
   z-index: 898; opacity: 0; pointer-events: none;
   transition: opacity .25s ease, transform .25s ease;
   white-space: nowrap; letter-spacing: .2px;
+  /* Switch and reshuffle toasts are always informational yellow */
+  background: var(--yellow);
+  color: #000;
 }
 #switch-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -149,7 +94,7 @@
   padding: 12px 22px; border-radius: 16px;
   font-size: 15px; font-weight: 800;
   text-align: center;
-  box-shadow: 0 4px 28px rgba(245,200,66,.35);
+  box-shadow: 0 4px 28px color-mix(in srgb, var(--yellow) 35%, transparent);
   z-index: 901; opacity: 0; pointer-events: none;
   transition: opacity .2s, transform .2s;
   white-space: nowrap;
@@ -164,8 +109,8 @@
   display: none;
   position: fixed; left: 50%; bottom: 90px;
   transform: translateX(-50%);
-  background: rgba(245,200,66,.12);
-  border: 1.5px solid rgba(245,200,66,.4);
+  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--yellow) 40%, transparent);
   color: var(--yellow);
   padding: 9px 18px; border-radius: 14px;
   font-size: 13px; font-weight: 700;
@@ -185,7 +130,7 @@
   padding: 12px 22px; border-radius: 16px;
   font-size: 15px; font-weight: 800;
   text-align: center;
-  box-shadow: 0 4px 28px rgba(224,92,92,.35);
+  box-shadow: 0 4px 28px color-mix(in srgb, var(--red) 35%, transparent);
   z-index: 902; opacity: 0; pointer-events: none;
   transition: opacity .2s, transform .2s;
   white-space: nowrap;

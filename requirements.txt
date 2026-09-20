@@ -1,3 +1,7 @@
 flask
 gunicorn
 tabulate
+openpyxl
+pydantic
+better-profanity
+tzdata; sys_platform == "win32"

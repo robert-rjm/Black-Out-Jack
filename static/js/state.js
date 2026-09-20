@@ -28,6 +28,29 @@ let npcPlayers = new Set();   // names of NPC/bot players this session
 // handler skip their fetch while this is > 0, ensuring a slow poll can
 // never overwrite a fresher command/preselect/vote response.
 let _requestsInFlight = 0;
+// One-slot queue: if sendCmd() is called while _requestsInFlight > 0 the
+// command is saved here (last intent wins) and replayed when the in-flight
+// request completes.  null means nothing is waiting.
+let _pendingCmd = null;
+
+// Call this instead of a bare `_requestsInFlight--` in every action
+// function's `finally` block. Decrements the counter *and* drains
+// _pendingCmd — every _requestsInFlight++ site must pair with this (not a
+// bare decrement), otherwise a command queued while THAT request was in
+// flight is silently dropped instead of replayed.
+function _requestDone() {
+  _requestsInFlight--;
+  if (_pendingCmd !== null) {
+    const queued = _pendingCmd;
+    _pendingCmd = null;
+    sendCmd(queued);
+  }
+}
+
+// Disconnection tracking — used by showDisconnected / hideDisconnected in lobby.js
+let _consecutiveFailures = 0;   // resets to 0 on any successful /state response
+let _disconnectedSince   = null; // Date.now() timestamp when overlay was first shown
+let _disconnectedTimer   = null; // setInterval handle for the elapsed-seconds counter
 
 // Client identity
 let clientId         = "";    // UUID — persisted in localStorage

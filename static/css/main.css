@@ -12,6 +12,8 @@
   --yellow:  #f5c842;
   --text:    #e8eaf0;
   --muted:   #7a7f96;
+  --hint:    #5b9cf6;   /* basic-strategy "best play" highlight — distinct from --accent */
+  --purple:  #a78bfa;   /* dealer-row / trivia "history" category accent */
   --radius:  12px;
   --tap:     48px;
 }
@@ -38,12 +40,17 @@ html, body {
 
 /* ---- LAYOUT ---- */
 /* 100vh first as fallback for Safari < 15.4 which doesn't support dvh */
-#app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 header {
+  position: relative;
   flex-shrink: 0;
   padding: 6px 16px;
-  padding-top: max(6px, env(safe-area-inset-top));
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
@@ -51,11 +58,58 @@ header {
 header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 #header-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
 
+/* ─── Logo ───
+   Sized/positioned relative to the header's *content* box (excluding its
+   safe-area-driven top padding), not the header's total height — otherwise
+   the logo balloons in standalone mode where padding-top grows to clear the
+   Dynamic Island / status bar. */
+#header-logo {
+  position: absolute;
+  top: 8px;
+  height: calc(100% - 16px);
+  width: auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: opacity .15s;
+
+  /* Mobile: right-aligned */
+  right: 16px;
+}
+#header-logo:active { opacity: .7; }
+
+/* Wild Card: spin on click (presser only), flash on result (all clients).
+   Uses `rotate` (CSS Motion Level 1) rather than `transform` so it
+   composes safely with the desktop transform: translateX(-50%) centering. */
+@keyframes wild-card-spin {
+  from { rotate: 0deg; }
+  to   { rotate: 360deg; }
+}
+@keyframes wild-card-flash {
+  0%   { filter: drop-shadow(0 0 0px  transparent); }
+  30%  { filter: drop-shadow(0 0 14px color-mix(in srgb, var(--yellow) 90%, transparent)); }
+  70%  { filter: drop-shadow(0 0 8px  color-mix(in srgb, var(--yellow) 60%, transparent)); }
+  100% { filter: drop-shadow(0 0 0px  transparent); }
+}
+#header-logo.wild-card-spin  { animation: wild-card-spin  .5s ease-in-out; }
+#header-logo.wild-card-flash { animation: wild-card-flash .9s ease-in-out; }
+
+/* ─── Desktop ─── */
 @media (min-width: 640px) {
-  header { padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top)); }
+  header { padding: 12px 16px; }
   header h1 { font-size: 17px; }
   #header-sub { font-size: 12px; margin-top: 2px; }
+
+  /* Sits right above the #left-col / #right-col divider (55% split) */
+  #header-logo {
+    top: 14px;
+    height: calc(100% - 28px);
+    left: 55%;
+    right: auto;
+    transform: translateX(-50%);
+  }
 }
+
 .mode-badge {
   display: inline-block;
   font-size: 10px; font-weight: 700;
@@ -63,7 +117,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   padding: 2px 6px; border-radius: 4px;
   margin-left: 6px; vertical-align: middle;
 }
-.mode-badge.referee { background: #2e3247; color: var(--muted); }
+.mode-badge.referee { background: var(--border); color: var(--muted); }
 .mode-badge.digital { background: #1a3a2a; color: var(--green); }
 .mode-badge.normal  { background: #1a2a3a; color: var(--accent); }
 
@@ -107,6 +161,19 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 #dealer-panel .dp-role  { font-size: 10px; color: var(--muted); margin-left: 4px; }
 #dealer-panel .dp-cards { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
 
+@media (max-width: 639px) {
+  #dealer-panel .dp-cards {
+    gap: 0;
+    overflow-x: auto;
+  }
+  #dealer-panel .dp-cards .card-vis {
+    margin-right: -6px;   /* slight overlap matching player cards */
+  }
+  #dealer-panel .dp-cards .card-vis:last-child {
+    margin-right: 0;
+  }
+}
+
 /* ---- SIP TICKER ---- */
 #sip-ticker {
   flex-shrink: 0;
@@ -126,7 +193,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 }
 #sip-ticker .st-div { width: 1px; height: 13px; background: var(--border); flex-shrink: 0; }
 #sip-ticker .st-player { display: flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
-#sip-ticker .st-name  { font-size: 11px; color: var(--muted); }
+#sip-ticker .st-name  { font-size: 11px; color: var(--muted); max-width: 72px; overflow: hidden; text-overflow: ellipsis; }
 #sip-ticker .st-count { font-size: 11px; font-weight: 700; color: var(--text); }
 
 /* ---- SECTION LABELS ---- */
@@ -156,7 +223,6 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 .bnav-btn {
   flex: 1;
@@ -166,24 +232,26 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   justify-content: center;
   gap: 0;
   padding: 0;
-  min-height: 44px;
+  min-height: 52px;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--muted);
   transition: color .15s, background .15s;
-  min-height: 52px;
 }
 .bnav-btn:active { background: rgba(255,255,255,.06); }
 .bnav-icon {
   font-size: 22px;
   line-height: 1;
-  height: 26px;
+  height: 36px;
+  width: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(255,255,255,.05);
+  border-radius: 16px;
 }
-#btn-admin-nav .bnav-icon { transform: translateY(12px); }
+#btn-admin-nav .bnav-icon { transform: translateY(12px); } /* admin icon is taller than others; nudge down to keep it vertically centered in the nav bar */
 .bnav-label { display: none; }
 .bnav-home { color: var(--red); }
 

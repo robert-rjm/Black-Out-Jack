@@ -20,7 +20,6 @@ NOTE — two DrinkingRules helpers are NOT events and are called directly:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum, auto
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
@@ -28,24 +27,7 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
-# Event type registry — every entry must have a matching case in
-# DrinkingRules.handle(); the NotImplementedError guard enforces this at
-# runtime.
-# ---------------------------------------------------------------------------
-
-class GameEventType(Enum):
-    CARD_DEALT           = auto()
-    BLACKJACK            = auto()
-    INSURANCE_RESOLVED   = auto()
-    HAND_RESOLVED        = auto()
-    ALL_HANDS_SWEEP      = auto()
-    DEALER_HAND_REVEALED = auto()
-    ROUND_END            = auto()
-    HARD_DEALER_SWITCH   = auto()
-
-
-# ---------------------------------------------------------------------------
-# Event dataclasses — one per GameEventType entry.
+# Event dataclasses — one per handled event type.
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -99,6 +81,12 @@ class AllHandsSweepEvent:
     wager:        int
     dealer_name:  str  = ""
     dealer_bj:    bool = False
+    # The hard-switch-exempt dealer (mirrors HandResolvedEvent.dealer_name) --
+    # NOT the same as dealer_name above, which (if ever set) would exclude the
+    # dealer from the sweep bonus itself; this one only gates the doubled-hand
+    # immunity-exception cancellation below, since on_hand_resolved already
+    # skipped crediting that dealer the +1 being cancelled.
+    hard_switch_dealer: str = ""
 
 
 @dataclass
@@ -113,6 +101,7 @@ class RoundEndEvent:
     players:            list[Player]
     wager:              int
     dealer_bj:          bool = False
+    dealer_shows_ace:   bool = False
     hard_switch_dealer: str  = ""
     num_hands:          int  = 0   # configured starting hands per player
 

@@ -11,19 +11,33 @@ POST /setup       — Admin configures and starts the game session
 from flask import Blueprint, jsonify, request
 
 from engine.blackjack import Player, Hand, Shoe, NPC_Player
+from engine.style_strategy import available_profiles
 from engine.referee import RefereeSession
 
-from app.models.game_room import GameRoom
+from app.models.game_room import GameRoom, GameConfig
 from app.services.session_store import (
     game_sessions,
     reserve_room, set_session, find_room_code,
     is_join_rate_limited,
+    mark_waiting_client, get_waiting_clients,
 )
-from app.services.validators  import sanitize_name
+from app.services.validators  import sanitize_name, is_offensive_name
 from app.services.serializer  import serialize_state
 from app.services.room_manager import NullTracker, patch_tracker, capture
+from app.services.payout_tracker import init_bankrolls
+from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
 
 bp = Blueprint("lobby", __name__)
+
+
+# ---------------------------------------------------------------------------
+# Player personalities
+# ---------------------------------------------------------------------------
+
+@bp.route("/player_personalities", methods=["GET"])
+def player_personalities():
+    """Return a list of available player personality names (profile files present)."""
+    return jsonify({"personalities": available_profiles()})
 
 
 # ---------------------------------------------------------------------------
@@ -95,10 +109,14 @@ def join_room():
 
     session  = game_sessions[code]
     has_game = session is not None
+    if not has_game:
+        mark_waiting_client(code, client_id)
     state    = serialize_state(session, client_id)
     state["ok"]        = True
     state["has_game"]  = has_game
     state["room_code"] = code   # return canonical casing
+    if not has_game:
+        state["waiting_count"] = len(get_waiting_clients(code))
     return jsonify(state)
 
 
@@ -110,42 +128,63 @@ def join_room():
 def setup():
     data = request.json
     if not isinstance(data, dict):
-        return jsonify({"ok": False, "output": "Invalid request body."})
+        return jsonify({"ok": False, "error": "Invalid request body."})
 
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
     if room_code not in game_sessions:
-        return jsonify({"ok": False, "output": "Room not found."})
+        return jsonify({"ok": False, "error": "Room not found."})
 
     # Prevent any client from overwriting an active game.
     # The admin (session creator) may reconfigure; everyone else is blocked.
     existing = game_sessions[room_code]
     if existing is not None:
         if existing._room_clients.get(client_id, {}).get("role") != "admin":
-            return jsonify({"ok": False, "output": "Game already in progress."})
+            return jsonify({"ok": False, "error": "Game already in progress."})
 
     raw_players = data.get("players")
     if not isinstance(raw_players, list):
-        return jsonify({"ok": False, "output": "Invalid players list."})
+        return jsonify({"ok": False, "error": "Invalid players list."})
     names = [sanitize_name(n) for n in raw_players if isinstance(n, str) and n.strip()]
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
-        return jsonify({"ok": False, "output": "No player names provided."})
+        return jsonify({"ok": False, "error": "No player names provided."})
+    offensive = [n for n in names if is_offensive_name(n)]
+    if offensive:
+        return jsonify({"ok": False,
+                        "error": f"Name not allowed: {', '.join(offensive)}. Please choose something else."})
 
     try:
-        mode       = data.get("mode", "referee")   # "referee" | "digital"
+        mode       = data.get("mode", DEFAULT_MODE)
         dealer_idx = int(data.get("dealer_index", 0))
-        wager      = max(1, int(data.get("wager", 1)))
-        num_hands  = max(1, int(data.get("num_hands", 2)))
+        wager      = max(1, int(data.get("wager", DEFAULT_WAGER)))
+        num_hands  = max(1, int(data.get("num_hands", DEFAULT_NUM_HANDS)))
+        bet_amount = max(2.5, float(data.get("bet_amount", 5)))
+        starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
+        # Same 1-8 clamp as /update_settings — an unbounded value can crash
+        # the shoe (0 decks: deal_card() pops from an empty list) or exhaust
+        # memory (a huge value allocates that many Deck() objects).
+        default_decks = 2 if len(names) >= 4 else 1
+        num_decks     = max(1, min(8, int(data.get("num_decks", default_decks))))
     except (ValueError, TypeError):
-        return jsonify({"ok": False, "output": "Invalid numeric field."})
-    dealer_name = names[min(dealer_idx, len(names) - 1)]
+        return jsonify({"ok": False, "error": "Invalid numeric field."})
+    if not (0 <= dealer_idx < len(names)):
+        return jsonify({"ok": False, "error": "Invalid dealer index."})
+    dealer_name = names[dealer_idx]
 
     npc_names = {sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
+    # personalities: {"BotName": "rob"} — optional, defaults to "basic"
+    raw_personalities = data.get("personalities", {})
+    npc_personalities = {sanitize_name(k): v.strip().lower()
+                         for k, v in raw_personalities.items() if v}
 
     players = []
     for name in names:
-        p           = NPC_Player(name) if name in npc_names else Player(name)
+        if name in npc_names:
+            personality = npc_personalities.get(name, "basic")
+            p           = NPC_Player(name, personality=personality)
+        else:
+            p           = Player(name)
         p.is_dealer = (name == dealer_name)
         if p.is_dealer:
             p.dealer_hand = Hand()
@@ -156,13 +195,17 @@ def setup():
     raw_session = RefereeSession(players, dealer_name, wager, num_hands)
     room = GameRoom(
         session=raw_session,
-        mode=mode,
-        drinking_mode=drinking,
+        room_code=room_code,
         rounds_this_dealer=1,
-        switch_this_round=None,
-        _dealer_rotate_every=len(players),
-        bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
-        easy_mode=bool(data.get("easy_mode", False)),
+        config=GameConfig(
+            mode=mode,
+            drinking_mode=drinking,
+            dealer_rotate_every=len(players),
+            bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
+            easy_mode=bool(data.get("easy_mode", False)),
+            bet_amount=bet_amount,
+            starting_bankroll=starting_bankroll,
+        ),
     )
     if client_id:
         # All non-NPC seats start as local — a seat moves to remote only when
@@ -180,20 +223,21 @@ def setup():
     set_session(room_code, room)
 
     if mode == "digital":
-        default_decks    = 2 if len(players) >= 4 else 1
-        num_decks        = int(data.get("num_decks", default_decks))
         raw_session.shoe = Shoe(num_decks)
         raw_session.shoe.shuffle(quiet=True)
 
     if not drinking:
         raw_session.tracker = NullTracker()
 
+    if mode == "digital" and not drinking:
+        init_bankrolls(room)
+
     output = capture(raw_session.start_round)
     if drinking:
         patch_tracker(raw_session)  # must run AFTER start_round creates a fresh tracker
         raw_session.tracker.easy_mode = room.easy_mode
     if output.strip():
-        room._log_entries.append(output)
+        room.round._log_entries.append(output)
     state  = serialize_state(room, client_id)
     state["output"] = output   # kept for host's immediate display
     return jsonify(state)

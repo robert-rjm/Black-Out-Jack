@@ -12,7 +12,8 @@ and makes these functions unit-testable without a Flask context.
 import logging
 import time as _time
 
-from engine.blackjack import Hand, HandEvaluator, NPC_Player
+from engine.blackjack import Hand, HandEvaluator, NPC_Player, get_player_hand  # noqa: F401
+from app.services.decision_log import record_decision
 from engine.drinking_rules import DrinkingRules
 from engine.events import (
     CardDealtEvent,
@@ -36,35 +37,98 @@ log = logging.getLogger(__name__)
 def _push_ace_drink_event(session: GameRoom, msg: tuple) -> None:
     """Push a single ace drink message to the mid-round toast queue."""
     recipient, sips, reason = msg[0], msg[1], msg[2]
-    session._ace_drink_seq += 1
-    session._ace_drink_events.append({
-        "seq":       session._ace_drink_seq,
+    session.round._ace_drink_seq += 1
+    session.round._ace_drink_events.append({
+        "seq":       session.round._ace_drink_seq,
         "recipient": recipient or "all",
         "sips":      sips,
         "reason":    reason,
     })
 
 
+def _push_table_event(session: GameRoom, text: str, outcome: str, target: str = "") -> None:
+    """Push a Devil's Hand (666) or Lucky Sevens (777) event to the toast queue."""
+    session.round._table_event_seq += 1
+    session.round._table_events.append({
+        "seq":     session.round._table_event_seq,
+        "text":    text,
+        "outcome": outcome,   # "curse" | "lucky"
+        "target":  target,    # name of player who drinks/gets credit
+    })
+
+
+def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: int) -> None:
+    """Check if a newly-visible card triggers Devil's Hand (666) or Lucky Sevens (777).
+
+    Called after every face-up card deal (hole card and doubled cards are
+    deferred to ``dealer_turn``).  Each effect fires at most once per round.
+
+    The drinker is chosen by advancing ``card_pos`` seats clockwise from the
+    recipient of the triggering card — ``all_player_names[(recipient_idx +
+    card_pos) % n]``.  So a card dealt as the 1st in its hand targets the
+    next player (+1), the 2nd card targets the player after that (+2), etc.
+    The dealer is included in the pool (they rotate in this game and are a
+    full participant).
+
+    Conflict rule: hole card is checked before doubled cards in dealer_turn,
+    so if both would hit the 3rd count simultaneously the hole card fires and
+    the doubled card check is a no-op (``_fired`` flag prevents double-firing).
+    """
+    if not session.drinking_mode:
+        return
+    val = card.rank.value   # integer: 6 for Six, 7 for Seven
+
+    all_player_names = [p.name for p in session.all_players]
+    if not all_player_names:
+        return
+
+    def _pick_target() -> str:
+        base = all_player_names.index(recipient_name) if recipient_name in all_player_names else 0
+        return all_player_names[(base + card_pos) % len(all_player_names)]
+
+    if val == 6 and not session.round._six_curse_fired:
+        session.round._six_count += 1
+        if session.round._six_count >= 3:
+            session.round._six_curse_fired = True
+            target = _pick_target()
+            player = session._get_player(target)
+            if player:
+                player.add_drink(1, "Devil's Hand — three 6s on the table!", "player")
+            _push_table_event(
+                session,
+                f"\U0001f3b0 Devil's Hand — three 6s on the table! {target} drinks 1 sip!",
+                "curse",
+                target,
+            )
+
+    elif val == 7 and not session.round._seven_lucky_fired:
+        session.round._seven_count += 1
+        if session.round._seven_count >= 3:
+            session.round._seven_lucky_fired = True
+            target = _pick_target()
+            player = session._get_player(target)
+            if player:
+                player.add_drink(-1, "Lucky Sevens — three 7s on the table!", "player")
+            _push_table_event(
+                session,
+                f"\U0001f3b0 Lucky Sevens — three 7s on the table! {target} gets a sip credit!",
+                "lucky",
+                target,
+            )
+
+
+def _push_reshuffle_event(session: GameRoom) -> None:
+    """Push a mid-round shoe-reshuffle event to the toast queue."""
+    session.round._reshuffle_seq += 1
+    session.round._reshuffle_events.append({
+        "seq":       session.round._reshuffle_seq,
+        "decks":     session.shoe.num_decks,
+    })
+
+
 # ---------------------------------------------------------------------------
 # Hand / player helpers
 # ---------------------------------------------------------------------------
-
-def get_player_hand(player, hand_label: str) -> Hand:
-    """
-    Return a player's betting hand by label (e.g. 'hand1', 'hand2').
-
-    Always uses player.hands[idx] directly — unlike RefereeSession._get_hand,
-    this never redirects to dealer_hand, so the dealer-player can still act
-    on their own betting hands.
-    """
-    try:
-        idx = int(hand_label.lower().replace("hand", "").strip()) - 1
-    except (ValueError, AttributeError):
-        idx = 0
-    while len(player.hands) <= idx:
-        player.hands.append(Hand())
-    return player.hands[idx]
-
 
 # ---------------------------------------------------------------------------
 # Card dealing
@@ -77,6 +141,9 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
     not revealed in the log before the dealer turn.
     """
     card     = session.shoe.deal_card(quiet=True)
+    if session.shoe.just_reshuffled:
+        session.shoe.just_reshuffled = False
+        _push_reshuffle_event(session)
     card_pos = len(hand.cards) + 1
     hand.cards.append(card)
 
@@ -103,11 +170,17 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
                     log.debug(f"    (i) {reason}")
             elif is_hole_card or is_double_card:
                 # Defer until the card is face-up
-                session._deferred_hole_card_msgs.append(msg)
+                session.round._deferred_hole_card_msgs.append(msg)
             else:
                 session.tracker.apply([msg])
                 if s and s > 0:
                     _push_ace_drink_event(session, msg)
+
+        # ── Devil's Hand (666) / Lucky Sevens (777) ──────────────────────────
+        # Only count face-up visible cards.  Hole card is checked in
+        # dealer_turn; doubled card is also deferred there.
+        if not is_hole_card and not is_double_card:
+            _check_table_number(session, card, recipient_name, card_pos)
 
     return card
 
@@ -149,12 +222,12 @@ def deal_pending_split_cards(session: GameRoom) -> None:
                             and dealer.dealer_hand.cards[0].rank.label == "A"
                             and session.drinking_mode):
                         existing = next(
-                            (v for v in session._insurance_votes
+                            (v for v in session.round._insurance_votes
                              if v["player"] == p.name and v["hand_idx"] == i),
                             None,
                         )
                         if not existing:
-                            session._insurance_votes.append({
+                            session.round._insurance_votes.append({
                                 "player":    p.name,
                                 "hand_idx":  i,
                                 "votes":     {},
@@ -176,12 +249,34 @@ def deal_pending_split_cards(session: GameRoom) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Split helper
+# ---------------------------------------------------------------------------
+
+def perform_split(session: GameRoom, player, hand: Hand, hand_idx: int) -> tuple[Hand, str]:
+    """Mechanical digital split: move the second card to a new hand, share the
+    split-chain counter, insert the new hand into the player's hand list, and
+    deal a replacement second card to the original hand.
+
+    Returns ``(new_hand, new_label)`` so callers can log or react to the
+    post-deal state (21, bust, etc.).
+
+    Note: referee.py has its own split path that does *not* move card data
+    (physical cards are moved by the player), so this helper is digital-only.
+    """
+    new_hand = hand.split()                      # card pop + chain counter + from_split flags
+    player.hands.insert(hand_idx + 1, new_hand)
+    deal_card(session, hand, player.name)
+    new_label = f"hand{hand_idx + 2}"
+    return new_hand, new_label
+
+
+# ---------------------------------------------------------------------------
 # Round flow
 # ---------------------------------------------------------------------------
 
 def initial_deal(session: GameRoom) -> None:
     """Deal 2 cards to every player hand and the dealer hand from the shoe."""
-    session._deferred_hole_card_msgs = []
+    session.round._deferred_hole_card_msgs = []
     dealer = session._get_dealer()
 
     log.debug("\n--- Dealing ---")
@@ -208,12 +303,12 @@ def initial_deal(session: GameRoom) -> None:
         session.tracker.apply(msgs)
 
     # Set up insurance vote slots if dealer shows Ace
-    session._insurance_votes = []
+    session.round._insurance_votes = []
     if dealer.dealer_hand.cards[0].rank.label == "A" and session.drinking_mode:
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack():
-                    session._insurance_votes.append({
+                    session.round._insurance_votes.append({
                         "player":    p.name,
                         "hand_idx":  i,
                         "votes":     {},
@@ -231,13 +326,26 @@ def dealer_turn(session: GameRoom) -> None:
     d_hand = dealer.dealer_hand
 
     # Apply deferred ace messages now that hidden cards are revealed
-    deferred = session._deferred_hole_card_msgs
+    deferred = session.round._deferred_hole_card_msgs
     if deferred:
         session.tracker.apply(deferred)
         for msg in deferred:
             if len(msg) >= 2 and msg[1] and msg[1] > 0:
                 _push_ace_drink_event(session, msg)
-        session._deferred_hole_card_msgs = []
+        session.round._deferred_hole_card_msgs = []
+
+    # ── Hole card + doubled cards reveal: check for 666 / 777 ───────────────
+    # Both were excluded from deal_card counting; process them now that
+    # they are face-up.  Doubled card is always the last card in a doubled hand.
+    if session.drinking_mode:
+        if len(d_hand.cards) >= 2:
+            _check_table_number(session, d_hand.cards[1], dealer.name, 2)
+        for p in session.all_players:
+            if p.is_dealer:
+                continue
+            for hand in p.hands:
+                if hand.doubled and hand.cards:
+                    _check_table_number(session, hand.cards[-1], p.name, len(hand.cards))
 
     log.debug(f"\n--- Dealer ({dealer.name}) reveals ---")
     log.debug(f"  Full hand: {d_hand}")
@@ -274,31 +382,37 @@ def dealer_turn(session: GameRoom) -> None:
             icon = {"win": "WIN", "loss": "LOSS", "push": "PUSH"}[hand.result]
             log.debug(f"  {p.name} Hand {i+1}: {hand}  => {icon}")
 
-    # Detect hard / soft dealer switch
-    all_results = [h.result for p in session.all_players for h in p.hands]
-    hard_switch = bool(all_results) and all(r == "win"  for r in all_results)
-    soft_switch = bool(all_results) and all(r == "loss" for r in all_results)
-    if soft_switch:
-        insured_bj = any(
-            h.insured and h.is_blackjack()
-            for p in session.all_players for h in p.hands
-        )
-        if insured_bj:
-            soft_switch = False
-            log.debug("  Soft Switch suppressed — insurance on blackjack.")
-    if hard_switch:
-        session.switch_this_round = "hard"
-        log.debug("  >>> HARD DEALER SWITCH <<<")
-    elif soft_switch:
-        session.switch_this_round = "soft"
-        log.debug("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
+    # Detect hard / soft dealer switch (drinking mode only — Normal mode has a
+    # fixed house dealer and never rotates, so switches are irrelevant there)
+    hard_switch = False
+    soft_switch = False
+    if drinking:
+        all_results = [h.result for p in session.all_players for h in p.hands]
+        hard_switch = bool(all_results) and all(r == "win"  for r in all_results)
+        soft_switch = bool(all_results) and all(r == "loss" for r in all_results)
+        if soft_switch:
+            insured_bj = any(
+                h.insured and h.is_blackjack()
+                for p in session.all_players for h in p.hands
+            )
+            if insured_bj:
+                soft_switch = False
+                log.debug("  Soft Switch suppressed — insurance on blackjack.")
+        if hard_switch:
+            session.round.switch_this_round = "hard"
+            log.debug("  >>> HARD DEALER SWITCH <<<")
+        elif soft_switch:
+            session.round.switch_this_round = "soft"
+            log.debug("  >>> SOFT DEALER SWITCH — dealer wins all, role passes <<<")
+        else:
+            session.round.switch_this_round = None
     else:
-        session.switch_this_round = None
+        session.round.switch_this_round = None
 
     # Pass 2 — fire drinking events
     if drinking:
         exempt_dealer   = session.dealer_name if hard_switch else ""
-        insurance_votes = session._insurance_votes
+        insurance_votes = session.round._insurance_votes
         voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
 
         if session._insurance_result is None:
@@ -313,7 +427,12 @@ def dealer_turn(session: GameRoom) -> None:
                 if hand.is_blackjack() and (p.name, i) in voted_keys:
                     vote          = next(v for v in insurance_votes
                                          if v["player"] == p.name and v["hand_idx"] == i)
-                    voters        = [x for x in session.all_players if x.name != p.name]
+                    # Bots abstain — only humans with drinking stake count
+                    # toward the majority. Non-voting humans default to
+                    # decline; ties (incl. 0-0 when everyone is a bot)
+                    # default to decline.
+                    voters        = [x for x in session.all_players
+                                      if x.name != p.name and not getattr(x, "is_npc", False)]
                     insure_count  = sum(1 for v in vote["votes"].values() if v)
                     decline_count = len(voters) - insure_count
                     insured       = insure_count > decline_count   # tie -> decline
@@ -361,13 +480,19 @@ def dealer_turn(session: GameRoom) -> None:
             )))
             session._hard_switch_drinking_applied = True
 
-        # All-hands sweep
+        # All-hands sweep. Unlike the per-hand win events above, this bonus is
+        # never covered by the Hard Switch payout (on_hard_dealer_switch only
+        # tallies blackjack/doubled/regular wins, nothing about all-same-suit
+        # or all-21) -- so the dealer must stay a valid recipient even on a
+        # hard switch, or the bonus silently disappears whenever the sweeping
+        # player is also the one who swept the dealer (e.g. heads-up).
         for p in session.all_players:
             if p.is_dealer:
                 continue
             eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                 player_name=p.name, player_hands=p.hands, all_names=all_names,
-                wager=session.wager, dealer_name=exempt_dealer, dealer_bj=dealer_bj,
+                wager=session.wager, dealer_bj=dealer_bj,
+                hard_switch_dealer=exempt_dealer,
             )))
 
         # Four-aces end-of-round check
@@ -380,12 +505,23 @@ def dealer_turn(session: GameRoom) -> None:
         # Buffer msgs — cmd_endround will combine with RoundEndEvent (net losses)
         # and flush through apply_end_of_round once, so halving operates on the
         # full-round total per player, not on each batch independently.
-        session._eor_msgs_buffer = eor_msgs
+        session.round._eor_msgs_buffer = eor_msgs
 
 
 # ---------------------------------------------------------------------------
 # NPC auto-play
 # ---------------------------------------------------------------------------
+
+def _visible_cards_for_npc(session: GameRoom) -> list:
+    """Every card visible table-wide right now: all hands in play + the
+    dealer's revealed upcard (never the hidden hole card). Feeds the
+    style-strategy table_bias bucket."""
+    visible = [card for p in session.all_players for h in p.hands for card in h.cards]
+    dealer = session._get_dealer()
+    if dealer and dealer.dealer_hand and dealer.dealer_hand.cards:
+        visible.append(dealer.dealer_hand.cards[0])
+    return visible
+
 
 def bust_vote_pending(session: GameRoom) -> bool:
     """Return True while the bust-vote window is open and at least one human
@@ -397,12 +533,12 @@ def bust_vote_pending(session: GameRoom) -> bool:
     """
     if not session.bust_vote_enabled:
         return False
-    if session._bust_vote_expires_at is None:
+    if session.round._bust_vote_expires_at is None:
         return False
-    if _time.monotonic() >= session._bust_vote_expires_at:
+    if _time.monotonic() >= session.round._bust_vote_expires_at:
         return False
     return any(
-        session._bust_votes.get(p.name) is None
+        session.round._bust_votes.get(p.name) is None
         for p in session.all_players
         if not getattr(p, "is_npc", False)
     )
@@ -415,7 +551,7 @@ def auto_play_npc_turns(session: GameRoom) -> None:
     or the phase leaves 'playing'. Safety-capped at 100 steps.
     """
     # Don't play NPC hands until all human players have voted on the bust side
-    # bet — NPCs auto-vote "pass" at deal time, so only human votes can block.
+    # bet -- NPCs auto-vote "pass" at deal time, so only human votes can block.
     if bust_vote_pending(session):
         return
 
@@ -428,7 +564,7 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             break
         player = session._get_player(turn)
         if not player or not getattr(player, "is_npc", False):
-            break   # human's turn — stop
+            break   # human's turn -- stop
 
         hand = next((h for h in player.hands if not hand_done(h)), None)
         if not hand:
@@ -445,10 +581,27 @@ def auto_play_npc_turns(session: GameRoom) -> None:
         if hand.can_split():
             valid.append("sp")
 
-        action = NPC_Player.best_play(
-            hand, dealer_up, valid,
-            drinking_mode=session.drinking_mode)
+        suggestion_key = f"{player.name.lower()}:{hand_label}"
+        suggested      = session.round._suggestions.pop(suggestion_key, None)
+        if suggested in valid:
+            action = suggested
+        elif hasattr(player, "decide"):
+            # NPC_Player instance -- routes through its personality profile
+            # (falls back to plain basic strategy internally if none is set).
+            action = player.decide(
+                hand, dealer_up, valid,
+                drinking_mode=session.drinking_mode,
+                visible_cards=_visible_cards_for_npc(session),
+                sibling_hands=[h for h in player.hands if h is not hand])
+        else:
+            # A real Player converted to a bot mid-session via admin.make_bot()
+            # -- no personality profile exists for them, just basic strategy.
+            action = NPC_Player.best_play(
+                hand, dealer_up, valid,
+                drinking_mode=session.drinking_mode)
         log.debug(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
+
+        record_decision(session, player, hand, action, is_npc=True)
 
         if action == "h":
             card = deal_card(session, hand, player.name)
@@ -469,17 +622,11 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             hand.doubled = True
             deal_card(session, hand, player.name)
             hand.stood = True
-            log.debug(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
+            log.debug(f"  {player.name} {hand_label}: doubles -- card dealt face-down.")
             if hand.is_bust():
                 hand.bust = True
                 hand.result = "loss"
 
         elif action == "sp":
-            new_hand = Hand(from_split=True)
-            new_hand.cards.append(hand.cards.pop())
-            hand.from_split    = True
-            hand.split_count  += 1
-            new_hand.split_count = hand.split_count
-            player.hands.insert(hand_idx + 1, new_hand)
-            deal_card(session, hand, player.name)
+            perform_split(session, player, hand, hand_idx)
             log.debug(f"  {player.name} splits {hand_label}")

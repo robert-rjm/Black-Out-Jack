@@ -1,24 +1,32 @@
 // LAST ROUND DRINK SUMMARY
 // ============================================================
-let _lastRoundSips      = {};   // current completed round — shown in Drinks pane
-let _lastRoundDrinks    = [];   // detailed drink entries for the Drinks pane
-let _prevRoundSips      = {};   // round before last — shown in 🍺 header modal
-let _prevRoundDrinks    = [];   // detailed drink entries for the previous round
-let _drinksPaneSelected = null; // name of player whose detail is shown in Drinks pane
-let _lastRoundOverSeq   = 0;    // seq-based: fire drink toast whenever this advances
-let _lastMilestoneKey       = null;  // "boundary:winner" — prevents re-showing toast on every poll
-let _lastMilestoneResultKey = null;  // same format — prevents re-showing drink toast on every poll
-let _milestoneModalOpened   = null;  // key for which we already opened the modal (prevents re-open on re-poll)
-let _milestoneAllocations   = {};    // { playerName: sips } — stepper state in modal
-let _milestoneTimerID       = null;  // setInterval handle for the modal countdown
+// Drink-summary and milestone-toast tracking state (Drinks pane + milestone
+// toasts/modal). Referenced from table.js and table-modals.js, both of
+// which load after this file.
+const DrinkUI = {
+  lastRoundSips:      {},   // current completed round — shown in Drinks pane
+  lastRoundDrinks:    [],   // detailed drink entries for the Drinks pane
+  prevRoundSips:      {},   // round before last — shown in 🍺 header modal
+  prevRoundDrinks:    [],   // detailed drink entries for the previous round
+  drinksPaneSelected: null, // name of player whose detail is shown in Drinks pane
+  lastRoundOverSeq:   0,    // seq-based: fire drink toast whenever this advances
+  lastBustHandoutSeq: 0,    // seq-based: fire bust-handout-result toast whenever this advances
+  lastDealerLotteryResultSeq: 0, // seq-based: fire Dealer Lottery draw-reveal toast whenever this advances
+  lastTargetedDrinkingResultSeq: 0, // seq-based: fire Targeted Drinking mini-round reveal whenever this advances
+  lastTargetedDrinkingSummarySeq: 0, // seq-based: fire the subgame-ended recap whenever this advances
+  lastTargetedDrinkingHandoutSeq: 0, // seq-based: fire the perfect-graduation handout-result toast whenever this advances
+  lastMilestoneKey:       null, // "boundary:winner" — prevents re-showing toast on every poll
+  lastMilestoneResultKey: null, // same format — prevents re-showing drink toast on every poll
+  milestoneModalOpened:   null, // key for which we already opened the modal (prevents re-open on re-poll)
+  milestoneAllocations:   {},   // { playerName: sips } — stepper state in modal
+};
 
 function openLastRoundModal() {
-  const overlay = document.getElementById("last-round-overlay");
-  const body    = document.getElementById("last-round-modal-body");
-  if (!overlay || !body) return;
+  const body = document.getElementById("last-round-modal-body");
+  if (!document.getElementById("last-round-overlay") || !body) return;
 
-  const sips     = _lastRoundSips;   // last completed round — the main value
-  const prevSips = _prevRoundSips;   // round before that — delta reference only
+  const sips     = DrinkUI.lastRoundSips;   // last completed round — the main value
+  const prevSips = DrinkUI.prevRoundSips;   // round before that — delta reference only
   const names    = Object.keys(sips);
   if (!names.length) {
     body.innerHTML = `<div style="color:var(--muted);text-align:center;font-size:13px">No previous round yet.</div>`;
@@ -41,12 +49,33 @@ function openLastRoundModal() {
       </div>`;
     }).join("");
   }
-  overlay.style.display = "flex";
+  openModal("last-round-overlay");
 }
 
 function closeLastRoundModal() {
-  const overlay = document.getElementById("last-round-overlay");
-  if (overlay) overlay.style.display = "none";
+  closeModal("last-round-overlay");
+}
+
+// Render avatar dots + count in the waiting screen lobby.
+// `count` is the number of clients currently waiting (including this one).
+let _lastWaitingCount = 0;
+function renderWaitingPlayers(count) {
+  if (count === _lastWaitingCount) return;
+  _lastWaitingCount = count;
+
+  const list = document.getElementById("waiting-player-list");
+  if (list) {
+    list.innerHTML = "";
+    for (let i = 0; i < count; i++) {
+      const av = document.createElement("div");
+      av.className = "avatar";
+      av.textContent = "🙂";
+      list.appendChild(av);
+    }
+  }
+
+  const countEl = document.getElementById("waiting-player-count");
+  if (countEl) countEl.textContent = `${count} joined`;
 }
 
 // While waiting for the host to start, poll until the game exists.
@@ -56,11 +85,10 @@ function startWaiting() {
   stopPolling();
   const tick = async () => {
     if (!roomCode) { pollTimer = setTimeout(tick, 2000); return; }
-    try {
-      const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-      const res  = await fetch(url);
-      const data = await res.json();
-      if (data.ok && data.players && data.players.length > 0) {
+    let started = false;
+    await fetchState(data => {
+      if (data.players && data.players.length > 0) {
+        started  = true;
         stopPolling();
         players  = data.players || [];
         numHands = data.num_hands || 2;
@@ -68,14 +96,15 @@ function startWaiting() {
         updateHeader(data);
         buildGameUI();
         applyState(data);
-        appendLog("  (Game started! Joined room " + roomCode + ")\n");
         document.getElementById("waiting").style.display = "none";
         document.getElementById("app").style.display     = "flex";
         startPolling();
-        return;  // don't reschedule — startPolling() takes over
+        startIdleWatcher();
+      } else if (data.waiting) {
+        renderWaitingPlayers(data.waiting_count || 1);
       }
-    } catch (_) {}
-    pollTimer = setTimeout(tick, 2000);
+    });
+    if (!started) pollTimer = setTimeout(tick, 2000);
   };
   pollTimer = setTimeout(tick, 2000);
 }
@@ -118,10 +147,23 @@ function setGameType(type, btn) {
   document.querySelectorAll("#gametype-row .btn").forEach(b => b.classList.remove("sel"));
   btn.classList.add("sel");
 
-  const refSettings  = document.getElementById("settings-ref");
-  const digSettings  = document.getElementById("settings-dig");
-  const wagerCell    = document.getElementById("wager-dig-cell");
-  const sub          = document.getElementById("setup-sub");
+  const refSettings    = document.getElementById("settings-ref");
+  const digSettings    = document.getElementById("settings-dig-wrap");
+  const wagerCell      = document.getElementById("wager-dig-cell");
+  const betCell        = document.getElementById("bet-dig-cell");
+  const easyModeField  = document.getElementById("easy-mode-setup-field");
+  const handsDecksRow  = document.getElementById("settings-dig");
+  const togglesRow     = document.getElementById("settings-dig-toggles");
+  const sub            = document.getElementById("setup-sub");
+
+  // In Normal mode, Sips/hand and Easy Mode are hidden, leaving only 2
+  // visible items per row — switch those rows from a 3-col to a true
+  // 2-col grid so the remaining items are evenly sized and centered.
+  const setRowCols = (row, twoCol) => {
+    if (!row) return;
+    row.classList.toggle("two-col", twoCol);
+    row.classList.toggle("three-col", !twoCol);
+  };
 
   if (type === "drinking-digital") {
     setupMode     = "digital";
@@ -129,6 +171,10 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "";
+    if (betCell) betCell.style.display = "none";
+    if (easyModeField) easyModeField.style.display = "";
+    setRowCols(handsDecksRow, false);
+    setRowCols(togglesRow, false);
     sub.textContent = "Virtual Drinking Blackjack";
   } else if (type === "normal") {
     setupMode     = "digital";
@@ -136,77 +182,68 @@ function setGameType(type, btn) {
     refSettings.style.display  = "none";
     digSettings.style.display  = "";
     wagerCell.style.display    = "none";
-    sub.textContent = "Virtual Blackjack — standard rules, no drinks";
-    _showMaintenanceOverlay(type, btn);
+    if (betCell) betCell.style.display = "";
+    // Easy Mode only applies to drink halving — not relevant for Normal mode
+    if (easyModeField) {
+      easyModeField.style.display = "none";
+      setEasyModeSetup(false);
+    }
+    // Normal mode default: 1 hand per player (players bet against the house)
+    setStepperValue("num-hands-dig", 1);
+    setRowCols(handsDecksRow, false);
+    setRowCols(togglesRow, true);
+    sub.textContent = "Standard Blackjack with No Drinks";
   } else {   // referee
     setupMode     = "referee";
     setupDrinking = true;
     refSettings.style.display  = "block";
     digSettings.style.display  = "none";
-    sub.textContent = "Physical deck scorekeeper — real-time drink tracker";
-    _showMaintenanceOverlay(type, btn);
+    if (betCell) betCell.style.display = "none";
+    if (easyModeField) easyModeField.style.display = "";
+    setRowCols(handsDecksRow, false);
+    setRowCols(togglesRow, false);
+    sub.textContent = "Drinking Blackjack Physical Scorekeeper and Drink Tracker";
   }
-}
-
-function _showMaintenanceOverlay(type, btn) {
-  const existing = document.getElementById("maintenance-overlay");
-  if (existing) existing.remove();
-
-  const labels = { normal: "Normal", referee: "Referee" };
-  const label  = labels[type] || type;
-
-  const overlay = document.createElement("div");
-  overlay.id = "maintenance-overlay";
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:700;display:flex;align-items:center;justify-content:center;padding:24px";
-
-  overlay.innerHTML = `
-    <div style="background:var(--surface);border-radius:16px;padding:24px;width:100%;max-width:360px;border:1px solid var(--border);text-align:center">
-      <div style="font-size:28px;margin-bottom:10px">🚧</div>
-      <h3 style="font-size:17px;font-weight:800;margin-bottom:10px">${label} Mode — Under Maintenance</h3>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5">
-        This mode hasn't been updated to match recent features and may not work correctly.<br>
-        Only <strong>Drinking</strong> mode is actively supported right now.
-      </p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn" style="background:var(--border);color:var(--fg)" onclick="document.getElementById('maintenance-overlay').remove()">
-          Continue Anyway
-        </button>
-        <button class="btn green" onclick="
-          document.getElementById('maintenance-overlay').remove();
-          setGameType('drinking-digital', document.querySelector('#gametype-row .btn'));
-        ">
-          ← Back to Drinking
-        </button>
-      </div>
-    </div>`;
-
-  document.body.appendChild(overlay);
 }
 
 // ============================================================
 // SETUP — players (dynamic list)
 // ============================================================
-const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-const SUITS = [
-  { label: "♥", code: "h", cls: "hearts" },
-  { label: "♦", code: "d", cls: "diamonds" },
-  { label: "♣", code: "c", cls: "clubs" },
-  { label: "♠", code: "s", cls: "spades" },
-];
+// RANKS and SUITS are defined in config.js (loaded first).
 
-let playerRows = [];   // [{ id, name, isBot }]
+let playerRows = [];   // [{ id, name, isBot, personality }]
 let _rowIdCtr  = 0;
+
+// Personality profiles available on the server (populated async below).
+// Options beyond "basic" only show up once loaded -- harmless if a row was
+// already toggled to bot before the fetch resolves, since re-rendering just
+// adds the extra <option>s without losing the row's current selection.
+let availablePersonalities = [];
+
+async function loadAvailablePersonalities() {
+  try {
+    const res  = await fetch("/player_personalities");
+    const data = await res.json();
+    availablePersonalities = Array.isArray(data.personalities) ? data.personalities : [];
+  } catch (_) {
+    availablePersonalities = [];
+  }
+  syncPlayerRowsFromDOM();
+  renderPlayerRows();
+}
 
 // Read current input/toggle values from DOM back into playerRows state
 function syncPlayerRowsFromDOM() {
-  document.querySelectorAll(".player-row[data-row-id]").forEach(el => {
+  document.querySelectorAll(".player-row-group[data-row-id]").forEach(el => {
     const id  = parseInt(el.dataset.rowId, 10);
     const row = playerRows.find(r => r.id === id);
     if (!row) return;
-    const inp = el.querySelector(".player-name-input");
-    const chk = el.querySelector(".bot-chk");
-    if (inp) row.name  = inp.value;
-    if (chk) row.isBot = chk.checked;
+    const inp  = el.querySelector(".player-name-input");
+    const chk  = el.querySelector(".bot-chk");
+    const psel = el.querySelector(".bot-personality-select");
+    if (inp)  row.name        = inp.value;
+    if (chk)  row.isBot       = chk.checked;
+    if (psel) row.personality = psel.value;
   });
 }
 
@@ -216,6 +253,10 @@ function renderPlayerRows() {
   const showRemove = playerRows.length > 2;
 
   playerRows.forEach((row, i) => {
+    const group = document.createElement("div");
+    group.className = "player-row-group";
+    group.dataset.rowId = row.id;
+
     const rowEl = document.createElement("div");
     rowEl.className = "player-row";
     rowEl.dataset.rowId = row.id;
@@ -229,6 +270,23 @@ function renderPlayerRows() {
     inp.addEventListener("input", () => {
       const r = playerRows.find(r => r.id === row.id);
       if (r) r.name = inp.value;
+    });
+
+    // Bot personality select -- only shown/meaningful while isBot is on.
+    // Kept in the row's own element so syncPlayerRowsFromDOM() can read it
+    // via a plain querySelector, same pattern as the name input/checkbox.
+    const personalitySelect = document.createElement("select");
+    personalitySelect.className = "bot-personality-select";
+    personalitySelect.appendChild(new Option("Bot (Basic Strategy)", "basic"));
+    availablePersonalities.forEach(name => {
+      const label = name.charAt(0).toUpperCase() + name.slice(1) + "-bot";
+      personalitySelect.appendChild(new Option(label, name));
+    });
+    personalitySelect.value = row.personality || "basic";
+    personalitySelect.style.display = row.isBot ? "" : "none";
+    personalitySelect.addEventListener("change", () => {
+      const r = playerRows.find(r => r.id === row.id);
+      if (r) r.personality = personalitySelect.value;
     });
 
     // Bot toggle: "BOT" label + small pill
@@ -252,6 +310,7 @@ function renderPlayerRows() {
         r.isBot         = chk.checked;
         inp.placeholder = r.isBot ? `Bot ${i + 1}` : `Player ${i + 1}`;
       }
+      personalitySelect.style.display = chk.checked ? "" : "none";
     });
 
     const slider = document.createElement("span");
@@ -266,7 +325,8 @@ function renderPlayerRows() {
     const removeBtn = document.createElement("button");
     removeBtn.className        = "player-remove-btn";
     removeBtn.textContent      = "×";
-    removeBtn.style.visibility = showRemove ? "visible" : "hidden";
+    removeBtn.style.opacity = showRemove ? "1" : "0.3";
+    removeBtn.disabled = !showRemove;
     removeBtn.addEventListener("click", e => {
       e.preventDefault();
       syncPlayerRowsFromDOM();
@@ -278,42 +338,56 @@ function renderPlayerRows() {
     rowEl.appendChild(inp);
     rowEl.appendChild(toggleWrap);
     rowEl.appendChild(removeBtn);
-    c.appendChild(rowEl);
+    group.appendChild(rowEl);
+    group.appendChild(personalitySelect);
+    c.appendChild(group);
   });
 }
 
 function addPlayerRow() {
   syncPlayerRowsFromDOM();
-  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false });
+  playerRows.push({ id: _rowIdCtr++, name: "", isBot: false, personality: "basic" });
   renderPlayerRows();
   syncDecksToPlayerCount();
 }
 
 // Start with 2 players
 playerRows = [
-  { id: _rowIdCtr++, name: "", isBot: false },
-  { id: _rowIdCtr++, name: "", isBot: false },
+  { id: _rowIdCtr++, name: "", isBot: false, personality: "basic" },
+  { id: _rowIdCtr++, name: "", isBot: false, personality: "basic" },
 ];
 renderPlayerRows();
+loadAvailablePersonalities();
 
 // ============================================================
 // NUMBER STEPPER
 // ============================================================
+function _stepperDisplay(el, val) {
+  const step = parseFloat(el.dataset.step) || 1;
+  return el.dataset.money !== undefined || step % 1 !== 0
+    ? `$${val.toFixed(2)}`
+    : String(val);
+}
+
 function getStepperValue(id) {
   const el = document.getElementById(id);
   if (!el) return null;
   if (el.tagName === "INPUT") return parseInt(el.value) || 0;  // fallback for plain inputs
-  return parseInt(el.dataset.value) || 0;
+  const step = parseFloat(el.dataset.step) || 1;
+  const val = parseFloat(el.dataset.value) || 0;
+  return step % 1 !== 0 ? val : (parseInt(el.dataset.value) || 0);
 }
 
 function setStepperValue(id, val) {
   const el = document.getElementById(id);
   if (!el || !el.classList.contains("stepper")) return;
-  const min = parseInt(el.dataset.min) || 0;
-  const max = parseInt(el.dataset.max) || Infinity;
+  const step = parseFloat(el.dataset.step) || 1;
+  const min = parseFloat(el.dataset.min) || 0;
+  const max = parseFloat(el.dataset.max) || Infinity;
   val = Math.max(min, Math.min(max, val));
+  if (step % 1 !== 0) val = Math.round(val * 100) / 100;
   el.dataset.value = val;
-  el.querySelector(".stepper-display").textContent = val;
+  el.querySelector(".stepper-display").textContent = _stepperDisplay(el, val);
   el.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
   el.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
 }
@@ -352,16 +426,18 @@ document.addEventListener("click", e => {
   const stepper = btn.closest(".stepper");
   if (!stepper) return;
 
-  const min = parseInt(stepper.dataset.min) || 0;
-  const max = parseInt(stepper.dataset.max) || Infinity;
-  let val   = parseInt(stepper.dataset.value) || 0;
+  const step = parseFloat(stepper.dataset.step) || 1;
+  const min  = parseFloat(stepper.dataset.min) || 0;
+  const max  = parseFloat(stepper.dataset.max) || Infinity;
+  let val    = parseFloat(stepper.dataset.value) || 0;
 
   val = btn.classList.contains("stepper-dec")
-    ? Math.max(min, val - 1)
-    : Math.min(max, val + 1);
+    ? Math.max(min, val - step)
+    : Math.min(max, val + step);
+  if (step % 1 !== 0) val = Math.round(val * 100) / 100;
 
   stepper.dataset.value = val;
-  stepper.querySelector(".stepper-display").textContent = val;
+  stepper.querySelector(".stepper-display").textContent = _stepperDisplay(stepper, val);
   stepper.querySelector(".stepper-dec").classList.toggle("at-limit", val <= min);
   stepper.querySelector(".stepper-inc").classList.toggle("at-limit", val >= max);
 });
@@ -376,11 +452,15 @@ async function startGame() {
   syncPlayerRowsFromDOM();
   const names = [];
   const npcs  = [];
+  const personalities = {};
   playerRows.forEach((row, i) => {
     const isBot = row.isBot;
     const name  = (row.name || "").trim() || (isBot ? `Bot${i + 1}` : `Player${i + 1}`);
     names.push(name);
-    if (isBot) npcs.push(name);
+    if (isBot) {
+      npcs.push(name);
+      personalities[name] = row.personality || "basic";
+    }
   });
   npcPlayers = new Set(npcs);
 
@@ -395,23 +475,33 @@ async function startGame() {
   const easyMode        = !!(document.getElementById("easy-mode-setup-toggle")?.checked);
 
   // Player 1 is always the starting dealer
-  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
+  const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, personalities, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
   if (isDigital) body.num_decks = numDecks;
+  if (!setupDrinking) {
+    body.bet_amount = getStepperValue("bet-dig") || 10;
+  }
 
-  const res  = await fetch("/setup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
+  let data;
+  try {
+    const res  = await fetch("/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    data = await res.json();
+  } catch (_) {
+    alert("Could not reach server — check your connection and try again.");
+    btn.disabled = false;
+    return;
+  }
   btn.disabled = false;
 
-  if (!data.ok) { alert(data.output || "Setup failed."); return; }
+  if (!data.ok) { alert(data.error || "Setup failed."); return; }
 
   players          = data.players;
   numHands         = nh;
   gameMode         = data.mode || "referee";
-  myRole           = data.my_role          || "admin";
+  myRole           = data.my_role          || ROLE.ADMIN;
   myName           = data.my_name          || null;
   myNames          = data.my_names         || (myName ? [myName] : []);
   isMyDealerClient = data.is_dealer_client !== false;  // admin always starts as dealer
@@ -434,15 +524,48 @@ async function startGame() {
 
 // ============================================================
 // IDLE WATCHER — warns before Render dyno sleep (15-min idle)
+// Shown to all seated players (admin + player roles); spectators excluded.
 // ============================================================
 const IDLE_SOFT_MS   = 10 * 60 * 1000;   // 10 min → "Still there?"
 const IDLE_URGENT_MS = 14 * 60 * 1000;   // 14 min → "Room about to be lost"
 
 let _lastActivityAt  = Date.now();
 let _idleWatcherID   = null;
+let _idleSoundState  = null;  // tracks last sound played: null | "soft" | "urgent"
+
+// --------------- sound ---------------
+function _playIdleSound(type) {
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const beep = (freq, startSec, dur) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ctx.currentTime + startSec);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + startSec + 0.01);
+      gain.gain.linearRampToValueAtTime(0,    ctx.currentTime + startSec + dur);
+      osc.start(ctx.currentTime + startSec);
+      osc.stop(ctx.currentTime  + startSec + dur + 0.05);
+    };
+    if (type === "soft") {
+      // Two gentle mid-pitch chimes
+      beep(660, 0,    0.18);
+      beep(660, 0.28, 0.18);
+    } else {
+      // Three urgent higher-pitched beeps
+      beep(920, 0,    0.14);
+      beep(920, 0.20, 0.14);
+      beep(920, 0.40, 0.22);
+    }
+  } catch (_) { /* AudioContext not supported or blocked */ }
+}
 
 function resetIdleTimer() {
   _lastActivityAt = Date.now();
+  _idleSoundState = null;
   const banner  = document.getElementById("idle-warning-banner");
   const overlay = document.getElementById("idle-urgent-overlay");
   if (banner)  { banner.style.display = "none"; banner.className = "idle-warning-banner"; }
@@ -459,16 +582,24 @@ function _tickIdleWatcher() {
   const overlay = document.getElementById("idle-urgent-overlay");
 
   if (elapsed >= IDLE_URGENT_MS) {
-    // Urgent: hide banner, show blocking modal
+    // Urgent: hide banner, show blocking modal + play sound once
     if (banner)  { banner.style.display = "none"; banner.className = "idle-warning-banner"; }
     if (overlay) { overlay.classList.add("open"); }
+    if (_idleSoundState !== "urgent") {
+      _idleSoundState = "urgent";
+      _playIdleSound("urgent");
+    }
   } else if (elapsed >= IDLE_SOFT_MS) {
-    // Soft: yellow banner only
+    // Soft: yellow banner + play sound once
     if (overlay) { overlay.classList.remove("open"); }
     if (banner && text) {
       banner.style.display = "flex";
       banner.className = "idle-warning-banner idle-soft";
       text.textContent = "Still there? Tap to keep the room alive.";
+    }
+    if (_idleSoundState !== "soft" && _idleSoundState !== "urgent") {
+      _idleSoundState = "soft";
+      _playIdleSound("soft");
     }
   } else {
     if (banner)  { banner.style.display = "none"; banner.className = "idle-warning-banner"; }
@@ -477,7 +608,10 @@ function _tickIdleWatcher() {
 }
 
 function startIdleWatcher() {
+  // Spectators don't keep the dyno alive and don't need the warning
+  if (typeof myRole !== "undefined" && myRole === ROLE.SPECTATOR) return;
   _lastActivityAt = Date.now();
+  _idleSoundState = null;
   if (_idleWatcherID) clearInterval(_idleWatcherID);
   _idleWatcherID = setInterval(_tickIdleWatcher, 30_000);  // check every 30s
 }
