@@ -21,7 +21,8 @@ import time
 
 from engine.blackjack import Card, Deck, Hand
 from app.models.game_room import GameRoom
-from app.config import DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_HANDS
+from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_DRINK,
+                        DEALER_LOTTERY_MAX_HANDS)
 from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card
@@ -204,11 +205,16 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         handout power on the side -- your whole win (credit + handout)
         tops out at what X could actually offset, or nothing if you
         didn't owe anything this round to begin with.
-      - No hand busts: drink X * (n_hands - 1) -- never halved. Only the
+      - No hand busts: drink X * (n_hands - 1), capped at
+        DEALER_LOTTERY_MAX_DRINK -- never halved. Only the
         handout (above) is halved; halving softens what you hand to
         someone else, not what you owe yourself. n_hands - 1 is 1 for the
         base (un-split) case and increases by 1 per re-split, so standing
-        through a re-split chain costs more the longer that chain runs.
+        through a re-split chain costs more the longer that chain runs --
+        up to the cap, which exists because the credit side is floored
+        at what you actually owe while this side had no ceiling at all:
+        an uncapped X=5 through a full 5-hand chain was 20 sips, a
+        session-sized hit off one post-round side bet.
       - Anything in between (exactly 1 hand busts): nothing happens -- no
         drink, no credit.
 
@@ -290,7 +296,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             # what you hand to someone else, not what you owe yourself).
             # Scales with n_hands so standing through a re-split chain
             # costs more than standing on the un-split base case.
-            drink = x * (n_hands - 1)
+            drink = min(x * (n_hands - 1), DEALER_LOTTERY_MAX_DRINK)
             award_sips(
                 session, name, drink, "Dealer Lottery drink",
                 reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",

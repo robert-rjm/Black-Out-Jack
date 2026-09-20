@@ -163,7 +163,7 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 |--------|--------|
 | 2+ hands bust | Credit = min(X, what you owe) sips, hand ceil(credit/2) out to another Player (always halved) |
 | Exactly 1 busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) sips (never halved) |
+| No hand busts | Drink X × (hands − 1) sips, max 10 (never halved) |
 
 ---
 

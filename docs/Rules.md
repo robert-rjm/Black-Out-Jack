@@ -396,15 +396,15 @@ Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults
 | --- | --- |
 | 2 or more hands bust | Credit yourself `credit` = min(X, what you owe this round) sips (never below 0), and hand out ceil(credit/2) sips to another Player |
 | Exactly 1 hand busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) sips |
+| No hand busts | Drink X × (hands − 1) sips, **capped at 10** |
 
-The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive.
+The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive — up to a **10-sip ceiling** on the drink. The cap exists because the two sides aren't symmetric: the credit is floored at what you actually owe this round, while the drink had no ceiling at all, so X=5 standing through a full 5-hand chain was 20 sips off a single post-round side bet.
 
-The handout amount is always halved (rounded up), regardless of player count or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1), and the self-credit is never halved either. The handout is derived from the **credit actually received**, not the raw stake X — staking more than you currently owe can't buy outsized handout power on the side; the whole win (credit + handout) tops out at what X could actually offset, or nothing at all if you didn't owe anything this round to begin with.
+The handout amount is always halved (rounded up), regardless of player count or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1) up to the cap, and the self-credit is never halved either. The handout is derived from the **credit actually received**, not the raw stake X — staking more than you currently owe can't buy outsized handout power on the side; the whole win (credit + handout) tops out at what X could actually offset, or nothing at all if you didn't owe anything this round to begin with.
 
 > **Example:** Dealer stands on K♠ Q♥ (20). Alice, who owes 3 sips this round, enters with X=5; Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice's credit floors at what she owed (3, not the full 5), so she credits herself 3 sips and hands ceil(3/2) = 2 sips to another Player of her choice. Bob, having entered 0, is unaffected either way.
 >
-> **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 5 × (3 − 1) = 10 sips instead of the base 5.
+> **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 5 × (3 − 1) = 10 sips instead of the base 5 — which is also where the cap bites: a fourth or fifth hand wouldn't cost her any more.
 
 The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side-bet-dealer-bust).
 
