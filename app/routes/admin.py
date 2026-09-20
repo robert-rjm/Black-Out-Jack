@@ -28,7 +28,8 @@ from markupsafe import escape
 
 from app.services.session_store import game_sessions
 from app.services.serializer    import serialize_state, round_phase
-from app.services.drink_tracker import award_sips, check_and_set_milestone
+from app.services.drink_tracker import (award_sips, check_and_set_milestone,
+                                        note_milestone_assigned)
 from app.services.game_engine   import auto_play_npc_turns
 from app.services.room_manager  import rotate_dealer as _rotate_dealer
 from app.services.validators    import sanitize_name, is_dealer_client, is_offensive_name
@@ -728,6 +729,12 @@ def claim_milestone():
         "allocations": alloc,         # {name: sips} — only non-zero entries
         "set_at":      time.monotonic(),
     }
+
+    # Winning *and* handing out two milestones in a row earns a log callout.
+    # Must run before the re-check below: that can claim the next boundary
+    # and resolve it on the spot for an NPC winner, which would otherwise
+    # record its own handout first and make this one look non-consecutive.
+    note_milestone_assigned(session, winner)
 
     # A handout allocation can itself push a recipient past the next
     # boundary. _pending_milestone is clear now, so this can fire.

@@ -365,6 +365,12 @@ Every time a Player's cumulative sip total crosses a multiple of 50, they earn b
 
 **If multiple Players cross the same boundary in the same round:** the Player who drank the *fewest* sips that round wins (prevents gaming the crossing). If still tied, the fewest sips in the *previous* round wins. If still tied, the winner is picked at random — never alphabetically.
 
+### Back-to-Back Milestones
+
+If the **same Player** wins a milestone **and** gets the handout assigned two or more times in a row, the round log calls it out with a 🔥 (“back-to-back”, then “3 milestones in a row”, and so on). It's a bragging-rights callout — no sips either way. The 🔥 also sits next to their name at the table for as long as the run is alive (hover it for the count).
+
+Only **completed handouts** keep a run alive: letting the 60-second window expire (the forfeit) or winning with nobody to hand out to breaks it, as does anyone else winning in between. A bot winner's automatic round-robin handout counts like any other.
+
 ### "Worst Average" Penalty
 
 At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."

@@ -532,6 +532,8 @@ class AppState(_StrictModel):
     last_milestone_result: Optional[LastMilestoneResultOut]
     pending_milestone:     Optional[PendingMilestoneOut]
     last_milestone_worst:  Optional[str]
+    milestone_run_holder:  Optional[str]
+    milestone_run_length:  int
 
     # ---- Dealer Lottery data (always present) ----
     dealer_lottery: DealerLotteryOut

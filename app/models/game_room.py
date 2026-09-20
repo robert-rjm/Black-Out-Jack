@@ -223,6 +223,12 @@ class DrinkLedger:
     milestones_claimed: dict   = field(default_factory=dict)
     last_milestone_result: dict | None = None
     last_milestone_worst: str | None   = None
+    # Back-to-back milestone wins: the player who last won a milestone AND
+    # got the handout assigned (human claim or NPC round-robin), plus how
+    # many of those they've strung together. A forfeited handout doesn't
+    # count as a win -- apply_milestone_forfeit clears both.
+    last_milestone_winner: str | None  = None
+    milestone_win_streak: int          = 0
     wild_card_presses: dict    = field(default_factory=dict)
     last_dealer_lottery_result: dict | None = None
     # Bumped each time resolve_dealer_lottery() sets a new result, so the

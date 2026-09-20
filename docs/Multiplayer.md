@@ -103,6 +103,13 @@ When a player's cumulative sip total crosses a **multiple of 50**, they earn bon
 - If the **timer expires** without a submission, the full handout becomes the winner's own drink
 - Only **one milestone** can be active at a time — a new boundary won't fire until the current handout is resolved
 
+### Back-to-Back Milestones
+
+- Winning a milestone **and** getting the handout assigned two or more times in a row earns a 🔥 callout in the round log (“back-to-back”, then “3 milestones in a row”, …) — bragging rights only, no sips
+- Only completed handouts count: a **forfeited** window or a win with **no other players** to give to breaks the run, as does anyone else winning in between
+- A **bot** winner's automatic round-robin handout counts like any other
+- While a run is alive the holder also wears a 🔥 **seat badge** next to their name (tooltip: how many in a row)
+
 ### "Worst Average" Penalty
 
 At each milestone, the player with the **lowest average sips/round overall** (total sips ÷ rounds played, excluding the milestone winner) is flagged as the "worst" player.
