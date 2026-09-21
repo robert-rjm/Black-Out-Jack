@@ -93,4 +93,4 @@ Black(Out)Jack &bull; Made by Robert, David & Marko
 
 [github.com/robert-rjm/Black-Out-Jack](https://github.com/robert-rjm/Black-Out-Jack)
 
-[🍺 Buy us a beer (contact us via GitHub)](https://github.com/robert-rjm/Black-Out-Jack/issues)
+[🍺 Buy us a beer (PayPal)](https://paypal.me/robertmichels)

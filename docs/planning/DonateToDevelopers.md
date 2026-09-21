@@ -65,7 +65,18 @@ URL, the rules modal opens with its new credits footer, the terms footer
 shows both links, and the summary modal's donate line sits after the
 auto-export row with no `drink-only` class. No console errors.
 
-## Remaining work: choose the payment platform
+## Payment platform: decided
+
+**PayPal.me — https://paypal.me/robertmichels — is live in all five
+placements.** Chosen by Robert over the recommendation below, which
+stays on record as the reasoning at the time rather than as pending
+work. Known trade-off accepted: a PayPal.me profile page and its
+payment receipts show the recipient's real name to donors, so the
+"no private info" requirement holds for everything except the name.
+The account is Robert's personal one, which also settles the
+ownership question below in favour of an informal split.
+
+### Options considered
 
 Requirement: no private info (real name, phone number, address, email)
 exposed to donors.
@@ -95,14 +106,12 @@ only worth it if GitHub Sponsors alone proves too niche.
 > Verify current terms, fee structure, and Swiss availability on each
 > platform before committing, since these change over time.
 
-### Open questions
+### Open questions (settled by the decision above)
 - Who owns the sponsor account? GitHub Sponsors is per-account, but the
   project credits three people (Robert, David & Marko). Options: a GitHub
   **org** sponsor account for the project (cleanest for a shared
   project), or one personal account with an informal split. Needs a
   decision between the three devs.
-- Final URL, once the account exists. Swapping it is the only code change
-  left.
 
 ## Out of scope
 - Any in-game surface (header, bottom nav, admin panel).

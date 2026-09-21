@@ -15,6 +15,9 @@
   <a href="docs/Rules.md">
     <img src="https://img.shields.io/badge/📖%20RULES-orange?style=for-the-badge&labelColor=1a1a1a" alt="Rules" height="30">
   </a>
+  <a href="https://paypal.me/robertmichels">
+    <img src="https://img.shields.io/badge/🍺%20BUY%20US%20A%20BEER-00457C?style=for-the-badge&labelColor=1a1a1a" alt="Buy us a beer" height="30">
+  </a>
 </p>
 
 
@@ -83,7 +86,7 @@ python server.py
 
 ## Contributing
 
-Rule ideas are especially welcome — if it made the game more fun, it probably belongs here! Please:
+Rule ideas are especially welcome: if it made the game more fun, it probably belongs here! Please:
 
 > **Fork** → **Branch** → **Commit** → **Push** → **PR**
 
@@ -91,9 +94,10 @@ Rule ideas are especially welcome — if it made the game more fun, it probably 
 ## Support this project
 
 Black(Out)Jack is a free hobby project. If it made your night better and
-you'd like to buy us a beer, get in touch via
+you'd like to buy us a beer: [paypal.me/robertmichels](https://paypal.me/robertmichels).
+
+For questions, bugs or feature ideas, use
 [GitHub Issues](https://github.com/robert-rjm/Black-Out-Jack/issues).
-A proper donation link is coming soon.
 
 
 ## License
