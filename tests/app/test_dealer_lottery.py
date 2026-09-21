@@ -14,6 +14,7 @@ from app import create_app
 from app.models.game_room import GameRoom, GameConfig, RoundState
 from app.services.session_store import game_sessions, set_session
 from app.services.serializer import serialize_state
+from app.config import DEALER_LOTTERY_MAX_DRINK
 from app.services.dealer_lottery import (
     _dealer_pair_trigger,
     check_dealer_lottery_trigger,
@@ -480,6 +481,56 @@ def test_resolve_cascading_resplit_tracks_parent_chain(monkeypatch):
     # idx2 = sibling1 (split off hand_a 1st)
     # idx3 = hand_b (the other original branch root, no parent)
     assert [h["parent_index"] for h in result["hands"]] == [None, 0, 0, None]
+
+
+def test_resolve_no_bust_drink_is_capped(monkeypatch):
+    """The scaled drink stops at DEALER_LOTTERY_MAX_DRINK. Uncapped, a
+    max stake standing through a full re-split chain was X * (n_hands - 1)
+    = 5 * 4 = 20 sips off one post-round side bet -- while the credit side
+    is floored at what the player actually owes."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 5)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),   # hand_a re-splits
+        make_card("9", "C"),   # ...and re-splits again -> 4 hands total
+        make_card("8", "H"),   # 9+8 = 17, stands
+        make_card("8", "S"),   # 9+8 = 17, stands
+        make_card("Q", "C"),   # 9+Q = 19, stands
+        make_card("K", "C"),   # 9+K = 19, stands
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert len(result["hands"]) == 4
+    assert result["busted"] == 0
+    # Uncapped this would be 5 * (4 - 1) = 15.
+    assert result["drink_amounts"] == {"Alice": DEALER_LOTTERY_MAX_DRINK}
+    assert room.drinks.last_round_sips["Alice"] == DEALER_LOTTERY_MAX_DRINK
+
+
+def test_resolve_no_bust_drink_below_the_cap_still_scales(monkeypatch):
+    """The cap only clips the tail -- everything under it scales as before."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),   # hand_a re-splits
+        make_card("9", "C"),   # ...and re-splits again -> 4 hands total
+        make_card("8", "H"),   # 9+8 = 17, stands
+        make_card("8", "S"),   # 9+8 = 17, stands
+        make_card("Q", "C"),   # 9+Q = 19, stands
+        make_card("K", "C"),   # 9+K = 19, stands
+    ])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    # 3 * (4 - 1) = 9, still under the 10-sip ceiling.
+    assert result["drink_amounts"] == {"Alice": 9}
 
 
 def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypatch):

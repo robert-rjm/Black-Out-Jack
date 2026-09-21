@@ -147,6 +147,8 @@ Players drink their sips. Dealer drinks nothing. Role passes.
 
 Cross a multiple of **50 cumulative sips** → earn bonus sips to hand out (5 at 50, 6 at 100, 7 at 150, +1 per milestone after). 60-second window; unassigned sips return to you.
 
+**Back-to-back** 🔥: win *and* hand out two (or more) milestones in a row → a callout in the round log plus a 🔥 on your seat while the run lasts, no sips. A forfeited window, a win with nobody to give to, or anyone else winning in between breaks the run.
+
 **Worst-average penalty**: the Player with the lowest average sips/round (excluding the winner) is flagged "worst." Flagged **two milestones in a row** → one-time penalty, drink the winner's average sips/round (always rounded up, min 1).
 
 **"L" badge**: 5+ consecutive round losses → holds the L (only one Player at a time — whoever's losing streak is currently longest). Another Player's streak strictly overtaking the holder's transfers the L and costs the outgoing holder 1 sip; earning it or losing it to your own streak breaking never costs a sip, and ties don't dethrone.
@@ -161,7 +163,7 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 |--------|--------|
 | 2+ hands bust | Credit = min(X, what you owe) sips, hand ceil(credit/2) out to another Player (always halved) |
 | Exactly 1 busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) sips (never halved) |
+| No hand busts | Drink X × (hands − 1) sips, max 10 (never halved) |
 
 ---
 

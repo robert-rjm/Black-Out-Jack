@@ -103,6 +103,13 @@ When a player's cumulative sip total crosses a **multiple of 50**, they earn bon
 - If the **timer expires** without a submission, the full handout becomes the winner's own drink
 - Only **one milestone** can be active at a time — a new boundary won't fire until the current handout is resolved
 
+### Back-to-Back Milestones
+
+- Winning a milestone **and** getting the handout assigned two or more times in a row earns a 🔥 callout in the round log (“back-to-back”, then “3 milestones in a row”, …) — bragging rights only, no sips
+- Only completed handouts count: a **forfeited** window or a win with **no other players** to give to breaks the run, as does anyone else winning in between
+- A **bot** winner's automatic round-robin handout counts like any other
+- While a run is alive the holder also wears a 🔥 **seat badge** next to their name (tooltip: how many in a row)
+
 ### "Worst Average" Penalty
 
 At each milestone, the player with the **lowest average sips/round overall** (total sips ÷ rounds played, excluding the milestone winner) is flagged as the "worst" player.
@@ -139,7 +146,7 @@ If the Dealer's final hand happens to be a **paired 18** (two 9s) or **paired 20
 - Otherwise the dealer's pair splits into fresh hands from a new shuffled deck, played out under the normal dealer-hits-to-17 rule — shown as a real card-by-card reveal animation. If a new card itself forms another matching pair, that hand splits again the same way a player's hand would, so a hot run of 9s or tens can turn this into three or more hands, up to **5 hands total across both branches combined**
 - **2 or more hands bust** (not necessarily all of them): credit yourself up to X sips off what you owe this round, and hand ceil(X/2) sips out to another player — always halved, rounded up, regardless of player count or Easy Mode (picker window mirrors the Bust Vote's)
 - **Exactly 1 hand busts**: nothing happens
-- **No hand busts**: drink X × (hands − 1) — scales with how many hands the redeal produced, so a re-split costs more to stand clean through, not just easier to credit off of. Never halved regardless of player count or Easy Mode
+- **No hand busts**: drink X × (hands − 1), **capped at 10 sips** — scales with how many hands the redeal produced, so a re-split costs more to stand clean through, not just easier to credit off of. Never halved regardless of player count or Easy Mode
 
 ### Rules
 - The dealer is eligible to enter too, same as the Bust Vote

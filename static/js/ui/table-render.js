@@ -292,6 +292,14 @@ function renderPlayers(state) {
       ? `<span class="seat-worst-badge" title="Worst average sips/round at the last milestone">🐌</span>`
       : "";
 
+    // Fire: won AND handed out 2+ milestones in a row (see drink_tracker.py's
+    // note_milestone_assigned) -- stays on the seat until a forfeit, a solo
+    // win or another player winning breaks the run.
+    const runLen   = state.milestone_run_length || 0;
+    const runBadge = (isDrinking && state.milestone_run_holder === s.name)
+      ? `<span class="seat-run-badge" title="Won and handed out ${runLen} milestones in a row">🔥</span>`
+      : "";
+
     // L: holds the single longest active losing streak at the table (5+
     // consecutive rounds lost) -- only one player at a time; overtaking the
     // current holder hands them a 1-sip penalty (see drink_tracker.py's
@@ -321,7 +329,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name${nameCls}"${nameTitle}>${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${lBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name${nameCls}"${nameTitle}>${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${runBadge}${lBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");

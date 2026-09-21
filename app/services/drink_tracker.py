@@ -728,6 +728,42 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     session.drinks.last_milestone_worst = worst_name
 
 
+def note_milestone_assigned(session: GameRoom, winner: str) -> None:
+    """
+    Record a milestone that *winner* both won and got handed out -- a human
+    submitting their allocation (admin.py's claim_milestone) or an NPC's
+    automatic round-robin distribution.
+
+    Winning two or more of those in a row logs a back-to-back line. Anything
+    that resolves a milestone without an actual handout (a forfeit, or a solo
+    winner with nobody to give to) calls ``_reset_milestone_win_streak``
+    instead, so only real handouts keep a run alive.
+    """
+    prev = session.drinks.last_milestone_winner
+    if prev and prev.lower() == winner.lower():
+        session.drinks.milestone_win_streak += 1
+    else:
+        session.drinks.milestone_win_streak = 1
+    session.drinks.last_milestone_winner = winner
+
+    streak = session.drinks.milestone_win_streak
+    if streak < 2:
+        return
+
+    run = "back-to-back" if streak == 2 else f"{streak} milestones in a row"
+    session.round._log_entries.append(
+        f"  🔥 {winner} won and handed out the milestone {run}!\n"
+    )
+    session._log_version += 1
+    log.debug(f"  [milestone] {winner} won + handed out {streak}x in a row")
+
+
+def _reset_milestone_win_streak(session: GameRoom) -> None:
+    """Break the back-to-back run -- see ``note_milestone_assigned``."""
+    session.drinks.last_milestone_winner = None
+    session.drinks.milestone_win_streak  = 0
+
+
 def _resolve_milestone_tie(session: GameRoom, candidates: list[tuple[int, str]]) -> str:
     """
     Pick the milestone winner among players who crossed the same boundary
@@ -852,9 +888,23 @@ def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: 
             award_sips(session, winner, handout,
                        "Milestone handout (no other players)", reason=_solo_reason)
         log.debug(f"  [milestone] {winner} hit {boundary} sips — no other players, drinks {handout} sips")
+        _reset_milestone_win_streak(session)
         return
 
     log.debug(f"  [milestone] {winner} hit {boundary} sips — auto-distributes {handout} sip(s) round-robin")
+
+    # Logged (and the win recorded) before the sips actually land: a
+    # round-robin sip can push a recipient over the next boundary and
+    # recurse back into check_and_set_milestone(), and that later
+    # milestone belongs after this one in both the log and the
+    # back-to-back run.
+    session.round._log_entries.append(
+        f"  🎯 {winner} (bot) hit the {boundary}-sip milestone — auto-distributes "
+        f"{handout} sip(s) round-robin\n"
+    )
+    session._log_version += 1
+    note_milestone_assigned(session, winner)
+
     for i in range(handout):
         t = others[i % len(others)]
         _rr_reason = f"{winner} hit the {boundary}-sip milestone — you drink 1 sip (auto)"
@@ -862,11 +912,6 @@ def _distribute_milestone_round_robin(session: GameRoom, winner: str, boundary: 
         award_sips(session, t.name, 1, "Milestone handout (round-robin)", reason=_rr_reason)
         log.debug(f"    -> {t.name} +1 sip")
 
-    session.round._log_entries.append(
-        f"  🎯 {winner} (bot) hit the {boundary}-sip milestone — auto-distributes "
-        f"{handout} sip(s) round-robin\n"
-    )
-    session._log_version += 1
 
 
 # ---------------------------------------------------------------------------
@@ -908,6 +953,7 @@ def apply_milestone_forfeit(session: GameRoom) -> None:
         log.debug(f"  [milestone] {winner_name} forfeited handout — drinks {handout} sips")
 
     session.round._pending_milestone = None
+    _reset_milestone_win_streak(session)
 
     # The forfeit penalty above can itself push the winner past the next
     # boundary. award_sips()'s internal check was a no-op while _pending_milestone
