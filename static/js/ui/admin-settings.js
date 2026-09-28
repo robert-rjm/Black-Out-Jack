@@ -212,7 +212,7 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(r.name)}</span><span class="kick-role"> (waiting)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const acceptBtn = document.createElement("button");
-      acceptBtn.className   = "btn btn-approve";
+      acceptBtn.className   = "btn approve kick-btn";
       acceptBtn.textContent = "✓ Accept";
       acceptBtn.onclick = () => { handleRegistration(r.client_id, true); closeKickModal(); };
       const denyBtn = document.createElement("button");
@@ -245,7 +245,7 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(kc.name)}</span><span class="kick-role"> (kicked)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const undoBtn = document.createElement("button");
-      undoBtn.className   = "btn btn-approve";
+      undoBtn.className   = "btn approve kick-btn";
       undoBtn.textContent = "↩ Undo Kick";
       undoBtn.onclick = () => doUndoKick(kc.client_id);
       btns.appendChild(undoBtn);
@@ -273,7 +273,7 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name" style="color:var(--muted)">Unknown client</span><span class="kick-role"> (denied)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const allowBtn = document.createElement("button");
-      allowBtn.className   = "btn btn-approve";
+      allowBtn.className   = "btn approve kick-btn";
       allowBtn.textContent = "↩ Allow back";
       allowBtn.onclick = () => doResetRegistration(dc.client_id);
       btns.appendChild(allowBtn);
@@ -301,7 +301,7 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(req.display_name)}</span><span class="kick-role"> wants to rejoin</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const approveBtn = document.createElement("button");
-      approveBtn.className   = "btn btn-approve";
+      approveBtn.className   = "btn approve kick-btn";
       approveBtn.textContent = "✓ Allow";
       approveBtn.onclick = () => doHandleRejoin(req.client_id, true);
       const denyBtn = document.createElement("button");

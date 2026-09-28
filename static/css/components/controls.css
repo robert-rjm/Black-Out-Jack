@@ -47,9 +47,12 @@
 .btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: var(--on-fill); }
 /* Colour rule: SOLID fill = a game result/choice (green win, red loss/bust,
    gold blackjack, grey push); TINTED .danger = an app/admin action that
-   leaves or removes (Lobby, kick, deny, remove, cancel). */
+   leaves or removes (Lobby, kick, deny, remove, cancel); .approve is its
+   green counterpart for accept/allow/undo. */
 .btn.neutral { background: var(--border-control); border-color: var(--border-control); color: var(--text); }
 .btn.danger  { background: color-mix(in srgb, var(--red) 15%, transparent); border-color: var(--red); color: var(--text-danger); }
+/* green twin of .danger: accept / allow / undo-kick next to a .danger deny */
+.btn.approve { background: color-mix(in srgb, var(--green) 15%, transparent); border-color: var(--green); color: var(--green); }
 .btn.wide    { flex: 1; }
 /* command in-flight: block all interaction until response arrives */
 .cmd-pending {
