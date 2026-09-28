@@ -45,6 +45,50 @@ function digActionButtons() {
   return _digActionBtnsCache;
 }
 
+// ============================================================
+// BUTTON DISABLE — class + aria-disabled + reason
+// The .disabled class alone only blocked the mouse (pointer-events); a
+// keyboard Enter/Space still fired the click. bootstrap.js now refuses to
+// dispatch any [aria-disabled="true"] trigger and shows its reason as a
+// toast, so taps on touch screens explain *why* instead of doing nothing.
+// ============================================================
+const NPC_TURN_REASON = "Wait — a bot is playing its turn";
+
+function setBtnDisabled(btn, disabled, reason) {
+  btn.classList.toggle("disabled", !!disabled);
+  if (disabled) {
+    btn.setAttribute("aria-disabled", "true");
+    if (reason) { btn.dataset.disabledReason = reason; btn.title = reason; }
+  } else {
+    btn.removeAttribute("aria-disabled");
+    if (btn.dataset.disabledReason) {
+      delete btn.dataset.disabledReason;
+      btn.title = "";
+    }
+  }
+}
+
+// ============================================================
+// TOAST — short, non-blocking feedback for button presses that fail or
+// are refused. One shared live region so screen readers announce it too.
+// ============================================================
+let _toastTimer = null;
+function showToast(text, type = "info") {
+  if (!text) return;
+  let el = document.getElementById("app-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "app-toast";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.className   = `app-toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove("show"), type === "error" ? 4000 : 2500);
+}
+
 let _cmdLockBtnsCache = null;
 function cmdLockButtons() {
   if (!_cmdLockBtnsCache) {

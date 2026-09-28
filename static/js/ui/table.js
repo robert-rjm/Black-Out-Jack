@@ -668,10 +668,14 @@ function updateActionButtons(state) {
   if (!activeHand) return;
 
   // can_double is computed server-side in serialize_hand() — 2-card hand, not yet doubled
+  // Runs after applyTurnGate — don't re-enable SPLIT/DOUBLE during a bot's turn
+  const npcTurn = !!seat.is_npc;
   digActionButtons().forEach(b => {
     const code = b.dataset.actionCode;
-    if (code === "sp") b.classList.toggle("disabled", !activeHand.can_split);
-    if (code === "d")  b.classList.toggle("disabled", !activeHand.can_double);
+    if (code === "sp") setBtnDisabled(b, npcTurn || !activeHand.can_split,
+      npcTurn ? NPC_TURN_REASON : "Split needs two cards of the same value (or the split limit is reached)");
+    if (code === "d")  setBtnDisabled(b, npcTurn || !activeHand.can_double,
+      npcTurn ? NPC_TURN_REASON : "You can only double on your first two cards");
   });
 }
 
@@ -683,8 +687,7 @@ function updateHandLocks(state) {
   if (!c) return;
   c.querySelectorAll(".btn").forEach((btn, i) => {
     const locked = seat.hands.slice(0, i).some(h => !h.done);
-    btn.classList.toggle("disabled", locked);
-    btn.title = locked ? "Finish previous hand first" : "";
+    setBtnDisabled(btn, locked, "Finish your previous hand first");
   });
 }
 

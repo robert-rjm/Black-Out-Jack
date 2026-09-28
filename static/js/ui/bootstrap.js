@@ -83,6 +83,12 @@
 
     const trigger = event.target.closest("[data-action]");
     if (!trigger) return;
+    // Covers keyboard activation too (Enter/Space on a <button> fires click)
+    if (trigger.getAttribute("aria-disabled") === "true") {
+      event.preventDefault();
+      if (trigger.dataset.disabledReason) showToast(trigger.dataset.disabledReason);
+      return;
+    }
     const args = parseArgs(trigger.dataset.args);
     invokeAction(trigger.dataset.action, args, trigger, event);
   });
