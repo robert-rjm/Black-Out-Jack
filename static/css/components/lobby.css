@@ -166,7 +166,7 @@
   padding: 8px 14px; border-radius: 8px; font-size: 13px;
   width: 100%; max-width: 420px; text-align: center; display: none;
 }
-#lobby-msg.error { background: color-mix(in srgb, var(--red) 12%, transparent);    color: var(--red);    border: 1px solid color-mix(in srgb, var(--red) 30%, transparent); }
+#lobby-msg.error { background: color-mix(in srgb, var(--red) 12%, transparent);    color: var(--text-danger);    border: 1px solid color-mix(in srgb, var(--red) 30%, transparent); }
 #lobby-msg.info  { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
 .room-code-badge {
   font-family: monospace; font-size: 20px; font-weight: 800;
@@ -405,8 +405,8 @@
     display: inline-block;
     margin-top: 20px;
     padding: 14px 32px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: var(--wash-2);
+    border: 1px solid var(--wash-3);
     border-radius: var(--radius);
     color: var(--text);
     font-size: 15px;
@@ -415,5 +415,5 @@
     transition: background 0.2s;
 }
 .underage-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--wash-3);
 }

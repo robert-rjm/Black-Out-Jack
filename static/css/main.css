@@ -12,10 +12,24 @@
   --yellow:  #f5c842;
   --text:    #e8eaf0;
   --muted:   #9095ab;   /* 5.7:1 on --surface (was #7a7f96, 4.25:1 — below WCAG AA) */
-  --hint:    #5b9cf6;   /* basic-strategy "best play" highlight — distinct from --accent */
   --purple:  #a78bfa;   /* dealer-row / trivia "history" category accent */
   --on-fill: #0f1117;   /* text on any coloured fill (accent/green/red/yellow) — >=5.2:1 on all four */
   --border-control: #5a6080;  /* outline of buttons/inputs — 3:1 vs --bg (WCAG 1.4.11); --border stays for dividers */
+  --text-danger: color-mix(in srgb, var(--red) 80%, white);  /* red text on red tints — >=5:1 where plain --red was 3.9 */
+
+  /* surfaces — every panel shade lives here, not as literals in components */
+  --surface-sunken: #13151e;         /* left column, KPI tab bar, sticky table head */
+  --surface-raised: #1f2230;         /* player seat cards */
+  --surface-dealer: #251c2c;         /* dealer seat card (purple cast) */
+  --surface-dealer-sunken: #1a1527;  /* dealer panel strip */
+
+  /* white washes over any surface: 1 subtle fill · 2 hover/pressed · 3 resting control · 4 hover of 3 */
+  --wash-1: rgba(255,255,255,.04);
+  --wash-2: rgba(255,255,255,.07);
+  --wash-3: rgba(255,255,255,.1);
+  --wash-4: rgba(255,255,255,.18);
+  --scrim:  rgba(0,0,0,.75);          /* backdrop behind every modal/overlay */
+  --shadow-modal: 0 8px 40px rgba(0,0,0,.6);
   --radius:  12px;
   --tap:     48px;
 }
@@ -120,8 +134,8 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   margin-left: 6px; vertical-align: middle;
 }
 .mode-badge.referee { background: var(--border); color: var(--muted); }
-.mode-badge.digital { background: #1a3a2a; color: var(--green); }
-.mode-badge.normal  { background: #1a2a3a; color: var(--accent); }
+.mode-badge.digital { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.mode-badge.normal  { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
 
 /* ---- TWO-COLUMN MAIN AREA ---- */
 #main-content {
@@ -135,7 +149,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   flex: 55%;
   overflow-y: auto;
   padding: 5px 8px;
-  background: #14161f;
+  background: var(--surface-sunken);
   border-right: 1px solid var(--border);
   min-width: 0;
 }
@@ -152,7 +166,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 #dealer-panel {
   flex-shrink: 0;
   padding: 5px 10px;
-  background: #1a1527;
+  background: var(--surface-dealer-sunken);
   border-bottom: 1px solid var(--border);
 }
 #dealer-panel .dp-header {
@@ -241,7 +255,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   color: var(--muted);
   transition: color .15s, background .15s;
 }
-.bnav-btn:active { background: rgba(255,255,255,.06); }
+.bnav-btn:active { background: var(--wash-2); }
 .bnav-icon {
   font-size: 22px;
   line-height: 1;
@@ -250,7 +264,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,.05);
+  background: var(--wash-1);
   border-radius: 16px;
 }
 #btn-admin-nav .bnav-icon { transform: translateY(12px); } /* admin icon is taller than others; nudge down to keep it vertically centered in the nav bar */

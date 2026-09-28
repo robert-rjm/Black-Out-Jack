@@ -3,14 +3,14 @@
    ============================================================ */
 
 .seat {
-  background: #1f2230;
+  background: var(--surface-raised);
   border: 1.5px solid transparent;
   border-radius: 10px;
   padding: 6px 10px;
   margin-bottom: 5px;
   transition: border-color .15s, opacity .15s;
 }
-.seat.dealer  { background: #251c2c; }
+.seat.dealer  { background: var(--surface-dealer); }
 .seat.turn    { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent); }
 .seat.done    { opacity: .55; }
 
@@ -192,8 +192,8 @@
   cursor: default;
 }
 .seat.has-hint {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hint) 40%, transparent);
-  background: color-mix(in srgb, var(--hint) 4%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 30%, transparent);
+  background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 
 .seat-sip-badge {

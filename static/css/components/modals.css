@@ -6,7 +6,7 @@
 #register-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.85);
+  background: var(--scrim);
   z-index: 500;
   flex-direction: column;
   align-items: center;
@@ -36,7 +36,7 @@
 #kick-overlay, #summary-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.75);
+  background: var(--scrim);
   z-index: 550;
   flex-direction: column;
   align-items: center;
@@ -56,12 +56,12 @@
 
 #summary-close-btn {
   position: absolute; top: 12px; right: 12px;
-  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  background: var(--wash-3); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text); font-size: 14px;
   width: 28px; height: 28px; line-height: 1;
   padding: 0; cursor: pointer;
 }
-#summary-close-btn:hover { background: rgba(255,255,255,.18); }
+#summary-close-btn:hover { background: var(--wash-4); }
 
 /* Summary table */
 #summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
@@ -76,14 +76,14 @@
 .kick-row:last-child { border-bottom: none; }
 .kick-name     { font-size: 14px; font-weight: 600; }
 .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
-.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); }
+.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--text-danger); border-color: color-mix(in srgb, var(--red) 30%, transparent); }
 /* Shared "approve" styling — accept/undo-kick/allow-back/rejoin buttons in admin-settings.js */
 .btn-approve   { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
 
 /* ---- SETTINGS IN KICK CARD ---- */
 .settings-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07);
+  padding: 8px 0; border-bottom: 1px solid var(--wash-2);
 }
 .settings-row label { font-size: 13px; color: var(--text); }
 .settings-row input[type=number], .settings-row select {
@@ -130,7 +130,7 @@
 /* ---- RULES OVERLAY ---- */
 #rules-overlay {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,.82); z-index: 600;
+  background: var(--scrim); z-index: 600;
   flex-direction: column; align-items: center; justify-content: flex-start;
   padding: 20px 16px; overflow-y: auto;
 }
@@ -144,11 +144,11 @@
 }
 #rules-close-btn {
   position: sticky; top: 0; float: right;
-  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  background: var(--wash-3); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text); font-size: 18px; line-height: 1;
   padding: 4px 10px; cursor: pointer; z-index: 1;
 }
-#rules-close-btn:hover { background: rgba(255,255,255,.18); }
+#rules-close-btn:hover { background: var(--wash-4); }
 #rules-body {
   clear: both; font-size: 14px; line-height: 1.65; color: var(--text);
   padding-top: 8px;
@@ -162,10 +162,10 @@
 #rules-body strong { color: var(--yellow); }
 #rules-body em { color: var(--muted); }
 #rules-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
-#rules-body code { background: rgba(255,255,255,.08); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+#rules-body code { background: var(--wash-2); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
 #rules-body table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
 #rules-body th, #rules-body td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
-#rules-body th { background: rgba(255,255,255,.06); font-weight: 700; }
+#rules-body th { background: var(--wash-2); font-weight: 700; }
 
 /* ---- BUST GIVE OVERLAY (also used by the Dealer Lottery and Targeted
    Drinking handout pickers) ---- */
@@ -173,7 +173,7 @@
 #dealer-lottery-give-overlay,
 #targeted-drinking-give-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.72);
+  background: var(--scrim);
   z-index: 910;
   align-items: center; justify-content: center;
 }
@@ -269,7 +269,7 @@
 #milestone-modal-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.72);
+  background: var(--scrim);
   z-index: 910;
   align-items: center; justify-content: center;
 }
@@ -280,7 +280,7 @@
   border-radius: 18px;
   padding: 22px 20px 18px;
   width: min(340px, 92vw);
-  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
 
@@ -288,7 +288,7 @@
 #dealer-lottery-reveal-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.72);
+  background: var(--scrim);
   z-index: 910;
   align-items: center; justify-content: center;
 }
@@ -302,7 +302,7 @@
   max-height: 80vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
   text-align: center;
 }
@@ -317,12 +317,12 @@
 }
 .td-close-btn {
   position: absolute; top: 10px; right: 10px;
-  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  background: var(--wash-3); border: 1px solid var(--border);
   border-radius: 8px; color: var(--text); font-size: 13px;
   width: 26px; height: 26px; line-height: 1;
   padding: 0; cursor: pointer; z-index: 1;
 }
-.td-close-btn:hover { background: rgba(255,255,255,.18); }
+.td-close-btn:hover { background: var(--wash-4); }
 .td-spectator-row {
   display: flex; justify-content: space-between; align-items: center;
   padding: 8px 2px; border-bottom: 1px solid var(--border);
@@ -333,12 +333,12 @@
 .td-spectator-vote.pending { color: var(--muted); font-weight: 500; }
 .td-banner-cancel {
   margin-left: 8px;
-  background: rgba(255,255,255,.1); border: 1px solid var(--border);
+  background: var(--wash-3); border: 1px solid var(--border);
   border-radius: 6px; color: var(--text); font-size: 11px;
   width: 20px; height: 20px; line-height: 1;
   padding: 0; cursor: pointer; vertical-align: middle;
 }
-.td-banner-cancel:hover { background: rgba(255,255,255,.18); }
+.td-banner-cancel:hover { background: var(--wash-4); }
 .td-stats-panel {
   margin-top: 12px; padding-top: 10px;
   border-top: 1px solid var(--border);
@@ -406,7 +406,7 @@
 #ms-ack-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.78);
+  background: var(--scrim);
   z-index: 920;
   align-items: center; justify-content: center;
 }
@@ -418,7 +418,7 @@
   padding: 28px 24px 22px;
   width: min(300px, 88vw);
   text-align: center;
-  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
 .ms-ack-emoji {
@@ -455,7 +455,7 @@
 #honor-split-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.78);
+  background: var(--scrim);
   z-index: 920;
   align-items: center; justify-content: center;
 }
@@ -467,7 +467,7 @@
   padding: 28px 24px 22px;
   width: min(320px, 88vw);
   text-align: center;
-  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
 #honor-split-modal .btn-row {
@@ -485,7 +485,7 @@
 #bank-run-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.78);
+  background: var(--scrim);
   z-index: 920;
   align-items: center; justify-content: center;
 }
@@ -497,7 +497,7 @@
   padding: 28px 24px 22px;
   width: min(320px, 88vw);
   text-align: center;
-  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
 #bank-run-modal .btn-row {
@@ -511,7 +511,7 @@
 #idle-urgent-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.80);
+  background: var(--scrim);
   z-index: 950;
   align-items: center; justify-content: center;
 }
@@ -522,7 +522,7 @@
   border-radius: 18px;
   padding: 28px 24px 22px;
   width: min(320px, 90vw);
-  box-shadow: 0 8px 40px rgba(0,0,0,.7);
+  box-shadow: var(--shadow-modal);
   text-align: center;
   animation: ms-pop .3s cubic-bezier(.22,1,.36,1);
 }
@@ -533,7 +533,7 @@
 #insurance-modal-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.72);
+  background: var(--scrim);
   z-index: 910;
   align-items: center; justify-content: center;
 }
@@ -547,7 +547,7 @@
   max-height: 80vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
 .insurance-modal-header { text-align: center; margin-bottom: 14px; }
@@ -556,7 +556,7 @@
 .insurance-modal-sub    { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
 .insurance-modal-stakes {
   font-size: 12px; color: var(--muted); line-height: 1.7;
-  background: rgba(255,255,255,.04);
+  background: var(--wash-1);
   border-radius: 8px; padding: 10px 12px;
   margin-bottom: 12px;
 }
@@ -622,7 +622,7 @@
 #target-proposal-modal-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.72);
+  background: var(--scrim);
   z-index: 910;
   align-items: center; justify-content: center;
 }
@@ -636,7 +636,7 @@
   max-height: 80vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
 .target-proposal-modal-title { font-size: 17px; font-weight: 800; color: var(--purple); }
@@ -645,7 +645,7 @@
 #seat-transfer-overlay {
   display: none;
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.78);
+  background: var(--scrim);
   z-index: 960;
   align-items: center; justify-content: center;
 }
@@ -656,7 +656,7 @@
   padding: 28px 24px 22px;
   width: min(340px, 90vw);
   text-align: center;
-  box-shadow: 0 8px 40px rgba(0,0,0,.65);
+  box-shadow: var(--shadow-modal);
   animation: ms-pop .35s cubic-bezier(.22,1,.36,1);
 }
 #seat-transfer-card h3 { margin: 0 0 .6rem; }

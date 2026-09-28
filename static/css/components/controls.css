@@ -46,9 +46,6 @@
 .btn.red     { background: var(--red);    border-color: var(--red);    color: var(--on-fill); }
 .btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: var(--on-fill); }
 .btn.wide    { flex: 1; }
-/* basic-strategy best-play highlight */
-.btn.best    { border-color: var(--accent); color: var(--accent);
-               box-shadow: 0 0 0 2px color-mix(in srgb, var(--hint) 25%, transparent); }
 /* command in-flight: block all interaction until response arrives */
 .cmd-pending {
   opacity: .55;
@@ -75,6 +72,13 @@
   border-color: var(--yellow);
   color: var(--yellow);
 }
+/* basic-strategy best-play highlight — neutral dashed edge + star, so it never
+   looks like blue .voted or yellow .voted-dealer and can combine with either.
+   Declared after both so its border wins when they overlap. */
+.btn.best {
+  border: 2px dashed var(--text);
+}
+.btn.best::before { content: "\2605\00a0"; }
 
 /* big action button for digital deal/dealer panes */
 .btn-big {
@@ -115,7 +119,7 @@
   cursor: pointer;
   transition: background .12s;
 }
-.stepper-btn:active { background: rgba(255,255,255,.08); }
+.stepper-btn:active { background: var(--wash-2); }
 .stepper-btn.at-limit { color: var(--muted); opacity: .35; pointer-events: none; }
 .stepper-display {
   flex: 1;
@@ -132,7 +136,7 @@
 .pill-toggle input { opacity:0; width:0; height:0; position:absolute; }
 .pill-slider {
   position:absolute; inset:0; cursor:pointer;
-  background:#555; border-radius:30px; transition:background .2s;
+  background: var(--border-control); border-radius:30px; transition:background .2s;
 }
 .pill-slider:before {
   content:""; position:absolute;
@@ -174,7 +178,7 @@
 .bust-vote-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.65);
+  background: var(--scrim);
   z-index: 500;
   display: flex;
   align-items: center;
