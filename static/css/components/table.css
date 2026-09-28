@@ -147,7 +147,7 @@
 .hand-meta .stood   { color: var(--muted); }
 .hand-meta .win     { color: var(--green);  font-weight: 700; }
 .hand-meta .loss    { color: var(--red);    font-weight: 700; }
-.hand-meta .push    { color: var(--yellow); font-weight: 700; }
+.hand-meta .push    { color: var(--muted);  font-weight: 700; }
 
 /* per-seat sip badge */
 .seat-name {

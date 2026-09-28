@@ -45,6 +45,11 @@
 .btn.green   { background: var(--green);  border-color: var(--green);  color: var(--on-fill); }
 .btn.red     { background: var(--red);    border-color: var(--red);    color: var(--on-fill); }
 .btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: var(--on-fill); }
+/* Colour rule: SOLID fill = a game result/choice (green win, red loss/bust,
+   gold blackjack, grey push); TINTED .danger = an app/admin action that
+   leaves or removes (Lobby, kick, deny, remove, cancel). */
+.btn.neutral { background: var(--border-control); border-color: var(--border-control); color: var(--text); }
+.btn.danger  { background: color-mix(in srgb, var(--red) 15%, transparent); border-color: var(--red); color: var(--text-danger); }
 .btn.wide    { flex: 1; }
 /* command in-flight: block all interaction until response arrives */
 .cmd-pending {

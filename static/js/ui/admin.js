@@ -1411,7 +1411,7 @@ class PendingRegBanner {
         <span class="pending-reg-name">🙋 ${escapeHtml(r.name)} wants to join</span>
         <span class="pending-reg-btns">
           <button class="btn green btn-sm" data-client-id="${escapeHtml(r.client_id)}" data-approve="true">✓ Accept</button>
-          <button class="btn red btn-sm"   data-client-id="${escapeHtml(r.client_id)}" data-approve="false">✗ Deny</button>
+          <button class="btn danger btn-sm" data-client-id="${escapeHtml(r.client_id)}" data-approve="false">✗ Deny</button>
         </span>
       </div>`
     ).join("");

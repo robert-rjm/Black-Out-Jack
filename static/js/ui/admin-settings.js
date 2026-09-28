@@ -151,7 +151,7 @@ function openKickModal() {
         }
         if (r.connected && !r.isBot && !isSelf) {
           const kickBtn       = document.createElement("button");
-          kickBtn.className   = "btn kick-btn";
+          kickBtn.className   = "btn danger kick-btn";
           kickBtn.textContent = "Kick";
           kickBtn.onclick     = () => doKick(r.name);
           btns.appendChild(kickBtn);
@@ -161,7 +161,7 @@ function openKickModal() {
         if (r.connected && !r.isBot && !isAdminRow) {
           const myVoted      = (lastState.kick_votes_mine || []).includes(r.name.toLowerCase());
           const voteBtn      = document.createElement("button");
-          voteBtn.className  = "btn" + (myVoted ? " kick-btn" : "");
+          voteBtn.className  = "btn" + (myVoted ? " danger kick-btn" : "");
           voteBtn.textContent = myVoted ? "✗ Un-vote" : "Vote Kick";
           voteBtn.onclick    = () => doVoteKick(r.name);
           btns.appendChild(voteBtn);
@@ -216,7 +216,7 @@ function openKickModal() {
       acceptBtn.textContent = "✓ Accept";
       acceptBtn.onclick = () => { handleRegistration(r.client_id, true); closeKickModal(); };
       const denyBtn = document.createElement("button");
-      denyBtn.className   = "btn kick-btn";
+      denyBtn.className   = "btn danger kick-btn";
       denyBtn.textContent = "✗ Deny";
       denyBtn.onclick = () => handleRegistration(r.client_id, false);
       btns.appendChild(acceptBtn);
@@ -305,7 +305,7 @@ function openKickModal() {
       approveBtn.textContent = "✓ Allow";
       approveBtn.onclick = () => doHandleRejoin(req.client_id, true);
       const denyBtn = document.createElement("button");
-      denyBtn.className   = "btn kick-btn";
+      denyBtn.className   = "btn danger kick-btn";
       denyBtn.textContent = "✗ Deny";
       denyBtn.onclick = () => doHandleRejoin(req.client_id, false);
       btns.appendChild(approveBtn);
@@ -840,7 +840,7 @@ function _renderTargetedDrinkingAdmin(state, isAdmin) {
       `<div class="modal-section-title modal-gap-top">🎯 TARGETED DRINKING MODE</div>` +
       `<div class="modal-note">Active — targeting ${escapeHtml((td.targets || []).join(", "))}</div>` +
       streakRows +
-      `<button class="btn red wide" style="margin-top:8px" data-action="cancelTargetedDrinking">Cancel Targeted Drinking</button>`;
+      `<button class="btn danger wide" style="margin-top:8px" data-action="cancelTargetedDrinking">Cancel Targeted Drinking</button>`;
     return;
   }
 

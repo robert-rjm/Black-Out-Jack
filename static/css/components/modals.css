@@ -76,7 +76,7 @@
 .kick-row:last-child { border-bottom: none; }
 .kick-name     { font-size: 14px; font-weight: 600; }
 .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
-.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--text-danger); border-color: color-mix(in srgb, var(--red) 30%, transparent); }
+.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; }  /* colour comes from .btn.danger */
 /* Shared "approve" styling — accept/undo-kick/allow-back/rejoin buttons in admin-settings.js */
 .btn-approve   { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
 

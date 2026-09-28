@@ -12,7 +12,7 @@
       <button class="btn icon-btn" data-action="showSessionSummary" title="Summary">📊</button>
       <button class="btn icon-btn drink-only" id="btn-last-round-header" data-action="openLastRoundModal" title="Last round drinks">🍺</button>
       <button class="btn icon-btn" id="btn-admin-players" data-action="openKickModal" title="Settings">⚙️</button>
-      <button class="btn red home-btn" data-action="resetToSetup">🏠 Lobby</button>
+      <button class="btn danger home-btn" data-action="resetToSetup">🏠 Lobby</button>
     </div>
   </header>
 
@@ -82,7 +82,7 @@
           {{ action_btn('LOSS', 'sendResult', '["loss"]', 'btn red wide') }}
         </div>
         <div class="btn-row">
-          {{ action_btn('PUSH', 'sendResult', '["push"]', 'btn yellow wide') }}
+          {{ action_btn('PUSH', 'sendResult', '["push"]', 'btn neutral wide') }}
           {{ action_btn('BUST', 'sendResult', '["bust"]', 'btn red wide') }}
         </div>
         <div class="btn-row">
