@@ -809,11 +809,13 @@ def command():
         if current is None:
             return jsonify({
                 **serialize_state(game_session),
+                "rejected": True,
                 "output": "  Not in play phase — deal cards or run dealer turn.\n",
             })
         if target.lower() != current.lower():
             return jsonify({
                 **serialize_state(game_session),
+                "rejected": True,
                 "output": f"  Out of order — it's {current}'s turn (not {target}).\n",
             })
 
@@ -823,12 +825,14 @@ def command():
         if phase == "pre-deal":
             return jsonify({
                 **serialize_state(game_session),
+                "rejected": True,
                 "output": "  Deal cards first.\n",
             })
         if phase == "playing":
             current = current_turn(game_session) or "a player"
             return jsonify({
                 **serialize_state(game_session),
+                "rejected": True,
                 "output": f"  Cannot reveal dealer — {current} still has hands to play.\n",
             })
 
@@ -842,6 +846,7 @@ def command():
             and not is_dealer_client(game_session, client_id)):
         state = serialize_state(game_session, client_id)
         state["output"] = "  Not authorised — only the dealer can do that.\n"
+        state["rejected"] = True   # client shows output as a toast
         return jsonify(state)
 
     buf = io.StringIO()

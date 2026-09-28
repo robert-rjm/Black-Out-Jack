@@ -55,11 +55,14 @@
   pointer-events: none;
 }
 
-/* disabled (out-of-turn) player buttons */
+/* disabled (out-of-turn) player buttons — still receive taps/hover so
+   bootstrap.js can show the reason (data-disabled-reason) as a toast;
+   activation itself is refused there via aria-disabled */
 .btn.disabled {
   opacity: .35;
-  pointer-events: none;
+  cursor: not-allowed;
 }
+.btn.disabled:active { transform: none; }
 /* Player's own voted button — blue */
 .btn.voted {
   background: color-mix(in srgb, var(--accent) 22%, transparent);

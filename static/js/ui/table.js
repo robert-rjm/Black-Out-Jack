@@ -222,7 +222,7 @@ function tryDeal() {
 function sendResult(outcome) {
   const player = sel.result.player;
   const hand   = sel.result.hand;
-  if (!player) return;
+  if (!player) { showToast("Pick a player first"); return; }
   sendCmd(player === DEALER_SENTINEL
     ? `result dealer ${outcome}`
     : `result ${player} ${outcome} ${hand}`);
@@ -231,7 +231,7 @@ function sendResult(outcome) {
 function sendAction(action) {
   const player = sel.action.player;
   const hand   = sel.action.hand;
-  if (!player) return;
+  if (!player) { showToast("Pick a player first"); return; }
   sendCmd(`action ${player} ${action} ${hand}`);
 }
 
@@ -242,7 +242,10 @@ function sendDigitalPlay(action) {
     if (!lastState || lastState.phase !== PHASE.PLAYING ||
         !lastState.current_turn ||
         lastState.current_turn.toLowerCase() !== (myActiveName || myName || "").toLowerCase()) {
-      return;  // not your turn — ignore the tap
+      showToast(lastState && lastState.current_turn
+        ? `Wait for your turn — it's ${lastState.current_turn}'s turn`
+        : "Wait for your turn");
+      return;
     }
     const hand = sel.digital.hand || "hand1";
 
@@ -264,15 +267,18 @@ function sendDigitalPlay(action) {
     sendPreselect(action, hand);
     return;
   }
-  // Spectators: do nothing
-  if (!isMyDealerClient) return;
+  // Spectators can't act
+  if (!isMyDealerClient) { showToast("Spectators can't play — you're watching this round"); return; }
 
   const player = sel.digital.player;
   const hand   = sel.digital.hand;
-  if (!player) return;
+  if (!player) { showToast("Pick a player first"); return; }
   // Belt-and-suspenders: reject if somehow a different player slipped through
   if (lastState && lastState.phase === PHASE.PLAYING && lastState.current_turn &&
-      player.toLowerCase() !== lastState.current_turn.toLowerCase()) return;
+      player.toLowerCase() !== lastState.current_turn.toLowerCase()) {
+    showToast(`It's ${lastState.current_turn}'s turn`);
+    return;
+  }
   sendCmd(`${action} ${player} ${hand}`);
 }
 
@@ -318,18 +324,33 @@ async function sendCmd(cmd) {
   _requestsInFlight++;
   if (typeof resetIdleTimer === "function") resetIdleTimer();
   // Visually lock all action buttons while the request is in flight
-  cmdLockButtons().forEach(b => b.classList.add("cmd-pending"));
+  cmdLockButtons().forEach(b => {
+    b.classList.add("cmd-pending");
+    b.setAttribute("aria-busy", "true");
+  });
   try {
     const res  = await fetch("/command", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cmd, room_code: roomCode, client_id: clientId }),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    // Refused commands (wrong turn, not dealer, no session) used to vanish
+    // silently — the server's reason is in `output`.
+    if (data.ok === false || data.rejected) {
+      showToast((data.output || data.error || "Command refused").trim(), "error");
+    }
     if (data.dealer || data.players) updateHeader(data);
     applyState(data);
-  } catch (_) {} finally {
-    document.querySelectorAll(".cmd-pending").forEach(b => b.classList.remove("cmd-pending"));
+  } catch (err) {
+    console.warn("[sendCmd] failed:", cmd, err);
+    showToast("Couldn't reach the server — tap again to retry", "error");
+  } finally {
+    document.querySelectorAll(".cmd-pending").forEach(b => {
+      b.classList.remove("cmd-pending");
+      b.removeAttribute("aria-busy");
+    });
     _requestDone();
   }
 }
@@ -755,7 +776,10 @@ async function honorResolve(choice) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-  } catch (_) {} finally {
+    else showToast(data.error || "Couldn't complete that", "error");
+  } catch (_) {
+    showToast("Couldn't reach the server — try again", "error");
+  } finally {
     _requestDone();
   }
 }
@@ -797,7 +821,10 @@ async function bankRebuy() {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
-  } catch (_) {} finally {
+    else showToast(data.error || "Couldn't complete that", "error");
+  } catch (_) {
+    showToast("Couldn't reach the server — try again", "error");
+  } finally {
     _requestDone();
   }
 }

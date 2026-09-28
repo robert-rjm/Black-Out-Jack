@@ -627,3 +627,27 @@ body.no-drinking .drink-only {
   opacity: 1;
   text-decoration: underline;
 }
+
+/* ---- TOAST (showToast in utils.js) ---- */
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 12px);
+  max-width: min(90vw, 420px);
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+  z-index: 1000;
+}
+.app-toast.show  { opacity: 1; transform: translate(-50%, 0); }
+.app-toast.error { border-color: var(--red); }
