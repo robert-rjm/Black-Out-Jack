@@ -34,7 +34,7 @@
   opacity: .7;
 }
 .turn-tag {
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--on-fill);
   font-size: 10px; font-weight: 800; letter-spacing: .5px;
   text-transform: uppercase;
   padding: 3px 7px; border-radius: 4px;
@@ -232,7 +232,7 @@
 .card-btn {
   height: 54px;
   border-radius: 10px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   background: var(--bg);
   font-size: 19px;
   font-weight: 800;
@@ -244,11 +244,11 @@
 }
 #suit-grid .card-btn { font-size: 24px; }
 .card-btn:active  { transform: scale(.93); }
-.card-btn.sel     { background: var(--accent); border-color: var(--accent); color: #fff; }
+.card-btn.sel     { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
 .card-btn.hearts, .card-btn.diamonds { color: var(--red); }
 .card-btn.clubs,  .card-btn.spades   { color: #d0d6f0; }
 .card-btn.hearts.sel, .card-btn.diamonds.sel {
-  background: color-mix(in srgb, var(--red) 78%, black);
-  border-color: color-mix(in srgb, var(--red) 78%, black);
-  color: #fff;
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--on-fill);
 }

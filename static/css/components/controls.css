@@ -30,7 +30,7 @@
   height: var(--tap);
   padding: 0 14px;
   border-radius: var(--radius);
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -41,10 +41,10 @@
   flex-shrink: 0;
 }
 .btn:active { transform: scale(.95); }
-.btn.sel     { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.green   { background: var(--green);  border-color: var(--green);  color: #000; }
-.btn.red     { background: var(--red);    border-color: var(--red);    color: #fff; }
-.btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: #000; }
+.btn.sel     { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.btn.green   { background: var(--green);  border-color: var(--green);  color: var(--on-fill); }
+.btn.red     { background: var(--red);    border-color: var(--red);    color: var(--on-fill); }
+.btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: var(--on-fill); }
 .btn.wide    { flex: 1; }
 /* basic-strategy best-play highlight */
 .btn.best    { border-color: var(--accent); color: var(--accent);
@@ -87,8 +87,8 @@
   margin-bottom: 10px;
 }
 .btn-big:active { transform: scale(.97); }
-.btn-big.green  { background: var(--green);  color: #000; }
-.btn-big.accent { background: var(--accent); color: #fff; }
+.btn-big.green  { background: var(--green);  color: var(--on-fill); }
+.btn-big.accent { background: var(--accent); color: var(--on-fill); }
 
 /* ---- NUMBER STEPPER ---- */
 .stepper {
@@ -96,7 +96,7 @@
   align-items: center;
   height: var(--tap);
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   border-radius: var(--radius);
   width: 100%;
   overflow: hidden;

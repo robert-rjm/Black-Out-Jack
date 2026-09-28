@@ -87,7 +87,7 @@
 }
 .settings-row label { font-size: 13px; color: var(--text); }
 .settings-row input[type=number], .settings-row select {
-  width: 72px; background: var(--bg); border: 1px solid var(--border);
+  width: 72px; background: var(--bg); border: 1px solid var(--border-control);
   border-radius: 6px; color: var(--text); font-size: 13px;
   padding: 4px 8px; text-align: center;
 }
@@ -95,7 +95,7 @@
   display: flex; gap: 6px; margin-top: 6px; align-items: center;
 }
 .settings-add-row input[type=text] {
-  flex: 1; background: var(--bg); border: 1px solid var(--border);
+  flex: 1; background: var(--bg); border: 1px solid var(--border-control);
   border-radius: 6px; color: var(--text); font-size: 13px; padding: 6px 10px;
 }
 
@@ -107,7 +107,7 @@
 .settings-players-badge {
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 9px;
-  background: var(--red); color: #fff;
+  background: var(--red); color: var(--on-fill);
   font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
 }
 .settings-subview-header {
@@ -355,7 +355,7 @@
 .td-stats-correct { color: var(--green); font-weight: 700; }
 .td-stats-wrong   { color: var(--red);   font-weight: 700; }
 .td-start-btn {
-  background: var(--yellow); color: #000;
+  background: var(--yellow); color: var(--on-fill);
   border: none; border-radius: 8px;
   padding: 6px 14px; font-size: 13px; font-weight: 800;
   cursor: pointer;
@@ -390,7 +390,7 @@
 }
 .ms-stepper button {
   width: 32px; height: 32px; border-radius: 8px;
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   background: var(--bg); color: var(--text);
   font-size: 18px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
@@ -443,7 +443,7 @@
   border-radius: 10px;
   border: none;
   background: var(--yellow);
-  color: #000;
+  color: var(--on-fill);
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;

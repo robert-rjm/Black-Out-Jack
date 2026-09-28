@@ -11,9 +11,11 @@
   --red:     #e05c5c;
   --yellow:  #f5c842;
   --text:    #e8eaf0;
-  --muted:   #7a7f96;
+  --muted:   #9095ab;   /* 5.7:1 on --surface (was #7a7f96, 4.25:1 — below WCAG AA) */
   --hint:    #5b9cf6;   /* basic-strategy "best play" highlight — distinct from --accent */
   --purple:  #a78bfa;   /* dealer-row / trivia "history" category accent */
+  --on-fill: #0f1117;   /* text on any coloured fill (accent/green/red/yellow) — >=5.2:1 on all four */
+  --border-control: #5a6080;  /* outline of buttons/inputs — 3:1 vs --bg (WCAG 1.4.11); --border stays for dividers */
   --radius:  12px;
   --tap:     48px;
 }

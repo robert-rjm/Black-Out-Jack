@@ -70,17 +70,17 @@ body.no-drinking .drink-only {
   font-weight: 800;
   background: var(--accent);
   border: none;
-  color: #fff;
+  color: var(--on-fill);
   cursor: pointer;
   transition: opacity .12s, transform .08s;
 }
 .lobby-btn-create {
   border: none;
   background: var(--green);
-  color: #000;
+  color: var(--on-fill);
 }
 .lobby-btn-join {
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   background: var(--bg);
   color: var(--text);
 }
@@ -95,7 +95,7 @@ body.no-drinking .drink-only {
   max-width: 420px;
   padding: 14px 20px;
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   border-radius: var(--radius);
   color: var(--muted);
   font-size: 14px;
@@ -491,7 +491,7 @@ body.no-drinking .drink-only {
   border-radius: 12px;
   border: none;
   background: var(--yellow);
-  color: #000;
+  color: var(--on-fill);
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
