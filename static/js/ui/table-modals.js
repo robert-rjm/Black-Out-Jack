@@ -1355,3 +1355,418 @@ async function proposeTargetedDrinkingTarget(targetName) {
   }
 }
 
+
+
+// ── Admin-AFK vote panel ──────────────────────────────────────────────────
+// A unanimous Yes/No vote that the admin is AFK. Only offered (via a button
+// in #admin-afk-banner) while the game is waiting on the admin; every other
+// connected seated player votes, and a single No (or the 30s timeout) fails
+// it. Driven by state.admin_afk_vote, same polling pattern as every other
+// modal here. Hands the admin role to the first Yes-voter on a pass.
+class AdminAfkPanel {
+  constructor() {
+    this._seenSeq     = null;   // last result seq already shown (null until the first render)
+    this._resultTimer = null;
+    this._open        = false;
+  }
+
+  mount(modalEl, bannerEl) {
+    if (this.modalEl) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.modalEl  = modalEl;
+    this.bannerEl = bannerEl;
+    modalEl.addEventListener("click", e => {
+      const btn = e.target.closest("[data-admin-afk-vote]");
+      if (btn) castAdminAfkVote(btn.dataset.adminAfkVote === "true");
+    });
+    bannerEl.addEventListener("click", e => {
+      if (e.target.closest("[data-admin-afk-open]")) openAdminAfkVote();
+    });
+  }
+
+  render(state) {
+    if (!this.modalEl) return;
+    const v = (state && state.admin_afk_vote) || {};
+    const pending = v.pending;
+
+    // Don't replay a result from before this page loaded.
+    if (this._seenSeq === null) this._seenSeq = v.result_seq || 0;
+
+    this.bannerEl.innerHTML = (v.can_open && !pending)
+      ? `<button class="admin-afk-link" data-admin-afk-open>Admin not responding? Start an AFK vote</button>`
+      : "";
+
+    if (pending) {
+      if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
+      if (!this._open) { this._open = true; openModal("admin-afk-modal-overlay", { useClass: true }); }
+      this._renderVote(pending);
+      return;
+    }
+
+    const result = v.last_result;
+    if (result && result.seq > this._seenSeq) {
+      this._seenSeq = result.seq;
+      this._open = true;
+      openModal("admin-afk-modal-overlay", { useClass: true });
+      this._renderResult(result);
+      return;
+    }
+    if (this._open && !this._resultTimer) {
+      this._open = false;
+      closeModal("admin-afk-modal-overlay", { useClass: true });
+    }
+  }
+
+  _els() {
+    const g = id => document.getElementById(id);
+    return {
+      title: g("admin-afk-modal-title"), sub: g("admin-afk-modal-sub"),
+      tally: g("admin-afk-modal-tally"), btns: g("admin-afk-modal-btns"),
+      status: g("admin-afk-modal-status"), timer: g("admin-afk-modal-timer"),
+    };
+  }
+
+  _renderVote(p) {
+    const el = this._els();
+    const iAmAdmin = myRole === ROLE.ADMIN;
+    if (el.title) el.title.textContent = "🚨 Is the admin AFK?";
+    if (el.sub) el.sub.innerHTML =
+      `<strong>${escapeHtml(p.opener)}</strong> says the game is stuck waiting on the admin. ` +
+      `Everyone has to agree to hand the admin role to someone else.`;
+    if (el.tally) el.tally.innerHTML =
+      `Yes: <strong style="color:var(--green)">${p.yes_count}</strong> &nbsp;·&nbsp; ` +
+      `No: <strong style="color:var(--red)">${p.no_count}</strong> &nbsp;·&nbsp; ` +
+      `Needed: all ${p.total_voters}`;
+    const hasVoted = p.my_vote !== null && p.my_vote !== undefined;
+    if (el.btns) el.btns.innerHTML = (!p.eligible || hasVoted) ? "" :
+      `<button class="btn green wide" data-admin-afk-vote="true">YES, they're AFK</button>` +
+      `<button class="btn red wide"   data-admin-afk-vote="false">NO</button>`;
+    if (el.status) el.status.innerHTML = iAmAdmin
+      ? `<span style="color:var(--muted)">You're being voted on — make your move to cancel this.</span>`
+      : !p.eligible
+      ? `<span style="color:var(--muted)">You're not part of this vote.</span>`
+      : hasVoted
+      ? `Your vote: <strong style="color:${p.my_vote ? "var(--green)" : "var(--red)"}">${p.my_vote ? "YES" : "NO"}</strong> &nbsp;· waiting on the rest…`
+      : `<span style="color:var(--muted)">Cast your vote below.</span>`;
+    if (el.timer) {
+      const s = p.seconds_left || 0;
+      el.timer.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up!";
+      el.timer.style.color = s <= 5 ? "var(--red)" : "var(--muted)";
+    }
+  }
+
+  _renderResult(r) {
+    const el = this._els();
+    if (el.title) el.title.textContent = r.passed ? "✅ Admin Changed" : "❌ Vote Failed";
+    if (el.sub) el.sub.innerHTML = r.passed
+      ? `<strong>${escapeHtml(r.new_admin || "Someone else")}</strong> is now the admin.`
+      : `The admin stays (${escapeHtml(r.reason)}).`;
+    if (el.tally)  el.tally.innerHTML = "";
+    if (el.btns)   el.btns.innerHTML = "";
+    if (el.status) el.status.innerHTML = "";
+    if (el.timer)  el.timer.textContent = "";
+    if (this._resultTimer) clearTimeout(this._resultTimer);
+    this._resultTimer = setTimeout(() => {
+      this._resultTimer = null;
+      this._open = false;
+      closeModal("admin-afk-modal-overlay", { useClass: true });
+    }, 3500);
+  }
+}
+
+const adminAfkPanel = new AdminAfkPanel();
+
+async function _postAdminAfk(path, extra) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch(path, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, ...extra }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else showToast(data.error || "Could not complete that.", "error");
+  } catch (_) { showToast("Network error.", "error"); } finally {
+    _requestDone();
+  }
+}
+
+function openAdminAfkVote()     { return _postAdminAfk("/admin_afk/open", {}); }
+function castAdminAfkVote(vote) { return _postAdminAfk("/admin_afk/vote", { vote }); }
+
+
+// ── Drink Rate panel ──────────────────────────────────────────────────────
+// Per-seat sip multiplier (docs/planning/DrinkTypeMode.md). Two surfaces:
+//  * a settings-style modal (#drink-rate-overlay): change your own rate (only
+//    options that mean drinking the same or more are enabled), the admin's
+//    proposal form, and a table summary;
+//  * a Yes/No vote modal (#drink-rate-vote-overlay) for admin proposals.
+// Driven by state.drink_rates, same polling pattern as every other modal.
+function _rateName(r) {
+  const known = { 1: "Beer", 0.6: "Wine", 0.4: "Cocktail" };
+  return known[r] ? `${known[r]} ${r}×` : `${r}×`;
+}
+
+class DrinkRatePanel {
+  constructor() {
+    this._seenSeq = null;      // last result seq already announced
+    this._voteOpen = false;
+    this._resultTimer = null;
+    this._sig = "";
+    this._dirty = false;
+  }
+
+  mount(settingsEl, voteEl) {
+    if (this.settingsEl) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.settingsEl = settingsEl;
+    this.voteEl = voteEl;
+    settingsEl.addEventListener("click", e => {
+      const go = e.target.closest("[data-drink-rate-go]");
+      if (!go || go.disabled) return;
+      const row  = go.closest(".drink-rate-row");
+      const seat = row.dataset.seat;
+      const rate = parseFloat(row.querySelector("select").value);
+      if (go.dataset.mode === "set") _postDrinkRate("/drink_rate/set", { seat, rate });
+      else _postDrinkRate("/drink_rate/propose", { seats: seat === "__all__" ? "all" : [seat], rate });
+    });
+    settingsEl.addEventListener("change", e => {
+      const sel = e.target.closest(".drink-rate-row select");
+      if (sel) this._syncRowButton(sel.closest(".drink-rate-row"));
+    });
+    // A poll that arrived while a select was focused is applied once focus leaves.
+    settingsEl.addEventListener("focusout", () => {
+      if (this._dirty) setTimeout(() => { if (!settingsEl.contains(document.activeElement)) this._renderSettings(lastState, true); }, 0);
+    });
+    voteEl.addEventListener("click", e => {
+      const btn = e.target.closest("[data-drink-rate-vote]");
+      if (btn) _postDrinkRate("/drink_rate/vote", { vote: btn.dataset.drinkRateVote === "true" });
+    });
+  }
+
+  open() {
+    if (!this.settingsEl || !lastState) return;
+    openModal("drink-rate-overlay");
+    this._renderSettings(lastState, true);
+  }
+  close() { closeModal("drink-rate-overlay"); }
+
+  render(state) {
+    if (!this.settingsEl) return;
+    const dr = state && state.drink_rates;
+    if (!dr) return;
+    if (this._seenSeq === null) this._seenSeq = dr.result_seq || 0;
+    if (this.settingsEl.style.display === "flex") this._renderSettings(state, false);
+    this._renderVote(dr);
+  }
+
+  // ---- settings modal ----
+  // One row per seat, one control per row. Drinking the same or more is a
+  // plain "Set" (no vote); anything lower is a "Propose" the table votes on,
+  // which only the admin can start (everyone else sees those options disabled).
+  // The admin also gets an "Everyone" row. Rows start from this client's own
+  // seats (players) or every human seat (admin).
+  _renderSettings(state, force) {
+    const dr = state && state.drink_rates;
+    if (!dr) return;
+    const sig = JSON.stringify([dr.seats, !!dr.pending, myRole, myNames]);
+    if (!force && sig === this._sig) return;
+    if (!force && this.settingsEl.contains(document.activeElement)) { this._dirty = true; return; }
+    this._sig = sig; this._dirty = false;
+
+    const isAdmin = myRole === ROLE.ADMIN;
+    const mineLc = new Set((myNames || []).map(n => n.toLowerCase()));
+    const humans = (dr.seats || []).filter(s => !s.is_bot);
+    const shown = isAdmin ? humans : humans.filter(s => mineLc.has(s.name.toLowerCase()));
+
+    const row = (name, label, cur, isMine, notes) => {
+      const opts = (dr.allowed_rates || []).map(r => {
+        const free = isMine && cur !== null && (r >= 1 || r >= cur);
+        const sel = (cur === null ? r === 0.6 : r === cur) ? "selected" : "";
+        // A lower rate than the seat's current one is never a direct change for a
+        // non-admin: it opens a vote (a "request"), the same as an admin proposal.
+        return `<option value="${r}" ${sel}>${_rateName(r)}${!free && !isAdmin ? " (request)" : ""}</option>`;
+      }).join("");
+      return `<div class="drink-rate-row" data-seat="${escapeHtml(name)}" data-cur="${cur === null ? "" : cur}" data-mine="${isMine ? 1 : 0}">
+        <span class="drink-rate-name">${escapeHtml(label)}</span>
+        <select>${opts}</select>
+        <button class="btn kick-btn" data-drink-rate-go>Set</button>
+        ${notes.map(t => `<span class="drink-rate-note">${t}</span>`).join("")}
+      </div>`;
+    };
+
+    let html = "";
+    html += `<div class="drink-rate-sub">${isAdmin ? "SEATS" : "YOUR SEAT" + (shown.length > 1 ? "S" : "")}</div>`;
+    if (!shown.length) html += `<div class="drink-rate-note">You don't control a seat.</div>`;
+    shown.forEach(s => {
+      const cur = (s.queued_rate !== null && s.queued_rate !== undefined) ? s.queued_rate : s.rate;
+      const notes = [];
+      if (s.queued_rate !== null && s.queued_rate !== undefined) notes.push(`Takes effect next round (now ${s.rate}×).`);
+      if (s.protected_rounds_left > 0) notes.push(`🛡 Protected for ${s.protected_rounds_left} more round(s): a new rate needs their own yes.`);
+      html += row(s.name, s.name, cur, mineLc.has(s.name.toLowerCase()), notes);
+    });
+    if (isAdmin && humans.length > 1) {
+      html += row("__all__", "Everyone", null, false, [`The table votes on this${dr.pending ? " (a vote is already open)" : ""}.`]);
+    }
+    const host = document.getElementById("drink-rate-mine");
+    host.innerHTML = html;
+    host.querySelectorAll(".drink-rate-row[data-seat]").forEach(r => this._syncRowButton(r));
+  }
+
+  // Label/enable the row's button from the selected rate: "Set" when this client
+  // may change the seat directly, "Propose" when it needs the table's vote.
+  _syncRowButton(row) {
+    const btn = row.querySelector("[data-drink-rate-go]");
+    const rate = parseFloat(row.querySelector("select").value);
+    const curRaw = row.dataset.cur;
+    const cur = curRaw === "" ? null : parseFloat(curRaw);
+    const isMine = row.dataset.mine === "1";
+    const isAdmin = myRole === ROLE.ADMIN;
+    const free = isMine && cur !== null && (rate >= 1 || rate >= cur);
+    const pending = !!(lastState && lastState.drink_rates && lastState.drink_rates.pending);
+    if (free) {
+      btn.dataset.mode = "set"; btn.textContent = "Set"; btn.className = "btn approve kick-btn";
+      btn.disabled = rate === cur;
+    } else if (!isAdmin) {
+      // Opens the same table vote an admin proposal would, for this seat only.
+      btn.dataset.mode = "propose"; btn.textContent = "Request"; btn.className = "btn kick-btn";
+      btn.disabled = pending || rate === cur;
+    } else {
+      btn.dataset.mode = "propose"; btn.textContent = "Propose"; btn.className = "btn danger kick-btn";
+      btn.disabled = pending || rate === cur;
+    }
+  }
+
+  // ---- vote modal ----
+  _renderVote(dr) {
+    const pending = dr.pending;
+    const g = id => document.getElementById(id);
+    if (pending) {
+      if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
+      if (!this._voteOpen) { this._voteOpen = true; openModal("drink-rate-vote-overlay", { useClass: true }); }
+      g("drink-rate-vote-title").textContent = "🍻 Drink rate vote";
+      g("drink-rate-vote-sub").innerHTML =
+        `<strong>${escapeHtml(pending.proposer)}</strong> proposes <strong>${_rateName(pending.rate)}</strong> for ` +
+        `<strong>${pending.targets.map(escapeHtml).join(", ")}</strong>.`;
+      g("drink-rate-vote-tally").innerHTML =
+        `Yes: <strong style="color:var(--green)">${pending.yes_count}</strong> &nbsp;·&nbsp; ` +
+        `No: <strong style="color:var(--red)">${pending.no_count}</strong> &nbsp;·&nbsp; ` +
+        `${pending.total_voters} can vote · more yes than no wins, silent players don't count`;
+      const voted = pending.my_vote !== null && pending.my_vote !== undefined;
+      g("drink-rate-vote-btns").innerHTML = (!pending.eligible || voted) ? "" :
+        `<button class="btn green wide" data-drink-rate-vote="true">YES</button>` +
+        `<button class="btn red wide" data-drink-rate-vote="false">NO</button>`;
+      g("drink-rate-vote-status").innerHTML = !pending.eligible
+        ? `<span style="color:var(--muted)">You're not part of this vote.</span>`
+        : voted
+        ? `Your vote: <strong style="color:${pending.my_vote ? "var(--green)" : "var(--red)"}">${pending.my_vote ? "YES" : "NO"}</strong>`
+        : `<span style="color:var(--muted)">${pending.needs_my_yes ? "You're protected — this only passes if you vote yes." : "Cast your vote below."}</span>`;
+      const s = pending.seconds_left || 0;
+      const t = g("drink-rate-vote-timer");
+      t.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up!";
+      t.style.color = s <= 5 ? "var(--red)" : "var(--muted)";
+      return;
+    }
+    const r = dr.last_result;
+    if (r && r.seq > this._seenSeq) {
+      this._seenSeq = r.seq;
+      this._voteOpen = true;
+      openModal("drink-rate-vote-overlay", { useClass: true });
+      g("drink-rate-vote-title").textContent = r.passed ? "✅ Rate changed" : "❌ Vote failed";
+      g("drink-rate-vote-sub").innerHTML = r.passed
+        ? `${r.targets.map(escapeHtml).join(", ")} → <strong>${_rateName(r.rate)}</strong> from the next round.`
+        : `No change (${escapeHtml(r.reason)}).`;
+      g("drink-rate-vote-tally").innerHTML = "";
+      g("drink-rate-vote-btns").innerHTML = "";
+      g("drink-rate-vote-status").innerHTML = "";
+      g("drink-rate-vote-timer").textContent = "";
+      if (this._resultTimer) clearTimeout(this._resultTimer);
+      this._resultTimer = setTimeout(() => {
+        this._resultTimer = null; this._voteOpen = false;
+        closeModal("drink-rate-vote-overlay", { useClass: true });
+      }, 3500);
+      return;
+    }
+    if (this._voteOpen && !this._resultTimer) {
+      this._voteOpen = false;
+      closeModal("drink-rate-vote-overlay", { useClass: true });
+    }
+  }
+}
+
+const drinkRatePanel = new DrinkRatePanel();
+
+async function _postDrinkRate(path, extra) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch(path, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, ...extra }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); drinkRatePanel._renderSettings(lastState, true); }
+    else showToast(data.error || "Could not complete that.", "error");
+  } catch (_) { showToast("Network error.", "error"); } finally {
+    _requestDone();
+  }
+}
+
+function openDrinkRateModal() { closeKickModal(); drinkRatePanel.open(); }
+function closeDrinkRateModal() { drinkRatePanel.close(); }
+
+
+// ── Late-joiner boost modal ───────────────────────────────────────────────
+// Offered once to a human who took over a bot seat mid-game (the admin approved
+// their join). Everyone else at the table has been drinking for a while; a
+// booster (1.2x-1.5x, see DrinkRatePanel) makes their sips count more so they
+// can catch up. The server recommends a rate from how long the table has been
+// playing; taking any booster is free (no vote) and they can decline.
+// Driven by state.drink_rates.late_join_offer.
+class LateJoinPanel {
+  constructor() { this._shownSeq = null; this._open = false; }
+
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const take = e.target.closest("[data-late-join-take]");
+      if (take) {
+        const offer = (lastState && lastState.drink_rates && lastState.drink_rates.late_join_offer) || null;
+        if (offer) _postDrinkRate("/drink_rate/set", { seat: offer.seat, rate: parseFloat(take.dataset.lateJoinTake) });
+        return;
+      }
+      if (e.target.closest("[data-late-join-dismiss]")) _postDrinkRate("/drink_rate/dismiss_offer", {});
+    });
+  }
+
+  render(state) {
+    if (!this.el) return;
+    const dr = state && state.drink_rates;
+    const offer = dr && dr.late_join_offer;
+    if (!offer) {
+      if (this._open) { this._open = false; closeModal("late-join-overlay", { useClass: true }); }
+      return;
+    }
+    if (this._open && this._shownSeq === offer.seq) return;   // already showing this offer
+    this._shownSeq = offer.seq;
+    this._open = true;
+    const boosters = (dr.allowed_rates || []).filter(r => r > 1);
+    document.getElementById("late-join-sub").innerHTML =
+      `The table has been playing for <strong>${offer.rounds}</strong> round${offer.rounds === 1 ? "" : "s"} ` +
+      `and the other players average <strong>${offer.avg_others}</strong> sips each. ` +
+      `You're starting at zero, so you can take a booster to catch up.`;
+    document.getElementById("late-join-btns").innerHTML =
+      boosters.map(r => {
+        const reco = r === offer.recommended;
+        return `<button class="btn ${reco ? "approve" : ""} wide late-join-opt" data-late-join-take="${r}">` +
+          `<span>${_rateName(r)}${reco ? `<span class="late-join-reco">RECOMMENDED</span>` : ""}</span>` +
+          `</button>`;
+      }).join("") +
+      `<button class="btn wide late-join-opt" style="justify-content:center" data-late-join-dismiss>No thanks, stay at beer 1×</button>`;
+    document.getElementById("late-join-note").textContent =
+      "You can change this any time in Settings → Drink rate, and drop back to 1× whenever you like.";
+    openModal("late-join-overlay", { useClass: true });
+  }
+}
+
+const lateJoinPanel = new LateJoinPanel();

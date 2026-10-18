@@ -171,6 +171,12 @@
   font-size: 11px;
   line-height: 1;
 }
+.seat-rate-badge {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--muted);
+}
 .seat-worst-badge {
   font-size: 11px;
   line-height: 1;
@@ -252,3 +258,16 @@
   border-color: var(--red);
   color: var(--on-fill);
 }
+/* ── Normal-mode money overview (Round tab) ── */
+.money-overview { margin: 8px; padding: 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.money-overview:empty { display: none; }
+.money-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.money-title { font-size: 14px; font-weight: 800; }
+.money-lead { font-size: 12px; color: var(--muted); }
+.money-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.money-table th { font-size: 10px; font-weight: 800; letter-spacing: .05em; color: var(--muted); text-align: right; padding: 4px 6px; }
+.money-table th:first-child, .money-table td:first-child { text-align: left; }
+.money-table td { text-align: right; padding: 7px 6px; border-top: 1px solid var(--wash-3); font-variant-numeric: tabular-nums; }
+.money-table tr.me td:first-child { font-weight: 800; }
+.money-table .money-sub { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
+.money-foot { font-size: 11px; color: var(--muted); margin-top: 8px; }

@@ -29,7 +29,7 @@
 ## Getting Started
 
 1. **Host** opens the app and creates a room — a short code (e.g. `Jack-21`) is displayed
-2. **Players** open the same URL on their phone and enter the code to join
+2. **Players** open the same URL on their phone and enter the code to join — or the host taps the **room code** (in the header, on the setup screen, or **▦ QR** on the waiting screen) to show a **QR code**; scanning it opens `/?room=CODE` and joins that room automatically (after the age check). The same dialog has a **Copy link** button. When the host is browsing via `localhost` the link uses the host machine's network address, so phones on the same WiFi can open it
 3. Everyone **claims their seat** by tapping their name
 4. The host (dealer) **starts the game** and controls the flow
 5. Other players **vote their actions**; the dealer executes them
@@ -51,6 +51,12 @@
 - The dealer controls the pace: dealing cards, advancing turns, and ending rounds
 - The dealer role **rotates** after each round
 - When an **NPC** holds the dealer role, cards are dealt and turns are resolved automatically
+
+### AFK handling
+
+- **Disconnected player on their turn:** every state poll counts as a heartbeat. If the seat whose turn it is belongs to a client that has not polled for 60 seconds (closed tab, dead connection), the **admin takes over that seat** and the player becomes a spectator. They get a notice and can rejoin to ask for the seat back. Bots and the admin are never affected
+- **Admin is AFK:** when the game is waiting on the admin (their seat's turn, the dealer role between rounds, or a pending join request), any connected seated player can start a **unanimous** "Is the admin AFK?" vote, but only once the admin has been holding the game up for **60 seconds** (`ADMIN_AFK_PROMPT_DELAY_SECONDS`). Until then nothing is shown; afterwards a small "Admin not responding? Start an AFK vote" link appears above the tabs. Every other connected seated player must vote Yes within 30 seconds; a single No, a timeout, or the admin acting cancels it. On a pass, the first Yes-voter becomes admin and the old admin stays on as a player
+- Missing two Targeted Drinking votes in a row works similarly — see [Rules.md](Rules.md#510-targeted-drinking-mode)
 
 ---
 
@@ -173,6 +179,23 @@ The host can single out one or more players and drop them into their own standal
 - Admin-only to start or cancel — see [Rules.md](Rules.md#510-targeted-drinking-mode) for the full rule. The host's ✕ (in the mini-game modal or the status banner) ends the whole thing on the spot after confirming; anyone else's ✕ just dismisses their own view of the current mini-round
 - Starting it mid-round never interrupts play — the first mini-round waits for the current round to end; until then, and again while waiting on the Start Targeting Now tap, everyone sees a small non-blocking status banner instead of the modal
 - Dealing the next normal round while a mini-round is waiting to start or is actively being voted on discards that mini-round — the dealer gets a confirmation prompt first ("Targeted Drinking hasn't started this mini-round yet…" / "…is still being voted on…"). The subgame itself keeps running either way and simply picks back up at the next round's end
+
+---
+
+## Drink Rate Mode
+
+Each seat has a **drink rate** that scales the sips it drinks, so someone on wine or a cocktail takes fewer sips than a beer drinker (and anyone can opt to drink more). Open it from **Settings → 🍷 Drink rate**.
+
+- **Rates:** beer **1.0** (default), wine **0.6**, cocktail **0.4**; discounts go in 0.2 steps down to 0.2, boosters are **1.2, 1.4 and 1.5**. Discounts always round **up** (a non-zero penalty is never below 1 sip, so 1-sip events are never discounted). Boosters round up from a quarter sip: 1.4 x 3 = 4.2 stays at 4, 1.5 x 3 = 4.5 goes to 5
+- **Drinking more is always your own call.** Any change to your own seat's rate that is at least 1.0, or at least your current rate, applies with no vote
+- **Drinking less needs the table.** Only the admin can propose a discount, for one player or everyone. It passes when more connected seated players vote Yes than No (the beneficiary votes too) within 20 seconds; players who don't vote don't count, and at least two votes are needed
+- **Reset protection.** If you reset yourself to 1.0, no new rate can be voted onto you for **3 rounds** unless you vote Yes yourself (your No is a veto). This applies to boosters and discounts alike
+- **Timing:** changes apply immediately before the first deal, otherwise from the next round. Each change is logged and shown on the seat (🍷 0.6x, 🍹 0.4x, ⬆️ 1.4x)
+- **What counts:** *effective* sips (after the rate) drive the sip ticker, milestones and the Drinks panel, which shows "(N raw)" next to anything the rate changed. *Raw* sips (before the rate) are kept in the exports (`sips_raw` column) and in luck/strategy stats
+- **Handouts:** the receiver's rate applies; handing out is never scaled. Rounding up means a 1-sip handout is always 1 sip
+- **Bots** follow the table: they use a rate only when every human seat shares the same one, otherwise 1.0. Bots never vote and never count toward a vote's majority (the same goes for the admin-AFK vote)
+- **One control per seat:** Settings → Drink rate lists a row per seat (the admin sees every human seat plus an "Everyone" row, players see their own). Picking a rate the same or higher than the seat's current one shows **Set** (no vote); picking a lower one shows **Propose** for the admin and **Request** for everyone else. A request opens the same table vote an admin proposal would (you as the proposer, your own vote pre-filled Yes; more Yes than No among those who vote, within 20 seconds). If it is voted down or times out, that seat cannot request again for 3 rounds. Only the admin can propose a rate for other seats or for everyone. If the admin is the only connected player (everyone else is a local seat or a bot), the vote is just theirs and passes immediately
+- **Late joiners:** when the admin approves a human taking over a **bot seat** mid-game and the other players average at least 3 sips, the newcomer gets a one-time **"Joining late?"** modal recommending a booster (1.2x for round 1, 1.4x for round 2, 1.5x from round 3, i.e. roughly 1 + rounds/5, aiming to close the gap in about 5 rounds). Taking any booster is free, "No thanks" keeps beer 1x, and it can be changed or dropped any time in Settings → Drink rate
 
 ---
 

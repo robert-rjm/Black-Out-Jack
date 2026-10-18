@@ -233,6 +233,19 @@ body.no-drinking .drink-only {
   font-size: 11px;
 }
 
+/* An empty banner slot must not render as a bare yellow bar. */
+#admin-afk-banner:empty { display: none; }
+.admin-afk-slot { margin: 6px 8px 0; text-align: center; }
+.admin-afk-link {
+  display: inline-block; cursor: pointer;
+  padding: 4px 12px; border-radius: 999px;
+  font: inherit; font-size: 12px; font-weight: 700;
+  color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--yellow) 40%, transparent);
+}
+.admin-afk-link:hover { background: color-mix(in srgb, var(--yellow) 22%, transparent); }
+
 .waiting-slot {
   margin: 6px 8px 0;
   padding: 9px 14px;

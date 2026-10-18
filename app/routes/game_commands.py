@@ -36,7 +36,11 @@ from app.services.game_engine import (
     bust_vote_pending, _push_ace_drink_event,
 )
 from app.services.decision_log import record_decision
-from app.services.payout_tracker import cmd_rebuy, deduct_bets, deduct_split_bet
+from app.services.payout_tracker import (
+    cmd_rebuy, deduct_bets, deduct_split_bet, deduct_double_bet,
+    can_afford_extra, is_cash_mode, ensure_npc_stakes, unaffordable_players,
+    stake_per_hand,
+)
 from app.services.round_pipeline import apply_endround_pipeline
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
 from app.config import BUST_VOTE_WINDOW_SECONDS
@@ -279,6 +283,16 @@ def _after_player_action(game_session):
 # ---------------------------------------------------------------------------
 
 def _cmd_deal_digital(game_session, parts):
+    # Normal mode: nobody may go below $0 — bots are topped up / lowered
+    # automatically, humans who can't cover their bet must lower it or re-buy.
+    if is_cash_mode(game_session):
+        ensure_npc_stakes(game_session)
+        short = unaffordable_players(game_session)
+        if short:
+            names = ", ".join(short)
+            print(f"  Cannot deal — {names} can't cover the bet. "
+                  f"Lower the bet or re-buy first.")
+            return
     # Initial deal — no card args; shoe deals automatically
     game_session.round._last_peeked   = None   # peeked card is now stale
     game_session.round._preselections = {}
@@ -298,6 +312,22 @@ def _cmd_deal_digital(game_session, parts):
     # Deduct each player's stake upfront — bankroll drops immediately so
     # players can see their money is at risk during the round.
     deduct_bets(game_session)
+    # Dealer peek (Normal mode): with an Ace or 10-value up-card the dealer
+    # checks for blackjack before anyone acts. If they have it the round ends
+    # on the spot, so players only ever lose their opening bet -- never extra
+    # stakes from doubling or splitting into a dealer blackjack.
+    if is_cash_mode(game_session):
+        _dealer = game_session._get_dealer()
+        _dh = _dealer.dealer_hand if _dealer else None
+        if _dh and _dh.is_blackjack():
+            game_session.round._bust_vote_expires_at = None
+            for _pl in game_session.all_players:
+                for _h in _pl.hands:
+                    _h.stood = True
+            log.debug("\n  Dealer peeks: BLACKJACK! Round ends immediately.")
+            dealer_turn(game_session)
+            _resolve_endround(game_session)
+            return
     # NPCs always decline the bust side bet — cast their votes immediately
     # so only human players can hold up the start of play.
     if game_session.bust_vote_enabled and game_session.round._bust_vote_expires_at is not None:
@@ -503,10 +533,15 @@ def _cmd_double(game_session, parts):
         log.debug(f"  {player.name} {hand_label}: house rule requires splitting "
                   f"this unsuited 10-pair — awaiting choice.")
         return
+    if not can_afford_extra(game_session, player.name):
+        log.debug(f"  {player.name} can't afford to double "
+                  f"(needs ${stake_per_hand(game_session, player.name):.2f} more).")
+        return
     _penalize_unsplit_aces(game_session, player, hand)
     _record_strategy_decision(game_session, player, hand, "d")
     record_decision(game_session, player, hand, "d")
     hand.doubled = True
+    deduct_double_bet(game_session, player.name)
     deal_card(game_session, hand, player.name)
     hand.stood   = True
     log.debug(f"  {player.name} {hand_label}: doubles — card dealt face-down.")
@@ -535,6 +570,10 @@ def _cmd_split(game_session, parts):
             log.debug(f"  Max splits reached ({Hand.MAX_SPLITS} splits per hand).")
         else:
             log.debug("  Cannot split this hand.")
+        return
+    if not can_afford_extra(game_session, player.name):
+        log.debug(f"  {player.name} can't afford to split "
+                  f"(needs ${stake_per_hand(game_session, player.name):.2f} more).")
         return
     # House rule: splitting an unsuited 10-pair is mandatory (free) and
     # complying carries no penalty — but suited 10-pairs are EXEMPT from
@@ -839,6 +878,29 @@ def command():
                 "output": f"  Cannot reveal dealer — {current} still has hands to play.\n",
             })
 
+    # Round-ended gate (all modes): once the round has been settled, the only
+    # valid moves are newround/status/help. Re-running dealer/endround/deal (or
+    # entering more cards/results) would re-pay bankrolls or re-fire drinks.
+    ROUND_ENDED_BLOCKED = {
+        "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
+        "peek", "dealer", "endround", "action", "result", "fouraces",
+    }
+    if game_session.round._round_ended and cmd in ROUND_ENDED_BLOCKED:
+        return jsonify({
+            **serialize_state(game_session, client_id),
+            "rejected": True,
+            "output": "  Round already ended — start a new round.\n",
+        })
+
+    # Deal only from a clean table (digital): re-dealing mid-round would stack
+    # cards onto live hands and double-charge stakes.
+    if mode == "digital" and cmd == "deal" and round_phase(game_session) != "pre-deal":
+        return jsonify({
+            **serialize_state(game_session, client_id),
+            "rejected": True,
+            "output": "  Cards are already dealt this round.\n",
+        })
+
     # Dealer-gate: only dealer or admin may execute game-changing commands
     DEALER_GATED_CMDS = {
         "deal", "hit", "stand", "double", "split", "insurance",
@@ -863,7 +925,10 @@ def command():
             else:
                 handler = DIGITAL_COMMANDS.get(cmd)
                 if handler:
-                    handler(game_session, parts)
+                    try:
+                        handler(game_session, parts)
+                    except ValueError as e:
+                        log.debug(f"  {e}")
                 else:
                     log.debug(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 
@@ -882,7 +947,10 @@ def command():
         else:
             handler = REFEREE_COMMANDS.get(cmd)
             if handler:
-                handler(game_session, parts)
+                try:
+                    handler(game_session, parts)
+                except ValueError as e:
+                    log.debug(f"  {e}")
             else:
                 log.debug(f"  Unknown command '{cmd}'. Type 'help' for reference.")
 

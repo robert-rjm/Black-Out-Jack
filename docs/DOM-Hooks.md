@@ -20,7 +20,8 @@ This document defines selector ownership for the web UI modules and the shared e
 - Polling + visibility sync (`startPolling`, `stopPolling`)
 
 ### `static/js/ui/setup.js`
-- `#setup`, `#setup-sub`, `#setup-room-code`
+- `#setup`, `#setup-sub`, `#setup-room-code` (tap to open the QR dialog), `#header-room` (same)
+- Room QR / invite dialog: `#qr-overlay`, `#qr-card`, `#qr-svg`, `#qr-code-text`, `#qr-url`, `[data-action="openRoomQr"|"copyInviteLink"|"closeRoomQr"]`
 - `#gametype-row`, `#num-players-row`, `#name-fields`
 - `#settings-ref`, `#settings-dig`, `#wager-dig-cell`
 - `#start-btn`, `#anim-toggle`, `#anim-lbl-setup`, `#anim-lbl-setup-on`
@@ -102,6 +103,17 @@ This document defines selector ownership for the web UI modules and the shared e
     during the summary phase (which shows its own final version instead)
 
 ### `static/js/ui/admin-settings.js`
+- Drink Rate Mode (Multiplayer.md, Drink Rate Mode):
+  - Settings button: `[data-action="openDrinkRateModal"]`; seat badge `.seat-rate-badge`
+  - `#drink-rate-overlay`, `#drink-rate-card`, `#drink-rate-mine` (one `.drink-rate-row[data-seat]` per seat, plus an `__all__` Everyone row for the admin; each row has a `select` and a `[data-drink-rate-go]` button whose `data-mode` is `set` or `propose`; a non-admin's `propose` button reads "Request")
+  - Late-joiner boost modal: `#late-join-overlay`, `#late-join-modal`, `#late-join-sub`, `#late-join-btns`, `#late-join-note`, `[data-late-join-take]`, `[data-late-join-dismiss]`
+  - Vote modal: `#drink-rate-vote-overlay`, `#drink-rate-vote-modal`, `#drink-rate-vote-title`, `#drink-rate-vote-sub`, `#drink-rate-vote-tally`, `#drink-rate-vote-btns`, `#drink-rate-vote-status`, `#drink-rate-vote-timer`, `[data-drink-rate-vote]`
+- Normal-mode money overview (Round tab): `#dig-money-overview` (`.money-table`, `.money-head`, `.money-foot`)
+- Admin-AFK vote (Multiplayer.md, AFK handling):
+  - `#admin-afk-banner` (holds the Start AFK vote button while the game is waiting on the admin)
+  - `#admin-afk-modal-overlay`, `#admin-afk-modal`, `#admin-afk-modal-title`, `#admin-afk-modal-sub`
+  - `#admin-afk-modal-tally`, `#admin-afk-modal-btns`, `#admin-afk-modal-status`, `#admin-afk-modal-timer`
+  - `[data-admin-afk-open]`, `[data-admin-afk-vote]`
 - Kick / player management modal:
   - `#kick-overlay`, `#kick-card`, `#kick-list`
   - `#kick-vote-banner`

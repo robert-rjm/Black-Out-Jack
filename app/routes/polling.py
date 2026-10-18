@@ -50,6 +50,8 @@ from app.services.targeted_drinking import (
 )
 from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
+from app.services.afk import touch_client
+from app.services.drink_rate import offer_late_join_boost
 from app.services.tick import tick, _run_deferred_dealer_play
 from app.config import MAX_REG_DENIALS
 
@@ -79,6 +81,7 @@ def state():
         _last_cleanup = now
         cleanup_stale_sessions()
     if session is not None:
+        touch_client(session, client_id)
         tick(session)
 
     if session is None:
@@ -404,6 +407,9 @@ def handle_registration():
                 # if the bust-vote window is still open.
                 if session.round._bust_votes.get(claimed_player.name) == "pass":
                     session.round._bust_votes.pop(claimed_player.name, None)
+                # A human replacing a bot mid-game is a late joiner: offer a
+                # recommended catch-up booster (Drink Rate Mode).
+                offer_late_join_boost(session, target_client_id, claimed_player.name)
             # Seat is now claimed — remove from admin's local_names
             for info in session._room_clients.values():
                 if info.get("role") == "admin":
@@ -672,6 +678,14 @@ def cast_bust_vote():
         _pbets   = getattr(session, "_player_bets", {})
         side_bet = _pbets.get(voter_name, session.bet_amount) / 2
         init_bankrolls(session)   # safe no-op for players already seeded
+        if (vote == "bust" and prev_vote != "bust"
+                and session._bankrolls.get(voter_name, session.starting_bankroll) < side_bet):
+            # Can't cover the side bet -- reject without recording the vote.
+            if prev_vote is None:
+                session.round._bust_votes.pop(voter_name, None)
+            else:
+                session.round._bust_votes[voter_name] = prev_vote
+            return jsonify({"ok": False, "error": "Not enough bankroll for the side bet."})
         if vote == "bust" and prev_vote != "bust":
             # Player is placing the side bet — deduct now
             session._bankrolls[voter_name] = (
@@ -947,9 +961,18 @@ def set_player_bet():
     bet  = round(round(bet / step) * step, 2)   # snap to nearest step
     bet  = max(2.5, min(bet, session.bet_amount * 20))
 
+    # Normal mode: a bet can never exceed what the player can cover.
+    if (not session.drinking_mode) and session.mode == "digital":
+        from app.services.payout_tracker import max_affordable_bet
+        cap = max_affordable_bet(session, player_name)
+        if cap < step:
+            return jsonify({"ok": False, "error": "Not enough bankroll to bet — re-buy first."})
+        bet = min(bet, cap)
+
     if not hasattr(session, "_player_bets"):
         session._player_bets = {}
     session._player_bets[player_name] = bet
+    return jsonify({**serialize_state(session, client_id), "ok": True, "bet": bet})
 
 
 # ---------------------------------------------------------------------------

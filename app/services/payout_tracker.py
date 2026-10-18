@@ -23,6 +23,89 @@ def init_bankrolls(session: GameRoom) -> None:
             session._bankrolls[p.name] = session.starting_bankroll
 
 
+MIN_BET = 2.5   # smallest bet step; mirrors /set_player_bet's clamp
+
+
+def is_cash_mode(session: GameRoom) -> bool:
+    """True when the cash bankroll system is active (Normal digital mode)."""
+    return (not session.drinking_mode) and session.mode == "digital"
+
+
+def stake_per_hand(session: GameRoom, player_name: str) -> float:
+    """The per-hand bet for a player (custom bet if set, else table default)."""
+    return getattr(session, "_player_bets", {}).get(player_name, session.bet_amount)
+
+
+def can_afford_extra(session: GameRoom, player_name: str) -> bool:
+    """True if the player can cover one more bet (double, split) right now.
+    Always True outside Normal mode."""
+    if not is_cash_mode(session):
+        return True
+    init_bankrolls(session)
+    return (session._bankrolls.get(player_name, session.starting_bankroll)
+            >= stake_per_hand(session, player_name))
+
+
+def min_stake(session: GameRoom) -> float:
+    """Smallest possible total stake for one round (min bet on every hand)."""
+    return MIN_BET * max(1, session.num_hands)
+
+
+def max_affordable_bet(session: GameRoom, player_name: str) -> float:
+    """Largest per-hand bet (multiple of MIN_BET) the player can cover for a
+    full round of ``num_hands`` hands. 0 if they can't cover the minimum."""
+    init_bankrolls(session)
+    bal = session._bankrolls.get(player_name, session.starting_bankroll)
+    steps = int(bal // (max(1, session.num_hands) * MIN_BET))
+    return steps * MIN_BET
+
+
+def unaffordable_players(session: GameRoom) -> list[str]:
+    """Humans who can't cover their opening stake. NPCs are topped up /
+    their bet lowered automatically (see ensure_npc_stakes)."""
+    init_bankrolls(session)
+    out = []
+    for p in session.all_players:
+        stake = stake_per_hand(session, p.name) * max(1, session.num_hands)
+        if session._bankrolls.get(p.name, session.starting_bankroll) < stake:
+            out.append(p.name)
+    return out
+
+
+def ensure_npc_stakes(session: GameRoom) -> None:
+    """Bots never get stuck: lower their bet to what they can afford, or
+    re-buy when they can't cover even the minimum."""
+    if not is_cash_mode(session):
+        return
+    init_bankrolls(session)
+    for p in session.all_players:
+        if not getattr(p, "is_npc", False):
+            continue
+        stake = stake_per_hand(session, p.name) * max(1, session.num_hands)
+        bal   = session._bankrolls.get(p.name, session.starting_bankroll)
+        if bal >= stake:
+            continue
+        affordable = max_affordable_bet(session, p.name)
+        if affordable >= MIN_BET:
+            session._player_bets[p.name] = affordable
+        else:
+            session._bankrolls[p.name] = session.starting_bankroll
+            session._bank_run_players = [n for n in session._bank_run_players if n != p.name]
+            session.round._log_entries.append(
+                f"  💸 {p.name} hits the ATM and re-buys for ${session.starting_bankroll:.2f}\n")
+            session._log_version += 1
+
+
+def deduct_double_bet(session: GameRoom, player_name: str) -> None:
+    """Deduct the extra bet when a hand doubles down. No-op outside Normal mode."""
+    if not is_cash_mode(session):
+        return
+    session._bankrolls[player_name] = (
+        session._bankrolls.get(player_name, session.starting_bankroll)
+        - stake_per_hand(session, player_name)
+    )
+
+
 def deduct_bets(session: GameRoom) -> None:
     """Deduct the initial bet from every player's bankroll at deal time.
 
@@ -70,6 +153,8 @@ def _hand_return(hand, bet: float) -> float:
     P/L per hand: win=+bet, push=0, loss=-bet.
     """
     result = getattr(hand, "result", None)
+    if getattr(hand, "doubled", False):
+        bet = bet * 2          # a doubled hand has twice the stake riding
     if result == "win":
         if hand.is_blackjack():
             return bet * 2.5   # bet back + 1.5× profit
@@ -105,8 +190,9 @@ def apply_payouts(session: GameRoom) -> None:
         net_display  = 0.0
         for hand in p.hands:
             ret          = _hand_return(hand, bet)
+            stake        = bet * (2 if getattr(hand, "doubled", False) else 1)
             total_return += ret
-            net_display  += ret - bet   # net per hand: win=+bet, push=0, loss=-bet
+            net_display  += ret - stake   # net per hand: win=+stake, push=0, loss=-stake
 
         # Pay back what was returned (may be 0 on a full-loss round)
         if total_return > 0:
@@ -168,7 +254,8 @@ def apply_payouts(session: GameRoom) -> None:
         session._log_version += 1
 
     # Bank run detection — bankroll at or below $0
-    bank_run = [name for name, bal in session._bankrolls.items() if bal <= 0]
+    floor    = min_stake(session)
+    bank_run = [name for name, bal in session._bankrolls.items() if bal < floor]
     session._bank_run_players = bank_run
 
 
@@ -178,6 +265,7 @@ def cmd_rebuy(session: GameRoom, player_name: str) -> bool:
     (not currently in a bank-run state)."""
     if player_name not in session._bank_run_players:
         return False
+    # (a bank-run player can't cover even the minimum bet)
     session._bankrolls[player_name] = session.starting_bankroll
     session._bank_run_players = [n for n in session._bank_run_players if n != player_name]
     msg = f"  💸 {player_name} hits the ATM and re-buys for ${session.starting_bankroll:.2f}\n"

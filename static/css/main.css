@@ -61,6 +61,11 @@ html, body {
   inset: 0;
   display: flex;
   flex-direction: column;
+  /* Header and bottom nav are both --surface, so painting it here makes the
+     status-bar / home-indicator zones read as part of them (viewport-fit=cover). */
+  background: var(--surface);
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+           env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
 header {
@@ -224,7 +229,8 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 }
 
 /* ---- HEADER ROOM CODE ---- */
-#header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
+#header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; cursor: pointer; }
+#header-room:hover { text-decoration: underline; }
 
 /* ---- DESKTOP HEADER ACTIONS (hidden on mobile) ---- */
 #header-actions {

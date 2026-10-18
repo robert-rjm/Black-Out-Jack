@@ -73,7 +73,7 @@ function setBtnDisabled(btn, disabled, reason) {
 // are refused. One shared live region so screen readers announce it too.
 // ============================================================
 let _toastTimer = null;
-function showToast(text, type = "info") {
+function showToast(text, type = "info", duration = null) {
   if (!text) return;
   let el = document.getElementById("app-toast");
   if (!el) {
@@ -86,7 +86,7 @@ function showToast(text, type = "info") {
   el.textContent = text;
   el.className   = `app-toast show ${type}`;
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => el.classList.remove("show"), type === "error" ? 4000 : 2500);
+  _toastTimer = setTimeout(() => el.classList.remove("show"), duration || (type === "error" ? 4000 : 2500));
 }
 
 let _cmdLockBtnsCache = null;

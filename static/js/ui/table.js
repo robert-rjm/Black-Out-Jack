@@ -58,6 +58,14 @@ function buildDigitalUI() {
   if (tdOverlay) targetedDrinkingPanel.mount(tdOverlay, tdBanner);
   const targetProposalOverlay = document.getElementById("target-proposal-modal-overlay");
   if (targetProposalOverlay) targetProposalPanel.mount(targetProposalOverlay);
+  const adminAfkOverlay = document.getElementById("admin-afk-modal-overlay");
+  const adminAfkBanner  = document.getElementById("admin-afk-banner");
+  if (adminAfkOverlay && adminAfkBanner) adminAfkPanel.mount(adminAfkOverlay, adminAfkBanner);
+  const drOverlay = document.getElementById("drink-rate-overlay");
+  const drVote    = document.getElementById("drink-rate-vote-overlay");
+  if (drOverlay && drVote) drinkRatePanel.mount(drOverlay, drVote);
+  const ljOverlay = document.getElementById("late-join-overlay");
+  if (ljOverlay) lateJoinPanel.mount(ljOverlay);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -411,7 +419,28 @@ function _syncDrinkMode(state, drinkingOn) {
 
 // Update client identity (role, name, isMyDealerClient) from server state,
 // and show a dealer-rotation toast when this client becomes the dealer.
+let _lastAfkNoticeSeq = 0;   // highest afk_notice.seq already shown on this client
+
+function _showAfkNotice(notice) {
+  if (!notice || notice.seq <= _lastAfkNoticeSeq) return;
+  _lastAfkNoticeSeq = notice.seq;
+  const seat   = notice.seat;
+  const onTurn = notice.context === "turn";
+  let text;
+  if (notice.reason === "afk_absorbing") {
+    text = onTurn
+      ? `${seat} disconnected on their turn — you're now playing their seat too.`
+      : `${seat} went AFK — you're now playing their seat too.`;
+  } else {
+    text = onTurn
+      ? `You were disconnected on your turn — the host is now playing ${seat}'s seat. Rejoin to ask for it back.`
+      : `You missed too many Targeted Drinking votes — the host is now playing ${seat}'s seat. You're a spectator.`;
+  }
+  showToast(text, "info", 7000);
+}
+
 function _syncIdentity(state) {
+  _showAfkNotice(state.afk_notice);
   const _prevDealerName = lastState ? (lastState.dealer || "") : "";
   if (state.my_role !== undefined) {
     if (state.my_role !== null) {
@@ -575,6 +604,10 @@ function _syncDigitalUI(state) {
   dealerLotteryEntryPanel.render(state);
   targetedDrinkingPanel.render(state);
   targetProposalPanel.render(state);
+  adminAfkPanel.render(state);
+  drinkRatePanel.render(state);
+  lateJoinPanel.render(state);
+  renderMoneyOverview(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.
@@ -898,7 +931,7 @@ class DrinksPanel {
         // Static layout via .drinks-entry; dynamic color/border/bg stay inline
         return `<div class="drinks-entry" style="color:${col};border-left:2px solid ${col};background:${bg}">
           <span class="drinks-entry-label">${label}</span>
-          <span class="drinks-entry-reason"> ${escapeHtml(d.reason)}</span>
+          <span class="drinks-entry-reason"> ${escapeHtml(d.reason)}${d.raw !== undefined && d.raw !== null && d.raw !== d.sips ? ` <em title="Sips owed before the drink rate">(${d.raw} raw)</em>` : ""}</span>
         </div>`;
       }).join("");
   }

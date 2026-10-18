@@ -278,10 +278,10 @@ def export_xlsx():
 
     # ── Sheet 2: Raw Rows ────────────────────────────────────────
     ws2 = wb.create_sheet("Raw Rows")
-    _xlsx_header(ws2, ["round", "dealer", "player", "role", "rule", "sips"])
+    _xlsx_header(ws2, ["round", "dealer", "player", "role", "rule", "sips", "sips_raw"])
     for row in rows:
         ws2.append([row.get("round"), row.get("dealer"), row.get("player"),
-                    row.get("role"), row.get("rule"), row.get("sips")])
+                    row.get("role"), row.get("rule"), row.get("sips"), row.get("sips_raw", row.get("sips"))])
     _auto_width(ws2)
 
     # ── Respond ────────────────────────────────────────────────────────────────

@@ -6,7 +6,8 @@ forces one or more specific players into a standalone bust/stand mini-game,
 played between normal rounds, until they "graduate" (enough correct
 guesses in a row) or the subgame is cancelled. This is the MVP scope only
 -- majority-vote start/end, escalating loss penalties, cooldown
-consent-override, and AFK handling are deliberately deferred.
+consent-override are deliberately deferred. AFK handling (two missed
+votes in a row -> removed, seat absorbed by the host) lives here too.
 
 Unlike Bust Vote (opt-in, single round, guesses against that round's real
 dealer hand), this deals its own isolated dealer-only hand from a fresh
@@ -43,6 +44,7 @@ from app.config import (
     TARGETED_DRINKING_REVEAL_PAUSE_SECONDS,
     TARGETED_DRINKING_STREAK_TO_GRADUATE,
     TARGETED_DRINKING_COOLDOWN_ROUNDS,
+    TARGETED_DRINKING_MAX_AFK_STRIKES,
     TARGETED_DRINKING_EASTER_EGG_SIP_CAP,
     TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
     TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS,
@@ -51,6 +53,7 @@ from app.config import (
 )
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card, round_phase
+from app.services.afk import absorb_seat as _absorb_afk_seat
 
 
 def start_targeted_drinking(
@@ -60,6 +63,7 @@ def start_targeted_drinking(
     see app/routes/wild_card.py). Returns False (no-op) if the subgame is
     already running, the cooldown hasn't elapsed yet, no targets were
     given, or any name isn't a currently-connected, non-kicked player.
+    Always a no-op in Normal (casino) mode -- there are no drinks to target.
     On success, marks the subgame active with a fresh (zeroed) graduation
     streak for each target. The first mini-round doesn't open until the
     current normal round ends (see check_targeted_drinking_trigger) -- this
@@ -80,6 +84,8 @@ def start_targeted_drinking(
     already in round-over when this starts, arm eligibility immediately
     instead of waiting for it.
     """
+    if not session.drinking_mode:
+        return False
     if session._targeted_drinking_active:
         return False
     if session.round_count < session._targeted_drinking_cooldown_until_round:
@@ -95,6 +101,7 @@ def start_targeted_drinking(
     session._targeted_drinking_targets = list(target_names)
     session._targeted_drinking_streaks = {name: 0 for name in target_names}
     session._targeted_drinking_losing_streaks = {name: 0 for name in target_names}
+    session._targeted_drinking_afk_strikes = {name: 0 for name in target_names}
     session._targeted_drinking_total_sips = {name: 0 for name in target_names}
     session._targeted_drinking_correct_counts = {name: 0 for name in target_names}
     session._targeted_drinking_wrong_counts = {name: 0 for name in target_names}
@@ -208,6 +215,7 @@ def submit_targeted_drinking_vote(session: GameRoom, player_name: str, vote: str
     if not pending or player_name not in pending["votes"]:
         return False
     pending["votes"][player_name] = vote
+    session._targeted_drinking_afk_strikes[player_name] = 0   # an explicit vote clears AFK strikes
     if all(v is not None for v in pending["votes"].values()):
         resolve_targeted_drinking_round(session)
     return True
@@ -218,14 +226,49 @@ def apply_targeted_drinking_vote_forfeit(session: GameRoom) -> None:
     "stand" -- the same "default the unset value to something safe/neutral"
     precedent apply_dealer_lottery_entry_forfeit already uses (it defaults
     an unset stake to 0) -- then deal and resolve the mini-round's isolated
-    dealer hand. Safe to call every tick."""
+    dealer hand. Safe to call every tick.
+
+    Each human target who let the window expire gets an AFK strike (an
+    explicit vote in submit_targeted_drinking_vote resets it). Once a
+    target reaches TARGETED_DRINKING_MAX_AFK_STRIKES in a row they're
+    removed after this mini-round resolves (so they still take this
+    round's result) -- see _remove_afk_targets. Bots never vote, so they
+    never accrue strikes."""
     pending = session.round._pending_targeted_drinking
     if not pending or time.monotonic() < pending["expires_at"]:
         return
+    npc_names = {p.name for p in session.all_players if getattr(p, "is_npc", False)}
+    strikes = session._targeted_drinking_afk_strikes
     for name in pending["votes"]:
         if pending["votes"][name] is None:
             pending["votes"][name] = "stand"
+            if name not in npc_names:
+                strikes[name] = strikes.get(name, 0) + 1
     resolve_targeted_drinking_round(session)
+    _remove_afk_targets(session)
+
+
+def _remove_afk_targets(session: GameRoom) -> None:
+    """Drops every remaining target at the AFK strike limit from the
+    subgame, hands their seat to the host (_absorb_afk_seat), and ends the
+    subgame if that leaves no targets. No-op if the subgame already ended
+    (e.g. the same resolve graduated everyone else)."""
+    if not session._targeted_drinking_active:
+        return
+    for name in list(session._targeted_drinking_targets):
+        if session._targeted_drinking_afk_strikes.get(name, 0) < TARGETED_DRINKING_MAX_AFK_STRIKES:
+            continue
+        session._targeted_drinking_targets.remove(name)
+        absorbed = _absorb_afk_seat(session, name)
+        session.round._log_entries.append(
+            f"  💤 {name} went AFK ({TARGETED_DRINKING_MAX_AFK_STRIKES} missed votes) — "
+            f"removed from Targeted Drinking Mode"
+            + (", host now plays their seat" if absorbed else "")
+            + "\n"
+        )
+        session._log_version += 1
+    if not session._targeted_drinking_targets:
+        end_targeted_drinking(session, reason="afk_removed")
 
 
 def _draw(deck) -> Card:
@@ -481,6 +524,7 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_targets = []
     session._targeted_drinking_streaks = {}
     session._targeted_drinking_losing_streaks = {}
+    session._targeted_drinking_afk_strikes = {}
     session._targeted_drinking_total_sips = {}
     session._targeted_drinking_correct_counts = {}
     session._targeted_drinking_wrong_counts = {}
@@ -542,6 +586,8 @@ def propose_targeted_drinking_target(
     open, the proposer is currently frozen from a prior failed proposal,
     or the target is invalid (a bot, not in the session, or the proposer
     themselves)."""
+    if not session.drinking_mode:
+        return False, "Targeted Drinking Mode is only available in Drinking mode."
     if session._targeted_drinking_active:
         return False, "Targeted Drinking Mode is already running."
     if session.round_count < session._targeted_drinking_cooldown_until_round:

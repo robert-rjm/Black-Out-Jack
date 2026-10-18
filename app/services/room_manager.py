@@ -31,10 +31,11 @@ class NullTracker:
     unconditionally regardless of mode.
     """
     easy_mode: bool = False  # mirrors DrinkTracker.easy_mode; written by apply_queued_settings
+    verbose: bool = False
 
     def apply(self, msgs):                    pass
     def apply_end_of_round(self, msgs: list): pass
-    def apply_ace_clubs_credit(self, player): pass
+    def apply_ace_clubs_credit(self, player, wager=1): pass
     def print_round_summary(self):            pass
 
 
@@ -121,6 +122,9 @@ def reset_round_state(session: GameRoom, *, digital: bool = False) -> None:
     # after, and could be given out again and again.
     if session.drinks.last_targeted_drinking_result is not None:
         session.drinks.last_targeted_drinking_result["pending_handouts"] = {}
+    # Drink Rate Mode: rates queued during the last round take effect now.
+    from app.services.drink_rate import apply_queued_rates   # lazy: drink_rate imports serializer
+    apply_queued_rates(session)
 
 
 def apply_queued_settings(session: GameRoom) -> list[str]:

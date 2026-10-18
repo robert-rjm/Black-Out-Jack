@@ -216,6 +216,7 @@ class DrinkEntryOut(_StrictModel):
     name:   str
     sips:   int
     reason: str
+    raw:    Optional[int] = None   # sips owed before the seat's drink rate, only when it differs
 
 
 class InsuranceResultOut(_StrictModel):
@@ -299,6 +300,96 @@ class DealerLotteryOut(_StrictModel):
 # mini-game played between normal rounds, mirroring Dealer Lottery's own
 # pending/last_result/result_seq shape.
 # ---------------------------------------------------------------------------
+
+class AfkNoticeOut(_StrictModel):
+    """One-shot notice that a seat changed hands via Targeted Drinking's AFK
+    rule. reason "afk_absorbed" -> this client lost the seat; "afk_absorbing"
+    -> this client (the host) gained it. Show once per seq."""
+    reason:  str
+    seat:    str
+    seq:     int
+    context: str   # "targeted_drinking" | "turn"
+
+
+class DrinkRateSeatOut(_StrictModel):
+    name:                  str
+    rate:                  float
+    effective_rate:        float
+    queued_rate:           Optional[float]
+    protected_rounds_left: int
+    is_bot:                bool
+
+
+class DrinkRatePendingOut(_StrictModel):
+    proposer:     str
+    rate:         float
+    targets:      list[str]
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    seconds_left: int
+    my_vote:      Optional[bool]
+    eligible:     bool
+    needs_my_yes: bool
+
+
+class DrinkRateResultOut(_StrictModel):
+    passed:   bool
+    reason:   str
+    proposer: str
+    rate:     float
+    targets:  list[str]
+    seq:      int
+
+
+class LateJoinOfferOut(_StrictModel):
+    """One-time, recommended booster offered to a human who took over a bot seat."""
+    seat:        str
+    avg_others:  float
+    rounds:      int
+    recommended: float
+    seq:         int
+
+
+class DrinkRatesOut(_StrictModel):
+    """Drink Rate Mode state (app/services/drink_rate.py)."""
+    seats:             list[DrinkRateSeatOut]
+    pending:           Optional[DrinkRatePendingOut]
+    last_result:       Optional[DrinkRateResultOut]
+    result_seq:        int
+    allowed_rates:     list[float]
+    presets:           dict[str, float]
+    protection_rounds: int
+    late_join_offer:   Optional[LateJoinOfferOut]
+
+
+class AdminAfkPendingOut(_StrictModel):
+    opener:       str
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    seconds_left: int
+    my_vote:      Optional[bool]
+    eligible:     bool
+
+
+class AdminAfkResultOut(_StrictModel):
+    passed:    bool
+    reason:    str
+    opener:    str
+    new_admin: Optional[str]
+    seq:       int
+
+
+class AdminAfkVoteOut(_StrictModel):
+    """Unanimous "is the admin AFK?" vote (app/services/afk.py). can_open is
+    true only for a connected seated non-admin while the game is waiting on
+    the admin."""
+    pending:     Optional[AdminAfkPendingOut]
+    can_open:    bool
+    last_result: Optional[AdminAfkResultOut]
+    result_seq:  int
+
 
 class TargetedDrinkingPendingOut(_StrictModel):
     seconds_left: int
@@ -560,5 +651,8 @@ class AppState(_StrictModel):
     my_role:            Optional[str]
     my_name:            Optional[str]
     my_names:           list[str]
+    afk_notice:         Optional[AfkNoticeOut]
+    admin_afk_vote:     AdminAfkVoteOut
+    drink_rates:        DrinkRatesOut
     can_add_local_seat: bool
     is_dealer_client:   bool

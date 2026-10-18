@@ -107,6 +107,8 @@
 
       <div style="border-bottom:1px solid var(--wash-3);margin:10px 0 12px"></div>
 
+      <button class="btn wide drink-only" data-action="openDrinkRateModal" style="margin-bottom:8px">🍷 Drink rate</button>
+
       <button class="btn wide settings-players-nav-btn" data-action="showSettingsSubview" data-args='["players"]'>
         👥 Players <span id="settings-players-badge" class="settings-players-badge" style="display:none"></span>
       </button>
@@ -418,6 +420,69 @@
     <div id="target-proposal-modal-btns" class="btn-row"></div>
     <div id="target-proposal-modal-status" class="insurance-modal-status"></div>
     <div id="target-proposal-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="admin-afk-modal-overlay">
+  <div id="admin-afk-modal">
+    <div class="insurance-modal-header">
+      <div class="insurance-modal-emoji">🚨</div>
+      <div id="admin-afk-modal-title" class="target-proposal-modal-title">Is the admin AFK?</div>
+      <div id="admin-afk-modal-sub" class="insurance-modal-sub"></div>
+    </div>
+    <div id="admin-afk-modal-tally" class="insurance-modal-stakes"></div>
+    <div id="admin-afk-modal-btns" class="btn-row"></div>
+    <div id="admin-afk-modal-status" class="insurance-modal-status"></div>
+    <div id="admin-afk-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="drink-rate-overlay" data-backdrop-action="closeDrinkRateModal">
+  <div id="drink-rate-card" data-stop-propagation="true">
+    <h3>🍷 Drink rate</h3>
+    <div class="modal-note">Your rate scales the sips you drink: beer is 1.0&times;, wine 0.6&times;, cocktails 0.4&times;. You can always drink more yourself; drinking less needs the admin to propose it and the table to vote yes. Changes apply from the next round.</div>
+    <div id="drink-rate-mine"></div>
+    <button class="btn wide" data-action="closeDrinkRateModal" style="margin-top:14px">Close</button>
+  </div>
+</div>
+
+<div id="drink-rate-vote-overlay">
+  <div id="drink-rate-vote-modal">
+    <div class="insurance-modal-header">
+      <div class="insurance-modal-emoji">🍻</div>
+      <div id="drink-rate-vote-title" class="target-proposal-modal-title">Drink rate vote</div>
+      <div id="drink-rate-vote-sub" class="insurance-modal-sub"></div>
+    </div>
+    <div id="drink-rate-vote-tally" class="insurance-modal-stakes"></div>
+    <div id="drink-rate-vote-btns" class="btn-row"></div>
+    <div id="drink-rate-vote-status" class="insurance-modal-status"></div>
+    <div id="drink-rate-vote-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="late-join-overlay">
+  <div id="late-join-modal">
+    <div class="insurance-modal-header">
+      <div class="insurance-modal-emoji">🏃</div>
+      <div class="target-proposal-modal-title">Joining late?</div>
+      <div id="late-join-sub" class="insurance-modal-sub"></div>
+    </div>
+    <div id="late-join-btns"></div>
+    <div id="late-join-note" class="insurance-modal-status"></div>
+  </div>
+</div>
+
+<div id="qr-overlay" data-backdrop-action="closeRoomQr">
+  <div id="qr-card" data-stop-propagation="true">
+    <h3>📲 Join this room</h3>
+    <div class="modal-note">Scan with a phone camera to open the game and join this room.</div>
+    <div id="qr-svg"></div>
+    <div id="qr-code-text" class="room-code-badge"></div>
+    <div id="qr-url" class="modal-note"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn approve wide" data-action="copyInviteLink">📋 Copy link</button>
+      <button class="btn wide" data-action="closeRoomQr">Close</button>
+    </div>
   </div>
 </div>
 

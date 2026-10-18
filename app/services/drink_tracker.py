@@ -16,6 +16,7 @@ import time
 
 from app.models.game_room import GameRoom
 from app.services.utils import classify_rule
+from engine.drink_rate import scale_sips
 from app.config import (
     MILESTONE_STEP,
     MILESTONE_TTL,
@@ -73,6 +74,14 @@ def award_sips(
     If *sips* > 0, calls ``check_and_set_milestone`` so a freshly crossed
     milestone boundary is detected immediately.
     """
+    # Drink Rate Mode: `sips` arrives as the raw amount owed; the receiving
+    # seat's rate turns it into what they actually drink. Everything below
+    # (ticker, round totals, milestones) uses the effective amount; the raw
+    # amount only goes into the exports and the Drinks-pane detail line.
+    raw_sips = sips
+    _p = session._get_player(player_name)
+    if _p is not None:
+        sips = scale_sips(raw_sips, _p.effective_drink_rate)
     session.drinks.csv_rows.append({
         "round":  session.round_count,
         "dealer": session.dealer_name,
@@ -80,6 +89,7 @@ def award_sips(
         "role":   role,
         "rule":   rule,
         "sips":   sips,
+        "sips_raw": raw_sips,
     })
     if sips != 0:
         # Session total never decreases — credits offset within the round only.
@@ -95,11 +105,14 @@ def award_sips(
             before = session.drinks.last_round_sips.get(player_name, 0)
             after  = before + sips
             session.drinks.last_round_sips[player_name] = after
-            session.drinks.last_round_drinks.append({
+            _entry = {
                 "name":   player_name,
                 "sips":   sips,
                 "reason": reason if reason is not None else rule,
-            })
+            }
+            if raw_sips != sips:
+                _entry["raw"] = raw_sips
+            session.drinks.last_round_drinks.append(_entry)
 
             # _snapshot_round's clean-round tally (total_clean_rounds, feeding
             # compute_trophy_holder, and clean_streak, feeding the crown
@@ -361,14 +374,16 @@ def _record_csv_rows(session: GameRoom) -> None:
                 credit_rule = classify_rule(reason) or "Sip credit"
                 rows.append({"round": round_num, "dealer": dealer,
                              "player": p.name, "role": role,
-                             "rule": credit_rule, "sips": sips})
+                             "rule": credit_rule, "sips": sips,
+                             "sips_raw": getattr(entry, "raw", sips)})
                 continue
             rule = classify_rule(reason)
             if rule is None:
                 continue
             rows.append({"round": round_num, "dealer": dealer,
                          "player": p.name, "role": role,
-                         "rule": rule, "sips": sips})
+                         "rule": rule, "sips": sips,
+                         "sips_raw": getattr(entry, "raw", sips)})
     session.drinks.csv_rows = rows
 
 
@@ -431,6 +446,14 @@ def _snapshot_round(session: GameRoom) -> None:
     session.stats.player_rounds_played = rounds_played
 
 
+def _with_raw(detail: dict, entry) -> dict:
+    """Add the pre-rate amount to a Drinks-pane line when a Drink Rate changed it."""
+    raw = getattr(entry, "raw", detail["sips"])
+    if raw != detail["sips"]:
+        detail["raw"] = raw
+    return detail
+
+
 def _record_drinks_detail(session: GameRoom) -> None:
     """Build the Drinks-pane detail list and round notices from this round's drink log."""
     drinks_detail = []
@@ -456,7 +479,7 @@ def _record_drinks_detail(session: GameRoom) -> None:
                     drinks_detail.append({"name": p.name, "sips": sips,
                                           "reason": f"Hard Dealer Switch — A♣ protected ({sips} sip(s) waived)"})
                 else:
-                    drinks_detail.append({"name": p.name, "sips": sips, "reason": reason})
+                    drinks_detail.append(_with_raw({"name": p.name, "sips": sips, "reason": reason}, entry))
 
             elif sips and sips < 0:
                 if rule == "Bust vote credit":
@@ -649,6 +672,20 @@ def harvest_drink_log(session: GameRoom) -> None:
     if session.round._drink_log_harvested:
         return  # already harvested this round -- do not double-count
 
+    if not session.drinking_mode:
+        # Normal (casino) mode: only the blackjack stats -- no sips, sip
+        # tickers, clean-streak/trophy tracking, milestones or L-badge penalty.
+        rp = session.stats.player_rounds_played
+        for p in session.all_players:
+            rp[p.name] = rp.get(p.name, 0) + 1
+        session.stats.player_rounds_played = rp
+        _update_hand_stats(session)
+        _update_dealer_stats(session)
+        _update_streaks(session)
+        session.round._drink_log_harvested = True
+        session.drinks.round_over_seq += 1
+        return
+
     _record_csv_rows(session)
     _update_sip_tickers(session)
     _snapshot_round(session)
@@ -802,6 +839,9 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     Each boundary fires only once (tracked in session.drinks.milestones_claimed).
     """
+    if not session.drinking_mode:
+        return   # casino mode: no sips, so no milestones
+
     # Never overwrite an active unresolved milestone — the winner gets to hand
     # out their sips before we fire the next one.
     if session.round._pending_milestone:

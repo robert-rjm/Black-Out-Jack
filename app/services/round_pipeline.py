@@ -40,3 +40,4 @@ def apply_endround_pipeline(session) -> None:
     check_targeted_drinking_trigger(session)
     apply_payouts(session)
     backfill_hand_results(session)
+    session.round._round_ended = True

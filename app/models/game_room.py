@@ -43,6 +43,10 @@ class RoundState:
     # Game flow
     switch_this_round: str | None = None
     _drink_log_harvested: bool = False
+    # True once the end-of-round pipeline has run for this round. Guards the
+    # /command dispatcher against re-running dealer/endround/deal (which would
+    # re-pay bankrolls or re-fire drinks). Cleared with the RoundState on newround.
+    _round_ended: bool = False
 
     # Snapshot of DrinkLedger.clean_streak as it stood *before* this round's
     # own harvest update (see drink_tracker._snapshot_round) -- lets a later
@@ -106,6 +110,14 @@ class RoundState:
     # The proposer's post-failure freeze cooldown lives on GameRoom below
     # instead, since it must survive across rounds.
     _pending_target_proposal: dict | None = None
+
+    # Unanimous "admin is AFK" vote (app/services/afk.py). Per-round: an open
+    # vote is discarded when a new round starts (the admin obviously acted).
+    _pending_admin_afk_vote: dict | None = None
+
+    # Admin-proposed drink-rate vote (app/services/drink_rate.py). Per-round:
+    # discarded if a new round starts while it is still open.
+    _pending_rate_proposal: dict | None = None
 
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
@@ -300,6 +312,26 @@ class GameRoom:
     _rejoin_requests: list = field(default_factory=list)
     _anim_default: bool = True
 
+    # client_id -> time.monotonic() of that client's last /state poll (presence);
+    # see app/services/afk.py.
+    _client_last_seen: dict = field(default_factory=dict)
+    _admin_afk_last_result: dict | None = None
+    _admin_afk_result_seq: int = 0
+    # (signature, started_at): what the admin is currently blocking on and since when
+    # (app/services/afk.py track_admin_blocking). None while they are not blocking.
+    _admin_blocking: tuple | None = None
+
+    # Drink Rate Mode (app/services/drink_rate.py). Keys are lowercase seat names.
+    _drink_rate_queued: dict = field(default_factory=dict)             # seat -> rate applied at next round start
+    _drink_rate_protected_through: dict = field(default_factory=dict)  # seat -> last round_count it is shielded in
+    _drink_rate_last_result: dict | None = None
+    _drink_rate_result_seq: int = 0
+    _late_join_offers: dict = field(default_factory=dict)   # client_id -> pending late-join boost offer
+    _late_join_offer_seq: int = 0
+    # seat (lowercase) -> last round_count its owner cannot open another discount
+    # vote in, after their own request was voted down
+    _drink_rate_request_frozen_through: dict = field(default_factory=dict)
+
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer
     # approval) against concurrent requests for the same room -- see
@@ -334,6 +366,12 @@ class GameRoom:
     # penalty in resolve_targeted_drinking_round -- resets to 0 on any
     # correct guess, same as the graduation streak resets on any wrong one.
     _targeted_drinking_losing_streaks: dict = field(default_factory=dict)
+    # name -> consecutive mini-round vote windows this target let expire
+    # without voting (explicit vote resets to 0). Reaching
+    # TARGETED_DRINKING_MAX_AFK_STRIKES removes them from the subgame and
+    # hands their seat to the host -- see targeted_drinking.py.
+    _targeted_drinking_afk_strikes: dict = field(default_factory=dict)
+    _afk_notice_seq: int = 0   # bumps per seat absorbed; lets clients show each afk_notice exactly once
     _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
     # Majority-vote-to-target proposal freeze: proposer_name_lower ->
     # round_count below which that specific player can't open another
@@ -493,6 +531,11 @@ class GameRoom:
 
     def start_round(self):
         result = self.session.start_round(digital=(self.mode == "digital"))
+        if not self.drinking_mode:
+            # RefereeSession.start_round always builds a real DrinkTracker;
+            # Normal (casino) mode must never record sips.
+            from app.services.room_manager import NullTracker
+            self.session.tracker = NullTracker()
         self.session.tracker.verbose = False
         return result
 

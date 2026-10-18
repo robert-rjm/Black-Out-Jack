@@ -5,7 +5,7 @@
     <div id="header-text">
       <h1 id="header-title">Black(Out)Jack</h1>
       <div id="header-sub">Setting up...</div>
-      <div id="header-room"></div>
+      <div id="header-room" data-action="openRoomQr" title="Show a QR code to join this room" role="button"></div>
     </div>
     <div id="header-actions">
       <button class="btn icon-btn" data-action="openRulesModal" title="Rules">📖</button>
@@ -133,6 +133,7 @@
     <div id="dig-panel">
       <div id="ms-waiting-slot" class="waiting-slot"></div>
       <div id="td-status-banner" class="waiting-slot drink-only"></div>
+      <div id="admin-afk-banner" class="admin-afk-slot"></div>
       <div id="dig-predeal-panel" style="display:none;text-align:center;padding:16px 16px 8px">
         <div style="font-size:13px;color:var(--muted);margin-bottom:14px">Waiting room — admit players, then deal when ready.</div>
         {{ action_btn('🃏 DEAL', 'sendCmd', '["deal"]', 'btn-big green') }}
@@ -202,6 +203,7 @@
       </div>
 
       <div id="pane-dig-round" class="pane">
+        <div id="dig-money-overview" class="money-overview"></div>
         <div id="dig-drinks-progress" class="round-progress">✋ You're done — waiting for results…</div>
 
         <div id="dig-drinks-panel" class="drinks-panel drink-only">
