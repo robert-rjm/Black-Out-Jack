@@ -764,9 +764,11 @@ function updateHonorPrompt(state) {
   const emojiEl  = document.getElementById("honor-emoji");
   if (titleEl) titleEl.textContent = isAces ? "House Rule: Always Split Aces" : "House Rule: Always Split 10s";
   if (emojiEl) emojiEl.textContent = isAces ? "🂡" : "🃏";
+  const penalty  = (state && state.wager) || 1;
+  const penaltyStr = `${penalty}-sip`;
   if (subEl)   subEl.textContent   = isAces
-    ? "You have two Aces — the house rule says you must split. Play anyway and take a 1-sip penalty?"
-    : "Your hand is two unsuited 10-value cards: the house rule says you must split. Do it anyway and take a 1-sip penalty?";
+    ? `You have two Aces — the house rule says you must split. Play anyway and take a ${penaltyStr} penalty?`
+    : `Your hand is two unsuited 10-value cards: the house rule says you must split. Do it anyway and take a ${penaltyStr} penalty?`;
 }
 
 async function honorResolve(choice) {

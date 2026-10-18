@@ -302,7 +302,7 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 |---|-----|-----------|--------|
 | 1 | Player | **Exactly 21** | Distribute card count × wager sips to other Players (e.g. 6 cards at wager 1 = 6 sips distributed) |
 | 2 | Player | **Wins** | All other Players drink 1× wager |
-| 3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round |
+| 3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round (core penalties only: net losses, lost-hand extras, won-all, split wins and auto-insurance. "Extra" rules such as the Blackjack bonus, aces, win bonuses, sweeps, bust vote and lottery are not doubled) |
 
 **Clarifications:**
 - Rule 1 does not require a win.

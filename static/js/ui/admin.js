@@ -664,7 +664,7 @@ class BustGivePanel {
       : "";
 
     const _bw = (typeof state !== "undefined" && state && state.wager) || 1;
-    const _bwStr = `${_bw} ${_bw === 1 ? "sip" : "sips"}`;
+    const _bwStr = `1 wager (${_bw} ${_bw === 1 ? "sip" : "sips"})`;
     body.innerHTML = pending.map((winnerName, idx) => {
       const label = pending.length > 1
         ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give ${_bwStr} to:`
@@ -694,6 +694,12 @@ const bustGivePanel = new BustGivePanel();
 
 // ── Dealer Lottery entry panel component (Improvements.md item 7,
 // Option A: class-based, no framework) ───────────────────────────────────
+// Stake label: the lottery stake is 0-5 wagers (sips = wagers x table wager).
+function dlStakeLabel(n) {
+  const w = (typeof lastState !== "undefined" && lastState && lastState.wager) || 1;
+  return `${n} wager${n === 1 ? "" : "s"} (${n * w} sip${n * w === 1 ? "" : "s"})`;
+}
+
 // Encapsulates the entry modal (countdown timer, per-player stake sliders
 // + Enter buttons). mount() attaches one delegated "input" listener (live
 // slider value) and one delegated "click" listener (Enter button) --
@@ -720,7 +726,7 @@ class DealerLotteryEntryPanel {
       const val = parseInt(slider.value, 10) || 0;
       this.pendingX[slider.dataset.dlName] = val;
       const valueLbl = slider.closest(".dl-entry-card").querySelector(".dl-x-value");
-      if (valueLbl) valueLbl.textContent = String(val);
+      if (valueLbl) valueLbl.textContent = dlStakeLabel(val);
     });
 
     el.addEventListener("click", e => {
@@ -814,13 +820,13 @@ class DealerLotteryEntryPanel {
 
       if (answered !== null && answered !== undefined) {
         return `<div class="dl-entry-card">
-          <div class="dl-entry-top">${nameLbl}<span class="dl-status">Entered: ${answered}</span></div>
+          <div class="dl-entry-top">${nameLbl}<span class="dl-status">Entered: ${dlStakeLabel(answered)}</span></div>
         </div>`;
       }
 
       const startVal = this.pendingX[name] ?? 0;
       return `<div class="dl-entry-card">
-        <div class="dl-entry-top">${nameLbl}<span class="dl-x-value">${startVal}</span></div>
+        <div class="dl-entry-top">${nameLbl}<span class="dl-x-value">${dlStakeLabel(startVal)}</span></div>
         <div class="dl-entry-row">
           <input type="range" class="dl-x-slider" min="0" max="5" step="1" value="${startVal}" data-dl-name="${escapeHtml(name)}">
           <button class="btn dl-enter-btn" data-dl-name="${escapeHtml(name)}">Enter</button>
@@ -1254,7 +1260,7 @@ function showBustHandoutToast(results) {
   const parts = results.map(r => {
     if (r.forfeited) return `⏱️ ${r.winner} didn't choose in time — drinks it themselves`;
     const _gw = (typeof state !== "undefined" && state && state.wager) || 1;
-    return `🎁 ${r.winner} gave ${_gw} ${_gw === 1 ? "sip" : "sips"} to ${r.recipient}`;
+    return `🎁 ${r.winner} gave 1 wager (${_gw} ${_gw === 1 ? "sip" : "sips"}) to ${r.recipient}`;
   });
   // Red if I gave away a sip or forfeited (drink), green otherwise.
   const iDrink = results.some(r =>
