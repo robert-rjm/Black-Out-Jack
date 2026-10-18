@@ -1510,7 +1510,6 @@ function _rateName(r) {
 class DrinkRatePanel {
   constructor() {
     this._seenSeq = null;      // last result seq already announced
-    this._seenRequestSeq = 0;  // highest rate-request seq the admin has been told about
     this._voteOpen = false;
     this._resultTimer = null;
     this._sig = "";
@@ -1522,21 +1521,12 @@ class DrinkRatePanel {
     this.settingsEl = settingsEl;
     this.voteEl = voteEl;
     settingsEl.addEventListener("click", e => {
-      const reqBtn = e.target.closest("[data-drink-rate-req]");
-      if (reqBtn && !reqBtn.disabled) {
-        const r = reqBtn.closest(".drink-rate-row");
-        const seat = r.dataset.requestSeat, rate = parseFloat(r.dataset.requestRate);
-        if (reqBtn.dataset.drinkRateReq === "propose") _postDrinkRate("/drink_rate/propose", { seats: [seat], rate });
-        else _postDrinkRate("/drink_rate/dismiss_request", { seat });
-        return;
-      }
       const go = e.target.closest("[data-drink-rate-go]");
       if (!go || go.disabled) return;
       const row  = go.closest(".drink-rate-row");
       const seat = row.dataset.seat;
       const rate = parseFloat(row.querySelector("select").value);
       if (go.dataset.mode === "set") _postDrinkRate("/drink_rate/set", { seat, rate });
-      else if (go.dataset.mode === "request") _postDrinkRate("/drink_rate/request", { seat, rate });
       else _postDrinkRate("/drink_rate/propose", { seats: seat === "__all__" ? "all" : [seat], rate });
     });
     settingsEl.addEventListener("change", e => {
@@ -1565,14 +1555,6 @@ class DrinkRatePanel {
     const dr = state && state.drink_rates;
     if (!dr) return;
     if (this._seenSeq === null) this._seenSeq = dr.result_seq || 0;
-    if (myRole === ROLE.ADMIN) {
-      const fresh = (dr.requests || []).filter(q => q.seq > this._seenRequestSeq);
-      if (fresh.length) {
-        this._seenRequestSeq = Math.max(...fresh.map(q => q.seq));
-        const q = fresh[fresh.length - 1];
-        showToast(`${q.by} asks for ${_rateName(q.rate)} — Settings → Drink rate.`, "info", 6000);
-      }
-    }
     if (this.settingsEl.style.display === "flex") this._renderSettings(state, false);
     this._renderVote(dr);
   }
@@ -1586,7 +1568,7 @@ class DrinkRatePanel {
   _renderSettings(state, force) {
     const dr = state && state.drink_rates;
     if (!dr) return;
-    const sig = JSON.stringify([dr.seats, !!dr.pending, dr.requests, myRole, myNames]);
+    const sig = JSON.stringify([dr.seats, !!dr.pending, myRole, myNames]);
     if (!force && sig === this._sig) return;
     if (!force && this.settingsEl.contains(document.activeElement)) { this._dirty = true; return; }
     this._sig = sig; this._dirty = false;
@@ -1601,7 +1583,7 @@ class DrinkRatePanel {
         const free = isMine && cur !== null && (r >= 1 || r >= cur);
         const sel = (cur === null ? r === 0.6 : r === cur) ? "selected" : "";
         // A lower rate than the seat's current one is never a direct change for a
-        // non-admin: it becomes a request to the admin.
+        // non-admin: it opens a vote (a "request"), the same as an admin proposal.
         return `<option value="${r}" ${sel}>${_rateName(r)}${!free && !isAdmin ? " (request)" : ""}</option>`;
       }).join("");
       return `<div class="drink-rate-row" data-seat="${escapeHtml(name)}" data-cur="${cur === null ? "" : cur}" data-mine="${isMine ? 1 : 0}">
@@ -1613,15 +1595,6 @@ class DrinkRatePanel {
     };
 
     let html = "";
-    if (isAdmin && (dr.requests || []).length) {
-      html += `<div class="drink-rate-sub">REQUESTS</div>` + dr.requests.map(q =>
-        `<div class="drink-rate-row" data-request-seat="${escapeHtml(q.seat)}" data-request-rate="${q.rate}">
-          <span class="drink-rate-name">${escapeHtml(q.by)}</span>
-          <span class="drink-rate-note" style="flex:1">asks for ${_rateName(q.rate)}</span>
-          <button class="btn danger kick-btn" data-drink-rate-req="propose" ${dr.pending ? "disabled" : ""}>Propose</button>
-          <button class="btn kick-btn" data-drink-rate-req="dismiss">Dismiss</button>
-        </div>`).join("");
-    }
     html += `<div class="drink-rate-sub">${isAdmin ? "SEATS" : "YOUR SEAT" + (shown.length > 1 ? "S" : "")}</div>`;
     if (!shown.length) html += `<div class="drink-rate-note">You don't control a seat.</div>`;
     shown.forEach(s => {
@@ -1629,8 +1602,6 @@ class DrinkRatePanel {
       const notes = [];
       if (s.queued_rate !== null && s.queued_rate !== undefined) notes.push(`Takes effect next round (now ${s.rate}×).`);
       if (s.protected_rounds_left > 0) notes.push(`🛡 Protected for ${s.protected_rounds_left} more round(s): a new rate needs their own yes.`);
-      const req = (dr.requests || []).find(q => q.seat === s.name);
-      if (req && !isAdmin) notes.push(`Requested ${_rateName(req.rate)} — waiting for the admin.`);
       html += row(s.name, s.name, cur, mineLc.has(s.name.toLowerCase()), notes);
     });
     if (isAdmin && humans.length > 1) {
@@ -1646,8 +1617,6 @@ class DrinkRatePanel {
   _syncRowButton(row) {
     const btn = row.querySelector("[data-drink-rate-go]");
     const rate = parseFloat(row.querySelector("select").value);
-    const requested = (lastState && lastState.drink_rates && lastState.drink_rates.requests || [])
-      .find(q => q.seat === row.dataset.seat);
     const curRaw = row.dataset.cur;
     const cur = curRaw === "" ? null : parseFloat(curRaw);
     const isMine = row.dataset.mine === "1";
@@ -1658,8 +1627,9 @@ class DrinkRatePanel {
       btn.dataset.mode = "set"; btn.textContent = "Set"; btn.className = "btn approve kick-btn";
       btn.disabled = rate === cur;
     } else if (!isAdmin) {
-      btn.dataset.mode = "request"; btn.textContent = "Request"; btn.className = "btn kick-btn";
-      btn.disabled = rate === cur || !!(requested && requested.rate === rate);
+      // Opens the same table vote an admin proposal would, for this seat only.
+      btn.dataset.mode = "propose"; btn.textContent = "Request"; btn.className = "btn kick-btn";
+      btn.disabled = pending || rate === cur;
     } else {
       btn.dataset.mode = "propose"; btn.textContent = "Propose"; btn.className = "btn danger kick-btn";
       btn.disabled = pending || rate === cur;

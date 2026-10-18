@@ -160,10 +160,12 @@ def test_queued_rate_that_returns_to_current_is_dropped():
 # Admin proposal + majority vote
 # ---------------------------------------------------------------------------
 
-def test_only_admin_can_propose():
+def test_a_player_cannot_propose_for_everyone_or_for_someone_else():
     room = _room()
-    ok, err = open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)
+    ok, err = open_rate_proposal(room, "bob-cid", "all", 0.6)
     assert not ok and "admin" in err.lower()
+    ok, err = open_rate_proposal(room, "bob-cid", ["Carol"], 0.6)
+    assert not ok and "seat you control" in err
 
 
 def test_proposal_passes_on_strict_majority_and_beneficiary_votes():
@@ -550,73 +552,82 @@ def test_afk_vote_pool_also_excludes_bot_only_clients():
 
 
 # ---------------------------------------------------------------------------
-# Requesting a lower rate
+# A player's request for a lower rate opens the same vote an admin proposal would
 # ---------------------------------------------------------------------------
 
-from app.services.drink_rate import dismiss_rate_request, request_lower_rate
+from app.config import DRINK_RATE_REQUEST_FREEZE_ROUNDS
 
 
-def test_player_can_request_a_lower_rate_without_changing_it():
+def test_player_request_opens_a_vote_with_the_player_as_proposer():
     room = _room()
-    assert request_lower_rate(room, "bob-cid", "Bob", 0.6) == (True, "")
-    assert _p(room, "Bob").drink_rate == 1.0
-    assert room._rate_requests["bob"]["rate"] == 0.6
-    assert any("Bob asks the admin" in e for e in room.round._log_entries)
+    assert open_rate_proposal(room, "bob-cid", ["Bob"], 0.6) == (True, "")
+    pending = room.round._pending_rate_proposal
+    assert pending["proposer"] == "Bob" and pending["targets"] == ["Bob"]
+    assert pending["votes"]["bob-cid"] is True                    # their own vote is pre-filled Yes
+    assert len(pending["votes"]) == 4                             # everyone votes, admin included
+    assert _p(room, "Bob").drink_rate == 1.0                      # nothing changes until it passes
 
 
-def test_request_only_makes_sense_for_a_lower_rate_on_your_own_seat():
+def test_player_request_passes_on_a_majority_like_any_proposal():
     room = _room()
-    assert request_lower_rate(room, "bob-cid", "Bob", 1.2)[0] is False        # higher: just set it
-    assert request_lower_rate(room, "bob-cid", "Carol", 0.6)[0] is False      # not your seat
-    assert request_lower_rate(room, "bob-cid", "Bob", 0.5)[0] is False        # not a valid rate
-    assert request_lower_rate(room, "admin-cid", "Alice", 0.6)[0] is False    # admin proposes directly
+    open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "carol-cid", True)
+    assert room.round._pending_rate_proposal is not None          # 2 of 4 is not a majority
+    cast_rate_vote(room, "admin-cid", True)
+    assert room._drink_rate_last_result["passed"] is True
+    assert _p(room, "Bob").drink_rate == 0.6
 
 
-def test_request_is_replaced_by_a_newer_one():
+def test_player_request_must_be_a_lower_rate():
     room = _room()
-    request_lower_rate(room, "bob-cid", "Bob", 0.8)
-    request_lower_rate(room, "bob-cid", "Bob", 0.4)
-    assert room._rate_requests["bob"]["rate"] == 0.4 and len(room._rate_requests) == 1
+    assert open_rate_proposal(room, "bob-cid", ["Bob"], 1.2)[0] is False    # higher: just set it
+    assert open_rate_proposal(room, "bob-cid", ["Bob"], 1.0)[0] is False    # no change
 
 
-def test_admin_sees_all_requests_and_players_only_their_own():
+def test_request_below_beer_is_the_only_kind_a_player_can_open():
     room = _room()
-    request_lower_rate(room, "bob-cid", "Bob", 0.6)
-    request_lower_rate(room, "carol-cid", "Carol", 0.4)
-    admin_view = serialize_state(room, "admin-cid")["drink_rates"]["requests"]
-    assert sorted(r["seat"] for r in admin_view) == ["Bob", "Carol"]
-    bob_view = serialize_state(room, "bob-cid")["drink_rates"]["requests"]
-    assert [r["seat"] for r in bob_view] == ["Bob"]
-    assert serialize_state(room, "dave-cid")["drink_rates"]["requests"] == []
+    set_own_rate(room, "bob-cid", "Bob", 1.4)
+    ok, err = open_rate_proposal(room, "bob-cid", ["Bob"], 1.2)
+    assert not ok and "lower rate" in err
 
 
-def test_admin_can_dismiss_a_request_others_cannot():
+def test_spectators_cannot_open_a_vote():
     room = _room()
-    request_lower_rate(room, "bob-cid", "Bob", 0.6)
-    assert dismiss_rate_request(room, "bob-cid", "Bob")[0] is False
-    assert room._rate_requests
-    assert dismiss_rate_request(room, "admin-cid", "Bob")[0] is True
-    assert room._rate_requests == {}
+    room._room_clients["spec"] = {"name": None, "role": "spectator"}
+    assert open_rate_proposal(room, "spec", ["Bob"], 0.6)[0] is False
 
 
-def test_proposing_the_seat_answers_its_request():
+def test_a_voted_down_request_freezes_that_seat_for_three_rounds():
     room = _room()
-    request_lower_rate(room, "bob-cid", "Bob", 0.6)
+    open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "carol-cid", False)
+    cast_rate_vote(room, "dave-cid", False)
+    assert room._drink_rate_last_result["passed"] is False
+    ok, err = open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)
+    assert not ok and "voted down" in err
+    room._drink_rate_request_frozen_through["bob"] = room.round_count - 1   # window over
+    assert open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)[0] is True
+
+
+def test_a_timed_out_request_also_freezes_the_seat():
+    room = _room()
+    open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)
+    room.round._pending_rate_proposal["expires_at"] = time.monotonic() - 1
+    apply_drink_rate_forfeit(room)
+    assert room._drink_rate_request_frozen_through["bob"] == room.round_count + DRINK_RATE_REQUEST_FREEZE_ROUNDS
+
+
+def test_a_failed_admin_proposal_does_not_freeze_anyone():
+    room = _room()
     open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
-    assert room._rate_requests == {}
+    cast_rate_vote(room, "carol-cid", False)
+    cast_rate_vote(room, "dave-cid", False)
+    assert room._drink_rate_request_frozen_through == {}
+    assert open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)[0] is True
 
 
-def test_changing_the_seat_yourself_clears_its_request():
-    room = _room()
-    request_lower_rate(room, "bob-cid", "Bob", 0.6)
-    set_own_rate(room, "bob-cid", "Bob", 1.2)
-    assert room._rate_requests == {}
-
-
-def test_request_routes(client, route_room):
+def test_player_request_route(client, route_room):
     code, room = route_room
-    assert _post(client, "/drink_rate/request", code, "bob-cid", seat="Bob", rate=0.6)["ok"]
-    assert room._rate_requests["bob"]["rate"] == 0.6
-    assert _post(client, "/drink_rate/dismiss_request", code, "bob-cid", seat="Bob")["ok"] is False
-    assert _post(client, "/drink_rate/dismiss_request", code, "admin-cid", seat="Bob")["ok"] is True
-    assert room._rate_requests == {}
+    data = _post(client, "/drink_rate/propose", code, "bob-cid", seats=["Bob"], rate=0.6)
+    assert data["ok"] and data["drink_rates"]["pending"]["proposer"] == "Bob"
+    assert _post(client, "/drink_rate/propose", code, "bob-cid", seats=["Carol"], rate=0.6)["ok"] is False

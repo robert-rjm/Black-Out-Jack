@@ -80,6 +80,7 @@ TARGETED_DRINKING_STREAK_TO_GRADUATE  = 3    # consecutive correct guesses to op
 TARGETED_DRINKING_COOLDOWN_ROUNDS     = 3    # rounds before a new subgame can start
 DRINK_RATE_PROTECTION_ROUNDS     = 3    # rounds a player who reset to 1.0 is shielded from rate votes (unless they vote Yes)
 LATE_JOIN_MIN_AVG_SIPS          = 3    # no late-join boost is offered unless the other humans average at least this many sips
+DRINK_RATE_REQUEST_FREEZE_ROUNDS = 3    # rounds a seat cannot ask for another discount after its own request was voted down
 DRINK_RATE_VOTE_WINDOW_SECONDS   = 20   # admin-proposed drink-rate vote auto-fails after this long
 AFK_DISCONNECT_SECONDS        = 60   # no /state poll for this long -> client counts as gone (closed tab, dead connection)
 ADMIN_AFK_PROMPT_DELAY_SECONDS = 60   # the admin must have been holding the game up this long before the AFK vote can be started

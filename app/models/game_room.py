@@ -328,10 +328,9 @@ class GameRoom:
     _drink_rate_result_seq: int = 0
     _late_join_offers: dict = field(default_factory=dict)   # client_id -> pending late-join boost offer
     _late_join_offer_seq: int = 0
-    # A player's request for a lower rate, waiting for the admin to propose it
-    # (seat lowercase -> {seat, rate, by, seq}).
-    _rate_requests: dict = field(default_factory=dict)
-    _rate_request_seq: int = 0
+    # seat (lowercase) -> last round_count its owner cannot open another discount
+    # vote in, after their own request was voted down
+    _drink_rate_request_frozen_through: dict = field(default_factory=dict)
 
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer

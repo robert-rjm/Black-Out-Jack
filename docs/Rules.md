@@ -599,7 +599,7 @@ always delivers exactly 1 sip.
 | Raise your own rate, or move it to 1.0× or higher | **You, any time, no vote** |
 | Reset to 1.0× ("normalize") | **You, any time, no vote** — and it starts the protection window below |
 | Lower a rate (a discount), for one player or everyone | The **admin proposes** (**Propose**); it passes on a **strict majority** of connected seated Players within **20 seconds**. The Player who benefits votes too, and the proposer's own vote counts as an automatic Yes |
-| Ask for a lower rate (any Player who is not the admin) | **Request** it. This only notifies the admin, who can **Propose** it (the vote above) or **Dismiss** it. Nothing changes until a vote passes |
+| Ask for a lower rate on your own seat (any Player who is not the admin) | **Request** it. This opens **the same vote** an admin proposal would, with you as the proposer. If it is voted down or times out, that seat cannot ask again for **3 rounds** |
 | Impose a booster on someone | Same proposal and vote as a discount |
 
 **Who votes:** only human Players. **Bots never vote and never count toward

@@ -23,7 +23,8 @@ from __future__ import annotations
 import time
 
 from app.config import (
-    DRINK_RATE_PROTECTION_ROUNDS, DRINK_RATE_VOTE_WINDOW_SECONDS, LATE_JOIN_MIN_AVG_SIPS,
+    DRINK_RATE_PROTECTION_ROUNDS, DRINK_RATE_REQUEST_FREEZE_ROUNDS,
+    DRINK_RATE_VOTE_WINDOW_SECONDS, LATE_JOIN_MIN_AVG_SIPS,
 )
 from app.models.game_room import GameRoom
 from app.services.afk import holds_human_seat, is_client_connected
@@ -153,48 +154,8 @@ def set_own_rate(session: GameRoom, client_id: str, seat: str, raw_rate) -> tupl
         )
     _schedule_rate(session, p, rate)
     _clear_offer_for_seat(session, p.name)
-    session._rate_requests.pop(p.name.lower(), None)
     session.round._log_entries.append(f"  🍷 {p.name} will drink at {rate_label(rate)}\n")
     session._log_version += 1
-    return True, ""
-
-
-# ---------------------------------------------------------------------------
-# Requesting a lower rate (the admin decides whether to put it to a vote)
-# ---------------------------------------------------------------------------
-
-def request_lower_rate(session: GameRoom, client_id: str, seat: str, raw_rate) -> tuple[bool, str]:
-    """A non-admin player asks for a discount on a seat they control. It only
-    notifies the admin, who can turn it into a normal proposal (majority vote)
-    or dismiss it. Replaces any earlier request for the same seat."""
-    rate = normalize_rate(raw_rate)
-    if rate is None:
-        return False, f"Rate must be one of {', '.join(str(r) for r in ALLOWED_RATES)}."
-    info = session._room_clients.get(client_id) or {}
-    if info.get("role") == "admin":
-        return False, "You are the admin -- propose it to the table directly."
-    if client_id not in _holders(session, seat):
-        return False, "You can only ask for a change to a seat you control."
-    p = _player(session, seat)
-    if p is None or getattr(p, "is_npc", False):
-        return False, "No such player seat."
-    if not (rate < 1.0 and rate < planned_rate(session, p)):
-        return False, "That is not a lower rate -- just set it yourself."
-    session._rate_request_seq += 1
-    session._rate_requests[p.name.lower()] = {
-        "seat": p.name, "rate": rate, "by": info.get("name") or p.name,
-        "seq": session._rate_request_seq,
-    }
-    session.round._log_entries.append(f"  🍷 {p.name} asks the admin for {rate_label(rate)}\n")
-    session._log_version += 1
-    return True, ""
-
-
-def dismiss_rate_request(session: GameRoom, client_id: str, seat: str) -> tuple[bool, str]:
-    info = session._room_clients.get(client_id) or {}
-    if info.get("role") != "admin":
-        return False, "Only the admin can dismiss a request."
-    session._rate_requests.pop((seat or "").lower(), None)
     return True, ""
 
 
@@ -260,10 +221,18 @@ def _voter_cids(session: GameRoom) -> list[str]:
 
 
 def open_rate_proposal(session: GameRoom, client_id: str, seats, raw_rate) -> tuple[bool, str]:
-    """`seats` is "all" or a list of seat names."""
+    """`seats` is "all" or a list of seat names.
+
+    The admin can propose any rate for any seats. Any other seated player can
+    open the same vote for a *lower* rate on their own seat(s) only (their
+    "request"); a request that is voted down freezes that seat's requests for
+    DRINK_RATE_REQUEST_FREEZE_ROUNDS rounds so the table is not spammed."""
     info = session._room_clients.get(client_id) or {}
-    if info.get("role") != "admin":
-        return False, "Only the admin can propose a rate."
+    is_admin = info.get("role") == "admin"
+    if not is_admin and info.get("role") != "player":
+        return False, "Only seated players can propose a rate."
+    if not is_admin and seats == "all":
+        return False, "Only the admin can propose a rate for everyone."
     if session.round._pending_rate_proposal:
         return False, "A rate proposal is already being voted on."
     rate = normalize_rate(raw_rate)
@@ -280,6 +249,16 @@ def open_rate_proposal(session: GameRoom, client_id: str, seats, raw_rate) -> tu
     changing = [p for p in candidates if planned_rate(session, p) != rate]
     if not changing:
         return False, "Nobody's rate would change."
+    if not is_admin:
+        if any(client_id not in _holders(session, p.name) for p in changing):
+            return False, "You can only ask for a change to a seat you control."
+        if any(not (rate < 1.0 and rate < planned_rate(session, p)) for p in changing):
+            return False, "That is not a lower rate -- just set it yourself."
+        for p in changing:
+            through = session._drink_rate_request_frozen_through.get(p.name.lower())
+            if through is not None and session.round_count <= through:
+                return False, (f"Your last request was voted down -- try again in "
+                               f"{through - session.round_count + 1} round(s).")
 
     voters = _voter_cids(session)
     if client_id not in voters:
@@ -296,12 +275,10 @@ def open_rate_proposal(session: GameRoom, client_id: str, seats, raw_rate) -> tu
     if not targets:
         return False, "Everyone picked is protected right now (they reset to 1.0 recently)."
 
-    for name in targets:
-        session._rate_requests.pop(name.lower(), None)   # the admin acted on it
     votes = {cid: None for cid in voters}
     votes[client_id] = True   # the proposer's own vote is pre-filled Yes
     session.round._pending_rate_proposal = {
-        "proposer": info["name"], "rate": rate, "targets": targets,
+        "proposer": info["name"], "rate": rate, "targets": targets, "by_admin": is_admin,
         "expires_at": time.monotonic() + DRINK_RATE_VOTE_WINDOW_SECONDS,
         "votes": votes, "required": required,
     }
@@ -366,20 +343,18 @@ def _finish(session: GameRoom, passed: bool, reason: str) -> None:
         )
     else:
         session.round._log_entries.append(f"  🍷 Rate vote failed ({reason})\n")
+        if not p.get("by_admin", True):
+            # A player's own request was voted down (or timed out): pause new ones.
+            for name in p["targets"]:
+                session._drink_rate_request_frozen_through[name.lower()] = (
+                    session.round_count + DRINK_RATE_REQUEST_FREEZE_ROUNDS
+                )
     session._log_version += 1
 
 
 # ---------------------------------------------------------------------------
 # State for /state
 # ---------------------------------------------------------------------------
-
-def _visible_requests(session: GameRoom, client_id: str) -> list[dict]:
-    """The admin sees every pending request; anyone else only their own seats'."""
-    reqs = list(session._rate_requests.values())
-    if (session._room_clients.get(client_id) or {}).get("role") == "admin":
-        return reqs
-    return [r for r in reqs if client_id in _holders(session, r["seat"])]
-
 
 def serialize_drink_rates(session: GameRoom, client_id: str) -> dict:
     now = time.monotonic()
@@ -420,5 +395,4 @@ def serialize_drink_rates(session: GameRoom, client_id: str) -> dict:
         "presets": dict(PRESETS),
         "protection_rounds": DRINK_RATE_PROTECTION_ROUNDS,
         "late_join_offer": session._late_join_offers.get(client_id),
-        "requests": _visible_requests(session, client_id),
     }
