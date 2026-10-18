@@ -748,6 +748,7 @@ class RoundManager:
                     self._drink(DrinkingRules.handle(HandResolvedEvent(
                         player_name=p.name, hand=hand, all_names=self._all_names,
                         dealer_bj=dealer_bj, dealer_name=exempt_dealer,
+                        wager=self.wager,
                     )))
 
             # Resolve insurance votes now that dealer BJ is known

@@ -588,6 +588,7 @@ class RefereeSession:
             eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
                 player_name=p_name, hand=hand, all_names=self._all_names,
                 dealer_bj=dealer_bj_at_time, dealer_name=exempt_dealer,
+                wager=self.wager,
             )))
         self._pending_resolved = []
         # _pending_eor_msgs already drained above when building eor_msgs

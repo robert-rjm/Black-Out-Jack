@@ -228,11 +228,13 @@ Only **net negative** scores result in drinking. Positives are disregarded.
 
 **Additional penalties per lost hand:**
 
+*("1×" = one wager. At wager 1 that is 1 sip; at wager 2 it is 2 sips.)*
+
 | Condition | Extra sips |
 | --------- | ---------- |
-| Lost hand was doubled | +1 sip |
-| Lost hand was suited | +1 sip |
-| Lost hand was doubled **and** suited | +3 sips (4 total with the base loss) |
+| Lost hand was doubled | +1× wager |
+| Lost hand was suited | +1× wager |
+| Lost hand was doubled **and** suited | +3× wager (4× wager total with the base loss) |
 
 
 ### 5.2 Other Player's Results
@@ -244,7 +246,7 @@ Your own hand outcome determines how much you are affected.
 
 | Your result | Sips you drink |
 |---|---|
-| You lost at least 1 hand | 1 sip per hand the other Player won |
+| You lost at least 1 hand | 1× wager per hand the other Player won |
 | You won all your hands | 0 sips (immune: see exceptions below) |
 | No losses, at least 1 push | Other Player's wins minus your wins |
 
@@ -259,10 +261,10 @@ Even if you won all your hands, you still drink if another Player wins with:
 
 | Winning Hand | Sips you drink |
 |---|---|
-| Double | 1 sip |
-| Split (per successful split) | 1 sip each |
-| Suited | 1 sip |
-| Double **and** Suited | 4 sips (multiplicative penalty)|
+| Double | 1× wager |
+| Split (per successful split) | 1× wager each |
+| Suited | 1× wager |
+| Double **and** Suited | 4× wager (multiplicative penalty)|
 
 > This is why suited 10s are the only exception to the mandatory split 10s rule.
 
@@ -299,7 +301,7 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 | # | Who | Condition | Effect |
 |---|-----|-----------|--------|
 | 1 | Player | **Exactly 21** | Distribute sips equal to card count to other Players (e.g. 6 cards = 6 sips distributed) |
-| 2 | Player | **Wins** | All other Players drink 1 sip |
+| 2 | Player | **Wins** | All other Players drink 1× wager |
 | 3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round |
 
 **Clarifications:**
@@ -315,9 +317,9 @@ If every card across all of a Player's final hands shares **entirely the same su
 
 | Condition | Penalty to others |
 | --------- | ----------------- |
-| All cards same suit | 2× wager |
+| All cards same suit | 4× wager |
 | All hands total 21 | 2× wager |
-| Both simultaneously | 4× wager |
+| Both simultaneously | 6× wager |
 
 > Triggers regardless of win, push, or loss.
 

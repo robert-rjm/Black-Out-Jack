@@ -764,24 +764,24 @@ the Dealer did **not** lose all hands → ❌ No Hard Switch (**Rule
 
 | Player | Sips |
 |---|---|
-| Alice | 2 (2× wager) |
-| Charlie | 2 (2× wager) |
+| Alice | 4 (4× wager) |
+| Charlie | 4 (4× wager) |
 
 #### Round 5 "other Players" subtotal
 
 | Player | From Bob | From Charlie | All-Hand Bonus | Total |
 |---|---|---|---|---|
-| Alice | 4 | 2 | 2 | **8** |
+| Alice | 4 | 2 | 4 | **10** |
 | Bob | — | 0 | — | **0** |
-| Charlie | 2 | — | 2 | **4** |
+| Charlie | 2 | — | 4 | **6** |
 
 ### Round 5 — Final Totals 🍺
 
 | Player | Cards | Dealer Suited | Hand Outcome | Other Players | Total |
 |---|---|---|---|---|---|
-| Alice | 1 (Devil's Hand) − 1 (side bet) = 0 | 2 | 0 | 8 | **10 sips** |
+| Alice | 1 (Devil's Hand) − 1 (side bet) = 0 | 2 | 0 | 10 | **12 sips** |
 | Bob | 0 | 2 | 0 | 0 | **2 sips** |
-| Charlie | −1 (Lucky Sevens, no effect) + 1 (handout) = 1 | 2 | 0 | 4 | **7 sips** |
+| Charlie | −1 (Lucky Sevens, no effect) + 1 (handout) = 1 | 2 | 0 | 6 | **9 sips** |
 
 > **Key takeaway:** Even a round with no Blackjacks or Aces can get
 > chaotic — Devil's Hand and Lucky Sevens fire off the 3rd six/seven

@@ -458,6 +458,7 @@ def dealer_turn(session: GameRoom) -> None:
                 eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
                     player_name=p.name, hand=hand, all_names=all_names,
                     dealer_bj=dealer_bj, dealer_name=exempt_dealer,
+                    wager=session.wager,
                 )))
 
         # Hard dealer switch -- dealer drinks per each winning hand

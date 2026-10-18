@@ -64,7 +64,7 @@ def test_hand_resolved_dispatch():
     with patch.object(DrinkingRules, "on_hand_resolved", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
-        "Alice", hand, ["Alice", "Bob"], dealer_bj=False, dealer_name="",
+        "Alice", hand, ["Alice", "Bob"], dealer_bj=False, dealer_name="", wager=1,
     )
     assert result == "SENTINEL"
 

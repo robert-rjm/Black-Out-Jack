@@ -262,7 +262,8 @@ class DrinkingRules:
     def on_hand_resolved(player_name: str, hand: Hand,
                          all_player_names: list,
                          dealer_bj: bool = False,
-                         dealer_name: str = "") -> list:
+                         dealer_name: str = "",
+                         wager: int = 1) -> list:
         """
         Called after each hand is evaluated. Fires rules for:
         - Doubles/splits (immunity exception)
@@ -293,13 +294,13 @@ class DrinkingRules:
         # Doubled hand breaks immunity (splits aggregated in on_round_end; suited handled below)
         if hand.doubled and not hand.is_suited():
             for p in others_np:
-                msgs.append((p, 1,
-                    f"{player_name} won a doubled hand => {p} drinks 1 sip (immunity exception)"))
+                msgs.append((p, wager,
+                    f"{player_name} won a doubled hand => {p} drinks {wager} sip(s) (immunity exception)"))
 
-        # Suited winning hand: 1 sip normally, 4 sips if doubled (split does NOT multiply)
+        # Suited winning hand: 1x wager normally, 4x if doubled (split does NOT multiply)
         # Skip for blackjack — the BJ bonus already incorporates the suited multiplier
         if hand.is_suited() and not hand.is_blackjack():
-            sips = 4 if hand.doubled else 1
+            sips = (4 if hand.doubled else 1) * wager
             sym  = hand.cards[0].suit.symbol
             for p in others_np:
                 msgs.append((p, sips,
@@ -308,8 +309,8 @@ class DrinkingRules:
         # Win with 5+ cards (stacks with above if score is 21)
         if len(hand.cards) >= 5:
             for p in others_np:
-                msgs.append((p, 1,
-                    f"{player_name} won with {len(hand.cards)} cards => {p} drinks 1 sip"))
+                msgs.append((p, wager,
+                    f"{player_name} won with {len(hand.cards)} cards => {p} drinks {wager} sip(s)"))
 
         return msgs
 
@@ -327,7 +328,7 @@ class DrinkingRules:
           - Every hand scores exactly 21 (BJ counts as 21).
         Win/push/loss outcome is irrelevant — only the cards matter.
 
-        Payout: wager × 2 per condition met (both = wager × 4).
+        Payout: same suit = wager × 4, all-21 = wager × 2 (both = wager × 6).
         Suppressed when dealer has BJ (consistent with auto-insurance).
         Stacks with all other win-bonus rules.
 
@@ -353,8 +354,8 @@ class DrinkingRules:
         if not (all_same_suit or all_21):
             return []
 
-        # Stacking: both conditions together = wager * 4, each alone = wager * 2
-        multiplier = 4 if (all_same_suit and all_21) else 2
+        # Stacking: same suit = wager * 4, all-21 = wager * 2, both = wager * 6
+        multiplier = (4 if all_same_suit else 0) + (2 if all_21 else 0)
         sips       = wager * multiplier
 
         if all_same_suit and all_21:
@@ -378,7 +379,7 @@ class DrinkingRules:
         for hand in player_hands:
             if hand.result == "win" and hand.doubled and not hand.is_suited():
                 for p in cancel_recipients:
-                    msgs.append((p, -1,
+                    msgs.append((p, -wager,
                         f"Sweep cancels doubled-hand drink for {p} (already covered by sweep)"))
 
         return msgs
@@ -462,11 +463,10 @@ class DrinkingRules:
                 if hand.result != "loss":
                     continue
                 if hand.doubled and hand.is_suited():
-                    # Multiplicative: loss x2 (doubled) x2 (suited) = 4x wager total,
-                    # of which 1x is the net-loss sip, so the extra is 3x.
-                    msgs.append((p.name, wager * 3,
-                        f"{p.name} lost a doubled + suited hand => +{wager * 3} sip(s) (4x total)"))
-                    continue
+                    # Multiplicative: loss x2 (doubled) x2 (suited) = 4x wager total.
+                    # Base 1x + doubled 1x + suited 1x + this combo 1x.
+                    msgs.append((p.name, wager,
+                        f"{p.name} lost a doubled hand that was also suited => +{wager} sip(s) (combo)"))
                 if hand.doubled:
                     msgs.append((p.name, wager,
                         f"{p.name} lost a doubled hand => +{wager} sip(s)"))
@@ -476,12 +476,12 @@ class DrinkingRules:
         return msgs
 
     @staticmethod
-    def _split_win_drinks(players: list, hard_switch_dealer: str) -> list:
-        """Split wins break immunity: sips = (winning split hands) - 1, charged to all others."""
+    def _split_win_drinks(players: list, hard_switch_dealer: str, wager: int = 1) -> list:
+        """Split wins break immunity: sips = ((winning split hands) - 1) x wager, charged to all others."""
         msgs = []
         for winner in players:
             split_wins = sum(1 for h in winner.hands if h.from_split and h.result == "win")
-            sips = max(0, split_wins - 1)
+            sips = max(0, split_wins - 1) * wager
             if sips == 0:
                 continue
             for other in players:
@@ -494,7 +494,7 @@ class DrinkingRules:
         return msgs
 
     @staticmethod
-    def _wins_all_drinks(players: list, hard_switch_dealer: str) -> list:
+    def _wins_all_drinks(players: list, hard_switch_dealer: str, wager: int = 1) -> list:
         """Other-player-wins-all rule with immunity tiers."""
         msgs = []
         for winner in players:
@@ -515,6 +515,7 @@ class DrinkingRules:
                     sips = max(0, w_wins - o_wins)
                 else:
                     sips = w_wins
+                sips *= wager
                 if sips > 0:
                     msgs.append((other.name, sips,
                         f"{winner.name} swept all hands => {other.name} drinks {sips} sip(s)"))
@@ -557,8 +558,8 @@ class DrinkingRules:
         msgs = []
         msgs += DrinkingRules._net_loss_drinks(players, wager, hard_switch_dealer)
         msgs += DrinkingRules._extra_loss_drinks(players, wager, hard_switch_dealer)
-        msgs += DrinkingRules._split_win_drinks(players, hard_switch_dealer)
-        msgs += DrinkingRules._wins_all_drinks(players, hard_switch_dealer)
+        msgs += DrinkingRules._split_win_drinks(players, hard_switch_dealer, wager)
+        msgs += DrinkingRules._wins_all_drinks(players, hard_switch_dealer, wager)
         return msgs
 
     # ---------------------------------------------------------------- hard dealer switch
@@ -652,6 +653,7 @@ class DrinkingRules:
                 return DrinkingRules.on_hand_resolved(
                     event.player_name, event.hand, event.all_names,
                     dealer_bj=event.dealer_bj, dealer_name=event.dealer_name,
+                    wager=event.wager,
                 )
             case AllHandsSweepEvent():
                 return DrinkingRules.check_all_hands_sweep(

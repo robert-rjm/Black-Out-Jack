@@ -70,6 +70,7 @@ class HandResolvedEvent:
     all_names:   list[str]
     dealer_bj:   bool = False
     dealer_name: str  = ""  # exempt from bonus-win drinks on a Hard Switch
+    wager:       int  = 1   # per-sip unit; win-bonus penalties scale with it
 
 
 @dataclass

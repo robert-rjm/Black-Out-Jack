@@ -59,9 +59,9 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 | Situation | Sips |
 |-----------|------|
 | Net hand lost | 1 (wager) |
-| Lost hand was doubled | +1 |
-| Lost hand was suited | +1 |
-| Lost hand was doubled + suited | +3 (4 total) |
+| Lost hand was doubled | +1× wager |
+| Lost hand was suited | +1× wager |
+| Lost hand was doubled + suited | +3× wager (4× total) |
 
 ---
 
@@ -71,7 +71,7 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 
 | Your result | You drink |
 |-------------|-----------|
-| You lost ≥1 hand | 1 per hand they won |
+| You lost ≥1 hand | 1× wager per hand they won |
 | You won all yours | 0 (immune) |
 | No losses, ≥1 push | Their wins − your wins |
 
@@ -79,10 +79,10 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 
 | Their winning hand | You drink |
 |--------------------|-----------|
-| Doubled | 1 |
-| Split (per split won) | 1 |
-| Suited | 1 |
-| Doubled + Suited | 4 |
+| Doubled | 1× wager |
+| Split (per split won) | 1× wager |
+| Suited | 1× wager |
+| Doubled + Suited | 4× wager |
 
 ---
 
@@ -106,9 +106,9 @@ If **one Player's** hands (all of them, if split) are *entirely* one suit, or *a
 
 | Condition | Others drink |
 |-----------|:---:|
-| All cards same suit | 2× wager |
+| All cards same suit | 4× wager |
 | All hands total 21 | 2× wager |
-| Both at once | 4× wager |
+| Both at once | 6× wager |
 
 ---
 
@@ -117,7 +117,7 @@ If **one Player's** hands (all of them, if split) are *entirely* one suit, or *a
 | Event | Effect |
 |-------|--------|
 | Player hits 21 with 5+ cards | Hand out sips = number of cards |
-| Player **wins** with 5+ cards | All others drink 1 |
+| Player **wins** with 5+ cards | All others drink 1× wager |
 | Dealer hits 21 with 5+ cards | All wagers doubled this round |
 | Dealer's hand is suited | All Players drink 2 |
 | All 4 Aces on first deal | Everyone drinks 2 |
