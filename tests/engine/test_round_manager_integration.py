@@ -121,8 +121,9 @@ def test_split_hand_immunity_break_and_stacked_loss_penalties(monkeypatch):
     assert "Player1 lost a doubled hand => +1 sip(s)" in reasons
     assert "Player1 lost a suited hand => +1 sip(s)" in reasons
     assert any("swept all hands => Player1" in r for r in reasons)
+    assert any("also suited" in r for r in reasons)
     assert sips == {1}
-    assert len(p1.drink_log) == 3
+    assert len(p1.drink_log) == 4
 
     # P2 swept (no losses/pushes) and isn't charged anything itself.
     assert p2.drink_log == []

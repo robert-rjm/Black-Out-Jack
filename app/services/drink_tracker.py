@@ -184,15 +184,15 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
             winners.append(p.name)
             # Sip credit and handout only apply in drinking mode
             if session.drinking_mode:
-                p.add_drink(-1, "bust vote correct: -1 sip credit", "player")
-                log.debug(f"  [bust vote] {p.name} called it — -1 sip + 1 to give out")
+                p.add_drink(-session.wager, f"bust vote correct: -{session.wager} sip credit", "player")
+                log.debug(f"  [bust vote] {p.name} called it — -{session.wager} sip + {session.wager} to give out")
             else:
                 log.debug(f"  [bust vote] {p.name} called it (normal mode — no sip reward)")
         else:
             losers.append(p.name)
             if session.drinking_mode:
-                p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
-                log.debug(f"  [bust vote] {p.name} wrong — +1 sip")
+                p.add_drink(session.wager, f"Bust vote wrong — dealer didn't bust: +{session.wager} sip{'' if session.wager == 1 else 's'}", "player")
+                log.debug(f"  [bust vote] {p.name} wrong — +{session.wager} sip{'' if session.wager == 1 else 's'}")
             else:
                 log.debug(f"  [bust vote] {p.name} wrong (normal mode — no sip penalty)")
 
@@ -234,6 +234,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         return vals.pop() if len(vals) == 1 else None
 
     each = " each" if len(losers) > 1 else ""
+    _wu = lambda n: f"{n} sip" if n == 1 else f"{n} sips"
     outcome_lines = []
     if dealer_busted:
         if winners:
@@ -243,7 +244,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
                     lambda names, amt, many: f"✅ {names} called it (+{_fmt(amt * 2)} @ 2:1{' each' if many else ''})",
                 )
             else:
-                outcome_lines.append(f"✅ {', '.join(winners)} called it (-1 sip + give 1)")
+                outcome_lines.append(f"✅ {', '.join(winners)} called it (-{_wu(session.wager)} + give {session.wager})")
         if losers:
             if normal:
                 outcome_lines += _grouped_lines(
@@ -251,7 +252,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
                     lambda names, amt, many: f"❌ {names} wrong (-{_fmt(amt)}{' each' if many else ''})",
                 )
             else:
-                outcome_lines.append(f"❌ {', '.join(losers)} wrong (+1 sip{each})")
+                outcome_lines.append(f"❌ {', '.join(losers)} wrong (+{_wu(session.wager)}{each})")
     else:
         if losers:
             if normal:
@@ -260,7 +261,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
                     lambda names, amt, many: f"❌ {names} bet bust — wrong (-{_fmt(amt)}{' each' if many else ''})",
                 )
             else:
-                outcome_lines.append(f"❌ {', '.join(losers)} bet bust — wrong (+1 sip{each})")
+                outcome_lines.append(f"❌ {', '.join(losers)} bet bust — wrong (+{_wu(session.wager)}{each})")
 
     if normal:
         w_uniform = _uniform_amount(winners) if winners else (session.bet_amount / 2)
@@ -268,8 +269,10 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
         winner_label = f"called it (+{_fmt(w_uniform * 2)} @ 2:1)" if w_uniform is not None else "called it"
         loser_label  = f"wrong (−{_fmt(l_uniform)})" if l_uniform is not None else "wrong"
     else:
-        winner_label = "called it — -1 sip + give 1!"
-        loser_label  = "wrong — +1 sip each"
+        _w = session.wager
+        _unit = "sip" if _w == 1 else "sips"
+        winner_label = f"called it — -{_w} {_unit} + give {_w}!"
+        loser_label  = f"wrong — +{_w} {_unit} each"
 
     session.round._bust_vote_result = {
         "dealer_busted":   dealer_busted,
@@ -314,12 +317,12 @@ def apply_bust_handout_forfeit(session: GameRoom) -> None:
 
         winner_p = session._get_player(winner_name)
         if winner_p:
-            reason = f"Bust vote forfeited — {winner_name} didn't assign in time: +1 sip"
-            winner_p.add_drink(1, reason, "player")
-            award_sips(session, winner_name, 1, "Bust vote handout", reason=reason)
+            reason = f"Bust vote forfeited — {winner_name} didn't assign in time: +{session.wager} sip{'' if session.wager == 1 else 's'}"
+            winner_p.add_drink(session.wager, reason, "player")
+            award_sips(session, winner_name, session.wager, "Bust vote handout", reason=reason)
             log_line = (
                 f"  ⏱ {winner_name} didn't assign their bust-vote sip in time — "
-                f"drinks 1 sip\n"
+                f"drinks {session.wager} sip{'' if session.wager == 1 else 's'}\n"
             )
             session.round._log_entries.append(log_line)
             session._log_version += 1

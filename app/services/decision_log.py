@@ -154,11 +154,13 @@ def record_dealer_lottery_entry(session: GameRoom, player_name: str, x: int, *,
     scripts/build_player_profiles.py and engine/style_strategy.py's
     decide_dealer_lottery_stake).
 
-    `current_owed` is this player's sips owed so far this round at the
-    moment the entry window opened -- the context signal the mined
-    tendency is bucketed on.
+    `current_owed` is what this player owes so far this round at the
+    moment the entry window opened, in wagers (rounded up) so it is in the
+    same unit as the stake `x` -- the context signal the mined tendency is
+    bucketed on.
     """
     current_owed = max(0, session.drinks.last_round_sips.get(player_name, 0))
+    current_owed = -(-current_owed // max(1, session.wager))   # ceil, sips -> wagers
     session._dealer_lottery_decision_log.append({
         "session_id":   session.room_code,
         "timestamp":    time.time(),

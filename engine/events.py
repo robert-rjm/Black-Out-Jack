@@ -40,6 +40,7 @@ class CardDealtEvent:
     dealer_name:    str
     ace_clubs_flag: dict         # mutable flag shared for the whole round
     is_dealer_hand: bool = False  # True only for the dealer's own dealer hand
+    wager:          int  = 1
 
 
 @dataclass
@@ -49,6 +50,7 @@ class BlackjackEvent:
     hand:               Hand
     all_names:          list[str]
     hard_switch_dealer: str = ""  # dealer-player name when a Hard Switch is in play
+    wager:              int = 1
 
 
 @dataclass
@@ -60,6 +62,7 @@ class InsuranceResolvedEvent:
     insured:            bool       # True if majority voted to insure
     dealer_bj:          bool
     hard_switch_dealer: str = ""
+    wager:              int = 1
 
 
 @dataclass
@@ -70,6 +73,7 @@ class HandResolvedEvent:
     all_names:   list[str]
     dealer_bj:   bool = False
     dealer_name: str  = ""  # exempt from bonus-win drinks on a Hard Switch
+    wager:       int  = 1   # per-sip unit; win-bonus penalties scale with it
 
 
 @dataclass
@@ -93,6 +97,7 @@ class AllHandsSweepEvent:
 class DealerHandRevealedEvent:
     """Fired once the dealer's full hand is visible (after dealer plays out)."""
     dealer_hand: Hand
+    wager:       int = 1
 
 
 @dataclass
@@ -112,6 +117,7 @@ class HardDealerSwitchEvent:
     dealer_name:    str
     winning_hands:  list[tuple[str, Hand]]  # (player_name, hand) for each winning hand
     half_protected: bool = False            # True = dealer-hand A♣ half protection
+    wager:          int  = 1
 
 
 # ---------------------------------------------------------------------------

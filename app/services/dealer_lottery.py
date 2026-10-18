@@ -86,7 +86,9 @@ def maybe_start_dealer_lottery(session: GameRoom) -> None:
         # NPC entry is a real per-personality decision (mirrors NPC hand
         # decisions in game_engine.py) -- "basic" personality or a bot with
         # no profile just opts out (0), same as before this was a decision.
+        # NPC stake is in wagers, so measure what they owe in wagers too.
         current_owed = max(0, session.drinks.last_round_sips.get(p.name, 0))
+        current_owed = math.ceil(current_owed / max(1, session.wager))
         x = p.decide_dealer_lottery_stake(current_owed) if hasattr(p, "decide_dealer_lottery_stake") else 0
         entries[p.name] = x
         record_dealer_lottery_entry(session, p.name, x, is_npc=True)
@@ -273,12 +275,13 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     drink_amounts: dict[str, int] = {}     # name -> sips this lottery makes them drink
     credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
 
+    wager = session.wager   # entries are in wagers (0-5); sips = wagers * wager
     for name, x in entries.items():
         if x <= 0:
             continue
         if busted >= 2:
             current_owed = max(0, session.drinks.last_round_sips.get(name, 0))
-            credit = min(x, current_owed)
+            credit = min(x * wager, current_owed)
             if credit > 0:
                 award_sips(
                     session, name, -credit, "Dealer Lottery credit",
@@ -296,7 +299,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             # what you hand to someone else, not what you owe yourself).
             # Scales with n_hands so standing through a re-split chain
             # costs more than standing on the un-split base case.
-            drink = min(x * (n_hands - 1), DEALER_LOTTERY_MAX_DRINK)
+            drink = min(x * (n_hands - 1) * wager, DEALER_LOTTERY_MAX_DRINK * wager)
             award_sips(
                 session, name, drink, "Dealer Lottery drink",
                 reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",

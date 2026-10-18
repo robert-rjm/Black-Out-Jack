@@ -157,7 +157,7 @@ def test_sweep_all_same_suit_not_all_21():
     main = [m for m in msgs if "drinks" in m[2]]
     assert {m[0] for m in main} == {"Bob", "Carol"}
     for _, sips, reason in main:
-        assert sips == 1 * 2
+        assert sips == 1 * 4
         assert "suited across all hands" in reason
 
 
@@ -173,14 +173,14 @@ def test_sweep_all_21_not_same_suit():
         assert "all hands scored 21" in reason
 
 
-def test_sweep_both_conditions_x4():
+def test_sweep_both_conditions_x6():
     hands = [make_hand(("A", "H"), ("K", "H")), make_hand(("J", "H"), ("Q", "H"), ("A", "H"))]
     # both hands all-hearts and all score 21
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
     main = [m for m in msgs if "drinks" in m[2]]
     for _, sips, reason in main:
-        assert sips == 1 * 4
-        assert "(x4)" in reason
+        assert sips == 1 * 6
+        assert "(x6)" in reason
 
 
 def test_sweep_neither_condition_returns_empty():
@@ -189,7 +189,7 @@ def test_sweep_neither_condition_returns_empty():
     assert msgs == []
 
 
-@pytest.mark.parametrize("wager,multiplier", [(1, 2), (2, 2)])
+@pytest.mark.parametrize("wager,multiplier", [(1, 4), (2, 4)])
 def test_sweep_wager_scaling(wager, multiplier):
     hands = [make_hand(("2", "H"), ("3", "H")), make_hand(("4", "H"), ("6", "H"))]
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, wager)

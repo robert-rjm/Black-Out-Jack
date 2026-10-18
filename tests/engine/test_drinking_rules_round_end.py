@@ -151,17 +151,15 @@ def test_lost_suited_hand_extra_sip():
     assert suited_msgs[0][1] == 1
 
 
-def test_lost_doubled_and_suited_hand_stacks_two_messages():
+def test_lost_doubled_and_suited_hand_totals_4x_wager():
     p = make_player("Alice", hands=[
         make_hand(("K", "S"), ("9", "S"), doubled=True, result="loss"),
     ])
     msgs = DrinkingRules.on_round_end([p], wager=2)
-    doubled_msgs = _msgs_for(msgs, "Alice", "lost a doubled hand")
-    suited_msgs = _msgs_for(msgs, "Alice", "lost a suited hand")
-    assert len(doubled_msgs) == 1
-    assert len(suited_msgs) == 1
-    assert doubled_msgs[0][1] == 2
-    assert suited_msgs[0][1] == 2
+    assert len(_msgs_for(msgs, "Alice", "lost a doubled hand")) == 2  # doubled + combo
+    assert len(_msgs_for(msgs, "Alice", "lost a suited hand")) == 1
+    # net loss 1x + doubled 1x + suited 1x + combo 1x, all at wager 2 = 8
+    assert sum(m[1] for m in msgs if m[0] == "Alice") == 8
 
 
 # ---------------------------------------------------------------------------

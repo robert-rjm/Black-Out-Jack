@@ -537,3 +537,19 @@ def test_give_sip_idempotent_after_forfeit(client, room_setup):
     data = resp.get_json()
     assert data["ok"] is False
     assert "already given" in data["error"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Wager scaling -- credit, wrong-vote penalty and handout are all 1x wager
+# ---------------------------------------------------------------------------
+
+def test_bust_vote_penalty_and_credit_scale_with_wager():
+    for dealer_hand, expected in [
+        (make_hand(("K", "S"), ("9", "H")), 2),                 # no bust -> +2
+        (make_hand(("K", "S"), ("Q", "H"), ("5", "D")), -2),    # bust -> -2 credit
+    ]:
+        room = _make_room(dealer_hand=dealer_hand)
+        room.session.wager = 2
+        room.round._bust_votes = {"Bob": "bust"}
+        apply_bust_vote_penalties(room)
+        assert room._get_player("Bob").drink_log[0][0] == expected

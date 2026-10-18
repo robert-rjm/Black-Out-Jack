@@ -258,10 +258,11 @@ class RefereeSession:
             all_names=self._all_names, dealer_name=self.dealer_name,
             ace_clubs_flag=self._ace_clubs_flag,
             is_dealer_hand=is_dealer_seat,   # True only for the dealer hand, not betting hands
+            wager=self.wager,
         ))
         for msg in msgs:
             _, s, reason = msg[0], msg[1], msg[2]
-            if s == -1:
+            if s < 0:
                 self._ace_credits.append(recipient_name)
                 self._log(f"    (i) {reason}")
             else:
@@ -352,7 +353,8 @@ class RefereeSession:
             self._log("  Dealer busts. Mark each non-busted player hand as 'win'.")
             # Check dealer suited hand
             self.tracker.apply(DrinkingRules.handle(
-                DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
+                DealerHandRevealedEvent(
+                    dealer_hand=dealer.dealer_hand, wager=self.wager)))
             return
 
         player = self._get_player(player_name)
@@ -392,13 +394,15 @@ class RefereeSession:
         if sub == "final":
             # Trigger dealer-suited-hand check
             self.tracker.apply(DrinkingRules.handle(
-                DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
+                DealerHandRevealedEvent(
+                    dealer_hand=dealer.dealer_hand, wager=self.wager)))
             self._log(f"  Dealer final hand checked: {dealer.dealer_hand}")
 
         elif sub == "bust":
             dealer.dealer_hand.bust = True
             self.tracker.apply(DrinkingRules.handle(
-                DealerHandRevealedEvent(dealer_hand=dealer.dealer_hand)))
+                DealerHandRevealedEvent(
+                    dealer_hand=dealer.dealer_hand, wager=self.wager)))
             self._log("  Dealer bust registered.")
 
         elif sub == "blackjack":
@@ -421,7 +425,7 @@ class RefereeSession:
         if self._get_dealer():
             all_cards += self._get_dealer().dealer_hand.cards
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, phase, self._four_aces_fd)
+            all_cards, phase, self._four_aces_fd, wager=self.wager)
         if phase == "first_deal":
             self.tracker.apply(msgs)   # mid-round, not halved
         else:
@@ -509,16 +513,16 @@ class RefereeSession:
             if not p:
                 continue
             if dealer_busted:
-                p.add_drink(-1, f"{name} bust vote correct: -1 sip credit", "player")
+                p.add_drink(-self.wager, f"{name} bust vote correct: -{self.wager} sip credit", "player")
                 winners.append(name)
                 if self.verbose:
                     print(f"    (i) {name} called the Dealer bust correctly "
-                          f"— -1 sip credit, hands out 1 sip")
+                          f"— -{self.wager} sip credit, hands out {self.wager} sip{'' if self.wager == 1 else 's'}")
             else:
-                p.add_drink(1, "Bust vote wrong — dealer didn't bust: +1 sip", "player")
+                p.add_drink(self.wager, f"Bust vote wrong — dealer didn't bust: +{self.wager} sip{'' if self.wager == 1 else 's'}", "player")
                 losers.append(name)
                 if self.verbose:
-                    print(f"    [drink] {name}: Bust vote wrong — dealer didn't bust: +1 sip")
+                    print(f"    [drink] {name}: Bust vote wrong — dealer didn't bust: +{self.wager} sip{'' if self.wager == 1 else 's'}")
 
         self._bust_vote_result = {
             "dealer_busted": dealer_busted,
@@ -528,7 +532,8 @@ class RefereeSession:
 
         for name in winners:
             self.tracker._handle_handout(
-                name, 1, f"{name} won the bust vote — hands out 1 sip", label="bust vote")
+                name, self.wager, f"{name} won the bust vote — hands out {self.wager} sip{'' if self.wager == 1 else 's'}",
+                label="bust vote")
 
     # ---------------------------------------------------------------- command: endround
 
@@ -579,7 +584,7 @@ class RefereeSession:
         for p_name, hand in self._pending_bj_hands:
             eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
                 player_name=p_name, hand=hand, all_names=self._all_names,
-                hard_switch_dealer=exempt_dealer,
+                hard_switch_dealer=exempt_dealer, wager=self.wager,
             )))
         self._pending_bj_hands = []
 
@@ -588,6 +593,7 @@ class RefereeSession:
             eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
                 player_name=p_name, hand=hand, all_names=self._all_names,
                 dealer_bj=dealer_bj_at_time, dealer_name=exempt_dealer,
+                wager=self.wager,
             )))
         self._pending_resolved = []
         # _pending_eor_msgs already drained above when building eor_msgs
@@ -619,7 +625,7 @@ class RefereeSession:
                 ]
             eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
                 dealer_name=self.dealer_name, winning_hands=hs_for_penalty,
-                half_protected=half_protected,
+                half_protected=half_protected, wager=self.wager,
             )))
 
         # Round-end rules (net losses, sweeps)
@@ -636,7 +642,7 @@ class RefereeSession:
                     eor_msgs.extend(DrinkingRules.handle(InsuranceResolvedEvent(
                         player_name=p.name, hand=hand, all_names=self._all_names,
                         insured=True, dealer_bj=dealer_bj,
-                        hard_switch_dealer=exempt_dealer,
+                        hard_switch_dealer=exempt_dealer, wager=self.wager,
                     )))
                     self._insurance_result.append({
                         "player":    p.name,
@@ -687,7 +693,7 @@ class RefereeSession:
         # Ace-of-clubs credits applied AFTER halving — post-round adjustments, not subject to halving.
         for name in self._ace_credits:
             p = self._get_player(name)
-            if p: self.tracker.apply_ace_clubs_credit(p)
+            if p: self.tracker.apply_ace_clubs_credit(p, self.wager)
 
         # Dealer-player A♣ deferred credit: apply only if no hard switch fired.
         # On a hard switch the partial protection IS the benefit — no double-dipping.
@@ -695,7 +701,7 @@ class RefereeSession:
         if pending_credit and not hard_switch:
             p = self._get_player(pending_credit)
             if p:
-                self.tracker.apply_ace_clubs_credit(p)
+                self.tracker.apply_ace_clubs_credit(p, self.wager)
                 self._log(f"    (i) A♣ credit applied to {pending_credit} (no hard switch this round)")
 
         # Update cumulative stats

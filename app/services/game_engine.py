@@ -93,10 +93,10 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
             target = _pick_target()
             player = session._get_player(target)
             if player:
-                player.add_drink(1, "Devil's Hand — three 6s on the table!", "player")
+                player.add_drink(session.wager, "Devil's Hand — three 6s on the table!", "player")
             _push_table_event(
                 session,
-                f"\U0001f3b0 Devil's Hand — three 6s on the table! {target} drinks 1 sip!",
+                f"\U0001f3b0 Devil's Hand — three 6s on the table! {target} drinks {session.wager} sip(s)!",
                 "curse",
                 target,
             )
@@ -108,7 +108,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
             target = _pick_target()
             player = session._get_player(target)
             if player:
-                player.add_drink(-1, "Lucky Sevens — three 7s on the table!", "player")
+                player.add_drink(-session.wager, "Lucky Sevens — three 7s on the table!", "player")
             _push_table_event(
                 session,
                 f"\U0001f3b0 Lucky Sevens — three 7s on the table! {target} gets a sip credit!",
@@ -158,11 +158,11 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
             card=card, recipient=recipient_name, card_pos=card_pos,
             all_names=all_names, dealer_name=session.dealer_name,
             ace_clubs_flag=session._ace_clubs_flag,
-            is_dealer_hand=is_dealer_hand,
+            is_dealer_hand=is_dealer_hand, wager=session.wager,
         ))
         for msg in msgs:
             _, s, reason = msg[0], msg[1], msg[2]
-            if s == -1:
+            if s < 0:
                 # Ace-clubs credit — track immediately but suppress the print if
                 # the card is face-down (doubled hand) to avoid revealing it early.
                 session._ace_credits.append(recipient_name)
@@ -299,7 +299,7 @@ def initial_deal(session: GameRoom) -> None:
         all_cards = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += dealer.dealer_hand.cards
         msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, "first_deal", session._four_aces_fd)
+            all_cards, "first_deal", session._four_aces_fd, wager=session.wager)
         session.tracker.apply(msgs)
 
     # Set up insurance vote slots if dealer shows Ace
@@ -363,7 +363,8 @@ def dealer_turn(session: GameRoom) -> None:
 
     drinking = session.drinking_mode
     if drinking:
-        session.tracker.apply(DrinkingRules.handle(DealerHandRevealedEvent(dealer_hand=d_hand)))
+        session.tracker.apply(DrinkingRules.handle(DealerHandRevealedEvent(
+            dealer_hand=d_hand, wager=session.wager)))
         if DrinkingRules.dealer_21_five_cards(d_hand):
             log.debug(f"\n  ★ Dealer 21 with {len(d_hand.cards)} cards — wager DOUBLED this round!")
 
@@ -440,7 +441,7 @@ def dealer_turn(session: GameRoom) -> None:
                     eor_msgs.extend(DrinkingRules.handle(InsuranceResolvedEvent(
                         player_name=p.name, hand=hand, all_names=all_names,
                         insured=insured, dealer_bj=dealer_bj,
-                        hard_switch_dealer=exempt_dealer,
+                        hard_switch_dealer=exempt_dealer, wager=session.wager,
                     )))
                     # group_won: insure+BJ or decline+no BJ
                     group_won = (insured and dealer_bj) or (not insured and not dealer_bj)
@@ -453,11 +454,12 @@ def dealer_turn(session: GameRoom) -> None:
                 elif hand.is_blackjack() and hand.result == "win":
                     eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
                         player_name=p.name, hand=hand, all_names=all_names,
-                        hard_switch_dealer=exempt_dealer,
+                        hard_switch_dealer=exempt_dealer, wager=session.wager,
                     )))
                 eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
                     player_name=p.name, hand=hand, all_names=all_names,
                     dealer_bj=dealer_bj, dealer_name=exempt_dealer,
+                    wager=session.wager,
                 )))
 
         # Hard dealer switch -- dealer drinks per each winning hand
@@ -476,7 +478,7 @@ def dealer_turn(session: GameRoom) -> None:
             )
             eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
                 dealer_name=session.dealer_name, winning_hands=hs_for_penalty,
-                half_protected=half_protected,
+                half_protected=half_protected, wager=session.wager,
             )))
             session._hard_switch_drinking_applied = True
 
@@ -499,7 +501,7 @@ def dealer_turn(session: GameRoom) -> None:
         all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += d_hand.cards
         four_aces_msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, "end_of_round", session._four_aces_fd)
+            all_cards, "end_of_round", session._four_aces_fd, wager=session.wager)
         eor_msgs.extend(four_aces_msgs)
 
         # Buffer msgs — cmd_endround will combine with RoundEndEvent (net losses)
