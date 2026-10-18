@@ -22,12 +22,14 @@ from __future__ import annotations
 
 import time
 
-from app.config import DRINK_RATE_PROTECTION_ROUNDS, DRINK_RATE_VOTE_WINDOW_SECONDS
+from app.config import (
+    DRINK_RATE_PROTECTION_ROUNDS, DRINK_RATE_VOTE_WINDOW_SECONDS, LATE_JOIN_MIN_AVG_SIPS,
+)
 from app.models.game_room import GameRoom
 from app.services.afk import is_client_connected
 from app.services.serializer import round_phase
 from engine.drink_rate import (
-    ALLOWED_RATES, PRESETS, RATE_DEFAULT, normalize_rate,
+    ALLOWED_RATES, BOOSTER_RATES, PRESETS, RATE_DEFAULT, normalize_rate,
 )
 
 
@@ -150,9 +152,55 @@ def set_own_rate(session: GameRoom, client_id: str, seat: str, raw_rate) -> tupl
             session.round_count + DRINK_RATE_PROTECTION_ROUNDS
         )
     _schedule_rate(session, p, rate)
+    _clear_offer_for_seat(session, p.name)
     session.round._log_entries.append(f"  🍷 {p.name} will drink at {rate_label(rate)}\n")
     session._log_version += 1
     return True, ""
+
+
+# ---------------------------------------------------------------------------
+# Late-joiner boost offer
+# ---------------------------------------------------------------------------
+
+def recommend_late_join_rate(rounds_played: int) -> float:
+    """Smallest booster that would close the gap in about 5 rounds
+    (1 + rounds/5), capped at the highest booster."""
+    want = 1 + max(1, rounds_played) / 5
+    return next((r for r in BOOSTER_RATES if r >= want - 1e-9), BOOSTER_RATES[-1])
+
+
+def offer_late_join_boost(session: GameRoom, client_id: str, seat: str) -> bool:
+    """Called when a human takes over a bot seat (admin-approved). Stores a
+    one-time, recommended booster offer for that client if the table has
+    drunk enough that they are meaningfully behind. Returns True if offered."""
+    if not session.drinking_mode:
+        return False
+    others = [p for p in _humans(session) if p.name.lower() != seat.lower()]
+    if not others:
+        return False
+    avg = sum(session.drinks.sip_ticker.get(p.name, 0) for p in others) / len(others)
+    if avg < LATE_JOIN_MIN_AVG_SIPS:
+        return False
+    rounds = max(1, session.round_count)
+    session._late_join_offer_seq += 1
+    session._late_join_offers[client_id] = {
+        "seat": seat,
+        "avg_others": round(avg, 1),
+        "rounds": rounds,
+        "recommended": recommend_late_join_rate(rounds),
+        "seq": session._late_join_offer_seq,
+    }
+    return True
+
+
+def dismiss_late_join_offer(session: GameRoom, client_id: str) -> None:
+    session._late_join_offers.pop(client_id, None)
+
+
+def _clear_offer_for_seat(session: GameRoom, seat: str) -> None:
+    for cid, offer in list(session._late_join_offers.items()):
+        if offer["seat"].lower() == seat.lower():
+            session._late_join_offers.pop(cid, None)
 
 
 # ---------------------------------------------------------------------------
@@ -319,4 +367,5 @@ def serialize_drink_rates(session: GameRoom, client_id: str) -> dict:
         "allowed_rates": list(ALLOWED_RATES),
         "presets": dict(PRESETS),
         "protection_rounds": DRINK_RATE_PROTECTION_ROUNDS,
+        "late_join_offer": session._late_join_offers.get(client_id),
     }

@@ -51,6 +51,7 @@ from app.services.targeted_drinking import (
 from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
 from app.services.afk import touch_client
+from app.services.drink_rate import offer_late_join_boost
 from app.services.tick import tick, _run_deferred_dealer_play
 from app.config import MAX_REG_DENIALS
 
@@ -406,6 +407,9 @@ def handle_registration():
                 # if the bust-vote window is still open.
                 if session.round._bust_votes.get(claimed_player.name) == "pass":
                     session.round._bust_votes.pop(claimed_player.name, None)
+                # A human replacing a bot mid-game is a late joiner: offer a
+                # recommended catch-up booster (Drink Rate Mode).
+                offer_late_join_boost(session, target_client_id, claimed_player.name)
             # Seat is now claimed — remove from admin's local_names
             for info in session._room_clients.values():
                 if info.get("role") == "admin":

@@ -323,6 +323,8 @@ class GameRoom:
     _drink_rate_protected_through: dict = field(default_factory=dict)  # seat -> last round_count it is shielded in
     _drink_rate_last_result: dict | None = None
     _drink_rate_result_seq: int = 0
+    _late_join_offers: dict = field(default_factory=dict)   # client_id -> pending late-join boost offer
+    _late_join_offer_seq: int = 0
 
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer

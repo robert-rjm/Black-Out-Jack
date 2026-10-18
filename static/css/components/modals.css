@@ -619,7 +619,8 @@
 
 #target-proposal-modal-overlay,
 #admin-afk-modal-overlay,
-#drink-rate-vote-overlay {
+#drink-rate-vote-overlay,
+#late-join-overlay {
   display: none;
   position: fixed; inset: 0;
   background: var(--scrim);
@@ -628,10 +629,12 @@
 }
 #target-proposal-modal-overlay.open,
 #admin-afk-modal-overlay.open,
-#drink-rate-vote-overlay.open { display: flex; }
+#drink-rate-vote-overlay.open,
+#late-join-overlay.open { display: flex; }
 #target-proposal-modal,
 #admin-afk-modal,
-#drink-rate-vote-modal {
+#drink-rate-vote-modal,
+#late-join-modal {
   background: var(--surface);
   border: 1.5px solid var(--purple);
   border-radius: 18px;
@@ -678,3 +681,6 @@
 .drink-rate-row select option { background: var(--surface); }
 .drink-rate-note { font-size: 12px; color: var(--muted); width: 100%; }
 .drink-rate-sub { font-size: 12px; font-weight: 800; letter-spacing: .04em; color: var(--muted); margin: 14px 0 4px; }
+.late-join-opt { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; width: 100%; margin-bottom: 6px; }
+.late-join-opt small { font-size: 11px; opacity: .8; }
+.late-join-reco { font-size: 10px; font-weight: 800; letter-spacing: .05em; margin-left: 6px; color: var(--green); }

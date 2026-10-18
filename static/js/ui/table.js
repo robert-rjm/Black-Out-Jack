@@ -64,6 +64,8 @@ function buildDigitalUI() {
   const drOverlay = document.getElementById("drink-rate-overlay");
   const drVote    = document.getElementById("drink-rate-vote-overlay");
   if (drOverlay && drVote) drinkRatePanel.mount(drOverlay, drVote);
+  const ljOverlay = document.getElementById("late-join-overlay");
+  if (ljOverlay) lateJoinPanel.mount(ljOverlay);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -604,6 +606,7 @@ function _syncDigitalUI(state) {
   targetProposalPanel.render(state);
   adminAfkPanel.render(state);
   drinkRatePanel.render(state);
+  lateJoinPanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.

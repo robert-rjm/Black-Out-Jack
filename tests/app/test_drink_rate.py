@@ -416,3 +416,99 @@ def test_tick_syncs_bot_rates():
         _p(room, n).drink_rate = 0.4
     tick(room)
     assert _p(room, "Dave").effective_drink_rate == 0.4
+
+
+# ---------------------------------------------------------------------------
+# Late-joiner boost offer (human takes over a bot seat)
+# ---------------------------------------------------------------------------
+
+from app.services.drink_rate import (
+    dismiss_late_join_offer, offer_late_join_boost, recommend_late_join_rate,
+)
+
+
+def _late_room(rounds=3, ticker=None):
+    room = _room(bots=("Dave",))
+    del room._room_clients["dave-cid"]
+    room.session.round_count = rounds
+    room.drinks.sip_ticker = ticker if ticker is not None else {"Alice": 8, "Bob": 6, "Carol": 7}
+    return room
+
+
+@pytest.mark.parametrize("rounds, expected", [(1, 1.2), (2, 1.4), (3, 1.5), (9, 1.5)])
+def test_recommended_rate_grows_with_rounds_played(rounds, expected):
+    assert recommend_late_join_rate(rounds) == expected
+
+
+def test_offer_is_made_when_the_table_has_drunk_enough():
+    room = _late_room(rounds=2)
+    assert offer_late_join_boost(room, "new-cid", "Dave") is True
+    offer = room._late_join_offers["new-cid"]
+    assert offer["seat"] == "Dave" and offer["avg_others"] == 7.0
+    assert offer["rounds"] == 2 and offer["recommended"] == 1.4
+
+
+def test_no_offer_when_nobody_has_drunk_much():
+    room = _late_room(ticker={"Alice": 1, "Bob": 2, "Carol": 0})
+    assert offer_late_join_boost(room, "new-cid", "Dave") is False
+    assert room._late_join_offers == {}
+
+
+def test_no_offer_in_normal_mode_or_without_other_humans():
+    room = _late_room()
+    room.config.drinking_mode = False
+    assert offer_late_join_boost(room, "new-cid", "Dave") is False
+    room = _late_room()
+    for n in ("Alice", "Bob", "Carol"):
+        _p(room, n).is_npc = True
+    assert offer_late_join_boost(room, "new-cid", "Dave") is False
+
+
+def test_taking_a_booster_clears_the_offer():
+    room = _late_room()
+    _p(room, "Dave").is_npc = False
+    room._room_clients["new-cid"] = {"name": "Dave", "role": "player"}
+    offer_late_join_boost(room, "new-cid", "Dave")
+    assert set_own_rate(room, "new-cid", "Dave", 1.4)[0] is True
+    assert "new-cid" not in room._late_join_offers
+    assert _p(room, "Dave").drink_rate == 1.4
+
+
+def test_dismissing_clears_the_offer_without_changing_the_rate():
+    room = _late_room()
+    offer_late_join_boost(room, "new-cid", "Dave")
+    dismiss_late_join_offer(room, "new-cid")
+    assert room._late_join_offers == {}
+
+
+def test_offer_is_serialized_only_for_that_client(client):
+    code = "RateRoom2"
+    room = _late_room()
+    room._room_clients["new-cid"] = {"name": "Dave", "role": "player"}
+    room._client_last_seen["new-cid"] = time.monotonic()
+    set_session(code, room)
+    try:
+        offer_late_join_boost(room, "new-cid", "Dave")
+        mine = serialize_state(room, "new-cid")["drink_rates"]["late_join_offer"]
+        assert mine["seat"] == "Dave" and mine["recommended"] in (1.2, 1.4, 1.5)
+        assert serialize_state(room, "bob-cid")["drink_rates"]["late_join_offer"] is None
+        data = _post(client, "/drink_rate/dismiss_offer", code, "new-cid")
+        assert data["ok"] and data["drink_rates"]["late_join_offer"] is None
+    finally:
+        game_sessions.pop(code, None)
+
+
+def test_approving_a_bot_seat_takeover_creates_the_offer(client):
+    code = "RateRoom3"
+    room = _late_room()
+    room._room_clients["new-cid"] = {"name": None, "role": "pending", "kicked": False}
+    room._pending_registrations = [{"client_id": "new-cid", "name": "Dave"}]
+    set_session(code, room)
+    try:
+        data = _post(client, "/handle_registration", code, "admin-cid",
+                     target_client_id="new-cid", approve=True)
+        assert data["ok"]
+        assert _p(room, "Dave").is_npc is False
+        assert room._late_join_offers["new-cid"]["seat"] == "Dave"
+    finally:
+        game_sessions.pop(code, None)

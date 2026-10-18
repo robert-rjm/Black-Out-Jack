@@ -342,6 +342,15 @@ class DrinkRateResultOut(_StrictModel):
     seq:      int
 
 
+class LateJoinOfferOut(_StrictModel):
+    """One-time, recommended booster offered to a human who took over a bot seat."""
+    seat:        str
+    avg_others:  float
+    rounds:      int
+    recommended: float
+    seq:         int
+
+
 class DrinkRatesOut(_StrictModel):
     """Drink Rate Mode state (app/services/drink_rate.py)."""
     seats:             list[DrinkRateSeatOut]
@@ -351,6 +360,7 @@ class DrinkRatesOut(_StrictModel):
     allowed_rates:     list[float]
     presets:           dict[str, float]
     protection_rounds: int
+    late_join_offer:   Optional[LateJoinOfferOut]
 
 
 class AdminAfkPendingOut(_StrictModel):

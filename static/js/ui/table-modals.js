@@ -1713,3 +1713,60 @@ async function _postDrinkRate(path, extra) {
 
 function openDrinkRateModal() { closeKickModal(); drinkRatePanel.open(); }
 function closeDrinkRateModal() { drinkRatePanel.close(); }
+
+
+// ── Late-joiner boost modal ───────────────────────────────────────────────
+// Offered once to a human who took over a bot seat mid-game (the admin approved
+// their join). Everyone else at the table has been drinking for a while; a
+// booster (1.2x-1.5x, see DrinkRatePanel) makes their sips count more so they
+// can catch up. The server recommends a rate from how long the table has been
+// playing; taking any booster is free (no vote) and they can decline.
+// Driven by state.drink_rates.late_join_offer.
+class LateJoinPanel {
+  constructor() { this._shownSeq = null; this._open = false; }
+
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const take = e.target.closest("[data-late-join-take]");
+      if (take) {
+        const offer = (lastState && lastState.drink_rates && lastState.drink_rates.late_join_offer) || null;
+        if (offer) _postDrinkRate("/drink_rate/set", { seat: offer.seat, rate: parseFloat(take.dataset.lateJoinTake) });
+        return;
+      }
+      if (e.target.closest("[data-late-join-dismiss]")) _postDrinkRate("/drink_rate/dismiss_offer", {});
+    });
+  }
+
+  render(state) {
+    if (!this.el) return;
+    const dr = state && state.drink_rates;
+    const offer = dr && dr.late_join_offer;
+    if (!offer) {
+      if (this._open) { this._open = false; closeModal("late-join-overlay", { useClass: true }); }
+      return;
+    }
+    if (this._open && this._shownSeq === offer.seq) return;   // already showing this offer
+    this._shownSeq = offer.seq;
+    this._open = true;
+    const boosters = (dr.allowed_rates || []).filter(r => r > 1);
+    document.getElementById("late-join-sub").innerHTML =
+      `The table has been playing for <strong>${offer.rounds}</strong> round${offer.rounds === 1 ? "" : "s"} ` +
+      `and the other players average <strong>${offer.avg_others}</strong> sips each. ` +
+      `You're starting at zero, so you can take a booster to catch up.`;
+    document.getElementById("late-join-btns").innerHTML =
+      boosters.map(r => {
+        const reco = r === offer.recommended;
+        return `<button class="btn ${reco ? "approve" : ""} wide late-join-opt" data-late-join-take="${r}">` +
+          `<span>${_rateName(r)}${reco ? `<span class="late-join-reco">RECOMMENDED</span>` : ""}</span>` +
+          `<small>${_ratePreview(r)}</small></button>`;
+      }).join("") +
+      `<button class="btn wide late-join-opt" style="justify-content:center" data-late-join-dismiss>No thanks, stay at beer 1×</button>`;
+    document.getElementById("late-join-note").textContent =
+      "You can change this any time in Settings → Drink rate, and drop back to 1× whenever you like.";
+    openModal("late-join-overlay", { useClass: true });
+  }
+}
+
+const lateJoinPanel = new LateJoinPanel();

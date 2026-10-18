@@ -1,6 +1,6 @@
 # Drink Rate Mode ("Wine Mode")
 
-Status: **implemented** (engine, service, routes, serializer, UI, tests). Not yet done: the Rules.md / Terms.md note (those docs are checked by sync tests) and the late-joiner catch-up suggestion in the UI.
+Status: **implemented** (engine, service, routes, serializer, UI, tests). Rules.md section 6.3 is written; Terms.md is untouched.
 
 Origin: a "wine mode" so that someone drinking wine (or a cocktail) takes fewer sips than someone drinking beer, plus an opt-in way to drink *more* (late joiners catching up). An earlier draft derived the factor from ABV; that was dropped as too complex (see section 6).
 
@@ -141,7 +141,7 @@ An earlier draft computed `rate = beer ABV / drink ABV` from a drink type. Dropp
 - [x] Apply at the receiver in `add_drink` / `award_sips`; raw + effective stored
 - [x] Admin proposal + majority vote (beneficiary votes); self-service raise/reset
 - [x] Booster proposal flow; protected player needs own Yes
-- [ ] Late-joiner catch-up suggestion (showing the gap to the table average)
+- [x] Late-joiner catch-up suggestion: one-time recommended-booster modal when a human takes over a bot seat (`offer_late_join_boost`)
 - [x] UI: seat marker, preview, "(N raw)" display
 - [x] Exports: raw and effective columns (`sips_raw` on the Raw Rows sheet)
 - [ ] Rules.md / Terms.md note that sip counts are adjusted when a rate is active

@@ -194,6 +194,7 @@ Each seat has a **drink rate** that scales the sips it drinks, so someone on win
 - **What counts:** *effective* sips (after the rate) drive the sip ticker, milestones and the Drinks panel, which shows "(N raw)" next to anything the rate changed. *Raw* sips (before the rate) are kept in the exports (`sips_raw` column) and in luck/strategy stats
 - **Handouts:** the receiver's rate applies; handing out is never scaled. Rounding up means a 1-sip handout is always 1 sip
 - **Bots** follow the table: they use a rate only when every human seat shares the same one, otherwise 1.0
+- **Late joiners:** when the admin approves a human taking over a **bot seat** mid-game and the other players average at least 3 sips, the newcomer gets a one-time **"Joining late?"** modal recommending a booster (1.2x for round 1, 1.4x for round 2, 1.5x from round 3, i.e. roughly 1 + rounds/5, aiming to close the gap in about 5 rounds). Taking any booster is free, "No thanks" keeps beer 1x, and it can be changed or dropped any time in Settings → Drink rate
 
 ---
 
