@@ -1083,6 +1083,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     _client_identity_data = {
         "my_role":                _ci.get("role"),
         "my_name":                _ci.get("name"),
+        "afk_notice":             (session._room_clients.get(client_id) or {}).get("afk_notice"),
         "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
         "can_add_local_seat":     (
             _ci.get("role") in ("admin", "player") and

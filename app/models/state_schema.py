@@ -300,6 +300,15 @@ class DealerLotteryOut(_StrictModel):
 # pending/last_result/result_seq shape.
 # ---------------------------------------------------------------------------
 
+class AfkNoticeOut(_StrictModel):
+    """One-shot notice that a seat changed hands via Targeted Drinking's AFK
+    rule. reason "afk_absorbed" -> this client lost the seat; "afk_absorbing"
+    -> this client (the host) gained it. Show once per seq."""
+    reason: str
+    seat:   str
+    seq:    int
+
+
 class TargetedDrinkingPendingOut(_StrictModel):
     seconds_left: int
     my_vote:      Optional[Literal["bust", "stand"]]   # this client's own local-target vote, if any
@@ -560,5 +569,6 @@ class AppState(_StrictModel):
     my_role:            Optional[str]
     my_name:            Optional[str]
     my_names:           list[str]
+    afk_notice:         Optional[AfkNoticeOut]
     can_add_local_seat: bool
     is_dealer_client:   bool

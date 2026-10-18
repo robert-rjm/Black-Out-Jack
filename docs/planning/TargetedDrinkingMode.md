@@ -458,7 +458,9 @@ Two related refinements to the flat §5.2 cooldown:
   request body when a cooldown is still active (`start_targeted_drinking(...,
   override_cooldown=False)`), not a separate vote.
 
-### 8.4 [ ] AFK → seat reassignment ("becomes local player of host")
+### 8.4 [x] AFK → seat reassignment ("becomes local player of host")
+
+**Done (backend)** — `TARGETED_DRINKING_MAX_AFK_STRIKES = 2`, `_targeted_drinking_afk_strikes` on `GameRoom`, strikes added in `apply_targeted_drinking_vote_forfeit` for human targets whose window expired (explicit votes reset them; bots never accrue). Removal runs *after* the triggering mini-round resolves, via `_remove_afk_targets`/`_absorb_afk_seat`: the target leaves the subgame, the seat is appended to the admin's `local_names`, the original holder reverts to spectator, and a `💤` log line is written. If the host is the AFK target they are only removed (no seat move). If no targets remain the subgame ends with reason `afk_removed`. Frontend copy: each affected client entry gets a one-shot `afk_notice` (`afk_absorbed` for the removed player, `afk_absorbing` for the host), served as `afk_notice` in `/state` and shown once per `seq` as a toast by `_showAfkNotice` in `table.js`. Not verified in a live browser.
 
 This reuses machinery that already exists for a *different* purpose —
 `local_names` already lets one client control multiple seats (see the

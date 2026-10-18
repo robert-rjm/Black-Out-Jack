@@ -334,6 +334,12 @@ class GameRoom:
     # penalty in resolve_targeted_drinking_round -- resets to 0 on any
     # correct guess, same as the graduation streak resets on any wrong one.
     _targeted_drinking_losing_streaks: dict = field(default_factory=dict)
+    # name -> consecutive mini-round vote windows this target let expire
+    # without voting (explicit vote resets to 0). Reaching
+    # TARGETED_DRINKING_MAX_AFK_STRIKES removes them from the subgame and
+    # hands their seat to the host -- see targeted_drinking.py.
+    _targeted_drinking_afk_strikes: dict = field(default_factory=dict)
+    _afk_notice_seq: int = 0   # bumps per seat absorbed; lets clients show each afk_notice exactly once
     _targeted_drinking_cooldown_until_round: int = 0   # round_count below which a new subgame can't start
     # Majority-vote-to-target proposal freeze: proposer_name_lower ->
     # round_count below which that specific player can't open another

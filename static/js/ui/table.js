@@ -411,7 +411,21 @@ function _syncDrinkMode(state, drinkingOn) {
 
 // Update client identity (role, name, isMyDealerClient) from server state,
 // and show a dealer-rotation toast when this client becomes the dealer.
+let _lastAfkNoticeSeq = 0;   // highest afk_notice.seq already shown on this client
+
+function _showAfkNotice(notice) {
+  if (!notice || notice.seq <= _lastAfkNoticeSeq) return;
+  _lastAfkNoticeSeq = notice.seq;
+  showToast(
+    notice.reason === "afk_absorbing"
+      ? `${notice.seat} went AFK — you're now playing their seat too.`
+      : `You missed too many Targeted Drinking votes — the host is now playing ${notice.seat}'s seat. You're a spectator.`,
+    "info", 7000,
+  );
+}
+
 function _syncIdentity(state) {
+  _showAfkNotice(state.afk_notice);
   const _prevDealerName = lastState ? (lastState.dealer || "") : "";
   if (state.my_role !== undefined) {
     if (state.my_role !== null) {

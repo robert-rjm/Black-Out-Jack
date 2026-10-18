@@ -2161,3 +2161,142 @@ def test_start_while_already_between_rounds_arms_eligibility_immediately(client,
         assert data["targeted_drinking"]["pending"] is None
     finally:
         game_sessions.pop(room_code, None)
+
+
+# ---------------------------------------------------------------------------
+# AFK strikes -> removal + seat absorbed by the host (Rules.md §5.10, 8.4)
+# ---------------------------------------------------------------------------
+
+from app.config import TARGETED_DRINKING_MAX_AFK_STRIKES
+
+_STAND_HAND = [make_card("K", "S"), make_card("9", "H")]   # dealer stands on 19
+
+
+def _afk_room(monkeypatch, targets=("Bob", "Carol")):
+    room = _active_room_with_pending(monkeypatch, targets=targets, hand_cards=_STAND_HAND)
+    room._room_clients = {
+        "admin-cid": {"name": "Alice", "role": "admin", "local_names": ["Alice"]},
+        "bob-cid":   {"name": "Bob",   "role": "player"},
+        "carol-cid": {"name": "Carol", "role": "player"},
+    }
+    return room
+
+
+def _expire_and_forfeit(room, monkeypatch, hand=_STAND_HAND):
+    """Run one full mini-round that times out with no new votes."""
+    room.round._targeted_drinking_start_requested = True
+    maybe_start_targeted_drinking_round(room)
+    if room.round._pending_targeted_drinking is None:
+        room.round._pending_targeted_drinking = {
+            "expires_at": 0, "votes": {n: None for n in room._targeted_drinking_targets}}
+    _patch_deck(monkeypatch, hand)
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+
+
+def test_forfeit_adds_afk_strike_but_not_for_explicit_voters(monkeypatch):
+    room = _afk_room(monkeypatch)
+    submit_targeted_drinking_vote(room, "Bob", "stand")
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+    assert room._targeted_drinking_afk_strikes["Bob"] == 0
+    assert room._targeted_drinking_afk_strikes["Carol"] == 1
+
+
+def test_explicit_vote_resets_afk_strikes(monkeypatch):
+    room = _afk_room(monkeypatch)
+    room._targeted_drinking_afk_strikes["Carol"] = TARGETED_DRINKING_MAX_AFK_STRIKES - 1
+    submit_targeted_drinking_vote(room, "Carol", "stand")
+    assert room._targeted_drinking_afk_strikes["Carol"] == 0
+
+
+def test_afk_target_removed_and_seat_moves_to_host(monkeypatch):
+    room = _afk_room(monkeypatch)
+    room._targeted_drinking_afk_strikes["Carol"] = TARGETED_DRINKING_MAX_AFK_STRIKES - 1
+    submit_targeted_drinking_vote(room, "Bob", "stand")
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+
+    assert room._targeted_drinking_targets == ["Bob"]
+    assert room._targeted_drinking_active
+    admin = room._room_clients["admin-cid"]
+    assert admin["local_names"] == ["Alice", "Carol"]
+    carol = room._room_clients["carol-cid"]
+    assert carol["role"] == "spectator" and carol["name"] is None
+    assert any("Carol went AFK" in e for e in room.round._log_entries)
+
+
+def test_afk_removal_still_scores_the_round_that_triggered_it(monkeypatch):
+    room = _afk_room(monkeypatch, targets=("Carol",))
+    room._targeted_drinking_afk_strikes["Carol"] = TARGETED_DRINKING_MAX_AFK_STRIKES - 1
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+    result = room.drinks.last_targeted_drinking_result
+    assert result["votes"]["Carol"] == "stand"
+    assert result["correct"]["Carol"] is True
+
+
+def test_subgame_ends_when_last_target_goes_afk(monkeypatch):
+    room = _afk_room(monkeypatch, targets=("Carol",))
+    room._targeted_drinking_afk_strikes["Carol"] = TARGETED_DRINKING_MAX_AFK_STRIKES - 1
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+    assert not room._targeted_drinking_active
+    assert room.drinks.last_targeted_drinking_summary["reason"] == "afk_removed"
+    assert room._targeted_drinking_afk_strikes == {}
+
+
+def test_afk_host_is_removed_without_seat_move(monkeypatch):
+    room = _afk_room(monkeypatch, targets=("Alice", "Bob"))
+    room._targeted_drinking_afk_strikes["Alice"] = TARGETED_DRINKING_MAX_AFK_STRIKES - 1
+    submit_targeted_drinking_vote(room, "Bob", "stand")
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+    assert room._targeted_drinking_targets == ["Bob"]
+    assert room._room_clients["admin-cid"]["local_names"] == ["Alice"]
+    assert not any("host now plays" in e for e in room.round._log_entries)
+
+
+def test_afk_seat_removed_from_local_names_holder(monkeypatch):
+    room = _afk_room(monkeypatch)
+    room._room_clients["bob-cid"]["local_names"] = ["Bob", "Carol"]
+    room._room_clients["carol-cid"] = {"name": None, "role": "spectator"}
+    room._targeted_drinking_afk_strikes["Carol"] = TARGETED_DRINKING_MAX_AFK_STRIKES - 1
+    submit_targeted_drinking_vote(room, "Bob", "stand")
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+    assert room._room_clients["bob-cid"]["local_names"] == ["Bob"]
+    assert room._room_clients["admin-cid"]["local_names"] == ["Alice", "Carol"]
+
+
+def test_bot_targets_never_accrue_afk_strikes(monkeypatch):
+    room = _afk_room(monkeypatch, targets=("Carol",))
+    next(p for p in room.all_players if p.name == "Carol").is_npc = True
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+    assert room._targeted_drinking_afk_strikes["Carol"] == 0
+
+
+def _afk_absorb_round(monkeypatch):
+    room = _afk_room(monkeypatch)
+    room._targeted_drinking_afk_strikes["Carol"] = TARGETED_DRINKING_MAX_AFK_STRIKES - 1
+    submit_targeted_drinking_vote(room, "Bob", "stand")
+    room.round._pending_targeted_drinking["expires_at"] = time.monotonic() - 1
+    apply_targeted_drinking_vote_forfeit(room)
+    return room
+
+
+def test_afk_notice_set_for_removed_player_and_host(monkeypatch):
+    room = _afk_absorb_round(monkeypatch)
+    carol = room._room_clients["carol-cid"]["afk_notice"]
+    host = room._room_clients["admin-cid"]["afk_notice"]
+    assert carol == {"reason": "afk_absorbed", "seat": "Carol", "seq": 1}
+    assert host == {"reason": "afk_absorbing", "seat": "Carol", "seq": 1}
+    assert "afk_notice" not in room._room_clients["bob-cid"]
+
+
+def test_afk_notice_serialized_per_client(monkeypatch):
+    room = _afk_absorb_round(monkeypatch)
+    assert serialize_state(room, "carol-cid")["afk_notice"]["reason"] == "afk_absorbed"
+    assert serialize_state(room, "admin-cid")["afk_notice"]["reason"] == "afk_absorbing"
+    assert serialize_state(room, "bob-cid")["afk_notice"] is None

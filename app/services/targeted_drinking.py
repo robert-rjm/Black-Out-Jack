@@ -6,7 +6,8 @@ forces one or more specific players into a standalone bust/stand mini-game,
 played between normal rounds, until they "graduate" (enough correct
 guesses in a row) or the subgame is cancelled. This is the MVP scope only
 -- majority-vote start/end, escalating loss penalties, cooldown
-consent-override, and AFK handling are deliberately deferred.
+consent-override are deliberately deferred. AFK handling (two missed
+votes in a row -> removed, seat absorbed by the host) lives here too.
 
 Unlike Bust Vote (opt-in, single round, guesses against that round's real
 dealer hand), this deals its own isolated dealer-only hand from a fresh
@@ -43,6 +44,7 @@ from app.config import (
     TARGETED_DRINKING_REVEAL_PAUSE_SECONDS,
     TARGETED_DRINKING_STREAK_TO_GRADUATE,
     TARGETED_DRINKING_COOLDOWN_ROUNDS,
+    TARGETED_DRINKING_MAX_AFK_STRIKES,
     TARGETED_DRINKING_EASTER_EGG_SIP_CAP,
     TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
     TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS,
@@ -95,6 +97,7 @@ def start_targeted_drinking(
     session._targeted_drinking_targets = list(target_names)
     session._targeted_drinking_streaks = {name: 0 for name in target_names}
     session._targeted_drinking_losing_streaks = {name: 0 for name in target_names}
+    session._targeted_drinking_afk_strikes = {name: 0 for name in target_names}
     session._targeted_drinking_total_sips = {name: 0 for name in target_names}
     session._targeted_drinking_correct_counts = {name: 0 for name in target_names}
     session._targeted_drinking_wrong_counts = {name: 0 for name in target_names}
@@ -208,6 +211,7 @@ def submit_targeted_drinking_vote(session: GameRoom, player_name: str, vote: str
     if not pending or player_name not in pending["votes"]:
         return False
     pending["votes"][player_name] = vote
+    session._targeted_drinking_afk_strikes[player_name] = 0   # an explicit vote clears AFK strikes
     if all(v is not None for v in pending["votes"].values()):
         resolve_targeted_drinking_round(session)
     return True
@@ -218,14 +222,90 @@ def apply_targeted_drinking_vote_forfeit(session: GameRoom) -> None:
     "stand" -- the same "default the unset value to something safe/neutral"
     precedent apply_dealer_lottery_entry_forfeit already uses (it defaults
     an unset stake to 0) -- then deal and resolve the mini-round's isolated
-    dealer hand. Safe to call every tick."""
+    dealer hand. Safe to call every tick.
+
+    Each human target who let the window expire gets an AFK strike (an
+    explicit vote in submit_targeted_drinking_vote resets it). Once a
+    target reaches TARGETED_DRINKING_MAX_AFK_STRIKES in a row they're
+    removed after this mini-round resolves (so they still take this
+    round's result) -- see _remove_afk_targets. Bots never vote, so they
+    never accrue strikes."""
     pending = session.round._pending_targeted_drinking
     if not pending or time.monotonic() < pending["expires_at"]:
         return
+    npc_names = {p.name for p in session.all_players if getattr(p, "is_npc", False)}
+    strikes = session._targeted_drinking_afk_strikes
     for name in pending["votes"]:
         if pending["votes"][name] is None:
             pending["votes"][name] = "stand"
+            if name not in npc_names:
+                strikes[name] = strikes.get(name, 0) + 1
     resolve_targeted_drinking_round(session)
+    _remove_afk_targets(session)
+
+
+def _remove_afk_targets(session: GameRoom) -> None:
+    """Drops every remaining target at the AFK strike limit from the
+    subgame, hands their seat to the host (_absorb_afk_seat), and ends the
+    subgame if that leaves no targets. No-op if the subgame already ended
+    (e.g. the same resolve graduated everyone else)."""
+    if not session._targeted_drinking_active:
+        return
+    for name in list(session._targeted_drinking_targets):
+        if session._targeted_drinking_afk_strikes.get(name, 0) < TARGETED_DRINKING_MAX_AFK_STRIKES:
+            continue
+        session._targeted_drinking_targets.remove(name)
+        absorbed = _absorb_afk_seat(session, name)
+        session.round._log_entries.append(
+            f"  💤 {name} went AFK ({TARGETED_DRINKING_MAX_AFK_STRIKES} missed votes) — "
+            f"removed from Targeted Drinking Mode"
+            + (", host now plays their seat" if absorbed else "")
+            + "\n"
+        )
+        session._log_version += 1
+    if not session._targeted_drinking_targets:
+        end_targeted_drinking(session, reason="afk_removed")
+
+
+def _absorb_afk_seat(session: GameRoom, name: str) -> bool:
+    """Moves `name`'s seat onto the admin's local_names (same mutation the
+    seat-transfer and registration-approval flows in polling.py do) and
+    reverts the original holder's client to spectator. Returns False,
+    changing nothing, when there's no admin or the admin already holds the
+    seat (host AFK -- nobody to hand it to)."""
+    key = name.lower()
+
+    def holds(info: dict) -> bool:
+        return ((info.get("name") or "").lower() == key
+                or any((n or "").lower() == key for n in (info.get("local_names") or [])))
+
+    clients = session._room_clients
+    admin = next((i for i in clients.values()
+                  if i.get("role") == "admin" and not i.get("kicked")), None)
+    if admin is None or holds(admin):
+        return False
+
+    session._afk_notice_seq += 1
+    seq = session._afk_notice_seq
+    for info in clients.values():
+        if info is admin or not holds(info):
+            continue
+        # One-shot message for the removed player's client (see serializer's
+        # "afk_notice"); cleared naturally when they re-register.
+        info["afk_notice"] = {"reason": "afk_absorbed", "seat": name, "seq": seq}
+        if info.get("local_names"):
+            info["local_names"] = [n for n in info["local_names"] if (n or "").lower() != key]
+        if (info.get("name") or "").lower() == key:
+            info["name"] = None
+            info["role"] = "spectator"
+
+    admin_locals = list(admin.get("local_names") or [])
+    if not admin_locals and admin.get("name"):
+        admin_locals = [admin["name"]]   # seed so my_names keeps the host's own seat
+    admin_locals.append(name)
+    admin["local_names"] = admin_locals
+    admin["afk_notice"] = {"reason": "afk_absorbing", "seat": name, "seq": seq}
+    return True
 
 
 def _draw(deck) -> Card:
@@ -481,6 +561,7 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_targets = []
     session._targeted_drinking_streaks = {}
     session._targeted_drinking_losing_streaks = {}
+    session._targeted_drinking_afk_strikes = {}
     session._targeted_drinking_total_sips = {}
     session._targeted_drinking_correct_counts = {}
     session._targeted_drinking_wrong_counts = {}
