@@ -461,6 +461,12 @@ class DrinkingRules:
             for hand in p.hands:
                 if hand.result != "loss":
                     continue
+                if hand.doubled and hand.is_suited():
+                    # Multiplicative: loss x2 (doubled) x2 (suited) = 4x wager total,
+                    # of which 1x is the net-loss sip, so the extra is 3x.
+                    msgs.append((p.name, wager * 3,
+                        f"{p.name} lost a doubled + suited hand => +{wager * 3} sip(s) (4x total)"))
+                    continue
                 if hand.doubled:
                     msgs.append((p.name, wager,
                         f"{p.name} lost a doubled hand => +{wager} sip(s)"))

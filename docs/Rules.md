@@ -232,6 +232,7 @@ Only **net negative** scores result in drinking. Positives are disregarded.
 | --------- | ---------- |
 | Lost hand was doubled | +1 sip |
 | Lost hand was suited | +1 sip |
+| Lost hand was doubled **and** suited | +3 sips (4 total with the base loss) |
 
 
 ### 5.2 Other Player's Results

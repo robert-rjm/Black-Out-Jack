@@ -61,6 +61,7 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 | Net hand lost | 1 (wager) |
 | Lost hand was doubled | +1 |
 | Lost hand was suited | +1 |
+| Lost hand was doubled + suited | +3 (4 total) |
 
 ---
 
