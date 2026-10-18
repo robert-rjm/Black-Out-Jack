@@ -24,12 +24,12 @@ def test_card_dealt_dispatch():
     event = CardDealtEvent(
         card=card, recipient="Alice", card_pos=1,
         all_names=["Alice", "Bob"], dealer_name="Bob",
-        ace_clubs_flag={}, is_dealer_hand=False,
+        ace_clubs_flag={}, is_dealer_hand=False, wager=1,
     )
     with patch.object(DrinkingRules, "on_card_dealt", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
-        card, "Alice", 1, ["Alice", "Bob"], "Bob", {}, is_dealer_hand=False,
+        card, "Alice", 1, ["Alice", "Bob"], "Bob", {}, is_dealer_hand=False, wager=1,
     )
     assert result == "SENTINEL"
 
@@ -39,7 +39,7 @@ def test_blackjack_dispatch():
     event = BlackjackEvent(player_name="Alice", hand=hand, all_names=["Alice", "Bob"])
     with patch.object(DrinkingRules, "on_blackjack", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
-    m.assert_called_once_with("Alice", hand, ["Alice", "Bob"], hard_switch_dealer="")
+    m.assert_called_once_with("Alice", hand, ["Alice", "Bob"], hard_switch_dealer="", wager=1)
     assert result == "SENTINEL"
 
 
@@ -53,7 +53,7 @@ def test_insurance_resolved_dispatch():
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
         "Alice", hand, ["Alice", "Bob"], insured=True, dealer_bj=False,
-        hard_switch_dealer="",
+        hard_switch_dealer="", wager=1,
     )
     assert result == "SENTINEL"
 
@@ -88,7 +88,7 @@ def test_dealer_hand_revealed_dispatch():
     event = DealerHandRevealedEvent(dealer_hand=hand)
     with patch.object(DrinkingRules, "on_dealer_hand_revealed", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
-    m.assert_called_once_with(hand)
+    m.assert_called_once_with(hand, wager=1)
     assert result == "SENTINEL"
 
 
@@ -108,7 +108,7 @@ def test_hard_dealer_switch_dispatch():
     event = HardDealerSwitchEvent(dealer_name="Dealer", winning_hands=[("Bob", hand)])
     with patch.object(DrinkingRules, "on_hard_dealer_switch", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
-    m.assert_called_once_with("Dealer", [("Bob", hand)], half_protected=False)
+    m.assert_called_once_with("Dealer", [("Bob", hand)], half_protected=False, wager=1)
     assert result == "SENTINEL"
 
 

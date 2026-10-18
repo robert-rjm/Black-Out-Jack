@@ -36,6 +36,11 @@ def _bj_breakdown(hand: Hand) -> tuple[int, list[str]]:
     return mult, parts
 
 
+def _sips(n: int) -> str:
+    """'1 sip' / '2 sips' label for a sip count."""
+    return f"{n} sip" if n == 1 else f"{n} sips"
+
+
 def _bj_multiplier(hand: Hand) -> int:
     """Cumulative x2 multiplier for blackjack bonus sips."""
     mult, _ = _bj_breakdown(hand)
@@ -68,7 +73,8 @@ class DrinkingRules:
     def on_card_dealt(card, recipient: str, card_pos: int,
                       all_player_names: list, dealer_name: str,
                       ace_clubs_flag: dict,
-                      is_dealer_hand: bool = False) -> list:
+                      is_dealer_hand: bool = False,
+                      wager: int = 1) -> list:
         """
         Called immediately after each card is physically dealt.
         card_pos: 1-indexed position of this card in the recipient's current hand.
@@ -76,6 +82,7 @@ class DrinkingRules:
         is_dealer_hand: True only when the card goes to the dealer's *dealer hand*,
                         NOT when it goes to the dealer-player's own betting hands.
         Only fires on Aces — all other cards return [].
+        wager: every ace sip/credit is 1 x wager.
         """
         if card.rank != Rank.ACE:
             return []
@@ -95,21 +102,21 @@ class DrinkingRules:
                     ace_clubs_flag["dealer_player_pending_credit"] = recipient
                     msgs.append((None, 0,
                         f"A{s.symbol} dealt to {recipient} (also dealer) "
-                        f"=> partial Hard Switch protection; -1 sip credit applies only if no hard switch"))
+                        f"=> partial Hard Switch protection; -{_sips(wager)} credit applies only if no hard switch"))
                 else:
-                    msgs.append((recipient, -1,
-                        f"A{s.symbol} dealt to {recipient} => -1 sip credit at round end"))
+                    msgs.append((recipient, -wager,
+                        f"A{s.symbol} dealt to {recipient} => -{_sips(wager)} credit at round end"))
             elif s == Suit.SPADES:
                 idx    = all_player_names.index(recipient)
                 target = all_player_names[(idx + card_pos) % len(all_player_names)]
-                msgs.append((target, 1,
-                    f"A{s.symbol} dealt to {recipient} (card #{card_pos}) => {target} drinks 1 sip"))
+                msgs.append((target, wager,
+                    f"A{s.symbol} dealt to {recipient} (card #{card_pos}) => {target} drinks {_sips(wager)}"))
             elif s == Suit.HEARTS:
-                msgs.append((recipient, 1,
-                    f"A{s.symbol} dealt to {recipient} => {recipient} drinks 1 sip"))
+                msgs.append((recipient, wager,
+                    f"A{s.symbol} dealt to {recipient} => {recipient} drinks {_sips(wager)}"))
             elif s == Suit.DIAMONDS:
-                msgs.append((dealer_name, 1,
-                    f"A{s.symbol} dealt to {recipient} => {dealer_name} (dealer) drinks 1 sip",
+                msgs.append((dealer_name, wager,
+                    f"A{s.symbol} dealt to {recipient} => {dealer_name} (dealer) drinks {_sips(wager)}",
                     "dealer"))
         else:
             if s == Suit.CLUBS:
@@ -119,18 +126,18 @@ class DrinkingRules:
                     " => half Hard Switch protection (drinks ceil of total/2)"))
             elif s == Suit.SPADES:
                 if card_pos % 2 == 1:
-                    msgs.append((dealer_name, 1,
-                        f"A{s.symbol} to dealer (card #{card_pos}, odd) => {dealer_name} drinks 1 sip",
+                    msgs.append((dealer_name, wager,
+                        f"A{s.symbol} to dealer (card #{card_pos}, odd) => {dealer_name} drinks {_sips(wager)}",
                         "dealer"))
                 else:
-                    msgs.append(("all", 1,
-                        f"A{s.symbol} to dealer (card #{card_pos}, even) => everyone drinks 1 sip"))
+                    msgs.append(("all", wager,
+                        f"A{s.symbol} to dealer (card #{card_pos}, even) => everyone drinks {_sips(wager)}"))
             elif s == Suit.HEARTS:
-                msgs.append(("all", 1,
-                    f"A{s.symbol} dealt to dealer => everyone drinks 1 sip"))
+                msgs.append(("all", wager,
+                    f"A{s.symbol} dealt to dealer => everyone drinks {_sips(wager)}"))
             elif s == Suit.DIAMONDS:
-                msgs.append(("players_only", 1,
-                    f"A{s.symbol} dealt to dealer => all non-dealer players drink 1 sip"))
+                msgs.append(("players_only", wager,
+                    f"A{s.symbol} dealt to dealer => all non-dealer players drink {_sips(wager)}"))
 
         return msgs
 
@@ -138,7 +145,7 @@ class DrinkingRules:
 
     @staticmethod
     def check_four_aces(all_cards: list, phase: str,
-                        triggered_first_deal: bool) -> tuple:
+                        triggered_first_deal: bool, wager: int = 1) -> tuple:
         """
         Check if all 4 aces are visible.
         phase: 'first_deal' | 'end_of_round'
@@ -148,11 +155,11 @@ class DrinkingRules:
         if sum(1 for c in all_cards if c.rank == Rank.ACE) < 4:
             return [], triggered_first_deal
         if phase == "first_deal":
-            return [("all", 2,
-                "All 4 Aces on table after first deal => everyone drinks 2 sips")], True
+            return [("all", 2 * wager,
+                f"All 4 Aces on table after first deal => everyone drinks {_sips(2 * wager)}")], True
         if phase == "end_of_round" and not triggered_first_deal:
-            return [("all", 1,
-                "All 4 Aces visible at end of round => everyone drinks 1 sip")], False
+            return [("all", wager,
+                f"All 4 Aces visible at end of round => everyone drinks {_sips(wager)}")], False
         return [], triggered_first_deal
 
     # ---------------------------------------------------------------- blackjack bonus
@@ -160,7 +167,8 @@ class DrinkingRules:
     @staticmethod
     def on_blackjack(player_name: str, hand: Hand,
                      all_player_names: list,
-                     hard_switch_dealer: str = "") -> list:
+                     hard_switch_dealer: str = "",
+                     wager: int = 1) -> list:
         """
         Called for uninsured blackjacks only (no group vote, or vote was decline
         and dealer had no blackjack). Fires normal BJ bonus drinks.
@@ -168,7 +176,7 @@ class DrinkingRules:
         hard_switch_dealer: dealer-player is exempt on a Hard Dealer Switch.
         """
         mult, parts = _bj_breakdown(hand)
-        sips   = mult
+        sips   = mult * wager
         detail = f" ({' '.join(parts)})" if parts else ""
         others = [p for p in all_player_names
                   if p != player_name and p != hard_switch_dealer]
@@ -180,7 +188,8 @@ class DrinkingRules:
     def resolve_insurance_vote(player_name: str, hand: Hand,
                                all_player_names: list,
                                insured: bool, dealer_bj: bool,
-                               hard_switch_dealer: str = "") -> list:
+                               hard_switch_dealer: str = "",
+                               wager: int = 1) -> list:
         """
         Resolve a group-voted insurance decision at round end.
 
@@ -210,7 +219,7 @@ class DrinkingRules:
         Case 4 — Decline + no dealer BJ:
             Normal BJ bonus (group drinks as usual).
         """
-        mult   = _bj_multiplier(hand)
+        mult   = _bj_multiplier(hand) * wager
         # others: everyone except the BJ holder and (on hard switch) the dealer-player.
         # When player_name == hard_switch_dealer they are the same person.
         others = [p for p in all_player_names
@@ -254,7 +263,8 @@ class DrinkingRules:
 
         # ---- Case 4: declined + no dealer BJ — normal BJ bonus ----
         return DrinkingRules.on_blackjack(player_name, hand, all_player_names,
-                                          hard_switch_dealer=hard_switch_dealer)
+                                          hard_switch_dealer=hard_switch_dealer,
+                                          wager=wager)
 
     # ---------------------------------------------------------------- hand resolved
 
@@ -284,8 +294,9 @@ class DrinkingRules:
 
         # 21 with 5+ cards: suppress hand-out when dealer has blackjack
         if not dealer_bj and hand.score() == 21 and len(hand.cards) >= 5:
-            msgs.append((player_name, -len(hand.cards),
-                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {len(hand.cards)} sips",
+            handout = len(hand.cards) * wager
+            msgs.append((player_name, -handout,
+                f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {handout} sips",
                 "handout"))
 
         if hand.result != "win":
@@ -394,14 +405,14 @@ class DrinkingRules:
     # ---------------------------------------------------------------- dealer suited hand
 
     @staticmethod
-    def on_dealer_hand_revealed(dealer_hand: Hand) -> list:
+    def on_dealer_hand_revealed(dealer_hand: Hand, wager: int = 1) -> list:
         """
         Called once the dealer's full hand is visible.
         Fires regardless of win/loss/bust.
         """
         if dealer_hand.is_suited() and len(dealer_hand.cards) >= 2:
             sym = dealer_hand.cards[0].suit.symbol
-            return [("all", 2, f"Dealer hand is all {sym} => everyone drinks 2 sips")]
+            return [("all", 2 * wager, f"Dealer hand is all {sym} => everyone drinks {2 * wager} sips")]
         return []
 
     # ---------------------------------------------------------------- round end
@@ -566,7 +577,8 @@ class DrinkingRules:
 
     @staticmethod
     def on_hard_dealer_switch(dealer_name: str, winning_hands: list,
-                               half_protected: bool = False) -> list:
+                               half_protected: bool = False,
+                               wager: int = 1) -> list:
         """
         Called when the dealer loses ALL hands (push != loss).
         winning_hands: list of (player_name, Hand) tuples — caller is responsible
@@ -580,17 +592,17 @@ class DrinkingRules:
         for pname, hand in winning_hands:
             if hand.is_blackjack():
                 if pname == dealer_name:
-                    s = 1
-                    lines.append(f"{pname} blackjack (own hand) => 1 sip (no multiplier)")
+                    s = 1 * wager
+                    lines.append(f"{pname} blackjack (own hand) => {_sips(s)} (no multiplier)")
                 else:
-                    s = 2
-                    lines.append(f"{pname} blackjack => 2 sips")
+                    s = 2 * wager
+                    lines.append(f"{pname} blackjack => {_sips(s)}")
             elif hand.doubled:
-                s = 2
-                lines.append(f"{pname} doubled win => 2 sips")
+                s = 2 * wager
+                lines.append(f"{pname} doubled win => {_sips(s)}")
             else:
-                s = 1
-                lines.append(f"{pname} regular win => 1 sip")
+                s = 1 * wager
+                lines.append(f"{pname} regular win => {_sips(s)}")
             total += s
 
         detail = "; ".join(lines)
@@ -637,17 +649,20 @@ class DrinkingRules:
                     event.card, event.recipient, event.card_pos,
                     event.all_names, event.dealer_name, event.ace_clubs_flag,
                     is_dealer_hand=event.is_dealer_hand,
+                    wager=event.wager,
                 )
             case BlackjackEvent():
                 return DrinkingRules.on_blackjack(
                     event.player_name, event.hand, event.all_names,
                     hard_switch_dealer=event.hard_switch_dealer,
+                    wager=event.wager,
                 )
             case InsuranceResolvedEvent():
                 return DrinkingRules.resolve_insurance_vote(
                     event.player_name, event.hand, event.all_names,
                     insured=event.insured, dealer_bj=event.dealer_bj,
                     hard_switch_dealer=event.hard_switch_dealer,
+                    wager=event.wager,
                 )
             case HandResolvedEvent():
                 return DrinkingRules.on_hand_resolved(
@@ -663,7 +678,8 @@ class DrinkingRules:
                     hard_switch_dealer=event.hard_switch_dealer,
                 )
             case DealerHandRevealedEvent():
-                return DrinkingRules.on_dealer_hand_revealed(event.dealer_hand)
+                return DrinkingRules.on_dealer_hand_revealed(
+                    event.dealer_hand, wager=event.wager)
             case RoundEndEvent():
                 return DrinkingRules.on_round_end(
                     event.players, event.wager,
@@ -676,6 +692,7 @@ class DrinkingRules:
                 return DrinkingRules.on_hard_dealer_switch(
                     event.dealer_name, event.winning_hands,
                     half_protected=event.half_protected,
+                    wager=event.wager,
                 )
             case _:
                 raise NotImplementedError(
@@ -776,15 +793,15 @@ class DrinkTracker:
 
     # ---------------------------------------------------------------- ace of clubs credit
 
-    def apply_ace_clubs_credit(self, player: Player):
+    def apply_ace_clubs_credit(self, player: Player, amount: int = 1):
         """
-        Apply -1 sip credit from Ace of Clubs AFTER net losses are calculated.
+        Apply -amount (1 x wager) sip credit from Ace of Clubs AFTER net losses are calculated.
         Minimum net result is 0 (credit cannot go negative).
         """
         if player.drinks_owed() > 0:
-            player.add_drink(-1, f"{player.name} A♣ credit: -1 sip", "player")
+            player.add_drink(-amount, f"{player.name} A♣ credit: -{_sips(amount)}", "player")
             if self.verbose:
-                print(f"    (i) {player.name} A♣ credit applied: -1 sip")
+                print(f"    (i) {player.name} A♣ credit applied: -{_sips(amount)}")
 
     # ---------------------------------------------------------------- handout
 

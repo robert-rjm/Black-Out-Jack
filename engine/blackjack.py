@@ -453,11 +453,11 @@ class RoundManager:
                 card=card, recipient=recipient_name, card_pos=card_pos,
                 all_names=self._all_names, dealer_name=self.dealer_player.name,
                 ace_clubs_flag=self._ace_clubs_flag,
-                is_dealer_hand=is_dealer_hand,
+                is_dealer_hand=is_dealer_hand, wager=self.wager,
             ))
             for msg in msgs:
                 _, s, reason = msg[0], msg[1], msg[2]
-                if s == -1:
+                if s < 0:
                     self._ace_credits.append(recipient_name)
                     print(f"    (i) {reason}")
                 else:
@@ -486,7 +486,7 @@ class RoundManager:
         all_cards = ([c for p in self.players for h in p.hands for c in h.cards]
                      + self.dealer_player.dealer_hand.cards)
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, phase, self._four_aces_fd)
+            all_cards, phase, self._four_aces_fd, wager=self.wager)
         self.tracker.apply(msgs)
 
     # ---------------------------------------------------------------- insurance vote
@@ -584,6 +584,7 @@ class RoundManager:
                 from engine.events import BlackjackEvent
                 self._drink(DrinkingRules.handle(BlackjackEvent(
                     player_name=player.name, hand=hand, all_names=self._all_names,
+                    wager=self.wager,
                 )))
             return
 
@@ -658,6 +659,7 @@ class RoundManager:
                         from engine.events import BlackjackEvent
                         self._drink(DrinkingRules.handle(BlackjackEvent(
                             player_name=player.name, hand=hand, all_names=self._all_names,
+                            wager=self.wager,
                         )))
                 # No return: while loop exits if hand.stood, or continues for hit/stand/double
                 # new_hand is played when _player_turns increments to the next idx
@@ -693,7 +695,8 @@ class RoundManager:
         if self.drinking_mode:
             from engine.drinking_rules import DrinkingRules
             from engine.events import DealerHandRevealedEvent
-            self._drink(DrinkingRules.handle(DealerHandRevealedEvent(dealer_hand=d_hand)))
+            self._drink(DrinkingRules.handle(DealerHandRevealedEvent(
+                dealer_hand=d_hand, wager=self.wager)))
 
     # ---------------------------------------------------------------- evaluation
 
@@ -743,7 +746,7 @@ class RoundManager:
                             # No vote was held (dealer didn't show Ace) — normal BJ bonus
                             self._drink(DrinkingRules.handle(BlackjackEvent(
                                 player_name=p.name, hand=hand, all_names=self._all_names,
-                                hard_switch_dealer=exempt_dealer,
+                                hard_switch_dealer=exempt_dealer, wager=self.wager,
                             )))
                     self._drink(DrinkingRules.handle(HandResolvedEvent(
                         player_name=p.name, hand=hand, all_names=self._all_names,
@@ -756,7 +759,7 @@ class RoundManager:
                 self._drink(DrinkingRules.handle(InsuranceResolvedEvent(
                     player_name=p.name, hand=hand, all_names=self._all_names,
                     insured=insured, dealer_bj=dealer_bj,
-                    hard_switch_dealer=exempt_dealer,
+                    hard_switch_dealer=exempt_dealer, wager=self.wager,
                 )))
 
             if hard_switch:
@@ -786,7 +789,7 @@ class RoundManager:
                     ]
                 self._drink(DrinkingRules.handle(HardDealerSwitchEvent(
                     dealer_name=self.dealer_player.name, winning_hands=hs_for_penalty,
-                    half_protected=half_protected,
+                    half_protected=half_protected, wager=self.wager,
                 )))
 
     def _round_end_drinks(self):
@@ -813,7 +816,7 @@ class RoundManager:
         )))
         for name in self._ace_credits:
             p = next((x for x in self.players if x.name.lower() == name.lower()), None)
-            if p: self.tracker.apply_ace_clubs_credit(p)
+            if p: self.tracker.apply_ace_clubs_credit(p, self.wager)
 
     # ---------------------------------------------------------------- display
 

@@ -88,7 +88,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 |---|---|
 | Dealer stands on | All 17s (including soft 17) |
 | Double down | Allowed on any two-card hand, including after any split |
-| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)). Deviating on an unsuited 10-pair instead ("without honor") costs 1 sip. Splitting a **suited** 10-pair (a 20) is **not** mandatory, choosing to split it anyway costs 1 sip. |
+| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)). Deviating on an unsuited 10-pair instead ("without honor") costs 1× wager. Splitting a **suited** 10-pair (a 20) is **not** mandatory, choosing to split it anyway costs 1× wager. |
 | Splitting | Maximum 5 splits per starting hand |
 
 
@@ -121,8 +121,8 @@ If multiple Players have Blackjack, a separate vote is held for each in deal ord
 | **Insure** | BJ holder drinks their own bonus. Hand pushes. Group drinks nothing. | Group drinks double the normal BJ bonus. |
 | **Decline** | Normal auto-insurance applies (max hands x wager, no extras). | Normal BJ bonus (group drinks as usual). |
 
-> **Example:** PlayerA has A♠ + J♠ (suited, A+J, both black = 8 sips normally).
-> Group votes insure + dealer has no BJ: group each drinks 16 sips.
+> **Example (wager 1):** PlayerA has A♠ + J♠ (suited, A+J, both black = 8× wager normally).
+> Group votes insure + dealer has no BJ: group each drinks 16× wager (16 sips).
 > Group votes decline + dealer has BJ: auto-insurance, max 2 sips only.
 
 **Hard Dealer Switch interaction (Insure + no dealer BJ only):**
@@ -147,29 +147,29 @@ These effects fire **immediately** when they occur. They are **never halved** by
 
 | Card | Effect |
 |---|---|
-| ♣ Ace of Clubs | -1 sip from end-of-round net total (minimum 0). If you are also the Dealer, your own player hands are excluded from the Hard Switch penalty. |
-| ♠ Ace of Spades | If dealt as 1st card, next Player drinks 1 sip. 2nd card → 2nd Player, etc. |
-| ♥ Ace of Hearts | Treat yourself to a sip (drink 1 sip) |
-| ♦ Ace of Diamonds | Dealer drinks 1 sip |
+| ♣ Ace of Clubs | -1× wager from end-of-round net total (minimum 0). If you are also the Dealer, your own player hands are excluded from the Hard Switch penalty. |
+| ♠ Ace of Spades | If dealt as 1st card, next Player drinks 1× wager. 2nd card → 2nd Player, etc. |
+| ♥ Ace of Hearts | Treat yourself to a sip (drink 1× wager) |
+| ♦ Ace of Diamonds | Dealer drinks 1× wager |
 
 **Dealt to Dealer**
 
 | Card | Effect |
 |---|---|
 | ♣ Ace of Clubs | Dealer drinks only half the Hard Dealer Switch penalty (rounded up). |
-| ♠ Ace of Spades | Odd card (1st, 3rd, ...) → Dealer drinks 1 sip. Even card (2nd, 4th, ...) → all Players drink 1 sip |
-| ♥ Ace of Hearts | All Players treat themselves to a sip (everyone drinks 1 sip) |
-| ♦ Ace of Diamonds | All Players except Dealer drink 1 sip |
+| ♠ Ace of Spades | Odd card (1st, 3rd, ...) → Dealer drinks 1× wager. Even card (2nd, 4th, ...) → all Players drink 1× wager |
+| ♥ Ace of Hearts | All Players treat themselves to a sip (everyone drinks 1× wager) |
+| ♦ Ace of Diamonds | All Players except Dealer drink 1× wager |
 
 
 ### 4.2 Dealer Suited Hand
 
-If the Dealer's final hand is entirely one suit, all Players drink 2 sips (regardless of Dealer win/loss/bust).
+If the Dealer's final hand is entirely one suit, all Players drink 2× wager (regardless of Dealer win/loss/bust).
 
 
 ### 4.3 Four Aces on First Deal
 
-If all 4 Aces are visible after the first deal (before any hits), everyone drinks 2 sips. This includes all Player hands and the Dealer's face-up card.
+If all 4 Aces are visible after the first deal (before any hits), everyone drinks 2× wager. This includes all Player hands and the Dealer's face-up card.
 
 
 ### 4.4 Side Bet Dealer Bust
@@ -180,8 +180,8 @@ This feature can be toggled on or off by the host at any time
 
 | Player's Vote | Effect |
 | --- | --- |
-| Correctly voted bust| -1 sip and 1 sip handout to any other player |
-| Incorrectly voted bust | +1 sip penalty |
+| Correctly voted bust| -1× wager and a 1× wager handout to any other player |
+| Incorrectly voted bust | +1× wager penalty |
 | Abstain / no bet | No effect |
 
 - The sip credit and handout are separate, credit offsets own drinks while handout goes to someone else.
@@ -196,9 +196,9 @@ This feature can be toggled on or off by the host at any time
 - Target is chosen by the triggering card's **position within its hand**: the circle advances that many seats clockwise from the recipient — `(recipient_index + card_position) % number_of_players`. If the 3rd six/seven was the 1st card in its hand (+1), the next player is the target; if it was the 2nd card (+2), the player two seats clockwise is the target; and so on.
 - Each rule fires at most once per round. Both can fire in the same round.
 
-**Devil's Hand** — when the **3rd six** becomes visible, the target drinks **1 sip** immediately.
+**Devil's Hand** — when the **3rd six** becomes visible, the target drinks **1× wager** immediately.
 
-**Lucky Sevens** — when the **3rd seven** becomes visible, the target receives a **−1 sip credit** (reduces end-of-round net total by 1, minimum 0).
+**Lucky Sevens** — when the **3rd seven** becomes visible, the target receives a **−1× wager credit** (reduces end-of-round net total by 1× wager, minimum 0).
 
 
 
@@ -276,11 +276,11 @@ Even if you won all your hands, you still drink if another Player wins with:
 
 ### 5.3 Blackjack Bonus
 
-When any Player gets a Blackjack, **all other Players** drinks 1 sip (regardless of own result).
+When any Player gets a Blackjack, **all other Players** drink 1× wager (regardless of own result).
 This includes Blackjacks from split Aces.
 No immunity applies.
 
-The base 1 sip is **doubled cumulatively** for:
+The base 1× wager is **doubled cumulatively** for:
 
 | Condition | Multiplier |
 | --------- | ---------- |
@@ -289,9 +289,9 @@ The base 1 sip is **doubled cumulatively** for:
 | Both cards are black (♠ or ♣) | ×2 |
 
 > **Examples:**
-> A♥ + K♦ → **1 sip**
-> A♥ + J♥ → suited + A&J: 1×2×2 = **4 sips**
-> A♠ + J♠ → suited + A&J + black: 1×2×2×2 = **8 sips**
+> A♥ + K♦ → **1× wager**
+> A♥ + J♥ → suited + A&J: 1×2×2 = **4× wager**
+> A♠ + J♠ → suited + A&J + black: 1×2×2×2 = **8× wager** (8 sips at wager 1)
 
 
 ### 5.4 5+ Cards (Handouts)
@@ -300,7 +300,7 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 
 | # | Who | Condition | Effect |
 |---|-----|-----------|--------|
-| 1 | Player | **Exactly 21** | Distribute sips equal to card count to other Players (e.g. 6 cards = 6 sips distributed) |
+| 1 | Player | **Exactly 21** | Distribute card count × wager sips to other Players (e.g. 6 cards at wager 1 = 6 sips distributed) |
 | 2 | Player | **Wins** | All other Players drink 1× wager |
 | 3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round |
 
@@ -326,7 +326,7 @@ If every card across all of a Player's final hands shares **entirely the same su
 
 ### 5.6 Four Aces at End of Round
 
-If all 4 Aces are visible at end of round (but were **not** all visible on first deal), everyone drinks 1 sip.
+If all 4 Aces are visible at end of round (but were **not** all visible on first deal), everyone drinks 1× wager.
 
 > Cannot stack with [Four Aces on First Deal](#43-four-aces-on-first-deal) (first-deal rule takes precedence).
 
@@ -337,9 +337,9 @@ Triggered when the Dealer loses all hands. Dealer drinks based on all Players' w
 
 | Hand type | Sips the Dealer drinks |
 |---|---|
-| Regular winning hand | 1 sip |
-| Blackjack | 2 sips (Players also drink per [Blackjack Bonus](#53-blackjack-bonus)) |
-| Doubled winning hand | 2 sips |
+| Regular winning hand | 1× wager |
+| Blackjack | 2× wager (Players also drink per [Blackjack Bonus](#53-blackjack-bonus)) |
+| Doubled winning hand | 2× wager |
 | Split hands | Each counted separately (no extra sip for the split itself) |
 | Suited hands | No extra sips for Dealer |
 
@@ -352,14 +352,14 @@ On a Hard Switch, the Dealer's player-role drinking is **replaced entirely** by 
 
 **Exceptions within the Hard Switch calculation:**
 
-- Dealer's own Blackjack counts as 1 sip (no multiplier)
+- Dealer's own Blackjack counts as 1× wager (no multiplier)
 
 **Ace of Clubs protections:**
 
 | ♣A dealt to | Effect |
 | ----------- | ------ |
 | Dealer's **dealer hand** | Switch still occurs, but Dealer drinks **halved sips**. Other players drink normally. |
-| Dealer's **player hand** | Dealer's own player hands excluded from penalty calculation. −1 sip credit only applies if no hard switch fires. |
+| Dealer's **player hand** | Dealer's own player hands excluded from penalty calculation. −1× wager credit only applies if no hard switch fires. |
 
 
 ### 5.8 Milestone Handouts
@@ -393,15 +393,15 @@ If another Player's losing streak grows **strictly longer** than the current hol
 
 If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards) — the only way this can happen is as the dealt starting hand, since the Dealer always stands on 17+ — every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
 
-Each Player picks a stake **X = 0-5 sips** (20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule — and if a hand's new card itself forms another matching pair, it splits again the same way a Player's hand would, so a hot run of 9s or tens can turn this into three, four, or more hands, up to **5 hands total across both branches combined** (not per branch).
+Each Player picks a stake **X = 0-5 wagers** (X × wager sips; 20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule — and if a hand's new card itself forms another matching pair, it splits again the same way a Player's hand would, so a hot run of 9s or tens can turn this into three, four, or more hands, up to **5 hands total across both branches combined** (not per branch).
 
 | Result | Effect |
 | --- | --- |
-| 2 or more hands bust | Credit yourself `credit` = min(X, what you owe this round) sips (never below 0), and hand out ceil(credit/2) sips to another Player |
+| 2 or more hands bust | Credit yourself `credit` = min(X × wager, what you owe this round) sips (never below 0), and hand out ceil(credit/2) sips to another Player |
 | Exactly 1 hand busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) sips, **capped at 10** |
+| No hand busts | Drink X × (hands − 1) × wager sips, **capped at 10 × wager** |
 
-The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive — up to a **10-sip ceiling** on the drink. The cap exists because the two sides aren't symmetric: the credit is floored at what you actually owe this round, while the drink had no ceiling at all, so X=5 standing through a full 5-hand chain was 20 sips off a single post-round side bet.
+The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive — up to a **10 × wager ceiling** on the drink. The cap exists because the two sides aren't symmetric: the credit is floored at what you actually owe this round, while the drink had no ceiling at all, so X=5 standing through a full 5-hand chain was 20 sips off a single post-round side bet.
 
 The handout amount is always halved (rounded up), regardless of player count or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1) up to the cap, and the self-credit is never halved either. The handout is derived from the **credit actually received**, not the raw stake X — staking more than you currently owe can't buy outsized handout power on the side; the whole win (credit + handout) tops out at what X could actually offset, or nothing at all if you didn't owe anything this round to begin with.
 

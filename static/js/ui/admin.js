@@ -663,10 +663,12 @@ class BustGivePanel {
       ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
       : "";
 
+    const _bw = (typeof state !== "undefined" && state && state.wager) || 1;
+    const _bwStr = `${_bw} ${_bw === 1 ? "sip" : "sips"}`;
     body.innerHTML = pending.map((winnerName, idx) => {
       const label = pending.length > 1
-        ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give 1 sip to:`
-        : "🎉 You called it! Give 1 sip to:";
+        ? `🎉 <strong>${escapeHtml(winnerName)}</strong> called it! Give ${_bwStr} to:`
+        : `🎉 You called it! Give ${_bwStr} to:`;
       // No onclick= here -- mount()'s delegated listener handles taps.
       const btns = allPlayers
         .filter(n => n.toLowerCase() !== winnerName.toLowerCase())
@@ -1251,7 +1253,8 @@ function showBustHandoutToast(results) {
   const _myNames = (typeof myNames !== "undefined" && myNames) ? myNames : [];
   const parts = results.map(r => {
     if (r.forfeited) return `⏱️ ${r.winner} didn't choose in time — drinks it themselves`;
-    return `🎁 ${r.winner} gave 1 sip to ${r.recipient}`;
+    const _gw = (typeof state !== "undefined" && state && state.wager) || 1;
+    return `🎁 ${r.winner} gave ${_gw} ${_gw === 1 ? "sip" : "sips"} to ${r.recipient}`;
   });
   // Red if I gave away a sip or forfeited (drink), green otherwise.
   const iDrink = results.some(r =>

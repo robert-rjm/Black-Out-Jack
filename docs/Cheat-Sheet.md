@@ -24,10 +24,10 @@
 
 | Ace | Dealt to Player | Dealt to Dealer |
 |-----|----------------|-----------------|
-| ♣ Clubs | −1 from your net sips | Dealer exempt from Hard Switch |
-| ♠ Spades | Next Player(s) drink 1 | Odd card → Dealer drinks 1. Even → all Players drink 1 |
-| ♥ Hearts | You drink 1 | All Players drink 1 |
-| ♦ Diamonds | Dealer drinks 1 | All Players (except Dealer) drink 1 |
+| ♣ Clubs | −1× wager from your net sips | Dealer exempt from Hard Switch |
+| ♠ Spades | Next Player(s) drink 1× wager | Odd card → Dealer drinks 1× wager. Even → all Players drink 1× wager |
+| ♥ Hearts | You drink 1× wager | All Players drink 1× wager |
+| ♦ Diamonds | Dealer drinks 1× wager | All Players (except Dealer) drink 1× wager |
 
 ---
 
@@ -37,8 +37,8 @@ Before the first deal, each Player can bet the Dealer busts (host can toggle thi
 
 | Your vote | Effect |
 |-----------|--------|
-| Correct (Dealer busted) | −1 sip credit + hand 1 sip out to anyone |
-| Wrong (Dealer didn't bust) | +1 sip penalty |
+| Correct (Dealer busted) | −1× wager credit + hand 1× wager out to anyone |
+| Wrong (Dealer didn't bust) | +1× wager penalty |
 | Abstain | Nothing |
 
 ---
@@ -49,8 +49,8 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 
 | Trigger | Effect |
 |---------|--------|
-| 3rd six becomes visible (Devil's Hand) | Target drinks 1 sip immediately |
-| 3rd seven becomes visible (Lucky Sevens) | Target gets −1 sip credit |
+| 3rd six becomes visible (Devil's Hand) | Target drinks 1× wager immediately |
+| 3rd seven becomes visible (Lucky Sevens) | Target gets −1× wager credit |
 
 ---
 
@@ -88,7 +88,7 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 
 ## Blackjack Bonus (always applies)
 
-Everyone drinks **1 sip** when any Player gets Blackjack. Multiplied:
+Everyone drinks **1× wager** when any Player gets Blackjack. Multiplied:
 
 | Condition | Multiplier |
 |-----------|:----------:|
@@ -96,7 +96,7 @@ Everyone drinks **1 sip** when any Player gets Blackjack. Multiplied:
 | Ace + Jack specifically | ×2 |
 | Both cards black (♠/♣) | ×2 |
 
-> Max: A♠ + J♠ = 1×2×2×2 = **8 sips** 💀
+> Max: A♠ + J♠ = 1×2×2×2 = **8× wager** 💀
 
 ---
 
@@ -116,12 +116,12 @@ If **one Player's** hands (all of them, if split) are *entirely* one suit, or *a
 
 | Event | Effect |
 |-------|--------|
-| Player hits 21 with 5+ cards | Hand out sips = number of cards |
+| Player hits 21 with 5+ cards | Hand out cards × wager sips |
 | Player **wins** with 5+ cards | All others drink 1× wager |
 | Dealer hits 21 with 5+ cards | All wagers doubled this round |
-| Dealer's hand is suited | All Players drink 2 |
-| All 4 Aces on first deal | Everyone drinks 2 |
-| All 4 Aces at end of round | Everyone drinks 1 |
+| Dealer's hand is suited | All Players drink 2× wager |
+| All 4 Aces on first deal | Everyone drinks 2× wager |
+| All 4 Aces at end of round | Everyone drinks 1× wager |
 
 ---
 
@@ -131,9 +131,9 @@ If **one Player's** hands (all of them, if split) are *entirely* one suit, or *a
 
 | Players' winning hand type | Dealer drinks |
 |----------------------------|:-------------:|
-| Regular | 1 |
-| Blackjack | 2 |
-| Doubled | 2 |
+| Regular | 1× wager |
+| Blackjack | 2× wager |
+| Doubled | 2× wager |
 | Split | Each hand separately |
 | Suited | 0 extra |
 
@@ -158,13 +158,13 @@ Cross a multiple of **50 cumulative sips** → earn bonus sips to hand out (5 at
 
 ## Dealer Lottery
 
-Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value cards) → everyone picks a stake **X = 0-5** and the pair redeals into fresh hands (re-splits again on another matching pair, capped at 5 hands total across both branches):
+Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value cards) → everyone picks a stake **X = 0-5 wagers** and the pair redeals into fresh hands (re-splits again on another matching pair, capped at 5 hands total across both branches):
 
 | Result | Effect |
 |--------|--------|
-| 2+ hands bust | Credit = min(X, what you owe) sips, hand ceil(credit/2) out to another Player (always halved) |
+| 2+ hands bust | Credit = min(X × wager, what you owe) sips, hand ceil(credit/2) out to another Player (always halved) |
 | Exactly 1 busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) sips, max 10 (never halved) |
+| No hand busts | Drink X × (hands − 1) × wager sips, max 10 × wager (never halved) |
 
 ---
 

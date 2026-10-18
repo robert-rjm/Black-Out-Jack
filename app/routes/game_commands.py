@@ -217,14 +217,15 @@ def _perform_action_without_honor(game_session, player, hand, action) -> None:
     reason     = (game_session.round._honor_pending or {}).get("reason", "tens")
     rule_label = "mandatory ace-split" if reason == "aces" else "mandatory 10-split"
     log.debug(f"  {player.name}: {action} without honor "
-              f"(declined {rule_label}, +1 sip penalty).")
+              f"(declined {rule_label}, +{game_session.wager} sip{'' if game_session.wager == 1 else 's'} penalty).")
 
-    # 1-sip "without honor" penalty via the existing ace-drink toast pipeline.
+    # 1x wager "without honor" penalty via the existing ace-drink toast pipeline.
     game_session.tracker.apply([
-        (player.name, 1, f"{player.name} played without honor ({action}, declined {rule_label})"),
+        (player.name, game_session.wager,
+         f"{player.name} played without honor ({action}, declined {rule_label})"),
     ])
-    _push_ace_drink_event(game_session, (player.name, 1,
-        f"Played without honor ({action}) => {player.name} drinks 1 sip"))
+    _push_ace_drink_event(game_session, (player.name, game_session.wager,
+        f"Played without honor ({action}) => {player.name} drinks {game_session.wager} sip{'' if game_session.wager == 1 else 's'}"))
 
 
 def _resolve_endround(game_session):
@@ -639,7 +640,9 @@ def _cmd_blackjack(game_session, parts):
     hand.stood = True
     all_names  = [p.name for p in game_session.all_players]
     game_session.tracker.apply(
-        DrinkingRules.handle(BlackjackEvent(player_name=player.name, hand=hand, all_names=all_names)))
+        DrinkingRules.handle(BlackjackEvent(
+            player_name=player.name, hand=hand, all_names=all_names,
+            wager=game_session.wager)))
     log.debug(f"  {player.name} BLACKJACK confirmed.")
 
 

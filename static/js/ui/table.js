@@ -752,7 +752,8 @@ function updateHonorPrompt(state) {
   if (noBtn) {
     const action = (state && state.honor_pending_action) || "stand";
     const label  = action.charAt(0).toUpperCase() + action.slice(1);
-    noBtn.textContent = `${label} without honor (1 sip)`;
+    const w = (state && state.wager) || 1;
+    noBtn.textContent = `${label} without honor (${w} ${w === 1 ? "sip" : "sips"})`;
   }
 
   // Swap title/subtitle based on whether this is an Ace-pair or 10-pair rule.

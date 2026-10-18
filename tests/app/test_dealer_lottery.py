@@ -1096,3 +1096,18 @@ def test_dealer_lottery_triggers_through_a_real_dealt_round(client):
         assert room.round._pending_dealer_lottery is not None
     finally:
         game_sessions.pop(room_code, None)
+
+
+def test_lottery_stake_is_in_wagers(monkeypatch):
+    """Stake X is 0-5 wagers: at wager 2, X=4 and no busts drinks 8 sips."""
+    room = _nine_pair_room()
+    room.session.wager = 2
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [make_card("K", "C"), make_card("K", "D")])
+    resolve_dealer_lottery(room)
+
+    result = room.drinks.last_dealer_lottery_result
+    assert result["drink_amounts"] == {"Alice": 8}
