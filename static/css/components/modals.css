@@ -617,15 +617,18 @@
   text-decoration: underline; white-space: nowrap;
 }
 
-#target-proposal-modal-overlay {
+#target-proposal-modal-overlay,
+#admin-afk-modal-overlay {
   display: none;
   position: fixed; inset: 0;
   background: var(--scrim);
   z-index: 910;
   align-items: center; justify-content: center;
 }
-#target-proposal-modal-overlay.open { display: flex; }
-#target-proposal-modal {
+#target-proposal-modal-overlay.open,
+#admin-afk-modal-overlay.open { display: flex; }
+#target-proposal-modal,
+#admin-afk-modal {
   background: var(--surface);
   border: 1.5px solid var(--purple);
   border-radius: 18px;

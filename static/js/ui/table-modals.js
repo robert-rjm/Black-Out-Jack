@@ -1355,3 +1355,141 @@ async function proposeTargetedDrinkingTarget(targetName) {
   }
 }
 
+
+
+// ── Admin-AFK vote panel ──────────────────────────────────────────────────
+// A unanimous Yes/No vote that the admin is AFK. Only offered (via a button
+// in #admin-afk-banner) while the game is waiting on the admin; every other
+// connected seated player votes, and a single No (or the 30s timeout) fails
+// it. Driven by state.admin_afk_vote, same polling pattern as every other
+// modal here. Hands the admin role to the first Yes-voter on a pass.
+class AdminAfkPanel {
+  constructor() {
+    this._seenSeq     = null;   // last result seq already shown (null until the first render)
+    this._resultTimer = null;
+    this._open        = false;
+  }
+
+  mount(modalEl, bannerEl) {
+    if (this.modalEl) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.modalEl  = modalEl;
+    this.bannerEl = bannerEl;
+    modalEl.addEventListener("click", e => {
+      const btn = e.target.closest("[data-admin-afk-vote]");
+      if (btn) castAdminAfkVote(btn.dataset.adminAfkVote === "true");
+    });
+    bannerEl.addEventListener("click", e => {
+      if (e.target.closest("[data-admin-afk-open]")) openAdminAfkVote();
+    });
+  }
+
+  render(state) {
+    if (!this.modalEl) return;
+    const v = (state && state.admin_afk_vote) || {};
+    const pending = v.pending;
+
+    // Don't replay a result from before this page loaded.
+    if (this._seenSeq === null) this._seenSeq = v.result_seq || 0;
+
+    this.bannerEl.innerHTML = (v.can_open && !pending)
+      ? `<button class="btn danger wide" data-admin-afk-open>🚨 Admin not responding? Start AFK vote</button>`
+      : "";
+
+    if (pending) {
+      if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
+      if (!this._open) { this._open = true; openModal("admin-afk-modal-overlay", { useClass: true }); }
+      this._renderVote(pending);
+      return;
+    }
+
+    const result = v.last_result;
+    if (result && result.seq > this._seenSeq) {
+      this._seenSeq = result.seq;
+      this._open = true;
+      openModal("admin-afk-modal-overlay", { useClass: true });
+      this._renderResult(result);
+      return;
+    }
+    if (this._open && !this._resultTimer) {
+      this._open = false;
+      closeModal("admin-afk-modal-overlay", { useClass: true });
+    }
+  }
+
+  _els() {
+    const g = id => document.getElementById(id);
+    return {
+      title: g("admin-afk-modal-title"), sub: g("admin-afk-modal-sub"),
+      tally: g("admin-afk-modal-tally"), btns: g("admin-afk-modal-btns"),
+      status: g("admin-afk-modal-status"), timer: g("admin-afk-modal-timer"),
+    };
+  }
+
+  _renderVote(p) {
+    const el = this._els();
+    const iAmAdmin = myRole === ROLE.ADMIN;
+    if (el.title) el.title.textContent = "🚨 Is the admin AFK?";
+    if (el.sub) el.sub.innerHTML =
+      `<strong>${escapeHtml(p.opener)}</strong> says the game is stuck waiting on the admin. ` +
+      `Everyone has to agree to hand the admin role to someone else.`;
+    if (el.tally) el.tally.innerHTML =
+      `Yes: <strong style="color:var(--green)">${p.yes_count}</strong> &nbsp;·&nbsp; ` +
+      `No: <strong style="color:var(--red)">${p.no_count}</strong> &nbsp;·&nbsp; ` +
+      `Needed: all ${p.total_voters}`;
+    const hasVoted = p.my_vote !== null && p.my_vote !== undefined;
+    if (el.btns) el.btns.innerHTML = (!p.eligible || hasVoted) ? "" :
+      `<button class="btn green wide" data-admin-afk-vote="true">YES, they're AFK</button>` +
+      `<button class="btn red wide"   data-admin-afk-vote="false">NO</button>`;
+    if (el.status) el.status.innerHTML = iAmAdmin
+      ? `<span style="color:var(--muted)">You're being voted on — make your move to cancel this.</span>`
+      : !p.eligible
+      ? `<span style="color:var(--muted)">You're not part of this vote.</span>`
+      : hasVoted
+      ? `Your vote: <strong style="color:${p.my_vote ? "var(--green)" : "var(--red)"}">${p.my_vote ? "YES" : "NO"}</strong> &nbsp;· waiting on the rest…`
+      : `<span style="color:var(--muted)">Cast your vote below.</span>`;
+    if (el.timer) {
+      const s = p.seconds_left || 0;
+      el.timer.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up!";
+      el.timer.style.color = s <= 5 ? "var(--red)" : "var(--muted)";
+    }
+  }
+
+  _renderResult(r) {
+    const el = this._els();
+    if (el.title) el.title.textContent = r.passed ? "✅ Admin Changed" : "❌ Vote Failed";
+    if (el.sub) el.sub.innerHTML = r.passed
+      ? `<strong>${escapeHtml(r.new_admin || "Someone else")}</strong> is now the admin.`
+      : `The admin stays (${escapeHtml(r.reason)}).`;
+    if (el.tally)  el.tally.innerHTML = "";
+    if (el.btns)   el.btns.innerHTML = "";
+    if (el.status) el.status.innerHTML = "";
+    if (el.timer)  el.timer.textContent = "";
+    if (this._resultTimer) clearTimeout(this._resultTimer);
+    this._resultTimer = setTimeout(() => {
+      this._resultTimer = null;
+      this._open = false;
+      closeModal("admin-afk-modal-overlay", { useClass: true });
+    }, 3500);
+  }
+}
+
+const adminAfkPanel = new AdminAfkPanel();
+
+async function _postAdminAfk(path, extra) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch(path, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, ...extra }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    else showToast(data.error || "Could not complete that.", "error");
+  } catch (_) { showToast("Network error.", "error"); } finally {
+    _requestDone();
+  }
+}
+
+function openAdminAfkVote()     { return _postAdminAfk("/admin_afk/open", {}); }
+function castAdminAfkVote(vote) { return _postAdminAfk("/admin_afk/vote", { vote }); }

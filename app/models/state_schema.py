@@ -304,9 +304,38 @@ class AfkNoticeOut(_StrictModel):
     """One-shot notice that a seat changed hands via Targeted Drinking's AFK
     rule. reason "afk_absorbed" -> this client lost the seat; "afk_absorbing"
     -> this client (the host) gained it. Show once per seq."""
-    reason: str
-    seat:   str
-    seq:    int
+    reason:  str
+    seat:    str
+    seq:     int
+    context: str   # "targeted_drinking" | "turn"
+
+
+class AdminAfkPendingOut(_StrictModel):
+    opener:       str
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    seconds_left: int
+    my_vote:      Optional[bool]
+    eligible:     bool
+
+
+class AdminAfkResultOut(_StrictModel):
+    passed:    bool
+    reason:    str
+    opener:    str
+    new_admin: Optional[str]
+    seq:       int
+
+
+class AdminAfkVoteOut(_StrictModel):
+    """Unanimous "is the admin AFK?" vote (app/services/afk.py). can_open is
+    true only for a connected seated non-admin while the game is waiting on
+    the admin."""
+    pending:     Optional[AdminAfkPendingOut]
+    can_open:    bool
+    last_result: Optional[AdminAfkResultOut]
+    result_seq:  int
 
 
 class TargetedDrinkingPendingOut(_StrictModel):
@@ -570,5 +599,6 @@ class AppState(_StrictModel):
     my_name:            Optional[str]
     my_names:           list[str]
     afk_notice:         Optional[AfkNoticeOut]
+    admin_afk_vote:     AdminAfkVoteOut
     can_add_local_seat: bool
     is_dealer_client:   bool

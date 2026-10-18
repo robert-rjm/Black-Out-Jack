@@ -78,6 +78,8 @@ DEALER_LOTTERY_MAX_DRINK            = 10  # ceiling on the no-bust drink, howeve
 TARGETED_DRINKING_VOTE_WINDOW_SECONDS = 15   # per-round bust/stand vote timer
 TARGETED_DRINKING_STREAK_TO_GRADUATE  = 3    # consecutive correct guesses to opt out
 TARGETED_DRINKING_COOLDOWN_ROUNDS     = 3    # rounds before a new subgame can start
+AFK_DISCONNECT_SECONDS        = 60   # no /state poll for this long -> client counts as gone (closed tab, dead connection)
+ADMIN_AFK_VOTE_WINDOW_SECONDS = 30   # unanimous "admin is AFK" vote auto-fails after this long
 TARGETED_DRINKING_MAX_AFK_STRIKES     = 2    # consecutive unanswered vote windows before a target's seat is absorbed by the host
 TARGETED_DRINKING_REVEAL_PAUSE_SECONDS = 12  # safety-net breather after a mini-round's reveal before the
                                               # next one auto-opens -- the host/dealer can skip this early via

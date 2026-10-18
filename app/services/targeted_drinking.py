@@ -53,6 +53,7 @@ from app.config import (
 )
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card, round_phase
+from app.services.afk import absorb_seat as _absorb_afk_seat
 
 
 def start_targeted_drinking(
@@ -265,47 +266,6 @@ def _remove_afk_targets(session: GameRoom) -> None:
         session._log_version += 1
     if not session._targeted_drinking_targets:
         end_targeted_drinking(session, reason="afk_removed")
-
-
-def _absorb_afk_seat(session: GameRoom, name: str) -> bool:
-    """Moves `name`'s seat onto the admin's local_names (same mutation the
-    seat-transfer and registration-approval flows in polling.py do) and
-    reverts the original holder's client to spectator. Returns False,
-    changing nothing, when there's no admin or the admin already holds the
-    seat (host AFK -- nobody to hand it to)."""
-    key = name.lower()
-
-    def holds(info: dict) -> bool:
-        return ((info.get("name") or "").lower() == key
-                or any((n or "").lower() == key for n in (info.get("local_names") or [])))
-
-    clients = session._room_clients
-    admin = next((i for i in clients.values()
-                  if i.get("role") == "admin" and not i.get("kicked")), None)
-    if admin is None or holds(admin):
-        return False
-
-    session._afk_notice_seq += 1
-    seq = session._afk_notice_seq
-    for info in clients.values():
-        if info is admin or not holds(info):
-            continue
-        # One-shot message for the removed player's client (see serializer's
-        # "afk_notice"); cleared naturally when they re-register.
-        info["afk_notice"] = {"reason": "afk_absorbed", "seat": name, "seq": seq}
-        if info.get("local_names"):
-            info["local_names"] = [n for n in info["local_names"] if (n or "").lower() != key]
-        if (info.get("name") or "").lower() == key:
-            info["name"] = None
-            info["role"] = "spectator"
-
-    admin_locals = list(admin.get("local_names") or [])
-    if not admin_locals and admin.get("name"):
-        admin_locals = [admin["name"]]   # seed so my_names keeps the host's own seat
-    admin_locals.append(name)
-    admin["local_names"] = admin_locals
-    admin["afk_notice"] = {"reason": "afk_absorbing", "seat": name, "seq": seq}
-    return True
 
 
 def _draw(deck) -> Card:

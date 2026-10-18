@@ -2290,8 +2290,8 @@ def test_afk_notice_set_for_removed_player_and_host(monkeypatch):
     room = _afk_absorb_round(monkeypatch)
     carol = room._room_clients["carol-cid"]["afk_notice"]
     host = room._room_clients["admin-cid"]["afk_notice"]
-    assert carol == {"reason": "afk_absorbed", "seat": "Carol", "seq": 1}
-    assert host == {"reason": "afk_absorbing", "seat": "Carol", "seq": 1}
+    assert carol == {"reason": "afk_absorbed", "seat": "Carol", "seq": 1, "context": "targeted_drinking"}
+    assert host == {"reason": "afk_absorbing", "seat": "Carol", "seq": 1, "context": "targeted_drinking"}
     assert "afk_notice" not in room._room_clients["bob-cid"]
 
 

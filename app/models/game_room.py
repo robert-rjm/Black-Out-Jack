@@ -107,6 +107,10 @@ class RoundState:
     # instead, since it must survive across rounds.
     _pending_target_proposal: dict | None = None
 
+    # Unanimous "admin is AFK" vote (app/services/afk.py). Per-round: an open
+    # vote is discarded when a new round starts (the admin obviously acted).
+    _pending_admin_afk_vote: dict | None = None
+
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
     # The frontend resets its local pointer when it detects a new round via
@@ -299,6 +303,12 @@ class GameRoom:
     _pending_seat_transfers: list = field(default_factory=list)
     _rejoin_requests: list = field(default_factory=list)
     _anim_default: bool = True
+
+    # client_id -> time.monotonic() of that client's last /state poll (presence);
+    # see app/services/afk.py.
+    _client_last_seen: dict = field(default_factory=dict)
+    _admin_afk_last_result: dict | None = None
+    _admin_afk_result_seq: int = 0
 
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer

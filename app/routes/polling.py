@@ -50,6 +50,7 @@ from app.services.targeted_drinking import (
 )
 from app.services.payout_tracker import init_bankrolls
 from app.services.game_engine import auto_play_npc_turns
+from app.services.afk import touch_client
 from app.services.tick import tick, _run_deferred_dealer_play
 from app.config import MAX_REG_DENIALS
 
@@ -79,6 +80,7 @@ def state():
         _last_cleanup = now
         cleanup_stale_sessions()
     if session is not None:
+        touch_client(session, client_id)
         tick(session)
 
     if session is None:

@@ -52,6 +52,12 @@
 - The dealer role **rotates** after each round
 - When an **NPC** holds the dealer role, cards are dealt and turns are resolved automatically
 
+### AFK handling
+
+- **Disconnected player on their turn:** every state poll counts as a heartbeat. If the seat whose turn it is belongs to a client that has not polled for 60 seconds (closed tab, dead connection), the **admin takes over that seat** and the player becomes a spectator. They get a notice and can rejoin to ask for the seat back. Bots and the admin are never affected
+- **Admin is AFK:** when the game is waiting on the admin (their seat's turn, the dealer role between rounds, or a pending join request), any connected seated player can start a **unanimous** "Is the admin AFK?" vote. Every other connected seated player must vote Yes within 30 seconds; a single No, a timeout, or the admin acting cancels it. On a pass, the first Yes-voter becomes admin and the old admin stays on as a player
+- Missing two Targeted Drinking votes in a row works similarly — see [Rules.md](Rules.md#510-targeted-drinking-mode)
+
 ---
 
 ## Action Voting

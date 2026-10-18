@@ -102,6 +102,11 @@ This document defines selector ownership for the web UI modules and the shared e
     during the summary phase (which shows its own final version instead)
 
 ### `static/js/ui/admin-settings.js`
+- Admin-AFK vote (Multiplayer.md, AFK handling):
+  - `#admin-afk-banner` (holds the Start AFK vote button while the game is waiting on the admin)
+  - `#admin-afk-modal-overlay`, `#admin-afk-modal`, `#admin-afk-modal-title`, `#admin-afk-modal-sub`
+  - `#admin-afk-modal-tally`, `#admin-afk-modal-btns`, `#admin-afk-modal-status`, `#admin-afk-modal-timer`
+  - `[data-admin-afk-open]`, `[data-admin-afk-vote]`
 - Kick / player management modal:
   - `#kick-overlay`, `#kick-card`, `#kick-list`
   - `#kick-vote-banner`

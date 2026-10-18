@@ -30,7 +30,7 @@ Black-Out-Jack/
 │   │   ├── lobby.py                        # Room creation, joining, initial game setup
 │   │   ├── polling.py                      # Long-poll state sync, registration, pre-selections, insurance votes, Targeted Drinking vote; delegates per-poll ticks to services/tick.py
 │   │   ├── game_commands.py                # POST /command — the dispatcher for all referee + digital game actions
-│   │   ├── admin.py                        # Kick, dealer rotation, milestone claim, player management, Targeted Drinking start/cancel
+│   │   ├── admin.py                        # Kick, dealer rotation, milestone claim, player management, Targeted Drinking start/cancel, admin-AFK vote (/admin_afk/open, /admin_afk/vote)
 │   │   ├── wild_card.py                    # Easter egg: POST /wild_card (logo press)
 │   │   └── reports.py                      # /export_xlsx (drink summary), /export_decisions (decision log XLSX), /summary_json, /rules
 │   └── services/
@@ -40,7 +40,8 @@ Black-Out-Jack/
 │       ├── payout_tracker.py               # Cash wager/bankroll bookkeeping (Normal mode) — mirrors drink_tracker.py for dollars
 │       ├── dealer_lottery.py               # Dealer Lottery bonus event (paired 18/20 redeal) — see Rules.md §5.9
 │       ├── targeted_drinking.py            # Targeted Drinking Mode: standalone between-round bust/stand mini-game, isolated dealer hand — see Rules.md §5.10
-│       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery + Targeted Drinking windows)
+│       ├── afk.py                          # Presence heartbeat, normal-round AFK seat absorption, unanimous admin-AFK vote; shared absorb_seat()
+│       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery + Targeted Drinking windows, AFK checks)
 │       ├── utils.py                        # Cross-cutting app-layer utilities (classify_rule)
 │       ├── validators.py                   # sanitize_name, is_offensive_name (better-profanity), get_client_info; used by routes and serializer
 │       ├── serializer.py                   # Converts room state to the JSON payload for polling; validates against AppState
@@ -122,6 +123,7 @@ Black-Out-Jack/
 │   ├── conftest.py                         # Shared fixtures/builders (make_card, make_hand, make_player...)
 │   ├── app/                                # Web-layer tests (routes, services, serializer)
 │   │   ├── conftest.py
+│   │   ├── test_afk.py                     # Presence, normal-round AFK seat absorption, unanimous admin-AFK vote (service + routes + serializer)
 │   │   ├── test_bust_vote.py               # Bust vote side bet tests (Rules.md §4.4)
 │   │   ├── test_classify_rule.py           # classify_rule unit tests
 │   │   ├── test_dealer_lottery.py          # Dealer Lottery engine, routes, re-splitting, and payout tests
@@ -172,7 +174,8 @@ The main files are intentionally decoupled:
 | `engine/style_strategy.py` | `engine/strategy.py`, `engine/player_profiles/*.json` | Player-mimicry bot resolver: `best_play_for()` looks up a mined deviation table (hand context + table_bias/sibling_awaiting_deal signals), `decide_dealer_lottery_stake()` looks up a mined stake tendency bucketed by sips owed; both fall back to plain basic strategy / opting out when no profile data exists |
 | `app/services/asset_bundler.py` | `static/js/*`, `static/css/*` (source files, read not imported) | Concatenates the app's JS/CSS source files into `static/js/bundle.js` / `static/css/bundle.css` on every `create_app()` call; called from `app/__init__.py`. Bundle files are gitignored — regenerated fresh every startup, never a stale committed artifact. |
 | `app/services/validators.py` | `better-profanity` | `sanitize_name` (XSS/formatting) + `is_offensive_name` (profanity, checked only at the free-text name-creation entry points: `/setup`, `/update_settings`'s `add_player`, `/request_rejoin`) + `get_client_info`; used by routes and serializer |
-| `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery entry/handout windows, Targeted Drinking mini-round start/forfeit); imported by `polling.py` |
+| `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery entry/handout windows, Targeted Drinking mini-round start/forfeit, normal-round AFK absorption, admin-AFK vote expiry); imported by `polling.py` |
+| `app/services/afk.py` | `app/models/game_room.py`, `app/services/serializer.py` (`round_phase`, `current_turn`), `app/config.py` | AFK handling. `touch_client` stamps `session._client_last_seen` on every `/state` poll (called from `polling.py`); a client silent for `AFK_DISCONNECT_SECONDS` counts as gone. `apply_normal_round_afk` (ticked) hands a gone client's seat to the admin when it is their turn. `absorb_seat` is the shared seat-move (admin `local_names` + original holder to spectator + one-shot `afk_notice`), also used by `targeted_drinking.py` for its 2-missed-votes rule. Admin-AFK vote: `open_admin_afk_vote` / `cast_admin_afk_vote` / `apply_admin_afk_vote_forfeit` (unanimous, only while `admin_is_blocking`); `serialize_admin_afk_vote` builds the `admin_afk_vote` state block. The admin-role handover on a pass lives in `routes/admin.py` (`_hand_admin_to_voter`) because it reuses `_transfer_local_names` |
 | `app/services/dealer_lottery.py` | `engine/blackjack.py` (isolated `Deck`/`Hand`), `app/services/drink_tracker.py`, `app/services/decision_log.py` | Dealer Lottery bonus event: trigger detection, entry window, recursive re-splitting (mirrors `Hand.split()`/`MAX_SPLITS`), and the all-bust/none-bust/mixed payout — see Rules.md §5.9 |
 | `app/services/targeted_drinking.py` | `engine/blackjack.py` (isolated `Deck`/`Hand`), `app/models/game_room.py`, `app/services/drink_tracker.py` (`award_sips`), `app/services/serializer.py` (`serialize_card`) | Targeted Drinking Mode: admin-started standalone mini-game played between normal rounds for a fixed player list -- deals its own isolated dealer-only hand (never the round's real dealer hand) once the vote window closes, with a 3-in-a-row graduation streak and a flat cooldown — see Rules.md §5.10. Trigger/pending/resolve shape mirrors `dealer_lottery.py`: `check_targeted_drinking_trigger` (round-end) → `maybe_start_targeted_drinking_round` (ticked, waits for milestone/Dealer Lottery to clear) → `apply_targeted_drinking_vote_forfeit` (ticked, resolves on expiry) |
 | `scripts/_cli.py` | nothing | Shared CLI input helpers (`safe_int`, `yes_no`); imported by terminal scripts |

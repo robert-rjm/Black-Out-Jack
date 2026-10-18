@@ -58,6 +58,9 @@ function buildDigitalUI() {
   if (tdOverlay) targetedDrinkingPanel.mount(tdOverlay, tdBanner);
   const targetProposalOverlay = document.getElementById("target-proposal-modal-overlay");
   if (targetProposalOverlay) targetProposalPanel.mount(targetProposalOverlay);
+  const adminAfkOverlay = document.getElementById("admin-afk-modal-overlay");
+  const adminAfkBanner  = document.getElementById("admin-afk-banner");
+  if (adminAfkOverlay && adminAfkBanner) adminAfkPanel.mount(adminAfkOverlay, adminAfkBanner);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -416,12 +419,19 @@ let _lastAfkNoticeSeq = 0;   // highest afk_notice.seq already shown on this cli
 function _showAfkNotice(notice) {
   if (!notice || notice.seq <= _lastAfkNoticeSeq) return;
   _lastAfkNoticeSeq = notice.seq;
-  showToast(
-    notice.reason === "afk_absorbing"
-      ? `${notice.seat} went AFK — you're now playing their seat too.`
-      : `You missed too many Targeted Drinking votes — the host is now playing ${notice.seat}'s seat. You're a spectator.`,
-    "info", 7000,
-  );
+  const seat   = notice.seat;
+  const onTurn = notice.context === "turn";
+  let text;
+  if (notice.reason === "afk_absorbing") {
+    text = onTurn
+      ? `${seat} disconnected on their turn — you're now playing their seat too.`
+      : `${seat} went AFK — you're now playing their seat too.`;
+  } else {
+    text = onTurn
+      ? `You were disconnected on your turn — the host is now playing ${seat}'s seat. Rejoin to ask for it back.`
+      : `You missed too many Targeted Drinking votes — the host is now playing ${seat}'s seat. You're a spectator.`;
+  }
+  showToast(text, "info", 7000);
 }
 
 function _syncIdentity(state) {
@@ -589,6 +599,7 @@ function _syncDigitalUI(state) {
   dealerLotteryEntryPanel.render(state);
   targetedDrinkingPanel.render(state);
   targetProposalPanel.render(state);
+  adminAfkPanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.
