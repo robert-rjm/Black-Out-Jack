@@ -43,6 +43,10 @@ class RoundState:
     # Game flow
     switch_this_round: str | None = None
     _drink_log_harvested: bool = False
+    # True once the end-of-round pipeline has run for this round. Guards the
+    # /command dispatcher against re-running dealer/endround/deal (which would
+    # re-pay bankrolls or re-fire drinks). Cleared with the RoundState on newround.
+    _round_ended: bool = False
 
     # Snapshot of DrinkLedger.clean_streak as it stood *before* this round's
     # own harvest update (see drink_tracker._snapshot_round) -- lets a later

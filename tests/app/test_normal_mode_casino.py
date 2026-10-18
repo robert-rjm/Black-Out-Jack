@@ -126,3 +126,43 @@ def test_absurd_hand_index_rejected(client):
     code, s = _new(client, mode="referee", drinking=True)
     _cmd(client, code, "deal Rob 2h hand400000")
     assert len(s._get_player("Rob").hands) < 25
+
+
+# ---------------------------------------------------------------------------
+# Round-ended gate (all modes)
+# ---------------------------------------------------------------------------
+
+def test_repeat_dealer_and_endround_do_not_repay_in_normal_mode(client):
+    code, s = _new(client)
+    _rig(s, ["5S", "10S", "10H", "6D", "10D", "7C", "10C"])
+    _cmd(client, code, "deal")
+    _cmd(client, code, "double Rob hand1")
+    after = dict(s._bankrolls)
+    for c in ("dealer", "endround", "deal"):
+        assert _cmd(client, code, c).get("rejected") is True
+    assert s._bankrolls == after
+
+
+def test_repeat_dealer_does_not_refire_drinks(client):
+    code, s = _new(client, drinking=True, num_hands=1)
+    _rig(s, ["10S", "9S", "10H", "9D", "10D", "7C"])
+    _cmd(client, code, "deal")
+    for _ in range(3):
+        _cmd(client, code, "stand Rob hand1")
+    before = {p.name: list(p.drink_log) for p in s.all_players}
+    assert _cmd(client, code, "dealer").get("rejected") is True
+    assert {p.name: list(p.drink_log) for p in s.all_players} == before
+
+
+def test_referee_endround_twice_is_rejected_and_newround_reopens(client):
+    code, s = _new(client, players=("Rob", "Amy"), npcs=(), mode="referee", drinking=True)
+    for c in ["deal Rob 10h", "deal Amy 8s", "deal dealer 10c", "deal Rob 9d",
+              "deal Amy 9d", "deal dealer 7d", "result Rob win", "result Amy loss"]:
+        _cmd(client, code, c)
+    _cmd(client, code, "endround")
+    before = {p.name: list(p.drink_log) for p in s.all_players}
+    assert _cmd(client, code, "endround").get("rejected") is True
+    assert _cmd(client, code, "result Rob loss").get("rejected") is True
+    assert {p.name: list(p.drink_log) for p in s.all_players} == before
+    _cmd(client, code, "newround")
+    assert not _cmd(client, code, "deal Rob 2h").get("rejected")

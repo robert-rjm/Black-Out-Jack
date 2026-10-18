@@ -878,6 +878,29 @@ def command():
                 "output": f"  Cannot reveal dealer — {current} still has hands to play.\n",
             })
 
+    # Round-ended gate (all modes): once the round has been settled, the only
+    # valid moves are newround/status/help. Re-running dealer/endround/deal (or
+    # entering more cards/results) would re-pay bankrolls or re-fire drinks.
+    ROUND_ENDED_BLOCKED = {
+        "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
+        "peek", "dealer", "endround", "action", "result", "fouraces",
+    }
+    if game_session.round._round_ended and cmd in ROUND_ENDED_BLOCKED:
+        return jsonify({
+            **serialize_state(game_session, client_id),
+            "rejected": True,
+            "output": "  Round already ended — start a new round.\n",
+        })
+
+    # Deal only from a clean table (digital): re-dealing mid-round would stack
+    # cards onto live hands and double-charge stakes.
+    if mode == "digital" and cmd == "deal" and round_phase(game_session) != "pre-deal":
+        return jsonify({
+            **serialize_state(game_session, client_id),
+            "rejected": True,
+            "output": "  Cards are already dealt this round.\n",
+        })
+
     # Dealer-gate: only dealer or admin may execute game-changing commands
     DEALER_GATED_CMDS = {
         "deal", "hit", "stand", "double", "split", "insurance",
