@@ -631,3 +631,78 @@ def test_player_request_route(client, route_room):
     data = _post(client, "/drink_rate/propose", code, "bob-cid", seats=["Bob"], rate=0.6)
     assert data["ok"] and data["drink_rates"]["pending"]["proposer"] == "Bob"
     assert _post(client, "/drink_rate/propose", code, "bob-cid", seats=["Carol"], rate=0.6)["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# The vote counts the votes cast, not every human at the table
+# ---------------------------------------------------------------------------
+
+def _expire(room):
+    room.round._pending_rate_proposal["expires_at"] = time.monotonic() - 1
+    apply_drink_rate_forfeit(room)
+
+
+def test_silent_players_do_not_block_a_vote_at_the_deadline():
+    room = _room()                                   # 4 voters: admin, bob, carol, dave
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "bob-cid", True)            # 2 yes, 0 no, 2 silent -> not decided yet
+    assert room.round._pending_rate_proposal is not None
+    _expire(room)
+    assert room._drink_rate_last_result["passed"] is True
+    assert room._drink_rate_last_result["reason"] == "majority of the votes cast"
+    assert _p(room, "Bob").drink_rate == 0.6
+
+
+def test_a_lone_proposer_vote_does_not_carry_it():
+    room = _room()
+    open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)
+    _expire(room)                                    # nobody else voted
+    assert room._drink_rate_last_result["passed"] is False
+    assert _p(room, "Bob").drink_rate == 1.0
+
+
+def test_a_tie_among_the_votes_cast_fails():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "carol-cid", False)         # 1 yes, 1 no, 2 silent
+    assert room.round._pending_rate_proposal is not None
+    _expire(room)
+    assert room._drink_rate_last_result["passed"] is False
+
+
+def test_yes_beating_no_among_those_who_voted_passes_even_with_silent_players():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "bob-cid", True)
+    cast_rate_vote(room, "carol-cid", False)         # 2 yes, 1 no, dave silent: not decided early
+    assert room.round._pending_rate_proposal is not None
+    _expire(room)
+    assert room._drink_rate_last_result["passed"] is True
+
+
+def test_it_ends_early_once_silent_players_could_not_change_the_result():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "bob-cid", True)
+    cast_rate_vote(room, "carol-cid", True)          # 3 yes vs at most 1 more no
+    assert room._drink_rate_last_result["passed"] is True
+    assert room.round._pending_rate_proposal is None
+
+
+def test_it_fails_early_when_yes_can_no_longer_win():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "bob-cid", False)
+    cast_rate_vote(room, "carol-cid", False)         # 1 yes + 1 remaining <= 2 no
+    assert room._drink_rate_last_result["passed"] is False
+
+
+def test_a_protected_player_still_must_vote_yes_at_the_deadline():
+    room = _room()
+    _protected_bob(room)
+    open_rate_proposal(room, "admin-cid", ["Bob"], 1.4)
+    cast_rate_vote(room, "carol-cid", True)
+    cast_rate_vote(room, "dave-cid", True)           # majority of votes cast, but Bob is silent
+    _expire(room)
+    assert room._drink_rate_last_result["passed"] is False
+    assert _p(room, "Bob").drink_rate == 1.0

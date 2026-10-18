@@ -1650,7 +1650,7 @@ class DrinkRatePanel {
       g("drink-rate-vote-tally").innerHTML =
         `Yes: <strong style="color:var(--green)">${pending.yes_count}</strong> &nbsp;·&nbsp; ` +
         `No: <strong style="color:var(--red)">${pending.no_count}</strong> &nbsp;·&nbsp; ` +
-        `Needed: more than half of ${pending.total_voters}`;
+        `${pending.total_voters} can vote · more yes than no wins, silent players don't count`;
       const voted = pending.my_vote !== null && pending.my_vote !== undefined;
       g("drink-rate-vote-btns").innerHTML = (!pending.eligible || voted) ? "" :
         `<button class="btn green wide" data-drink-rate-vote="true">YES</button>` +

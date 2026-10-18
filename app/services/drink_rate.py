@@ -301,7 +301,19 @@ def cast_rate_vote(session: GameRoom, client_id: str, vote: bool) -> tuple[bool,
     return True, ""
 
 
-def _evaluate(session: GameRoom) -> None:
+def _evaluate(session: GameRoom, *, expired: bool = False) -> None:
+    """Decide the open proposal from the votes **cast**: it passes when there
+    are more Yes than No among those who voted -- players who never vote do
+    not count either way. Two safeguards keep that from being gamed:
+
+    * at least two votes must be cast (the proposer's own pre-filled Yes does
+      not carry it alone), unless the proposer is the only one who can vote;
+    * a protected player named in the proposal must have voted Yes themselves.
+
+    Before the window closes it is decided early once the outcome can no
+    longer change (the silent voters could not turn it around); when the
+    window closes, whatever has been cast decides it.
+    """
     p = session.round._pending_rate_proposal
     if not p:
         return
@@ -309,19 +321,26 @@ def _evaluate(session: GameRoom) -> None:
     n = len(votes)
     yes = sum(1 for v in votes.values() if v is True)
     no = sum(1 for v in votes.values() if v is False)
+    remaining = n - yes - no
     if any(votes.get(c) is False for c in p["required"]):
         _finish(session, False, "a protected player voted no")
-    elif yes * 2 > n and all(votes.get(c) is True for c in p["required"]):
+        return
+    required_ok = all(votes.get(c) is True for c in p["required"])
+    wins = yes > no and (yes + no >= 2 or n == 1) and required_ok
+    if expired:
+        _finish(session, wins, "majority of the votes cast" if wins else "timed out")
+    elif wins and yes > no + remaining:
         _finish(session, True, "majority")
-    elif no * 2 >= n:
+    elif yes + remaining <= no:
         _finish(session, False, "not enough votes")
 
 
 def apply_drink_rate_forfeit(session: GameRoom) -> None:
-    """Fails an open proposal whose window ran out. Safe every tick."""
+    """Closes an open proposal whose window ran out, counting the votes that
+    were cast. Safe every tick."""
     p = session.round._pending_rate_proposal
     if p and time.monotonic() >= p["expires_at"]:
-        _finish(session, False, "timed out")
+        _evaluate(session, expired=True)
 
 
 def _finish(session: GameRoom, passed: bool, reason: str) -> None:
