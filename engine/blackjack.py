@@ -275,6 +275,9 @@ class Player:
 from engine.strategy import best_play as _strategy_best_play  # noqa: E402
 
 
+MAX_HAND_INDEX = 20   # sanity cap: a typo like "hand400000" must not allocate 400k hands
+
+
 def get_player_hand(player: Player, hand_label: str) -> "Hand":
     """Resolve a player's betting hand by label ('hand1', 'hand2', …).
 
@@ -287,6 +290,8 @@ def get_player_hand(player: Player, hand_label: str) -> "Hand":
         idx = int(hand_label.lower().replace("hand", "").strip()) - 1
     except (ValueError, AttributeError):
         idx = 0
+    if not 0 <= idx < MAX_HAND_INDEX:
+        raise ValueError(f"Invalid hand '{hand_label}' (1-{MAX_HAND_INDEX}).")
     while len(player.hands) <= idx:
         player.hands.append(Hand())
     return player.hands[idx]

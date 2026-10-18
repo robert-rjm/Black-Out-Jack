@@ -470,9 +470,11 @@ def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | 
         return None
     dealer_up = dealer.dealer_hand.cards[0]
     valid = ["h", "s"]
-    if len(active_hand.cards) == 2 and not active_hand.doubled:
+    from app.services.payout_tracker import can_afford_extra
+    affordable = can_afford_extra(session, player.name)
+    if len(active_hand.cards) == 2 and not active_hand.doubled and affordable:
         valid.append("d")
-    if active_hand.can_split():
+    if active_hand.can_split() and affordable:
         valid.append("sp")
     # drinking_mode=False in Normal mode → pure basic strategy (no mandatory 10-split).
     # This is intentional: the hint matches the rules the players are actually playing.
@@ -783,13 +785,23 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     _hint_names = getattr(session, "_hint_seats", set())
 
     table = []
+    _cash = (not session.drinking_mode) and session.mode == "digital"
     for p in session.all_players:
+        _hands = [serialize_hand(h, hide_double=hide_double) for h in p.hands]
+        if _cash:
+            # Normal mode: doubling/splitting costs another bet -- don't offer
+            # it to a player who can't cover it.
+            from app.services.payout_tracker import can_afford_extra
+            if not can_afford_extra(session, p.name):
+                for _h in _hands:
+                    _h["can_double"] = False
+                    _h["can_split"]  = False
         table.append({
             "name":                   p.name,
             "is_dealer":              p.is_dealer,
             "is_npc":                 getattr(p, "is_npc", False),
             "personality":            getattr(p, "personality", "basic") if getattr(p, "is_npc", False) else None,
-            "hands":                  [serialize_hand(h, hide_double=hide_double) for h in p.hands],
+            "hands":                  _hands,
             "done":                   player_done(p),
             "is_turn":                (p.name == turn),
             "strategy_hint_enabled":  p.name.lower() in _hint_names,

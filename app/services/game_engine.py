@@ -27,6 +27,7 @@ from engine.events import (
 
 from app.models.game_room import GameRoom
 from app.services.serializer import hand_done, round_phase, current_turn
+from app.services.payout_tracker import can_afford_extra, deduct_double_bet, deduct_split_bet
 
 log = logging.getLogger(__name__)
 
@@ -140,7 +141,13 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
     Defers hole-card and face-down doubled-card drink messages so they are
     not revealed in the log before the dealer turn.
     """
-    card     = session.shoe.deal_card(quiet=True)
+    if not session.drinking_mode and session.shoe.cards:
+        # Normal mode plays like a casino shoe: once the cut card (penetration)
+        # is reached the shoe is reshuffled *between* rounds (see _cmd_newround),
+        # never mid-round -- that would put duplicate cards on the table.
+        card = session.shoe.cards.pop()
+    else:
+        card = session.shoe.deal_card(quiet=True)
     if session.shoe.just_reshuffled:
         session.shoe.just_reshuffled = False
         _push_reshuffle_event(session)
@@ -578,9 +585,10 @@ def auto_play_npc_turns(session: GameRoom) -> None:
         dealer_up  = dealer.dealer_hand.cards[0]
 
         valid = ["h", "s"]
-        if len(hand.cards) == 2 and not hand.doubled:
+        affordable = can_afford_extra(session, player.name)
+        if len(hand.cards) == 2 and not hand.doubled and affordable:
             valid.append("d")
-        if hand.can_split():
+        if hand.can_split() and affordable:
             valid.append("sp")
 
         suggestion_key = f"{player.name.lower()}:{hand_label}"
@@ -622,6 +630,7 @@ def auto_play_npc_turns(session: GameRoom) -> None:
 
         elif action == "d":
             hand.doubled = True
+            deduct_double_bet(session, player.name)
             deal_card(session, hand, player.name)
             hand.stood = True
             log.debug(f"  {player.name} {hand_label}: doubles -- card dealt face-down.")
@@ -631,4 +640,5 @@ def auto_play_npc_turns(session: GameRoom) -> None:
 
         elif action == "sp":
             perform_split(session, player, hand, hand_idx)
+            deduct_split_bet(session, player.name)
             log.debug(f"  {player.name} splits {hand_label}")

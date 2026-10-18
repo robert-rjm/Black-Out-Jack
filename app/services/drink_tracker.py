@@ -649,6 +649,20 @@ def harvest_drink_log(session: GameRoom) -> None:
     if session.round._drink_log_harvested:
         return  # already harvested this round -- do not double-count
 
+    if not session.drinking_mode:
+        # Normal (casino) mode: only the blackjack stats -- no sips, sip
+        # tickers, clean-streak/trophy tracking, milestones or L-badge penalty.
+        rp = session.stats.player_rounds_played
+        for p in session.all_players:
+            rp[p.name] = rp.get(p.name, 0) + 1
+        session.stats.player_rounds_played = rp
+        _update_hand_stats(session)
+        _update_dealer_stats(session)
+        _update_streaks(session)
+        session.round._drink_log_harvested = True
+        session.drinks.round_over_seq += 1
+        return
+
     _record_csv_rows(session)
     _update_sip_tickers(session)
     _snapshot_round(session)
@@ -802,6 +816,9 @@ def check_and_set_milestone(session: GameRoom) -> None:
 
     Each boundary fires only once (tracked in session.drinks.milestones_claimed).
     """
+    if not session.drinking_mode:
+        return   # casino mode: no sips, so no milestones
+
     # Never overwrite an active unresolved milestone — the winner gets to hand
     # out their sips before we fire the next one.
     if session.round._pending_milestone:

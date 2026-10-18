@@ -674,6 +674,14 @@ def cast_bust_vote():
         _pbets   = getattr(session, "_player_bets", {})
         side_bet = _pbets.get(voter_name, session.bet_amount) / 2
         init_bankrolls(session)   # safe no-op for players already seeded
+        if (vote == "bust" and prev_vote != "bust"
+                and session._bankrolls.get(voter_name, session.starting_bankroll) < side_bet):
+            # Can't cover the side bet -- reject without recording the vote.
+            if prev_vote is None:
+                session.round._bust_votes.pop(voter_name, None)
+            else:
+                session.round._bust_votes[voter_name] = prev_vote
+            return jsonify({"ok": False, "error": "Not enough bankroll for the side bet."})
         if vote == "bust" and prev_vote != "bust":
             # Player is placing the side bet — deduct now
             session._bankrolls[voter_name] = (
@@ -949,9 +957,18 @@ def set_player_bet():
     bet  = round(round(bet / step) * step, 2)   # snap to nearest step
     bet  = max(2.5, min(bet, session.bet_amount * 20))
 
+    # Normal mode: a bet can never exceed what the player can cover.
+    if (not session.drinking_mode) and session.mode == "digital":
+        from app.services.payout_tracker import max_affordable_bet
+        cap = max_affordable_bet(session, player_name)
+        if cap < step:
+            return jsonify({"ok": False, "error": "Not enough bankroll to bet — re-buy first."})
+        bet = min(bet, cap)
+
     if not hasattr(session, "_player_bets"):
         session._player_bets = {}
     session._player_bets[player_name] = bet
+    return jsonify({**serialize_state(session, client_id), "ok": True, "bet": bet})
 
 
 # ---------------------------------------------------------------------------

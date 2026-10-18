@@ -509,6 +509,11 @@ class GameRoom:
 
     def start_round(self):
         result = self.session.start_round(digital=(self.mode == "digital"))
+        if not self.drinking_mode:
+            # RefereeSession.start_round always builds a real DrinkTracker;
+            # Normal (casino) mode must never record sips.
+            from app.services.room_manager import NullTracker
+            self.session.tracker = NullTracker()
         self.session.tracker.verbose = False
         return result
 

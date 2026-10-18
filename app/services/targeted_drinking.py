@@ -63,6 +63,7 @@ def start_targeted_drinking(
     see app/routes/wild_card.py). Returns False (no-op) if the subgame is
     already running, the cooldown hasn't elapsed yet, no targets were
     given, or any name isn't a currently-connected, non-kicked player.
+    Always a no-op in Normal (casino) mode -- there are no drinks to target.
     On success, marks the subgame active with a fresh (zeroed) graduation
     streak for each target. The first mini-round doesn't open until the
     current normal round ends (see check_targeted_drinking_trigger) -- this
@@ -83,6 +84,8 @@ def start_targeted_drinking(
     already in round-over when this starts, arm eligibility immediately
     instead of waiting for it.
     """
+    if not session.drinking_mode:
+        return False
     if session._targeted_drinking_active:
         return False
     if session.round_count < session._targeted_drinking_cooldown_until_round:
@@ -583,6 +586,8 @@ def propose_targeted_drinking_target(
     open, the proposer is currently frozen from a prior failed proposal,
     or the target is invalid (a bot, not in the session, or the proposer
     themselves)."""
+    if not session.drinking_mode:
+        return False, "Targeted Drinking Mode is only available in Drinking mode."
     if session._targeted_drinking_active:
         return False, "Targeted Drinking Mode is already running."
     if session.round_count < session._targeted_drinking_cooldown_until_round:
