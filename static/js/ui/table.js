@@ -61,6 +61,9 @@ function buildDigitalUI() {
   const adminAfkOverlay = document.getElementById("admin-afk-modal-overlay");
   const adminAfkBanner  = document.getElementById("admin-afk-banner");
   if (adminAfkOverlay && adminAfkBanner) adminAfkPanel.mount(adminAfkOverlay, adminAfkBanner);
+  const drOverlay = document.getElementById("drink-rate-overlay");
+  const drVote    = document.getElementById("drink-rate-vote-overlay");
+  if (drOverlay && drVote) drinkRatePanel.mount(drOverlay, drVote);
 }
 
 // includeDealer: referee needs DEALER_SENTINEL in player lists; digital play does not
@@ -600,6 +603,7 @@ function _syncDigitalUI(state) {
   targetedDrinkingPanel.render(state);
   targetProposalPanel.render(state);
   adminAfkPanel.render(state);
+  drinkRatePanel.render(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.
@@ -923,7 +927,7 @@ class DrinksPanel {
         // Static layout via .drinks-entry; dynamic color/border/bg stay inline
         return `<div class="drinks-entry" style="color:${col};border-left:2px solid ${col};background:${bg}">
           <span class="drinks-entry-label">${label}</span>
-          <span class="drinks-entry-reason"> ${escapeHtml(d.reason)}</span>
+          <span class="drinks-entry-reason"> ${escapeHtml(d.reason)}${d.raw !== undefined && d.raw !== null && d.raw !== d.sips ? ` <em title="Sips owed before the drink rate">(${d.raw} raw)</em>` : ""}</span>
         </div>`;
       }).join("");
   }

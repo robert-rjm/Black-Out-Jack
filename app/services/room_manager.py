@@ -122,6 +122,9 @@ def reset_round_state(session: GameRoom, *, digital: bool = False) -> None:
     # after, and could be given out again and again.
     if session.drinks.last_targeted_drinking_result is not None:
         session.drinks.last_targeted_drinking_result["pending_handouts"] = {}
+    # Drink Rate Mode: rates queued during the last round take effect now.
+    from app.services.drink_rate import apply_queued_rates   # lazy: drink_rate imports serializer
+    apply_queued_rates(session)
 
 
 def apply_queued_settings(session: GameRoom) -> list[str]:

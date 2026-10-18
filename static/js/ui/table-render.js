@@ -313,6 +313,9 @@ function renderPlayers(state) {
       ? `<span class="seat-hint-badge" title="${s.name} is playing with basic strategy hints">📘</span>`
       : "";
 
+    // Drink Rate Mode: show any seat that is not drinking at the beer rate
+    const rateBadge = _rateBadgeHtml(state, s.name);
+
     // Normal mode: show bankroll + this round's payout near each seat
     let bankrollBadge = "";
     if (state.drinking_mode === false && state.balances) {
@@ -329,7 +332,7 @@ function renderPlayers(state) {
       }
     }
 
-    hdr.innerHTML = `<div class="seat-name${nameCls}"${nameTitle}>${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${runBadge}${lBadge}${hintBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
+    hdr.innerHTML = `<div class="seat-name${nameCls}"${nameTitle}>${escapeHtml(s.name)}${crownBadge}${trophyBadge}${jugBadge}${worstBadge}${runBadge}${lBadge}${hintBadge}${rateBadge}${role}${botTag}</div><div style="display:flex;align-items:center;gap:6px">${sipBadge}${bankrollBadge}${tag}</div>`;
     seat.appendChild(hdr);
 
     const hands = document.createElement("div");
@@ -385,3 +388,19 @@ function applyTurnGate(state) {
 }
 
 // ============================================================
+
+
+// Seat badge for Drink Rate Mode: only shown when the effective rate is not 1.0
+// (or a change is queued for next round).
+function _rateBadgeHtml(state, name) {
+  const dr = state && state.drink_rates;
+  if (!dr || state.drinking_mode === false) return "";
+  const seat = (dr.seats || []).find(x => x.name === name);
+  if (!seat) return "";
+  const eff = seat.effective_rate, q = seat.queued_rate;
+  if (eff === 1 && (q === null || q === undefined)) return "";
+  const icon = eff < 1 ? (eff <= 0.4 ? "🍹" : "🍷") : eff > 1 ? "⬆️" : "";
+  const queued = (q !== null && q !== undefined) ? ` → ${q}×` : "";
+  const why = seat.is_bot ? "Bots follow the table's shared rate" : "Drink rate: sips owed are multiplied by this";
+  return `<span class="seat-rate-badge" title="${why}${queued ? " (change applies next round)" : ""}">${icon}${eff !== 1 ? eff + "×" : ""}${queued}</span>`;
+}

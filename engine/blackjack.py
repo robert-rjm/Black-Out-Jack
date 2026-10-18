@@ -243,6 +243,11 @@ class Player:
         self.is_npc       = False
         self.dealer_hand  = None
         self.drink_log:  list = []   # (sips, reason) — used in drinking mode
+        # Drink Rate Mode (engine/drink_rate.py): the rate the seat chose, and
+        # the rate actually applied by add_drink. They only differ for bots,
+        # which follow the table's shared rate (app/services/drink_rate.py).
+        self.drink_rate           = 1.0
+        self.effective_drink_rate = 1.0
         self.total_wins   = 0
         self.total_losses = 0
         self.total_pushes = 0
@@ -265,13 +270,15 @@ class Player:
     def add_drink(self, sips: int, reason: str, role: str = "player"):
         """role: 'player' (betting-hand drink) or 'dealer' (dealer-seat drink)."""
         if sips != 0:
-            self.drink_log.append((sips, reason, role))
+            scaled = scale_sips(sips, self.effective_drink_rate)
+            self.drink_log.append(DrinkEntry(scaled, reason, role, raw=sips))
 
     def __str__(self):  return self.name
     def __repr__(self): return f"Player({self.name})"
 
 
 # Strategy tables and resolver live in strategy.py
+from engine.drink_rate import DrinkEntry, scale_sips  # noqa: E402
 from engine.strategy import best_play as _strategy_best_play  # noqa: E402
 
 

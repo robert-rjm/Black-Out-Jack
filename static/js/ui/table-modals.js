@@ -1493,3 +1493,223 @@ async function _postAdminAfk(path, extra) {
 
 function openAdminAfkVote()     { return _postAdminAfk("/admin_afk/open", {}); }
 function castAdminAfkVote(vote) { return _postAdminAfk("/admin_afk/vote", { vote }); }
+
+
+// ── Drink Rate panel ──────────────────────────────────────────────────────
+// Per-seat sip multiplier (docs/planning/DrinkTypeMode.md). Two surfaces:
+//  * a settings-style modal (#drink-rate-overlay): change your own rate (only
+//    options that mean drinking the same or more are enabled), the admin's
+//    proposal form, and a table summary;
+//  * a Yes/No vote modal (#drink-rate-vote-overlay) for admin proposals.
+// Driven by state.drink_rates, same polling pattern as every other modal.
+function _scaleSipsJs(sips, rate) {
+  // Mirror of engine/drink_rate.py scale_sips -- display only, the server decides.
+  if (!sips || rate === 1) return sips;
+  const sign = sips < 0 ? -1 : 1;
+  const x = Math.round(Math.abs(sips) * rate * 1e9) / 1e9;
+  let scaled;
+  if (rate < 1) scaled = Math.ceil(x);
+  else {
+    const base = Math.floor(x);
+    scaled = Math.round((x - base) * 1e9) / 1e9 >= 0.25 ? base + 1 : base;
+  }
+  return sign * Math.max(1, scaled);
+}
+function _ratePreview(rate) {
+  return [1, 2, 3, 4, 5, 6].map(n => `${n}→${_scaleSipsJs(n, rate)}`).join(", ");
+}
+function _rateName(r) {
+  const known = { 1: "Beer", 0.6: "Wine", 0.4: "Cocktail" };
+  return known[r] ? `${known[r]} ${r}×` : `${r}×`;
+}
+
+class DrinkRatePanel {
+  constructor() {
+    this._seenSeq = null;      // last result seq already announced
+    this._voteOpen = false;
+    this._resultTimer = null;
+    this._sig = "";
+    this._dirty = false;
+  }
+
+  mount(settingsEl, voteEl) {
+    if (this.settingsEl) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.settingsEl = settingsEl;
+    this.voteEl = voteEl;
+    settingsEl.addEventListener("click", e => {
+      const set = e.target.closest("[data-drink-rate-set]");
+      if (set) {
+        const seat = set.dataset.drinkRateSet;
+        const sel = settingsEl.querySelector(`select[data-drink-rate-seat="${CSS.escape(seat)}"]`);
+        if (sel) _postDrinkRate("/drink_rate/set", { seat, rate: parseFloat(sel.value) });
+        return;
+      }
+      if (e.target.closest("[data-drink-rate-propose]")) {
+        const seats = settingsEl.querySelector("#drink-rate-admin-seat").value;
+        const rate  = parseFloat(settingsEl.querySelector("#drink-rate-admin-rate").value);
+        _postDrinkRate("/drink_rate/propose", { seats: seats === "__all__" ? "all" : [seats], rate });
+      }
+    });
+    settingsEl.addEventListener("change", e => {
+      const sel = e.target.closest("select[data-drink-rate-seat], #drink-rate-admin-rate");
+      if (!sel) return;
+      const note = sel.parentElement.querySelector(".drink-rate-preview");
+      if (note) note.textContent = _ratePreview(parseFloat(sel.value));
+    });
+    // A poll that arrived while a select was focused is applied once focus leaves.
+    settingsEl.addEventListener("focusout", () => {
+      if (this._dirty) setTimeout(() => { if (!settingsEl.contains(document.activeElement)) this._renderSettings(lastState, true); }, 0);
+    });
+    voteEl.addEventListener("click", e => {
+      const btn = e.target.closest("[data-drink-rate-vote]");
+      if (btn) _postDrinkRate("/drink_rate/vote", { vote: btn.dataset.drinkRateVote === "true" });
+    });
+  }
+
+  open() {
+    if (!this.settingsEl || !lastState) return;
+    openModal("drink-rate-overlay");
+    this._renderSettings(lastState, true);
+  }
+  close() { closeModal("drink-rate-overlay"); }
+
+  render(state) {
+    if (!this.settingsEl) return;
+    const dr = state && state.drink_rates;
+    if (!dr) return;
+    if (this._seenSeq === null) this._seenSeq = dr.result_seq || 0;
+    if (this.settingsEl.style.display === "flex") this._renderSettings(state, false);
+    this._renderVote(dr);
+  }
+
+  // ---- settings modal ----
+  _renderSettings(state, force) {
+    const dr = state && state.drink_rates;
+    if (!dr) return;
+    const sig = JSON.stringify([dr.seats, !!dr.pending, myRole, myNames]);
+    if (!force && sig === this._sig) return;
+    if (!force && this.settingsEl.contains(document.activeElement)) { this._dirty = true; return; }
+    this._sig = sig; this._dirty = false;
+
+    const bySeat = Object.fromEntries((dr.seats || []).map(s => [s.name, s]));
+    const mine = (myNames || []).filter(n => bySeat[n] && !bySeat[n].is_bot);
+
+    const opts = (current) => (dr.allowed_rates || []).map(r => {
+      const free = r >= 1 || r >= current;
+      return `<option value="${r}" ${r === current ? "selected" : ""} ${free ? "" : "disabled"}>${_rateName(r)}${free ? "" : " (needs a vote)"}</option>`;
+    }).join("");
+
+    const mineEl = document.getElementById("drink-rate-mine");
+    mineEl.innerHTML = `<div class="drink-rate-sub">YOUR SEAT${mine.length > 1 ? "S" : ""}</div>` + (mine.length ? mine.map(n => {
+      const s = bySeat[n];
+      const cur = (s.queued_rate !== null && s.queued_rate !== undefined) ? s.queued_rate : s.rate;
+      const notes = [];
+      if (s.queued_rate !== null && s.queued_rate !== undefined) notes.push(`Takes effect next round (now ${s.rate}×).`);
+      if (s.protected_rounds_left > 0) notes.push(`🛡 Protected: no new rate can be voted onto you for ${s.protected_rounds_left} more round(s) unless you vote yes.`);
+      return `<div class="drink-rate-row">
+        <span class="drink-rate-name">${escapeHtml(n)}</span>
+        <select data-drink-rate-seat="${escapeHtml(n)}">${opts(cur)}</select>
+        <button class="btn approve kick-btn" data-drink-rate-set="${escapeHtml(n)}">Set</button>
+        <span class="drink-rate-note drink-rate-preview">${_ratePreview(cur)}</span>
+        ${notes.map(t => `<span class="drink-rate-note">${t}</span>`).join("")}
+      </div>`;
+    }).join("") : `<div class="drink-rate-note">You don't control a seat.</div>`);
+
+    const adminEl = document.getElementById("drink-rate-admin");
+    if (myRole === ROLE.ADMIN) {
+      const humans = (dr.seats || []).filter(s => !s.is_bot);
+      adminEl.innerHTML = `<div class="drink-rate-sub">PROPOSE A RATE (ADMIN) — the table votes</div>
+        <div class="drink-rate-row">
+          <select id="drink-rate-admin-seat"><option value="__all__">Everyone</option>${humans.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("")}</select>
+          <div style="display:contents">
+            <select id="drink-rate-admin-rate">${(dr.allowed_rates || []).map(r => `<option value="${r}" ${r === 0.6 ? "selected" : ""}>${_rateName(r)}</option>`).join("")}</select>
+            <button class="btn danger kick-btn" data-drink-rate-propose ${dr.pending ? "disabled" : ""}>Propose</button>
+            <span class="drink-rate-note drink-rate-preview">${_ratePreview(0.6)}</span>
+          </div>
+        </div>`;
+    } else {
+      adminEl.innerHTML = "";
+    }
+
+    document.getElementById("drink-rate-table").innerHTML =
+      `<div class="drink-rate-sub">TABLE</div>` +
+      (dr.seats || []).map(s => `<div class="drink-rate-row"><span class="drink-rate-name">${escapeHtml(s.name)}${s.is_bot ? " 🤖" : ""}</span><span>${_rateName(s.effective_rate)}</span></div>`).join("");
+  }
+
+  // ---- vote modal ----
+  _renderVote(dr) {
+    const pending = dr.pending;
+    const g = id => document.getElementById(id);
+    if (pending) {
+      if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
+      if (!this._voteOpen) { this._voteOpen = true; openModal("drink-rate-vote-overlay", { useClass: true }); }
+      g("drink-rate-vote-title").textContent = "🍷 Drink rate vote";
+      g("drink-rate-vote-sub").innerHTML =
+        `<strong>${escapeHtml(pending.proposer)}</strong> proposes <strong>${_rateName(pending.rate)}</strong> for ` +
+        `<strong>${pending.targets.map(escapeHtml).join(", ")}</strong>.<br><small>${_ratePreview(pending.rate)}</small>`;
+      g("drink-rate-vote-tally").innerHTML =
+        `Yes: <strong style="color:var(--green)">${pending.yes_count}</strong> &nbsp;·&nbsp; ` +
+        `No: <strong style="color:var(--red)">${pending.no_count}</strong> &nbsp;·&nbsp; ` +
+        `Needed: more than half of ${pending.total_voters}`;
+      const voted = pending.my_vote !== null && pending.my_vote !== undefined;
+      g("drink-rate-vote-btns").innerHTML = (!pending.eligible || voted) ? "" :
+        `<button class="btn green wide" data-drink-rate-vote="true">YES</button>` +
+        `<button class="btn red wide" data-drink-rate-vote="false">NO</button>`;
+      g("drink-rate-vote-status").innerHTML = !pending.eligible
+        ? `<span style="color:var(--muted)">You're not part of this vote.</span>`
+        : voted
+        ? `Your vote: <strong style="color:${pending.my_vote ? "var(--green)" : "var(--red)"}">${pending.my_vote ? "YES" : "NO"}</strong>`
+        : `<span style="color:var(--muted)">${pending.needs_my_yes ? "You're protected — this only passes if you vote yes." : "Cast your vote below."}</span>`;
+      const s = pending.seconds_left || 0;
+      const t = g("drink-rate-vote-timer");
+      t.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up!";
+      t.style.color = s <= 5 ? "var(--red)" : "var(--muted)";
+      return;
+    }
+    const r = dr.last_result;
+    if (r && r.seq > this._seenSeq) {
+      this._seenSeq = r.seq;
+      this._voteOpen = true;
+      openModal("drink-rate-vote-overlay", { useClass: true });
+      g("drink-rate-vote-title").textContent = r.passed ? "✅ Rate changed" : "❌ Vote failed";
+      g("drink-rate-vote-sub").innerHTML = r.passed
+        ? `${r.targets.map(escapeHtml).join(", ")} → <strong>${_rateName(r.rate)}</strong> from the next round.`
+        : `No change (${escapeHtml(r.reason)}).`;
+      g("drink-rate-vote-tally").innerHTML = "";
+      g("drink-rate-vote-btns").innerHTML = "";
+      g("drink-rate-vote-status").innerHTML = "";
+      g("drink-rate-vote-timer").textContent = "";
+      if (this._resultTimer) clearTimeout(this._resultTimer);
+      this._resultTimer = setTimeout(() => {
+        this._resultTimer = null; this._voteOpen = false;
+        closeModal("drink-rate-vote-overlay", { useClass: true });
+      }, 3500);
+      return;
+    }
+    if (this._voteOpen && !this._resultTimer) {
+      this._voteOpen = false;
+      closeModal("drink-rate-vote-overlay", { useClass: true });
+    }
+  }
+}
+
+const drinkRatePanel = new DrinkRatePanel();
+
+async function _postDrinkRate(path, extra) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch(path, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, ...extra }),
+    });
+    const data = await res.json();
+    if (data.ok) { applyState(data); drinkRatePanel._renderSettings(lastState, true); }
+    else showToast(data.error || "Could not complete that.", "error");
+  } catch (_) { showToast("Network error.", "error"); } finally {
+    _requestDone();
+  }
+}
+
+function openDrinkRateModal() { closeKickModal(); drinkRatePanel.open(); }
+function closeDrinkRateModal() { drinkRatePanel.close(); }

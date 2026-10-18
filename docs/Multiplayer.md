@@ -182,6 +182,21 @@ The host can single out one or more players and drop them into their own standal
 
 ---
 
+## Drink Rate Mode
+
+Each seat has a **drink rate** that scales the sips it drinks, so someone on wine or a cocktail takes fewer sips than a beer drinker (and anyone can opt to drink more). Open it from **Settings → 🍷 Drink rate**.
+
+- **Rates:** beer **1.0** (default), wine **0.6**, cocktail **0.4**; discounts go in 0.2 steps down to 0.2, boosters are **1.2, 1.4 and 1.5**. Discounts always round **up** (a non-zero penalty is never below 1 sip, so 1-sip events are never discounted). Boosters round up from a quarter sip: 1.4 x 3 = 4.2 stays at 4, 1.5 x 3 = 4.5 goes to 5
+- **Drinking more is always your own call.** Any change to your own seat's rate that is at least 1.0, or at least your current rate, applies with no vote
+- **Drinking less needs the table.** Only the admin can propose a discount, for one player or everyone. It passes on a strict majority of connected seated players (the beneficiary votes too) within 20 seconds
+- **Reset protection.** If you reset yourself to 1.0, no new rate can be voted onto you for **3 rounds** unless you vote Yes yourself (your No is a veto). This applies to boosters and discounts alike
+- **Timing:** changes apply immediately before the first deal, otherwise from the next round. Each change is logged and shown on the seat (🍷 0.6x, 🍹 0.4x, ⬆️ 1.4x)
+- **What counts:** *effective* sips (after the rate) drive the sip ticker, milestones and the Drinks panel, which shows "(N raw)" next to anything the rate changed. *Raw* sips (before the rate) are kept in the exports (`sips_raw` column) and in luck/strategy stats
+- **Handouts:** the receiver's rate applies; handing out is never scaled. Rounding up means a 1-sip handout is always 1 sip
+- **Bots** follow the table: they use a rate only when every human seat shares the same one, otherwise 1.0
+
+---
+
 ## Easy Mode
 
 **Easy Mode** halves all end-of-round drinks (rounded up) for every player, every round — the same mechanic as the automatic [Large Group Rule](Rules.md#large-group-rule-4-players) but available to any group size.

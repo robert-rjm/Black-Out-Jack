@@ -81,6 +81,7 @@ def create_app() -> Flask:
     from app.routes.admin         import bp as admin_bp
     from app.routes.game_commands import bp as game_commands_bp
     from app.routes.wild_card     import bp as wild_card_bp
+    from app.routes.drink_rate    import bp as drink_rate_bp
 
     app.register_blueprint(reports_bp)
     app.register_blueprint(polling_bp)
@@ -88,5 +89,6 @@ def create_app() -> Flask:
     app.register_blueprint(admin_bp)
     app.register_blueprint(game_commands_bp)
     app.register_blueprint(wild_card_bp)
+    app.register_blueprint(drink_rate_bp)
 
     return app

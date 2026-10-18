@@ -216,6 +216,7 @@ class DrinkEntryOut(_StrictModel):
     name:   str
     sips:   int
     reason: str
+    raw:    Optional[int] = None   # sips owed before the seat's drink rate, only when it differs
 
 
 class InsuranceResultOut(_StrictModel):
@@ -308,6 +309,48 @@ class AfkNoticeOut(_StrictModel):
     seat:    str
     seq:     int
     context: str   # "targeted_drinking" | "turn"
+
+
+class DrinkRateSeatOut(_StrictModel):
+    name:                  str
+    rate:                  float
+    effective_rate:        float
+    queued_rate:           Optional[float]
+    protected_rounds_left: int
+    is_bot:                bool
+
+
+class DrinkRatePendingOut(_StrictModel):
+    proposer:     str
+    rate:         float
+    targets:      list[str]
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    seconds_left: int
+    my_vote:      Optional[bool]
+    eligible:     bool
+    needs_my_yes: bool
+
+
+class DrinkRateResultOut(_StrictModel):
+    passed:   bool
+    reason:   str
+    proposer: str
+    rate:     float
+    targets:  list[str]
+    seq:      int
+
+
+class DrinkRatesOut(_StrictModel):
+    """Drink Rate Mode state (app/services/drink_rate.py)."""
+    seats:             list[DrinkRateSeatOut]
+    pending:           Optional[DrinkRatePendingOut]
+    last_result:       Optional[DrinkRateResultOut]
+    result_seq:        int
+    allowed_rates:     list[float]
+    presets:           dict[str, float]
+    protection_rounds: int
 
 
 class AdminAfkPendingOut(_StrictModel):
@@ -600,5 +643,6 @@ class AppState(_StrictModel):
     my_names:           list[str]
     afk_notice:         Optional[AfkNoticeOut]
     admin_afk_vote:     AdminAfkVoteOut
+    drink_rates:        DrinkRatesOut
     can_add_local_seat: bool
     is_dealer_client:   bool

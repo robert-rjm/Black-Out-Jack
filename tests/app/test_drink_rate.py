@@ -1,0 +1,418 @@
+"""
+Tests for Drink Rate Mode (app/services/drink_rate.py, app/routes/drink_rate.py,
+and the rate application in drink_tracker.award_sips).
+"""
+
+import time
+
+import pytest
+
+from engine.referee import RefereeSession
+from tests.conftest import make_player, make_hand
+from app import create_app
+from app.config import DRINK_RATE_PROTECTION_ROUNDS
+from app.models.game_room import GameRoom, GameConfig
+from app.services.drink_rate import (
+    apply_drink_rate_forfeit, apply_queued_rates, cast_rate_vote, is_protected,
+    open_rate_proposal, protection_rounds_left, set_own_rate, sync_drink_rates,
+)
+from app.services.drink_tracker import award_sips
+from app.services.room_manager import reset_round_state
+from app.services.serializer import serialize_state
+from app.services.session_store import game_sessions, set_session
+
+
+def _room(dealt=False, bots=()):
+    names = ["Alice", "Bob", "Carol", "Dave"]
+    players = []
+    for n in names:
+        hands = [make_hand(("5", "S"), ("6", "H"))] if dealt else []
+        players.append(make_player(n, hands=hands, is_dealer=(n == "Alice"),
+                                   is_npc=(n in bots)))
+    players[0].dealer_hand = make_hand(("K", "S"), ("7", "H"))
+    raw = RefereeSession(players, "Alice", wager=1, num_hands=1)
+    room = GameRoom(session=raw, config=GameConfig(mode="digital", drinking_mode=True))
+    room._room_clients = {
+        "admin-cid": {"name": "Alice", "role": "admin", "local_names": ["Alice"]},
+        "bob-cid":   {"name": "Bob",   "role": "player"},
+        "carol-cid": {"name": "Carol", "role": "player"},
+        "dave-cid":  {"name": "Dave",  "role": "player"},
+    }
+    now = time.monotonic()
+    for cid in room._room_clients:
+        room._client_last_seen[cid] = now
+    return room
+
+
+def _p(room, name):
+    return next(p for p in room.all_players if p.name == name)
+
+
+# ---------------------------------------------------------------------------
+# Bots follow the table
+# ---------------------------------------------------------------------------
+
+def test_bots_take_the_rate_only_when_all_humans_share_it():
+    room = _room(bots=("Dave",))
+    for n in ("Alice", "Bob", "Carol"):
+        _p(room, n).drink_rate = 0.6
+    sync_drink_rates(room)
+    assert _p(room, "Dave").effective_drink_rate == 0.6
+    _p(room, "Bob").drink_rate = 1.0
+    sync_drink_rates(room)
+    assert _p(room, "Dave").effective_drink_rate == 1.0
+
+
+def test_humans_use_their_own_rate():
+    room = _room()
+    _p(room, "Bob").drink_rate = 0.4
+    sync_drink_rates(room)
+    assert _p(room, "Bob").effective_drink_rate == 0.4
+    assert _p(room, "Carol").effective_drink_rate == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Own changes
+# ---------------------------------------------------------------------------
+
+def test_raising_own_rate_needs_no_vote_and_applies_immediately_pre_deal():
+    room = _room()
+    assert set_own_rate(room, "bob-cid", "Bob", 1.4) == (True, "")
+    assert _p(room, "Bob").drink_rate == 1.4
+    assert _p(room, "Bob").effective_drink_rate == 1.4
+
+
+def test_discount_for_yourself_needs_the_table():
+    room = _room()
+    ok, err = set_own_rate(room, "bob-cid", "Bob", 0.6)
+    assert not ok and "approval" in err
+    assert _p(room, "Bob").drink_rate == 1.0
+
+
+def test_cannot_change_someone_elses_seat():
+    room = _room()
+    ok, err = set_own_rate(room, "bob-cid", "Carol", 1.2)
+    assert not ok and "control" in err
+
+
+def test_local_seat_holder_can_change_the_seat():
+    room = _room()
+    room._room_clients["admin-cid"]["local_names"] = ["Alice", "Dave"]
+    assert set_own_rate(room, "admin-cid", "Dave", 1.2)[0] is True
+
+
+def test_invalid_rate_is_rejected():
+    room = _room()
+    assert set_own_rate(room, "bob-cid", "Bob", 0.5)[0] is False
+    assert set_own_rate(room, "bob-cid", "Bob", 2.0)[0] is False
+
+
+def test_bots_cannot_be_given_a_rate():
+    room = _room(bots=("Dave",))
+    room._room_clients["dave-cid"] = {"name": "Dave", "role": "player"}
+    assert set_own_rate(room, "dave-cid", "Dave", 1.2)[0] is False
+
+
+def test_booster_can_be_dropped_to_beer_and_starts_protection():
+    room = _room()
+    set_own_rate(room, "bob-cid", "Bob", 1.5)
+    assert not is_protected(room, "Bob")
+    assert set_own_rate(room, "bob-cid", "Bob", 1.0)[0] is True
+    assert _p(room, "Bob").drink_rate == 1.0
+    assert is_protected(room, "Bob")
+    assert protection_rounds_left(room, "Bob") == DRINK_RATE_PROTECTION_ROUNDS
+
+
+def test_dropping_to_a_lower_booster_is_free_and_not_protected():
+    room = _room()
+    set_own_rate(room, "bob-cid", "Bob", 1.5)
+    assert set_own_rate(room, "bob-cid", "Bob", 1.2)[0] is True
+    assert not is_protected(room, "Bob")
+
+
+def test_protection_expires_after_three_rounds():
+    room = _room()
+    set_own_rate(room, "bob-cid", "Bob", 1.5)
+    set_own_rate(room, "bob-cid", "Bob", 1.0)
+    through = room._drink_rate_protected_through["bob"]
+    assert through == room.round_count + DRINK_RATE_PROTECTION_ROUNDS
+
+
+def test_change_is_queued_mid_round_and_applied_at_next_round():
+    room = _room(dealt=True)
+    assert set_own_rate(room, "bob-cid", "Bob", 1.4)[0] is True
+    assert _p(room, "Bob").drink_rate == 1.0            # not yet
+    assert room._drink_rate_queued == {"bob": 1.4}
+    reset_round_state(room)
+    assert _p(room, "Bob").drink_rate == 1.4
+    assert room._drink_rate_queued == {}
+    assert any("Bob now drinks" in e for e in room.round._log_entries)
+
+
+def test_queued_rate_that_returns_to_current_is_dropped():
+    room = _room(dealt=True)
+    set_own_rate(room, "bob-cid", "Bob", 1.4)
+    set_own_rate(room, "bob-cid", "Bob", 1.0)
+    assert room._drink_rate_queued == {}
+
+
+# ---------------------------------------------------------------------------
+# Admin proposal + majority vote
+# ---------------------------------------------------------------------------
+
+def test_only_admin_can_propose():
+    room = _room()
+    ok, err = open_rate_proposal(room, "bob-cid", ["Bob"], 0.6)
+    assert not ok and "admin" in err.lower()
+
+
+def test_proposal_passes_on_strict_majority_and_beneficiary_votes():
+    room = _room()
+    assert open_rate_proposal(room, "admin-cid", ["Bob"], 0.6) == (True, "")
+    assert room.round._pending_rate_proposal is not None
+    # 4 voters: needs 3 Yes. Admin (pre-filled) + Bob (the beneficiary) is only 2.
+    assert cast_rate_vote(room, "bob-cid", True)[0] is True
+    assert room.round._pending_rate_proposal is not None
+    cast_rate_vote(room, "carol-cid", True)
+    assert room.round._pending_rate_proposal is None
+    assert room._drink_rate_last_result["passed"] is True
+    assert _p(room, "Bob").drink_rate == 0.6          # pre-deal: applied now
+
+
+def test_proposal_fails_when_majority_is_out_of_reach():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "carol-cid", False)
+    cast_rate_vote(room, "dave-cid", False)
+    assert room._drink_rate_last_result["passed"] is False
+    assert _p(room, "Bob").drink_rate == 1.0
+
+
+def test_proposal_times_out():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    room.round._pending_rate_proposal["expires_at"] = time.monotonic() - 1
+    apply_drink_rate_forfeit(room)
+    assert room._drink_rate_last_result["reason"] == "timed out"
+
+
+def test_proposal_for_all_covers_every_human_and_skips_bots():
+    room = _room(bots=("Dave",))
+    del room._room_clients["dave-cid"]            # bots have no client
+    open_rate_proposal(room, "admin-cid", "all", 0.6)
+    cast_rate_vote(room, "bob-cid", True)
+    assert room._drink_rate_last_result["passed"] is True
+    assert sorted(room._drink_rate_last_result["targets"]) == ["Alice", "Bob", "Carol"]
+    assert _p(room, "Dave").drink_rate == 1.0
+    sync_drink_rates(room)
+    assert _p(room, "Dave").effective_drink_rate == 0.6   # everyone human shares it
+
+
+def test_cannot_propose_a_no_op():
+    room = _room()
+    ok, err = open_rate_proposal(room, "admin-cid", ["Bob"], 1.0)
+    assert not ok and "change" in err
+
+
+def test_second_proposal_is_blocked_while_one_is_open():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    assert open_rate_proposal(room, "admin-cid", ["Carol"], 0.6)[0] is False
+
+
+def test_non_voter_cannot_vote():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    room._room_clients["spec"] = {"name": None, "role": "spectator"}
+    assert cast_rate_vote(room, "spec", True)[0] is False
+
+
+def test_sole_voter_passes_immediately():
+    room = _room()
+    for cid in ("bob-cid", "carol-cid", "dave-cid"):
+        room._room_clients[cid]["role"] = "spectator"
+    assert open_rate_proposal(room, "admin-cid", ["Alice"], 0.6)[0] is True
+    assert room._drink_rate_last_result["passed"] is True
+
+
+def test_booster_can_be_voted_onto_an_unprotected_player():
+    room = _room()
+    open_rate_proposal(room, "admin-cid", ["Bob"], 1.4)
+    cast_rate_vote(room, "carol-cid", True)
+    cast_rate_vote(room, "dave-cid", True)
+    assert _p(room, "Bob").drink_rate == 1.4
+
+
+# ---------------------------------------------------------------------------
+# Protection after normalizing
+# ---------------------------------------------------------------------------
+
+def _protected_bob(room):
+    set_own_rate(room, "bob-cid", "Bob", 1.5)
+    set_own_rate(room, "bob-cid", "Bob", 1.0)
+    assert is_protected(room, "Bob")
+
+
+def test_protected_player_needs_their_own_yes():
+    room = _room()
+    _protected_bob(room)
+    open_rate_proposal(room, "admin-cid", ["Bob"], 1.4)
+    cast_rate_vote(room, "carol-cid", True)
+    cast_rate_vote(room, "dave-cid", True)       # majority reached, but Bob has not said yes
+    assert room.round._pending_rate_proposal is not None
+    assert _p(room, "Bob").drink_rate == 1.0
+    cast_rate_vote(room, "bob-cid", True)
+    assert room._drink_rate_last_result["passed"] is True
+    assert _p(room, "Bob").drink_rate == 1.4
+
+
+def test_protected_player_no_vote_is_a_veto():
+    room = _room()
+    _protected_bob(room)
+    open_rate_proposal(room, "admin-cid", ["Bob"], 1.4)
+    cast_rate_vote(room, "bob-cid", False)
+    assert room._drink_rate_last_result["passed"] is False
+    assert room._drink_rate_last_result["reason"] == "a protected player voted no"
+
+
+def test_protection_also_covers_discounts():
+    room = _room()
+    _protected_bob(room)
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    cast_rate_vote(room, "carol-cid", True)
+    cast_rate_vote(room, "dave-cid", True)
+    assert room.round._pending_rate_proposal is not None   # still waiting on Bob
+
+
+def test_everyone_protected_cannot_be_proposed():
+    room = _room()
+    for cid, n in (("bob-cid", "Bob"),):
+        set_own_rate(room, cid, n, 1.5)
+        set_own_rate(room, cid, n, 1.0)
+    room._room_clients["bob-cid"]["role"] = "spectator"   # unreachable -> skipped
+    ok, err = open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    assert not ok and "protected" in err
+
+
+def test_protection_ends_after_the_window():
+    room = _room()
+    _protected_bob(room)
+    room._drink_rate_protected_through["bob"] = room.round_count - 1
+    assert not is_protected(room, "Bob")
+    assert protection_rounds_left(room, "Bob") == 0
+
+
+# ---------------------------------------------------------------------------
+# Applying rates to sips
+# ---------------------------------------------------------------------------
+
+def test_award_sips_scales_by_the_receivers_rate_and_records_raw():
+    room = _room()
+    _p(room, "Bob").effective_drink_rate = 0.6
+    award_sips(room, "Bob", 3, "Net hand losses")
+    assert room.drinks.sip_ticker["Bob"] == 2
+    row = room.drinks.csv_rows[-1]
+    assert row["sips"] == 2 and row["sips_raw"] == 3
+
+
+def test_award_sips_default_rate_has_equal_raw_and_sips():
+    room = _room()
+    award_sips(room, "Carol", 3, "Net hand losses")
+    row = room.drinks.csv_rows[-1]
+    assert row["sips"] == 3 and row["sips_raw"] == 3
+    assert room.drinks.sip_ticker["Carol"] == 3
+
+
+def test_award_sips_booster_increases_the_ticker():
+    room = _room()
+    _p(room, "Bob").effective_drink_rate = 1.5
+    award_sips(room, "Bob", 2, "Net hand losses")
+    assert room.drinks.sip_ticker["Bob"] == 3
+
+
+def test_giving_sips_is_not_scaled_for_the_giver():
+    """A wine drinker handing out 1 sip to a beer drinker gives exactly 1."""
+    room = _room()
+    _p(room, "Bob").effective_drink_rate = 0.4
+    award_sips(room, "Carol", 1, "Handout")
+    assert room.drinks.sip_ticker["Carol"] == 1
+
+
+def test_last_round_drinks_shows_raw_only_when_it_differs():
+    room = _room()
+    _p(room, "Bob").effective_drink_rate = 0.6
+    award_sips(room, "Bob", 3, "Net hand losses")
+    award_sips(room, "Carol", 3, "Net hand losses")
+    by_name = {d["name"]: d for d in room.drinks.last_round_drinks}
+    assert by_name["Bob"]["raw"] == 3 and by_name["Bob"]["sips"] == 2
+    assert "raw" not in by_name["Carol"]
+
+
+# ---------------------------------------------------------------------------
+# Routes + serialization
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def client():
+    return create_app().test_client()
+
+
+@pytest.fixture
+def route_room():
+    code = "RateRoom1"
+    room = _room()
+    set_session(code, room)
+    yield code, room
+    game_sessions.pop(code, None)
+
+
+def _post(client, path, code, cid, **extra):
+    return client.post(path, json={"room_code": code, "client_id": cid, **extra}).get_json()
+
+
+def test_set_route_raises_own_rate(client, route_room):
+    code, room = route_room
+    data = _post(client, "/drink_rate/set", code, "bob-cid", seat="Bob", rate=1.2)
+    assert data["ok"] and _p(room, "Bob").drink_rate == 1.2
+
+
+def test_set_route_rejects_a_discount(client, route_room):
+    code, _ = route_room
+    data = _post(client, "/drink_rate/set", code, "bob-cid", seat="Bob", rate=0.6)
+    assert data["ok"] is False
+
+
+def test_propose_and_vote_routes(client, route_room):
+    code, room = route_room
+    assert _post(client, "/drink_rate/propose", code, "admin-cid", seats=["Bob"], rate=0.6)["ok"]
+    _post(client, "/drink_rate/vote", code, "bob-cid", vote=True)
+    data = _post(client, "/drink_rate/vote", code, "carol-cid", vote=True)
+    assert data["ok"]
+    assert _p(room, "Bob").drink_rate == 0.6
+
+
+def test_propose_route_validates_seats(client, route_room):
+    code, _ = route_room
+    assert _post(client, "/drink_rate/propose", code, "admin-cid", seats="nope", rate=0.6)["ok"] is False
+
+
+def test_state_exposes_drink_rates(client, route_room):
+    code, room = route_room
+    set_own_rate(room, "bob-cid", "Bob", 1.4)
+    st = serialize_state(room, "bob-cid")["drink_rates"]
+    bob = next(s for s in st["seats"] if s["name"] == "Bob")
+    assert bob["rate"] == 1.4 and bob["effective_rate"] == 1.4
+    assert st["allowed_rates"] == [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.5]
+    assert st["presets"]["wine"] == 0.6 and st["presets"]["cocktail"] == 0.4
+    open_rate_proposal(room, "admin-cid", ["Carol"], 0.6)
+    st = serialize_state(room, "carol-cid")["drink_rates"]
+    assert st["pending"]["eligible"] is True and st["pending"]["targets"] == ["Carol"]
+
+
+def test_tick_syncs_bot_rates():
+    from app.services.tick import tick
+    room = _room(bots=("Dave",))
+    for n in ("Alice", "Bob", "Carol"):
+        _p(room, n).drink_rate = 0.4
+    tick(room)
+    assert _p(room, "Dave").effective_drink_rate == 0.4

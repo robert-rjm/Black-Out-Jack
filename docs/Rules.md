@@ -34,6 +34,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
 6. [Relaxed Drinking Rules](#6-relaxed-drinking-rules)
     - 6.1 [Large Group Rules](#61-large-group-rules-4-players)
     - 6.2 [Easy Mode](#62-easy-mode)
+    - 6.3 [Drink Rate Mode](#63-drink-rate-mode)
 7. [Potential Future Rules](#7-potential-future-rules)
 8. [Glossary](#8-glossary)
 
@@ -544,6 +545,95 @@ Any group can opt into the same halving rule regardless of player count.
 
 
 
+### 6.3 Drink Rate Mode
+
+Not everyone is drinking the same thing. A sip of wine or a cocktail is
+stronger than a sip of beer, so each **seat** has a **drink rate** that
+scales the sips it has to drink. The default is beer, **1.0×**.
+
+| Drink | Rate | Notes |
+| ----- | ---- | ----- |
+| Beer (default) | **1.0×** | Sips owed are sips drunk |
+| Wine | **0.6×** | A discount |
+| Cocktail | **0.4×** | A bigger discount |
+| Other discounts | **0.2×, 0.8×** | Any 0.2 step from 0.2× to 1.0× |
+| Boosters | **1.2×, 1.4×, 1.5×** | Drink *more* than the table (e.g. a late joiner catching up). 1.5× is the maximum |
+
+Open it from **Settings → 🍷 Drink rate**. Rates are shown on each seat
+(🍷 0.6×, 🍹 0.4×, ⬆️ 1.4×).
+
+#### How the rate is applied
+
+The rate is applied **last**, to every sip the seat receives, after wager
+scaling and after any halving rule ([6.1](#61-large-group-rules-4-players),
+[6.2](#62-easy-mode)). It applies to Instant Effect and End of Round drinks
+alike.
+
+- **Discounts always round up**, so a sip penalty is never reduced below
+  1 sip. A 1-sip penalty is always 1 sip at any rate.
+- **Boosters round up once the extra reaches a quarter sip** (¼ or more
+  rounds up, less than ¼ rounds down).
+- Credits (negative sips) scale the same way.
+
+| Sips owed | 1 | 2 | 3 | 4 | 5 | 6 |
+| --------- | - | - | - | - | - | - |
+| 0.4× (cocktail) | 1 | 1 | 2 | 2 | 2 | 3 |
+| 0.6× (wine) | 1 | 2 | 2 | 3 | 3 | 4 |
+| 1.0× (beer) | 1 | 2 | 3 | 4 | 5 | 6 |
+| 1.4× | 2 | 3 | 4 | 6 | 7 | 9 |
+| 1.5× | 2 | 3 | 5 | 6 | 8 | 9 |
+
+Sips you **hand out** are never scaled for the giver; the rate of whoever
+receives them applies. Because discounts round up, handing out a single sip
+always delivers exactly 1 sip.
+
+#### Who can change a rate
+
+> **Anyone can always choose to drink more. Drinking less needs the table's
+> approval.**
+
+| Change | How |
+| ------ | --- |
+| Raise your own rate, or move it to 1.0× or higher | **You, any time, no vote** |
+| Reset to 1.0× ("normalize") | **You, any time, no vote** — and it starts the protection window below |
+| Lower a rate (a discount), for one player or everyone | The **admin proposes**; it passes on a **strict majority** of connected seated Players within **20 seconds**. The Player who benefits votes too, and the proposer's own vote counts as an automatic Yes |
+| Impose a booster on someone | Same proposal and vote as a discount |
+
+**Protection window:** once a Player resets themselves to 1.0×, no new rate
+(discount or booster) can be voted onto them for the next **3 rounds**
+unless they explicitly vote **Yes** themselves. For a protected Player a
+proposal needs both the majority **and** their own Yes — their No is a
+veto. If a proposal covers several Players, anyone protected who is not
+connected is simply left out.
+
+A change takes effect **immediately** if no cards have been dealt yet,
+otherwise from the **next round**. Each change is written to the game log.
+
+#### What gets counted
+
+- **Effective sips** (after the rate) are what the seat actually drinks. They
+  drive the sip ticker, milestone totals, round totals, the Drinks panel and
+  every rule that depends on how much someone has drunk.
+- **Raw sips** (before the rate) are what the cards cost. The Drinks panel
+  shows them as "(N raw)" next to any line the rate changed, and the
+  exports keep both (`sips` and `sips_raw`).
+- Rules that compare against a fixed threshold, such as the Wild Card
+  5-sip cap ([5.10](#510-targeted-drinking-mode)), use the raw amount so
+  they play the same for everyone.
+
+**Bots** follow the table: they use a rate only when every human seat
+shares the same one, otherwise they stay at 1.0×. The rate belongs to the
+seat, so it stays with it if the host takes over an AFK Player's seat.
+
+> **Example:** Carol is on wine (0.6×) and Bob has taken a 1.4× booster to
+> catch up. Net hand losses cost both of them 3 sips. Carol drinks **2**
+> (3 × 0.6 = 1.8, rounded up) and Bob drinks **4** (3 × 1.4 = 4.2; the 0.2
+> is under ¼, so it rounds down). A 1-sip penalty is **1** for Carol but
+> **2** for Bob (1 × 1.4 = 1.4; the 0.4 is over ¼, so it rounds up). Later
+> Bob resets himself to 1.0×; for the next 3 rounds nobody can vote a new
+> rate onto him unless he votes Yes.
+
+
 ## 7. Potential Future Rules
 
 _Have a rule idea? Open an issue or suggest it mid-game!
@@ -562,6 +652,8 @@ The best rules often come from the chaos of gameplay._ 🍻
 | **Hard Switch** | Dealer loses all hands → penalty + role passes |
 | **Soft Switch** | Dealer wins all hands → normal drinking, role passes |
 | **Auto-insurance** | Passive cap on penalty when Dealer has Blackjack (wager × hands) |
+| **Drink rate** | A per-seat multiplier on the sips a Player drinks (beer 1.0×, wine 0.6×, cocktail 0.4×; boosters up to 1.5×) — [Drink Rate Mode](#63-drink-rate-mode) |
+| **Effective / raw sips** | Effective = sips actually drunk after the drink rate; raw = sips owed before it |
 
 ----
 

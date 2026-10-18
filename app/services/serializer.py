@@ -182,6 +182,11 @@ def _serialize_admin_afk_vote(session: GameRoom, client_id: str) -> dict:
     return serialize_admin_afk_vote(session, client_id)
 
 
+def _serialize_drink_rates(session: GameRoom, client_id: str) -> dict:
+    from app.services.drink_rate import serialize_drink_rates   # drink_rate.py imports this module
+    return serialize_drink_rates(session, client_id)
+
+
 def _serialize_pending_target_proposal(pending: dict | None, client_info: dict) -> dict | None:
     """Serialize a pending majority-vote-to-target proposal (tap a
     player's name at the table). Returns None once its vote window has
@@ -1102,6 +1107,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "my_name":                _ci.get("name"),
         "afk_notice":             (session._room_clients.get(client_id) or {}).get("afk_notice"),
         "admin_afk_vote":         _serialize_admin_afk_vote(session, client_id),
+        "drink_rates":            _serialize_drink_rates(session, client_id),
         "my_names":               _ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []),
         "can_add_local_seat":     (
             _ci.get("role") in ("admin", "player") and

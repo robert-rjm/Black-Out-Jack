@@ -171,6 +171,12 @@
   font-size: 11px;
   line-height: 1;
 }
+.seat-rate-badge {
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--muted);
+}
 .seat-worst-badge {
   font-size: 11px;
   line-height: 1;

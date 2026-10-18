@@ -102,6 +102,11 @@ This document defines selector ownership for the web UI modules and the shared e
     during the summary phase (which shows its own final version instead)
 
 ### `static/js/ui/admin-settings.js`
+- Drink Rate Mode (Multiplayer.md, Drink Rate Mode):
+  - Settings button: `[data-action="openDrinkRateModal"]`; seat badge `.seat-rate-badge`
+  - `#drink-rate-overlay`, `#drink-rate-card`, `#drink-rate-mine`, `#drink-rate-admin`, `#drink-rate-table`
+  - `#drink-rate-admin-seat`, `#drink-rate-admin-rate`, `[data-drink-rate-set]`, `[data-drink-rate-propose]`, `select[data-drink-rate-seat]`
+  - Vote modal: `#drink-rate-vote-overlay`, `#drink-rate-vote-modal`, `#drink-rate-vote-title`, `#drink-rate-vote-sub`, `#drink-rate-vote-tally`, `#drink-rate-vote-btns`, `#drink-rate-vote-status`, `#drink-rate-vote-timer`, `[data-drink-rate-vote]`
 - Admin-AFK vote (Multiplayer.md, AFK handling):
   - `#admin-afk-banner` (holds the Start AFK vote button while the game is waiting on the admin)
   - `#admin-afk-modal-overlay`, `#admin-afk-modal`, `#admin-afk-modal-title`, `#admin-afk-modal-sub`

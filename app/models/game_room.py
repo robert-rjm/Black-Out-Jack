@@ -115,6 +115,10 @@ class RoundState:
     # vote is discarded when a new round starts (the admin obviously acted).
     _pending_admin_afk_vote: dict | None = None
 
+    # Admin-proposed drink-rate vote (app/services/drink_rate.py). Per-round:
+    # discarded if a new round starts while it is still open.
+    _pending_rate_proposal: dict | None = None
+
     # Ace drink events (digital only).
     # _ace_drink_seq resets to 0 each round (RoundState is replaced wholesale).
     # The frontend resets its local pointer when it detects a new round via
@@ -313,6 +317,12 @@ class GameRoom:
     _client_last_seen: dict = field(default_factory=dict)
     _admin_afk_last_result: dict | None = None
     _admin_afk_result_seq: int = 0
+
+    # Drink Rate Mode (app/services/drink_rate.py). Keys are lowercase seat names.
+    _drink_rate_queued: dict = field(default_factory=dict)             # seat -> rate applied at next round start
+    _drink_rate_protected_through: dict = field(default_factory=dict)  # seat -> last round_count it is shielded in
+    _drink_rate_last_result: dict | None = None
+    _drink_rate_result_seq: int = 0
 
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer
