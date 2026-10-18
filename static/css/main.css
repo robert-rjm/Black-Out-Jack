@@ -229,7 +229,8 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 }
 
 /* ---- HEADER ROOM CODE ---- */
-#header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; }
+#header-room { font-size: 11px; color: var(--accent); margin-top: 1px; font-family: monospace; letter-spacing: 1px; cursor: pointer; }
+#header-room:hover { text-decoration: underline; }
 
 /* ---- DESKTOP HEADER ACTIONS (hidden on mobile) ---- */
 #header-actions {

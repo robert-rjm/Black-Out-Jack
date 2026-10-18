@@ -27,7 +27,7 @@ Black-Out-Jack/
 │   │   ├── game_room.py                    # Typed room-state container (GameRoom, RoundState, DrinkLedger, GameConfig, SessionStats)
 │   │   └── state_schema.py                 # Pydantic AppState schema — validates serialize_state()'s return shape
 │   ├── routes/
-│   │   ├── lobby.py                        # Room creation, joining, initial game setup
+│   │   ├── lobby.py                        # Room creation, joining, initial game setup, GET /room_invite (join link + QR code SVG)
 │   │   ├── polling.py                      # Long-poll state sync, registration, pre-selections, insurance votes, Targeted Drinking vote; delegates per-poll ticks to services/tick.py
 │   │   ├── game_commands.py                # POST /command — the dispatcher for all referee + digital game actions
 │   │   ├── admin.py                        # Kick, dealer rotation, milestone claim, player management, Targeted Drinking start/cancel, admin-AFK vote (/admin_afk/open, /admin_afk/vote)
@@ -132,6 +132,7 @@ Black-Out-Jack/
 │   │   ├── test_dealer_lottery.py          # Dealer Lottery engine, routes, re-splitting, and payout tests
 │   │   ├── test_decision_log.py            # Decision-log + Dealer Lottery entry capture, /export_decisions XLSX shape
 │   │   ├── test_harvest_helpers.py         # Harvest helper function unit tests
+│   │   ├── test_room_invite.py             # /room_invite: join link, QR SVG, LAN/proxy URL handling, code validation
 │   │   ├── test_normal_mode_no_drinking.py # Verifies no drinks fire outside drinking rules
 │   │   ├── test_payout_tracker.py          # PayoutTracker unit tests
 │   │   ├── test_targeted_drinking.py       # Targeted Drinking Mode: service, admin/vote routes, serializer, pipeline ordering (Rules.md §5.10)
@@ -355,6 +356,7 @@ Commit the updated `docs/.terms_sync.json` alongside your change.
 - Python 3.10+
 - `flask` (for web UI)
 - `pydantic` (for web UI — validates the state payload the web UI polls; see `app/models/state_schema.py`)
+- `segno` (pure Python, no dependencies — renders the room's join-link QR code as SVG for `GET /room_invite`)
 - `openpyxl` (for web UI — `/export_xlsx` and `/export_decisions`; also used by `scripts/build_player_profiles.py` and `scripts/load_decision_logs.py` to read exported logs back in)
 - `pytest` (for running the test suite)
 - No other dependencies for terminal play

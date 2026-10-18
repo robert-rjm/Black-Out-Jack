@@ -6,8 +6,15 @@ Room lifecycle routes: creating a room, joining, and initial game setup.
 POST /create_room — Reserve a new room code
 POST /join_room   — Client joins an existing room
 POST /setup       — Admin configures and starts the game session
+GET  /room_invite — Join link + QR code (SVG) for a room code
 """
 
+import io
+import re
+import socket
+from urllib.parse import urlsplit
+
+import segno
 from flask import Blueprint, jsonify, request
 
 from engine.blackjack import Player, Hand, Shoe, NPC_Player
@@ -241,3 +248,57 @@ def setup():
     state  = serialize_state(room, client_id)
     state["output"] = output   # kept for host's immediate display
     return jsonify(state)
+
+
+# ---------------------------------------------------------------------------
+# Invite link + QR code
+# ---------------------------------------------------------------------------
+
+_CODE_RE      = re.compile(r"^[A-Za-z0-9]{1,24}$")
+_LOCAL_HOSTS  = {"localhost", "127.0.0.1", "::1"}
+
+
+def _lan_ip() -> str | None:
+    """This machine's address on the local network, or None. Opens no
+    connection: a UDP "connect" only selects the outgoing interface."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+def _invite_base_url() -> str:
+    """Public base URL of this server as the client reached it (honours the
+    proxy headers hosts like Render set). When the host opened the page via
+    localhost, phones cannot use that, so it is swapped for the LAN address."""
+    scheme = (request.headers.get("X-Forwarded-Proto") or request.scheme).split(",")[0].strip()
+    host   = (request.headers.get("X-Forwarded-Host") or request.host).split(",")[0].strip()
+    parts  = urlsplit(f"//{host}")
+    name   = parts.hostname or host
+    if name in _LOCAL_HOSTS:
+        name = _lan_ip() or name
+    port   = f":{parts.port}" if parts.port else ""
+    return f"{scheme}://{name}{port}"
+
+
+def _qr_svg(text: str) -> str:
+    buf = io.BytesIO()
+    segno.make(text, error="m").save(
+        buf, kind="svg", scale=8, border=2, xmldecl=False, nl=False,
+        dark="#000000", light="#ffffff",
+    )
+    return buf.getvalue().decode("utf-8")
+
+
+@bp.route("/room_invite", methods=["GET"])
+def room_invite():
+    """The link that joins a room and a QR code for it, as inline SVG.
+    Body-less: ?code=<room code>. This encodes the code it is given and says
+    nothing about whether the room exists, so it is not a room-existence oracle."""
+    code = (request.args.get("code") or "").strip()
+    if not _CODE_RE.match(code):
+        return jsonify({"ok": False, "error": "Invalid room code."}), 400
+    url = f"{_invite_base_url()}/?room={code}"
+    return jsonify({"ok": True, "code": code, "url": url, "svg": _qr_svg(url)})

@@ -472,6 +472,20 @@
   </div>
 </div>
 
+<div id="qr-overlay" data-backdrop-action="closeRoomQr">
+  <div id="qr-card" data-stop-propagation="true">
+    <h3>📲 Join this room</h3>
+    <div class="modal-note">Scan with a phone camera to open the game and join this room.</div>
+    <div id="qr-svg"></div>
+    <div id="qr-code-text" class="room-code-badge"></div>
+    <div id="qr-url" class="modal-note"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn approve wide" data-action="copyInviteLink">📋 Copy link</button>
+      <button class="btn wide" data-action="closeRoomQr">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="seat-transfer-overlay" style="display:none">
   <div id="seat-transfer-card" data-stop-propagation="true">
     <h3>🔄 Seat Transfer Request</h3>

@@ -28,6 +28,18 @@ setBustVoteSetupToggle(true);                 // bust-vote toggle starts ON in s
   }
   clientId = savedId;
 
+  // An invite link (/?room=CODE, e.g. from a scanned QR code) takes precedence
+  // over a remembered room: put the code in the join box and join it. If the
+  // age gate is still up, wait until it is confirmed.
+  const invite = _readInviteCode();
+  if (invite) {
+    const input = document.getElementById("join-code");
+    if (input) input.value = invite;
+    try { history.replaceState(null, "", location.pathname); } catch (_) {}
+    if (_ageConfirmed()) joinRoom(); else _pendingInviteJoin = true;
+    return;
+  }
+
   const saved = lsGet("bjRoomCode");
   if (!saved) return;   // no saved room — stay on lobby
 

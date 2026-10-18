@@ -5,3 +5,4 @@ openpyxl
 pydantic
 better-profanity
 tzdata; sys_platform == "win32"
+segno

@@ -20,7 +20,8 @@ This document defines selector ownership for the web UI modules and the shared e
 - Polling + visibility sync (`startPolling`, `stopPolling`)
 
 ### `static/js/ui/setup.js`
-- `#setup`, `#setup-sub`, `#setup-room-code`
+- `#setup`, `#setup-sub`, `#setup-room-code` (tap to open the QR dialog), `#header-room` (same)
+- Room QR / invite dialog: `#qr-overlay`, `#qr-card`, `#qr-svg`, `#qr-code-text`, `#qr-url`, `[data-action="openRoomQr"|"copyInviteLink"|"closeRoomQr"]`
 - `#gametype-row`, `#num-players-row`, `#name-fields`
 - `#settings-ref`, `#settings-dig`, `#wager-dig-cell`
 - `#start-btn`, `#anim-toggle`, `#anim-lbl-setup`, `#anim-lbl-setup-on`

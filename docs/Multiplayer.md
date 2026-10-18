@@ -29,7 +29,7 @@
 ## Getting Started
 
 1. **Host** opens the app and creates a room — a short code (e.g. `Jack-21`) is displayed
-2. **Players** open the same URL on their phone and enter the code to join
+2. **Players** open the same URL on their phone and enter the code to join — or the host taps the **room code** (in the header, on the setup screen, or **▦ QR** on the waiting screen) to show a **QR code**; scanning it opens `/?room=CODE` and joins that room automatically (after the age check). The same dialog has a **Copy link** button. When the host is browsing via `localhost` the link uses the host machine's network address, so phones on the same WiFi can open it
 3. Everyone **claims their seat** by tapping their name
 4. The host (dealer) **starts the game** and controls the flow
 5. Other players **vote their actions**; the dealer executes them

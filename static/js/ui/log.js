@@ -155,7 +155,7 @@ function updateHeader(data) {
     : '<span class="mode-badge referee">📋 Referee</span>';
   document.getElementById("header-title").innerHTML = `Black-Out-Jack ${badge}`;
   document.getElementById("header-sub").textContent = `Round ${round}  |  Dealer: ${dealer}`;
-  if (roomCode) document.getElementById("header-room").textContent = "Room: " + roomCode;
+  if (roomCode) document.getElementById("header-room").textContent = "Room: " + roomCode + " ▦";
 }
 
 // ============================================================
