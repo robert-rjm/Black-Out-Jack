@@ -151,7 +151,7 @@ function openKickModal() {
         }
         if (r.connected && !r.isBot && !isSelf) {
           const kickBtn       = document.createElement("button");
-          kickBtn.className   = "btn kick-btn";
+          kickBtn.className   = "btn danger kick-btn";
           kickBtn.textContent = "Kick";
           kickBtn.onclick     = () => doKick(r.name);
           btns.appendChild(kickBtn);
@@ -161,7 +161,7 @@ function openKickModal() {
         if (r.connected && !r.isBot && !isAdminRow) {
           const myVoted      = (lastState.kick_votes_mine || []).includes(r.name.toLowerCase());
           const voteBtn      = document.createElement("button");
-          voteBtn.className  = "btn" + (myVoted ? " kick-btn" : "");
+          voteBtn.className  = "btn" + (myVoted ? " danger kick-btn" : "");
           voteBtn.textContent = myVoted ? "✗ Un-vote" : "Vote Kick";
           voteBtn.onclick    = () => doVoteKick(r.name);
           btns.appendChild(voteBtn);
@@ -212,11 +212,11 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(r.name)}</span><span class="kick-role"> (waiting)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const acceptBtn = document.createElement("button");
-      acceptBtn.className   = "btn btn-approve";
+      acceptBtn.className   = "btn approve kick-btn";
       acceptBtn.textContent = "✓ Accept";
       acceptBtn.onclick = () => { handleRegistration(r.client_id, true); closeKickModal(); };
       const denyBtn = document.createElement("button");
-      denyBtn.className   = "btn kick-btn";
+      denyBtn.className   = "btn danger kick-btn";
       denyBtn.textContent = "✗ Deny";
       denyBtn.onclick = () => handleRegistration(r.client_id, false);
       btns.appendChild(acceptBtn);
@@ -245,7 +245,7 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(kc.name)}</span><span class="kick-role"> (kicked)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const undoBtn = document.createElement("button");
-      undoBtn.className   = "btn btn-approve";
+      undoBtn.className   = "btn approve kick-btn";
       undoBtn.textContent = "↩ Undo Kick";
       undoBtn.onclick = () => doUndoKick(kc.client_id);
       btns.appendChild(undoBtn);
@@ -273,7 +273,7 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name" style="color:var(--muted)">Unknown client</span><span class="kick-role"> (denied)</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const allowBtn = document.createElement("button");
-      allowBtn.className   = "btn btn-approve";
+      allowBtn.className   = "btn approve kick-btn";
       allowBtn.textContent = "↩ Allow back";
       allowBtn.onclick = () => doResetRegistration(dc.client_id);
       btns.appendChild(allowBtn);
@@ -301,11 +301,11 @@ function openKickModal() {
       row.innerHTML = `<span><span class="kick-name">${escapeHtml(req.display_name)}</span><span class="kick-role"> wants to rejoin</span></span><span style="display:flex;gap:4px"></span>`;
       const btns = row.querySelector("span:last-child");
       const approveBtn = document.createElement("button");
-      approveBtn.className   = "btn btn-approve";
+      approveBtn.className   = "btn approve kick-btn";
       approveBtn.textContent = "✓ Allow";
       approveBtn.onclick = () => doHandleRejoin(req.client_id, true);
       const denyBtn = document.createElement("button");
-      denyBtn.className   = "btn kick-btn";
+      denyBtn.className   = "btn danger kick-btn";
       denyBtn.textContent = "✗ Deny";
       denyBtn.onclick = () => doHandleRejoin(req.client_id, false);
       btns.appendChild(approveBtn);
@@ -840,7 +840,7 @@ function _renderTargetedDrinkingAdmin(state, isAdmin) {
       `<div class="modal-section-title modal-gap-top">🎯 TARGETED DRINKING MODE</div>` +
       `<div class="modal-note">Active — targeting ${escapeHtml((td.targets || []).join(", "))}</div>` +
       streakRows +
-      `<button class="btn red wide" style="margin-top:8px" data-action="cancelTargetedDrinking">Cancel Targeted Drinking</button>`;
+      `<button class="btn danger wide" style="margin-top:8px" data-action="cancelTargetedDrinking">Cancel Targeted Drinking</button>`;
     return;
   }
 

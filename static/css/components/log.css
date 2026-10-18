@@ -10,7 +10,7 @@
   left: 50%;
   transform: translateX(-50%) translateY(-20px);
   background: var(--yellow);
-  color: #000;
+  color: var(--on-fill);
   font-size: 19px; font-weight: 900;
   padding: 16px 32px;
   border-radius: 16px;
@@ -44,8 +44,8 @@
   white-space: nowrap;
   letter-spacing: .2px;
 }
-#player-toast.drink      { background: var(--red);   color: #fff; }
-#player-toast.clean      { background: var(--green); color: #000; }
+#player-toast.drink      { background: var(--red);   color: var(--on-fill); }
+#player-toast.clean      { background: var(--green); color: var(--on-fill); }
 #player-toast.wild-card  {
   background: linear-gradient(135deg, #3d2b00, #5c3e00);
   color: var(--yellow);
@@ -71,7 +71,7 @@
   white-space: nowrap; letter-spacing: .2px;
   /* Switch and reshuffle toasts are always informational yellow */
   background: var(--yellow);
-  color: #000;
+  color: var(--on-fill);
 }
 #switch-toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 

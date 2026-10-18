@@ -132,7 +132,7 @@ function _updateTriviaContent() {
     badge.textContent = catIcon + " " + catLabel;
     badge.style.color = catColor;
     badge.style.borderColor = catColor;
-    badge.style.background = "rgba(255,255,255,0.08)";
+    badge.style.background = "var(--wash-2)";
   }
 
   // Text — use textContent (safe, no escapeHtml needed)

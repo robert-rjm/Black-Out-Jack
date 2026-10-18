@@ -367,7 +367,7 @@ function applyTurnGate(state) {
 
   // Disable all action buttons while an NPC is taking its turn
   digActionButtons().forEach(b => {
-    b.classList.toggle("disabled", !!isNpcTurn);
+    setBtnDisabled(b, !!isNpcTurn, NPC_TURN_REASON);
   });
 
   // Auto-select current-turn player and first active hand

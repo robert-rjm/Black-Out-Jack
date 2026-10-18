@@ -30,7 +30,7 @@
   height: var(--tap);
   padding: 0 14px;
   border-radius: var(--radius);
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -41,25 +41,33 @@
   flex-shrink: 0;
 }
 .btn:active { transform: scale(.95); }
-.btn.sel     { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.green   { background: var(--green);  border-color: var(--green);  color: #000; }
-.btn.red     { background: var(--red);    border-color: var(--red);    color: #fff; }
-.btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: #000; }
+.btn.sel     { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
+.btn.green   { background: var(--green);  border-color: var(--green);  color: var(--on-fill); }
+.btn.red     { background: var(--red);    border-color: var(--red);    color: var(--on-fill); }
+.btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: var(--on-fill); }
+/* Colour rule: SOLID fill = a game result/choice (green win, red loss/bust,
+   gold blackjack, grey push); TINTED .danger = an app/admin action that
+   leaves or removes (Lobby, kick, deny, remove, cancel); .approve is its
+   green counterpart for accept/allow/undo. */
+.btn.neutral { background: var(--border-control); border-color: var(--border-control); color: var(--text); }
+.btn.danger  { background: color-mix(in srgb, var(--red) 15%, transparent); border-color: var(--red); color: var(--text-danger); }
+/* green twin of .danger: accept / allow / undo-kick next to a .danger deny */
+.btn.approve { background: color-mix(in srgb, var(--green) 15%, transparent); border-color: var(--green); color: var(--green); }
 .btn.wide    { flex: 1; }
-/* basic-strategy best-play highlight */
-.btn.best    { border-color: var(--accent); color: var(--accent);
-               box-shadow: 0 0 0 2px color-mix(in srgb, var(--hint) 25%, transparent); }
 /* command in-flight: block all interaction until response arrives */
 .cmd-pending {
   opacity: .55;
   pointer-events: none;
 }
 
-/* disabled (out-of-turn) player buttons */
+/* disabled (out-of-turn) player buttons — still receive taps/hover so
+   bootstrap.js can show the reason (data-disabled-reason) as a toast;
+   activation itself is refused there via aria-disabled */
 .btn.disabled {
   opacity: .35;
-  pointer-events: none;
+  cursor: not-allowed;
 }
+.btn.disabled:active { transform: none; }
 /* Player's own voted button — blue */
 .btn.voted {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
@@ -72,6 +80,13 @@
   border-color: var(--yellow);
   color: var(--yellow);
 }
+/* basic-strategy best-play highlight — neutral dashed edge + star, so it never
+   looks like blue .voted or yellow .voted-dealer and can combine with either.
+   Declared after both so its border wins when they overlap. */
+.btn.best {
+  border: 2px dashed var(--text);
+}
+.btn.best::before { content: "\2605\00a0"; }
 
 /* big action button for digital deal/dealer panes */
 .btn-big {
@@ -84,8 +99,8 @@
   margin-bottom: 10px;
 }
 .btn-big:active { transform: scale(.97); }
-.btn-big.green  { background: var(--green);  color: #000; }
-.btn-big.accent { background: var(--accent); color: #fff; }
+.btn-big.green  { background: var(--green);  color: var(--on-fill); }
+.btn-big.accent { background: var(--accent); color: var(--on-fill); }
 
 /* ---- NUMBER STEPPER ---- */
 .stepper {
@@ -93,7 +108,7 @@
   align-items: center;
   height: var(--tap);
   background: var(--surface);
-  border: 1.5px solid var(--border);
+  border: 1.5px solid var(--border-control);
   border-radius: var(--radius);
   width: 100%;
   overflow: hidden;
@@ -112,7 +127,7 @@
   cursor: pointer;
   transition: background .12s;
 }
-.stepper-btn:active { background: rgba(255,255,255,.08); }
+.stepper-btn:active { background: var(--wash-2); }
 .stepper-btn.at-limit { color: var(--muted); opacity: .35; pointer-events: none; }
 .stepper-display {
   flex: 1;
@@ -129,7 +144,7 @@
 .pill-toggle input { opacity:0; width:0; height:0; position:absolute; }
 .pill-slider {
   position:absolute; inset:0; cursor:pointer;
-  background:#555; border-radius:30px; transition:background .2s;
+  background: var(--border-control); border-radius:30px; transition:background .2s;
 }
 .pill-slider:before {
   content:""; position:absolute;
@@ -171,7 +186,7 @@
 .bust-vote-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.65);
+  background: var(--scrim);
   z-index: 500;
   display: flex;
   align-items: center;
