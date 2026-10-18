@@ -11,13 +11,13 @@ import pytest
 from engine.referee import RefereeSession
 from tests.conftest import make_player, make_hand
 from app import create_app
-from app.config import AFK_DISCONNECT_SECONDS
+from app.config import AFK_DISCONNECT_SECONDS, ADMIN_AFK_PROMPT_DELAY_SECONDS
 from app.models.game_room import GameRoom, GameConfig
 from app.services.session_store import game_sessions, set_session
 from app.services.serializer import serialize_state
 from app.services.afk import (
-    admin_is_blocking, apply_normal_round_afk, apply_admin_afk_vote_forfeit,
-    cast_admin_afk_vote, eligible_voter_cids, open_admin_afk_vote,
+    admin_blocking_seconds, admin_is_blocking, apply_normal_round_afk, apply_admin_afk_vote_forfeit,
+    cast_admin_afk_vote, eligible_voter_cids, open_admin_afk_vote, track_admin_blocking,
 )
 from app.services.tick import tick
 
@@ -47,7 +47,16 @@ def _room(admin_turn=False):
     now = time.monotonic()
     for cid in room._room_clients:
         room._client_last_seen[cid] = now
+    if admin_turn:
+        _waited(room)   # the admin has been holding the game up for a while
     return room
+
+
+def _waited(room, seconds=ADMIN_AFK_PROMPT_DELAY_SECONDS + 1):
+    """Pretend the admin has already been blocking the game for `seconds`."""
+    track_admin_blocking(room)
+    sig, _ = room._admin_blocking
+    room._admin_blocking = (sig, time.monotonic() - seconds)
 
 
 def _go_silent(room, cid):
@@ -259,3 +268,45 @@ def test_state_poll_stamps_presence(client, route_room):
     _go_silent(room, "bob-cid")
     client.get(f"/state?room_code={code}&client_id=bob-cid")
     assert time.monotonic() - room._client_last_seen["bob-cid"] < 5
+
+
+# ---------------------------------------------------------------------------
+# The prompt only appears after the admin has held the game up for a while
+# ---------------------------------------------------------------------------
+
+def test_cannot_open_the_vote_right_away():
+    room = _room(admin_turn=True)
+    _waited(room, seconds=5)
+    ok, err, _ = open_admin_afk_vote(room, "bob-cid")
+    assert not ok and "moment" in err
+
+
+def test_button_flag_appears_only_after_the_delay():
+    room = _room(admin_turn=True)
+    _waited(room, seconds=5)
+    assert serialize_state(room, "bob-cid")["admin_afk_vote"]["can_open"] is False
+    _waited(room, seconds=ADMIN_AFK_PROMPT_DELAY_SECONDS + 1)
+    assert serialize_state(room, "bob-cid")["admin_afk_vote"]["can_open"] is True
+
+
+def test_the_wait_timer_restarts_when_what_we_wait_on_changes():
+    room = _room(admin_turn=True)
+    assert admin_blocking_seconds(room) >= ADMIN_AFK_PROMPT_DELAY_SECONDS
+    room._get_player("Alice").hands[0].stood = True      # admin acted: the wait ends
+    track_admin_blocking(room)
+    assert room._admin_blocking is None
+    assert admin_blocking_seconds(room) == 0.0
+
+
+def test_a_new_pending_registration_restarts_the_timer():
+    room = _room(admin_turn=True)
+    room._pending_registrations.append({"client_id": "x", "name": "Eve"})
+    assert admin_blocking_seconds(room) < 1
+
+
+def test_tick_tracks_the_wait():
+    room = _room()
+    room._room_clients["admin-cid"]["local_names"] = ["Alice"]
+    room._pending_registrations.append({"client_id": "x", "name": "Eve"})
+    tick(room)
+    assert room._admin_blocking is not None

@@ -34,7 +34,9 @@ from app.services.targeted_drinking import (
 )
 from app.services.game_engine import dealer_turn, auto_play_npc_turns
 from app.services.round_pipeline import apply_endround_pipeline
-from app.services.afk import apply_normal_round_afk, apply_admin_afk_vote_forfeit
+from app.services.afk import (
+    apply_normal_round_afk, apply_admin_afk_vote_forfeit, track_admin_blocking,
+)
 from app.services.drink_rate import sync_drink_rates, apply_drink_rate_forfeit
 
 import time as _time
@@ -122,6 +124,7 @@ def tick(session) -> None:
     # seat) and expiry of an open admin-AFK vote
     apply_normal_round_afk(session)
     apply_admin_afk_vote_forfeit(session)
+    track_admin_blocking(session)
     sync_drink_rates(session)
     apply_drink_rate_forfeit(session)
 

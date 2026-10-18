@@ -1392,7 +1392,7 @@ class AdminAfkPanel {
     if (this._seenSeq === null) this._seenSeq = v.result_seq || 0;
 
     this.bannerEl.innerHTML = (v.can_open && !pending)
-      ? `<button class="btn danger wide" data-admin-afk-open>🚨 Admin not responding? Start AFK vote</button>`
+      ? `<button class="admin-afk-link" data-admin-afk-open>Admin not responding? Start an AFK vote</button>`
       : "";
 
     if (pending) {

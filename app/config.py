@@ -82,6 +82,7 @@ DRINK_RATE_PROTECTION_ROUNDS     = 3    # rounds a player who reset to 1.0 is sh
 LATE_JOIN_MIN_AVG_SIPS          = 3    # no late-join boost is offered unless the other humans average at least this many sips
 DRINK_RATE_VOTE_WINDOW_SECONDS   = 20   # admin-proposed drink-rate vote auto-fails after this long
 AFK_DISCONNECT_SECONDS        = 60   # no /state poll for this long -> client counts as gone (closed tab, dead connection)
+ADMIN_AFK_PROMPT_DELAY_SECONDS = 60   # the admin must have been holding the game up this long before the AFK vote can be started
 ADMIN_AFK_VOTE_WINDOW_SECONDS = 30   # unanimous "admin is AFK" vote auto-fails after this long
 TARGETED_DRINKING_MAX_AFK_STRIKES     = 2    # consecutive unanswered vote windows before a target's seat is absorbed by the host
 TARGETED_DRINKING_REVEAL_PAUSE_SECONDS = 12  # safety-net breather after a mini-round's reveal before the

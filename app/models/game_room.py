@@ -317,6 +317,9 @@ class GameRoom:
     _client_last_seen: dict = field(default_factory=dict)
     _admin_afk_last_result: dict | None = None
     _admin_afk_result_seq: int = 0
+    # (signature, started_at): what the admin is currently blocking on and since when
+    # (app/services/afk.py track_admin_blocking). None while they are not blocking.
+    _admin_blocking: tuple | None = None
 
     # Drink Rate Mode (app/services/drink_rate.py). Keys are lowercase seat names.
     _drink_rate_queued: dict = field(default_factory=dict)             # seat -> rate applied at next round start

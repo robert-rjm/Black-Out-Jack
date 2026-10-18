@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import time
 
-from app.config import AFK_DISCONNECT_SECONDS, ADMIN_AFK_VOTE_WINDOW_SECONDS
+from app.config import (
+    AFK_DISCONNECT_SECONDS, ADMIN_AFK_PROMPT_DELAY_SECONDS, ADMIN_AFK_VOTE_WINDOW_SECONDS,
+)
 from app.models.game_room import GameRoom
 from app.services.serializer import round_phase, current_turn
 
@@ -167,6 +169,26 @@ def admin_is_blocking(session: GameRoom) -> bool:
     return False
 
 
+def track_admin_blocking(session: GameRoom) -> None:
+    """Remember how long the admin has been holding the game up. The timer
+    restarts whenever what we are waiting on changes (new round, new turn,
+    new pending join request), so it measures one continuous wait."""
+    if not admin_is_blocking(session):
+        session._admin_blocking = None
+        return
+    sig = (session.round_count, round_phase(session), current_turn(session),
+           bool(session._pending_registrations))
+    cur = session._admin_blocking
+    if cur is None or cur[0] != sig:
+        session._admin_blocking = (sig, time.monotonic())
+
+
+def admin_blocking_seconds(session: GameRoom) -> float:
+    track_admin_blocking(session)
+    cur = session._admin_blocking
+    return 0.0 if cur is None else time.monotonic() - cur[1]
+
+
 def eligible_voter_cids(session: GameRoom) -> list[str]:
     """Connected, seated, non-admin human clients -- the unanimity pool."""
     now = time.monotonic()
@@ -212,6 +234,9 @@ def open_admin_afk_vote(session: GameRoom, client_id: str) -> tuple[bool, str, b
         return False, "Only connected, seated players can start this vote.", False
     if not admin_is_blocking(session):
         return False, "The game isn't waiting on the admin right now.", False
+    if admin_blocking_seconds(session) < ADMIN_AFK_PROMPT_DELAY_SECONDS:
+        return False, (f"Give the admin a moment -- this can be started after "
+                       f"{ADMIN_AFK_PROMPT_DELAY_SECONDS} seconds of waiting."), False
     info = session._room_clients[client_id]
     votes = {cid: None for cid in voters}
     votes[client_id] = True   # opener's own vote is pre-filled Yes
@@ -277,6 +302,7 @@ def serialize_admin_afk_vote(session: GameRoom, client_id: str) -> dict:
         out_pending is None
         and client_id in eligible_voter_cids(session)
         and admin_is_blocking(session)
+        and admin_blocking_seconds(session) >= ADMIN_AFK_PROMPT_DELAY_SECONDS
     )
     return {
         "pending":     out_pending,
