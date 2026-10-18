@@ -404,3 +404,61 @@ function _rateBadgeHtml(state, name) {
   const why = seat.is_bot ? "Bots follow the table's shared rate" : "Drink rate: sips owed are multiplied by this";
   return `<span class="seat-rate-badge" title="${why}${queued ? " (change applies next round)" : ""}">${icon}${eff !== 1 ? eff + "×" : ""}${queued}</span>`;
 }
+
+
+// ---------------------------------------------------------------------------
+// Normal mode: money overview shown at the top of the Round tab -- who is up,
+// who is down, what the last round paid, and each player's best/worst round.
+// Built entirely from state.balances / round_payouts / biggest_round_payouts.
+// Net is only meaningful once a round is settled: during play each hand's
+// stake is already deducted from the bankroll, so it is shown as "in play".
+// ---------------------------------------------------------------------------
+function renderMoneyOverview(state) {
+  const el = document.getElementById("dig-money-overview");
+  if (!el) return;
+  if (!state || state.drinking_mode !== false || !state.balances || !Object.keys(state.balances).length) {
+    el.innerHTML = "";
+    return;
+  }
+  const start   = state.starting_bankroll || 0;
+  const settled = state.phase === "round-over" || state.phase === "pre-deal";
+  const money   = v => `$${Math.abs(v).toFixed(2)}`;
+  const signed  = v => (v > 0 ? "+" : v < 0 ? "-" : "") + money(v);
+  const cls     = v => (v > 0 ? "win" : v < 0 ? "loss" : "push");
+  const mineLc  = new Set((myNames || []).map(n => n.toLowerCase()));
+
+  const rows = Object.entries(state.balances)
+    .map(([name, bal]) => ({
+      name, bal, net: bal - start,
+      last: (state.round_payouts || {})[name],
+      rec:  (state.biggest_round_payouts || {})[name] || {},
+    }))
+    .sort((a, b) => b.bal - a.bal);
+
+  let lead = "";
+  if (settled && rows.length > 1) {
+    const top = rows[0], low = rows[rows.length - 1];
+    if (top.net > 0) lead = `🥇 ${escapeHtml(top.name)} is up ${money(top.net)}`;
+    if (low.net < 0) lead += `${lead ? " · " : ""}📉 ${escapeHtml(low.name)} is down ${money(low.net)}`;
+  } else if (!settled) {
+    lead = "Stakes are in play — net updates when the round ends.";
+  }
+
+  el.innerHTML =
+    `<div class="money-head"><span class="money-title">💰 Money overview</span><span class="money-lead">${lead}</span></div>` +
+    `<table class="money-table"><thead><tr><th>PLAYER</th><th>LAST ROUND</th><th>BANKROLL</th><th>NET</th></tr></thead><tbody>` +
+    rows.map(r => {
+      const last = (r.last === undefined || r.last === null)
+        ? `<span class="seat-payout push">—</span>`
+        : `<span class="seat-payout ${cls(r.last)}">${r.last === 0 ? "push" : signed(r.last)}</span>`;
+      const net = settled ? `<span class="seat-payout ${cls(r.net)}">${signed(r.net)}</span>` : `<span class="money-sub">in play</span>`;
+      const best  = r.rec.best  > 0 ? `best ${signed(r.rec.best)}`   : "";
+      const worst = r.rec.worst < 0 ? `worst ${signed(r.rec.worst)}` : "";
+      const sub = [best, worst].filter(Boolean).join(" · ");
+      return `<tr class="${mineLc.has(r.name.toLowerCase()) ? "me" : ""}">` +
+        `<td>${escapeHtml(r.name)}${sub ? `<span class="money-sub">${sub}</span>` : ""}</td>` +
+        `<td>${last}</td><td>${money(r.bal)}</td><td>${net}</td></tr>`;
+    }).join("") +
+    `</tbody></table>` +
+    `<div class="money-foot">Start ${money(start)} each · ${money(state.bet_amount || 0)} per hand</div>`;
+}

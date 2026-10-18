@@ -512,3 +512,111 @@ def test_approving_a_bot_seat_takeover_creates_the_offer(client):
         assert room._late_join_offers["new-cid"]["seat"] == "Dave"
     finally:
         game_sessions.pop(code, None)
+
+
+# ---------------------------------------------------------------------------
+# Bots never vote or count toward the majority
+# ---------------------------------------------------------------------------
+
+def test_client_holding_only_a_bot_seat_is_not_a_voter():
+    from app.services.drink_rate import _voter_cids
+    room = _room(bots=("Dave",))
+    assert "dave-cid" not in _voter_cids(room)
+    assert sorted(_voter_cids(room)) == ["admin-cid", "bob-cid", "carol-cid"]
+
+
+def test_bot_seat_does_not_inflate_the_majority_needed():
+    room = _room(bots=("Dave",))
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    assert len(room.round._pending_rate_proposal["votes"]) == 3      # not 4
+    cast_rate_vote(room, "carol-cid", True)                          # admin + carol = 2 of 3
+    assert room._drink_rate_last_result["passed"] is True
+
+
+def test_admin_with_only_local_players_decides_alone():
+    """Only the admin is connected and controls every seat: the vote is just them."""
+    room = _room()
+    room._room_clients = {"admin-cid": {"name": "Alice", "role": "admin",
+                                        "local_names": ["Alice", "Bob", "Carol", "Dave"]}}
+    assert open_rate_proposal(room, "admin-cid", ["Bob"], 0.4) == (True, "")
+    assert room._drink_rate_last_result["passed"] is True
+    assert _p(room, "Bob").drink_rate == 0.4
+
+
+def test_afk_vote_pool_also_excludes_bot_only_clients():
+    from app.services.afk import eligible_voter_cids
+    room = _room(bots=("Dave",))
+    assert "dave-cid" not in eligible_voter_cids(room)
+
+
+# ---------------------------------------------------------------------------
+# Requesting a lower rate
+# ---------------------------------------------------------------------------
+
+from app.services.drink_rate import dismiss_rate_request, request_lower_rate
+
+
+def test_player_can_request_a_lower_rate_without_changing_it():
+    room = _room()
+    assert request_lower_rate(room, "bob-cid", "Bob", 0.6) == (True, "")
+    assert _p(room, "Bob").drink_rate == 1.0
+    assert room._rate_requests["bob"]["rate"] == 0.6
+    assert any("Bob asks the admin" in e for e in room.round._log_entries)
+
+
+def test_request_only_makes_sense_for_a_lower_rate_on_your_own_seat():
+    room = _room()
+    assert request_lower_rate(room, "bob-cid", "Bob", 1.2)[0] is False        # higher: just set it
+    assert request_lower_rate(room, "bob-cid", "Carol", 0.6)[0] is False      # not your seat
+    assert request_lower_rate(room, "bob-cid", "Bob", 0.5)[0] is False        # not a valid rate
+    assert request_lower_rate(room, "admin-cid", "Alice", 0.6)[0] is False    # admin proposes directly
+
+
+def test_request_is_replaced_by_a_newer_one():
+    room = _room()
+    request_lower_rate(room, "bob-cid", "Bob", 0.8)
+    request_lower_rate(room, "bob-cid", "Bob", 0.4)
+    assert room._rate_requests["bob"]["rate"] == 0.4 and len(room._rate_requests) == 1
+
+
+def test_admin_sees_all_requests_and_players_only_their_own():
+    room = _room()
+    request_lower_rate(room, "bob-cid", "Bob", 0.6)
+    request_lower_rate(room, "carol-cid", "Carol", 0.4)
+    admin_view = serialize_state(room, "admin-cid")["drink_rates"]["requests"]
+    assert sorted(r["seat"] for r in admin_view) == ["Bob", "Carol"]
+    bob_view = serialize_state(room, "bob-cid")["drink_rates"]["requests"]
+    assert [r["seat"] for r in bob_view] == ["Bob"]
+    assert serialize_state(room, "dave-cid")["drink_rates"]["requests"] == []
+
+
+def test_admin_can_dismiss_a_request_others_cannot():
+    room = _room()
+    request_lower_rate(room, "bob-cid", "Bob", 0.6)
+    assert dismiss_rate_request(room, "bob-cid", "Bob")[0] is False
+    assert room._rate_requests
+    assert dismiss_rate_request(room, "admin-cid", "Bob")[0] is True
+    assert room._rate_requests == {}
+
+
+def test_proposing_the_seat_answers_its_request():
+    room = _room()
+    request_lower_rate(room, "bob-cid", "Bob", 0.6)
+    open_rate_proposal(room, "admin-cid", ["Bob"], 0.6)
+    assert room._rate_requests == {}
+
+
+def test_changing_the_seat_yourself_clears_its_request():
+    room = _room()
+    request_lower_rate(room, "bob-cid", "Bob", 0.6)
+    set_own_rate(room, "bob-cid", "Bob", 1.2)
+    assert room._rate_requests == {}
+
+
+def test_request_routes(client, route_room):
+    code, room = route_room
+    assert _post(client, "/drink_rate/request", code, "bob-cid", seat="Bob", rate=0.6)["ok"]
+    assert room._rate_requests["bob"]["rate"] == 0.6
+    assert _post(client, "/drink_rate/dismiss_request", code, "bob-cid", seat="Bob")["ok"] is False
+    assert _post(client, "/drink_rate/dismiss_request", code, "admin-cid", seat="Bob")["ok"] is True
+    assert room._rate_requests == {}

@@ -233,6 +233,9 @@ body.no-drinking .drink-only {
   font-size: 11px;
 }
 
+/* An empty banner slot must not render as a bare yellow bar. */
+#admin-afk-banner:empty { display: none; }
+
 .waiting-slot {
   margin: 6px 8px 0;
   padding: 9px 14px;

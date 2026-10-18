@@ -351,6 +351,14 @@ class LateJoinOfferOut(_StrictModel):
     seq:         int
 
 
+class RateRequestOut(_StrictModel):
+    """A player's pending request for a lower rate, waiting on the admin."""
+    seat: str
+    rate: float
+    by:   str
+    seq:  int
+
+
 class DrinkRatesOut(_StrictModel):
     """Drink Rate Mode state (app/services/drink_rate.py)."""
     seats:             list[DrinkRateSeatOut]
@@ -361,6 +369,7 @@ class DrinkRatesOut(_StrictModel):
     presets:           dict[str, float]
     protection_rounds: int
     late_join_offer:   Optional[LateJoinOfferOut]
+    requests:          list[RateRequestOut]
 
 
 class AdminAfkPendingOut(_StrictModel):

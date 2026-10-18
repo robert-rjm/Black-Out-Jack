@@ -607,6 +607,7 @@ function _syncDigitalUI(state) {
   adminAfkPanel.render(state);
   drinkRatePanel.render(state);
   lateJoinPanel.render(state);
+  renderMoneyOverview(state);
 }
 
 // Dispatch render: deal animation on fresh deal, or full table render otherwise.

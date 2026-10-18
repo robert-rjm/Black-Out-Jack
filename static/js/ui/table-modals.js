@@ -1502,22 +1502,6 @@ function castAdminAfkVote(vote) { return _postAdminAfk("/admin_afk/vote", { vote
 //    proposal form, and a table summary;
 //  * a Yes/No vote modal (#drink-rate-vote-overlay) for admin proposals.
 // Driven by state.drink_rates, same polling pattern as every other modal.
-function _scaleSipsJs(sips, rate) {
-  // Mirror of engine/drink_rate.py scale_sips -- display only, the server decides.
-  if (!sips || rate === 1) return sips;
-  const sign = sips < 0 ? -1 : 1;
-  const x = Math.round(Math.abs(sips) * rate * 1e9) / 1e9;
-  let scaled;
-  if (rate < 1) scaled = Math.ceil(x);
-  else {
-    const base = Math.floor(x);
-    scaled = Math.round((x - base) * 1e9) / 1e9 >= 0.25 ? base + 1 : base;
-  }
-  return sign * Math.max(1, scaled);
-}
-function _ratePreview(rate) {
-  return [1, 2, 3, 4, 5, 6].map(n => `${n}→${_scaleSipsJs(n, rate)}`).join(", ");
-}
 function _rateName(r) {
   const known = { 1: "Beer", 0.6: "Wine", 0.4: "Cocktail" };
   return known[r] ? `${known[r]} ${r}×` : `${r}×`;
@@ -1526,6 +1510,7 @@ function _rateName(r) {
 class DrinkRatePanel {
   constructor() {
     this._seenSeq = null;      // last result seq already announced
+    this._seenRequestSeq = 0;  // highest rate-request seq the admin has been told about
     this._voteOpen = false;
     this._resultTimer = null;
     this._sig = "";
@@ -1537,24 +1522,26 @@ class DrinkRatePanel {
     this.settingsEl = settingsEl;
     this.voteEl = voteEl;
     settingsEl.addEventListener("click", e => {
-      const set = e.target.closest("[data-drink-rate-set]");
-      if (set) {
-        const seat = set.dataset.drinkRateSet;
-        const sel = settingsEl.querySelector(`select[data-drink-rate-seat="${CSS.escape(seat)}"]`);
-        if (sel) _postDrinkRate("/drink_rate/set", { seat, rate: parseFloat(sel.value) });
+      const reqBtn = e.target.closest("[data-drink-rate-req]");
+      if (reqBtn && !reqBtn.disabled) {
+        const r = reqBtn.closest(".drink-rate-row");
+        const seat = r.dataset.requestSeat, rate = parseFloat(r.dataset.requestRate);
+        if (reqBtn.dataset.drinkRateReq === "propose") _postDrinkRate("/drink_rate/propose", { seats: [seat], rate });
+        else _postDrinkRate("/drink_rate/dismiss_request", { seat });
         return;
       }
-      if (e.target.closest("[data-drink-rate-propose]")) {
-        const seats = settingsEl.querySelector("#drink-rate-admin-seat").value;
-        const rate  = parseFloat(settingsEl.querySelector("#drink-rate-admin-rate").value);
-        _postDrinkRate("/drink_rate/propose", { seats: seats === "__all__" ? "all" : [seats], rate });
-      }
+      const go = e.target.closest("[data-drink-rate-go]");
+      if (!go || go.disabled) return;
+      const row  = go.closest(".drink-rate-row");
+      const seat = row.dataset.seat;
+      const rate = parseFloat(row.querySelector("select").value);
+      if (go.dataset.mode === "set") _postDrinkRate("/drink_rate/set", { seat, rate });
+      else if (go.dataset.mode === "request") _postDrinkRate("/drink_rate/request", { seat, rate });
+      else _postDrinkRate("/drink_rate/propose", { seats: seat === "__all__" ? "all" : [seat], rate });
     });
     settingsEl.addEventListener("change", e => {
-      const sel = e.target.closest("select[data-drink-rate-seat], #drink-rate-admin-rate");
-      if (!sel) return;
-      const note = sel.parentElement.querySelector(".drink-rate-preview");
-      if (note) note.textContent = _ratePreview(parseFloat(sel.value));
+      const sel = e.target.closest(".drink-rate-row select");
+      if (sel) this._syncRowButton(sel.closest(".drink-rate-row"));
     });
     // A poll that arrived while a select was focused is applied once focus leaves.
     settingsEl.addEventListener("focusout", () => {
@@ -1578,62 +1565,105 @@ class DrinkRatePanel {
     const dr = state && state.drink_rates;
     if (!dr) return;
     if (this._seenSeq === null) this._seenSeq = dr.result_seq || 0;
+    if (myRole === ROLE.ADMIN) {
+      const fresh = (dr.requests || []).filter(q => q.seq > this._seenRequestSeq);
+      if (fresh.length) {
+        this._seenRequestSeq = Math.max(...fresh.map(q => q.seq));
+        const q = fresh[fresh.length - 1];
+        showToast(`${q.by} asks for ${_rateName(q.rate)} — Settings → Drink rate.`, "info", 6000);
+      }
+    }
     if (this.settingsEl.style.display === "flex") this._renderSettings(state, false);
     this._renderVote(dr);
   }
 
   // ---- settings modal ----
+  // One row per seat, one control per row. Drinking the same or more is a
+  // plain "Set" (no vote); anything lower is a "Propose" the table votes on,
+  // which only the admin can start (everyone else sees those options disabled).
+  // The admin also gets an "Everyone" row. Rows start from this client's own
+  // seats (players) or every human seat (admin).
   _renderSettings(state, force) {
     const dr = state && state.drink_rates;
     if (!dr) return;
-    const sig = JSON.stringify([dr.seats, !!dr.pending, myRole, myNames]);
+    const sig = JSON.stringify([dr.seats, !!dr.pending, dr.requests, myRole, myNames]);
     if (!force && sig === this._sig) return;
     if (!force && this.settingsEl.contains(document.activeElement)) { this._dirty = true; return; }
     this._sig = sig; this._dirty = false;
 
-    const bySeat = Object.fromEntries((dr.seats || []).map(s => [s.name, s]));
-    const mine = (myNames || []).filter(n => bySeat[n] && !bySeat[n].is_bot);
+    const isAdmin = myRole === ROLE.ADMIN;
+    const mineLc = new Set((myNames || []).map(n => n.toLowerCase()));
+    const humans = (dr.seats || []).filter(s => !s.is_bot);
+    const shown = isAdmin ? humans : humans.filter(s => mineLc.has(s.name.toLowerCase()));
 
-    const opts = (current) => (dr.allowed_rates || []).map(r => {
-      const free = r >= 1 || r >= current;
-      return `<option value="${r}" ${r === current ? "selected" : ""} ${free ? "" : "disabled"}>${_rateName(r)}${free ? "" : " (needs a vote)"}</option>`;
-    }).join("");
+    const row = (name, label, cur, isMine, notes) => {
+      const opts = (dr.allowed_rates || []).map(r => {
+        const free = isMine && cur !== null && (r >= 1 || r >= cur);
+        const sel = (cur === null ? r === 0.6 : r === cur) ? "selected" : "";
+        // A lower rate than the seat's current one is never a direct change for a
+        // non-admin: it becomes a request to the admin.
+        return `<option value="${r}" ${sel}>${_rateName(r)}${!free && !isAdmin ? " (request)" : ""}</option>`;
+      }).join("");
+      return `<div class="drink-rate-row" data-seat="${escapeHtml(name)}" data-cur="${cur === null ? "" : cur}" data-mine="${isMine ? 1 : 0}">
+        <span class="drink-rate-name">${escapeHtml(label)}</span>
+        <select>${opts}</select>
+        <button class="btn kick-btn" data-drink-rate-go>Set</button>
+        ${notes.map(t => `<span class="drink-rate-note">${t}</span>`).join("")}
+      </div>`;
+    };
 
-    const mineEl = document.getElementById("drink-rate-mine");
-    mineEl.innerHTML = `<div class="drink-rate-sub">YOUR SEAT${mine.length > 1 ? "S" : ""}</div>` + (mine.length ? mine.map(n => {
-      const s = bySeat[n];
+    let html = "";
+    if (isAdmin && (dr.requests || []).length) {
+      html += `<div class="drink-rate-sub">REQUESTS</div>` + dr.requests.map(q =>
+        `<div class="drink-rate-row" data-request-seat="${escapeHtml(q.seat)}" data-request-rate="${q.rate}">
+          <span class="drink-rate-name">${escapeHtml(q.by)}</span>
+          <span class="drink-rate-note" style="flex:1">asks for ${_rateName(q.rate)}</span>
+          <button class="btn danger kick-btn" data-drink-rate-req="propose" ${dr.pending ? "disabled" : ""}>Propose</button>
+          <button class="btn kick-btn" data-drink-rate-req="dismiss">Dismiss</button>
+        </div>`).join("");
+    }
+    html += `<div class="drink-rate-sub">${isAdmin ? "SEATS" : "YOUR SEAT" + (shown.length > 1 ? "S" : "")}</div>`;
+    if (!shown.length) html += `<div class="drink-rate-note">You don't control a seat.</div>`;
+    shown.forEach(s => {
       const cur = (s.queued_rate !== null && s.queued_rate !== undefined) ? s.queued_rate : s.rate;
       const notes = [];
       if (s.queued_rate !== null && s.queued_rate !== undefined) notes.push(`Takes effect next round (now ${s.rate}×).`);
-      if (s.protected_rounds_left > 0) notes.push(`🛡 Protected: no new rate can be voted onto you for ${s.protected_rounds_left} more round(s) unless you vote yes.`);
-      return `<div class="drink-rate-row">
-        <span class="drink-rate-name">${escapeHtml(n)}</span>
-        <select data-drink-rate-seat="${escapeHtml(n)}">${opts(cur)}</select>
-        <button class="btn approve kick-btn" data-drink-rate-set="${escapeHtml(n)}">Set</button>
-        <span class="drink-rate-note drink-rate-preview">${_ratePreview(cur)}</span>
-        ${notes.map(t => `<span class="drink-rate-note">${t}</span>`).join("")}
-      </div>`;
-    }).join("") : `<div class="drink-rate-note">You don't control a seat.</div>`);
-
-    const adminEl = document.getElementById("drink-rate-admin");
-    if (myRole === ROLE.ADMIN) {
-      const humans = (dr.seats || []).filter(s => !s.is_bot);
-      adminEl.innerHTML = `<div class="drink-rate-sub">PROPOSE A RATE (ADMIN) — the table votes</div>
-        <div class="drink-rate-row">
-          <select id="drink-rate-admin-seat"><option value="__all__">Everyone</option>${humans.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join("")}</select>
-          <div style="display:contents">
-            <select id="drink-rate-admin-rate">${(dr.allowed_rates || []).map(r => `<option value="${r}" ${r === 0.6 ? "selected" : ""}>${_rateName(r)}</option>`).join("")}</select>
-            <button class="btn danger kick-btn" data-drink-rate-propose ${dr.pending ? "disabled" : ""}>Propose</button>
-            <span class="drink-rate-note drink-rate-preview">${_ratePreview(0.6)}</span>
-          </div>
-        </div>`;
-    } else {
-      adminEl.innerHTML = "";
+      if (s.protected_rounds_left > 0) notes.push(`🛡 Protected for ${s.protected_rounds_left} more round(s): a new rate needs their own yes.`);
+      const req = (dr.requests || []).find(q => q.seat === s.name);
+      if (req && !isAdmin) notes.push(`Requested ${_rateName(req.rate)} — waiting for the admin.`);
+      html += row(s.name, s.name, cur, mineLc.has(s.name.toLowerCase()), notes);
+    });
+    if (isAdmin && humans.length > 1) {
+      html += row("__all__", "Everyone", null, false, [`The table votes on this${dr.pending ? " (a vote is already open)" : ""}.`]);
     }
+    const host = document.getElementById("drink-rate-mine");
+    host.innerHTML = html;
+    host.querySelectorAll(".drink-rate-row[data-seat]").forEach(r => this._syncRowButton(r));
+  }
 
-    document.getElementById("drink-rate-table").innerHTML =
-      `<div class="drink-rate-sub">TABLE</div>` +
-      (dr.seats || []).map(s => `<div class="drink-rate-row"><span class="drink-rate-name">${escapeHtml(s.name)}${s.is_bot ? " 🤖" : ""}</span><span>${_rateName(s.effective_rate)}</span></div>`).join("");
+  // Label/enable the row's button from the selected rate: "Set" when this client
+  // may change the seat directly, "Propose" when it needs the table's vote.
+  _syncRowButton(row) {
+    const btn = row.querySelector("[data-drink-rate-go]");
+    const rate = parseFloat(row.querySelector("select").value);
+    const requested = (lastState && lastState.drink_rates && lastState.drink_rates.requests || [])
+      .find(q => q.seat === row.dataset.seat);
+    const curRaw = row.dataset.cur;
+    const cur = curRaw === "" ? null : parseFloat(curRaw);
+    const isMine = row.dataset.mine === "1";
+    const isAdmin = myRole === ROLE.ADMIN;
+    const free = isMine && cur !== null && (rate >= 1 || rate >= cur);
+    const pending = !!(lastState && lastState.drink_rates && lastState.drink_rates.pending);
+    if (free) {
+      btn.dataset.mode = "set"; btn.textContent = "Set"; btn.className = "btn approve kick-btn";
+      btn.disabled = rate === cur;
+    } else if (!isAdmin) {
+      btn.dataset.mode = "request"; btn.textContent = "Request"; btn.className = "btn kick-btn";
+      btn.disabled = rate === cur || !!(requested && requested.rate === rate);
+    } else {
+      btn.dataset.mode = "propose"; btn.textContent = "Propose"; btn.className = "btn danger kick-btn";
+      btn.disabled = pending || rate === cur;
+    }
   }
 
   // ---- vote modal ----
@@ -1643,10 +1673,10 @@ class DrinkRatePanel {
     if (pending) {
       if (this._resultTimer) { clearTimeout(this._resultTimer); this._resultTimer = null; }
       if (!this._voteOpen) { this._voteOpen = true; openModal("drink-rate-vote-overlay", { useClass: true }); }
-      g("drink-rate-vote-title").textContent = "🍷 Drink rate vote";
+      g("drink-rate-vote-title").textContent = "🍻 Drink rate vote";
       g("drink-rate-vote-sub").innerHTML =
         `<strong>${escapeHtml(pending.proposer)}</strong> proposes <strong>${_rateName(pending.rate)}</strong> for ` +
-        `<strong>${pending.targets.map(escapeHtml).join(", ")}</strong>.<br><small>${_ratePreview(pending.rate)}</small>`;
+        `<strong>${pending.targets.map(escapeHtml).join(", ")}</strong>.`;
       g("drink-rate-vote-tally").innerHTML =
         `Yes: <strong style="color:var(--green)">${pending.yes_count}</strong> &nbsp;·&nbsp; ` +
         `No: <strong style="color:var(--red)">${pending.no_count}</strong> &nbsp;·&nbsp; ` +
@@ -1760,7 +1790,7 @@ class LateJoinPanel {
         const reco = r === offer.recommended;
         return `<button class="btn ${reco ? "approve" : ""} wide late-join-opt" data-late-join-take="${r}">` +
           `<span>${_rateName(r)}${reco ? `<span class="late-join-reco">RECOMMENDED</span>` : ""}</span>` +
-          `<small>${_ratePreview(r)}</small></button>`;
+          `</button>`;
       }).join("") +
       `<button class="btn wide late-join-opt" style="justify-content:center" data-late-join-dismiss>No thanks, stay at beer 1×</button>`;
     document.getElementById("late-join-note").textContent =

@@ -51,6 +51,14 @@ def _holds(info: dict, key: str) -> bool:
             or any((n or "").lower() == key for n in (info.get("local_names") or [])))
 
 
+def holds_human_seat(session: GameRoom, info: dict) -> bool:
+    """True if this client controls at least one non-bot seat. Bots never
+    vote and never count toward a vote's majority."""
+    names = {(n or "").lower() for n in ([info.get("name")] + list(info.get("local_names") or [])) if n}
+    return any(p.name.lower() in names and not getattr(p, "is_npc", False)
+               for p in session.all_players)
+
+
 def _admin_info(session: GameRoom) -> dict | None:
     return next((i for i in session._room_clients.values()
                  if i.get("role") == "admin" and not i.get("kicked")), None)
@@ -168,6 +176,8 @@ def eligible_voter_cids(session: GameRoom) -> list[str]:
         if cid == admin_cid or info.get("kicked") or info.get("role") != "player":
             continue
         if not info.get("name") or not is_client_connected(session, cid, now):
+            continue
+        if not holds_human_seat(session, info):
             continue
         out.append(cid)
     return out

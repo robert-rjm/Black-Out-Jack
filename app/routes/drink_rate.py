@@ -8,6 +8,8 @@ POST /drink_rate/set      — A player changes the rate of a seat they control
 POST /drink_rate/propose  — Admin proposes a rate for some or all seats
 POST /drink_rate/vote     — Connected seated player votes Yes/No on the proposal
 POST /drink_rate/dismiss_offer — Decline the recommended late-joiner boost
+POST /drink_rate/request  — A player asks the admin for a lower rate
+POST /drink_rate/dismiss_request — Admin dismisses such a request
 """
 
 from flask import Blueprint, jsonify, request
@@ -16,6 +18,7 @@ from app.services.session_store import game_sessions
 from app.services.serializer import serialize_state
 from app.services.drink_rate import (
     set_own_rate, open_rate_proposal, cast_rate_vote, dismiss_late_join_offer,
+    request_lower_rate, dismiss_rate_request,
 )
 
 bp = Blueprint("drink_rate", __name__)
@@ -82,3 +85,27 @@ def drink_rate_dismiss_offer():
     with session._registry_lock:
         dismiss_late_join_offer(session, client_id)
     return _reply(session, client_id, True)
+
+
+@bp.route("/drink_rate/request", methods=["POST"])
+def drink_rate_request():
+    """Body: { room_code, client_id, seat, rate }"""
+    data = request.json or {}
+    session, client_id = _session_and_ids(data)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    with session._registry_lock:
+        ok, err = request_lower_rate(session, client_id, (data.get("seat") or "").strip(), data.get("rate"))
+    return _reply(session, client_id, ok, err)
+
+
+@bp.route("/drink_rate/dismiss_request", methods=["POST"])
+def drink_rate_dismiss_request():
+    """Body: { room_code, client_id (admin), seat }"""
+    data = request.json or {}
+    session, client_id = _session_and_ids(data)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    with session._registry_lock:
+        ok, err = dismiss_rate_request(session, client_id, (data.get("seat") or "").strip())
+    return _reply(session, client_id, ok, err)

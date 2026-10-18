@@ -104,10 +104,10 @@ This document defines selector ownership for the web UI modules and the shared e
 ### `static/js/ui/admin-settings.js`
 - Drink Rate Mode (Multiplayer.md, Drink Rate Mode):
   - Settings button: `[data-action="openDrinkRateModal"]`; seat badge `.seat-rate-badge`
-  - `#drink-rate-overlay`, `#drink-rate-card`, `#drink-rate-mine`, `#drink-rate-admin`, `#drink-rate-table`
-  - `#drink-rate-admin-seat`, `#drink-rate-admin-rate`, `[data-drink-rate-set]`, `[data-drink-rate-propose]`, `select[data-drink-rate-seat]`
+  - `#drink-rate-overlay`, `#drink-rate-card`, `#drink-rate-mine` (one `.drink-rate-row[data-seat]` per seat, plus an `__all__` Everyone row for the admin; each row has a `select` and a `[data-drink-rate-go]` button whose `data-mode` is `set`, `request` or `propose`); admin request rows carry `[data-request-seat]` with `[data-drink-rate-req="propose"|"dismiss"]` buttons
   - Late-joiner boost modal: `#late-join-overlay`, `#late-join-modal`, `#late-join-sub`, `#late-join-btns`, `#late-join-note`, `[data-late-join-take]`, `[data-late-join-dismiss]`
   - Vote modal: `#drink-rate-vote-overlay`, `#drink-rate-vote-modal`, `#drink-rate-vote-title`, `#drink-rate-vote-sub`, `#drink-rate-vote-tally`, `#drink-rate-vote-btns`, `#drink-rate-vote-status`, `#drink-rate-vote-timer`, `[data-drink-rate-vote]`
+- Normal-mode money overview (Round tab): `#dig-money-overview` (`.money-table`, `.money-head`, `.money-foot`)
 - Admin-AFK vote (Multiplayer.md, AFK handling):
   - `#admin-afk-banner` (holds the Start AFK vote button while the game is waiting on the admin)
   - `#admin-afk-modal-overlay`, `#admin-afk-modal`, `#admin-afk-modal-title`, `#admin-afk-modal-sub`
