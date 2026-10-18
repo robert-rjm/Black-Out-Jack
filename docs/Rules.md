@@ -559,7 +559,9 @@ scales the sips it has to drink. The default is beer, **1.0×**.
 | Other discounts | **0.2×, 0.8×** | Any 0.2 step from 0.2× to 1.0× |
 | Boosters | **1.2×, 1.4×, 1.5×** | Drink *more* than the table (e.g. a late joiner catching up). 1.5× is the maximum |
 
-Open it from **Settings → 🍷 Drink rate**. Rates are shown on each seat
+Open it from **Settings → 🍷 Drink rate**: one row per seat (the admin sees
+every human seat plus an **Everyone** row; other Players see their own), each
+with a single rate picker and one button. Rates are shown on each seat
 (🍷 0.6×, 🍹 0.4×, ⬆️ 1.4×).
 
 #### How the rate is applied
@@ -596,8 +598,13 @@ always delivers exactly 1 sip.
 | ------ | --- |
 | Raise your own rate, or move it to 1.0× or higher | **You, any time, no vote** |
 | Reset to 1.0× ("normalize") | **You, any time, no vote** — and it starts the protection window below |
-| Lower a rate (a discount), for one player or everyone | The **admin proposes**; it passes on a **strict majority** of connected seated Players within **20 seconds**. The Player who benefits votes too, and the proposer's own vote counts as an automatic Yes |
+| Lower a rate (a discount), for one player or everyone | The **admin proposes** (**Propose**); it passes on a **strict majority** of connected seated Players within **20 seconds**. The Player who benefits votes too, and the proposer's own vote counts as an automatic Yes |
+| Ask for a lower rate (any Player who is not the admin) | **Request** it. This only notifies the admin, who can **Propose** it (the vote above) or **Dismiss** it. Nothing changes until a vote passes |
 | Impose a booster on someone | Same proposal and vote as a discount |
+
+**Who votes:** only human Players. **Bots never vote and never count toward
+the majority.** If the admin is the only connected Player (everyone else is a
+local seat or a bot), the vote is theirs alone and passes immediately.
 
 **Protection window:** once a Player resets themselves to 1.0×, no new rate
 (discount or booster) can be voted onto them for the next **3 rounds**
@@ -608,6 +615,12 @@ connected is simply left out.
 
 A change takes effect **immediately** if no cards have been dealt yet,
 otherwise from the **next round**. Each change is written to the game log.
+
+**Late joiners:** when a human takes over a **bot's seat** mid-game and the
+other human Players average at least **3 sips**, they get a one-time offer of
+a recommended booster (about 1 + rounds played ÷ 5, rounded up to the next
+booster, at most 1.5×). Taking a booster needs no vote, and they can decline
+or drop back to 1.0× at any time.
 
 #### What gets counted
 
