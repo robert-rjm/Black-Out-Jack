@@ -1149,9 +1149,19 @@ class DealerLotteryGivePanel {
     // this event's own reveal modal, so popups appear one after another,
     // never stacked.
     if (state.pending_milestone || (state.my_bust_handout_pending || []).length
-        || _dealerLotteryRevealOpen || dl.reveal_pending) {
+        || _dealerLotteryRevealOpen) {
       overlay.style.display = "none";
       body.innerHTML = "";
+      return;
+    }
+
+    // Reveal closed here but others are still watching: say why the handout
+    // hasn't started instead of showing nothing.
+    if (dl.reveal_pending) {
+      const names = (dl.reveal_waiting_on || []).map(escapeHtml).join(", ");
+      overlay.style.display = "flex";
+      body.innerHTML = `<div class="bgp-entry"><div class="bgp-winner-label">🎰 You have sips to hand out!</div>
+        <div style="font-size:12px;color:var(--muted)">⏳ Waiting for ${names || "everyone"} to close the draw reveal…</div></div>`;
       return;
     }
 

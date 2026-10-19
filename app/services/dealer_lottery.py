@@ -22,8 +22,8 @@ import time
 from engine.blackjack import Card, Deck, Hand
 from app.models.game_room import GameRoom
 from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_DRINK,
-                        DEALER_LOTTERY_MAX_HANDS, DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS)
-from app.services.afk import is_client_connected
+                        DEALER_LOTTERY_MAX_HANDS, DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS,
+                        DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS)
 from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card
@@ -342,6 +342,22 @@ def ack_dealer_lottery_reveal(session: GameRoom, client_id: str) -> None:
         session.round._dealer_lottery_reveal_acked.add(client_id)
 
 
+def dealer_lottery_reveal_waiting_on(session: GameRoom) -> list[str]:
+    """Names of seated players still watching (polled recently) who haven't
+    closed the draw reveal yet."""
+    if session.round._dealer_lottery_reveal_deadline is None:
+        return []
+    now = time.monotonic()
+    names = []
+    for cid, info in session._room_clients.items():
+        seen = session._client_last_seen.get(cid)
+        if (info.get("name") and not info.get("kicked") and seen is not None
+                and now - seen < DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS
+                and cid not in session.round._dealer_lottery_reveal_acked):
+            names.append(info["name"])
+    return names
+
+
 def maybe_start_dealer_lottery_handout(session: GameRoom) -> None:
     """Start the handout clock once every connected seated player has closed
     the reveal (or the safety cap passes). Safe to call on every tick."""
@@ -349,13 +365,7 @@ def maybe_start_dealer_lottery_handout(session: GameRoom) -> None:
     if deadline is None:
         return
     now = time.monotonic()
-    waiting = [
-        cid for cid, info in session._room_clients.items()
-        if info.get("name") and not info.get("kicked")
-        and is_client_connected(session, cid, now)
-        and cid not in session.round._dealer_lottery_reveal_acked
-    ]
-    if waiting and now < deadline:
+    if dealer_lottery_reveal_waiting_on(session) and now < deadline:
         return
     session.round._dealer_lottery_reveal_deadline = None
     session.round._dealer_lottery_handout_expires_at = now + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS

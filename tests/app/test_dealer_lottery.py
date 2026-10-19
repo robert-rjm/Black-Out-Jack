@@ -1169,7 +1169,19 @@ def test_disconnected_client_does_not_hold_up_handout(monkeypatch):
     from app.services.dealer_lottery import (ack_dealer_lottery_reveal,
                                              maybe_start_dealer_lottery_handout)
     room = _fresh_handout_room(monkeypatch)
-    room._client_last_seen["b"] = time.monotonic() - 1000
+    room._client_last_seen["b"] = time.monotonic() - 1000   # stopped polling
     ack_dealer_lottery_reveal(room, "a")
     maybe_start_dealer_lottery_handout(room)
     assert room.round._dealer_lottery_handout_expires_at is not None
+
+
+def test_waiting_on_lists_only_recent_unacked_clients(monkeypatch):
+    from app.services.dealer_lottery import (ack_dealer_lottery_reveal,
+                                             dealer_lottery_reveal_waiting_on)
+    room = _fresh_handout_room(monkeypatch)
+    assert sorted(dealer_lottery_reveal_waiting_on(room)) == ["Alice", "Bob"]
+    ack_dealer_lottery_reveal(room, "a")
+    assert dealer_lottery_reveal_waiting_on(room) == ["Bob"]
+    room._client_last_seen["b"] = time.monotonic() - 30   # stale: not holding it up
+    assert dealer_lottery_reveal_waiting_on(room) == []
+    assert serialize_state(room, "a")["dealer_lottery"]["reveal_waiting_on"] == []

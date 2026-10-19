@@ -965,6 +965,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "pending_handouts", {}).items()
         if n not in session.round._dealer_lottery_handouts_given
     }
+    from app.services.dealer_lottery import dealer_lottery_reveal_waiting_on  # lazy: dealer_lottery imports this module
     _dl_my_names = set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
     _dealer_lottery_data = {
         "dealer_lottery": {
@@ -983,6 +984,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             # True while the handout is held back until everyone closes the reveal
             "reveal_pending":       session.round._dealer_lottery_reveal_deadline is not None,
             "reveal_acked_by_me":   client_id in session.round._dealer_lottery_reveal_acked,
+            "reveal_waiting_on":    dealer_lottery_reveal_waiting_on(session),
         },
     }
 
