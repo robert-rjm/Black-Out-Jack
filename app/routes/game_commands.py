@@ -832,6 +832,10 @@ def command():
     if not game_session:
         return jsonify({"ok": False, "output": "No active session — set up a game first."})
 
+    if game_session._paused_at is not None:
+        return jsonify({**serialize_state(game_session), "rejected": True,
+                        "output": "  Game is paused.\n"})
+
     cmd_str   = _req.get("cmd", "").strip()[:200]
     client_id = _req.get("client_id", "")
     if not cmd_str:

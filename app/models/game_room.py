@@ -332,6 +332,10 @@ class GameRoom:
     # vote in, after their own request was voted down
     _drink_rate_request_frozen_through: dict = field(default_factory=dict)
 
+    # Host "pause" (app/services/pause.py): time.monotonic() when the table was
+    # paused, None while running. All clocks are shifted by the paused span on resume.
+    _paused_at: float | None = None
+
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer
     # approval) against concurrent requests for the same room -- see

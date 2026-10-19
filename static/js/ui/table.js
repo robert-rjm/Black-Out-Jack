@@ -678,6 +678,7 @@ function applyState(state) {
   }
 
   _syncRoundEffects(state, drinkingOn);
+  _syncPausedOverlay(state);
 
   // Commit new state — capture bust-vote open flag first.
   const _prevBustOpen = lastState && lastState.bust_vote_window_open;

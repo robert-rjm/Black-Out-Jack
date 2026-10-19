@@ -93,6 +93,9 @@ def tick(session) -> None:
     14. Safety-net: trigger dealer play when stuck at dealer-ready with no
         bust-vote window (e.g. bust-vote disabled, or all-BJ deal).
     """
+    if session._paused_at is not None:
+        return   # host paused the table -- nothing expires or auto-plays
+
     now = _time.monotonic()
 
     # 1. Auto-resolve expired or fully-voted insurance votes

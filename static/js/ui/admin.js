@@ -258,6 +258,30 @@ async function setEasyModeAdmin(on) {
   } catch (_) {}
 }
 
+async function setPaused(paused) {
+  try {
+    const res = await fetch("/set_paused", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, paused: !!paused }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    if (paused && typeof closeKickModal === "function") closeKickModal();
+  } catch (e) { console.error("setPaused failed", e); }
+}
+
+function _syncPausedOverlay(state) {
+  const overlay = document.getElementById("paused-overlay");
+  if (!overlay) return;
+  overlay.classList.toggle("open", !!state.paused);
+  const isAdmin = (myRole === ROLE.ADMIN);
+  const btn  = document.getElementById("paused-resume-btn");
+  const wait = document.getElementById("paused-wait");
+  if (btn)  btn.style.display  = isAdmin ? "inline-block" : "none";
+  if (wait) wait.style.display = isAdmin ? "none" : "block";
+}
+
 async function setGodMode(on) {
   try {
     const res = await fetch("/toggle_god_mode", {

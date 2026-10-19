@@ -560,6 +560,7 @@ class AppState(_StrictModel):
     anim_default:     bool
     easy_mode:        bool
     god_mode_enabled: bool
+    paused:           bool = False
     # Already validated + sparsely dumped in serialize_state (see
     # QueuedSettingsOut's docstring) -- typed loosely here since it arrives
     # pre-shaped, not as a fresh dict to expand against the sub-model.

@@ -14,6 +14,7 @@ POST /request_rejoin   — Spectator asks admin to re-seat them
 POST /handle_rejoin    — Admin approves or denies a rejoin request
 POST /update_settings  — Admin queues game settings for next round
 POST /claim_milestone  — Winner distributes their milestone-handout sips
+POST /set_paused       — Admin pauses / resumes the table (freezes all timers)
 POST /rotate_dealer    — Admin immediately rotates the dealer seat
 POST /take_back_seat   — Admin reclaims a remote seat, moving them to spectator
 POST /targeted_drinking/start    — Admin picks target(s) and force-starts Targeted Drinking Mode
@@ -39,6 +40,7 @@ from app.services.targeted_drinking import (
 )
 from app.config import TARGETED_DRINKING_REVEAL_PAUSE_SECONDS
 from app.services.afk import open_admin_afk_vote, cast_admin_afk_vote
+from app.services.pause import pause_game, resume_game
 
 bp = Blueprint("admin", __name__)
 
@@ -850,6 +852,21 @@ def toggle_god_mode():
 
     enabled = bool(data.get("enabled", False))
     session._god_mode = enabled
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/set_paused", methods=["POST"])
+def set_paused():
+    """Host pauses / resumes the table. Body: { room_code, client_id, paused }"""
+    data = request.json or {}
+    session, client_id, _, err = _require_admin(data)
+    if err:
+        return jsonify({"ok": False, "error": escape(err)})
+
+    if bool(data.get("paused", False)):
+        pause_game(session)
+    else:
+        resume_game(session)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 

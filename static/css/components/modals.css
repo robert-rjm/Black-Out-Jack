@@ -617,6 +617,21 @@
   text-decoration: underline; white-space: nowrap;
 }
 
+/* Host pause: full-screen cover above every other modal */
+#paused-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  z-index: 2000;
+  align-items: center; justify-content: center;
+}
+#paused-overlay.open { display: flex; }
+#paused-card { text-align: center; padding: 24px; }
+#paused-emoji { font-size: 64px; line-height: 1; }
+#paused-title { font-size: 44px; font-weight: 900; letter-spacing: 6px; color: var(--purple); margin: 8px 0 6px; }
+#paused-sub { font-size: 14px; color: var(--muted); margin-bottom: 22px; }
+
 #target-proposal-modal-overlay,
 #admin-afk-modal-overlay,
 #drink-rate-vote-overlay,

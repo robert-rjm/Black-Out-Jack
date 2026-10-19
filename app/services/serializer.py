@@ -593,7 +593,7 @@ def compute_kpi_stats(session: GameRoom, sip_ticker: dict | None = None,
     dealer_bust_rounds = session.stats.dealer_bust_rounds
     n_rounds           = session.round_count
     history            = session.stats.round_sip_history
-    session_secs       = max(0, int(time.monotonic() - session.stats.session_started_at))
+    session_secs       = max(0, int((session._paused_at or time.monotonic()) - session.stats.session_started_at))
     drinking           = session.drinking_mode
 
     # ── Session-wide aggregates ──────────────────────────────────────────────
@@ -1167,6 +1167,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "anim_default":           session._anim_default,
         "easy_mode":              session.easy_mode,
         "god_mode_enabled":       session._god_mode,
+        "paused":                 session._paused_at is not None,
         # Validated against the real shape, then dumped back to a sparse
         # dict (only actually-queued keys) -- the frontend's
         # _renderQueuedBanner checks presence with `"wager" in queued`, so
