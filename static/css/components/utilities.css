@@ -107,12 +107,10 @@ body.no-drinking .drink-only {
 .lobby-rules-link:active {
   background: var(--border);
 }
-.lobby-github-link:hover,
 .lobby-terms-link:hover,
 .lobby-donate-link:hover,
 .gate-btn-decline:hover { color: var(--text); }
 
-.lobby-github-link,
 .lobby-terms-link,
 .lobby-donate-link {
   color: var(--muted);
@@ -611,17 +609,6 @@ body.no-drinking .drink-only {
   object-fit: contain;
   margin-bottom: 4px;
   opacity: 0.9;
-}
-.server-disconnect-github {
-  margin-top: 14px;
-  font-size: 11px;
-  color: var(--muted);
-  text-decoration: none;
-  opacity: 0.6;
-}
-.server-disconnect-github:hover {
-  opacity: 1;
-  text-decoration: underline;
 }
 
 /* ---- TOAST (showToast in utils.js) ---- */

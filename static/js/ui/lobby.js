@@ -228,8 +228,7 @@ function showGiveUpScreen() {
     '<img src="/static/img/logo-transparent.png" alt="Black(Out)Jack Logo" class="server-disconnect-logo">' +
     '<div class="server-disconnect-title" style="font-size:20px">Thanks for playing BlackOutJack!</div>' +
     '<div class="server-disconnect-msg">Come back when the server is ready.</div>' +
-    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" data-action="tryAgainFromGiveUp">Try again</button>' +
-    '<a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener" class="server-disconnect-github">🔗 github.com/robert-rjm/Black-Out-Jack</a>';
+    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" data-action="tryAgainFromGiveUp">Try again</button>';
 }
 
 async function tryAgainFromGiveUp() {
