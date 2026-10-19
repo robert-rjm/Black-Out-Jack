@@ -53,3 +53,15 @@ def test_it_does_not_reveal_whether_a_room_exists(client):
     """Same shape for a code that was never created as for a real one."""
     a = client.get("/room_invite?code=Nope999").get_json()
     assert a["ok"] is True and a["svg"].startswith("<svg")
+
+
+def test_beer_route_redirects_to_paypal(client):
+    resp = client.get("/beer")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].startswith("https://paypal.me/")
+
+
+def test_beer_qr_returns_svg_for_paypal_link(client):
+    data = client.get("/beer_qr").get_json()
+    assert data["ok"] and data["url"].startswith("https://paypal.me/")
+    assert "<svg" in data["svg"] and "viewBox" in data["svg"]

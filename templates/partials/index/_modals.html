@@ -199,14 +199,6 @@
   </div>
 </div>
 
-<div id="last-round-overlay" class="overlay-last-round drink-only" data-backdrop-action="closeLastRoundModal">
-  <div class="last-round-card" data-stop-propagation="true">
-    <h3 class="last-round-title">🍺 Last Round</h3>
-    <div id="last-round-modal-body"></div>
-    {{ action_btn('Close', 'closeLastRoundModal', '[]', 'btn wide muted-btn modal-close-btn') }}
-  </div>
-</div>
-
 <div id="bust-vote-modal-overlay" class="bust-vote-modal-overlay">
   <div class="bust-vote-modal-card">
     <div class="bust-vote-modal-title">💥 Dealer bust bet</div>
@@ -495,6 +487,21 @@
       <button class="btn approve wide" data-action="copyInviteLink">📋 Copy link</button>
       <button class="btn wide" data-action="closeRoomQr">Close</button>
     </div>
+  </div>
+</div>
+
+<div id="beer-overlay" data-backdrop-action="closeBeerModal">
+  <div id="beer-card" data-stop-propagation="true">
+    <h3>🍺 Tip us</h3>
+    <div class="modal-note">Enjoying the game? Scan with your phone, or use the link.</div>
+    <div id="beer-qr"></div>
+    <div class="modal-note">Made by Robert, David &amp; Marko</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <a class="btn approve wide" href="/beer" target="_blank" rel="noopener">Open PayPal</a>
+      <button class="btn wide" data-action="copyBeerLink">📋 Copy link</button>
+    </div>
+    <div class="modal-note" id="beer-url" style="word-break:break-all;margin-top:8px"></div>
+    {{ action_btn('Close', 'closeBeerModal', '[]', 'btn wide muted-btn modal-close-btn') }}
   </div>
 </div>
 

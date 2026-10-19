@@ -971,11 +971,23 @@ async function showSessionSummary() {
     meta.textContent = `${data.rounds} round${data.rounds !== 1 ? "s" : ""} completed`;
 
     const drinking = lastState?.drinking_mode !== false;
+    // Last round's sips per player (▲/▼ vs the round before it), merged in
+    // from the old standalone "Last Round" popup.
+    const lastSips = DrinkUI.lastRoundSips || {};
+    const prevSips = DrinkUI.prevRoundSips || {};
+    const lastRoundCell = name => {
+      const last = lastSips[name] || 0;
+      const diff = last - (prevSips[name] || 0);
+      const arrow = diff === 0 ? "" :
+        ` <span style="font-size:11px;color:${diff > 0 ? "var(--red)" : "var(--green)"}">${diff > 0 ? "▲" : "▼"}${Math.abs(diff)}</span>`;
+      return `${last}${arrow}`;
+    };
     const tbl = document.createElement("table");
     tbl.id = "summary-table";
     tbl.innerHTML = drinking ? `
       <thead><tr>
         <th>Player</th>
+        <th>Last rd</th>
         <th>As player</th>
         <th>As dealer</th>
         <th>Total 🍺</th>
@@ -988,6 +1000,7 @@ async function showSessionSummary() {
       const tr = document.createElement("tr");
       tr.innerHTML = drinking ? `
         <td style="font-weight:600">${escapeHtml(p.name)}</td>
+        <td>${lastRoundCell(p.name)}</td>
         <td>${p.player_sips}</td>
         <td>${p.dealer_sips}</td>
         <td class="sum-total">${p.total_sips}</td>` : `

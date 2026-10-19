@@ -33,7 +33,7 @@
    (buried in Settings -> Players) while their own vote modal was showing,
    since it's a same-z-index full-viewport overlay that would otherwise
    paint on top by DOM order. */
-#kick-overlay, #summary-overlay, #drink-rate-overlay, #qr-overlay {
+#kick-overlay, #summary-overlay, #drink-rate-overlay, #qr-overlay, #beer-overlay {
   display: none;
   position: fixed; inset: 0;
   background: var(--scrim);
@@ -43,7 +43,7 @@
   justify-content: center;
   padding: 24px;
 }
-#kick-card, #summary-card, #drink-rate-card, #qr-card {
+#kick-card, #summary-card, #drink-rate-card, #qr-card, #beer-card {
   background: var(--surface);
   border-radius: 16px;
   padding: 20px;
@@ -52,7 +52,7 @@
   max-height: 80vh; overflow-y: auto;
   position: relative;
 }
-#kick-card h3, #summary-card h3, #drink-rate-card h3, #qr-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
+#kick-card h3, #summary-card h3, #drink-rate-card h3, #qr-card h3, #beer-card h3 { font-size: 17px; font-weight: 800; margin-bottom: 12px; }
 
 #summary-close-btn {
   position: absolute; top: 12px; right: 12px;
@@ -702,8 +702,8 @@
 .late-join-reco { font-size: 10px; font-weight: 800; letter-spacing: .05em; margin-left: 6px; color: var(--green); }
 
 /* ── Room QR / invite modal ── */
-#qr-card { text-align: center; }
-#qr-svg { background: #fff; border-radius: 12px; padding: 8px; margin: 12px auto; width: min(260px, 100%); }
-#qr-svg svg { display: block; width: 100%; height: auto; }
+#qr-card, #beer-card { text-align: center; }
+#qr-svg, #beer-qr { background: #fff; border-radius: 12px; padding: 8px; margin: 12px auto; width: min(260px, 100%); }
+#qr-svg svg, #beer-qr svg { display: block; width: 100%; height: auto; }
 #qr-code-text { margin: 0 auto; }
 #qr-url { word-break: break-all; margin-top: 8px; }

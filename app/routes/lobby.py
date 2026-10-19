@@ -15,7 +15,7 @@ import socket
 from urllib.parse import urlsplit
 
 import segno
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, redirect, request
 
 from engine.blackjack import Player, Hand, Shoe, NPC_Player
 from engine.style_strategy import available_profiles
@@ -35,6 +35,22 @@ from app.services.payout_tracker import init_bankrolls
 from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
 
 bp = Blueprint("lobby", __name__)
+
+TIP_URL = "https://paypal.me/robertmichels"
+
+
+@bp.route("/beer_qr")
+def beer_qr():
+    """QR code for the tip link, so it works even when a popup/ad blocker stops
+    the PayPal tab from opening."""
+    return jsonify({"ok": True, "url": TIP_URL, "svg": _qr_svg(TIP_URL)})
+
+
+@bp.route("/beer")
+def beer():
+    """"Tip us" link target. Redirecting from our own origin keeps ad blockers
+    that hide direct PayPal links from swallowing the in-game button."""
+    return redirect(TIP_URL, code=302)
 
 
 # ---------------------------------------------------------------------------

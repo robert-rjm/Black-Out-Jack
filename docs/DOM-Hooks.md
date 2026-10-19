@@ -25,7 +25,7 @@ This document defines selector ownership for the web UI modules and the shared e
 - `#gametype-row`, `#num-players-row`, `#name-fields`
 - `#settings-ref`, `#settings-dig`, `#wager-dig-cell`
 - `#start-btn`, `#anim-toggle`, `#anim-lbl-setup`, `#anim-lbl-setup-on`
-- Last-round modal nodes: `#last-round-overlay`, `#last-round-modal-body`
+- Header/bottom-nav "Tip us" links: `#btn-beer-header`, `#btn-beer-nav` (buttons, `[data-action="openBeerModal"|"closeBeerModal"|"copyBeerLink"]`, open `#beer-overlay` with a QR from `/beer_qr` and an "Open PayPal" link to the `/beer` redirect; the old Last Round popup now lives in the Session Summary table's "Last rd" column)
 
 ### `static/js/ui/table.js`
 - Core table and panel state nodes:
