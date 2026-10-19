@@ -80,6 +80,7 @@ DEALER_LOTTERY_MAX_DRINK            = 10  # ceiling on the no-bust drink, howeve
 TARGETED_DRINKING_VOTE_WINDOW_SECONDS = 15   # per-round bust/stand vote timer
 TARGETED_DRINKING_STREAK_TO_GRADUATE  = 3    # consecutive correct guesses to opt out
 TARGETED_DRINKING_COOLDOWN_ROUNDS     = 3    # rounds before a new subgame can start
+TARGETED_DRINKING_WRONG_GUESS_SIPS    = 2    # flat sips for every wrong call
 DRINK_RATE_PROTECTION_ROUNDS     = 3    # rounds a player who reset to 1.0 is shielded from rate votes (unless they vote Yes)
 LATE_JOIN_MIN_AVG_SIPS          = 3    # no late-join boost is offered unless the other humans average at least this many sips
 DRINK_RATE_REQUEST_FREEZE_ROUNDS = 3    # rounds a seat cannot ask for another discount after its own request was voted down

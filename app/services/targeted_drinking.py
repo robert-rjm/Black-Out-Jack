@@ -44,6 +44,7 @@ from app.config import (
     TARGETED_DRINKING_REVEAL_PAUSE_SECONDS,
     TARGETED_DRINKING_STREAK_TO_GRADUATE,
     TARGETED_DRINKING_COOLDOWN_ROUNDS,
+    TARGETED_DRINKING_WRONG_GUESS_SIPS,
     TARGETED_DRINKING_MAX_AFK_STRIKES,
     TARGETED_DRINKING_EASTER_EGG_SIP_CAP,
     TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS,
@@ -101,6 +102,7 @@ def start_targeted_drinking(
     session._targeted_drinking_targets = list(target_names)
     session._targeted_drinking_streaks = {name: 0 for name in target_names}
     session._targeted_drinking_losing_streaks = {name: 0 for name in target_names}
+    session._targeted_drinking_streak_calls = {name: [] for name in target_names}
     session._targeted_drinking_afk_strikes = {name: 0 for name in target_names}
     session._targeted_drinking_total_sips = {name: 0 for name in target_names}
     session._targeted_drinking_correct_counts = {name: 0 for name in target_names}
@@ -374,12 +376,18 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
             session._targeted_drinking_correct_counts[name] = (
                 session._targeted_drinking_correct_counts.get(name, 0) + 1
             )
-            streak = session._targeted_drinking_streaks.get(name, 0) + 1
+            # Sliding window of the last N correct calls. Graduating needs a full
+            # window with at least one BUST and one STAND, so "stand, stand,
+            # stand" alone never gets anyone released.
+            calls = (session._targeted_drinking_streak_calls.get(name, []) + [vote])[
+                -TARGETED_DRINKING_STREAK_TO_GRADUATE:]
+            session._targeted_drinking_streak_calls[name] = calls
+            streak = len(calls)
             session._targeted_drinking_streaks[name] = streak
             # A correct guess breaks a losing streak, same as a wrong guess
             # breaks the graduation streak below.
             session._targeted_drinking_losing_streaks[name] = 0
-            if streak >= TARGETED_DRINKING_STREAK_TO_GRADUATE:
+            if streak >= TARGETED_DRINKING_STREAK_TO_GRADUATE and len(set(calls)) == 2:
                 session._targeted_drinking_targets.remove(name)
                 graduated.append(name)
                 session.round._log_entries.append(
@@ -420,12 +428,12 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                 session._targeted_drinking_wrong_counts.get(name, 0) + 1
             )
             session._targeted_drinking_streaks[name] = 0
-            # Streak-scaled: the Nth consecutive wrong guess costs N sips
-            # (1, 2, 3, ...) instead of a flat 1 -- breaks the moment a
-            # correct guess resets it to 0 above.
+            session._targeted_drinking_streak_calls[name] = []
+            # Flat penalty per mistake. (The losing streak is still tracked
+            # for display; it no longer scales the penalty.)
             losing_streak = session._targeted_drinking_losing_streaks.get(name, 0) + 1
             session._targeted_drinking_losing_streaks[name] = losing_streak
-            wrong_sips = losing_streak
+            wrong_sips = TARGETED_DRINKING_WRONG_GUESS_SIPS
             session._targeted_drinking_total_sips[name] = (
                 session._targeted_drinking_total_sips.get(name, 0) + wrong_sips
             )
@@ -448,7 +456,7 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                 session, name, wrong_sips, "Targeted Drinking wrong guess",
                 reason=f"Targeted Drinking: guessed {vote}, dealer "
                        f"{'busted' if dealer_busted else 'stood'} -- "
-                       f"{losing_streak} wrong in a row, +{wrong_sips} sip(s)"
+                       f"wrong call, +{wrong_sips} sip(s)"
                        + (" (cap penalty)" if capped else ""),
                 count_toward_round=False,
             )
@@ -524,6 +532,7 @@ def end_targeted_drinking(session: GameRoom, reason: str) -> None:
     session._targeted_drinking_targets = []
     session._targeted_drinking_streaks = {}
     session._targeted_drinking_losing_streaks = {}
+    session._targeted_drinking_streak_calls = {}
     session._targeted_drinking_afk_strikes = {}
     session._targeted_drinking_total_sips = {}
     session._targeted_drinking_correct_counts = {}

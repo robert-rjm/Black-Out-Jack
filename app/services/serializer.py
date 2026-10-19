@@ -1004,6 +1004,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "targets":              list(session._targeted_drinking_targets),
             "streaks":              dict(session._targeted_drinking_streaks),
             "losing_streaks":       dict(session._targeted_drinking_losing_streaks),
+            "streak_calls":         {n: list(c) for n, c in session._targeted_drinking_streak_calls.items()},
             "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
             # Majority-vote-to-target proposal (tap a player's name at the
             # table): the pending Yes/No vote (if any), how many more

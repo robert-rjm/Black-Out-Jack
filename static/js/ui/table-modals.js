@@ -936,18 +936,19 @@ class TargetedDrinkingPanel {
 
     const votesCast     = pending.votes_cast || {};
     const streaks       = (lastState && lastState.targeted_drinking && lastState.targeted_drinking.streaks) || {};
-    const losingStreaks = (lastState && lastState.targeted_drinking && lastState.targeted_drinking.losing_streaks) || {};
+    const streakCalls   = (lastState && lastState.targeted_drinking && lastState.targeted_drinking.streak_calls) || {};
     const multiLocal    = myTargets.length > 1;
 
     // No addEventListener here -- mount()'s delegated listener handles clicks.
     wrap.innerHTML = myTargets.map(name => {
       const nameLbl   = multiLocal ? `<span class="dl-name-lbl">${escapeHtml(name)}</span>` : "";
       const streak    = streaks[name] || 0;
-      const losing    = losingStreaks[name] || 0;
-      // Next miss costs (losing + 1) sips -- shown so a target on a bad
-      // run knows exactly what's riding on this call.
-      const warnLbl   = losing > 0
-        ? `<span class="td-streak-warning">⚠️ ${losing} wrong in a row — next miss: ${losing + 1} sips</span>`
+      // Graduating needs at least one BUST and one STAND among the 3 correct
+      // calls -- warn a target who has only called one side so far.
+      const calls     = streakCalls[name] || [];
+      const oneSided  = calls.length >= 2 && new Set(calls).size === 1;
+      const warnLbl   = oneSided
+        ? `<span class="td-streak-warning">⚠️ only ${calls[0].toUpperCase()} so far — you must call both BUST and STAND to graduate</span>`
         : "";
       const streakLbl = `<span class="td-streak">${streak}/3 correct</span>${warnLbl}`;
       const myVote    = votesCast[name];
@@ -1189,7 +1190,11 @@ function _tdRevealLine(name, result) {
   if (graduated) {
     text = `correct! 🎓 Graduated!`;
   } else if (isCorrect) {
-    text = `correct (streak: ${streak}/3)`;
+    const calls = (((lastState || {}).targeted_drinking || {}).streak_calls || {})[name] || [];
+    const needMix = streak >= 3 && new Set(calls).size === 1;
+    text = needMix
+      ? `correct, but only ${vote.toUpperCase()} calls so far — call both BUST and STAND to graduate`
+      : `correct (streak: ${streak}/3)`;
   } else {
     text = `wrong, drinks ${sips} sip${sips === 1 ? "" : "s"}`;
   }

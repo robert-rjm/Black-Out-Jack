@@ -461,7 +461,8 @@ class TargetedDrinkingOut(_StrictModel):
     active:               bool
     targets:              list[str]
     streaks:              dict[str, int]   # graduation streak, per target (live, between mini-rounds too)
-    losing_streaks:       dict[str, int]   # consecutive wrong guesses, per target (drives the streak-scaled penalty)
+    losing_streaks:       dict[str, int]   # consecutive wrong guesses, per target (display only; the penalty is flat)
+    streak_calls:         dict[str, list[str]] = {}   # last correct calls per target; graduation needs both bust and stand
     cooldown_until_round: int
     pending_proposal:     Optional[TargetProposalPendingOut]
     propose_cooldown_remaining: int   # rounds until this client can propose again (0 if not frozen)

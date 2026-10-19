@@ -370,6 +370,9 @@ class GameRoom:
     _targeted_drinking_active: bool = False
     _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
     _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
+    # name -> the last up-to-STREAK_TO_GRADUATE correct calls ("bust"/"stand"), cleared by a wrong call.
+    # Graduation needs a full window containing BOTH a bust and a stand call (can't just spam stand).
+    _targeted_drinking_streak_calls: dict = field(default_factory=dict)
     # name -> consecutive WRONG guesses (distinct from the graduation streak
     # above, which it doesn't affect). Drives the streak-scaled wrong-guess
     # penalty in resolve_targeted_drinking_round -- resets to 0 on any
