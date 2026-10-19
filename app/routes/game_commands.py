@@ -887,8 +887,8 @@ def command():
     # entering more cards/results) would re-pay bankrolls or re-fire drinks.
     ROUND_ENDED_BLOCKED = {
         "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
-        "peek", "dealer", "endround", "action", "result", "fouraces",
-    }
+        "dealer", "endround", "action", "result", "fouraces",
+    }   # "peek" is deliberately absent: read-only, and its button lives on the round-over panel
     if game_session.round._round_ended and cmd in ROUND_ENDED_BLOCKED:
         return jsonify({
             **serialize_state(game_session, client_id),
