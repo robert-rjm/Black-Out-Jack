@@ -310,7 +310,9 @@ def test_resolve_both_bust_credits_and_opens_handout(monkeypatch):
     # Handout is derived from the credit actually received (3), not the raw
     # stake (5) -- ceil(3/2) = 2, pending a recipient.
     assert result["pending_handouts"] == {"Alice": 2}
-    assert room.round._dealer_lottery_handout_expires_at is not None
+    # The handout clock waits for everyone to close the reveal
+    assert room.round._dealer_lottery_handout_expires_at is None
+    assert room.round._dealer_lottery_reveal_deadline is not None
 
 
 def test_resolve_handout_scales_with_credit_not_raw_stake(monkeypatch):
@@ -713,6 +715,12 @@ def test_resolve_drink_is_never_halved_even_under_easy_mode(monkeypatch):
 # give_dealer_lottery_sip / apply_dealer_lottery_handout_forfeit
 # ---------------------------------------------------------------------------
 
+def _skip_reveal_wait(room):
+    """Pretend every client already closed the draw reveal."""
+    room.round._dealer_lottery_reveal_deadline = None
+    room.round._dealer_lottery_handout_expires_at = time.monotonic() + 20
+
+
 def _both_bust_room(monkeypatch, x=5):
     room = _nine_pair_room()
     room.drinks.last_round_sips["Alice"] = 10
@@ -724,6 +732,7 @@ def _both_bust_room(monkeypatch, x=5):
         make_card("5", "D"), make_card("9", "C"),
     ])
     resolve_dealer_lottery(room)
+    _skip_reveal_wait(room)
     return room
 
 
@@ -970,6 +979,7 @@ def _lottery_room_with_handout(monkeypatch, room_code="TestLotteryHandout"):
         make_card("5", "D"), make_card("9", "C"),
     ])
     resolve_dealer_lottery(room)
+    _skip_reveal_wait(room)
     room._room_clients["client-1"] = {
         "name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False,
     }
@@ -1111,3 +1121,55 @@ def test_lottery_stake_is_in_wagers(monkeypatch):
 
     result = room.drinks.last_dealer_lottery_result
     assert result["drink_amounts"] == {"Alice": 8}
+
+
+# ---------------------------------------------------------------------------
+# Handout waits for every connected player to close the reveal
+# ---------------------------------------------------------------------------
+
+def _fresh_handout_room(monkeypatch):
+    room = _both_bust_room(monkeypatch)
+    # undo the shortcut: back to "just resolved, reveal still open"
+    room.round._dealer_lottery_handout_expires_at = None
+    room.round._dealer_lottery_reveal_deadline = time.monotonic() + 60
+    now = time.monotonic()
+    room._room_clients = {
+        "a": {"name": "Alice", "role": "admin", "local_names": ["Alice"]},
+        "b": {"name": "Bob", "role": "player"},
+    }
+    room._client_last_seen = {"a": now, "b": now}
+    return room
+
+
+def test_handout_waits_until_all_connected_clients_ack(monkeypatch):
+    from app.services.dealer_lottery import (ack_dealer_lottery_reveal,
+                                             maybe_start_dealer_lottery_handout)
+    room = _fresh_handout_room(monkeypatch)
+    assert give_dealer_lottery_sip(room, "Alice", "Bob") is False   # not started
+
+    ack_dealer_lottery_reveal(room, "a")
+    maybe_start_dealer_lottery_handout(room)
+    assert room.round._dealer_lottery_handout_expires_at is None    # Bob still watching
+
+    ack_dealer_lottery_reveal(room, "b")
+    maybe_start_dealer_lottery_handout(room)
+    assert room.round._dealer_lottery_handout_expires_at is not None
+    assert room.round._dealer_lottery_reveal_deadline is None
+
+
+def test_handout_starts_after_safety_cap(monkeypatch):
+    from app.services.dealer_lottery import maybe_start_dealer_lottery_handout
+    room = _fresh_handout_room(monkeypatch)
+    room.round._dealer_lottery_reveal_deadline = time.monotonic() - 1
+    maybe_start_dealer_lottery_handout(room)
+    assert room.round._dealer_lottery_handout_expires_at is not None
+
+
+def test_disconnected_client_does_not_hold_up_handout(monkeypatch):
+    from app.services.dealer_lottery import (ack_dealer_lottery_reveal,
+                                             maybe_start_dealer_lottery_handout)
+    room = _fresh_handout_room(monkeypatch)
+    room._client_last_seen["b"] = time.monotonic() - 1000
+    ack_dealer_lottery_reveal(room, "a")
+    maybe_start_dealer_lottery_handout(room)
+    assert room.round._dealer_lottery_handout_expires_at is not None

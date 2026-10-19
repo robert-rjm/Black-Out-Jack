@@ -526,6 +526,11 @@ function _syncRoundEffects(state, drinkingOn) {
     if (dl.last_result) _showDealerLotteryRevealModal(dl.last_result);
     DrinkUI.lastDealerLotteryResultSeq = newDealerLotterySeq;
   }
+  // Not watching the reveal (joined late / modal never opened): don't hold the
+  // handout up for everyone else.
+  if (dl.reveal_pending && !dl.reveal_acked_by_me && !_dealerLotteryRevealOpen) {
+    ackDealerLotteryReveal();
+  }
 
   // Targeted Drinking mini-round reveal is triggered from within
   // targetedDrinkingPanel.render(state) itself (see table-modals.js) --

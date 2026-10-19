@@ -146,6 +146,11 @@ class RoundState:
     _dealer_lottery_eligible: bool = False
     _pending_dealer_lottery: dict | None = None
     _dealer_lottery_handout_expires_at: float | None = None
+    # The handout window only starts once every connected player has closed the
+    # draw-reveal modal (client ids in _dealer_lottery_reveal_acked); until then
+    # _dealer_lottery_reveal_deadline is the safety cap after which it starts anyway.
+    _dealer_lottery_reveal_acked: set = field(default_factory=set)
+    _dealer_lottery_reveal_deadline: float | None = None
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 

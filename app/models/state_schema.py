@@ -293,6 +293,8 @@ class DealerLotteryOut(_StrictModel):
     pending_handouts:     dict[str, int]
     my_pending_handouts:  dict[str, int]
     handout_seconds_left: int
+    reveal_pending:       bool = False
+    reveal_acked_by_me:   bool = False
 
 
 # ---------------------------------------------------------------------------

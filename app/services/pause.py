@@ -19,6 +19,7 @@ _ROUND_DEADLINES = (
     "_bust_vote_expires_at",
     "_bust_handout_expires_at",
     "_dealer_lottery_handout_expires_at",
+    "_dealer_lottery_reveal_deadline",
     "_targeted_drinking_handout_expires_at",
 )
 

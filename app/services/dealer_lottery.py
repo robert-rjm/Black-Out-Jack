@@ -22,7 +22,8 @@ import time
 from engine.blackjack import Card, Deck, Hand
 from app.models.game_room import GameRoom
 from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_DRINK,
-                        DEALER_LOTTERY_MAX_HANDS)
+                        DEALER_LOTTERY_MAX_HANDS, DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS)
+from app.services.afk import is_client_connected
 from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card
@@ -307,12 +308,13 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             drink_amounts[name] = drink
         # busted == 1: exactly one hand busted, the rest didn't -- nothing happens.
 
-    if pending_handouts:
-        session.round._dealer_lottery_handout_expires_at = (
-            time.monotonic() + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
-        )
-    else:
-        session.round._dealer_lottery_handout_expires_at = None
+    # The handout clock does not start now: it waits for every connected player
+    # to close the reveal (see maybe_start_dealer_lottery_handout).
+    session.round._dealer_lottery_handout_expires_at = None
+    session.round._dealer_lottery_reveal_acked = set()
+    session.round._dealer_lottery_reveal_deadline = (
+        time.monotonic() + DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS if pending_handouts else None
+    )
 
     session.drinks.last_dealer_lottery_result = {
         "hands": [
@@ -334,10 +336,37 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     session.drinks._dealer_lottery_result_seq += 1
 
 
+def ack_dealer_lottery_reveal(session: GameRoom, client_id: str) -> None:
+    """A client closed (or never needed) the draw-reveal modal."""
+    if session.round._dealer_lottery_reveal_deadline is not None:
+        session.round._dealer_lottery_reveal_acked.add(client_id)
+
+
+def maybe_start_dealer_lottery_handout(session: GameRoom) -> None:
+    """Start the handout clock once every connected seated player has closed
+    the reveal (or the safety cap passes). Safe to call on every tick."""
+    deadline = session.round._dealer_lottery_reveal_deadline
+    if deadline is None:
+        return
+    now = time.monotonic()
+    waiting = [
+        cid for cid, info in session._room_clients.items()
+        if info.get("name") and not info.get("kicked")
+        and is_client_connected(session, cid, now)
+        and cid not in session.round._dealer_lottery_reveal_acked
+    ]
+    if waiting and now < deadline:
+        return
+    session.round._dealer_lottery_reveal_deadline = None
+    session.round._dealer_lottery_handout_expires_at = now + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
+
+
 def give_dealer_lottery_sip(session: GameRoom, giver_name: str, recipient_name: str) -> bool:
     """Giver assigns their credited handout sip(s) to `recipient_name`.
     Mirrors /give_bust_sip exactly. Returns False if there's nothing
     pending for this giver or the recipient is invalid."""
+    if session.round._dealer_lottery_reveal_deadline is not None:
+        return False   # still waiting for everyone to close the reveal
     result = session.drinks.last_dealer_lottery_result or {}
     pending_handouts = result.get("pending_handouts", {})
     amount = pending_handouts.get(giver_name)

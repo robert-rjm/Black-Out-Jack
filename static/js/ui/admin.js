@@ -967,6 +967,7 @@ async function _showDealerLotteryRevealModal(result) {
 
   hands.innerHTML = "";
   _dealerLotteryRevealOpen = true;
+  _dlAckSent = false;
   openModal("dealer-lottery-reveal-overlay", { useClass: true });
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -1075,6 +1076,24 @@ async function _showDealerLotteryRevealModal(result) {
 function closeDealerLotteryRevealModal() {
   _dealerLotteryRevealOpen = false;
   closeModal("dealer-lottery-reveal-overlay", { useClass: true });
+  ackDealerLotteryReveal();
+}
+
+// Tell the server this client is done with the reveal -- the sip handout
+// only starts once every connected player has done so.
+let _dlAckSent = false;
+async function ackDealerLotteryReveal() {
+  if (_dlAckSent) return;
+  _dlAckSent = true;
+  try {
+    const res  = await fetch("/dealer_lottery/ack_reveal", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) { _dlAckSent = false; }
 }
 
 async function giveDealerLotterySip(giverName, recipientName) {
@@ -1130,7 +1149,7 @@ class DealerLotteryGivePanel {
     // this event's own reveal modal, so popups appear one after another,
     // never stacked.
     if (state.pending_milestone || (state.my_bust_handout_pending || []).length
-        || _dealerLotteryRevealOpen) {
+        || _dealerLotteryRevealOpen || dl.reveal_pending) {
       overlay.style.display = "none";
       body.innerHTML = "";
       return;

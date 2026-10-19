@@ -980,6 +980,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                 max(0, round(session.round._dealer_lottery_handout_expires_at - time.monotonic()))
                 if session.round._dealer_lottery_handout_expires_at else 0
             ),
+            # True while the handout is held back until everyone closes the reveal
+            "reveal_pending":       session.round._dealer_lottery_reveal_deadline is not None,
+            "reveal_acked_by_me":   client_id in session.round._dealer_lottery_reveal_acked,
         },
     }
 
