@@ -19,7 +19,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
     - 4.2 [Dealer Suited Hand](#42-dealer-suited-hand)
     - 4.3 [Four Aces](#43-four-aces-on-first-deal)
     - 4.4 [Side Bet Dealer Bust](#44-side-bet-dealer-bust)
-    - 4.5 [Devil's Hand and Lucky Sevens](#45-devils-hand--46-lucky-sevens)
+    - 4.5 [Devil's Hand and Lucky Sevens](#45-devils-hand-and-lucky-sevens)
 5. [Drinking Rules (End of Round)](#5-drinking-rules-end-of-round)
     - 5.1 [Net Hand Losses](#51-net-hand-losses)
     - 5.2 [Other Player's Results](#52-other-players-results)
