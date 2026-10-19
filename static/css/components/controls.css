@@ -40,6 +40,8 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
+/* A link styled as a button centres its label like a real <button> does */
+a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .btn:active { transform: scale(.95); }
 .btn.sel     { background: var(--accent); border-color: var(--accent); color: var(--on-fill); }
 .btn.green   { background: var(--green);  border-color: var(--green);  color: var(--on-fill); }

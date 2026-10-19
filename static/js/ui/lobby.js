@@ -228,8 +228,7 @@ function showGiveUpScreen() {
     '<img src="/static/img/logo-transparent.png" alt="Black(Out)Jack Logo" class="server-disconnect-logo">' +
     '<div class="server-disconnect-title" style="font-size:20px">Thanks for playing BlackOutJack!</div>' +
     '<div class="server-disconnect-msg">Come back when the server is ready.</div>' +
-    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" data-action="tryAgainFromGiveUp">Try again</button>' +
-    '<a href="https://github.com/robert-rjm/Black-Out-Jack" target="_blank" rel="noopener" class="server-disconnect-github">🔗 github.com/robert-rjm/Black-Out-Jack</a>';
+    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" data-action="tryAgainFromGiveUp">Try again</button>';
 }
 
 async function tryAgainFromGiveUp() {
@@ -335,6 +334,39 @@ async function openRoomQr() {
 }
 
 function closeRoomQr() { closeModal("qr-overlay"); }
+
+// "Tip us" popup: a QR code (and copyable link) so it still works when a
+// popup/ad blocker stops the PayPal tab from opening.
+let _beerUrl = "";
+async function openBeerModal() {
+  const box = document.getElementById("beer-qr");
+  if (!box) return;
+  box.innerHTML = "";
+  document.getElementById("beer-url").textContent = "";
+  openModal("beer-overlay");
+  try {
+    const res  = await fetch("/beer_qr");
+    const data = await res.json();
+    if (!data.ok) throw new Error("failed");
+    box.innerHTML = data.svg;
+    _beerUrl = data.url;
+    document.getElementById("beer-url").textContent = data.url;
+  } catch (_) {
+    document.getElementById("beer-url").textContent = "paypal.me/robertmichels";
+  }
+}
+
+function closeBeerModal() { closeModal("beer-overlay"); }
+
+async function copyBeerLink() {
+  const text = _beerUrl || "https://paypal.me/robertmichels";
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Link copied");
+  } catch (_) {
+    showToast(text);
+  }
+}
 
 async function copyInviteLink() {
   const text = _inviteUrl || roomCode;

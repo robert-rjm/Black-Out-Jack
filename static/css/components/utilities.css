@@ -3,7 +3,7 @@
 .is-hidden { display: none; }
 
 /* Normal mode: hide every drink/sip-related element regardless of any
-   inline styles JS may set (last-round button/modal, sip ticker, drinks
+   inline styles JS may set (sip ticker, drinks
    tab panel, milestone toasts, sip columns in KPI panel, drinking trivia
    category, "Sips/hand" settings, Easy Mode toggle, etc.). Toggled via the
    `no-drinking` class on <body>, set from `state.drinking_mode` in table.js. */
@@ -44,8 +44,7 @@ body.no-drinking .drink-only {
 #dig-drinks-waiting,
 #register-error,
 #game-settings-section,
-#setting-decks-row,
-#last-round-overlay {
+#setting-decks-row {
   display: none;
 }
 
@@ -108,12 +107,10 @@ body.no-drinking .drink-only {
 .lobby-rules-link:active {
   background: var(--border);
 }
-.lobby-github-link:hover,
 .lobby-terms-link:hover,
 .lobby-donate-link:hover,
 .gate-btn-decline:hover { color: var(--text); }
 
-.lobby-github-link,
 .lobby-terms-link,
 .lobby-donate-link {
   color: var(--muted);
@@ -137,6 +134,10 @@ body.no-drinking .drink-only {
 .field-top-pad { padding-top: 4px; }
 .compact-label { margin-bottom: 4px !important; }
 
+/* "Tip us" toolbar button. Class/id names avoid
+   words like tip/donate/paypal that ad-blocker cosmetic filters hide. */
+.icon-btn.beer-link { white-space: nowrap; }
+#btn-beer-header { font-size: 12px; font-weight: 700; }
 .icon-btn {
   height: 36px;
   padding: 0 10px;
@@ -452,26 +453,6 @@ body.no-drinking .drink-only {
 }
 .modal-close-btn { margin-top: 10px; }
 
-.overlay-last-round {
-  position: fixed;
-  inset: 0;
-  background: var(--scrim);
-  z-index: 200;
-  align-items: center;
-  justify-content: center;
-}
-.last-round-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 20px;
-  width: min(300px, 88vw);
-}
-.last-round-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
 
 .milestone-header { text-align: center; margin-bottom: 14px; }
 .milestone-emoji { font-size: 28px; line-height: 1; }
@@ -628,17 +609,6 @@ body.no-drinking .drink-only {
   object-fit: contain;
   margin-bottom: 4px;
   opacity: 0.9;
-}
-.server-disconnect-github {
-  margin-top: 14px;
-  font-size: 11px;
-  color: var(--muted);
-  text-decoration: none;
-  opacity: 0.6;
-}
-.server-disconnect-github:hover {
-  opacity: 1;
-  text-decoration: underline;
 }
 
 /* ---- TOAST (showToast in utils.js) ---- */

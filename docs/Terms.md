@@ -6,10 +6,8 @@ _Last updated: July 22, 2026_
 > age in their location, played responsibly. By using this app you confirm you
 > meet that requirement and accept the terms below.
 
-> **Source of truth.** This file (`docs/Terms.md` on GitHub) is the
-> authoritative, most up-to-date version of these terms. The in-app copy at
-> `/terms` is kept in sync with it — if the two ever conflict, this GitHub
-> version governs.
+> **Source of truth.** This page is the authoritative, most up-to-date
+> version of these terms.
 
 ## 1. Age & Alcohol
 
@@ -90,7 +88,5 @@ extent permitted by law.
 ## Black(Out)Jack
 
 Black(Out)Jack &bull; Made by Robert, David & Marko
-
-[github.com/robert-rjm/Black-Out-Jack](https://github.com/robert-rjm/Black-Out-Jack)
 
 [🍺 Buy us a beer (PayPal)](https://paypal.me/robertmichels)
