@@ -58,7 +58,14 @@ html, body {
 /* 100vh first as fallback for Safari < 15.4 which doesn't support dvh */
 #app {
   position: fixed;
-  inset: 0;
+  top: 0; left: 0; right: 0;
+  /* Explicit height instead of `inset: 0`: on iPhone Safari a bottom-anchored
+     fixed box drifts away from its tap area as the browser toolbar shows/hides,
+     so taps on the bottom nav landed on the buttons above it. Falls back
+     100vh -> -webkit-fill-available -> 100dvh as support allows. */
+  height: 100vh;
+  height: -webkit-fill-available;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   /* Header and bottom nav are both --surface, so painting it here makes the
@@ -262,6 +269,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
   transition: color .15s, background .15s;
 }
 .bnav-btn:active { background: var(--wash-2); }
+.bnav-btn { touch-action: manipulation; }
 .bnav-icon {
   font-size: 22px;
   line-height: 1;
