@@ -513,13 +513,13 @@ class RefereeSession:
             if not p:
                 continue
             if dealer_busted:
-                p.add_drink(-self.wager, f"{name} bust vote correct: -{self.wager} sip credit", "player")
+                p.add_drink(-self.wager, f"{name} bust vote correct: -{self.wager} sip credit", "player", scale=False)
                 winners.append(name)
                 if self.verbose:
                     print(f"    (i) {name} called the Dealer bust correctly "
                           f"— -{self.wager} sip credit, hands out {self.wager} sip{'' if self.wager == 1 else 's'}")
             else:
-                p.add_drink(self.wager, f"Bust vote wrong — dealer didn't bust: +{self.wager} sip{'' if self.wager == 1 else 's'}", "player")
+                p.add_drink(self.wager, f"Bust vote wrong — dealer didn't bust: +{self.wager} sip{'' if self.wager == 1 else 's'}", "player", scale=False)
                 losers.append(name)
                 if self.verbose:
                     print(f"    [drink] {name}: Bust vote wrong — dealer didn't bust: +{self.wager} sip{'' if self.wager == 1 else 's'}")

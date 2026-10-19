@@ -141,13 +141,13 @@ def wild_card():
 
     def _random_drink():
         target = random.choice(candidates)
-        target.add_drink(1, f"Wild Card 🃏 — {label}", "player")
+        target.add_drink(1, f"Wild Card 🃏 — {label}", "player", scale=False)
         return "random", f"\U0001f0cf {action_tmpl.format(name=target.name)}"
 
     if roll < WILD_CARD_PROB_SELF:
         # Self drinks
         outcome = "self"
-        player.add_drink(1, f"Wild Card 🃏 — {label}", "player")
+        player.add_drink(1, f"Wild Card 🃏 — {label}", "player", scale=False)
         text = f"🃏 {action_tmpl.format(name=player_name)}"
     elif roll < WILD_CARD_PROB_SELF + WILD_CARD_PROB_TARGETED:
         # Launch Targeted Drinking Mode -- target the presser 1/3 of the

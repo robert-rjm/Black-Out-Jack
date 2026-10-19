@@ -566,10 +566,14 @@ with a single rate picker and one button. Rates are shown on each seat
 
 #### How the rate is applied
 
-The rate is applied **last**, to every sip the seat receives, after wager
-scaling and after any halving rule ([6.1](#61-large-group-rules-4-players),
-[6.2](#62-easy-mode)). It applies to Instant Effect and End of Round drinks
-alike.
+The rate is applied **last**, to the sips a seat receives from hand results,
+after wager scaling and after any halving rule
+([6.1](#61-large-group-rules-4-players), [6.2](#62-easy-mode)), and to the
+sips handed out in a Milestone or Dealer Lottery.
+
+**The rate never applies to** Ace drinks and credits (including the
+Four-Aces rules), the Bust Vote (credit, penalty and handout), Devil's Hand /
+Lucky Sevens, or Wild Card sips. Those are always the raw amount.
 
 - **Discounts always round up**, so a sip penalty is never reduced below
   1 sip. A 1-sip penalty is always 1 sip at any rate.

@@ -36,6 +36,16 @@ def _bj_breakdown(hand: Hand) -> tuple[int, list[str]]:
     return mult, parts
 
 
+class _FixedMsg(tuple):
+    """A drink message the Drink Rate multiplier must not touch (aces).
+    Equal to the plain tuple it wraps; DrinkTracker.apply checks `.fixed`."""
+    fixed = True
+
+
+def _fixed_msg(msg: tuple) -> tuple:
+    return _FixedMsg(msg)
+
+
 def _sips(n: int) -> str:
     """'1 sip' / '2 sips' label for a sip count."""
     return f"{n} sip" if n == 1 else f"{n} sips"
@@ -139,7 +149,7 @@ class DrinkingRules:
                 msgs.append(("players_only", wager,
                     f"A{s.symbol} dealt to dealer => all non-dealer players drink {_sips(wager)}"))
 
-        return msgs
+        return [_fixed_msg(m) for m in msgs]
 
     # ---------------------------------------------------------------- four aces
 
@@ -155,11 +165,11 @@ class DrinkingRules:
         if sum(1 for c in all_cards if c.rank == Rank.ACE) < 4:
             return [], triggered_first_deal
         if phase == "first_deal":
-            return [("all", 2 * wager,
-                f"All 4 Aces on table after first deal => everyone drinks {_sips(2 * wager)}")], True
+            return [_fixed_msg(("all", 2 * wager,
+                f"All 4 Aces on table after first deal => everyone drinks {_sips(2 * wager)}"))], True
         if phase == "end_of_round" and not triggered_first_deal:
-            return [("all", wager,
-                f"All 4 Aces visible at end of round => everyone drinks {_sips(wager)}")], False
+            return [_fixed_msg(("all", wager,
+                f"All 4 Aces visible at end of round => everyone drinks {_sips(wager)}"))], False
         return [], triggered_first_deal
 
     # ---------------------------------------------------------------- blackjack bonus
@@ -741,6 +751,7 @@ class DrinkTracker:
         for msg in msgs:
             recipient, sips, reason = msg[0], msg[1], msg[2]
             role = msg[3] if len(msg) > 3 else "player"
+            scale = not getattr(msg, "fixed", False)
             if recipient is None or sips == 0:
                 if reason: print(f"    (i) {reason}")
                 continue
@@ -750,11 +761,11 @@ class DrinkTracker:
                 else:
                     # Direct credit — e.g. sweep cancellation undoing a prior drink
                     for t in self._resolve(recipient):
-                        t.add_drink(sips, reason, "player")
+                        t.add_drink(sips, reason, "player", scale=scale)
                     if reason: print(f"    (i) {reason}")
                 continue
             for t in self._resolve(recipient):
-                t.add_drink(sips, reason, role)
+                t.add_drink(sips, reason, role, scale=scale)
             if self.verbose:
                 print(f"    [drink] {reason}")
 
@@ -799,7 +810,7 @@ class DrinkTracker:
         Minimum net result is 0 (credit cannot go negative).
         """
         if player.drinks_owed() > 0:
-            player.add_drink(-amount, f"{player.name} A♣ credit: -{_sips(amount)}", "player")
+            player.add_drink(-amount, f"{player.name} A♣ credit: -{_sips(amount)}", "player", scale=False)
             if self.verbose:
                 print(f"    (i) {player.name} A♣ credit applied: -{_sips(amount)}")
 

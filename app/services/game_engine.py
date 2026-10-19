@@ -94,7 +94,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
             target = _pick_target()
             player = session._get_player(target)
             if player:
-                player.add_drink(session.wager, "Devil's Hand — three 6s on the table!", "player")
+                player.add_drink(session.wager, "Devil's Hand — three 6s on the table!", "player", scale=False)
             _push_table_event(
                 session,
                 f"\U0001f3b0 Devil's Hand — three 6s on the table! {target} drinks {session.wager} sip(s)!",
@@ -109,7 +109,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
             target = _pick_target()
             player = session._get_player(target)
             if player:
-                player.add_drink(-session.wager, "Lucky Sevens — three 7s on the table!", "player")
+                player.add_drink(-session.wager, "Lucky Sevens — three 7s on the table!", "player", scale=False)
             _push_table_event(
                 session,
                 f"\U0001f3b0 Lucky Sevens — three 7s on the table! {target} gets a sip credit!",

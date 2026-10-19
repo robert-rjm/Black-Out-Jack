@@ -759,7 +759,7 @@ def give_bust_sip():
 
     recipient = session._get_player(recipient_name)
     if recipient:
-        recipient.add_drink(session.wager, f"Bust vote handout from {winner_name}: +{session.wager} sip{'' if session.wager == 1 else 's'}", "player")
+        recipient.add_drink(session.wager, f"Bust vote handout from {winner_name}: +{session.wager} sip{'' if session.wager == 1 else 's'}", "player", scale=False)
         log.debug(f"  [bust vote] {winner_name} gives {session.wager} sip{'' if session.wager == 1 else 's'} to {recipient_name}")
 
     session.round._bust_handouts_given.add(winner_name)
@@ -776,7 +776,8 @@ def give_bust_sip():
     # the sip shows up in the drinks panel and cumulative ticker without waiting
     # for the next round.
     award_sips(session, recipient_name, session.wager, "Bust vote handout",
-               reason=f"Bust bet handout (from {winner_name}): +{session.wager} sip{'' if session.wager == 1 else 's'}")
+               reason=f"Bust bet handout (from {winner_name}): +{session.wager} sip{'' if session.wager == 1 else 's'}",
+               scale=False)
 
     # Log entry visible to all players
     log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks {session.wager} sip{'' if session.wager == 1 else 's'}\n"
