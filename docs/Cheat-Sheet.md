@@ -174,8 +174,8 @@ Starts three ways: **host** picks target(s) from Settings → Players and force-
 
 | Outcome | Effect |
 |---------|--------|
-| Correct | Graduation streak +1 — 3 in a row and you're released. Losing streak resets to 0. |
-| Wrong | Graduation streak resets to 0. Drink sips = current losing streak (1st miss = 1, 2nd = 2, 3rd = 3, ...) — counts toward your total, not toward "worst average/round" |
+| Correct | Graduation streak +1 — 3 in a row **including at least one BUST and one STAND** and you're released |
+| Wrong | Graduation streak resets to 0. Drink a flat **2 sips** — counts toward your total, not toward "worst average/round" |
 
 A live stats table (correct/wrong per Player, dealer bust %) runs the whole time so you can call it smarter, not blind. Still running after a mini-hand resolves? The host/dealer taps **Continue** to open the next one right away, back-to-back (or a 12s safety-net timeout does it automatically) — no normal round in between. 3-round cooldown once everyone's released or it's cancelled.
 

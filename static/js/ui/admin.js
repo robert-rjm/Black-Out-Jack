@@ -258,6 +258,30 @@ async function setEasyModeAdmin(on) {
   } catch (_) {}
 }
 
+async function setPaused(paused) {
+  try {
+    const res = await fetch("/set_paused", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, paused: !!paused }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+    if (paused && typeof closeKickModal === "function") closeKickModal();
+  } catch (e) { console.error("setPaused failed", e); }
+}
+
+function _syncPausedOverlay(state) {
+  const overlay = document.getElementById("paused-overlay");
+  if (!overlay) return;
+  overlay.classList.toggle("open", !!state.paused);
+  const isAdmin = (myRole === ROLE.ADMIN);
+  const btn  = document.getElementById("paused-resume-btn");
+  const wait = document.getElementById("paused-wait");
+  if (btn)  btn.style.display  = isAdmin ? "inline-block" : "none";
+  if (wait) wait.style.display = isAdmin ? "none" : "block";
+}
+
 async function setGodMode(on) {
   try {
     const res = await fetch("/toggle_god_mode", {
@@ -943,6 +967,7 @@ async function _showDealerLotteryRevealModal(result) {
 
   hands.innerHTML = "";
   _dealerLotteryRevealOpen = true;
+  _dlAckSent = false;
   openModal("dealer-lottery-reveal-overlay", { useClass: true });
 
   const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -1051,6 +1076,24 @@ async function _showDealerLotteryRevealModal(result) {
 function closeDealerLotteryRevealModal() {
   _dealerLotteryRevealOpen = false;
   closeModal("dealer-lottery-reveal-overlay", { useClass: true });
+  ackDealerLotteryReveal();
+}
+
+// Tell the server this client is done with the reveal -- the sip handout
+// only starts once every connected player has done so.
+let _dlAckSent = false;
+async function ackDealerLotteryReveal() {
+  if (_dlAckSent) return;
+  _dlAckSent = true;
+  try {
+    const res  = await fetch("/dealer_lottery/ack_reveal", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) { _dlAckSent = false; }
 }
 
 async function giveDealerLotterySip(giverName, recipientName) {
@@ -1109,6 +1152,16 @@ class DealerLotteryGivePanel {
         || _dealerLotteryRevealOpen) {
       overlay.style.display = "none";
       body.innerHTML = "";
+      return;
+    }
+
+    // Reveal closed here but others are still watching: say why the handout
+    // hasn't started instead of showing nothing.
+    if (dl.reveal_pending) {
+      const names = (dl.reveal_waiting_on || []).map(escapeHtml).join(", ");
+      overlay.style.display = "flex";
+      body.innerHTML = `<div class="bgp-entry"><div class="bgp-winner-label">🎰 You have sips to hand out!</div>
+        <div style="font-size:12px;color:var(--muted)">⏳ Waiting for ${names || "everyone"} to close the draw reveal…</div></div>`;
       return;
     }
 

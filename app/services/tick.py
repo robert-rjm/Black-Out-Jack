@@ -23,6 +23,7 @@ from app.services.serializer import round_phase
 from app.services.drink_tracker import apply_milestone_forfeit, apply_bust_handout_forfeit
 from app.services.dealer_lottery import (
     maybe_start_dealer_lottery,
+    maybe_start_dealer_lottery_handout,
     apply_dealer_lottery_entry_forfeit,
     apply_dealer_lottery_handout_forfeit,
 )
@@ -93,6 +94,9 @@ def tick(session) -> None:
     14. Safety-net: trigger dealer play when stuck at dealer-ready with no
         bust-vote window (e.g. bust-vote disabled, or all-BJ deal).
     """
+    if session._paused_at is not None:
+        return   # host paused the table -- nothing expires or auto-plays
+
     now = _time.monotonic()
 
     # 1. Auto-resolve expired or fully-voted insurance votes
@@ -153,7 +157,9 @@ def tick(session) -> None:
     # 8. Dealer Lottery entry-window forfeit
     apply_dealer_lottery_entry_forfeit(session)
 
-    # 9. Dealer Lottery handout-window forfeit
+    # 9. Dealer Lottery handout window: starts once everyone closed the reveal,
+    # then forfeits if it expires
+    maybe_start_dealer_lottery_handout(session)
     apply_dealer_lottery_handout_forfeit(session)
 
     # 10. Start the Targeted Drinking mini-round's vote window

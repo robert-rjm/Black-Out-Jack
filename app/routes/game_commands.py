@@ -832,6 +832,10 @@ def command():
     if not game_session:
         return jsonify({"ok": False, "output": "No active session — set up a game first."})
 
+    if game_session._paused_at is not None:
+        return jsonify({**serialize_state(game_session), "rejected": True,
+                        "output": "  Game is paused.\n"})
+
     cmd_str   = _req.get("cmd", "").strip()[:200]
     client_id = _req.get("client_id", "")
     if not cmd_str:
@@ -883,8 +887,8 @@ def command():
     # entering more cards/results) would re-pay bankrolls or re-fire drinks.
     ROUND_ENDED_BLOCKED = {
         "deal", "hit", "stand", "double", "split", "insurance", "blackjack",
-        "peek", "dealer", "endround", "action", "result", "fouraces",
-    }
+        "dealer", "endround", "action", "result", "fouraces",
+    }   # "peek" is deliberately absent: read-only, and its button lives on the round-over panel
     if game_session.round._round_ended and cmd in ROUND_ENDED_BLOCKED:
         return jsonify({
             **serialize_state(game_session, client_id),

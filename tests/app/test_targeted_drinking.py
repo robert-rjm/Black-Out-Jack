@@ -76,6 +76,12 @@ def _patch_deck(monkeypatch, pop_order):
     monkeypatch.setattr("app.services.targeted_drinking.random.shuffle", lambda cards: None)
 
 
+# Graduating needs at least one STAND and one BUST call, so "perfect" runs are
+# stand, stand, bust against these decks.
+_STAND_DECK = [make_card("K", "S"), make_card("9", "H")]                    # dealer stands (19)
+_BUST_DECK  = [make_card("K", "S"), make_card("6", "H"), make_card("9", "D")]  # dealer busts (25)
+
+
 def _active_room_with_pending(monkeypatch, targets=("Bob",), hand_cards=None, num_players=3):
     """A room with the subgame active and a mini-round's vote window
     already open -- the common starting point for vote/forfeit/resolve
@@ -397,6 +403,7 @@ def test_resolve_wrong_guess_resets_streak_and_awards_sip(monkeypatch):
     room = _active_room_with_pending(monkeypatch, targets=["Bob"],
                                       hand_cards=[make_card("K", "S"), make_card("9", "H")])
     room._targeted_drinking_streaks["Bob"] = 2   # pretend they were on a streak
+    room._targeted_drinking_streak_calls["Bob"] = ["stand", "bust"]
     submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong: dealer stood
 
     resolve_targeted_drinking_round(room)
@@ -404,15 +411,15 @@ def test_resolve_wrong_guess_resets_streak_and_awards_sip(monkeypatch):
     assert room._targeted_drinking_streaks["Bob"] == 0
     assert "Bob" in room._targeted_drinking_targets   # still targeted
     # Counts toward the session total (and milestone progress)...
-    assert room.drinks.sip_ticker["Bob"] == 1
-    assert room.drinks.sip_ticker_excl_round_avg["Bob"] == 1
+    assert room.drinks.sip_ticker["Bob"] == 2
+    assert room.drinks.sip_ticker_excl_round_avg["Bob"] == 2
     # ...but not toward this (or any) round's own sip tally -- it happened
     # between rounds, not as part of any round's blackjack outcome, so it
     # can't skew "worst average sips/round" or the Last Round summary.
     assert "Bob" not in room.drinks.last_round_sips
     assert room.drinks.last_round_drinks == []
     result = room.drinks.last_targeted_drinking_result
-    assert result["sips"]["Bob"] == 1
+    assert result["sips"]["Bob"] == 2
     assert result["hand"]["score"] == 19
     assert result["hand"]["bust"] is False
     # Statistics table: this mini-round counted as a wrong guess for Bob,
@@ -424,9 +431,8 @@ def test_resolve_wrong_guess_resets_streak_and_awards_sip(monkeypatch):
     assert room._targeted_drinking_losing_streaks["Bob"] == 1
 
 
-def test_resolve_wrong_guess_streak_scales_sips(monkeypatch):
-    """Consecutive wrong guesses cost 1, then 2, then 3 sips -- the losing
-    streak, not a flat per-guess amount."""
+def test_resolve_wrong_guess_costs_flat_two_sips(monkeypatch):
+    """Every wrong call costs a flat 2 sips, however many in a row."""
     room = _make_room()
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
@@ -442,9 +448,9 @@ def test_resolve_wrong_guess_streak_scales_sips(monkeypatch):
         if room.drinks.last_targeted_drinking_result:
             room.drinks.last_targeted_drinking_result["set_at"] = 0
 
-    assert seen_sips == [1, 2, 3]
+    assert seen_sips == [2, 2, 2]
     assert room._targeted_drinking_losing_streaks["Bob"] == 3
-    assert room.drinks.sip_ticker["Bob"] == 6   # 1 + 2 + 3
+    assert room.drinks.sip_ticker["Bob"] == 6   # 2 + 2 + 2
     assert room._targeted_drinking_total_sips["Bob"] == 6
 
 
@@ -473,15 +479,15 @@ def test_resolve_correct_guess_resets_losing_streak(monkeypatch):
     room.drinks.last_targeted_drinking_result["set_at"] = 0
     assert room._targeted_drinking_losing_streaks["Bob"] == 0
 
-    # Next wrong guess costs 1 sip again, not 3.
+    # Next wrong guess is the same flat 2 sips.
     maybe_start_targeted_drinking_round(room)
     _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
     submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong
     resolve_targeted_drinking_round(room)
 
-    assert room.drinks.last_targeted_drinking_result["sips"]["Bob"] == 1
+    assert room.drinks.last_targeted_drinking_result["sips"]["Bob"] == 2
     assert room._targeted_drinking_losing_streaks["Bob"] == 1
-    assert room.drinks.sip_ticker["Bob"] == 4   # 1 + 2 + 0 (correct) + 1
+    assert room.drinks.sip_ticker["Bob"] == 6   # 2 + 2 + 0 (correct) + 2
 
 
 def test_losing_streaks_cleared_on_start_and_end():
@@ -500,10 +506,10 @@ def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
     check_targeted_drinking_trigger(room)
     request_targeted_drinking_start(room)   # only the first mini-round needs this -- resolve re-requests itself
 
-    for _ in range(3):
+    for _i in range(3):
         maybe_start_targeted_drinking_round(room)
-        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
-        submit_targeted_drinking_vote(room, "Bob", "stand")  # correct each time
+        _patch_deck(monkeypatch, _STAND_DECK if _i < 2 else _BUST_DECK)
+        submit_targeted_drinking_vote(room, "Bob", "stand" if _i < 2 else "bust")  # correct each time
         resolve_targeted_drinking_round(room)
         # Mini-rounds chain back-to-back (no need to re-trigger from a fresh
         # normal round each time) -- just bypass the reveal-pause breather
@@ -529,10 +535,10 @@ def _perfect_graduation_room(monkeypatch):
     check_targeted_drinking_trigger(room)
     request_targeted_drinking_start(room)
 
-    for _ in range(3):
+    for _i in range(3):
         maybe_start_targeted_drinking_round(room)
-        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
-        submit_targeted_drinking_vote(room, "Bob", "stand")  # correct every time
+        _patch_deck(monkeypatch, _STAND_DECK if _i < 2 else _BUST_DECK)
+        submit_targeted_drinking_vote(room, "Bob", "stand" if _i < 2 else "bust")  # correct every time
         resolve_targeted_drinking_round(room)
         if room.drinks.last_targeted_drinking_result:
             room.drinks.last_targeted_drinking_result["set_at"] = 0
@@ -564,10 +570,10 @@ def test_imperfect_graduation_gets_no_handout(monkeypatch):
     room.drinks.last_targeted_drinking_result["set_at"] = 0
 
     # Then 3 correct in a row to graduate.
-    for _ in range(3):
+    for _i in range(3):
         maybe_start_targeted_drinking_round(room)
-        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
-        submit_targeted_drinking_vote(room, "Bob", "stand")  # correct
+        _patch_deck(monkeypatch, _STAND_DECK if _i < 2 else _BUST_DECK)
+        submit_targeted_drinking_vote(room, "Bob", "stand" if _i < 2 else "bust")  # correct
         resolve_targeted_drinking_round(room)
         if room.drinks.last_targeted_drinking_result:
             room.drinks.last_targeted_drinking_result["set_at"] = 0
@@ -587,11 +593,11 @@ def test_next_mini_round_blocked_until_handout_resolved(monkeypatch):
     check_targeted_drinking_trigger(room)
     request_targeted_drinking_start(room)
 
-    for _ in range(3):
+    for _i in range(3):
         maybe_start_targeted_drinking_round(room)
-        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
-        submit_targeted_drinking_vote(room, "Bob", "stand")    # correct -> graduates perfectly
-        submit_targeted_drinking_vote(room, "Carol", "bust")   # wrong every time -- stays targeted
+        _patch_deck(monkeypatch, _STAND_DECK if _i < 2 else _BUST_DECK)
+        submit_targeted_drinking_vote(room, "Bob", "stand" if _i < 2 else "bust")    # correct -> graduates perfectly
+        submit_targeted_drinking_vote(room, "Carol", "bust" if _i < 2 else "stand")   # wrong every time -- stays targeted
         resolve_targeted_drinking_round(room)
         if room.drinks.last_targeted_drinking_result:
             room.drinks.last_targeted_drinking_result["set_at"] = 0
@@ -768,18 +774,18 @@ def test_easter_egg_graduation_backfires_on_presser(monkeypatch):
     resolve_targeted_drinking_round(room)
     room.drinks.last_targeted_drinking_result["set_at"] = 0
 
-    for _ in range(3):
+    for _i in range(3):
         maybe_start_targeted_drinking_round(room)
-        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
-        submit_targeted_drinking_vote(room, "Bob", "stand")   # correct
+        _patch_deck(monkeypatch, _STAND_DECK if _i < 2 else _BUST_DECK)
+        submit_targeted_drinking_vote(room, "Bob", "stand" if _i < 2 else "bust")   # correct
         resolve_targeted_drinking_round(room)
         if room.drinks.last_targeted_drinking_result:
             room.drinks.last_targeted_drinking_result["set_at"] = 0
 
     assert room._targeted_drinking_active is False
     assert room.drinks.last_targeted_drinking_summary["reason"] == "all_graduated"
-    assert room.drinks.sip_ticker["Bob"] == 1     # only the one wrong guess before graduating
-    assert room.drinks.sip_ticker["Carol"] == 1   # backfire: presser drinks what Bob drank
+    assert room.drinks.sip_ticker["Bob"] == 2     # only the one wrong guess before graduating
+    assert room.drinks.sip_ticker["Carol"] == 2   # backfire: presser drinks what Bob drank
 
 
 def test_easter_egg_graduation_with_no_misses_awards_presser_nothing(monkeypatch):
@@ -790,10 +796,10 @@ def test_easter_egg_graduation_with_no_misses_awards_presser_nothing(monkeypatch
     check_targeted_drinking_trigger(room)
     request_targeted_drinking_start(room)
 
-    for _ in range(3):
+    for _i in range(3):
         maybe_start_targeted_drinking_round(room)
-        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
-        submit_targeted_drinking_vote(room, "Bob", "stand")
+        _patch_deck(monkeypatch, _STAND_DECK if _i < 2 else _BUST_DECK)
+        submit_targeted_drinking_vote(room, "Bob", "stand" if _i < 2 else "bust")
         resolve_targeted_drinking_round(room)
         if room.drinks.last_targeted_drinking_result:
             room.drinks.last_targeted_drinking_result["set_at"] = 0
@@ -821,7 +827,7 @@ def test_admin_started_subgame_has_no_cap_or_backfire(monkeypatch):
             room.drinks.last_targeted_drinking_result["set_at"] = 0
 
     assert room._targeted_drinking_active is True   # never capped, still running
-    assert room.drinks.sip_ticker["Bob"] == 21       # 1+2+3+4+5+6, no cap penalty
+    assert room.drinks.sip_ticker["Bob"] == 12       # 6 misses x 2 sips, no cap penalty
 
 
 def test_stats_table_accumulates_across_mini_rounds(monkeypatch):
@@ -875,6 +881,7 @@ def test_resolve_does_not_rearm_eligible_when_subgame_ends(monkeypatch):
     room = _active_room_with_pending(monkeypatch, targets=["Bob"],
                                       hand_cards=[make_card("K", "S"), make_card("9", "H")])
     room._targeted_drinking_streaks["Bob"] = 2   # one more correct call graduates
+    room._targeted_drinking_streak_calls["Bob"] = ["stand", "bust"]
     submit_targeted_drinking_vote(room, "Bob", "stand")   # correct
     resolve_targeted_drinking_round(room)
 
@@ -921,7 +928,7 @@ def test_resolve_only_targets_still_in_subgame_are_scored(monkeypatch):
     assert "Bob" in room._targeted_drinking_targets
     assert "Carol" in room._targeted_drinking_targets
     assert room.drinks.sip_ticker.get("Bob") is None
-    assert room.drinks.sip_ticker["Carol"] == 1
+    assert room.drinks.sip_ticker["Carol"] == 2
     # Neither shows up in the round-based tally -- Bob was correct (no
     # sip), and Carol's wrong-guess sip is deliberately excluded from it.
     assert "Bob" not in room.drinks.last_round_sips
@@ -988,7 +995,7 @@ def test_end_snapshots_summary_with_totals_and_bumps_seq(monkeypatch):
 
     summary = room.drinks.last_targeted_drinking_summary
     assert summary["reason"] == "admin_cancelled"
-    assert summary["totals"] == {"Bob": 1, "Carol": 1}
+    assert summary["totals"] == {"Bob": 2, "Carol": 2}
     assert summary["correct"] == {"Bob": 0, "Carol": 0}
     assert summary["wrong"] == {"Bob": 1, "Carol": 1}
     assert summary["dealer_hands"] == 1
@@ -1007,10 +1014,10 @@ def test_end_summary_reflects_reason_when_graduation_ends_it(monkeypatch):
     check_targeted_drinking_trigger(room)
     request_targeted_drinking_start(room)   # only the first mini-round needs this -- resolve re-requests itself
 
-    for _ in range(3):
+    for _i in range(3):
         maybe_start_targeted_drinking_round(room)
-        _patch_deck(monkeypatch, [make_card("K", "S"), make_card("9", "H")])  # stands (19)
-        submit_targeted_drinking_vote(room, "Bob", "stand")  # correct each time -- resolves and re-arms itself
+        _patch_deck(monkeypatch, _STAND_DECK if _i < 2 else _BUST_DECK)
+        submit_targeted_drinking_vote(room, "Bob", "stand" if _i < 2 else "bust")  # correct each time -- resolves and re-arms itself
         if room.drinks.last_targeted_drinking_result:
             room.drinks.last_targeted_drinking_result["set_at"] = 0
 
@@ -1021,7 +1028,7 @@ def test_end_summary_reflects_reason_when_graduation_ends_it(monkeypatch):
     assert summary["correct"] == {"Bob": 3}
     assert summary["wrong"] == {"Bob": 0}
     assert summary["dealer_hands"] == 3
-    assert summary["dealer_busts"] == 0
+    assert summary["dealer_busts"] == 1   # the final, graduating call was a BUST
 
 
 def test_end_is_idempotent():
@@ -1952,7 +1959,7 @@ def test_serialize_state_last_summary_after_end(monkeypatch):
     assert td["summary_seq"] == 1
     summary = td["last_summary"]
     assert summary["reason"] == "admin_cancelled"
-    assert summary["totals"] == {"Carol": 1}
+    assert summary["totals"] == {"Carol": 2}
     assert summary["stats"] == {"correct": {"Carol": 0}, "wrong": {"Carol": 1}, "dealer_hands": 1, "dealer_busts": 1}
     # Live stats reset back to zero once the run's ended and been snapshotted.
     assert td["stats"] == {"correct": {}, "wrong": {}, "dealer_hands": 0, "dealer_busts": 0}
@@ -2300,3 +2307,59 @@ def test_afk_notice_serialized_per_client(monkeypatch):
     assert serialize_state(room, "carol-cid")["afk_notice"]["reason"] == "afk_absorbed"
     assert serialize_state(room, "admin-cid")["afk_notice"]["reason"] == "afk_absorbing"
     assert serialize_state(room, "bob-cid")["afk_notice"] is None
+
+
+# ---------------------------------------------------------------------------
+# Flat 2-sip penalty and the "must call both BUST and STAND" graduation rule
+# ---------------------------------------------------------------------------
+
+def _play(room, monkeypatch, vote):
+    """One mini-round whose dealer outcome matches `vote` -- always a CORRECT call."""
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, _STAND_DECK if vote == "stand" else _BUST_DECK)
+    submit_targeted_drinking_vote(room, "Bob", vote)
+    if room.drinks.last_targeted_drinking_result:
+        room.drinks.last_targeted_drinking_result["set_at"] = 0
+
+
+def _fresh(monkeypatch):
+    room = _make_room()
+    start_targeted_drinking(room, ["Bob"])
+    check_targeted_drinking_trigger(room)
+    request_targeted_drinking_start(room)
+    return room
+
+
+def test_three_correct_stands_do_not_graduate(monkeypatch):
+    room = _fresh(monkeypatch)
+    for _ in range(3):
+        _play(room, monkeypatch, "stand")
+    assert room._targeted_drinking_active is True
+    assert "Bob" in room._targeted_drinking_targets
+    assert room._targeted_drinking_streaks["Bob"] == 3
+
+
+def test_three_correct_busts_do_not_graduate(monkeypatch):
+    room = _fresh(monkeypatch)
+    for _ in range(3):
+        _play(room, monkeypatch, "bust")
+    assert "Bob" in room._targeted_drinking_targets
+
+
+def test_a_late_opposite_call_graduates_from_a_one_sided_streak(monkeypatch):
+    room = _fresh(monkeypatch)
+    for _ in range(3):
+        _play(room, monkeypatch, "stand")
+    _play(room, monkeypatch, "bust")   # window is now stand, stand, bust
+    assert room._targeted_drinking_active is False
+
+
+def test_a_wrong_call_clears_the_mix(monkeypatch):
+    room = _fresh(monkeypatch)
+    _play(room, monkeypatch, "stand")
+    _play(room, monkeypatch, "bust")
+    maybe_start_targeted_drinking_round(room)
+    _patch_deck(monkeypatch, _STAND_DECK)
+    submit_targeted_drinking_vote(room, "Bob", "bust")   # wrong
+    assert room._targeted_drinking_streak_calls["Bob"] == []
+    assert room._targeted_drinking_streaks["Bob"] == 0

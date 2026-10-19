@@ -593,7 +593,7 @@ def compute_kpi_stats(session: GameRoom, sip_ticker: dict | None = None,
     dealer_bust_rounds = session.stats.dealer_bust_rounds
     n_rounds           = session.round_count
     history            = session.stats.round_sip_history
-    session_secs       = max(0, int(time.monotonic() - session.stats.session_started_at))
+    session_secs       = max(0, int((session._paused_at or time.monotonic()) - session.stats.session_started_at))
     drinking           = session.drinking_mode
 
     # ── Session-wide aggregates ──────────────────────────────────────────────
@@ -965,6 +965,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "pending_handouts", {}).items()
         if n not in session.round._dealer_lottery_handouts_given
     }
+    from app.services.dealer_lottery import dealer_lottery_reveal_waiting_on  # lazy: dealer_lottery imports this module
     _dl_my_names = set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
     _dealer_lottery_data = {
         "dealer_lottery": {
@@ -980,6 +981,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
                 max(0, round(session.round._dealer_lottery_handout_expires_at - time.monotonic()))
                 if session.round._dealer_lottery_handout_expires_at else 0
             ),
+            # True while the handout is held back until everyone closes the reveal
+            "reveal_pending":       session.round._dealer_lottery_reveal_deadline is not None,
+            "reveal_acked_by_me":   client_id in session.round._dealer_lottery_reveal_acked,
+            "reveal_waiting_on":    dealer_lottery_reveal_waiting_on(session),
         },
     }
 
@@ -999,6 +1004,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "targets":              list(session._targeted_drinking_targets),
             "streaks":              dict(session._targeted_drinking_streaks),
             "losing_streaks":       dict(session._targeted_drinking_losing_streaks),
+            "streak_calls":         {n: list(c) for n, c in session._targeted_drinking_streak_calls.items()},
             "cooldown_until_round": session._targeted_drinking_cooldown_until_round,
             # Majority-vote-to-target proposal (tap a player's name at the
             # table): the pending Yes/No vote (if any), how many more
@@ -1167,6 +1173,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "anim_default":           session._anim_default,
         "easy_mode":              session.easy_mode,
         "god_mode_enabled":       session._god_mode,
+        "paused":                 session._paused_at is not None,
         # Validated against the real shape, then dumped back to a sparse
         # dict (only actually-queued keys) -- the frontend's
         # _renderQueuedBanner checks presence with `"wager" in queued`, so

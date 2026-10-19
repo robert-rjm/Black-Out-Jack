@@ -40,6 +40,8 @@ from app.services.dealer_lottery import (
     submit_dealer_lottery_entry,
     resolve_dealer_lottery,
     give_dealer_lottery_sip,
+    ack_dealer_lottery_reveal,
+    maybe_start_dealer_lottery_handout,
 )
 from app.services.targeted_drinking import (
     submit_targeted_drinking_vote,
@@ -757,7 +759,7 @@ def give_bust_sip():
 
     recipient = session._get_player(recipient_name)
     if recipient:
-        recipient.add_drink(session.wager, f"Bust vote handout from {winner_name}: +{session.wager} sip{'' if session.wager == 1 else 's'}", "player")
+        recipient.add_drink(session.wager, f"Bust vote handout from {winner_name}: +{session.wager} sip{'' if session.wager == 1 else 's'}", "player", scale=False)
         log.debug(f"  [bust vote] {winner_name} gives {session.wager} sip{'' if session.wager == 1 else 's'} to {recipient_name}")
 
     session.round._bust_handouts_given.add(winner_name)
@@ -774,7 +776,8 @@ def give_bust_sip():
     # the sip shows up in the drinks panel and cumulative ticker without waiting
     # for the next round.
     award_sips(session, recipient_name, session.wager, "Bust vote handout",
-               reason=f"Bust bet handout (from {winner_name}): +{session.wager} sip{'' if session.wager == 1 else 's'}")
+               reason=f"Bust bet handout (from {winner_name}): +{session.wager} sip{'' if session.wager == 1 else 's'}",
+               scale=False)
 
     # Log entry visible to all players
     log_line = f"  💥 Bust bet: {winner_name} called it — {recipient_name} drinks {session.wager} sip{'' if session.wager == 1 else 's'}\n"
@@ -836,6 +839,23 @@ def dealer_lottery_enter():
     if pending and all(v is not None for v in pending["entries"].values()):
         resolve_dealer_lottery(session)
 
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/dealer_lottery/ack_reveal", methods=["POST"])
+def dealer_lottery_ack_reveal():
+    """Client closed the draw-reveal modal; the handout waits for all of them.
+    Body: { room_code, client_id }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    if client_id not in session._room_clients:
+        return jsonify({"ok": False, "error": "Not registered."})
+    ack_dealer_lottery_reveal(session, client_id)
+    maybe_start_dealer_lottery_handout(session)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 

@@ -442,14 +442,14 @@ out. Targeted Players can only vote; everyone else can only watch.
 
 | Outcome | Effect |
 | --- | --- |
-| Correct call | Counts toward a 3-in-a-row streak |
-| Wrong call | Graduation streak resets to 0; costs sips equal to the *current losing streak* — 1st consecutive wrong call = 1 sip, 2nd = 2, 3rd = 3, and so on. A correct call breaks the losing streak back to 0. |
+| Correct call | Counts toward a 3-in-a-row streak (see the BUST-and-STAND requirement below) |
+| Wrong call | Graduation streak resets to 0; costs a flat **2 sips**, every time |
 | No answer within 15 seconds | Defaults to STAND |
 
-> **Example:** Bob calls it wrong three times in a row: 1 sip, then 2, then
-> 3 (6 total) — a rough stretch. He finally calls it right on the fourth
-> mini-hand: streak toward graduation ticks up to 1, and his losing streak
-> resets to 0. His next wrong call (if any) starts back at 1 sip, not 4.
+> **Example:** Bob calls it wrong three times in a row: 2 sips each time
+> (6 total) — a rough stretch. He finally calls it right on the fourth
+> mini-hand: the streak toward graduation ticks up to 1. Any later wrong call
+> costs 2 sips again.
 
 The wrong-call penalty still counts toward a Player's overall session total
 and milestone progress, but never toward "worst average sips/round" or any
@@ -463,7 +463,12 @@ targeted Player isn't calling entirely blind, and can weigh the dealer's
 actual bust rate into their next guess.
 
 A targeted Player is released once they string together **3 correct calls
-in a row**. Once every targeted Player has been released — or the host
+in a row that include at least one BUST call and at least one STAND call** —
+three correct STANDs (or three correct BUSTs) on their own don't release
+anyone. If they hit three right but all on the same side, they stay targeted
+and keep going: only their last three correct calls count, so the next
+correct call on the *other* side completes it. A wrong call clears the whole
+streak. Once every targeted Player has been released — or the host
 cancels the mode early — the statistics table's final numbers are shown
 one last time in a recap, then a **3-round cooldown** starts before it can
 be started again.
@@ -482,10 +487,10 @@ miss along the way) doesn't qualify.
 > 1 ends, and Bob is dealt into his own isolated mini-hand: he calls STAND,
 > the hand plays out to 19 — correct (streak: 1). Round 2 ends and it
 > happens again: he calls BUST, but the isolated hand stands — wrong call,
-> graduation streak resets to 0 and he drinks 1 sip (his losing streak is
-> now 1). Rounds 3 and 4 he calls it right twice in a row (streak: 2)... one
-> more correct call and he's off the hook, and that earlier miss no longer
-> costs him anything extra since his losing streak reset back to 0.
+> graduation streak resets to 0 and he drinks 2 sips. Rounds 3 and 4 he calls
+> it right twice in a row (streak: 2)... one more correct call — as long as
+> his calls so far have included both a BUST and a STAND — and he's off the
+> hook.
 
 Started by host override or majority vote, and cancelled, from **Settings →
 Players** (host) or the mini-game's own controls (host or current dealer) —
@@ -502,16 +507,15 @@ two extra rules apply that don't exist for a host- or vote-started run:
 | Target's running total crosses **5 sips** without graduating | Run ends immediately as a loss, right at the mini-hand that crosses it — **+1 penalty sip** on top |
 | Target **graduates** before crossing the cap | The prank backfires: whoever pressed the easter egg drinks however many sips the target drank over the run (0 if the target never missed) |
 
-Because wrong calls are streak-scaled (see the table above), the cap
-usually arrives faster on a bad run than a flat count would suggest — three
-consecutive misses alone total 1 + 2 + 3 = 6, already past a cap of 5.
+Because every miss costs 2 sips, the cap arrives on the third miss
+(2 + 2 + 2 = 6, already past a cap of 5).
 
 > **Example:** Carol presses the Wild Card and it targets Bob. Bob misses once
-> (1 sip) then calls it right three times in a row and graduates — the
-> backfire hits Carol for 1 sip. Had Bob instead missed three calls in a row
-> (1 + 2 + 3 = 6 sips, already past the 5-sip cap), his run would end right
-> there with a 3rd-miss penalty sip on top — 7 sips total, no graduation,
-> and Carol drinks nothing.
+> (2 sips) then calls it right three times in a row (mixing BUST and STAND)
+> and graduates — the backfire hits Carol for 2 sips. Had Bob instead missed
+> three calls in a row (2 + 2 + 2 = 6 sips, already past the 5-sip cap), his
+> run would end right there with a 3rd-miss penalty sip on top — 7 sips total,
+> no graduation, and Carol drinks nothing.
 
 
 ## 6. Relaxed Drinking Rules
@@ -528,7 +532,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 | Hard Dealer Switch | Four aces on first deal |
 | All-hands sweep | 5-card handouts |
 | Insurance resolution | Bust vote penalty/credit (+1/−1) |
-| Four aces at end of round | Targeted Drinking Mode wrong-guess penalty (streak-scaled) |
+| Four aces at end of round | Targeted Drinking Mode wrong-guess penalty (flat 2 sips) |
 | RoundEndEvent drinks (wins-all, immunity breakers) | Dealer Lottery handout (always halved, unconditionally — see §5.9) |
 |  | Targeted Drinking perfect-graduation handout (never halved — flat 3 sips, unlike Dealer Lottery's) |
 
@@ -566,10 +570,14 @@ with a single rate picker and one button. Rates are shown on each seat
 
 #### How the rate is applied
 
-The rate is applied **last**, to every sip the seat receives, after wager
-scaling and after any halving rule ([6.1](#61-large-group-rules-4-players),
-[6.2](#62-easy-mode)). It applies to Instant Effect and End of Round drinks
-alike.
+The rate is applied **last**, to the sips a seat receives from hand results,
+after wager scaling and after any halving rule
+([6.1](#61-large-group-rules-4-players), [6.2](#62-easy-mode)), and to the
+sips handed out in a Milestone or Dealer Lottery.
+
+**The rate never applies to** Ace drinks and credits (including the
+Four-Aces rules), the Bust Vote (credit, penalty and handout), Devil's Hand /
+Lucky Sevens, or Wild Card sips. Those are always the raw amount.
 
 - **Discounts always round up**, so a sip penalty is never reduced below
   1 sip. A 1-sip penalty is always 1 sip at any rate.

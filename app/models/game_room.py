@@ -146,6 +146,11 @@ class RoundState:
     _dealer_lottery_eligible: bool = False
     _pending_dealer_lottery: dict | None = None
     _dealer_lottery_handout_expires_at: float | None = None
+    # The handout window only starts once every connected player has closed the
+    # draw-reveal modal (client ids in _dealer_lottery_reveal_acked); until then
+    # _dealer_lottery_reveal_deadline is the safety cap after which it starts anyway.
+    _dealer_lottery_reveal_acked: set = field(default_factory=set)
+    _dealer_lottery_reveal_deadline: float | None = None
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 
@@ -332,6 +337,10 @@ class GameRoom:
     # vote in, after their own request was voted down
     _drink_rate_request_frozen_through: dict = field(default_factory=dict)
 
+    # Host "pause" (app/services/pause.py): time.monotonic() when the table was
+    # paused, None while running. All clocks are shifted by the paused span on resume.
+    _paused_at: float | None = None
+
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer
     # approval) against concurrent requests for the same room -- see
@@ -361,6 +370,9 @@ class GameRoom:
     _targeted_drinking_active: bool = False
     _targeted_drinking_targets: list = field(default_factory=list)   # names, fixed for the subgame's lifetime
     _targeted_drinking_streaks: dict = field(default_factory=dict)   # name -> consecutive correct guesses (graduation streak)
+    # name -> the last up-to-STREAK_TO_GRADUATE correct calls ("bust"/"stand"), cleared by a wrong call.
+    # Graduation needs a full window containing BOTH a bust and a stand call (can't just spam stand).
+    _targeted_drinking_streak_calls: dict = field(default_factory=dict)
     # name -> consecutive WRONG guesses (distinct from the graduation streak
     # above, which it doesn't affect). Drives the streak-scaled wrong-guess
     # penalty in resolve_targeted_drinking_round -- resets to 0 on any

@@ -107,6 +107,8 @@
 
       <div style="border-bottom:1px solid var(--wash-3);margin:10px 0 12px"></div>
 
+      <button class="btn wide admin-only-row" data-action="setPaused" data-args='[true]' style="margin-bottom:8px">⏸ Pause game</button>
+
       <button class="btn wide drink-only" data-action="openDrinkRateModal" style="margin-bottom:8px">🍷 Drink rate</button>
 
       <button class="btn wide settings-players-nav-btn" data-action="showSettingsSubview" data-args='["players"]'>
@@ -420,6 +422,16 @@
     <div id="target-proposal-modal-btns" class="btn-row"></div>
     <div id="target-proposal-modal-status" class="insurance-modal-status"></div>
     <div id="target-proposal-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="paused-overlay">
+  <div id="paused-card">
+    <div id="paused-emoji">⏸</div>
+    <div id="paused-title">PAUSED</div>
+    <div id="paused-sub">Timers are frozen. Take your time.</div>
+    <button id="paused-resume-btn" class="btn-big green" data-action="setPaused" data-args='[false]' style="display:none">▶ Resume</button>
+    <div id="paused-wait" class="insurance-modal-sub">Waiting for the host to resume…</div>
   </div>
 </div>
 

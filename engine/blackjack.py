@@ -267,10 +267,12 @@ class Player:
 
     def drinks_owed(self)  -> int: return sum(e[0] for e in self.drink_log if e[0] > 0)
 
-    def add_drink(self, sips: int, reason: str, role: str = "player"):
-        """role: 'player' (betting-hand drink) or 'dealer' (dealer-seat drink)."""
+    def add_drink(self, sips: int, reason: str, role: str = "player", *, scale: bool = True):
+        """role: 'player' (betting-hand drink) or 'dealer' (dealer-seat drink).
+        scale=False skips the Drink Rate multiplier (aces, bust vote, Devil's
+        Hand / Lucky Sevens and Wild Card sips are always the raw amount)."""
         if sips != 0:
-            scaled = scale_sips(sips, self.effective_drink_rate)
+            scaled = scale_sips(sips, self.effective_drink_rate) if scale else sips
             self.drink_log.append(DrinkEntry(scaled, reason, role, raw=sips))
 
     def __str__(self):  return self.name
