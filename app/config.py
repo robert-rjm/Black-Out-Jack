@@ -71,6 +71,7 @@ DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS = 30  # handout waits for everyone to clo
 DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS = 10  # a client only holds the handout up if it polled this recently
 DEALER_LOTTERY_ALL_IN_STAKE         = 5   # a stake of exactly this many wagers is "all-in"...
 DEALER_LOTTERY_ALL_IN_BONUS         = 2   # ...and earns this many extra wagers of handout on a 2+ bust win
+DEALER_LOTTERY_TOP_STAKE_BONUS      = 1   # wagers of extra handout for whoever staked the most (ties all get it), in any outcome
 DEALER_LOTTERY_MAX_HANDS            = 5  # cap on total hands across both split branches combined
 DEALER_LOTTERY_MAX_DRINK            = 10  # ceiling on the no-bust drink, however big the stake/redeal
 

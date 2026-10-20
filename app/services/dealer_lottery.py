@@ -24,7 +24,8 @@ from app.models.game_room import GameRoom
 from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_DRINK,
                         DEALER_LOTTERY_MAX_HANDS, DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS,
                         DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS,
-                        DEALER_LOTTERY_ALL_IN_STAKE, DEALER_LOTTERY_ALL_IN_BONUS)
+                        DEALER_LOTTERY_ALL_IN_STAKE, DEALER_LOTTERY_ALL_IN_BONUS,
+                        DEALER_LOTTERY_TOP_STAKE_BONUS)
 from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card
@@ -206,6 +207,9 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         to other players (mirroring /give_bust_sip's exact pattern). Staking
         exactly DEALER_LOTTERY_ALL_IN_STAKE adds DEALER_LOTTERY_ALL_IN_BONUS
         wagers of extra handout.
+      - Whoever staked the most (ties all count) always gets
+        DEALER_LOTTERY_TOP_STAKE_BONUS wager(s) of extra handout, in any
+        outcome and regardless of how much they owed.
       - Exactly 1 hand busts: half the stake (rounded up) pays out the same
         way (debt first, remainder handed out), with no all-in bonus.
       - No hand busts: drink X * n_hands / 2 (rounded up), capped at
@@ -269,6 +273,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
 
     wager = session.wager   # entries are in wagers (0-5); sips = wagers * wager
+    top_stake = max(entries.values(), default=0)   # whoever staked the most (ties all count)
     for name, x in entries.items():
         if x <= 0:
             continue
@@ -303,6 +308,11 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
                 reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",
             )
             drink_amounts[name] = drink
+        # Boldness bonus: staking the most (or tying for it) always earns an
+        # extra handout, whatever the outcome and whether or not the stake
+        # exceeded what you owed.
+        if x == top_stake:
+            pending_handouts[name] = pending_handouts.get(name, 0) + DEALER_LOTTERY_TOP_STAKE_BONUS * wager
 
 
     # The handout clock does not start now: it waits for every connected player

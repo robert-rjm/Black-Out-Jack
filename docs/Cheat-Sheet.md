@@ -166,7 +166,7 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 | Exactly 1 busts | Half the stake (rounded up) pays out the same way, no bonus |
 | No hand busts | Drink X × hands ÷ 2 (rounded up; 2 hands = stake, 3 = 1.5×, 4 = 2×, 5 = 2.5×), max 10 × wager (never halved) |
 
-Handouts start once everyone closes the reveal; assign within 20 seconds or drink them yourself.
+**Biggest stake** (ties all count) always hands out **+1 × wager**, whatever the result. Handouts start once everyone closes the reveal; assign within 20 seconds or drink them yourself.
 
 ---
 

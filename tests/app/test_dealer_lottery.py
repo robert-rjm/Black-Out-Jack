@@ -308,8 +308,8 @@ def test_resolve_both_bust_credits_and_opens_handout(monkeypatch):
     assert room.drinks.last_round_sips["Alice"] == 0
     assert result["credit_amounts"] == {"Alice": 3}
     # The rest of the stake (5 - 3 = 2) becomes a handout, plus the +2 all-in
-    # bonus for staking the maximum.
-    assert result["pending_handouts"] == {"Alice": 4}
+    # bonus for staking the maximum and +1 for staking the most at the table.
+    assert result["pending_handouts"] == {"Alice": 5}
     # The handout clock waits for everyone to close the reveal
     assert room.round._dealer_lottery_handout_expires_at is None
     assert room.round._dealer_lottery_reveal_deadline is not None
@@ -335,7 +335,7 @@ def test_resolve_owing_nothing_turns_whole_stake_into_handout(monkeypatch):
     assert result["busted"] == 2
     assert room.drinks.last_round_sips["Alice"] == 0
     assert result["credit_amounts"] == {}
-    assert result["pending_handouts"] == {"Alice": 7}   # 5 stake + 2 all-in bonus
+    assert result["pending_handouts"] == {"Alice": 8}   # 5 stake + 2 all-in + 1 top-stake bonus
     assert room.round._dealer_lottery_handout_expires_at is None   # waits for the reveal to close
 
 
@@ -377,7 +377,7 @@ def test_resolve_one_bust_pays_half_the_stake(monkeypatch):
     assert "Alice" not in room.drinks.last_round_sips
     assert result["drink_amounts"] == {}
     assert result["credit_amounts"] == {}
-    assert result["pending_handouts"] == {"Alice": 2}
+    assert result["pending_handouts"] == {"Alice": 3}   # half stake (2) + 1 top-stake bonus
 
 
 def test_resolve_survives_deck_exhaustion_from_long_hit_runs(monkeypatch):
@@ -553,7 +553,7 @@ def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypa
     assert len(result["hands"]) == 3
     assert result["busted"] == 3   # every hand busted -> credit + handout
     assert room.drinks.last_round_sips["Alice"] == 5   # 10 - 5 credit
-    assert result["pending_handouts"] == {"Alice": 2}   # stake fully used as credit; only the +2 all-in bonus is left
+    assert result["pending_handouts"] == {"Alice": 3}   # stake fully used as credit; +2 all-in, +1 top-stake
 
 
 def test_resolve_exactly_one_bust_after_resplit_pays_half(monkeypatch):
@@ -577,7 +577,7 @@ def test_resolve_exactly_one_bust_after_resplit_pays_half(monkeypatch):
     assert result["busted"] == 1   # exactly 1 of 3 busted -> half the stake
     assert result["drink_amounts"] == {}
     assert result["credit_amounts"] == {}
-    assert result["pending_handouts"] == {"Alice": 2}   # ceil(4/2), nothing owed
+    assert result["pending_handouts"] == {"Alice": 3}   # ceil(4/2) = 2, nothing owed, +1 top-stake
     assert "Alice" not in room.drinks.last_round_sips
 
 
@@ -604,7 +604,7 @@ def test_resolve_two_of_three_bust_after_resplit_credits_and_opens_handout(monke
     assert len(result["hands"]) == 3
     assert result["busted"] == 2   # 2 of 3, not all 3 -- still pays under the >=2 rule
     assert room.drinks.last_round_sips["Alice"] == 5   # 10 - 5 credit
-    assert result["pending_handouts"] == {"Alice": 2}   # +2 all-in bonus only
+    assert result["pending_handouts"] == {"Alice": 3}   # +2 all-in, +1 top-stake
 
 
 def test_deal_and_resolve_hand_respects_max_splits_cap():
@@ -676,7 +676,7 @@ def test_resolve_handout_is_never_halved(monkeypatch):
     for name in ("Bob", "Carol", "Dave"):
         submit_dealer_lottery_entry(room, name, 0)
 
-    # Both bust, Alice owes 2: credit 2, handout = (5 - 2) + 2 all-in bonus = 5
+    # Both bust, Alice owes 2: credit 2, handout = (5 - 2) + 2 all-in + 1 top-stake = 6
     _patch_deck(monkeypatch, [
         make_card("5", "C"), make_card("9", "D"),
         make_card("5", "D"), make_card("9", "C"),
@@ -685,7 +685,7 @@ def test_resolve_handout_is_never_halved(monkeypatch):
     resolve_dealer_lottery(room)
 
     result = room.drinks.last_dealer_lottery_result
-    assert result["pending_handouts"] == {"Alice": 5}
+    assert result["pending_handouts"] == {"Alice": 6}   # (5 - 2) + 2 all-in + 1 top-stake
     assert room.drinks.last_round_sips["Alice"] == 0    # 2 owed - 2 credit
 
 
@@ -736,7 +736,7 @@ def _both_bust_room(monkeypatch, x=5):
 def test_give_sip_assigns_and_closes_window(monkeypatch):
     room = _both_bust_room(monkeypatch)
     assert give_dealer_lottery_sip(room, "Alice", "Bob") is True
-    assert room.drinks.last_round_sips["Bob"] == 2   # all-in bonus only: the 5-stake paid Alice's 10 debt
+    assert room.drinks.last_round_sips["Bob"] == 3   # +2 all-in, +1 top-stake: the 5-stake paid Alice's 10 debt
     assert "Alice" in room.round._dealer_lottery_handouts_given
     assert room.round._dealer_lottery_handout_expires_at is None  # all givers done
 
@@ -755,8 +755,8 @@ def test_give_sip_removes_giver_from_served_pending_handouts(monkeypatch):
     }
 
     before = serialize_state(room, "client-1")
-    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 2}
-    assert before["dealer_lottery"]["my_pending_handouts"] == {"Alice": 2}
+    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 3}
+    assert before["dealer_lottery"]["my_pending_handouts"] == {"Alice": 3}
 
     assert give_dealer_lottery_sip(room, "Alice", "Bob") is True
 
@@ -784,7 +784,7 @@ def test_newround_clears_stale_pending_handouts(monkeypatch):
     }
 
     before = serialize_state(room, "client-1")
-    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 2}
+    assert before["dealer_lottery"]["pending_handouts"] == {"Alice": 3}
 
     reset_round_state(room, digital=True)
 
@@ -821,7 +821,7 @@ def test_handout_forfeit_gives_sips_to_self_after_expiry(monkeypatch):
     room = _both_bust_room(monkeypatch)  # starts owing 10, credited down to 5 (10 - X=5)
     room.round._dealer_lottery_handout_expires_at = time.monotonic() - 1
     apply_dealer_lottery_handout_forfeit(room)
-    assert room.drinks.last_round_sips["Alice"] == 7  # 5 (post-credit) + 2 forfeited back
+    assert room.drinks.last_round_sips["Alice"] == 8  # 5 (post-credit) + 3 forfeited back
     assert "Alice" in room.round._dealer_lottery_handouts_given
     assert room.round._dealer_lottery_handout_expires_at is None
 
@@ -993,7 +993,7 @@ def test_give_sip_route_assigns(client, monkeypatch):
         })
         data = resp.get_json()
         assert data["ok"] is True
-        assert room.drinks.last_round_sips["Bob"] == 2
+        assert room.drinks.last_round_sips["Bob"] == 3
     finally:
         game_sessions.pop(room_code, None)
 
@@ -1222,12 +1222,12 @@ def test_two_bust_stake_pays_debt_then_hands_out_the_rest(monkeypatch):
     room.drinks.last_round_sips["Alice"] = 3
     result = _resolve(room, monkeypatch, _BOTH_BUST, {"Alice": 4})
     assert result["credit_amounts"] == {"Alice": 3}
-    assert result["pending_handouts"] == {"Alice": 1}      # 4 - 3, no all-in bonus below 5
+    assert result["pending_handouts"] == {"Alice": 2}      # (4 - 3) + 1 top-stake, no all-in bonus below 5
     assert room.drinks.last_round_sips["Alice"] == 0
 
 
 def test_all_in_bonus_only_at_the_maximum_stake(monkeypatch):
-    for x, expected in ((4, 4), (5, 7)):
+    for x, expected in ((4, 5), (5, 8)):   # stake + 1 top-stake bonus (+2 if all-in)
         room = _nine_pair_room()
         result = _resolve(room, monkeypatch, _BOTH_BUST, {"Alice": x})
         assert result["pending_handouts"] == {"Alice": expected}   # owes 0: stake (+2 if all-in)
@@ -1237,9 +1237,9 @@ def test_one_bust_pays_half_stake_rounded_up_debt_first(monkeypatch):
     room = _nine_pair_room()
     room.drinks.last_round_sips["Alice"] = 1
     result = _resolve(room, monkeypatch, _ONE_BUST, {"Alice": 5})
-    # half of 5 = 3: 1 pays the debt, 2 are handed out; no all-in bonus on a 1-bust
+    # half of 5 = 3: 1 pays the debt, 2 are handed out; +1 top-stake; no all-in bonus on a 1-bust
     assert result["credit_amounts"] == {"Alice": 1}
-    assert result["pending_handouts"] == {"Alice": 2}
+    assert result["pending_handouts"] == {"Alice": 3}
 
 
 def test_bigger_stake_always_pays_more_than_a_smaller_one_when_winning(monkeypatch):
@@ -1250,3 +1250,37 @@ def test_bigger_stake_always_pays_more_than_a_smaller_one_when_winning(monkeypat
         r = _resolve(room, monkeypatch, _BOTH_BUST, {"Alice": x})
         out[x] = r["credit_amounts"].get("Alice", 0) + r["pending_handouts"].get("Alice", 0)
     assert out[5] > out[3]
+
+
+# ---------------------------------------------------------------------------
+# Top-stake bonus: the biggest stake (ties all count) always gets +1 wager of handout
+# ---------------------------------------------------------------------------
+
+def test_only_the_top_stake_gets_the_bonus(monkeypatch):
+    room = _nine_pair_room()
+    result = _resolve(room, monkeypatch, _BOTH_BUST, {"Alice": 3, "Bob": 2})
+    # Alice: 3 (owes 0) + 1 top-stake bonus. Bob staked less, so just his own 2.
+    assert result["pending_handouts"] == {"Alice": 4, "Bob": 2}
+
+
+def test_tied_top_stakes_both_get_the_bonus(monkeypatch):
+    room = _nine_pair_room()
+    result = _resolve(room, monkeypatch, _BOTH_BUST, {"Alice": 3, "Bob": 3})
+    assert result["pending_handouts"] == {"Alice": 4, "Bob": 4}
+
+
+def test_top_stake_bonus_applies_even_when_no_hand_busts(monkeypatch):
+    room = _nine_pair_room()
+    result = _resolve(room, monkeypatch, [make_card("K", "C"), make_card("K", "D")], {"Alice": 2, "Bob": 1})
+    assert result["busted"] == 0
+    assert result["drink_amounts"] == {"Alice": 2, "Bob": 1}
+    assert result["pending_handouts"] == {"Alice": 1}   # top staker still hands out 1
+
+
+def test_top_stake_bonus_is_extra_even_when_stake_exceeds_debt(monkeypatch):
+    room = _nine_pair_room()
+    room.drinks.last_round_sips["Alice"] = 1
+    result = _resolve(room, monkeypatch, _BOTH_BUST, {"Alice": 3})
+    # 3 pays 1 of debt, 2 handed out, +1 top-stake = 3
+    assert result["credit_amounts"] == {"Alice": 1}
+    assert result["pending_handouts"] == {"Alice": 3}
