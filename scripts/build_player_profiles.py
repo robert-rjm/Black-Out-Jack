@@ -15,10 +15,18 @@ also read -- same columns, no Dealer Lottery data.
 Usage:
     python scripts/build_player_profiles.py [--dir data/decisions] [--out engine/player_profiles]
     python scripts/build_player_profiles.py --player Rob  # one player only
+    python scripts/build_player_profiles.py --player NewGuy --yes
+                                                            # create a profile for a
+                                                            # player who has none yet
     python scripts/build_player_profiles.py --merge       # fold in the existing
                                                             # profile's own recorded
                                                             # deviations instead of
                                                             # overwriting from scratch
+
+Profiles are opt-in: a run with no --player only rebuilds players who already
+have a profile file. Names found in the logs without one are listed and
+skipped. Creating a new bot needs --player <name>, then a "create bot?" prompt
+(or --yes to skip it); a non-interactive run without --yes never creates one.
 
 Thresholds (adjustable via flags):
     --min-samples   Minimum decisions at a spot to record anything  (default: 3)
@@ -424,6 +432,40 @@ def build_lottery_stakes(rows: list[dict], player_name: str,
 # CLI
 # ---------------------------------------------------------------------------
 
+def select_targets(all_players, existing, requested, confirm_create):
+    """Decide whose profile to (re)build. Returns (targets, skipped_new, unknown).
+
+    all_players:    human names found in the decision logs
+    existing:       lowercase names that already have a profile file
+    requested:      the --player value, or None
+    confirm_create: callable(name) -> bool, asked before a *new* profile is made
+
+    No --player: only players with an existing profile are rebuilt; the rest
+    come back in skipped_new so the caller can say so. --player: matched
+    case-insensitively against the logs (unknown if absent); a name with no
+    profile yet is only created when confirm_create approves it.
+    """
+    if requested is None:
+        targets = [n for n in all_players if n.lower() in existing]
+        return targets, [n for n in all_players if n.lower() not in existing], []
+    match = next((n for n in all_players if n.lower() == requested.strip().lower()), None)
+    if match is None:
+        return [], [], [requested]
+    if match.lower() in existing or confirm_create(match):
+        return [match], [], []
+    return [], [match], []
+
+
+def _confirm_create(name: str, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+    if not sys.stdin.isatty():
+        print(f"New player {name!r} found; not creating a bot non-interactively "
+              f"(pass --yes to confirm).")
+        return False
+    return input(f"New player {name!r} found, create bot? [y/N] ").strip().lower() in ("y", "yes")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build player deviation profiles.")
     parser.add_argument("--dir",          default="data/decisions",
@@ -432,7 +474,10 @@ def main():
     parser.add_argument("--out",          default="engine/player_profiles",
                         help="Output directory for <name>.json profiles")
     parser.add_argument("--player",       default=None,
-                        help="Build profile for one player only")
+                        help="Build profile for one player only (the only way to "
+                             "create a profile for a new player)")
+    parser.add_argument("--yes", action="store_true",
+                        help="Don't ask before creating a profile for a new --player")
     parser.add_argument("--min-samples",  type=int,   default=3)
     parser.add_argument("--min-majority", type=float, default=0.60)
     parser.add_argument("--merge", action="store_true",
@@ -453,7 +498,19 @@ def main():
     # Discover players
     all_players = sorted({r["player"].strip() for r in rows
                           if not _parse_bool(r.get("is_npc", "False"))})
-    targets = [args.player] if args.player else all_players
+    existing = {p.stem.lower() for p in Path(args.out).glob("*.json")}
+    targets, skipped_new, unknown = select_targets(
+        all_players, existing, args.player,
+        lambda n: _confirm_create(n, args.yes))
+    for n in unknown:
+        print(f"No human player named {n!r} in the logs — nothing to build.")
+    if skipped_new:
+        print("New players in the logs with no profile (skipped): "
+              + ", ".join(skipped_new))
+        print("  To create one: python scripts/build_player_profiles.py --player <name>")
+    if not targets:
+        print("No profiles to build.")
+        return
 
     os.makedirs(args.out, exist_ok=True)
 
