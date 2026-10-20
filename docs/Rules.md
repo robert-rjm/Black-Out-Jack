@@ -398,19 +398,22 @@ If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two
 
 **2. Redeal.** The Dealer's pair is split into two fresh hands from a new shuffled deck, and each is played out to 17. A hand that draws another matching pair splits again, up to **5 hands in total**.
 
-**3. Result.** It depends on how many hands bust:
+**3. Result.** Your stake **pays out** based on how many hands bust. A payout first pays down what you owe this round; whatever is left over you **hand out** to other Players, in full.
 
 | Hands busted | Effect on you |
 | --- | --- |
-| 2 or more | **Credit:** your owed sips this round drop by min(X × wager, what you owe), never below 0. You then **hand out** half of that credit (rounded up) to another Player. |
-| Exactly 1 | Nothing. |
+| 2 or more | The **whole stake** pays out. **All-in bonus:** a stake of 5 hands out **2 × wager extra**. |
+| Exactly 1 | **Half the stake** pays out (rounded up). No bonus. |
 | None | **Drink** X × hands ÷ 2 (rounded up), capped at 10 × wager. Two hands cost your stake, three cost 1.5×, four 2×, five 2.5×. |
 
-- The handout is always halved, whatever the group size or Easy Mode, and it is based on the credit you actually received, not your stake. Staking more than you owe doesn't make it bigger.
-- The no-bust drink is never halved.
-- Handouts start once everyone has closed the reveal. You have 20 seconds to assign yours, or you drink them yourself.
+- **Debt first:** a payout only credits what you owe this round (never below 0). If your payout is bigger than your debt, the rest becomes a handout, so a bigger stake always earns more, even if you owe little.
+- **Handouts are never halved,** whatever the group size or Easy Mode. They start once everyone has closed the reveal; you have 20 seconds to assign yours, or you drink them yourself.
+- **The no-bust drink is never halved.**
 
-**Unused stake** If your stake was bigger than what you owed, the leftover credit shields you from handout sips from this same lottery. It never changes your sip counter: those sips are simply reduced when they reach you, and the credit disappears once all handouts are done.
+> **Example (wager 1):** The Dealer shows K♠ Q♥. Alice owes 3 and stakes 5; Bob owes 0 and stakes 3.
+> - **Two or more hands bust:** Alice's 5 pays her debt (3), leaving 2, plus the 2 all-in bonus: she owes 0 and hands out **4**. Bob has no debt, so he hands out his whole stake: **3**.
+> - **Exactly one hand busts:** half the stake pays out. Alice: ceil(5 ÷ 2) = 3, so she owes 0 and hands out **0**. Bob: ceil(3 ÷ 2) = 2, so he hands out **2**.
+> - **No hand busts (2 hands):** Alice drinks **5**, Bob drinks **3**.
 
 
 ### 5.10 Targeted Drinking Mode

@@ -1046,7 +1046,7 @@ async function _showDealerLotteryRevealModal(result) {
 
     const nHands = handList.length;
     const headline = result.busted >= 2 ? `${result.busted} of ${nHands} hands busted!`
-      : result.busted === 0 ? "No hand busted." : "Mixed result — nothing happens.";
+      : result.busted === 0 ? "No hand busted." : "1 hand busted — half the stake pays out.";
 
     if (!participants.length) {
       payout.innerHTML = `<div class="dl-reveal-headline">${headline}</div>Nobody entered, so nothing happens.`;
@@ -1178,8 +1178,8 @@ class DealerLotteryGivePanel {
     body.innerHTML = givers.map(giverName => {
       const amount = pending[giverName];
       const label = givers.length > 1
-        ? `🎰 <strong>${escapeHtml(giverName)}</strong>'s split hands both busted! Give ${amount} sip(s) to:`
-        : `🎰 Both split hands busted! Give ${amount} sip(s) to:`;
+        ? `🎰 <strong>${escapeHtml(giverName)}</strong> won the Dealer Lottery! Give ${amount} sip(s) to:`
+        : `🎰 You won the Dealer Lottery! Give ${amount} sip(s) to:`;
       const btns = allPlayers
         .filter(n => n.toLowerCase() !== giverName.toLowerCase())
         .map(n => `<button class="btn wide bgp-give-btn"
