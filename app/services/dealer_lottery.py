@@ -208,16 +208,14 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         handout power on the side -- your whole win (credit + handout)
         tops out at what X could actually offset, or nothing if you
         didn't owe anything this round to begin with.
-      - No hand busts: drink X * (n_hands - 1), capped at
-        DEALER_LOTTERY_MAX_DRINK -- never halved. Only the
+      - No hand busts: drink X * n_hands / 2 (rounded up), capped at
+        DEALER_LOTTERY_MAX_DRINK * wager -- never halved. Only the
         handout (above) is halved; halving softens what you hand to
-        someone else, not what you owe yourself. n_hands - 1 is 1 for the
-        base (un-split) case and increases by 1 per re-split, so standing
-        through a re-split chain costs more the longer that chain runs --
-        up to the cap, which exists because the credit side is floored
-        at what you actually owe while this side had no ceiling at all:
-        an uncapped X=5 through a full 5-hand chain was 20 sips, a
-        session-sized hit off one post-round side bet.
+        someone else, not what you owe yourself. The multiplier is 1.0
+        for the base 2 hands and grows by 0.5 per re-split (1.5, 2.0,
+        2.5), so standing through a re-split chain costs more the longer
+        it runs, but only gently -- the credit side is floored at what
+        you actually owe, so this side shouldn't punish much harder.
       - Anything in between (exactly 1 hand busts): nothing happens -- no
         drink, no credit.
 
@@ -303,9 +301,10 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
         elif busted == 0:
             # Drink is never halved -- only the handout is (halving softens
             # what you hand to someone else, not what you owe yourself).
-            # Scales with n_hands so standing through a re-split chain
-            # costs more than standing on the un-split base case.
-            drink = min(x * (n_hands - 1) * wager, DEALER_LOTTERY_MAX_DRINK * wager)
+            # Stake x hands / 2, rounded up: 2 hands = the stake, 3 = 1.5x,
+            # 4 = 2x, 5 = 2.5x -- standing through a re-split chain costs
+            # more than the un-split base case, but only gently.
+            drink = min(math.ceil(x * wager * n_hands / 2), DEALER_LOTTERY_MAX_DRINK * wager)
             award_sips(
                 session, name, drink, "Dealer Lottery drink",
                 reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",

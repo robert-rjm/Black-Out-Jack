@@ -442,12 +442,11 @@ def test_resolve_resplits_when_new_card_pairs_again(monkeypatch):
     # (parent_index None); the re-split sibling (idx 1) split off hand_a.
     assert [h["parent_index"] for h in result["hands"]] == [None, 0, None]
     assert result["busted"] == 0
-    # No hand busted -> drink X * (n_hands - 1) = 4 * (3 - 1) = 8. Scales
-    # with hand count so standing through a re-split costs more than
-    # standing on the un-split base case (see resolve_dealer_lottery's
-    # docstring for why).
-    assert room.drinks.last_round_sips["Alice"] == 8
-    assert result["drink_amounts"] == {"Alice": 8}
+    # No hand busted -> drink X * n_hands / 2 = 4 * 3 / 2 = 6. Scales
+    # gently with hand count so standing through a re-split costs more than
+    # standing on the un-split base case.
+    assert room.drinks.last_round_sips["Alice"] == 6
+    assert result["drink_amounts"] == {"Alice": 6}
 
 
 def test_resolve_cascading_resplit_tracks_parent_chain(monkeypatch):
@@ -486,10 +485,9 @@ def test_resolve_cascading_resplit_tracks_parent_chain(monkeypatch):
 
 
 def test_resolve_no_bust_drink_is_capped(monkeypatch):
-    """The scaled drink stops at DEALER_LOTTERY_MAX_DRINK. Uncapped, a
-    max stake standing through a full re-split chain was X * (n_hands - 1)
-    = 5 * 4 = 20 sips off one post-round side bet -- while the credit side
-    is floored at what the player actually owes."""
+    """The scaled drink stops at DEALER_LOTTERY_MAX_DRINK x wager, however
+    big the stake/redeal. (Lowered here so a 4-hand chain actually reaches it.)"""
+    monkeypatch.setattr("app.services.dealer_lottery.DEALER_LOTTERY_MAX_DRINK", 4)
     room = _nine_pair_room()
     submit_dealer_lottery_entry(room, "Alice", 5)
     submit_dealer_lottery_entry(room, "Bob", 0)
@@ -508,9 +506,9 @@ def test_resolve_no_bust_drink_is_capped(monkeypatch):
     result = room.drinks.last_dealer_lottery_result
     assert len(result["hands"]) == 4
     assert result["busted"] == 0
-    # Uncapped this would be 5 * (4 - 1) = 15.
-    assert result["drink_amounts"] == {"Alice": DEALER_LOTTERY_MAX_DRINK}
-    assert room.drinks.last_round_sips["Alice"] == DEALER_LOTTERY_MAX_DRINK
+    # Uncapped this would be 5 * 4 / 2 = 10.
+    assert result["drink_amounts"] == {"Alice": 4}
+    assert room.drinks.last_round_sips["Alice"] == 4
 
 
 def test_resolve_no_bust_drink_below_the_cap_still_scales(monkeypatch):
@@ -531,8 +529,8 @@ def test_resolve_no_bust_drink_below_the_cap_still_scales(monkeypatch):
     resolve_dealer_lottery(room)
 
     result = room.drinks.last_dealer_lottery_result
-    # 3 * (4 - 1) = 9, still under the 10-sip ceiling.
-    assert result["drink_amounts"] == {"Alice": 9}
+    # 3 * 4 / 2 = 6, still under the 10-sip ceiling.
+    assert result["drink_amounts"] == {"Alice": 6}
 
 
 def test_resolve_all_hands_bust_after_resplit_credits_and_opens_handout(monkeypatch):
@@ -1234,3 +1232,20 @@ def test_invisible_credit_dropped_when_handouts_finish(monkeypatch):
     give_dealer_lottery_sip(room, "Alice", "Bob")
     give_dealer_lottery_sip(room, "Bob", "Carol")
     assert room.round._dealer_lottery_invisible_credit == {}
+
+
+def test_no_bust_drink_rounds_half_sips_up(monkeypatch):
+    """3 hands at X=3 is 4.5 sips -> 5."""
+    room = _nine_pair_room()
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("9", "D"),  # re-split
+        make_card("8", "C"),
+        make_card("8", "D"),
+        make_card("K", "C"),
+    ])
+    resolve_dealer_lottery(room)
+    assert len(room.drinks.last_dealer_lottery_result["hands"]) == 3
+    assert room.drinks.last_dealer_lottery_result["drink_amounts"] == {"Alice": 5}

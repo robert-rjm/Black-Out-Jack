@@ -404,7 +404,7 @@ If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two
 | --- | --- |
 | 2 or more | **Credit:** your owed sips this round drop by min(X × wager, what you owe), never below 0. You then **hand out** half of that credit (rounded up) to another Player. |
 | Exactly 1 | Nothing. |
-| None | **Drink** X × (hands − 1) × wager sips, capped at 10 × wager. |
+| None | **Drink** X × hands ÷ 2 (rounded up), capped at 10 × wager. Two hands cost your stake, three cost 1.5×, four 2×, five 2.5×. |
 
 - The handout is always halved, whatever the group size or Easy Mode, and it is based on the credit you actually received, not your stake. Staking more than you owe doesn't make it bigger.
 - The no-bust drink is never halved.

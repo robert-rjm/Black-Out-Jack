@@ -862,7 +862,7 @@ shown standalone rather than folded into a round above:
 >
 > The pair splits into two fresh hands from a new shuffled deck —
 > K♠+5♣ (18 → stands) and Q♥+9♦ (19 → stands). Neither busts, so per
-> **Rule 5.9** Alice drinks **X × (hands − 1) = 4 × 1 = 4 sips** — just
+> **Rule 5.9** Alice drinks **X × hands ÷ 2 = 4 × 2 ÷ 2 = 4 sips** — just
 > the base X since this redeal didn't re-split into a third hand. The
 > drink amount is never halved, regardless of player count or Easy
 > Mode. Bob, having entered 0, is unaffected either way.

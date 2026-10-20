@@ -164,7 +164,7 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 |--------|--------|
 | 2+ hands bust | Credit = min(X × wager, what you owe) sips, hand ceil(credit/2) out to another Player (always halved) |
 | Exactly 1 busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) × wager sips, max 10 × wager (never halved) |
+| No hand busts | Drink X × hands ÷ 2 (rounded up; 2 hands = stake, 3 = 1.5×, 4 = 2×, 5 = 2.5×), max 10 × wager (never halved) |
 
 **Unused stake** *invisible credit*: it shrinks handout sips that land on you from this lottery, and never changes your sip counter. Handouts start once everyone closes the reveal; assign within 20 seconds or drink them yourself.
 
