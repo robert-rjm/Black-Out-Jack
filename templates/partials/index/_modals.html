@@ -107,13 +107,18 @@
 
       <div style="border-bottom:1px solid var(--wash-3);margin:10px 0 12px"></div>
 
-      <button class="btn wide admin-only-row" data-action="setPaused" data-args='[true]' style="margin-bottom:8px">⏸ Pause game</button>
-
-      <button class="btn wide drink-only" data-action="openDrinkRateModal" style="margin-bottom:8px">🍷 Drink rate</button>
-
-      <button class="btn wide settings-players-nav-btn" data-action="showSettingsSubview" data-args='["players"]'>
-        👥 Players <span id="settings-players-badge" class="settings-players-badge" style="display:none"></span>
-      </button>
+      <div class="settings-actions">
+        <button class="settings-action admin-only-row" data-action="setPaused" data-args='[true]'>
+          <span class="sa-icon">⏸</span><span class="sa-label">Pause</span>
+        </button>
+        <button class="settings-action drink-only" data-action="openDrinkRateModal">
+          <span class="sa-icon">🍷</span><span class="sa-label">Drink rate</span>
+        </button>
+        <button class="settings-action" data-action="showSettingsSubview" data-args='["players"]'>
+          <span class="sa-icon">👥</span><span class="sa-label">Players</span>
+          <span id="settings-players-badge" class="settings-players-badge" style="display:none"></span>
+        </button>
+      </div>
 
       <div id="game-settings-section">
         <div class="modal-section-title modal-gap-lg">GAME SETTINGS</div>
