@@ -139,8 +139,13 @@
         {{ action_btn('🃏 DEAL', 'sendCmd', '["deal"]', 'btn-big green') }}
       </div>
       <div id="dig-bet-panel" style="display:none;padding:10px 16px 4px">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center">Set your bet before the deal</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-align:center">
+          Change your stake or accept it — dealing in <span id="dig-bet-countdown">15</span>s
+        </div>
         <div id="dig-bet-steppers"></div>
+        <div style="text-align:center">
+          <button id="dig-bet-accept" class="btn green" data-action="confirmStake">✓ Accept stake</button>
+        </div>
       </div>
       <div class="tabs-bar" id="dig-tabs">
         <button class="tab active" data-action="switchTab" data-args='["dig-tabs","dig-panel","dig-play"]'>Play</button>

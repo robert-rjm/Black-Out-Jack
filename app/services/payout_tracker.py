@@ -11,6 +11,9 @@ round. Entirely inert in Drinking mode.
 
 from __future__ import annotations
 
+import time
+
+from app.config import STAKE_WINDOW_SECONDS
 from app.models.game_room import GameRoom
 
 
@@ -94,6 +97,46 @@ def ensure_npc_stakes(session: GameRoom) -> None:
             session.round._log_entries.append(
                 f"  💸 {p.name} hits the ATM and re-buys for ${session.starting_bankroll:.2f}\n")
             session._log_version += 1
+
+
+# ---------------------------------------------------------------------------
+# Stake window (Normal mode): the first Deal opens it instead of dealing
+# ---------------------------------------------------------------------------
+
+def human_names(session: GameRoom) -> list[str]:
+    """Seats whose stake a person controls (bots keep their stake locked)."""
+    return [p.name for p in session.all_players if not getattr(p, "is_npc", False)]
+
+
+def stake_window_open(session: GameRoom) -> bool:
+    return session.round._stake_window_expires_at is not None
+
+
+def open_stake_window(session: GameRoom) -> None:
+    """Start the stake window; bots are lowered to what they can afford now."""
+    ensure_npc_stakes(session)
+    session.round._stake_confirmed = set()
+    session.round._stake_window_expires_at = time.monotonic() + STAKE_WINDOW_SECONDS
+
+
+def close_stake_window(session: GameRoom) -> None:
+    session.round._stake_window_expires_at = None
+    session.round._stake_confirmed = set()
+
+
+def confirm_stake(session: GameRoom, player_name: str) -> None:
+    session.round._stake_confirmed.add(player_name)
+
+
+def stake_window_done(session: GameRoom) -> bool:
+    """True once the deadline passed or every human seat accepted its stake."""
+    expires = session.round._stake_window_expires_at
+    if expires is None:
+        return False
+    if time.monotonic() >= expires:
+        return True
+    humans = human_names(session)
+    return bool(humans) and all(n in session.round._stake_confirmed for n in humans)
 
 
 def deduct_double_bet(session: GameRoom, player_name: str) -> None:

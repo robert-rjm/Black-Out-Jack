@@ -67,6 +67,11 @@ class RoundState:
     _insurance_votes: list = field(default_factory=list)
     _kick_votes: dict = field(default_factory=dict)
 
+    # Normal mode stake window: opened by the first Deal, closes (and the
+    # cards are dealt) when every human accepted or the deadline passes
+    _stake_window_expires_at: float | None = None
+    _stake_confirmed: set = field(default_factory=set)
+
     # Bust vote side bet
     _bust_votes: dict = field(default_factory=dict)
     _bust_vote_expires_at: float | None = None

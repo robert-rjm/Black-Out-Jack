@@ -39,6 +39,14 @@ def _cmd(c, code, text):
                                     "cmd": text}).get_json()
 
 
+def _deal(c, code):
+    """Normal mode: the first Deal opens the stake window, a second one deals."""
+    st = _cmd(c, code, "deal")
+    if st.get("phase") == "pre-deal":
+        st = _cmd(c, code, "deal")
+    return st
+
+
 def _rig(s, seq):
     s.shoe.cards = [parse_card(x.lower()) for x in reversed(seq)]
     s.shoe.penetration = 1.0
@@ -49,7 +57,7 @@ def test_double_win_is_paid_on_doubled_stake(client):
     code, s = _new(client)
     # Rob 5+6, Bot 10+10, dealer 10+7; Rob doubles into a 10 -> 21
     _rig(s, ["5S", "10S", "10H", "6D", "10D", "7C", "10C"])
-    _cmd(client, code, "deal")
+    _deal(client, code)
     assert s._bankrolls["Rob"] == 90
     _cmd(client, code, "double Rob hand1")
     assert s._bankrolls["Rob"] == 120          # 100 - 10 - 10 + 40
@@ -60,7 +68,7 @@ def test_dealer_blackjack_peek_ends_round_before_play(client):
     code, s = _new(client, players=("Rob", "Amy", "Bot"), npcs=("Bot",))
     # Rob 8,8 ; Amy 10,10 ; Bot 10,9 ; dealer A,K (blackjack)
     _rig(s, ["8S", "10S", "10H", "AH", "8D", "10D", "9C", "KC"])
-    st = _cmd(client, code, "deal")
+    st = _deal(client, code)
     assert st["phase"] == "round-over"
     assert s._bankrolls["Rob"] == 90           # only the opening bet lost
     assert s._last_round_payouts["Rob"] == -10
@@ -71,7 +79,7 @@ def test_no_drinks_or_milestones_in_normal_mode(client):
     code, s = _new(client, players=("Rob", "Bot1", "Bot2"),
                    npcs=("Bot1", "Bot2"), num_hands=2, starting_bankroll=100000)
     for _ in range(70):
-        st = _cmd(client, code, "deal")
+        st = _deal(client, code)
         for _ in range(4):
             if st.get("current_turn") == "Rob":
                 _cmd(client, code, "stand Rob hand1")
@@ -96,7 +104,7 @@ def test_deal_refused_when_player_cannot_cover_bet(client):
 def test_cannot_double_without_funds(client):
     code, s = _new(client, starting_bankroll=15)
     _rig(s, ["5S", "10S", "10H", "6D", "10D", "7C", "10C"])
-    _cmd(client, code, "deal")
+    _deal(client, code)
     assert s._bankrolls["Rob"] == 5
     _cmd(client, code, "double Rob hand1")
     hand = s._get_player("Rob").hands[0]
@@ -108,7 +116,7 @@ def test_no_mid_round_reshuffle(client):
     _rig(s, ["5S", "10S", "10H", "6D", "10D", "7C", "10C", "2C"])
     s.shoe.penetration = 0.0                   # "needs reshuffle" is true throughout
     s.shoe.total_cards = 10 ** 6
-    _cmd(client, code, "deal")
+    _deal(client, code)
     assert not s.round._reshuffle_events
     assert len(s.shoe.cards) == 2
 
@@ -135,7 +143,7 @@ def test_absurd_hand_index_rejected(client):
 def test_repeat_dealer_and_endround_do_not_repay_in_normal_mode(client):
     code, s = _new(client)
     _rig(s, ["5S", "10S", "10H", "6D", "10D", "7C", "10C"])
-    _cmd(client, code, "deal")
+    _deal(client, code)
     _cmd(client, code, "double Rob hand1")
     after = dict(s._bankrolls)
     for c in ("dealer", "endround", "deal"):

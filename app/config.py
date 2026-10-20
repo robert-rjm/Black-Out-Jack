@@ -57,6 +57,7 @@ WORST_STREAK_THRESHOLD = 5
 # ---------------------------------------------------------------------------
 
 BUST_VOTE_WINDOW_SECONDS     = 15.5  # how long the dealer-bust side-bet vote stays open
+STAKE_WINDOW_SECONDS         = 15.5  # Normal mode: how long players can change/accept their stake after Deal (shows as 15)
                                    # (frontend countdown UI displays from 15)
 BUST_HANDOUT_WINDOW_SECONDS  = 20  # window to claim a dealer-bust sip handout
 INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) after this long

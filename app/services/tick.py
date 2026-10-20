@@ -39,6 +39,7 @@ from app.services.afk import (
     apply_normal_round_afk, apply_admin_afk_vote_forfeit, track_admin_blocking,
 )
 from app.services.drink_rate import sync_drink_rates, apply_drink_rate_forfeit
+from app.services.payout_tracker import stake_window_done, close_stake_window
 
 import time as _time
 
@@ -60,6 +61,18 @@ def _run_deferred_dealer_play(session) -> None:
     with contextlib.redirect_stdout(io.StringIO()):
         session.cmd_endround()
     apply_endround_pipeline(session)
+
+
+def apply_stake_window(session) -> None:
+    """Deal the cards once the Normal-mode stake window is done (every human
+    accepted, or the deadline passed). No-op while it is still running."""
+    if not stake_window_done(session) or round_phase(session) != "pre-deal":
+        return
+    close_stake_window(session)
+    # Lazy import: game_commands pulls in most of the services package.
+    from app.routes.game_commands import deal_now
+    with contextlib.redirect_stdout(io.StringIO()):
+        deal_now(session)
 
 
 def tick(session) -> None:
@@ -89,6 +102,8 @@ def tick(session) -> None:
         dealer hand and scores every target -- if that window has expired.
     12. Apply Targeted Drinking perfect-graduation handout forfeit if that
         window has expired (mirrors the Dealer Lottery handout forfeit).
+    12b. Deal the cards when the Normal-mode stake window closes (every
+        human accepted their stake, or the deadline passed).
     13. Unblock NPC turns and trigger deferred dealer play when the bust-vote
         window closes (or all eligible players have voted).
     14. Safety-net: trigger dealer play when stuck at dealer-ready with no
@@ -131,6 +146,7 @@ def tick(session) -> None:
     track_admin_blocking(session)
     sync_drink_rates(session)
     apply_drink_rate_forfeit(session)
+    apply_stake_window(session)
 
     # 3. Majority-vote-to-target proposal forfeit (live-play, not gated on
     # round-over -- a proposal can be open at any time during a round)

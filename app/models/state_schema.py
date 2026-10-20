@@ -574,6 +574,9 @@ class AppState(_StrictModel):
     state_seq:        int
 
     # ---- Payout data (Normal mode only -- absent entirely otherwise) ----
+    stake_window_open:         Optional[bool] = None
+    stake_window_seconds_left: Optional[int] = None
+    stake_confirmed:           Optional[list[str]] = None
     bet_amount:            Optional[float] = None
     starting_bankroll:     Optional[float] = None
     balances:              Optional[dict[str, float]] = None

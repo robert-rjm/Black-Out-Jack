@@ -445,7 +445,12 @@ def compute_payout_data(session: GameRoom) -> dict:
     digital only). Empty in Drinking/Referee mode."""
     if session.drinking_mode or session.mode != "digital":
         return {}
+    expires = session.round._stake_window_expires_at
+    secs_left = max(0.0, expires - time.monotonic()) if expires is not None else 0.0
     return {
+        "stake_window_open":         expires is not None,
+        "stake_window_seconds_left": int(secs_left) if expires is not None else 0,
+        "stake_confirmed":           sorted(session.round._stake_confirmed),
         "bet_amount":         session.bet_amount,
         "starting_bankroll":  session.starting_bankroll,
         "balances":           dict(session._bankrolls),

@@ -39,7 +39,7 @@ from app.services.decision_log import record_decision
 from app.services.payout_tracker import (
     cmd_rebuy, deduct_bets, deduct_split_bet, deduct_double_bet,
     can_afford_extra, is_cash_mode, ensure_npc_stakes, unaffordable_players,
-    stake_per_hand,
+    stake_per_hand, human_names, stake_window_open, open_stake_window, close_stake_window,
 )
 from app.services.round_pipeline import apply_endround_pipeline
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
@@ -283,6 +283,19 @@ def _after_player_action(game_session):
 # ---------------------------------------------------------------------------
 
 def _cmd_deal_digital(game_session, parts):
+    # Normal mode: the first Deal opens the stake window (players change or
+    # accept their stake); the cards go out when /state ticks it closed (see
+    # tick.apply_stake_window). Deal again during the window to skip the wait.
+    if is_cash_mode(game_session):
+        if not stake_window_open(game_session) and human_names(game_session):
+            open_stake_window(game_session)
+            print("  Stake window open — change or accept your stake.")
+            return
+        close_stake_window(game_session)
+    deal_now(game_session)
+
+
+def deal_now(game_session):
     # Normal mode: nobody may go below $0 — bots are topped up / lowered
     # automatically, humans who can't cover their bet must lower it or re-buy.
     if is_cash_mode(game_session):

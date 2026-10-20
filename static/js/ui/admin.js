@@ -65,9 +65,10 @@ function updateRoleUI(state) {
 
   // Waiting-room deal panel: above tabs, dealer only
   if (predealPanel) {
-    predealPanel.style.display = (isPreDeal && isMyDealerClient) ? "block" : "none";
+    // Hidden while the stake window runs so a double-tap on DEAL can't skip it
+    predealPanel.style.display = (isPreDeal && isMyDealerClient && !state.stake_window_open) ? "block" : "none";
   }
-  // Per-player bet panel: shown to non-dealer players in pre-deal (normal/digital mode only)
+  // Per-player stake panel: shown to every human seat while the stake window is open (normal mode only)
   _updateBetPanel(state, isPreDeal);
   // Hide all play actions until cards are on the table
   if (playContent) {
@@ -1668,7 +1669,7 @@ function setAnimToggle(on) {
 }
 
 // ---------------------------------------------------------------------------
-// Per-player bet panel (pre-deal, normal/digital mode only)
+// Per-player stake panel (stake window after Deal, normal/digital mode only)
 // ---------------------------------------------------------------------------
 
 function _updateBetPanel(state, isPreDeal) {
@@ -1679,29 +1680,43 @@ function _updateBetPanel(state, isPreDeal) {
   const isDrinking = state.drinking_mode;
   const isDigital  = state.mode === "digital";
 
-  // Only show in digital (normal-money) mode during pre-deal, for players who have seats
-  const isRoundOver = state.phase === PHASE.ROUND_OVER;
-  const show = (isPreDeal || isRoundOver) && isDigital && !isDrinking && myNames.length > 0;
+  const tableMap = {};
+  (state.table || []).forEach(p => { tableMap[p.name.toLowerCase()] = p; });
+  // Bots keep their stake locked, so only human seats get a stepper.
+  const mine = myNames.filter(n => {
+    const p = tableMap[n.toLowerCase()];
+    return p && !p.is_npc;
+  });
+
+  // Only while the stake window is open -- never at round-over, so the payout
+  // screen stays readable until the next Deal.
+  const show = isPreDeal && !!state.stake_window_open && isDigital && !isDrinking && mine.length > 0;
   panel.style.display = show ? "block" : "none";
   if (!show) return;
 
-  // Build one stepper per seat this client controls
-  const tableMap = {};
-  (state.table || []).forEach(p => { tableMap[p.name.toLowerCase()] = p; });
+  const countdown = document.getElementById("dig-bet-countdown");
+  if (countdown) countdown.textContent = Math.min(15, state.stake_window_seconds_left || 0);
+  const accept = document.getElementById("dig-bet-accept");
+  if (accept) {
+    const confirmed = (state.stake_confirmed || []).map(n => n.toLowerCase());
+    const accepted  = mine.every(n => confirmed.includes(n.toLowerCase()));
+    accept.disabled    = accepted;
+    accept.textContent = accepted ? "✓ Accepted — waiting for the others" : "✓ Accept stake";
+  }
 
   const defaultBet = state.bet_amount || 5;
 
   // Only rebuild if seats or bets changed (avoid clobbering in-progress steppers)
   const existing = container.querySelectorAll(".player-bet-stepper");
-  const needsRebuild = existing.length !== myNames.length ||
-    myNames.some((n, i) => {
+  const needsRebuild = existing.length !== mine.length ||
+    mine.some((n, i) => {
       const el = existing[i];
       return !el || el.dataset.seatName !== n;
     });
 
   if (!needsRebuild) {
     // Still sync displayed value from server state (another client could have polled)
-    myNames.forEach(n => {
+    mine.forEach(n => {
       const p   = tableMap[n.toLowerCase()];
       const val = p ? (p.player_bet || defaultBet) : defaultBet;
       const row = container.querySelector(`.player-bet-stepper[data-seat-name='${n}']`);
@@ -1718,7 +1733,7 @@ function _updateBetPanel(state, isPreDeal) {
   }
 
   container.innerHTML = "";
-  myNames.forEach(name => {
+  mine.forEach(name => {
     const p   = tableMap[name.toLowerCase()];
     const val = p ? (p.player_bet || defaultBet) : defaultBet;
     const min = 2.5;
@@ -1771,6 +1786,19 @@ function _changeBet(row, delta, min, max, step, playerName) {
   // Mark pending so poll doesn't overwrite mid-flight
   row.dataset.pending = "1";
   setPlayerBet(playerName, val).finally(() => { delete row.dataset.pending; });
+}
+
+async function confirmStake() {
+  if (!roomCode || !clientId) return;
+  try {
+    const res = await fetch("/confirm_stake", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
 }
 
 async function setPlayerBet(playerName, bet) {
