@@ -72,7 +72,7 @@ _WILD_CARD_COOLDOWN = 3   # rounds that must pass before the same player can pre
 
 @bp.route("/wild_card", methods=["POST"])
 def wild_card():
-    """Easter-egg logo press — 45/5/50 drink assignment."""
+    """Easter-egg logo press — 35/15/50 drink assignment."""
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
     client_id = (data.get("client_id") or "").strip()
@@ -171,7 +171,7 @@ def wild_card():
 
     # ── Record result ─────────────────────────────────────────────────────
     wc = session.drinks.wild_card_presses.setdefault(
-        player_name, {"presses": 0, "self": 0, "random": 0, "dud": 0, "targeted": 0})
+        player_name, {"presses": 0, "self": 0, "random": 0, "targeted": 0})
     wc["presses"] += 1
     wc[outcome]   += 1
     session._wild_card_last_used[player_name] = session.round_count

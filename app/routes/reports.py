@@ -188,9 +188,9 @@ def export_xlsx():
     # Wild Card
     if wc_presses:
         _xlsx_section(ws, "WILD CARD 🃏")
-        _xlsx_header(ws, ["Player", "Total presses", "Self", "Random", "Targeted", "Dud"])
+        _xlsx_header(ws, ["Player", "Total presses", "Self", "Random", "Targeted"])
         for name, s in sorted(wc_presses.items(), key=lambda x: -x[1]["presses"]):
-            ws.append([name, s["presses"], s["self"], s["random"], s.get("targeted", 0), s["dud"]])
+            ws.append([name, s["presses"], s["self"], s["random"], s.get("targeted", 0)])
         ws.append([])
 
     # Per-player sections

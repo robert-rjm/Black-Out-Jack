@@ -369,7 +369,6 @@ function processWildCardEvent(state) {
   _lastWildCardSeq = seq;
 
   const text    = state.wild_card_text;
-  const outcome = state.wild_card_outcome; // "self" | "random" | "targeted" | "dud"
   if (!text) return;
 
   const el = document.getElementById("player-toast");
@@ -379,8 +378,7 @@ function processWildCardEvent(state) {
 
   const _showWildToast = () => {
     el.textContent = text;
-    // gold for drink outcomes, clean (green) for dud
-    el.className = (outcome === "dud" ? "clean" : "wild-card") + " show";
+    el.className = "wild-card show";
     if (ToastUI.playerTimer) clearTimeout(ToastUI.playerTimer);
     ToastUI.playerTimer = setTimeout(() => el.classList.remove("show"), 7000);
   };
