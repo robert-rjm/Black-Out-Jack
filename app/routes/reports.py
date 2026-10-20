@@ -281,7 +281,7 @@ def export_xlsx():
                        round(eff / raw, 2) if raw else "—"]
                       + [per.get(f, 0) for f in all_factors])
         ws.append(["Avg factor = mean of the seat's drink factor over the rounds played; "
-                   "Effective ÷ raw also reflects exempt events (aces, bust vote, 666/777, Wild Card)."])
+                   "Effective ÷ raw also reflects events that skip boosters (aces, bust vote, 666/777, Wild Card)."])
         ws.append([])
 
     # Hand outcomes

@@ -16,7 +16,7 @@ import time
 
 from app.models.game_room import GameRoom
 from app.services.utils import classify_rule
-from engine.drink_rate import scale_sips
+from engine.drink_rate import exempt_rate, scale_sips
 from app.config import (
     MILESTONE_STEP,
     MILESTONE_TTL,
@@ -82,8 +82,8 @@ def award_sips(
     raw_sips = sips
     _p = session._get_player(player_name)
     rate = 1.0
-    if _p is not None and scale:
-        rate = _p.effective_drink_rate
+    if _p is not None:
+        rate = _p.effective_drink_rate if scale else exempt_rate(_p.effective_drink_rate)
         sips = scale_sips(raw_sips, rate)
     session.drinks.csv_rows.append({
         "round":  session.round_count,

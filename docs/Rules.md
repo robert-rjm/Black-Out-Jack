@@ -579,9 +579,10 @@ after wager scaling and after any halving rule
 ([6.1](#61-large-group-rules-4-players), [6.2](#62-easy-mode)), and to the
 sips handed out in a Milestone or Dealer Lottery.
 
-**The rate never applies to** Ace drinks and credits (including the
+**Boosters never apply to** Ace drinks and credits (including the
 Four-Aces rules), the Bust Vote (credit, penalty and handout), Devil's Hand /
-Lucky Sevens, or Wild Card sips. Those are always the raw amount.
+Lucky Sevens, or Wild Card sips. Those are always the raw amount for a booster,
+but a **discount still applies** to them (rounded up like any other discount).
 
 - **Discounts always round up**, so a sip penalty is never reduced below
   1 sip. A 1-sip penalty is always 1 sip at any rate.

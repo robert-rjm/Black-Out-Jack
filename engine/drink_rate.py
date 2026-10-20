@@ -39,6 +39,12 @@ def normalize_rate(value) -> float | None:
     return None
 
 
+def exempt_rate(rate: float) -> float:
+    """Rate applied to events that skip boosters (aces, bust vote, 666/777,
+    Wild Card): a discount still applies, a booster does not."""
+    return min(rate, 1.0)
+
+
 def scale_sips(sips: int, rate: float) -> int:
     """Sips actually drunk for `sips` owed at `rate`.
 
