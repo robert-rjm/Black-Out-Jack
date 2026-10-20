@@ -150,9 +150,10 @@ If the Dealer's final hand happens to be a **paired 18** (two 9s) or **paired 20
 - Each player picks a stake **X = 0-5** (20-second window; no answer defaults to 0)
 - If everyone picks 0, nothing happens — no draw, nothing logged
 - Otherwise the dealer's pair splits into fresh hands from a new shuffled deck, played out under the normal dealer-hits-to-17 rule — shown as a real card-by-card reveal animation. If a new card itself forms another matching pair, that hand splits again the same way a player's hand would, so a hot run of 9s or tens can turn this into three or more hands, up to **5 hands total across both branches combined**
-- **2 or more hands bust** (not necessarily all of them): credit yourself up to X sips off what you owe this round, and hand ceil(X/2) sips out to another player — always halved, rounded up, regardless of player count or Easy Mode (picker window mirrors the Bust Vote's)
-- **Exactly 1 hand busts**: nothing happens
-- **No hand busts**: drink X × (hands − 1), **capped at 10 sips** — scales with how many hands the redeal produced, so a re-split costs more to stand clean through, not just easier to credit off of. Never halved regardless of player count or Easy Mode
+- **2 or more hands bust** (not necessarily all of them): your whole stake pays out. It first credits what you owe this round; the rest is handed out to other players in full — never halved, whatever the player count or Easy Mode. Staking exactly 5 adds a 2 × wager bonus handout (picker window mirrors the Bust Vote's)
+- **Exactly 1 hand busts**: half your stake (rounded up) pays out the same way, with no bonus
+- **Biggest stake**: whoever staked the most (ties all count) always hands out 1 extra sip (1 × wager), in any outcome
+- **No hand busts**: drink X × hands ÷ 2 (rounded up), **capped at 10 × wager** — 2 hands cost your stake, 3 cost 1.5×, 4 cost 2×, 5 cost 2.5×, so a re-split costs a bit more to stand clean through. Never halved regardless of player count or Easy Mode
 
 ### Rules
 - The dealer is eligible to enter too, same as the Bust Vote

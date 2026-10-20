@@ -50,7 +50,9 @@ from app.services.targeted_drinking import (
     propose_targeted_drinking_target,
     submit_target_proposal_vote,
 )
-from app.services.payout_tracker import init_bankrolls
+from app.services.payout_tracker import (
+    init_bankrolls, human_names, stake_window_open, confirm_stake,
+)
 from app.services.game_engine import auto_play_npc_turns
 from app.services.afk import touch_client
 from app.services.drink_rate import offer_late_join_boost
@@ -959,7 +961,7 @@ def set_player_bet():
     if not session:
         return jsonify({"ok": False, "error": "room not found"})
 
-    if round_phase(session) not in ("pre-deal", "round-over"):
+    if round_phase(session) != "pre-deal":
         return jsonify({"ok": False, "error": "betting phase is over"})
 
     info = session._room_clients.get(client_id, {})
@@ -970,6 +972,11 @@ def set_player_bet():
     }
     if player_name.lower() not in my_names:
         return jsonify({"ok": False, "error": "not your seat"})
+
+    # A bot plays on at its current stake (lowered only if it can't afford it).
+    seat = session._get_player(player_name)
+    if seat is not None and getattr(seat, "is_npc", False):
+        return jsonify({"ok": False, "error": "a bot's stake can't be changed"})
 
     # Validate and clamp: multiples of 2.5, min 2.5, max 10× default
     try:
@@ -993,6 +1000,34 @@ def set_player_bet():
         session._player_bets = {}
     session._player_bets[player_name] = bet
     return jsonify({**serialize_state(session, client_id), "ok": True, "bet": bet})
+
+
+@bp.route("/confirm_stake", methods=["POST"])
+def confirm_stake_route():
+    """Accept the current stake for the seats this client controls while the
+    Normal-mode stake window is open. The cards are dealt on the next /state
+    tick once every human seat has accepted (or the window runs out).
+    Body: { room_code, client_id }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = data.get("client_id")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "room not found"})
+    if not stake_window_open(session):
+        return jsonify({"ok": False, "error": "no stake window is open"})
+
+    info = session._room_clients.get(client_id, {})
+    my_names = {
+        n.lower() for n in
+        (info.get("local_names") or []) + ([info.get("name")] if info.get("name") else [])
+        if n
+    }
+    for name in human_names(session):
+        if name.lower() in my_names:
+            confirm_stake(session, name)
+    return jsonify({**serialize_state(session, client_id), "ok": True})
 
 
 # ---------------------------------------------------------------------------

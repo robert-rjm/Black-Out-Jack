@@ -57,6 +57,7 @@ WORST_STREAK_THRESHOLD = 5
 # ---------------------------------------------------------------------------
 
 BUST_VOTE_WINDOW_SECONDS     = 15.5  # how long the dealer-bust side-bet vote stays open
+STAKE_WINDOW_SECONDS         = 15.5  # Normal mode: how long players can change/accept their stake after Deal (shows as 15)
                                    # (frontend countdown UI displays from 15)
 BUST_HANDOUT_WINDOW_SECONDS  = 20  # window to claim a dealer-bust sip handout
 INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) after this long
@@ -69,6 +70,9 @@ INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) a
 DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-responders default to 0
 DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS = 30  # handout waits for everyone to close the reveal; starts anyway after this
 DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS = 10  # a client only holds the handout up if it polled this recently
+DEALER_LOTTERY_ALL_IN_STAKE         = 5   # a stake of exactly this many wagers is "all-in"...
+DEALER_LOTTERY_ALL_IN_BONUS         = 2   # ...and earns this many extra wagers of handout on a 2+ bust win
+DEALER_LOTTERY_TOP_STAKE_BONUS      = 1   # wagers of extra handout for whoever staked the most (ties all get it), in any outcome
 DEALER_LOTTERY_MAX_HANDS            = 5  # cap on total hands across both split branches combined
 DEALER_LOTTERY_MAX_DRINK            = 10  # ceiling on the no-bust drink, however big the stake/redeal
 

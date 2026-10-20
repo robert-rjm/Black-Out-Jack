@@ -76,8 +76,9 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
    ```
 3. Mine the logs into per-player deviation tables:
    ```bash
-   python scripts/build_player_profiles.py                  # all players → engine/player_profiles/<name>.json
+   python scripts/build_player_profiles.py                  # rebuild EXISTING profiles only (new names are listed, skipped)
    python scripts/build_player_profiles.py --player Rob      # just rob.json
+   python scripts/build_player_profiles.py --player NewGuy   # new player: asks "create bot?" (add --yes to skip the prompt)
    python scripts/build_player_profiles.py --min-samples 3 --min-majority 0.60   # tune thresholds
    python scripts/build_player_profiles.py --merge           # fold in each player's EXISTING
                                                                 # profile instead of overwriting —

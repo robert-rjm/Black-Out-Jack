@@ -16,6 +16,7 @@ from app.models.game_room import GameRoom
 
 # RoundState attributes holding a bare monotonic deadline.
 _ROUND_DEADLINES = (
+    "_stake_window_expires_at",
     "_bust_vote_expires_at",
     "_bust_handout_expires_at",
     "_dealer_lottery_handout_expires_at",

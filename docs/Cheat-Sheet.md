@@ -162,9 +162,11 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 
 | Result | Effect |
 |--------|--------|
-| 2+ hands bust | Credit = min(X × wager, what you owe) sips, hand ceil(credit/2) out to another Player (always halved) |
-| Exactly 1 busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) × wager sips, max 10 × wager (never halved) |
+| 2+ hands bust | Stake pays out: debt first (credit), the rest handed out in full. Stake of 5 → **+2 × wager** bonus handout |
+| Exactly 1 busts | Half the stake (rounded up) pays out the same way, no bonus |
+| No hand busts | Drink X × hands ÷ 2 (rounded up; 2 hands = stake, 3 = 1.5×, 4 = 2×, 5 = 2.5×), max 10 × wager (never halved) |
+
+**Biggest stake** (ties all count) always hands out **+1 × wager**, whatever the result. Handouts start once everyone closes the reveal; assign within 20 seconds or drink them yourself.
 
 ---
 

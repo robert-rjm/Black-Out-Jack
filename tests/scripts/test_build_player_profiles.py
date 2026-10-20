@@ -8,7 +8,7 @@ exported via GET /export_decisions) into the lottery_stakes list consumed by
 engine/style_strategy.py's decide_dealer_lottery_stake.
 """
 
-from scripts.build_player_profiles import build_lottery_stakes
+from scripts.build_player_profiles import build_lottery_stakes, select_targets
 
 
 def _row(player="Rob", is_npc="False", x_entered="3", current_owed="0"):
@@ -52,3 +52,36 @@ def test_build_lottery_stakes_separates_buckets():
     by_bucket = {s["owed_bucket"]: s for s in stakes}
     assert by_bucket["none"]["avg_stake"] == 1.0
     assert by_bucket["high"]["avg_stake"] == 5.0
+
+
+# ---------------------------------------------------------------------------
+# select_targets: profiles are opt-in
+# ---------------------------------------------------------------------------
+
+def _never(name):
+    raise AssertionError(f"must not ask about {name}")
+
+
+def test_no_player_flag_only_rebuilds_existing_profiles():
+    targets, skipped, unknown = select_targets(
+        ["Andrej", "Rob", "Marko"], {"rob", "marko"}, None, _never)
+    assert targets == ["Rob", "Marko"]
+    assert skipped == ["Andrej"] and unknown == []
+
+
+def test_new_player_is_only_created_when_confirmed():
+    asked = []
+    def decline(name):
+        asked.append(name)
+        return False
+    assert select_targets(["Andrej"], set(), "andrej", decline) == ([], ["Andrej"], [])
+    assert asked == ["Andrej"]
+    assert select_targets(["Andrej"], set(), "ANDREJ", lambda n: True) == (["Andrej"], [], [])
+
+
+def test_existing_profile_with_player_flag_does_not_ask():
+    assert select_targets(["Rob"], {"rob"}, "rob", _never) == (["Rob"], [], [])
+
+
+def test_player_flag_for_name_not_in_logs_builds_nothing():
+    assert select_targets(["Rob"], {"rob"}, "Ghost", _never) == ([], [], ["Ghost"])

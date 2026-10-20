@@ -42,6 +42,9 @@
     if (action === "cycleLocalSeat") {
       return window.cycleLocalSeat();
     }
+    if (action === "confirmStake") {
+      return window.confirmStake();
+    }
     if (action === "setBustVoteSetupToggle") {
       return window.setBustVoteSetupToggle(!!el.checked);
     }

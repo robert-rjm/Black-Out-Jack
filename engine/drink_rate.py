@@ -39,6 +39,12 @@ def normalize_rate(value) -> float | None:
     return None
 
 
+def exempt_rate(rate: float) -> float:
+    """Rate applied to events that skip boosters (aces, bust vote, 666/777,
+    Wild Card): a discount still applies, a booster does not."""
+    return min(rate, 1.0)
+
+
 def scale_sips(sips: int, rate: float) -> int:
     """Sips actually drunk for `sips` owed at `rate`.
 
@@ -64,7 +70,8 @@ class DrinkEntry(tuple):
     3-tuple -- indexing, unpacking and equality all work -- but also carries
     `.raw`, the sips owed before the seat's rate was applied."""
 
-    def __new__(cls, sips, reason, role="player", raw=None):
+    def __new__(cls, sips, reason, role="player", raw=None, rate=1.0):
         obj = super().__new__(cls, (sips, reason, role))
         obj.raw = sips if raw is None else raw
+        obj.rate = rate   # factor actually applied (1.0 for exempt events)
         return obj

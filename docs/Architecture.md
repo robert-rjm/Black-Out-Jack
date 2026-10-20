@@ -38,12 +38,13 @@ Black-Out-Jack/
 │       ├── asset_bundler.py                # Concatenates static/js + static/css into bundle.js/bundle.css on startup
 │       ├── game_engine.py                  # Digital-mode dealing, player actions, dealer turn, NPC auto-play
 │       ├── drink_tracker.py                # Sip harvesting, milestones, bust-vote penalties, award_sips()
-│       ├── payout_tracker.py               # Cash wager/bankroll bookkeeping (Normal mode) — mirrors drink_tracker.py for dollars
+│       ├── payout_tracker.py               # Cash wager/bankroll bookkeeping + stake window (Normal mode) — mirrors drink_tracker.py for dollars
 │       ├── dealer_lottery.py               # Dealer Lottery bonus event (paired 18/20 redeal) — see Rules.md §5.9
 │       ├── targeted_drinking.py            # Targeted Drinking Mode: standalone between-round bust/stand mini-game, isolated dealer hand — see Rules.md §5.10
 │       ├── drink_rate.py                   # Drink Rate Mode: per-seat sip multiplier rules (own changes, admin proposal + majority vote, protection window, bot rate)
 │       ├── afk.py                          # Presence heartbeat, normal-round AFK seat absorption, unanimous admin-AFK vote; shared absorb_seat()
-│       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery + Targeted Drinking windows, AFK checks)
+│       ├── pause.py                        # Host table pause: freezes tick, shifts every monotonic deadline on resume
+│       ├── tick.py                         # Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery + Targeted Drinking windows, Normal-mode stake window, AFK checks)
 │       ├── utils.py                        # Cross-cutting app-layer utilities (classify_rule)
 │       ├── validators.py                   # sanitize_name, is_offensive_name (better-profanity), get_client_info; used by routes and serializer
 │       ├── serializer.py                   # Converts room state to the JSON payload for polling; validates against AppState
@@ -57,6 +58,7 @@ Black-Out-Jack/
 ├── docs/
 │   ├── Rules.md                            # Drinking Rules — the full reference
 │   ├── Cheat-Sheet.md                      # One-page quick reference for gameplay
+│   ├── Dev-Cheat-Sheet.md                  # CLI commands used during development
 │   ├── Comprehensive-Example.md            # Full round walkthrough + bonus-event illustrations
 │   ├── Architecture.md                     # This file
 │   ├── Multiplayer.md                      # Room setup, KPI panel, milestones, bust vote, Dealer Lottery, Targeted Drinking Mode, NPCs
@@ -64,7 +66,7 @@ Black-Out-Jack/
 │   ├── Terms.md                            # Terms & Disclaimer — single point of truth, mirrored (styled) at templates/terms.html
 │   ├── .rules_sync.json                    # Pinned hashes for the Rules/Code Sync Check (below)
 │   ├── .terms_sync.json                    # Pinned hashes for the Terms Doc Sync Check (below)
-│   └── planning/                           # Plans, roadmaps, TODOs (DealerLottery-Plan.md, PlayerStyleBots.md, ...)
+│   └── planning/                           # Plans, roadmaps, TODOs (PlayerStyleBots.md, DrinkTypeMode.md, TargetedDrinkingMode.md, TODO.md, ...)
 ├── static/
 │   ├── css/
 │   │   ├── main.css                        # Variables, reset, layout, bottom nav
@@ -115,6 +117,7 @@ Black-Out-Jack/
 │   ├── snapshot.py                         # Saves simulation output as a labeled regression snapshot
 │   ├── run_all_configs.py                  # Runs simulation across all player/deck configs in one pass
 │   ├── compare_configs.py                  # Diffs two benchmark configs; highlights balance changes
+│   ├── compare_bot_styles.py               # Simulation with basic-strategy bots vs named player-mimicry profiles, side-by-side diff
 │   ├── rules_sync.py                       # Rules/code drift check + re-pin (docs/.rules_sync.json)
 │   ├── terms_sync.py                       # Terms.md/terms.html drift check + re-pin (docs/.terms_sync.json)
 │   ├── load_decision_logs.py               # Concatenates exported decision logs, prints a per-player summary
@@ -135,6 +138,19 @@ Black-Out-Jack/
 │   │   ├── test_room_invite.py             # /room_invite: join link, QR SVG, LAN/proxy URL handling, code validation
 │   │   ├── test_normal_mode_no_drinking.py # Verifies no drinks fire outside drinking rules
 │   │   ├── test_payout_tracker.py          # PayoutTracker unit tests
+│   │   ├── test_award_sips_round_avg.py    # award_sips count_toward_round flag and the milestone worst-average-sips streak
+│   │   ├── test_drink_rate_exemptions.py   # Aces, bust vote, 666/777 and Wild Card sips: discount applies, booster does not
+│   │   ├── test_export_xlsx.py             # /export_xlsx Summary sheet (per-player clean rounds)
+│   │   ├── test_game_engine.py             # dealer_turn() end-of-round wiring (dealer exemption, sweep event)
+│   │   ├── test_kpi_stats.py               # compute_kpi_stats() in the serializer
+│   │   ├── test_milestone_win_streak.py    # Back-to-back milestone run callout (note_milestone_assigned)
+│   │   ├── test_normal_mode_casino.py      # Normal (casino) mode web path: no sips, doubles charged, bankroll floor, dealer peek, no mid-round reshuffle
+│   │   ├── test_pause.py                   # Host pause freezes tick and shifts clocks on resume
+│   │   ├── test_registry_lock.py           # Registration / seat-transfer registry lock
+│   │   ├── test_trophy.py                  # Trophy holder, crown badges and clean-round bookkeeping
+│   │   ├── test_validators.py              # Profanity filter and its entry points (/setup, add_player, rejoin)
+│   │   ├── test_wild_card.py               # Wild Card 'targeted' outcome launching Targeted Drinking Mode
+│   │   ├── test_stake_window.py            # Normal-mode stake window after Deal, bot stake lock, no betting at round-over
 │   │   ├── test_targeted_drinking.py       # Targeted Drinking Mode: service, admin/vote routes, serializer, pipeline ordering (Rules.md §5.10)
 │   │   └── test_terms_doc_sync.py          # Fails if docs/Terms.md / templates/terms.html drift apart
 │   ├── engine/                             # Core engine tests
@@ -150,6 +166,8 @@ Black-Out-Jack/
 │   │   ├── test_round_end_helpers.py       # Round-end helper unit tests
 │   │   ├── test_round_manager_integration.py   # Scripted, seeded full-round integration tests
 │   │   ├── test_regression_snapshots.py    # Statistical regression vs. scripts/snapshots/
+│   │   ├── test_referee_endround_sweep.py          # Referee cmd_endround() all-hands sweep call (mirror of the digital test_game_engine bug)
+│   │   ├── test_wager_scaling.py                   # Every drink penalty/credit scales linearly with the wager
 │   │   ├── test_style_strategy.py          # Player-mimicry bot resolver: deviations, table_bias, sibling signal, lottery stakes
 │   │   └── test_rules_doc_sync.py          # Fails if docs/Rules.md / drinking_rules.py drift apart
 │   └── scripts/                            # Tooling tests
@@ -179,9 +197,9 @@ The main files are intentionally decoupled:
 | `engine/style_strategy.py` | `engine/strategy.py`, `engine/player_profiles/*.json` | Player-mimicry bot resolver: `best_play_for()` looks up a mined deviation table (hand context + table_bias/sibling_awaiting_deal signals), `decide_dealer_lottery_stake()` looks up a mined stake tendency bucketed by sips owed; both fall back to plain basic strategy / opting out when no profile data exists |
 | `app/services/asset_bundler.py` | `static/js/*`, `static/css/*` (source files, read not imported) | Concatenates the app's JS/CSS source files into `static/js/bundle.js` / `static/css/bundle.css` on every `create_app()` call; called from `app/__init__.py`. Bundle files are gitignored — regenerated fresh every startup, never a stale committed artifact. |
 | `app/services/validators.py` | `better-profanity` | `sanitize_name` (XSS/formatting) + `is_offensive_name` (profanity, checked only at the free-text name-creation entry points: `/setup`, `/update_settings`'s `add_player`, `/request_rejoin`) + `get_client_info`; used by routes and serializer |
-| `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery entry/handout windows, Targeted Drinking mini-round start/forfeit, normal-round AFK absorption, admin-AFK vote expiry); imported by `polling.py` |
+| `app/services/tick.py` | `app/services/` | Per-poll side-effect tick (insurance resolve, forfeit, deferred dealer play, Dealer Lottery entry/handout windows, Targeted Drinking mini-round start/forfeit, normal-round AFK absorption, admin-AFK vote expiry, Normal-mode stake window close → `deal_now`); imported by `polling.py` |
 | `app/services/drink_rate.py` | `engine/drink_rate.py`, `app/services/afk.py` (`is_client_connected`), `app/services/serializer.py` (`round_phase`), `app/models/game_room.py` | Drink Rate Mode rules (docs/planning/DrinkTypeMode.md). `set_own_rate`: drinking the same or more is free, a discount is refused. `open_rate_proposal` / `cast_rate_vote` / `apply_drink_rate_forfeit`: admin-proposed, strict-majority vote (beneficiary votes; a protected player must also vote Yes). Players who reset to 1.0 are shielded for `DRINK_RATE_PROTECTION_ROUNDS` rounds. `_schedule_rate` / `apply_queued_rates`: changes apply immediately pre-deal, otherwise at the next `reset_round_state`. `sync_drink_rates` (ticked) derives bot rates (shared human rate or 1.0). `open_rate_proposal` also lets a non-admin open the same vote for a lower rate on their own seat (a "request"; a failed one freezes that seat for `DRINK_RATE_REQUEST_FREEZE_ROUNDS`), and `offer_late_join_boost` (called from `polling.py`'s `handle_registration` when a human takes over a bot seat) stores a recommended-booster offer per client (`recommend_late_join_rate`), cleared by `set_own_rate` or `/drink_rate/dismiss_offer`. `serialize_drink_rates` builds the `drink_rates` state block (including `late_join_offer` for the requesting client) |
-| `engine/drink_rate.py` | none (pure) | Allowed rates, presets (beer 1.0, wine 0.6, cocktail 0.4), `scale_sips` (discounts round up; boosters round up from 0.25) and `DrinkEntry`, the drop-in 3-tuple drink_log entry that also carries `.raw`. Used directly by `Player.add_drink`, so every sip a seat receives is scaled at the receiver; `award_sips` does the same for post-harvest sips |
+| `engine/drink_rate.py` | none (pure) | Allowed rates, presets (beer 1.0, wine 0.6, cocktail 0.4), `scale_sips` (discounts round up; boosters round up from 0.25), `exempt_rate` (caps a rate at 1.0 for aces / bust vote / 666-777 / Wild Card: a discount still applies, a booster does not) and `DrinkEntry`, the drop-in 3-tuple drink_log entry that also carries `.raw`. Used directly by `Player.add_drink`, so every sip a seat receives is scaled at the receiver; `award_sips` does the same for post-harvest sips |
 | `app/services/afk.py` | `app/models/game_room.py`, `app/services/serializer.py` (`round_phase`, `current_turn`), `app/config.py` | AFK handling. `touch_client` stamps `session._client_last_seen` on every `/state` poll (called from `polling.py`); a client silent for `AFK_DISCONNECT_SECONDS` counts as gone. `apply_normal_round_afk` (ticked) hands a gone client's seat to the admin when it is their turn. `absorb_seat` is the shared seat-move (admin `local_names` + original holder to spectator + one-shot `afk_notice`), also used by `targeted_drinking.py` for its 2-missed-votes rule. Admin-AFK vote: `open_admin_afk_vote` / `cast_admin_afk_vote` / `apply_admin_afk_vote_forfeit` (unanimous, only while `admin_is_blocking`); `serialize_admin_afk_vote` builds the `admin_afk_vote` state block. The admin-role handover on a pass lives in `routes/admin.py` (`_hand_admin_to_voter`) because it reuses `_transfer_local_names` |
 | `app/services/dealer_lottery.py` | `engine/blackjack.py` (isolated `Deck`/`Hand`), `app/services/drink_tracker.py`, `app/services/decision_log.py` | Dealer Lottery bonus event: trigger detection, entry window, recursive re-splitting (mirrors `Hand.split()`/`MAX_SPLITS`), and the all-bust/none-bust/mixed payout — see Rules.md §5.9 |
 | `app/services/targeted_drinking.py` | `engine/blackjack.py` (isolated `Deck`/`Hand`), `app/models/game_room.py`, `app/services/drink_tracker.py` (`award_sips`), `app/services/serializer.py` (`serialize_card`) | Targeted Drinking Mode: admin-started standalone mini-game played between normal rounds for a fixed player list -- deals its own isolated dealer-only hand (never the round's real dealer hand) once the vote window closes, with a 3-in-a-row graduation streak and a flat cooldown — see Rules.md §5.10. Trigger/pending/resolve shape mirrors `dealer_lottery.py`: `check_targeted_drinking_trigger` (round-end) → `maybe_start_targeted_drinking_round` (ticked, waits for milestone/Dealer Lottery to clear) → `apply_targeted_drinking_vote_forfeit` (ticked, resolves on expiry) |
@@ -194,8 +212,9 @@ The main files are intentionally decoupled:
 | `scripts/compare_configs.py` | `scripts/benchmarks.json` | Diffs two benchmark configs; highlights balance changes between runs |
 | `scripts/rules_sync.py` | `docs/Rules.md`, `engine/drinking_rules.py`, `docs/.rules_sync.json` | Hash-based drift check + re-pin helper (see [Rules/Code Sync Check](#rulescode-sync-check)) |
 | `scripts/terms_sync.py` | `docs/Terms.md`, `templates/terms.html`, `docs/.terms_sync.json` | Hash-based drift check + re-pin helper (see [Terms Doc Sync Check](#terms-doc-sync-check)) |
-| `scripts/build_player_profiles.py` | `data/decisions/decision_log_*.xlsx`, `engine/style_strategy.py` (shared bucket thresholds) | Mines the "Hand Decisions" and "Dealer Lottery Entries" sheets into `engine/player_profiles/<name>.json`'s `deviations` and `lottery_stakes` |
+| `scripts/build_player_profiles.py` | `data/decisions/decision_log_*.xlsx`, `engine/style_strategy.py` (shared bucket thresholds) | Mines the "Hand Decisions" and "Dealer Lottery Entries" sheets into `engine/player_profiles/<name>.json`'s `deviations` and `lottery_stakes`. Opt-in: a bare run only rebuilds players who already have a profile; a new player needs `--player <name>` plus a "create bot?" confirmation (or `--yes`) |
 | `app/services/utils.py` | _(none)_ | Pure helper functions used across app services. Currently: `classify_rule()` — maps raw drink-reason strings to short canonical category names for CSV export and the UI. Moved here from `engine/drinking_rules.py` (refactor 4.2). |
+| `app/services/pause.py` | `app/models/game_room.py` | Host table pause. `pause_game` stamps `_paused_at` (tick then returns early, the frontend shows a Paused overlay); `resume_game` pushes every monotonic deadline (`RoundState` deadlines and `expires_at`/`set_at`/`started_at` dicts, drink-ledger results, session clock) forward by the time spent paused. Used by `admin.py` (`/set_paused`) |
 | `app/services/round_pipeline.py` | `app/services/drink_tracker.py`, `app/services/payout_tracker.py`, `app/services/decision_log.py`, `app/services/dealer_lottery.py`, `app/services/targeted_drinking.py` | Single authoritative post-round sequence: bust-vote penalties → harvest drink log → milestone check → Dealer Lottery trigger check → Targeted Drinking trigger check → payouts → backfill. Imported by both `game_commands.py` and `polling.py` so pipeline ordering only needs to change in one place. |
 | `app/services/decision_log.py` | `app/models/game_room.py`, `engine/strategy.py` | Captures one row per player decision (hit/stand/double/split/insurance) and one row per Dealer Lottery stake entry, both with board-state context for bot training; exported via `/export_decisions` |
 | `app/models/state_schema.py` | `pydantic` | `AppState` — the runtime schema for `serialize_state()`'s return value. Every field `serialize_state` produces must appear here with the right type, and every model uses `extra="forbid"`, so a serializer/schema drift raises immediately instead of reaching the frontend as a missing/misshapen field. |

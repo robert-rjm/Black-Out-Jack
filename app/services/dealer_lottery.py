@@ -23,7 +23,9 @@ from engine.blackjack import Card, Deck, Hand
 from app.models.game_room import GameRoom
 from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_DRINK,
                         DEALER_LOTTERY_MAX_HANDS, DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS,
-                        DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS)
+                        DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS,
+                        DEALER_LOTTERY_ALL_IN_STAKE, DEALER_LOTTERY_ALL_IN_BONUS,
+                        DEALER_LOTTERY_TOP_STAKE_BONUS)
 from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
 from app.services.serializer import serialize_card
@@ -199,27 +201,23 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     X > 0 entrant per the payout table in Rules.md §5.9:
 
       - 2 or more hands bust (regardless of how many hands total -- a
-        re-split just makes this easier to reach): credit yourself
-        min(X, your current owed sips this round) -- floored at 0, never
-        negative -- and open a handout window to give ceil(credit/2) to
-        another player, mirroring /give_bust_sip's exact pattern. The
-        handout is derived from the credit actually received, not the raw
-        stake X, so staking more than you currently owe can't buy outsized
-        handout power on the side -- your whole win (credit + handout)
-        tops out at what X could actually offset, or nothing if you
-        didn't owe anything this round to begin with.
-      - No hand busts: drink X * (n_hands - 1), capped at
-        DEALER_LOTTERY_MAX_DRINK -- never halved. Only the
-        handout (above) is halved; halving softens what you hand to
-        someone else, not what you owe yourself. n_hands - 1 is 1 for the
-        base (un-split) case and increases by 1 per re-split, so standing
-        through a re-split chain costs more the longer that chain runs --
-        up to the cap, which exists because the credit side is floored
-        at what you actually owe while this side had no ceiling at all:
-        an uncapped X=5 through a full 5-hand chain was 20 sips, a
-        session-sized hit off one post-round side bet.
-      - Anything in between (exactly 1 hand busts): nothing happens -- no
-        drink, no credit.
+        re-split just makes this easier to reach): the whole stake X pays
+        out. It first credits what you owe this round (min(X, owed),
+        floored at 0, never negative); the rest of X is handed out in full
+        to other players (mirroring /give_bust_sip's exact pattern). Staking
+        exactly DEALER_LOTTERY_ALL_IN_STAKE adds DEALER_LOTTERY_ALL_IN_BONUS
+        wagers of extra handout.
+      - Whoever staked the most (ties all count) always gets
+        DEALER_LOTTERY_TOP_STAKE_BONUS wager(s) of extra handout, in any
+        outcome and regardless of how much they owed.
+      - Exactly 1 hand busts: half the stake (rounded up) pays out the same
+        way (debt first, remainder handed out), with no all-in bonus.
+      - No hand busts: drink X * n_hands / 2 (rounded up), capped at
+        DEALER_LOTTERY_MAX_DRINK * wager -- never halved. The multiplier is 1.0
+        for the base 2 hands and grows by 0.5 per re-split (1.5, 2.0,
+        2.5), so standing through a re-split chain costs more the longer
+        it runs, but only gently -- the credit side is floored at what
+        you actually owe, so this side shouldn't punish much harder.
 
     Total hands across both split branches combined are capped at
     DEALER_LOTTERY_MAX_HANDS (see _deal_and_resolve_hand) -- keeps a hot
@@ -233,9 +231,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     easier (and thus relatively better for the entrant) as re-splits make
     it rarer to land on the same side across every hand.
 
-    The handout (never the drink or self-credit) is always halved,
-    rounded up -- unconditionally, not just under the 4+-player/Easy Mode
-    halving DrinkTracker.apply_end_of_round uses elsewhere.
+    Handouts are never halved, whatever the group size or Easy Mode.
     """
     pending = session.round._pending_dealer_lottery
     if not pending:
@@ -277,36 +273,47 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
 
     wager = session.wager   # entries are in wagers (0-5); sips = wagers * wager
+    top_stake = max(entries.values(), default=0)   # whoever staked the most (ties all count)
     for name, x in entries.items():
         if x <= 0:
             continue
-        if busted >= 2:
+        stake = x * wager
+        if busted >= 2 or busted == 1:
+            # 2+ hands bust: the whole stake pays out. Exactly 1: half of it
+            # (rounded up). The payout first pays down what you owe this round;
+            # whatever is left over you hand out to others (never halved), so a
+            # bigger stake always earns more even if you owe little. An all-in
+            # stake on a 2+ win earns a flat bonus handout on top.
+            payout = stake if busted >= 2 else math.ceil(stake / 2)
             current_owed = max(0, session.drinks.last_round_sips.get(name, 0))
-            credit = min(x * wager, current_owed)
+            credit = min(payout, current_owed)
+            handout_amt = payout - credit
+            if busted >= 2 and x == DEALER_LOTTERY_ALL_IN_STAKE:
+                handout_amt += DEALER_LOTTERY_ALL_IN_BONUS * wager
             if credit > 0:
                 award_sips(
                     session, name, -credit, "Dealer Lottery credit",
                     reason=f"Dealer Lottery: {busted}/{n_hands} split hands busted -- -{credit} sip credit",
                 )
                 credit_amounts[name] = credit
-                # Derived from the credit actually received, not the raw
-                # stake -- a stake that outstrips what you owed shouldn't
-                # buy handout power you never actually earned.
-                handout_amt = math.ceil(credit / 2)
-                if handout_amt > 0:
-                    pending_handouts[name] = handout_amt
+            if handout_amt > 0:
+                pending_handouts[name] = handout_amt
         elif busted == 0:
-            # Drink is never halved -- only the handout is (halving softens
-            # what you hand to someone else, not what you owe yourself).
-            # Scales with n_hands so standing through a re-split chain
-            # costs more than standing on the un-split base case.
-            drink = min(x * (n_hands - 1) * wager, DEALER_LOTTERY_MAX_DRINK * wager)
+            # Stake x hands / 2, rounded up: 2 hands = the stake, 3 = 1.5x,
+            # 4 = 2x, 5 = 2.5x -- standing through a re-split chain costs
+            # more than the un-split base case, but only gently.
+            drink = min(math.ceil(x * wager * n_hands / 2), DEALER_LOTTERY_MAX_DRINK * wager)
             award_sips(
                 session, name, drink, "Dealer Lottery drink",
                 reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",
             )
             drink_amounts[name] = drink
-        # busted == 1: exactly one hand busted, the rest didn't -- nothing happens.
+        # Boldness bonus: staking the most (or tying for it) always earns an
+        # extra handout, whatever the outcome and whether or not the stake
+        # exceeded what you owed.
+        if x == top_stake:
+            pending_handouts[name] = pending_handouts.get(name, 0) + DEALER_LOTTERY_TOP_STAKE_BONUS * wager
+
 
     # The handout clock does not start now: it waits for every connected player
     # to close the reveal (see maybe_start_dealer_lottery_handout).

@@ -98,10 +98,21 @@
 }
 
 /* ---- SETTINGS MODAL: Players sub-view ---- */
-.settings-players-nav-btn {
-  margin: 4px 0 14px;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
+/* Pause / Drink rate / Players: equal-width tiles in one row */
+.settings-actions { display: flex; gap: 8px; margin: 0 0 14px; }
+.settings-action {
+  position: relative;
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  min-height: 60px; padding: 8px 4px;
+  background: var(--wash-1); border: 1.5px solid var(--border-control);
+  border-radius: var(--radius); color: var(--text);
+  font-size: 12px; font-weight: 600; line-height: 1.15; text-align: center;
+  cursor: pointer; transition: background .12s, transform .08s;
 }
+.settings-action:active { background: var(--wash-3); transform: scale(.96); }
+.settings-action .sa-icon { font-size: 20px; line-height: 1; }
+.settings-action .settings-players-badge { position: absolute; top: 5px; right: 8px; }
 .settings-players-badge {
   min-width: 18px; height: 18px; padding: 0 5px;
   border-radius: 9px;

@@ -706,3 +706,28 @@ def test_a_protected_player_still_must_vote_yes_at_the_deadline():
     _expire(room)
     assert room._drink_rate_last_result["passed"] is False
     assert _p(room, "Bob").drink_rate == 1.0
+
+
+def test_rows_record_the_factor_applied_and_exempt_rows_skip_boosters():
+    room = _room()
+    _p(room, "Bob").effective_drink_rate = 0.6
+    award_sips(room, "Bob", 3, "Net hand losses")
+    award_sips(room, "Bob", 3, "Bust vote handout", scale=False)
+    assert room.drinks.csv_rows[-2]["rate"] == 0.6
+    last = room.drinks.csv_rows[-1]
+    assert last["rate"] == 0.6 and last["sips"] == 2 and last["sips_raw"] == 3
+    _p(room, "Bob").effective_drink_rate = 1.5
+    award_sips(room, "Bob", 3, "Bust vote handout", scale=False)
+    last = room.drinks.csv_rows[-1]
+    assert last["rate"] == 1.0 and last["sips"] == last["sips_raw"] == 3
+
+
+def test_harvest_counts_rounds_at_each_factor():
+    from app.services.drink_tracker import _record_rate_rounds
+    room = _room()
+    _p(room, "Bob").effective_drink_rate = 0.6
+    _record_rate_rounds(room)
+    _p(room, "Bob").effective_drink_rate = 1.0
+    _record_rate_rounds(room)
+    _record_rate_rounds(room)
+    assert room.stats.rate_rounds["Bob"] == {0.6: 1, 1.0: 2}

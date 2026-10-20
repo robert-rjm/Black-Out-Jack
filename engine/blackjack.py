@@ -269,18 +269,18 @@ class Player:
 
     def add_drink(self, sips: int, reason: str, role: str = "player", *, scale: bool = True):
         """role: 'player' (betting-hand drink) or 'dealer' (dealer-seat drink).
-        scale=False skips the Drink Rate multiplier (aces, bust vote, Devil's
-        Hand / Lucky Sevens and Wild Card sips are always the raw amount)."""
+        scale=False is for aces, bust vote, Devil's Hand / Lucky Sevens and
+        Wild Card sips: a discount rate still applies, a booster does not."""
         if sips != 0:
-            scaled = scale_sips(sips, self.effective_drink_rate) if scale else sips
-            self.drink_log.append(DrinkEntry(scaled, reason, role, raw=sips))
+            rate = self.effective_drink_rate if scale else exempt_rate(self.effective_drink_rate)
+            self.drink_log.append(DrinkEntry(scale_sips(sips, rate), reason, role, raw=sips, rate=rate))
 
     def __str__(self):  return self.name
     def __repr__(self): return f"Player({self.name})"
 
 
 # Strategy tables and resolver live in strategy.py
-from engine.drink_rate import DrinkEntry, scale_sips  # noqa: E402
+from engine.drink_rate import DrinkEntry, exempt_rate, scale_sips  # noqa: E402
 from engine.strategy import best_play as _strategy_best_play  # noqa: E402
 
 

@@ -112,6 +112,6 @@ def test_targeted_roll_falls_back_to_random_drink_when_subgame_already_active(cl
     assert data["wild_card_outcome"] == "random"
     # The already-running subgame's targets are untouched, not overwritten.
     assert room._targeted_drinking_targets == ["Bob"]
-    assert room.drinks.wild_card_presses["Alice"]["dud"] == 0
+    assert "dud" not in room.drinks.wild_card_presses["Alice"]
     assert room.drinks.wild_card_presses["Alice"]["random"] == 1
     assert room.drinks.wild_card_presses["Alice"]["targeted"] == 0

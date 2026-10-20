@@ -83,3 +83,26 @@ def test_export_clean_rounds_defaults_to_zero_when_untracked(client):
         assert any("Clean rounds: 0/2 (0.0%)" in line for line in joined)
     finally:
         game_sessions.pop(room_code, None)
+
+
+def test_export_includes_raw_sips_and_drink_rate_section(client):
+    room_code, room = _make_room_with_export_data()
+    room.drinks.csv_rows = [
+        {"round": 1, "dealer": "Alice", "player": "Bob", "role": "player",
+         "rule": "Net hand losses", "sips": 2, "sips_raw": 3, "rate": 0.6},
+        {"round": 2, "dealer": "Alice", "player": "Bob", "role": "player",
+         "rule": "Net hand losses", "sips": 1, "sips_raw": 1, "rate": 1.0},
+    ]
+    room.stats.rate_rounds = {"Bob": {0.6: 1, 1.0: 1}, "Alice": {1.0: 2}}
+    try:
+        resp = client.get(f"/export_xlsx?room_code={room_code}")
+        rows = _summary_rows(resp.data)
+        joined = [" | ".join(str(c) for c in row if c is not None) for row in rows]
+        assert any("Raw sips: 4" in line and "Avg drink factor: 0.80×" in line for line in joined)
+        assert any(line.startswith("DRINK RATE") for line in joined)
+        assert any(line.startswith("Bob | 2 | 0.8 | 4 | 3 | 0.75") for line in joined)
+        wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+        header = [c.value for c in wb["Raw Rows"][1]]
+        assert header[-2:] == ["sips_raw", "rate"]
+    finally:
+        game_sessions.pop(room_code, None)

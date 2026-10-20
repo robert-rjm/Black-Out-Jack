@@ -392,25 +392,29 @@ If another Player's losing streak grows **strictly longer** than the current hol
 
 ### 5.9 Dealer Lottery
 
-If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards) — the only way this can happen is as the dealt starting hand, since the Dealer always stands on 17+ — every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
+If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards), every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
 
-Each Player picks a stake **X = 0-5 wagers** (X × wager sips; 20-second window; no answer defaults to 0). If everyone picks 0, nothing happens. Otherwise the Dealer's pair is split into two fresh hands from a new shuffled deck and played out under the normal dealer-hits-to-17 rule — and if a hand's new card itself forms another matching pair, it splits again the same way a Player's hand would, so a hot run of 9s or tens can turn this into three, four, or more hands, up to **5 hands total across both branches combined** (not per branch).
+**1. Stake.** Each Player picks **X = 0 to 5 wagers** (X × wager sips) within 20 seconds. No answer counts as 0. If everyone picks 0, nothing happens.
 
-| Result | Effect |
+**2. Redeal.** The Dealer's pair is split into two fresh hands from a new shuffled deck, and each is played out to 17. A hand that draws another matching pair splits again, up to **5 hands in total**.
+
+**3. Result.** Your stake **pays out** based on how many hands bust. A payout first pays down what you owe this round; whatever is left over you **hand out** to other Players, in full.
+
+| Hands busted | Effect on you |
 | --- | --- |
-| 2 or more hands bust | Credit yourself `credit` = min(X × wager, what you owe this round) sips (never below 0), and hand out ceil(credit/2) sips to another Player |
-| Exactly 1 hand busts | Nothing happens |
-| No hand busts | Drink X × (hands − 1) × wager sips, **capped at 10 × wager** |
+| 2 or more | The **whole stake** pays out. **All-in bonus:** a stake of 5 hands out **2 × wager extra**. |
+| Exactly 1 | **Half the stake** pays out (rounded up). No bonus. |
+| None | **Drink** X × hands ÷ 2 (rounded up), capped at 10 × wager. Two hands cost your stake, three cost 1.5×, four 2×, five 2.5×. |
 
-The bust threshold is "2 or more," not "every hand" — a re-split only ever makes the credit *easier* to reach, never harder. To balance that out, standing through a re-split costs more too: the drink scales with how many hands the redeal produced (2 hands = X, 3 hands = 2X, 4 hands = 3X, and so on), so a hot run that made the credit easier also makes standing clean more expensive — up to a **10 × wager ceiling** on the drink. The cap exists because the two sides aren't symmetric: the credit is floored at what you actually owe this round, while the drink had no ceiling at all, so X=5 standing through a full 5-hand chain was 20 sips off a single post-round side bet.
+- **Debt first:** a payout only credits what you owe this round (never below 0). If your payout is bigger than your debt, the rest becomes a handout, so a bigger stake always earns more, even if you owe little.
+- **Handouts are never halved,** whatever the group size or Easy Mode. They start once everyone has closed the reveal; you have 20 seconds to assign yours, or you drink them yourself.
+- **The no-bust drink is never halved.**
+- **Boldest stake bonus:** whoever staked the **most** (everyone who ties for it) always hands out **1 extra sip (1 × wager)**, whatever the result and however much they owed.
 
-The handout amount is always halved (rounded up), regardless of player count or Easy Mode — the drink (no-bust) amount is always the full X × (hands − 1) up to the cap, and the self-credit is never halved either. The handout is derived from the **credit actually received**, not the raw stake X — staking more than you currently owe can't buy outsized handout power on the side; the whole win (credit + handout) tops out at what X could actually offset, or nothing at all if you didn't owe anything this round to begin with.
-
-> **Example:** Dealer stands on K♠ Q♥ (20). Alice, who owes 3 sips this round, enters with X=5; Bob enters with 0. The redeal splits into K♠+? and Q♥+?; both bust. Alice's credit floors at what she owed (3, not the full 5), so she credits herself 3 sips and hands ceil(3/2) = 2 sips to another Player of her choice. Bob, having entered 0, is unaffected either way.
->
-> **Re-split example:** Same trigger, but K♠'s redraw pairs again and re-splits into two hands. If any 2 of the resulting 3 hands bust, Alice still gets the full credit + handout as above — she didn't need the third hand to bust too. If instead all 3 stand, she drinks 5 × (3 − 1) = 10 sips instead of the base 5 — which is also where the cap bites: a fourth or fifth hand wouldn't cost her any more.
-
-The Dealer is eligible to enter too, same as the [Side Bet Dealer Bust](#44-side-bet-dealer-bust).
+> **Example (wager 1):** The Dealer shows K♠ Q♥. Alice owes 3 and stakes 5; Bob owes 0 and stakes 3.
+> - **Two or more hands bust:** Alice's 5 pays her debt (3), leaving 2, plus the 2 all-in bonus and 1 for staking the most: she owes 0 and hands out **5**. Bob has no debt, so he hands out his whole stake: **3**.
+> - **Exactly one hand busts:** half the stake pays out. Alice: ceil(5 ÷ 2) = 3, so she owes 0, then hands out **1** (the staking-the-most bonus). Bob: ceil(3 ÷ 2) = 2, so he hands out **2**.
+> - **No hand busts (2 hands):** Alice drinks **5** and still hands out **1** (staking the most); Bob drinks **3**.
 
 
 ### 5.10 Targeted Drinking Mode
@@ -575,9 +579,10 @@ after wager scaling and after any halving rule
 ([6.1](#61-large-group-rules-4-players), [6.2](#62-easy-mode)), and to the
 sips handed out in a Milestone or Dealer Lottery.
 
-**The rate never applies to** Ace drinks and credits (including the
+**Boosters never apply to** Ace drinks and credits (including the
 Four-Aces rules), the Bust Vote (credit, penalty and handout), Devil's Hand /
-Lucky Sevens, or Wild Card sips. Those are always the raw amount.
+Lucky Sevens, or Wild Card sips. Those are always the raw amount for a booster,
+but a **discount still applies** to them (rounded up like any other discount).
 
 - **Discounts always round up**, so a sip penalty is never reduced below
   1 sip. A 1-sip penalty is always 1 sip at any rate.
