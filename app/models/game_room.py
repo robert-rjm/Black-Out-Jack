@@ -149,6 +149,11 @@ class RoundState:
     # The handout window only starts once every connected player has closed the
     # draw-reveal modal (client ids in _dealer_lottery_reveal_acked); until then
     # _dealer_lottery_reveal_deadline is the safety cap after which it starts anyway.
+    # "Invisible credit": the part of a winning stake the credit couldn't use
+    # (stake - what was owed). It never touches the sip counter; it only offsets
+    # Dealer Lottery handout sips landing on that player, and is dropped once
+    # every handout is given or forfeited.
+    _dealer_lottery_invisible_credit: dict = field(default_factory=dict)
     _dealer_lottery_reveal_acked: set = field(default_factory=set)
     _dealer_lottery_reveal_deadline: float | None = None
     _dealer_lottery_handouts_given: set = field(default_factory=set)

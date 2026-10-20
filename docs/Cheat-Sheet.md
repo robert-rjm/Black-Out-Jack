@@ -166,6 +166,8 @@ Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (two ten-value 
 | Exactly 1 busts | Nothing happens |
 | No hand busts | Drink X × (hands − 1) × wager sips, max 10 × wager (never halved) |
 
+**Unused stake** *invisible credit*: it shrinks handout sips that land on you from this lottery, and never changes your sip counter. Handouts start once everyone closes the reveal; assign within 20 seconds or drink them yourself.
+
 ---
 
 ## Targeted Drinking Mode

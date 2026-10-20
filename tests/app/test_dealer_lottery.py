@@ -1185,3 +1185,52 @@ def test_waiting_on_lists_only_recent_unacked_clients(monkeypatch):
     room._client_last_seen["b"] = time.monotonic() - 30   # stale: not holding it up
     assert dealer_lottery_reveal_waiting_on(room) == []
     assert serialize_state(room, "a")["dealer_lottery"]["reveal_waiting_on"] == []
+
+
+# ---------------------------------------------------------------------------
+# Invisible credit: unused stake offsets incoming handouts, never the counter
+# ---------------------------------------------------------------------------
+
+def _two_stake_room(monkeypatch):
+    room = _nine_pair_room()
+    room.drinks.last_round_sips["Alice"] = 3
+    room.drinks.last_round_sips["Bob"] = 4
+    submit_dealer_lottery_entry(room, "Alice", 4)
+    submit_dealer_lottery_entry(room, "Bob", 4)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+    _skip_reveal_wait(room)
+    return room
+
+
+def test_unused_stake_becomes_invisible_credit(monkeypatch):
+    room = _two_stake_room(monkeypatch)
+    assert room.round._dealer_lottery_invisible_credit == {"Alice": 1}   # stake 4 - owed 3
+    result = room.drinks.last_dealer_lottery_result
+    assert result["pending_handouts"] == {"Alice": 2, "Bob": 2}
+
+
+def test_handout_onto_player_is_netted_by_their_invisible_credit(monkeypatch):
+    room = _two_stake_room(monkeypatch)
+    assert give_dealer_lottery_sip(room, "Bob", "Alice") is True
+    # Alice owed 3, credited 3, then Bob's 2-sip handout minus her 1 unused credit = 1
+    assert room.drinks.last_round_sips["Alice"] == 1
+    assert room.drinks.sip_ticker.get("Alice", 0) == 1   # the counter only ever moves up by what she drinks
+    assert room.round._dealer_lottery_invisible_credit == {}
+
+
+def test_player_without_unused_stake_drinks_the_full_handout(monkeypatch):
+    room = _two_stake_room(monkeypatch)
+    assert give_dealer_lottery_sip(room, "Alice", "Bob") is True
+    assert room.drinks.last_round_sips["Bob"] == 2   # owed 4 - credit 4 + full 2
+
+
+def test_invisible_credit_dropped_when_handouts_finish(monkeypatch):
+    room = _two_stake_room(monkeypatch)
+    give_dealer_lottery_sip(room, "Alice", "Bob")
+    give_dealer_lottery_sip(room, "Bob", "Carol")
+    assert room.round._dealer_lottery_invisible_credit == {}
