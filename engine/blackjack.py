@@ -273,7 +273,8 @@ class Player:
         Hand / Lucky Sevens and Wild Card sips are always the raw amount)."""
         if sips != 0:
             scaled = scale_sips(sips, self.effective_drink_rate) if scale else sips
-            self.drink_log.append(DrinkEntry(scaled, reason, role, raw=sips))
+            self.drink_log.append(DrinkEntry(scaled, reason, role, raw=sips,
+                                             rate=self.effective_drink_rate if scale else 1.0))
 
     def __str__(self):  return self.name
     def __repr__(self): return f"Player({self.name})"

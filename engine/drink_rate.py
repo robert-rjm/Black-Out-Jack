@@ -64,7 +64,8 @@ class DrinkEntry(tuple):
     3-tuple -- indexing, unpacking and equality all work -- but also carries
     `.raw`, the sips owed before the seat's rate was applied."""
 
-    def __new__(cls, sips, reason, role="player", raw=None):
+    def __new__(cls, sips, reason, role="player", raw=None, rate=1.0):
         obj = super().__new__(cls, (sips, reason, role))
         obj.raw = sips if raw is None else raw
+        obj.rate = rate   # factor actually applied (1.0 for exempt events)
         return obj

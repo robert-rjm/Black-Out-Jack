@@ -81,8 +81,10 @@ def award_sips(
     # amount only goes into the exports and the Drinks-pane detail line.
     raw_sips = sips
     _p = session._get_player(player_name)
+    rate = 1.0
     if _p is not None and scale:
-        sips = scale_sips(raw_sips, _p.effective_drink_rate)
+        rate = _p.effective_drink_rate
+        sips = scale_sips(raw_sips, rate)
     session.drinks.csv_rows.append({
         "round":  session.round_count,
         "dealer": session.dealer_name,
@@ -91,6 +93,7 @@ def award_sips(
         "rule":   rule,
         "sips":   sips,
         "sips_raw": raw_sips,
+        "rate":     rate,
     })
     if sips != 0:
         # Session total never decreases — credits offset within the round only.
@@ -376,7 +379,8 @@ def _record_csv_rows(session: GameRoom) -> None:
                 rows.append({"round": round_num, "dealer": dealer,
                              "player": p.name, "role": role,
                              "rule": credit_rule, "sips": sips,
-                             "sips_raw": getattr(entry, "raw", sips)})
+                             "sips_raw": getattr(entry, "raw", sips),
+                             "rate": getattr(entry, "rate", 1.0)})
                 continue
             rule = classify_rule(reason)
             if rule is None:
@@ -384,8 +388,18 @@ def _record_csv_rows(session: GameRoom) -> None:
             rows.append({"round": round_num, "dealer": dealer,
                          "player": p.name, "role": role,
                          "rule": rule, "sips": sips,
-                         "sips_raw": getattr(entry, "raw", sips)})
+                         "sips_raw": getattr(entry, "raw", sips),
+                         "rate": getattr(entry, "rate", 1.0)})
     session.drinks.csv_rows = rows
+
+
+def _record_rate_rounds(session: GameRoom) -> None:
+    """Count this round against each seat's current drink factor."""
+    rr = session.stats.rate_rounds
+    for p in session.all_players:
+        per = rr.setdefault(p.name, {})
+        r = round(getattr(p, "effective_drink_rate", 1.0), 2)
+        per[r] = per.get(r, 0) + 1
 
 
 def _update_sip_tickers(session: GameRoom) -> None:
@@ -688,6 +702,7 @@ def harvest_drink_log(session: GameRoom) -> None:
         return
 
     _record_csv_rows(session)
+    _record_rate_rounds(session)
     _update_sip_tickers(session)
     _snapshot_round(session)
     _record_drinks_detail(session)

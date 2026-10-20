@@ -136,6 +136,9 @@ def export_xlsx():
     players_seen: list[str] = []
     player_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     dealer_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    # Sips owed before the Drink Rate factor (rows without it, e.g. older data, count as effective)
+    raw_sips: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    rate_rounds  = session.stats.rate_rounds
 
     for row in rows:
         name = row["player"]
@@ -143,6 +146,16 @@ def export_xlsx():
             players_seen.append(name)
         bucket = dealer_sips if row["role"] == "dealer" else player_sips
         bucket[name][row["rule"]] += row["sips"]
+        raw_sips[name][row["rule"]] += row.get("sips_raw", row["sips"])
+
+    def _factor_stats(name):
+        """(rounds, average factor) from the per-round factor record; (0, 1.0) if none."""
+        per = rate_rounds.get(name) or {}
+        n = sum(per.values())
+        return n, (sum(f * c for f, c in per.items()) / n if n else 1.0)
+
+    def _fmt_factor(f):
+        return f"{f:g}×"
 
     all_rules = sorted({row["rule"] for row in rows})
 
@@ -204,7 +217,15 @@ def export_xlsx():
                 (f"Doubles won: {hs['double_wins']} of {hs['double_hands']}"
                  f" ({_pct(hs['double_wins'], hs['double_hands'])})" if hs["double_hands"] else ""),
             ])
-        _xlsx_header(ws, ["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own"])
+        raw_total = sum(raw_sips[name].values())
+        n_rated, avg_factor = _factor_stats(name)
+        if n_rated:
+            at = ", ".join(f"{_fmt_factor(f)}: {c}" for f, c in sorted(rate_rounds[name].items()))
+            ws.append([f"Raw sips: {raw_total}",
+                       f"Effective ÷ raw: {gt/raw_total:.2f}" if raw_total else "Effective ÷ raw: —",
+                       f"Avg drink factor: {avg_factor:.2f}×",
+                       f"Rounds at factor — {at}"])
+        _xlsx_header(ws, ["Rule", "Player sips", "Dealer sips", "Total", "Sips/round", "% of own", "Raw total"])
         player_rules = [
             (rule, player_sips[name].get(rule, 0) + dealer_sips[name].get(rule, 0))
             for rule in all_rules
@@ -215,8 +236,8 @@ def export_xlsx():
             ps  = player_sips[name].get(rule, 0)
             ds  = dealer_sips[name].get(rule, 0)
             pct = f"{total/gt*100:.1f}%" if gt else "—"
-            ws.append([rule, ps, ds, total, f"{total/num_rounds:.2f}", pct])
-        ws.append(["TOTAL", pt, dt, gt, f"{gt/num_rounds:.2f}", "100%"])
+            ws.append([rule, ps, ds, total, f"{total/num_rounds:.2f}", pct, raw_sips[name].get(rule, 0)])
+        ws.append(["TOTAL", pt, dt, gt, f"{gt/num_rounds:.2f}", "100%", raw_total])
         ws.cell(row=ws.max_row, column=1).font = _FONT_BOLD
         ws.append([])
 
@@ -229,15 +250,39 @@ def export_xlsx():
             rule_totals[rule] += s
     grand_total = sum(rule_totals.values())
 
+    raw_rule_totals: dict[str, int] = defaultdict(int)
+    for name in players_seen:
+        for rule, s in raw_sips[name].items():
+            raw_rule_totals[rule] += s
+
     _xlsx_section(ws, "ALL PLAYERS COMBINED")
-    _xlsx_header(ws, ["Rule", "Total sips", "Sips/round", "% of total"])
+    _xlsx_header(ws, ["Rule", "Total sips", "Sips/round", "% of total", "Raw total"])
     for rule in sorted(rule_totals, key=lambda r: -rule_totals[r]):
         total = rule_totals[rule]
         pct   = f"{total/grand_total*100:.1f}%" if grand_total else "—"
-        ws.append([rule, total, f"{total/num_rounds:.2f}", pct])
-    ws.append(["Grand total", grand_total, f"{grand_total/num_rounds:.2f} sips/round"])
+        ws.append([rule, total, f"{total/num_rounds:.2f}", pct, raw_rule_totals[rule]])
+    ws.append(["Grand total", grand_total, f"{grand_total/num_rounds:.2f} sips/round", "",
+               sum(raw_rule_totals.values())])
     ws.cell(row=ws.max_row, column=1).font = _FONT_BOLD
     ws.append([])
+
+    # Drink Rate Mode: which factors each seat played at
+    if any(rate_rounds.get(n) for n in players_seen):
+        all_factors = sorted({f for n in players_seen for f in (rate_rounds.get(n) or {})})
+        _xlsx_section(ws, "DRINK RATE")
+        _xlsx_header(ws, ["Player", "Rounds", "Avg factor", "Raw sips", "Effective sips", "Effective ÷ raw"]
+                          + [f"Rounds @ {_fmt_factor(f)}" for f in all_factors])
+        for name in players_seen:
+            n_rated, avg_factor = _factor_stats(name)
+            eff = sum(player_sips[name].values()) + sum(dealer_sips[name].values())
+            raw = sum(raw_sips[name].values())
+            per = rate_rounds.get(name) or {}
+            ws.append([name, n_rated, round(avg_factor, 2), raw, eff,
+                       round(eff / raw, 2) if raw else "—"]
+                      + [per.get(f, 0) for f in all_factors])
+        ws.append(["Avg factor = mean of the seat's drink factor over the rounds played; "
+                   "Effective ÷ raw also reflects exempt events (aces, bust vote, 666/777, Wild Card)."])
+        ws.append([])
 
     # Hand outcomes
     _xlsx_section(ws, "HAND OUTCOMES")
@@ -278,10 +323,11 @@ def export_xlsx():
 
     # ── Sheet 2: Raw Rows ────────────────────────────────────────
     ws2 = wb.create_sheet("Raw Rows")
-    _xlsx_header(ws2, ["round", "dealer", "player", "role", "rule", "sips", "sips_raw"])
+    _xlsx_header(ws2, ["round", "dealer", "player", "role", "rule", "sips", "sips_raw", "rate"])
     for row in rows:
         ws2.append([row.get("round"), row.get("dealer"), row.get("player"),
-                    row.get("role"), row.get("rule"), row.get("sips"), row.get("sips_raw", row.get("sips"))])
+                    row.get("role"), row.get("rule"), row.get("sips"), row.get("sips_raw", row.get("sips")),
+                    row.get("rate", 1.0)])
     _auto_width(ws2)
 
     # ── Respond ────────────────────────────────────────────────────────────────

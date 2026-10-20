@@ -192,6 +192,9 @@ class SessionStats:
     # consecutive-round-loss streak at the table, once it reaches
     # WORST_STREAK_THRESHOLD. None if nobody currently qualifies.
     worst_streak_holder: str | None = None
+    # Drink Rate Mode: player -> {drink factor -> rounds played at it}. Filled
+    # at each round's harvest; feeds the xlsx "DRINK RATE" section.
+    rate_rounds: dict = field(default_factory=dict)
 
 
 @dataclass
