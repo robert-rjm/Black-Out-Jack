@@ -45,6 +45,8 @@ JS_SOURCES = [
     "static/js/ui/bets.js",
     "static/js/ui/admin.js",
     "static/js/ui/admin-settings.js",
+    "static/js/ui/rules.js",
+    "static/js/ui/summary.js",
     "static/js/ui/bootstrap.js",
     "static/js/app.js",
 ]

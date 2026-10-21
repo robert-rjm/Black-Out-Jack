@@ -208,3 +208,46 @@ function startWaiting() {
   };
   pollTimer = setTimeout(tick, 2000);
 }
+
+// ============================================================
+// LEAVE THE SESSION — back to the lobby
+// ============================================================
+function resetToSetup() {
+  if (!confirm("End current session and return to lobby?")) return;
+  stopPolling();
+  // Notify server so admin role is transferred and client is removed
+  if (roomCode) {
+    const blob = new Blob([JSON.stringify({ room_code: roomCode, client_id: clientId })], { type: "application/json" });
+    navigator.sendBeacon("/leave_room", blob);
+  }
+  roomCode         = "";
+  myRole           = null;
+  myName           = null;
+  isMyDealerClient = false;
+  lsRemove("bjRoomCode");
+  document.getElementById("app").style.display    = "none";
+  document.getElementById("setup").style.display  = "none";
+  document.getElementById("lobby").style.display  = "flex";
+  document.getElementById("header-room").textContent = "";
+  document.getElementById("join-code").value = "";
+  hideLobbyMsg();
+  players  = [];
+  gameMode = "referee";
+
+  // Reset every "did this seq/key just advance" one-shot tracker -- these
+  // compare against the PREVIOUS room's last-seen value, so without this a
+  // player who ends a session and joins a different room in the same tab
+  // (no page reload) would have every toast/reveal/auto-export gated on
+  // one of these silently suppressed until the new room's own counters
+  // happen to climb back past whatever value was last seen in the old room.
+  DrinkUI.lastRoundOverSeq          = 0;
+  DrinkUI.lastBustHandoutSeq        = 0;
+  DrinkUI.lastDealerLotteryResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingSummarySeq = 0;
+  DrinkUI.lastTargetedDrinkingHandoutSeq = 0;
+  DrinkUI.lastMilestoneKey          = null;
+  DrinkUI.lastMilestoneResultKey    = null;
+  DrinkUI.milestoneModalOpened      = null;
+  _lastAutoExportRound = 0;
+}

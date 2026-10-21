@@ -11,7 +11,7 @@ the game playable. One step per commit, and click through the affected UI after
 each JS step.
 
 Already done: step 1 (services importing from routes), section 6 (routes),
-section 7 (docs and data), section 2 (`admin.js`), section 3 (`lobby.js`), section 4 (`setup.js`), and the "Tip us" code moved from `lobby.js` into
+section 7 (docs and data), section 2 (`admin.js`), section 3 (`lobby.js`), section 4 (`setup.js`), section 5 (`admin-settings.js`), and the "Tip us" code moved from `lobby.js` into
 `static/js/ui/tip.js` (bundler list, `DOM-Hooks.md` and `Architecture.md`
 updated).
 
@@ -148,6 +148,13 @@ to `table.js`. The notes below describe the original problem.
   `startIdleWatcher` (a small `ui/idle.js`).
 
 ## 5. `admin-settings.js`
+
+**Status: done.** `ui/rules.js` (Rules modal) and `ui/summary.js` (session summary,
+drink CSV / decision-log downloads, auto-export) load right after
+`admin-settings.js`; `resetToSetup` moved to the end of `lobby.js`.
+`admin-settings.js` is down from about 1,160 to about 900 lines (settings and
+players modals, game settings, Targeted Drinking admin controls). The notes
+below describe the original problem.
 
 Not settings: the Rules modal (`_ruleSlug`, `_decorateRules`, `openRulesModal`,
 `closeRulesModal`, `handleRulesBackdropClick`), the session summary and exports

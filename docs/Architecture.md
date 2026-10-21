@@ -91,7 +91,7 @@ Black-Out-Jack/
 │   │                                       # table.js (_applyKicked, _syncIdentity, _syncRoundEffects,
 │   │                                       #           _syncLog, _syncModals, _syncDigitalUI, _syncRender,
 │   │                                       #           applyState), table-modals.js, table-render.js
-│   │                                       # log.js, kpi.js, trivia.js, drink-panels.js (bust vote / Dealer Lottery / handout panels + toasts), seats.js (registration, local seats, seat transfers), bets.js (Normal-mode stake panel), admin.js, admin-settings.js
+│   │                                       # log.js, kpi.js, trivia.js, drink-panels.js (bust vote / Dealer Lottery / handout panels + toasts), seats.js (registration, local seats, seat transfers), bets.js (Normal-mode stake panel), admin.js, admin-settings.js (settings / players modal), rules.js (Rules modal), summary.js (session summary + exports)
 │   └── img/
 │       ├── logo.png                        # App logo and home screen icon (iOS & Android)
 │       └── logo-transparent.png            # Transparent variant for card backs & overlays

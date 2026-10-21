@@ -15,7 +15,7 @@ This document defines selector ownership for the web UI modules and the shared e
 
 ### `static/js/ui/lobby.js`
 - `#age-gate`, `#age-gate-msg`
-- `#lobby`, `#lobby-msg`, `#join-code`
+- `#lobby`, `#lobby-msg`, `#join-code` (`resetToSetup`, the "🏠 Lobby" button, also lives here)
 - `#waiting`, `#waiting-code-badge`, `#waiting-player-list`, `#waiting-player-count` (waiting room: `renderWaitingPlayers`, `startWaiting`)
 
 ### `static/js/ui/poll.js`
@@ -144,8 +144,6 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#pending-reg-modal-section`, `#denied-reg-section`, `#rejoin-requests-section`
   - `#targeted-drinking-admin-section` (admin start/cancel controls, created
     dynamically like the sections above it)
-- Rules modal:
-  - `#rules-overlay`, `#rules-body`
 - Game settings panel (inside kick modal):
   - `#game-settings-section`, `#queued-settings-banner`, `#queued-settings-list`
   - `#setting-wager`, `#setting-num-hands`, `#setting-num-decks`, `#setting-decks-row`
@@ -156,9 +154,14 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#strategy-hint-toggle-modal`
   - `#easy-mode-toggle-modal`, `#easy-mode-lbl-modal`, `#easy-mode-lbl-modal-on`
   - `#god-mode-toggle-modal`, `#god-mode-lbl-off`, `#god-mode-lbl-on`
-- Summary modal:
-  - `#summary-overlay`, `#summary-meta`, `#summary-body`
-  - `#auto-export-row`, `#auto-export-toggle` (auto-export-decisions-every-10-rounds opt-in, only rendered for the admin when playing under one of the mined-profile names)
+
+### `static/js/ui/rules.js`
+- Rules modal (`/rules`, `?mode=normal` for Normal tables): `#rules-overlay`, `#rules-body`
+
+### `static/js/ui/summary.js`
+- Summary modal: `#summary-overlay`, `#summary-meta`, `#summary-body`
+- `#auto-export-row`, `#auto-export-toggle` (auto-export-decisions-every-10-rounds opt-in, only rendered for the admin when playing under one of the mined-profile names)
+- Drink CSV / decision-log downloads (`exportDrinkCSV`, `exportDecisionLog`)
 
 ### `static/js/ui/log.js`
 - Header and tabs:
