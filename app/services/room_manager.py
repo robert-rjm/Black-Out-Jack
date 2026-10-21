@@ -244,3 +244,47 @@ def rotate_dealer(session: GameRoom) -> None:
         p.dealer_hand = Hand() if p.is_dealer else None
     session.dealer_name = new_dealer
     log.debug(f"  Dealer rotates => {new_dealer} is now dealer.")
+
+
+# ---------------------------------------------------------------------------
+# Admin transfer
+# ---------------------------------------------------------------------------
+
+def transfer_local_names(old_local_names: list[str], new_info: dict) -> None:
+    """Merge `old_local_names` (the departing admin's controlled seats) into
+    `new_info["local_names"]`, excluding the new admin's own name (which they
+    already own) and de-duplicating against any seats they already control.
+    If the new admin had no local_names, fall back to their single-seat name
+    so the merge still has a base list to extend.
+    """
+    new_name = (new_info.get("name") or "").lower()
+    transferred = [n for n in old_local_names if n.lower() != new_name]
+    if not transferred:
+        return
+    existing = new_info.get("local_names") or (
+        [new_info["name"]] if new_info.get("name") else []
+    )
+    new_info["local_names"] = existing + [n for n in transferred if n not in existing]
+
+
+def auto_transfer_admin(session, leaving_client_id: str) -> None:
+    """Promote the first eligible player to admin when the current admin leaves."""
+    clients = session._room_clients
+    # Prefer players with a seat, then spectators; skip kicked/pending/denied
+    ELIGIBLE = ("player", "spectator")
+    candidate = next(
+        (cid for cid, info in clients.items()
+         if cid != leaving_client_id
+         and info.get("role") in ELIGIBLE
+         and not info.get("kicked")),
+        None,
+    )
+    if not candidate:
+        return
+    leaving_info   = clients[leaving_client_id]
+    leaving_name   = (leaving_info.get("name") or "").lower()
+    old_local      = [n for n in (leaving_info.get("local_names") or [])
+                      if n.lower() != leaving_name]
+    new_info       = clients[candidate]
+    new_info["role"] = "admin"
+    transfer_local_names(old_local, new_info)

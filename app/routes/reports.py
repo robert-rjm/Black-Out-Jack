@@ -1,11 +1,8 @@
 """
 app/routes/reports.py
 ======================
-Static-asset and reporting routes.
+Reporting routes (the static / doc routes live in static_pages.py).
 
-GET /logo.png          — app icon (PWA)
-GET /manifest.json     — PWA manifest
-GET /rules             — Rules.md as JSON for frontend markdown rendering
 GET /export_xlsx       — Full drink-log XLSX download for the session
 GET /export_decisions  — Decision-log XLSX (hand decisions + Dealer Lottery
                           entries, one sheet each) for scripts/build_player_profiles.py
@@ -21,7 +18,7 @@ from zoneinfo import ZoneInfo
 import openpyxl
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
-from flask import Blueprint, current_app, jsonify, request, Response, send_from_directory
+from flask import Blueprint, jsonify, request, Response
 
 from app.services.session_store import game_sessions
 
@@ -30,48 +27,6 @@ bp = Blueprint("reports", __name__)
 # ── Project root (one level above the app/ package) ─────────────────────────
 _HERE = os.path.dirname(os.path.abspath(__file__))   # .../app/routes/
 _ROOT = os.path.dirname(os.path.dirname(_HERE))      # .../Black-Out-Jack/
-
-
-# ---------------------------------------------------------------------------
-# Static assets
-# ---------------------------------------------------------------------------
-
-@bp.route("/logo.png")
-def serve_logo():
-    return send_from_directory(current_app.static_folder, "img/logo.png")
-
-
-@bp.route("/manifest.json")
-def serve_manifest():
-    return jsonify({
-        "name":             "Black(Out)Jack",
-        "short_name":       "Black(Out)Jack",
-        "start_url":        "/",
-        "display":          "standalone",
-        "background_color": "#0f1117",
-        "theme_color":      "#0f1117",
-        "icons": [
-            {"src": "/logo.png", "sizes": "192x192", "type": "image/png"},
-            {"src": "/logo.png", "sizes": "512x512", "type": "image/png"},
-        ],
-    })
-
-
-# ---------------------------------------------------------------------------
-# Rules
-# ---------------------------------------------------------------------------
-
-@bp.route("/rules")
-def rules():
-    """Serve the Rules.md content as plain text for frontend markdown rendering."""
-    name = "Rules-Normal.md" if request.args.get("mode") == "normal" else "Rules.md"
-    rules_path = os.path.join(_ROOT, "docs", name)
-    try:
-        with open(rules_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        return jsonify({"ok": True, "content": content})
-    except FileNotFoundError:
-        return jsonify({"ok": False, "content": "# Rules\n\nRules file not found."})
 
 
 # ---------------------------------------------------------------------------

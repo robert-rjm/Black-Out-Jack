@@ -152,196 +152,102 @@ function backToLobby() {
 }
 
 // ============================================================
-// POLLING — keep all players in sync
+// WAITING ROOM — joined a room whose host hasn't started the game yet
 // ============================================================
+// Moved here from setup.js. startWaiting() polls /state until the game exists.
 
-// Fast interval during active play so end-of-round appears promptly for all clients.
-// Slow interval during pre-deal and round-over where nothing is time-sensitive.
-const POLL_INTERVAL_FAST =  800;   // ms — used while phase is "playing" or "dealer-ready"
-const POLL_INTERVAL_SLOW = 2000;   // ms — used during "pre-deal", "round-over", or unknown
+// Render avatar dots + count in the waiting screen lobby.
+// `count` is the number of clients currently waiting (including this one).
+let _lastWaitingCount = 0;
+function renderWaitingPlayers(count) {
+  if (count === _lastWaitingCount) return;
+  _lastWaitingCount = count;
 
-function _pollInterval() {
-  const phase = lastState && lastState.phase;
-  return (phase === PHASE.PLAYING || phase === PHASE.DEALER_READY
-          || (lastState && lastState.stake_window_open))
-    ? POLL_INTERVAL_FAST
-    : POLL_INTERVAL_SLOW;
-}
-
-// Fetch a single /state snapshot and pass the parsed response to onResult if ok.
-// Tracks consecutive failures to show/hide the server-disconnected overlay.
-async function fetchState(onResult) {
-  try {
-    const url  = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (data.ok) {
-      _consecutiveFailures = 0;
-      hideDisconnected();
-      onResult(data);
-    } else {
-      _onPollFailure();
+  const list = document.getElementById("waiting-player-list");
+  if (list) {
+    list.innerHTML = "";
+    for (let i = 0; i < count; i++) {
+      const av = document.createElement("div");
+      av.className = "avatar";
+      av.textContent = "🙂";
+      list.appendChild(av);
     }
-  } catch (_) {
-    _onPollFailure();
   }
+
+  const countEl = document.getElementById("waiting-player-count");
+  if (countEl) countEl.textContent = `${count} joined`;
 }
 
-function _onPollFailure() {
-  _consecutiveFailures++;
-  if (_consecutiveFailures >= 3) showDisconnected();
-}
-
-// ---------------------------------------------------------------------------
-// Server-disconnected overlay
-// ---------------------------------------------------------------------------
-
-function showDisconnected() {
-  let overlay = document.getElementById("server-disconnect-overlay");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "server-disconnect-overlay";
-    overlay.className = "server-disconnect-overlay";
-    overlay.innerHTML =
-      '<div class="server-disconnect-card">' +
-        '<div class="server-disconnect-spinner"></div>' +
-        '<div class="server-disconnect-title">Server disconnected</div>' +
-        '<div class="server-disconnect-msg">Attempting to reconnect…</div>' +
-        '<div class="server-disconnect-note">The server may be waking up or is disconnected. Please wait or try again later.</div>' +
-        '<div class="server-disconnect-elapsed" id="server-disconnect-elapsed"></div>' +
-        '<button class="btn server-disconnect-giveup" data-action="showGiveUpScreen">Give up</button>' +
-      '</div>';
-    document.body.appendChild(overlay);
-  }
-  overlay.style.display = "flex";
-  if (!_disconnectedSince) {
-    _disconnectedSince = Date.now();
-    _disconnectedTimer = setInterval(_updateDisconnectElapsed, 1000);
-    _updateDisconnectElapsed();
-  }
-}
-
-function showGiveUpScreen() {
-  if (_disconnectedTimer) { clearInterval(_disconnectedTimer); _disconnectedTimer = null; }
-  const card = document.querySelector("#server-disconnect-overlay .server-disconnect-card");
-  if (!card) return;
-  card.innerHTML =
-    '<img src="/static/img/logo-transparent.png" alt="Black(Out)Jack Logo" class="server-disconnect-logo">' +
-    '<div class="server-disconnect-title" style="font-size:20px">Thanks for playing BlackOutJack!</div>' +
-    '<div class="server-disconnect-msg">Come back when the server is ready.</div>' +
-    '<button class="btn server-disconnect-tryagain" id="server-disconnect-tryagain-btn" data-action="tryAgainFromGiveUp">Try again</button>';
-}
-
-async function tryAgainFromGiveUp() {
-  const btn = document.getElementById("server-disconnect-tryagain-btn");
-  if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
-  try {
-    const url = `/state?room_code=${encodeURIComponent(roomCode)}&client_id=${encodeURIComponent(clientId)}&_=${Date.now()}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    const data = await res.json();
-    if (data.ok) {
-      hideDisconnected();
-      resetToSetup();
-      return;
-    }
-  } catch (_) {}
-  // Still unreachable
-  if (btn) { btn.disabled = false; btn.textContent = "Try again"; }
-  const card = document.querySelector("#server-disconnect-overlay .server-disconnect-card");
-  if (!card) return;
-  let note = card.querySelector(".tryagain-note");
-  if (!note) {
-    note = document.createElement("div");
-    note.className = "tryagain-note";
-    card.appendChild(note);
-  }
-  note.textContent = "Still unreachable.";
-  note.style.opacity = "1";
-  clearTimeout(note._hideTimer);
-  note._hideTimer = setTimeout(() => { note.style.opacity = "0"; }, 2500);
-}
-
-function _updateDisconnectElapsed() {
-  const el = document.getElementById("server-disconnect-elapsed");
-  if (!el || !_disconnectedSince) return;
-  const secs = Math.floor((Date.now() - _disconnectedSince) / 1000);
-  el.textContent = secs > 0 ? secs + "s" : "";
-}
-
-function hideDisconnected() {
-  const overlay = document.getElementById("server-disconnect-overlay");
-  if (overlay) overlay.style.display = "none";
-  if (_disconnectedTimer) { clearInterval(_disconnectedTimer); _disconnectedTimer = null; }
-  _disconnectedSince = null;
-}
-
-// Apply a /state response: update UI and header.
-function _applyStateResult(data) {
-  applyState(data);
-  if (data.dealer) updateHeader(data);
-}
-
-function startPolling() {
+// While waiting for the host to start, poll until the game exists.
+// Uses self-rescheduling setTimeout (not setInterval) so a slow fetch
+// never causes overlapping requests.
+function startWaiting() {
   stopPolling();
   const tick = async () => {
-    // Skip the fetch while a game-action request is in flight — the command
-    // response will call applyState with fresher (higher state_seq) data.
-    if (roomCode && _requestsInFlight === 0) {
-      await fetchState(_applyStateResult);
-    }
-    // Reschedule — interval adapts automatically to the latest phase.
-    pollTimer = setTimeout(tick, _pollInterval());
+    if (!roomCode) { pollTimer = setTimeout(tick, 2000); return; }
+    let started = false;
+    await fetchState(data => {
+      if (data.players && data.players.length > 0) {
+        started  = true;
+        stopPolling();
+        players  = data.players || [];
+        numHands = data.num_hands || 2;
+        gameMode = data.mode || "referee";
+        updateHeader(data);
+        buildGameUI();
+        applyState(data);
+        document.getElementById("waiting").style.display = "none";
+        document.getElementById("app").style.display     = "flex";
+        startPolling();
+        startIdleWatcher();
+      } else if (data.waiting) {
+        renderWaitingPlayers(data.waiting_count || 1);
+      }
+    });
+    if (!started) pollTimer = setTimeout(tick, 2000);
   };
-  pollTimer = setTimeout(tick, _pollInterval());
+  pollTimer = setTimeout(tick, 2000);
 }
-
-function stopPolling() {
-  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
-}
-
-// Safari throttles timers aggressively when the tab is backgrounded or the
-// screen locks. Force an immediate re-poll the moment the user comes back.
-// Skip if a request is already in flight — we'll get fresh state from it.
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && roomCode && _requestsInFlight === 0) {
-    fetchState(_applyStateResult);
-  }
-});
-
 
 // ============================================================
-// ROOM QR / INVITE LINK
+// LEAVE THE SESSION — back to the lobby
 // ============================================================
-let _inviteUrl = "";
-
-async function openRoomQr() {
-  if (!roomCode) return;
-  const svgEl = document.getElementById("qr-svg");
-  svgEl.innerHTML = "";
-  document.getElementById("qr-code-text").textContent = roomCode;
-  document.getElementById("qr-url").textContent = "";
-  _inviteUrl = "";
-  openModal("qr-overlay");
-  try {
-    const res  = await fetch(`/room_invite?code=${encodeURIComponent(roomCode)}`);
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "failed");
-    svgEl.innerHTML = data.svg;          // generated by the server from the join link
-    _inviteUrl = data.url;
-    document.getElementById("qr-url").textContent = data.url;
-  } catch (_) {
-    document.getElementById("qr-url").textContent = "Could not create the QR code. Share the room code instead.";
+function resetToSetup() {
+  if (!confirm("End current session and return to lobby?")) return;
+  stopPolling();
+  // Notify server so admin role is transferred and client is removed
+  if (roomCode) {
+    const blob = new Blob([JSON.stringify({ room_code: roomCode, client_id: clientId })], { type: "application/json" });
+    navigator.sendBeacon("/leave_room", blob);
   }
-}
+  roomCode         = "";
+  myRole           = null;
+  myName           = null;
+  isMyDealerClient = false;
+  lsRemove("bjRoomCode");
+  document.getElementById("app").style.display    = "none";
+  document.getElementById("setup").style.display  = "none";
+  document.getElementById("lobby").style.display  = "flex";
+  document.getElementById("header-room").textContent = "";
+  document.getElementById("join-code").value = "";
+  hideLobbyMsg();
+  players  = [];
+  gameMode = "referee";
 
-function closeRoomQr() { closeModal("qr-overlay"); }
-
-async function copyInviteLink() {
-  const text = _inviteUrl || roomCode;
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast("Link copied");
-  } catch (_) {
-    showToast(text);
-  }
+  // Reset every "did this seq/key just advance" one-shot tracker -- these
+  // compare against the PREVIOUS room's last-seen value, so without this a
+  // player who ends a session and joins a different room in the same tab
+  // (no page reload) would have every toast/reveal/auto-export gated on
+  // one of these silently suppressed until the new room's own counters
+  // happen to climb back past whatever value was last seen in the old room.
+  DrinkUI.lastRoundOverSeq          = 0;
+  DrinkUI.lastBustHandoutSeq        = 0;
+  DrinkUI.lastDealerLotteryResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingResultSeq = 0;
+  DrinkUI.lastTargetedDrinkingSummarySeq = 0;
+  DrinkUI.lastTargetedDrinkingHandoutSeq = 0;
+  DrinkUI.lastMilestoneKey          = null;
+  DrinkUI.lastMilestoneResultKey    = null;
+  DrinkUI.milestoneModalOpened      = null;
+  _lastAutoExportRound = 0;
 }

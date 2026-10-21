@@ -15,16 +15,24 @@ This document defines selector ownership for the web UI modules and the shared e
 
 ### `static/js/ui/lobby.js`
 - `#age-gate`, `#age-gate-msg`
-- `#lobby`, `#lobby-msg`, `#join-code`
-- `#waiting`, `#waiting-code-badge`
-- Polling + visibility sync (`startPolling`, `stopPolling`)
+- `#lobby`, `#lobby-msg`, `#join-code` (`resetToSetup`, the "🏠 Lobby" button, also lives here)
+- `#waiting`, `#waiting-code-badge`, `#waiting-player-list`, `#waiting-player-count` (waiting room: `renderWaitingPlayers`, `startWaiting`)
+
+### `static/js/ui/poll.js`
+- The `/state` poll loop and visibility re-poll (`startPolling`, `stopPolling`, `fetchState`)
+- Connection-lost screen: `#server-disconnect-overlay`, `#server-disconnect-elapsed`, `#server-disconnect-tryagain-btn`
+
+### `static/js/ui/room-qr.js`
+- Room QR / invite dialog: `#qr-overlay`, `#qr-card`, `#qr-svg`, `#qr-code-text`, `#qr-url`, `[data-action="openRoomQr"|"copyInviteLink"|"closeRoomQr"]`
 
 ### `static/js/ui/tip.js`
 - Header/bottom-nav "Tip us" buttons: `#btn-beer-header`, `#btn-beer-nav` (`[data-action="openBeerModal"|"closeBeerModal"|"copyBeerLink"]`). Tapping one opens the `/beer` PayPal redirect in a new tab; `#beer-overlay` (QR from `/beer_qr`, "Open PayPal" link, copy link) shows when the player returns to the game tab, or at once if the new tab was blocked
 
+### `static/js/ui/idle.js`
+- Idle watcher (warns before the 15-minute host sleep; seated players only): `#idle-warning-banner`, `#idle-warning-text`, `#idle-urgent-overlay`
+
 ### `static/js/ui/setup.js`
 - `#setup`, `#setup-sub`, `#setup-room-code` (tap to open the QR dialog), `#header-room` (same)
-- Room QR / invite dialog: `#qr-overlay`, `#qr-card`, `#qr-svg`, `#qr-code-text`, `#qr-url`, `[data-action="openRoomQr"|"copyInviteLink"|"closeRoomQr"]`
 - `#gametype-row`, `#num-players-row`, `#name-fields`
 - `#settings-ref`, `#settings-dig`, `#wager-dig-cell`
 - `#start-btn`, `#anim-toggle`, `#anim-lbl-setup`, `#anim-lbl-setup-on`
@@ -52,32 +60,44 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#btn-peek`
 - Shared with `admin.js`: `#player-vote-display`, `#honor-split-overlay`, `#honor-no-btn`
 
-### `static/js/ui/admin.js`
-- Registration and role management:
-  - `#register-overlay`, `#register-seats`, `#register-error`
-  - `#register-pending`, `#register-denied`, `#pending-reg-banner`
-- Bust vote side bet:
+### `static/js/ui/drink-panels.js`
+- Bust vote side bet (`BustVotePanel`, `BustGivePanel`):
   - `#bust-vote-modal-overlay`, `#bust-vote-timer-bar`, `#bust-vote-timer-label`
   - `#bust-vote-players-wrap`, `#bust-vote-modal-tally`
   - `#bust-vote-status`, `#bust-vote-status-round`
-  - `#bust-vote-toggle-modal`, `#bust-vote-lbl-modal`, `#bust-vote-lbl-modal-on`
   - `#bust-give-overlay`, `#bust-give-body`
-  - `#player-vote-display`
-- Honor prompt and strategy suggest:
-  - `#honor-split-overlay`, `#honor-no-btn`
-  - `#suggest-picker`, `#suggest-banner`, `#suggest-text`
-  - `#suggest-toggle-row`, `#suggest-toggle-btn`
-- Local seat switcher (admin multi-seat):
-  - `#local-seat-switcher`, `#local-seat-active`, `#local-seat-picker`, `#add-local-seat-row`
-- Digital panel controls (also read by `table.js`):
-  - `#dig-predeal-panel`, `#dig-play-content`, `#dig-play-role-hint`
-  - `#dig-drinks-dealer-actions`, `#dig-drinks-waiting`
-- Dealer Lottery (Rules.md §5.9):
+- Dealer Lottery (Rules.md §5.9; `DealerLotteryEntryPanel`, `DealerLotteryGivePanel`):
   - `#dealer-lottery-modal-overlay`, `#dealer-lottery-players-wrap`, `#dealer-lottery-answered`
   - `#dealer-lottery-timer-bar`, `#dealer-lottery-timer-label`
   - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
   - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
   - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
+- Targeted Drinking perfect-graduation handout (`TargetedDrinkingGivePanel`):
+  `#targeted-drinking-give-overlay`, `#targeted-drinking-give-body`
+- Normal-mode buy-in handout (`BuyinGivePanel`): `#buyin-give-overlay`, `#buyin-give-body`
+- Player toasts: `#player-toast`
+
+### `static/js/ui/seats.js`
+- Registration and role management (join overlay, host approval banner, seat transfers, spectate):
+  - `#register-overlay`, `#register-seats`, `#register-error`
+  - `#register-pending`, `#register-denied`, `#pending-reg-banner`
+- Local seat switcher (multi-seat device):
+  - `#local-seat-switcher`, `#local-seat-active`, `#local-seat-picker`, `#add-local-seat-row`
+
+### `static/js/ui/bets.js`
+- Normal-mode stake panel (stake window after Deal): `#dig-bet-panel` and its per-player stepper rows
+
+### `static/js/ui/admin.js`
+- Bust vote setting (the vote itself is in `drink-panels.js`):
+  - `#bust-vote-toggle-modal`, `#bust-vote-lbl-modal`, `#bust-vote-lbl-modal-on`
+  - `#player-vote-display`
+- Honor prompt and strategy suggest:
+  - `#honor-split-overlay`, `#honor-no-btn`
+  - `#suggest-picker`, `#suggest-banner`, `#suggest-text`
+  - `#suggest-toggle-row`, `#suggest-toggle-btn`
+- Digital panel controls (also read by `table.js`):
+  - `#dig-predeal-panel`, `#dig-play-content`, `#dig-play-role-hint`
+  - `#dig-drinks-dealer-actions`, `#dig-drinks-waiting`
 - Targeted Drinking Mode (Rules.md §5.10) -- vote, reveal, and the
   end-of-subgame recap are one continuous modal/card
   (`#targeted-drinking-modal-overlay` / `.td-modal-card`), never separate
@@ -124,8 +144,6 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#pending-reg-modal-section`, `#denied-reg-section`, `#rejoin-requests-section`
   - `#targeted-drinking-admin-section` (admin start/cancel controls, created
     dynamically like the sections above it)
-- Rules modal:
-  - `#rules-overlay`, `#rules-body`
 - Game settings panel (inside kick modal):
   - `#game-settings-section`, `#queued-settings-banner`, `#queued-settings-list`
   - `#setting-wager`, `#setting-num-hands`, `#setting-num-decks`, `#setting-decks-row`
@@ -136,9 +154,14 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#strategy-hint-toggle-modal`
   - `#easy-mode-toggle-modal`, `#easy-mode-lbl-modal`, `#easy-mode-lbl-modal-on`
   - `#god-mode-toggle-modal`, `#god-mode-lbl-off`, `#god-mode-lbl-on`
-- Summary modal:
-  - `#summary-overlay`, `#summary-meta`, `#summary-body`
-  - `#auto-export-row`, `#auto-export-toggle` (auto-export-decisions-every-10-rounds opt-in, only rendered for the admin when playing under one of the mined-profile names)
+
+### `static/js/ui/rules.js`
+- Rules modal (`/rules`, `?mode=normal` for Normal tables): `#rules-overlay`, `#rules-body`
+
+### `static/js/ui/summary.js`
+- Summary modal: `#summary-overlay`, `#summary-meta`, `#summary-body`
+- `#auto-export-row`, `#auto-export-toggle` (auto-export-decisions-every-10-rounds opt-in, only rendered for the admin when playing under one of the mined-profile names)
+- Drink CSV / decision-log downloads (`exportDrinkCSV`, `exportDecisionLog`)
 
 ### `static/js/ui/log.js`
 - Header and tabs:

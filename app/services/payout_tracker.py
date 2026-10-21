@@ -211,7 +211,7 @@ def _hand_return(hand, bet: float) -> float:
 def apply_payouts(session: GameRoom) -> None:
     """Return staked bets (with profit where applicable) at round end.
 
-    Called once per round from _resolve_endround(), right after
+    Called once per round from resolve_endround(), right after
     cmd_endround().  Bets were deducted upfront by deduct_bets() /
     deduct_split_bet(), so this function only adds money back — the net
     bankroll change for the round is: return - stake_per_hand.

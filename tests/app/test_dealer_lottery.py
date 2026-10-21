@@ -1034,7 +1034,7 @@ def test_give_sip_route_rejects_no_pending_handout(client, monkeypatch):
 # Full-stack integration: a real digital round, dealt from a rigged shoe,
 # driven entirely through /command and /state -- the same code path
 # production traffic uses (initial_deal -> stand -> _after_player_action ->
-# dealer_turn -> _resolve_endround -> apply_endround_pipeline -> tick()).
+# dealer_turn -> resolve_endround -> apply_endround_pipeline -> tick()).
 # Closes the one gap in the coverage above: every piece was unit/route-
 # tested, but not through a genuinely dealt trigger.
 # ---------------------------------------------------------------------------
@@ -1085,7 +1085,7 @@ def test_dealer_lottery_triggers_through_a_real_dealt_round(client):
         })
         assert "Out of order" not in (resp.get_json().get("output") or "")
 
-        # dealer_turn() + _resolve_endround() ran synchronously inside that
+        # dealer_turn() + resolve_endround() ran synchronously inside that
         # last /command response (all hands were done) -- confirm the
         # dealer really did land on the rigged 20 and the trigger fired.
         dealer = room._get_dealer()

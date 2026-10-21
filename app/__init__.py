@@ -76,6 +76,7 @@ def create_app() -> Flask:
 
     # -- Blueprints ----------------------------------------------------
     from app.routes.reports       import bp as reports_bp
+    from app.routes.static_pages  import bp as static_pages_bp
     from app.routes.polling       import bp as polling_bp
     from app.routes.lobby         import bp as lobby_bp
     from app.routes.admin         import bp as admin_bp
@@ -84,6 +85,7 @@ def create_app() -> Flask:
     from app.routes.drink_rate    import bp as drink_rate_bp
 
     app.register_blueprint(reports_bp)
+    app.register_blueprint(static_pages_bp)
     app.register_blueprint(polling_bp)
     app.register_blueprint(lobby_bp)
     app.register_blueprint(admin_bp)
