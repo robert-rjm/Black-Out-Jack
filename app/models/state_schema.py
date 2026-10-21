@@ -497,6 +497,40 @@ class BustVoteResultOut(_StrictModel):
 
 
 # ---------------------------------------------------------------------------
+# "Switch to BOJ" poll (Normal mode)
+# ---------------------------------------------------------------------------
+
+class BojPollOut(_StrictModel):
+    proposer:     str
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    needed:       int
+    seconds_left: int
+    my_vote:      Optional[bool]
+    eligible:     bool
+
+
+class BojResultOut(_StrictModel):
+    kind:        Literal["table", "split", "none"]
+    names:       list[str]
+    seconds_ago: int
+
+
+class BojMySplitOut(_StrictModel):
+    new_room:         str
+    seconds_until_go: int
+    can_cancel:       bool
+
+
+class BojOut(_StrictModel):
+    poll:        Optional[BojPollOut]
+    last_result: Optional[BojResultOut]
+    my_split:    Optional[BojMySplitOut]
+    can_propose: bool
+
+
+# ---------------------------------------------------------------------------
 # Queued settings (admin's "apply next round" buffer)
 # ---------------------------------------------------------------------------
 
@@ -515,6 +549,7 @@ class QueuedSettingsOut(_StrictModel):
     num_hands:           Optional[int] = None
     num_decks:           Optional[int] = None
     easy_mode:           Optional[bool] = None
+    drinking_mode:       Optional[bool] = None
     add_players:         Optional[list[QueuedAddPlayerOut]] = None
     remove_players:      Optional[list[str]] = None
 
@@ -603,6 +638,8 @@ class AppState(_StrictModel):
     reshuffle_events:   list[ReshuffleEventOut]
     reshuffle_seq:      int
     wild_card_enabled:  bool
+    buyin_handouts:     bool
+    my_buyin_handouts:  dict[str, int]
     wild_card_seq:      int
     wild_card_text:     Optional[str]
     wild_card_outcome:  Optional[str]
@@ -636,6 +673,9 @@ class AppState(_StrictModel):
 
     # ---- Dealer Lottery data (always present) ----
     dealer_lottery: DealerLotteryOut
+
+    # ---- "Switch to BOJ" poll data (always present) ----
+    boj: BojOut
 
     # ---- Targeted Drinking Mode data (always present) ----
     targeted_drinking: TargetedDrinkingOut

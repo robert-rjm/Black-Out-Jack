@@ -33,7 +33,7 @@ _ROUND_DICTS = (
     "_pending_admin_afk_vote",
     "_pending_rate_proposal",
 )
-_DICT_KEYS = ("expires_at", "set_at", "started_at")
+_DICT_KEYS = ("expires_at", "set_at", "started_at", "go_at")
 
 # DrinkLedger attributes: dicts carrying a monotonic "set_at".
 _LEDGER_DICTS = (
@@ -83,6 +83,9 @@ def resume_game(session: GameRoom) -> bool:
 
     for attr in _LEDGER_DICTS:
         _shift_dict(getattr(session.drinks, attr), delta)
+
+    for attr in ("_boj_poll", "_boj_split", "_boj_last_result"):
+        _shift_dict(getattr(session, attr), delta)
 
     session.stats.session_started_at += delta
     if session._admin_blocking is not None:

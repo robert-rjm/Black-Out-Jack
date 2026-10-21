@@ -40,6 +40,7 @@ from app.services.afk import (
 )
 from app.services.drink_rate import sync_drink_rates, apply_drink_rate_forfeit
 from app.services.payout_tracker import stake_window_done, close_stake_window
+from app.services.boj_switch import apply_boj_poll_forfeit, apply_boj_split_expiry
 
 import time as _time
 
@@ -147,6 +148,8 @@ def tick(session) -> None:
     sync_drink_rates(session)
     apply_drink_rate_forfeit(session)
     apply_stake_window(session)
+    apply_boj_poll_forfeit(session)
+    apply_boj_split_expiry(session)
 
     # 3. Majority-vote-to-target proposal forfeit (live-play, not gated on
     # round-over -- a proposal can be open at any time during a round)

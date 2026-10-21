@@ -225,6 +225,52 @@ def _serialize_pending_target_proposal(pending: dict | None, client_info: dict) 
     }
 
 
+def _serialize_boj(session: GameRoom, client_info: dict, client_id: str) -> dict:
+    """Normal-mode "switch to BOJ" poll: the open vote, its recent outcome,
+    and (for a client that is moving to a new room) the cancel-window plan."""
+    from app.services import boj_switch   # lazy: boj_switch imports session_store/room_manager
+
+    now  = time.monotonic()
+    poll = session._boj_poll
+    poll_out = None
+    if poll and now < poll["expires_at"]:
+        yes, no, _undecided = boj_switch.tally(poll)
+        total = len(poll["votes"])
+        mine  = next((v for n, v in poll["votes"].items()
+                      if n.lower() == (client_info.get("name") or "").lower()), None)
+        eligible = any(n.lower() == (client_info.get("name") or "").lower()
+                       for n in poll["votes"])
+        poll_out = {
+            "proposer": poll["proposer"], "yes_count": yes, "no_count": no,
+            "total_voters": total, "needed": total // 2 + 1,
+            "seconds_left": max(0, round(poll["expires_at"] - now)),
+            "my_vote": mine, "eligible": eligible,
+        }
+
+    last = session._boj_last_result
+    last_out = None
+    if last and now - last["set_at"] < boj_switch.RESULT_FLASH_SECONDS:
+        last_out = {"kind": last["kind"], "names": list(last["names"]),
+                    "seconds_ago": max(0, round(now - last["set_at"]))}
+
+    plan = session._boj_split
+    split_out = None
+    if (plan and client_id in plan["clients"]
+            and client_id not in plan["cancelled"] and client_id not in plan["moved"]):
+        split_out = {
+            "new_room": plan["new_room"],
+            "seconds_until_go": max(0, round(plan["go_at"] - now)),
+            "can_cancel": (not plan["built"]) and now < plan["go_at"],
+        }
+
+    can_propose = bool(
+        not session.drinking_mode and session.mode == "digital"
+        and poll is None and plan is None
+        and client_info.get("name") and client_info.get("role") != "spectator")
+    return {"poll": poll_out, "last_result": last_out,
+            "my_split": split_out, "can_propose": can_propose}
+
+
 def _serialize_last_target_proposal_result(result: dict | None) -> dict | None:
     """Serialize the most recently resolved target proposal (pass/fail).
     Returns None if there is none yet or it's older than 15 seconds -- this
@@ -896,6 +942,12 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "reshuffle_seq":          session.round._reshuffle_seq,
         # Wild Card Easter egg
         "wild_card_enabled":      session.wild_card_enabled,
+        "buyin_handouts":         session.buyin_handouts,
+        "my_buyin_handouts":      {
+            n: a for n, a in session.round._buyin_pending.items()
+            if n not in session.round._buyin_given
+            and n in set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
+        },
         "wild_card_seq":          session.round._wild_card_seq,
         "wild_card_text":         (session.round._wild_card_result or {}).get("text"),
         "wild_card_outcome":      (session.round._wild_card_result or {}).get("outcome"),
@@ -957,6 +1009,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "milestone_run_length": (session.drinks.milestone_win_streak
                                  if session.drinks.milestone_win_streak >= 2 else 0),
     }
+
+    _boj_data = {"boj": _serialize_boj(session, _ci, client_id)}
 
     # ---- Dealer Lottery data ----
     # Exclude givers who already gave (mirrors my_bust_handout_pending's
@@ -1192,6 +1246,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         **_bust_vote_data,
         **_insurance_data,
         **_milestone_data,
+        **_boj_data,
         **_dealer_lottery_data,
         **_targeted_drinking_data,
         **_connection_data,

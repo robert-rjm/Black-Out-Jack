@@ -159,6 +159,10 @@ class RoundState:
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 
+    # Normal-mode "above the buy-in" handouts (see services/buyin_handout.py)
+    _buyin_pending: dict = field(default_factory=dict)   # giver -> sips to hand out
+    _buyin_given: set = field(default_factory=set)       # givers who gave or passed
+
     # Wild Card Easter egg (per-round transient)
     _wild_card_seq: int = 0
     _wild_card_result: dict | None = None
@@ -219,6 +223,7 @@ class GameConfig:
     bet_amount: float      = 10
     starting_bankroll: float    = 100
     wild_card_enabled: bool     = True
+    buyin_handouts: bool        = False   # Normal mode: players above the buy-in hand out sips
 
 
 @dataclass
@@ -357,6 +362,14 @@ class GameRoom:
 
     # Queued settings (applied at newround)
     _queued_settings: dict = field(default_factory=dict)
+
+    # "Switch to BOJ" poll (Normal mode, see services/boj_switch.py): the open
+    # poll, the pending table split once it resolves in a minority, and the
+    # last outcome (a short flash for the whole table). Session-lifetime, not
+    # RoundState, because a split outlives the round it was voted in.
+    _boj_poll: dict | None = None
+    _boj_split: dict | None = None
+    _boj_last_result: dict | None = None
 
     # Bust handout sequence counter (session-lifetime; bumped when all
     # handouts for a round resolve — never reset between rounds)
@@ -636,6 +649,11 @@ class GameRoom:
     def starting_bankroll(self): return self.config.starting_bankroll
     @starting_bankroll.setter
     def starting_bankroll(self, v): self.config.starting_bankroll = v
+
+    @property
+    def buyin_handouts(self): return self.config.buyin_handouts
+    @buyin_handouts.setter
+    def buyin_handouts(self, v): self.config.buyin_handouts = v
 
     @property
     def wild_card_enabled(self): return self.config.wild_card_enabled

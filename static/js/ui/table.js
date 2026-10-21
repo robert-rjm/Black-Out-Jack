@@ -44,6 +44,10 @@ function buildDigitalUI() {
   if (giveOverlay) bustGivePanel.mount(giveOverlay);
   const dlGiveOverlay = document.getElementById("dealer-lottery-give-overlay");
   if (dlGiveOverlay) dealerLotteryGivePanel.mount(dlGiveOverlay);
+  const bojPollOverlay = document.getElementById("boj-poll-modal-overlay");
+  if (bojPollOverlay) bojPollPanel.mount(bojPollOverlay);
+  const buyinGiveOverlay = document.getElementById("buyin-give-overlay");
+  if (buyinGiveOverlay) buyinGivePanel.mount(buyinGiveOverlay);
   const tdGiveOverlay = document.getElementById("targeted-drinking-give-overlay");
   if (tdGiveOverlay) targetedDrinkingGivePanel.mount(tdGiveOverlay);
   const bustVoteOverlay = document.getElementById("bust-vote-modal-overlay");
@@ -414,7 +418,13 @@ function _applyKicked(state) {
 function _syncDrinkMode(state, drinkingOn) {
   document.body.classList.toggle("no-drinking", !drinkingOn);
   const drinksTab = document.getElementById("dig-drinks-tab");
-  if (drinksTab) drinksTab.textContent = drinkingOn ? "🍺 Drinks" : "🃏 Round";
+  if (drinksTab) {
+    drinksTab.textContent = drinkingOn ? "🍺 Drinks" : "🃏 Round";
+    // Nothing to show before the first deal -> grey out instead of leaving it tappable
+    const noRound = state.phase === PHASE.PRE_DEAL && !(state.balances && Object.keys(state.balances).length);
+    drinksTab.disabled = noRound;
+    drinksTab.classList.toggle("disabled", noRound);
+  }
 }
 
 // Update client identity (role, name, isMyDealerClient) from server state,
@@ -607,6 +617,9 @@ function _syncDigitalUI(state) {
   updateBestPlay(state);
   bustVotePanel.render(state);
   dealerLotteryEntryPanel.render(state);
+  buyinGivePanel.render(state);
+  bojPollPanel.render(state);
+  bojSplitPanel.render(state);
   targetedDrinkingPanel.render(state);
   targetProposalPanel.render(state);
   adminAfkPanel.render(state);

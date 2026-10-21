@@ -150,6 +150,17 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
         session.tracker.easy_mode = session.easy_mode
         changes.append(f"Easy Mode {'ON' if session.easy_mode else 'OFF'}")
 
+    if "drinking_mode" in queued and bool(queued["drinking_mode"]) != session.drinking_mode:
+        session.drinking_mode = bool(queued["drinking_mode"])
+        # Round-scoped drink / stake state belongs to the mode being left.
+        # (start_round, right after this, builds a real DrinkTracker or a
+        # NullTracker to match the new mode.)
+        session._bank_run_players = []
+        if session.drinking_mode:
+            changes.append("Switched to Drinking mode")
+        else:
+            changes.append("Switched to Normal mode")
+
     if "num_decks" in queued and session.mode == "digital":
         session.shoe = Shoe(queued["num_decks"])
         session.shoe.shuffle(quiet=True)
@@ -185,6 +196,16 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
         session.shoe = Shoe(2)
         session.shoe.shuffle(quiet=True)
         changes.append("Deck count auto-bumped to 2 (4+ players)")
+
+    # A seat that is leaving can't keep the deal: hand it on first (e.g. a
+    # player who split off to a new BOJ table while they were the dealer).
+    leaving_lc = {n.lower() for n in queued.get("remove_players", [])}
+    for _ in range(len(session.all_players)):
+        if session.dealer_name.lower() not in leaving_lc:
+            break
+        if all(p.name.lower() in leaving_lc for p in session.all_players):
+            break   # nobody left to take it
+        rotate_dealer(session)
 
     for name in queued.get("remove_players", []):
         before = len(session.all_players)

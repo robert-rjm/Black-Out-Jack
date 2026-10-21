@@ -336,39 +336,6 @@ async function openRoomQr() {
 
 function closeRoomQr() { closeModal("qr-overlay"); }
 
-// "Tip us" popup: a QR code (and copyable link) so it still works when a
-// popup/ad blocker stops the PayPal tab from opening.
-let _beerUrl = "";
-async function openBeerModal() {
-  const box = document.getElementById("beer-qr");
-  if (!box) return;
-  box.innerHTML = "";
-  document.getElementById("beer-url").textContent = "";
-  openModal("beer-overlay");
-  try {
-    const res  = await fetch("/beer_qr");
-    const data = await res.json();
-    if (!data.ok) throw new Error("failed");
-    box.innerHTML = data.svg;
-    _beerUrl = data.url;
-    document.getElementById("beer-url").textContent = data.url;
-  } catch (_) {
-    document.getElementById("beer-url").textContent = "paypal.me/robertmichels";
-  }
-}
-
-function closeBeerModal() { closeModal("beer-overlay"); }
-
-async function copyBeerLink() {
-  const text = _beerUrl || "https://paypal.me/robertmichels";
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast("Link copied");
-  } catch (_) {
-    showToast(text);
-  }
-}
-
 async function copyInviteLink() {
   const text = _inviteUrl || roomCode;
   try {

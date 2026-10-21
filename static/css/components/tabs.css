@@ -17,4 +17,5 @@
   background: none; border: none; cursor: pointer;
   transition: color .15s;
 }
+.tab:disabled, .tab.disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
 .tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); }

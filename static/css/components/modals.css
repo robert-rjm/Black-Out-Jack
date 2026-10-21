@@ -194,6 +194,7 @@
    Drinking handout pickers) ---- */
 #bust-give-overlay,
 #dealer-lottery-give-overlay,
+#buyin-give-overlay,
 #targeted-drinking-give-overlay {
   position: fixed; inset: 0;
   background: var(--scrim);
@@ -202,6 +203,7 @@
 }
 #bust-give-card,
 #dealer-lottery-give-card,
+#buyin-give-card,
 #targeted-drinking-give-card {
   background: var(--surface);
   border: 1.5px solid var(--green);
@@ -658,6 +660,8 @@
 #paused-sub { font-size: 14px; color: var(--muted); margin-bottom: 22px; }
 
 #target-proposal-modal-overlay,
+#boj-poll-modal-overlay,
+#boj-split-modal-overlay,
 #admin-afk-modal-overlay,
 #drink-rate-vote-overlay,
 #late-join-overlay {
@@ -668,10 +672,14 @@
   align-items: center; justify-content: center;
 }
 #target-proposal-modal-overlay.open,
+#boj-poll-modal-overlay.open,
+#boj-split-modal-overlay.open,
 #admin-afk-modal-overlay.open,
 #drink-rate-vote-overlay.open,
 #late-join-overlay.open { display: flex; }
 #target-proposal-modal,
+#boj-poll-modal,
+#boj-split-modal,
 #admin-afk-modal,
 #drink-rate-vote-modal,
 #late-join-modal {

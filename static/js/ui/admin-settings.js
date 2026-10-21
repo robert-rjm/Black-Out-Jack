@@ -509,7 +509,7 @@ function renderKickVoteBanner(state) {
 // ============================================================
 // RULES MODAL
 // ============================================================
-let _rulesCached = null;
+let _rulesCached = {};
 
 // marked doesn't give headings ids, so the Rules.md table-of-contents links
 // (written for GitHub: "#1-game-setup") pointed at nothing. Give every heading
@@ -548,33 +548,40 @@ document.addEventListener("click", e => {
   if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-async function openRulesModal() {
+async function openRulesModal(full) {
   const body = document.getElementById("rules-body");
   if (!document.getElementById("rules-overlay") || !body) return;
   openModal("rules-overlay", { useClass: true });
 
-  if (_rulesCached) {
-    body.innerHTML = _rulesCached;
-    _decorateRules(body);
-    return;
-  }
-
-  body.innerHTML = '<span style="color:var(--muted);font-size:13px">Loading…</span>';
-  try {
-    const res  = await fetch(`/rules?_=${Date.now()}`);
-    const data = await res.json();
-    if (data.ok && typeof marked !== "undefined") {
-      _rulesCached = DOMPurify.sanitize(marked.parse(data.content));
-    } else if (data.ok) {
-      // marked.js not loaded — plain text fallback
-      _rulesCached = DOMPurify.sanitize(`<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`);
-    } else {
-      _rulesCached = '<span style="color:var(--red)">Could not load rules.</span>';
+  const normal = document.body.classList.contains("no-drinking") && full !== true;
+  const key = normal ? "normal" : "full";
+  if (!_rulesCached[key]) {
+    body.innerHTML = '<span style="color:var(--muted);font-size:13px">Loading…</span>';
+    try {
+      const res  = await fetch(`/rules?${normal ? "mode=normal&" : ""}_=${Date.now()}`);
+      const data = await res.json();
+      if (data.ok && typeof marked !== "undefined") {
+        _rulesCached[key] = DOMPurify.sanitize(marked.parse(data.content));
+      } else if (data.ok) {
+        // marked.js not loaded — plain text fallback
+        _rulesCached[key] = DOMPurify.sanitize(`<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`);
+      } else {
+        body.innerHTML = '<span style="color:var(--red)">Could not load rules.</span>';
+        return;
+      }
+    } catch (_) {
+      body.innerHTML = '<span style="color:var(--red)">Network error loading rules.</span>';
+      return;
     }
-    body.innerHTML = _rulesCached;
-    _decorateRules(body);
-  } catch (_) {
-    body.innerHTML = '<span style="color:var(--red)">Network error loading rules.</span>';
+  }
+  body.innerHTML = _rulesCached[key];
+  _decorateRules(body);
+  if (normal) {
+    const btn = document.createElement("button");
+    btn.className = "btn wide";
+    btn.textContent = "Show BlackOutJack rules";
+    btn.addEventListener("click", () => openRulesModal(true));
+    body.appendChild(btn);
   }
 }
 
@@ -632,6 +639,24 @@ function _populateSettingsUI(state) {
   const wildOn = state.wild_card_enabled !== false;
   if (wildLblOff) wildLblOff.style.display = wildOn ? "none"   : "inline";
   if (wildLblOn)  wildLblOn.style.display  = wildOn ? "inline" : "none";
+
+  // Reflect a queued switch (takes effect next round) rather than the active mode.
+  const drinkModalCb  = document.getElementById("drinking-mode-toggle-modal");
+  const drinkModalOff = document.getElementById("drinking-mode-lbl-modal");
+  const drinkModalOn  = document.getElementById("drinking-mode-lbl-modal-on");
+  const _drinkQueued  = (state.queued_settings || {}).drinking_mode;
+  const drinkOn = _drinkQueued ?? (state.drinking_mode !== false);
+  if (drinkModalCb)  drinkModalCb.checked = drinkOn;
+  if (drinkModalOff) drinkModalOff.style.display = drinkOn ? "none"   : "inline";
+  if (drinkModalOn)  drinkModalOn.style.display  = drinkOn ? "inline" : "none";
+
+  const buyinCb = document.getElementById("buyin-handouts-toggle-modal");
+  const buyinOff = document.getElementById("buyin-handouts-lbl-modal");
+  const buyinOn  = document.getElementById("buyin-handouts-lbl-modal-on");
+  const buyinActive = !!state.buyin_handouts;
+  if (buyinCb)  buyinCb.checked = buyinActive;
+  if (buyinOff) buyinOff.style.display = buyinActive ? "none"   : "inline";
+  if (buyinOn)  buyinOn.style.display  = buyinActive ? "inline" : "none";
 
   const easyModalCb = document.getElementById("easy-mode-toggle-modal");
   const easyModalOff = document.getElementById("easy-mode-lbl-modal");
@@ -691,6 +716,7 @@ function _renderQueuedBanner(queued) {
   if ("wager"     in queued) items.push(`Sips/hand → ${queued.wager}`);
   if ("num_hands" in queued) items.push(`Hands/player → ${queued.num_hands}`);
   if ("num_decks" in queued) items.push(`Decks → ${queued.num_decks}`);
+  if ("drinking_mode" in queued) items.push("Mode → Drinking");
   (queued.add_players    || []).forEach(p => items.push(`Add ${p.is_npc ? "bot" : "player"}: ${escapeHtml(p.name)}`));
   (queued.remove_players || []).forEach(n => items.push(`Remove player: ${escapeHtml(n)}`));
 

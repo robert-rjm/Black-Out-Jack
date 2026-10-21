@@ -87,12 +87,15 @@ function updateRoleUI(state) {
   if (suggestPicker) suggestPicker.style.display  = "none";
   if (suggestToggle) suggestToggle.style.display  = "none";
   if (voteDisp)      voteDisp.style.display       = "none";
+  const showVoteText = state.drinking_mode !== false;
 
   // Local seat switcher (play panel)
   _updateLocalSeatSwitcher();
 
-  // Role hint
-  if (hint) {
+  // Role hint (drinking mode only; in normal mode the dealer is the house)
+  if (state.drinking_mode === false) {
+    if (hint) hint.textContent = "";
+  } else if (hint) {
     if (isMyDealerClient)                           hint.textContent = phase === PHASE.PLAYING ? "You are the dealer — execute the player's vote." : "";
     else if (myRole === ROLE.PLAYER || myRole === ROLE.ADMIN) hint.textContent = phase === PHASE.PLAYING ? "Tap to vote your play — dealer carries it out." : "";
     else                                            hint.textContent = "Spectating — watching only.";
@@ -127,7 +130,7 @@ function updateRoleUI(state) {
 
     if (voteDisp) {
       voteDisp.textContent   = vote ? `${turn} voted: ${VOTE_LABEL[vote]}` : `${turn} — no vote yet`;
-      voteDisp.style.display = "block";
+      voteDisp.style.display = showVoteText ? "block" : "none";
     }
 
     if (vote) {
@@ -184,7 +187,7 @@ function updateRoleUI(state) {
       } else {
         voteDisp.textContent = "Tap to vote your play";
       }
-      voteDisp.style.display = "block";
+      voteDisp.style.display = showVoteText ? "block" : "none";
     }
   }
 }
@@ -258,6 +261,95 @@ async function setEasyModeAdmin(on) {
     if (data.ok) applyState(data);
   } catch (_) {}
 }
+
+async function setDrinkingModeAdmin(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, drinking_mode: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+async function setBuyinHandouts(on) {
+  try {
+    const res  = await fetch("/update_settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, buyin_handouts: on }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+async function giveBuyinSip(giverName, recipientName) {
+  try {
+    const res  = await fetch("/buyin_handout/give", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId,
+                                giver_name: giverName, recipient_name: recipientName }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+// Normal-mode handout picker for players above the buy-in. Same shape as
+// DealerLotteryGivePanel: one delegated click listener, render(state) rebuilds.
+class BuyinGivePanel {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".bgp-give-btn");
+      if (btn) giveBuyinSip(btn.dataset.giver, btn.dataset.recipient);
+    });
+  }
+
+  render(state) {
+    if (!this.el) return;
+    const body = this.el.querySelector("#buyin-give-body");
+    if (!body) return;
+
+    const pending = state.my_buyin_handouts || {};
+    const givers  = Object.keys(pending);
+    // Wait for the round to be fully over so the result isn't hidden behind the picker.
+    if (!givers.length || state.phase !== "round-over") {
+      this.el.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    this.el.style.display = "flex";
+    const allPlayers = state.players || [];
+    body.innerHTML = givers.map(giverName => {
+      const amount = pending[giverName];
+      const label = givers.length > 1
+        ? `🍻 <strong>${escapeHtml(giverName)}</strong> is above the buy-in! Hand out ${amount} sip(s) to:`
+        : `🍻 You're above the buy-in! Hand out ${amount} sip(s) to:`;
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== giverName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const pass = `<button class="btn wide bgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="">Pass</button>`;
+      const mb = givers.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        <div class="bgp-btns-col">${btns}${pass}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
+  }
+}
+
+const buyinGivePanel = new BuyinGivePanel();
 
 async function setPaused(paused) {
   try {

@@ -11,6 +11,11 @@ body.no-drinking .drink-only {
   display: none !important;
 }
 
+/* Inverse of .drink-only: shown only in Normal mode. */
+body:not(.no-drinking) .normal-only {
+  display: none !important;
+}
+
 .pressable:active { transform: scale(.97); }
 
 /* Hidden by default; shown by JS when needed */

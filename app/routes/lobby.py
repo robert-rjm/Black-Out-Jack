@@ -17,21 +17,17 @@ from urllib.parse import urlsplit
 import segno
 from flask import Blueprint, jsonify, redirect, request
 
-from engine.blackjack import Player, Hand, Shoe, NPC_Player
 from engine.style_strategy import available_profiles
-from engine.referee import RefereeSession
 
-from app.models.game_room import GameRoom, GameConfig
 from app.services.session_store import (
     game_sessions,
-    reserve_room, set_session, find_room_code,
+    reserve_room, find_room_code,
     is_join_rate_limited,
     mark_waiting_client, get_waiting_clients,
 )
 from app.services.validators  import sanitize_name, is_offensive_name
 from app.services.serializer  import serialize_state
-from app.services.room_manager import NullTracker, patch_tracker, capture
-from app.services.payout_tracker import init_bankrolls
+from app.services.room_factory import build_game_room
 from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
 
 bp = Blueprint("lobby", __name__)
@@ -201,66 +197,16 @@ def setup():
     npc_personalities = {sanitize_name(k): v.strip().lower()
                          for k, v in raw_personalities.items() if v}
 
-    players = []
-    for name in names:
-        if name in npc_names:
-            personality = npc_personalities.get(name, "basic")
-            p           = NPC_Player(name, personality=personality)
-        else:
-            p           = Player(name)
-        p.is_dealer = (name == dealer_name)
-        if p.is_dealer:
-            p.dealer_hand = Hand()
-        players.append(p)
-
     drinking = bool(data.get("drinking", True))
 
-    raw_session = RefereeSession(players, dealer_name, wager, num_hands)
-    room = GameRoom(
-        session=raw_session,
-        room_code=room_code,
-        rounds_this_dealer=1,
-        config=GameConfig(
-            mode=mode,
-            drinking_mode=drinking,
-            dealer_rotate_every=len(players),
-            bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
-            easy_mode=bool(data.get("easy_mode", False)),
-            bet_amount=bet_amount,
-            starting_bankroll=starting_bankroll,
-        ),
+    room, output = build_game_room(
+        room_code, client_id, names, npc_names, npc_personalities, dealer_name,
+        mode=mode, drinking=drinking, wager=wager, num_hands=num_hands,
+        bet_amount=bet_amount, starting_bankroll=starting_bankroll,
+        num_decks=num_decks,
+        bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
+        easy_mode=bool(data.get("easy_mode", False)),
     )
-    if client_id:
-        # All non-NPC seats start as local — a seat moves to remote only when
-        # another device registers and claims it (handle_registration removes it).
-        local_names = [p.name for p in players if p.name not in npc_names]
-        # Admin is always seated at Player1 (first non-NPC seat) regardless of
-        # who the dealer is. god_mode keeps them in game control either way.
-        # This ensures that when they transfer admin, they retain a player seat
-        # automatically without any extra steps.
-        admin_seat = local_names[0] if local_names else dealer_name
-        room._room_clients[client_id] = {
-            "name": admin_seat, "local_names": local_names,
-            "role": "admin", "kicked": False,
-        }
-    set_session(room_code, room)
-
-    if mode == "digital":
-        raw_session.shoe = Shoe(num_decks)
-        raw_session.shoe.shuffle(quiet=True)
-
-    if not drinking:
-        raw_session.tracker = NullTracker()
-
-    if mode == "digital" and not drinking:
-        init_bankrolls(room)
-
-    output = capture(raw_session.start_round)
-    if drinking:
-        patch_tracker(raw_session)  # must run AFTER start_round creates a fresh tracker
-        raw_session.tracker.easy_mode = room.easy_mode
-    if output.strip():
-        room.round._log_entries.append(output)
     state  = serialize_state(room, client_id)
     state["output"] = output   # kept for host's immediate display
     return jsonify(state)
