@@ -87,12 +87,15 @@ function updateRoleUI(state) {
   if (suggestPicker) suggestPicker.style.display  = "none";
   if (suggestToggle) suggestToggle.style.display  = "none";
   if (voteDisp)      voteDisp.style.display       = "none";
+  const showVoteText = state.drinking_mode !== false;
 
   // Local seat switcher (play panel)
   _updateLocalSeatSwitcher();
 
-  // Role hint
-  if (hint) {
+  // Role hint (drinking mode only; in normal mode the dealer is the house)
+  if (state.drinking_mode === false) {
+    if (hint) hint.textContent = "";
+  } else if (hint) {
     if (isMyDealerClient)                           hint.textContent = phase === PHASE.PLAYING ? "You are the dealer — execute the player's vote." : "";
     else if (myRole === ROLE.PLAYER || myRole === ROLE.ADMIN) hint.textContent = phase === PHASE.PLAYING ? "Tap to vote your play — dealer carries it out." : "";
     else                                            hint.textContent = "Spectating — watching only.";
@@ -127,7 +130,7 @@ function updateRoleUI(state) {
 
     if (voteDisp) {
       voteDisp.textContent   = vote ? `${turn} voted: ${VOTE_LABEL[vote]}` : `${turn} — no vote yet`;
-      voteDisp.style.display = "block";
+      voteDisp.style.display = showVoteText ? "block" : "none";
     }
 
     if (vote) {
@@ -184,7 +187,7 @@ function updateRoleUI(state) {
       } else {
         voteDisp.textContent = "Tap to vote your play";
       }
-      voteDisp.style.display = "block";
+      voteDisp.style.display = showVoteText ? "block" : "none";
     }
   }
 }
