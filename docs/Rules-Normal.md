@@ -26,6 +26,19 @@ Standard blackjack against the house, played for money instead of sips. Only the
 
 Before the dealer plays, you can bet on whether the dealer will bust. A correct call pays **2:1**, a wrong call loses the side stake. The side stake is half your hand stake by default.
 
+## Buy-in handouts (optional)
+
+The host can switch on **Buy-in Handouts** in Settings. At the end of each round, everyone whose bankroll is above the starting **$100** gets to hand out a sip to another player (or pass). Bots hand theirs out automatically. Unclaimed handouts lapse when the next round starts.
+
+## Switching modes
+
+The host can switch a Normal table to Drinking in Settings at any time. The change applies from the next round: same players and seats, no lobby, nobody re-enters a name. It is one-way: a Drinking table can't go back to Normal.
+
+Any seated player can also start a **table vote** (the 🍻 button in the header):
+
+- **Most players say yes**: the whole table switches to Drinking from the next round.
+- **Not enough say yes**: the table stays Normal, and only the players who said yes move to a new Drinking table. They get a few seconds to **Cancel** before being moved, and keep their name, with no lobby.
+
 ## Tracking
 
 The **Round** tab shows everyone's bankroll, last-round result and best and worst round.

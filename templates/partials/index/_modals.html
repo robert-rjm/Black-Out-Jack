@@ -81,6 +81,30 @@
         </div>
       </div>
 
+      <div class="kick-toggle-row normal-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Drinking Mode <span style="font-size:10px;color:var(--muted)">(sips instead of cash, from next round, can't be undone)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="drinking-mode-toggle-modal" data-change-action="setDrinkingModeAdmin">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="drinking-mode-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="drinking-mode-lbl-modal-on">ON</span>
+        </div>
+      </div>
+
+      <div class="kick-toggle-row normal-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
+        <label class="kick-toggle-label" style="font-size:13px">Buy-in Handouts <span style="font-size:10px;color:var(--muted)">(above the buy-in hands out a sip each round)</span></label>
+        <div class="pill-toggle-wrap">
+          <label class="pill-toggle">
+            <input type="checkbox" id="buyin-handouts-toggle-modal" data-change-action="setBuyinHandouts">
+            <span class="pill-slider"></span>
+          </label>
+          <span class="pill-label-off" id="buyin-handouts-lbl-modal">OFF</span>
+          <span class="pill-label-on" id="buyin-handouts-lbl-modal-on">ON</span>
+        </div>
+      </div>
+
       <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
         <label class="kick-toggle-label" style="font-size:13px">Easy Mode <span style="font-size:10px;color:var(--muted)">(halve drinks every round)</span></label>
         <div class="pill-toggle-wrap">
@@ -255,6 +279,12 @@
   </div>
 </div>
 
+<div id="buyin-give-overlay" style="display:none">
+  <div id="buyin-give-card" data-stop-propagation="true">
+    <div id="buyin-give-body"></div>
+  </div>
+</div>
+
 <div id="targeted-drinking-give-overlay" style="display:none">
   <div id="targeted-drinking-give-card" data-stop-propagation="true">
     <div id="targeted-drinking-give-body"></div>
@@ -419,6 +449,34 @@
     <div id="target-proposal-modal-btns" class="btn-row"></div>
     <div id="target-proposal-modal-status" class="insurance-modal-status"></div>
     <div id="target-proposal-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="boj-poll-modal-overlay">
+  <div id="boj-poll-modal">
+    <div class="insurance-modal-header">
+      <div class="insurance-modal-emoji">🍻</div>
+      <div id="boj-poll-modal-title" class="target-proposal-modal-title">Switch to BOJ?</div>
+      <div id="boj-poll-modal-sub" class="insurance-modal-sub"></div>
+    </div>
+    <div id="boj-poll-modal-tally" class="insurance-modal-stakes"></div>
+    <div id="boj-poll-modal-btns" class="btn-row"></div>
+    <div id="boj-poll-modal-status" class="insurance-modal-status"></div>
+    <div id="boj-poll-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="boj-split-modal-overlay">
+  <div id="boj-split-modal">
+    <div class="insurance-modal-header">
+      <div class="insurance-modal-emoji">🍻</div>
+      <div class="target-proposal-modal-title">Heading to a new BOJ table</div>
+      <div id="boj-split-modal-sub" class="insurance-modal-sub"></div>
+    </div>
+    <div id="boj-split-modal-timer" class="insurance-modal-timer"></div>
+    <div class="btn-row">
+      {{ action_btn('Cancel', 'cancelBojSplit', '[]', 'btn red wide', 'id="boj-split-cancel-btn"') }}
+    </div>
   </div>
 </div>
 

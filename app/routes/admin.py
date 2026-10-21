@@ -668,6 +668,19 @@ def update_settings():
     if "easy_mode" in data:
         queued["easy_mode"] = bool(data["easy_mode"])
 
+    # drinking_mode — queued, takes effect next round (same table, same seats).
+    # One-way: a Normal table can graduate to Drinking, never the reverse.
+    # Asking for the mode the table is already in cancels a pending switch.
+    if "drinking_mode" in data:
+        want = bool(data["drinking_mode"])
+        if session.drinking_mode and not want:
+            return jsonify({"ok": False,
+                            "error": "A Drinking table can't switch back to Normal mode."})
+        if want == session.drinking_mode:
+            queued.pop("drinking_mode", None)
+        else:
+            queued["drinking_mode"] = want
+
     # bust_vote_enabled is a live setting — toggled immediately
     if "bust_vote_enabled" in data:
         session.bust_vote_enabled = bool(data["bust_vote_enabled"])
@@ -676,6 +689,10 @@ def update_settings():
     # strategy_hint_enabled (basic-strategy "best play" blue border) — live setting
     if "strategy_hint_enabled" in data:
         session.strategy_hint_enabled = bool(data["strategy_hint_enabled"])
+
+    # buyin_handouts — Normal-mode perk, live setting
+    if "buyin_handouts" in data:
+        session.buyin_handouts = bool(data["buyin_handouts"])
 
     # wild_card_enabled — admin can disable the logo Easter egg (live setting)
     if "wild_card_enabled" in data:

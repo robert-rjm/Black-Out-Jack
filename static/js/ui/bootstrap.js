@@ -24,6 +24,12 @@
     if (action === "setBustVoteEnabled") {
       return window.setBustVoteEnabled(!!el.checked);
     }
+    if (action === "setDrinkingModeAdmin") {
+      return window.setDrinkingModeAdmin(!!el.checked);
+    }
+    if (action === "setBuyinHandouts") {
+      return window.setBuyinHandouts(!!el.checked);
+    }
     if (action === "setEasyModeAdmin") {
       return window.setEasyModeAdmin(!!el.checked);
     }

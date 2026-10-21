@@ -640,6 +640,24 @@ function _populateSettingsUI(state) {
   if (wildLblOff) wildLblOff.style.display = wildOn ? "none"   : "inline";
   if (wildLblOn)  wildLblOn.style.display  = wildOn ? "inline" : "none";
 
+  // Reflect a queued switch (takes effect next round) rather than the active mode.
+  const drinkModalCb  = document.getElementById("drinking-mode-toggle-modal");
+  const drinkModalOff = document.getElementById("drinking-mode-lbl-modal");
+  const drinkModalOn  = document.getElementById("drinking-mode-lbl-modal-on");
+  const _drinkQueued  = (state.queued_settings || {}).drinking_mode;
+  const drinkOn = _drinkQueued ?? (state.drinking_mode !== false);
+  if (drinkModalCb)  drinkModalCb.checked = drinkOn;
+  if (drinkModalOff) drinkModalOff.style.display = drinkOn ? "none"   : "inline";
+  if (drinkModalOn)  drinkModalOn.style.display  = drinkOn ? "inline" : "none";
+
+  const buyinCb = document.getElementById("buyin-handouts-toggle-modal");
+  const buyinOff = document.getElementById("buyin-handouts-lbl-modal");
+  const buyinOn  = document.getElementById("buyin-handouts-lbl-modal-on");
+  const buyinActive = !!state.buyin_handouts;
+  if (buyinCb)  buyinCb.checked = buyinActive;
+  if (buyinOff) buyinOff.style.display = buyinActive ? "none"   : "inline";
+  if (buyinOn)  buyinOn.style.display  = buyinActive ? "inline" : "none";
+
   const easyModalCb = document.getElementById("easy-mode-toggle-modal");
   const easyModalOff = document.getElementById("easy-mode-lbl-modal");
   const easyModalOn  = document.getElementById("easy-mode-lbl-modal-on");
@@ -698,6 +716,7 @@ function _renderQueuedBanner(queued) {
   if ("wager"     in queued) items.push(`Sips/hand → ${queued.wager}`);
   if ("num_hands" in queued) items.push(`Hands/player → ${queued.num_hands}`);
   if ("num_decks" in queued) items.push(`Decks → ${queued.num_decks}`);
+  if ("drinking_mode" in queued) items.push("Mode → Drinking");
   (queued.add_players    || []).forEach(p => items.push(`Add ${p.is_npc ? "bot" : "player"}: ${escapeHtml(p.name)}`));
   (queued.remove_players || []).forEach(n => items.push(`Remove player: ${escapeHtml(n)}`));
 

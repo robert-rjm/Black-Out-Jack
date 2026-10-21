@@ -1328,6 +1328,177 @@ class TargetProposalPanel {
 
 const targetProposalPanel = new TargetProposalPanel();
 
+// ── "Switch to BOJ" table poll (Normal mode) ─────────────────────────────────
+// Majority Yes switches the whole table; otherwise the Yes voters leave for a
+// new Drinking room after a short cancel modal (see app/services/boj_switch.py).
+
+async function _bojPost(path, extra) {
+  _requestsInFlight++;
+  try {
+    const res  = await fetch(path, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, ...(extra || {}) }),
+    });
+    return await res.json();
+  } catch (_) {
+    return { ok: false, error: "Could not reach server." };
+  } finally {
+    _requestDone();
+  }
+}
+
+async function proposeBojSwitch() {
+  const data = await _bojPost("/boj/propose");
+  if (data.ok) applyState(data);
+  else if (data.error) showToast(data.error);
+}
+
+async function castBojVote(vote) {
+  const data = await _bojPost("/boj/vote", { vote });
+  if (data.ok) applyState(data);
+}
+
+async function cancelBojSplit() {
+  bojSplitPanel.stop();
+  const data = await _bojPost("/boj/split/cancel");
+  if (data.ok) applyState(data);
+  else if (data.error) showToast(data.error);
+}
+
+// Cancel window is over: hop to the new room. The server already registered
+// this device there with its seats, so a reload resumes straight into it.
+async function goBojSplit() {
+  const data = await _bojPost("/boj/split/go");
+  if (!data.ok || !data.room_code) {
+    bojSplitPanel.stop();
+    closeModal("boj-split-modal-overlay", { useClass: true });
+    return;
+  }
+  stopPolling();
+  lsSet("bjRoomCode", data.room_code);
+  location.reload();
+}
+
+class BojPollPanel {
+  constructor() { this._seenResult = null; }
+
+  mount(modalEl) {
+    if (this.modalEl) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.modalEl = modalEl;
+    modalEl.addEventListener("click", e => {
+      const btn = e.target.closest("[data-boj-vote]");
+      if (btn) castBojVote(btn.dataset.bojVote === "true");
+    });
+  }
+
+  render(state) {
+    const boj = (state && state.boj) || {};
+    const proposeBtn = document.getElementById("btn-boj-propose");
+    if (proposeBtn) proposeBtn.style.display = boj.can_propose ? "" : "none";
+    if (!this.modalEl) return;
+
+    const poll = boj.poll;
+    if (poll) {
+      openModal("boj-poll-modal-overlay", { useClass: true });
+      this._renderPoll(poll);
+    } else {
+      closeModal("boj-poll-modal-overlay", { useClass: true });
+    }
+
+    const res = boj.last_result;
+    if (res) {
+      const key = `${res.kind}:${res.names.join(",")}`;
+      if (this._seenResult !== key) {
+        this._seenResult = key;
+        if (res.kind === "table") showToast("🍻 The table voted to switch to BOJ — from next round");
+        else if (res.kind === "split" && !boj.my_split)
+          showToast(`🍻 ${res.names.join(", ")} will start a new BOJ table`);
+        else if (res.kind === "none") showToast("🍻 Nobody wanted to switch");
+      }
+    } else {
+      this._seenResult = null;
+    }
+  }
+
+  _renderPoll(poll) {
+    const subEl    = document.getElementById("boj-poll-modal-sub");
+    const tallyEl  = document.getElementById("boj-poll-modal-tally");
+    const btnsEl   = document.getElementById("boj-poll-modal-btns");
+    const statusEl = document.getElementById("boj-poll-modal-status");
+    const timerEl  = document.getElementById("boj-poll-modal-timer");
+
+    if (subEl) subEl.innerHTML =
+      `<strong>${escapeHtml(poll.proposer)}</strong> wants the table to switch to BOJ. ` +
+      `If most agree, everyone switches. If not, only those who said yes start a new BOJ table.`;
+    if (tallyEl) tallyEl.innerHTML =
+      `Yes: <strong style="color:var(--green)">${poll.yes_count}</strong> &nbsp;·&nbsp; ` +
+      `No: <strong style="color:var(--red)">${poll.no_count}</strong> &nbsp;·&nbsp; ` +
+      `Needed to switch the table: ${poll.needed}/${poll.total_voters}`;
+    const hasVoted = poll.my_vote !== null && poll.my_vote !== undefined;
+    if (btnsEl) btnsEl.innerHTML = (!poll.eligible || hasVoted) ? "" :
+      `<button class="btn green wide" data-boj-vote="true">YES</button>` +
+      `<button class="btn red wide"   data-boj-vote="false">NO</button>`;
+    if (statusEl) statusEl.innerHTML = !poll.eligible
+      ? `<span style="color:var(--muted)">You're not part of this vote.</span>`
+      : hasVoted
+      ? `Your vote: <strong style="color:${poll.my_vote ? "var(--green)" : "var(--red)"}">` +
+        `${poll.my_vote ? "YES" : "NO"}</strong> &nbsp;· waiting on the rest of the table…`
+      : `<span style="color:var(--muted)">Cast your vote below.</span>`;
+    if (timerEl) {
+      const s = poll.seconds_left || 0;
+      timerEl.textContent = s > 0 ? `⏱ ${s}s remaining` : "Time up!";
+      timerEl.style.color = s <= 5 ? "var(--red)" : "var(--muted)";
+    }
+  }
+}
+
+const bojPollPanel = new BojPollPanel();
+
+// Brief cancel modal for a player about to leave for a new BOJ table. The
+// server gives the seconds left; a local 250 ms timer drives the countdown
+// (state polls can be 2 s apart) and fires the redirect at zero.
+class BojSplitPanel {
+  constructor() { this._timer = null; this._deadline = null; this._going = false; }
+
+  stop() {
+    if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    this._deadline = null;
+  }
+
+  render(state) {
+    const split = state && state.boj && state.boj.my_split;
+    if (!split) {
+      if (!this._going) { this.stop(); closeModal("boj-split-modal-overlay", { useClass: true }); }
+      return;
+    }
+    const cancelBtn = document.getElementById("boj-split-cancel-btn");
+    if (cancelBtn) cancelBtn.style.display = split.can_cancel ? "" : "none";
+    if (this._deadline === null) {
+      this._deadline = Date.now() + split.seconds_until_go * 1000;
+      this._going = false;
+      openModal("boj-split-modal-overlay", { useClass: true });
+      this._timer = setInterval(() => this._tick(), 250);
+      this._tick();
+    }
+  }
+
+  _tick() {
+    const left = Math.max(0, Math.ceil((this._deadline - Date.now()) / 1000));
+    const sub = document.getElementById("boj-split-modal-sub");
+    const timer = document.getElementById("boj-split-modal-timer");
+    if (sub) sub.textContent = "You're leaving this table for a new BOJ (Drinking) table. Same name, no lobby.";
+    if (timer) timer.textContent = left > 0 ? `Moving in ${left}s…` : "Moving…";
+    if (left === 0 && !this._going) {
+      this._going = true;
+      this.stop();
+      goBojSplit();
+    }
+  }
+}
+
+const bojSplitPanel = new BojSplitPanel();
+
 async function castTargetProposalVote(vote) {
   _requestsInFlight++;
   try {

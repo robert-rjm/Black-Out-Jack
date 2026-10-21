@@ -112,6 +112,11 @@ TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS          = 20
 # runs out. A failed vote freezes the proposer from opening another proposal
 # for this many rounds (doesn't stop them voting on someone else's).
 TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS = 15
+
+# "Switch to BOJ" table poll (services/boj_switch.py)
+BOJ_POLL_WINDOW_SECONDS    = 30   # how long the Normal-table vote stays open
+BOJ_SPLIT_GRACE_SECONDS    = 8    # cancel-modal countdown before movers are redirected
+BOJ_SPLIT_PLAN_TTL_SECONDS = 120  # an unused split plan (nobody redirected) lapses after this
 TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS        = 3
 
 # ---------------------------------------------------------------------------

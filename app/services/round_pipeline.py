@@ -16,6 +16,7 @@ from app.services.drink_tracker import (
 from app.services.dealer_lottery import check_dealer_lottery_trigger
 from app.services.targeted_drinking import check_targeted_drinking_trigger
 from app.services.payout_tracker import apply_payouts
+from app.services.buyin_handout import compute_buyin_handouts
 from app.services.decision_log import backfill_hand_results
 
 
@@ -39,5 +40,6 @@ def apply_endround_pipeline(session) -> None:
     # closes.
     check_targeted_drinking_trigger(session)
     apply_payouts(session)
+    compute_buyin_handouts(session)
     backfill_hand_results(session)
     session.round._round_ended = True
