@@ -33,6 +33,7 @@ JS_SOURCES = [
     "static/js/ui/tip.js",
     "static/js/ui/animation.js",
     "static/js/ui/setup.js",
+    "static/js/ui/idle.js",
     "static/js/ui/table.js",
     "static/js/ui/table-modals.js",
     "static/js/ui/table-render.js",

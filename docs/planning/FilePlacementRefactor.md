@@ -11,7 +11,7 @@ the game playable. One step per commit, and click through the affected UI after
 each JS step.
 
 Already done: step 1 (services importing from routes), section 6 (routes),
-section 7 (docs and data), section 2 (`admin.js`), section 3 (`lobby.js`), and the "Tip us" code moved from `lobby.js` into
+section 7 (docs and data), section 2 (`admin.js`), section 3 (`lobby.js`), section 4 (`setup.js`), and the "Tip us" code moved from `lobby.js` into
 `static/js/ui/tip.js` (bundler list, `DOM-Hooks.md` and `Architecture.md`
 updated).
 
@@ -128,6 +128,17 @@ Plan:
    into a small `ui/room-qr.js`, and fix the doc.
 
 ## 4. `setup.js`
+
+**Status: done.** The waiting room (`renderWaitingPlayers`, `startWaiting`) moved
+into `lobby.js`; the idle watcher moved to `ui/idle.js` (loaded right after
+`setup.js`). `setup.js` is about 435 lines of actual game setup.
+
+Leftovers found while doing this, not moved yet: `setup.js` still opens with
+`DrinkUI` (the drink-summary / milestone-toast state) and the `sel` /
+`selRank` / `selSuit` table-selection globals. `DrinkUI` is read by `table.js`
+and `table-modals.js` at call time, so it could move to `drink-panels.js` (it must
+then load before them, i.e. stay ahead of `table.js` in `JS_SOURCES`), and `sel`
+to `table.js`. The notes below describe the original problem.
 
 `setup.js` also owns two things that are not game setup:
 

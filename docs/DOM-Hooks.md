@@ -16,7 +16,7 @@ This document defines selector ownership for the web UI modules and the shared e
 ### `static/js/ui/lobby.js`
 - `#age-gate`, `#age-gate-msg`
 - `#lobby`, `#lobby-msg`, `#join-code`
-- `#waiting`, `#waiting-code-badge`
+- `#waiting`, `#waiting-code-badge`, `#waiting-player-list`, `#waiting-player-count` (waiting room: `renderWaitingPlayers`, `startWaiting`)
 
 ### `static/js/ui/poll.js`
 - The `/state` poll loop and visibility re-poll (`startPolling`, `stopPolling`, `fetchState`)
@@ -27,6 +27,9 @@ This document defines selector ownership for the web UI modules and the shared e
 
 ### `static/js/ui/tip.js`
 - Header/bottom-nav "Tip us" buttons: `#btn-beer-header`, `#btn-beer-nav` (`[data-action="openBeerModal"|"closeBeerModal"|"copyBeerLink"]`). Tapping one opens the `/beer` PayPal redirect in a new tab; `#beer-overlay` (QR from `/beer_qr`, "Open PayPal" link, copy link) shows when the player returns to the game tab, or at once if the new tab was blocked
+
+### `static/js/ui/idle.js`
+- Idle watcher (warns before the 15-minute host sleep; seated players only): `#idle-warning-banner`, `#idle-warning-text`, `#idle-urgent-overlay`
 
 ### `static/js/ui/setup.js`
 - `#setup`, `#setup-sub`, `#setup-room-code` (tap to open the QR dialog), `#header-room` (same)

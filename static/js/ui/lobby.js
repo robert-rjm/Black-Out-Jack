@@ -150,3 +150,61 @@ function backToLobby() {
   document.getElementById("waiting-player-list").innerHTML = "";
   document.getElementById("waiting-player-count").textContent = "1 / ?";
 }
+
+// ============================================================
+// WAITING ROOM — joined a room whose host hasn't started the game yet
+// ============================================================
+// Moved here from setup.js. startWaiting() polls /state until the game exists.
+
+// Render avatar dots + count in the waiting screen lobby.
+// `count` is the number of clients currently waiting (including this one).
+let _lastWaitingCount = 0;
+function renderWaitingPlayers(count) {
+  if (count === _lastWaitingCount) return;
+  _lastWaitingCount = count;
+
+  const list = document.getElementById("waiting-player-list");
+  if (list) {
+    list.innerHTML = "";
+    for (let i = 0; i < count; i++) {
+      const av = document.createElement("div");
+      av.className = "avatar";
+      av.textContent = "🙂";
+      list.appendChild(av);
+    }
+  }
+
+  const countEl = document.getElementById("waiting-player-count");
+  if (countEl) countEl.textContent = `${count} joined`;
+}
+
+// While waiting for the host to start, poll until the game exists.
+// Uses self-rescheduling setTimeout (not setInterval) so a slow fetch
+// never causes overlapping requests.
+function startWaiting() {
+  stopPolling();
+  const tick = async () => {
+    if (!roomCode) { pollTimer = setTimeout(tick, 2000); return; }
+    let started = false;
+    await fetchState(data => {
+      if (data.players && data.players.length > 0) {
+        started  = true;
+        stopPolling();
+        players  = data.players || [];
+        numHands = data.num_hands || 2;
+        gameMode = data.mode || "referee";
+        updateHeader(data);
+        buildGameUI();
+        applyState(data);
+        document.getElementById("waiting").style.display = "none";
+        document.getElementById("app").style.display     = "flex";
+        startPolling();
+        startIdleWatcher();
+      } else if (data.waiting) {
+        renderWaitingPlayers(data.waiting_count || 1);
+      }
+    });
+    if (!started) pollTimer = setTimeout(tick, 2000);
+  };
+  pollTimer = setTimeout(tick, 2000);
+}
