@@ -52,16 +52,29 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#btn-peek`
 - Shared with `admin.js`: `#player-vote-display`, `#honor-split-overlay`, `#honor-no-btn`
 
+### `static/js/ui/drink-panels.js`
+- Bust vote side bet (`BustVotePanel`, `BustGivePanel`):
+  - `#bust-vote-modal-overlay`, `#bust-vote-timer-bar`, `#bust-vote-timer-label`
+  - `#bust-vote-players-wrap`, `#bust-vote-modal-tally`
+  - `#bust-vote-status`, `#bust-vote-status-round`
+  - `#bust-give-overlay`, `#bust-give-body`
+- Dealer Lottery (Rules.md §5.9; `DealerLotteryEntryPanel`, `DealerLotteryGivePanel`):
+  - `#dealer-lottery-modal-overlay`, `#dealer-lottery-players-wrap`, `#dealer-lottery-answered`
+  - `#dealer-lottery-timer-bar`, `#dealer-lottery-timer-label`
+  - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
+  - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
+  - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
+- Targeted Drinking perfect-graduation handout (`TargetedDrinkingGivePanel`):
+  `#targeted-drinking-give-overlay`, `#targeted-drinking-give-body`
+- Normal-mode buy-in handout (`BuyinGivePanel`): `#buyin-give-overlay`, `#buyin-give-body`
+- Player toasts: `#player-toast`
+
 ### `static/js/ui/admin.js`
 - Registration and role management:
   - `#register-overlay`, `#register-seats`, `#register-error`
   - `#register-pending`, `#register-denied`, `#pending-reg-banner`
-- Bust vote side bet:
-  - `#bust-vote-modal-overlay`, `#bust-vote-timer-bar`, `#bust-vote-timer-label`
-  - `#bust-vote-players-wrap`, `#bust-vote-modal-tally`
-  - `#bust-vote-status`, `#bust-vote-status-round`
+- Bust vote setting (the vote itself is in `drink-panels.js`):
   - `#bust-vote-toggle-modal`, `#bust-vote-lbl-modal`, `#bust-vote-lbl-modal-on`
-  - `#bust-give-overlay`, `#bust-give-body`
   - `#player-vote-display`
 - Honor prompt and strategy suggest:
   - `#honor-split-overlay`, `#honor-no-btn`
@@ -72,12 +85,6 @@ This document defines selector ownership for the web UI modules and the shared e
 - Digital panel controls (also read by `table.js`):
   - `#dig-predeal-panel`, `#dig-play-content`, `#dig-play-role-hint`
   - `#dig-drinks-dealer-actions`, `#dig-drinks-waiting`
-- Dealer Lottery (Rules.md §5.9):
-  - `#dealer-lottery-modal-overlay`, `#dealer-lottery-players-wrap`, `#dealer-lottery-answered`
-  - `#dealer-lottery-timer-bar`, `#dealer-lottery-timer-label`
-  - `#dealer-lottery-reveal-overlay`, `#dealer-lottery-reveal-sub`, `#dealer-lottery-reveal-hands`
-  - `#dealer-lottery-reveal-payout`, `#dealer-lottery-reveal-close-btn`
-  - `#dealer-lottery-give-overlay`, `#dealer-lottery-give-body`
 - Targeted Drinking Mode (Rules.md §5.10) -- vote, reveal, and the
   end-of-subgame recap are one continuous modal/card
   (`#targeted-drinking-modal-overlay` / `.td-modal-card`), never separate

@@ -70,6 +70,13 @@ Done when: that grep is empty and `pytest` is green.
 
 ## 2. Split `admin.js`
 
+**Status: drink panels done** (`ui/drink-panels.js`, loaded just before
+`admin.js`). Moved verbatim: the bust-vote panel and `submitBustVote`, the
+bust / Dealer Lottery / Targeted Drinking / buy-in handout panels, the Dealer
+Lottery reveal modal and the player toasts. `admin.js` went from about 1,900 to
+about 830 lines. Still to do: seats / registration (`ui/seats.js`) and cash bets
+(`ui/bets.js`). The notes below describe the original problem.
+
 `admin.js` (about 1,900 lines) is not about admin. What is in it today and
 where each group should go:
 
