@@ -548,15 +548,12 @@ document.addEventListener("click", e => {
   if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-let _rulesFullView = false;   // Normal-mode players can flip to the full drinking rules
-
 async function openRulesModal(full) {
   const body = document.getElementById("rules-body");
   if (!document.getElementById("rules-overlay") || !body) return;
   openModal("rules-overlay", { useClass: true });
 
   const normal = document.body.classList.contains("no-drinking") && full !== true;
-  _rulesFullView = !normal;
   const key = normal ? "normal" : "full";
   if (!_rulesCached[key]) {
     body.innerHTML = '<span style="color:var(--muted);font-size:13px">Loading…</span>';
@@ -569,7 +566,8 @@ async function openRulesModal(full) {
         // marked.js not loaded — plain text fallback
         _rulesCached[key] = DOMPurify.sanitize(`<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`);
       } else {
-        _rulesCached[key] = '<span style="color:var(--red)">Could not load rules.</span>';
+        body.innerHTML = '<span style="color:var(--red)">Could not load rules.</span>';
+        return;
       }
     } catch (_) {
       body.innerHTML = '<span style="color:var(--red)">Network error loading rules.</span>';
