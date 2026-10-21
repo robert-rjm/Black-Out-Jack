@@ -27,6 +27,7 @@ from app.config import (
     DEFAULT_WAGER, DEFAULT_NUM_HANDS,
 )
 from app.models.game_room import GameRoom
+from app.services.room_manager import auto_transfer_admin
 from app.services.session_store import game_sessions, reserve_room
 
 RESULT_FLASH_SECONDS = 15
@@ -239,11 +240,9 @@ def _build_new_room(session: GameRoom, plan: dict) -> None:
 def _leave_old_room(session: GameRoom, client_id: str, seats: list[str]) -> None:
     """Mirror /leave_room, and queue the mover's seats for removal at the
     old table's next round (a dealer seat hands the deal on first)."""
-    from app.routes.admin import _auto_transfer_admin   # lazy: routes import services
-
     clients = session._room_clients
     if clients.get(client_id, {}).get("role") == "admin":
-        _auto_transfer_admin(session, client_id)
+        auto_transfer_admin(session, client_id)
     clients.pop(client_id, None)
     session._pending_registrations = [
         r for r in session._pending_registrations if r["client_id"] != client_id]

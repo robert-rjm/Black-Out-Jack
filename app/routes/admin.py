@@ -32,7 +32,9 @@ from app.services.serializer    import serialize_state, round_phase
 from app.services.drink_tracker import (award_sips, check_and_set_milestone,
                                         note_milestone_assigned)
 from app.services.game_engine   import auto_play_npc_turns
-from app.services.room_manager  import rotate_dealer as _rotate_dealer
+from app.services.room_manager  import (
+    rotate_dealer as _rotate_dealer, auto_transfer_admin, transfer_local_names,
+)
 from app.services.validators    import sanitize_name, is_dealer_client, is_offensive_name
 from app.services.targeted_drinking import (
     start_targeted_drinking,
@@ -225,23 +227,6 @@ def make_human():
 # Admin transfer
 # ---------------------------------------------------------------------------
 
-def _transfer_local_names(old_local_names: list[str], new_info: dict) -> None:
-    """Merge `old_local_names` (the departing admin's controlled seats) into
-    `new_info["local_names"]`, excluding the new admin's own name (which they
-    already own) and de-duplicating against any seats they already control.
-    If the new admin had no local_names, fall back to their single-seat name
-    so the merge still has a base list to extend.
-    """
-    new_name = (new_info.get("name") or "").lower()
-    transferred = [n for n in old_local_names if n.lower() != new_name]
-    if not transferred:
-        return
-    existing = new_info.get("local_names") or (
-        [new_info["name"]] if new_info.get("name") else []
-    )
-    new_info["local_names"] = existing + [n for n in transferred if n not in existing]
-
-
 @bp.route("/transfer_admin", methods=["POST"])
 def transfer_admin():
     """Admin hands admin role to another connected player.
@@ -277,7 +262,7 @@ def transfer_admin():
     admin_info["local_names"]   = []   # old admin loses multi-seat control
     new_admin_info              = clients[target_cid]
     new_admin_info["role"]      = "admin"
-    _transfer_local_names(seats_to_transfer, new_admin_info)
+    transfer_local_names(seats_to_transfer, new_admin_info)
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
@@ -286,46 +271,23 @@ def transfer_admin():
 # Leave room (with auto admin transfer)
 # ---------------------------------------------------------------------------
 
-def _auto_transfer_admin(session, leaving_client_id: str) -> None:
-    """Promote the first eligible player to admin when the current admin leaves."""
-    clients = session._room_clients
-    # Prefer players with a seat, then spectators; skip kicked/pending/denied
-    ELIGIBLE = ("player", "spectator")
-    candidate = next(
-        (cid for cid, info in clients.items()
-         if cid != leaving_client_id
-         and info.get("role") in ELIGIBLE
-         and not info.get("kicked")),
-        None,
-    )
-    if not candidate:
-        return
-    leaving_info   = clients[leaving_client_id]
-    leaving_name   = (leaving_info.get("name") or "").lower()
-    old_local      = [n for n in (leaving_info.get("local_names") or [])
-                      if n.lower() != leaving_name]
-    new_info       = clients[candidate]
-    new_info["role"] = "admin"
-    _transfer_local_names(old_local, new_info)
-
-
 def _hand_admin_to_voter(session, old_cid: str, voter_cids: list[str]) -> None:
     """After a passed admin-AFK vote: promote the first Yes-voter (they just
-    proved they are connected -- _auto_transfer_admin's "first eligible
+    proved they are connected -- auto_transfer_admin's "first eligible
     client" could pick someone who is gone) and demote the old admin to a
     plain player. The old admin keeps only their own seat; any extra seats
     they controlled (e.g. absorbed AFK seats) go to the new admin."""
     clients = session._room_clients
     new_cid = next((cid for cid in voter_cids if cid in clients and cid != old_cid), None)
     if new_cid is None:
-        _auto_transfer_admin(session, old_cid)
+        auto_transfer_admin(session, old_cid)
         new_cid = next((cid for cid, i in clients.items()
                         if i.get("role") == "admin" and cid != old_cid), None)
     else:
         old_name = (clients[old_cid].get("name") or "").lower()
         moved = [n for n in (clients[old_cid].get("local_names") or []) if n.lower() != old_name]
         clients[new_cid]["role"] = "admin"
-        _transfer_local_names(moved, clients[new_cid])
+        transfer_local_names(moved, clients[new_cid])
     clients[old_cid]["role"] = "player"
     clients[old_cid]["local_names"] = []
     if new_cid and session._admin_afk_last_result:
@@ -396,7 +358,7 @@ def leave_room():
     info    = clients.get(client_id, {})
 
     if info.get("role") == "admin":
-        _auto_transfer_admin(session, client_id)
+        auto_transfer_admin(session, client_id)
 
     # Remove the leaving client entirely
     clients.pop(client_id, None)

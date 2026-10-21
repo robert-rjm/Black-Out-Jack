@@ -27,7 +27,12 @@ from engine.events import (
 
 from app.models.game_room import GameRoom
 from app.services.serializer import hand_done, round_phase, current_turn
-from app.services.payout_tracker import can_afford_extra, deduct_double_bet, deduct_split_bet
+from app.services.payout_tracker import (
+    can_afford_extra, deduct_double_bet, deduct_split_bet, deduct_bets,
+    is_cash_mode, ensure_npc_stakes, unaffordable_players,
+)
+from app.services.round_pipeline import apply_endround_pipeline
+from app.config import BUST_VOTE_WINDOW_SECONDS
 
 log = logging.getLogger(__name__)
 
@@ -642,3 +647,81 @@ def auto_play_npc_turns(session: GameRoom) -> None:
             perform_split(session, player, hand, hand_idx)
             deduct_split_bet(session, player.name)
             log.debug(f"  {player.name} splits {hand_label}")
+
+
+def resolve_endround(session: GameRoom) -> None:
+    """Shared end-of-round bookkeeping: settle the round, apply any bust-vote
+    penalties, harvest the drink log, and check for a new milestone.
+
+    Used after dealer_turn() (deal/dealer/_after_player_action) and directly
+    by the endround command in both digital and referee mode — all five call
+    sites previously repeated this same four-line sequence.
+    """
+    session.cmd_endround()
+    apply_endround_pipeline(session)
+
+
+def deal_now(session: GameRoom) -> None:
+    """Deal the opening cards (stake / affordability checks, bust-vote window,
+    dealer peek, NPC auto-play). Called by the deal command and, once the
+    Normal-mode stake window closes, by tick.apply_stake_window."""
+    # Normal mode: nobody may go below $0 — bots are topped up / lowered
+    # automatically, humans who can't cover their bet must lower it or re-buy.
+    if is_cash_mode(session):
+        ensure_npc_stakes(session)
+        short = unaffordable_players(session)
+        if short:
+            names = ", ".join(short)
+            print(f"  Cannot deal — {names} can't cover the bet. "
+                  f"Lower the bet or re-buy first.")
+            return
+    # Initial deal — no card args; shoe deals automatically
+    session.round._last_peeked   = None   # peeked card is now stale
+    session.round._preselections = {}
+    session.round._suggestions   = {}
+    session.round._bust_votes    = {}     # fresh votes each deal
+    # Open the bust-vote window (countdown displays from 15)
+    session.round._bust_vote_expires_at = (
+        _time.monotonic() + BUST_VOTE_WINDOW_SECONDS
+        if session.bust_vote_enabled else None
+    )
+    session.round._bust_handouts_given  = set()   # clear any stale handouts
+    session.round._bust_handout_expires_at = None
+    # Clear the previous round's payout badge so the seat doesn't show a
+    # stale "+$10" delta while the new round's hands are in progress.
+    session._last_round_payouts = {}
+    initial_deal(session)
+    # Deduct each player's stake upfront — bankroll drops immediately so
+    # players can see their money is at risk during the round.
+    deduct_bets(session)
+    # Dealer peek (Normal mode): with an Ace or 10-value up-card the dealer
+    # checks for blackjack before anyone acts. If they have it the round ends
+    # on the spot, so players only ever lose their opening bet -- never extra
+    # stakes from doubling or splitting into a dealer blackjack.
+    if is_cash_mode(session):
+        _dealer = session._get_dealer()
+        _dh = _dealer.dealer_hand if _dealer else None
+        if _dh and _dh.is_blackjack():
+            session.round._bust_vote_expires_at = None
+            for _pl in session.all_players:
+                for _h in _pl.hands:
+                    _h.stood = True
+            log.debug("\n  Dealer peeks: BLACKJACK! Round ends immediately.")
+            dealer_turn(session)
+            resolve_endround(session)
+            return
+    # NPCs always decline the bust side bet — cast their votes immediately
+    # so only human players can hold up the start of play.
+    if session.bust_vote_enabled and session.round._bust_vote_expires_at is not None:
+        for _p in session.all_players:
+            if getattr(_p, "is_npc", False):
+                session.round._bust_votes[_p.name] = "pass"
+    auto_play_npc_turns(session)  # no-op if bust vote still pending
+    # If all hands are already done after the deal (e.g. all players
+    # have a natural BJ), the hit/stand block below never fires so we
+    # must check here too — otherwise the round stalls at "dealer-ready".
+    if (not bust_vote_pending(session)
+            and round_phase(session) == "dealer-ready"):
+        log.debug("\n  (All hands done after deal — dealer plays automatically)")
+        dealer_turn(session)
+        resolve_endround(session)

@@ -37,7 +37,7 @@ Black-Out-Jack/
 │   │   └── reports.py                      # /export_xlsx (drink summary), /export_decisions (decision log XLSX), /summary_json, /rules
 │   └── services/
 │       ├── asset_bundler.py                # Concatenates static/js + static/css into bundle.js/bundle.css on startup
-│       ├── game_engine.py                  # Digital-mode dealing, player actions, dealer turn, NPC auto-play
+│       ├── game_engine.py                  # Digital-mode dealing (deal_now), player actions, dealer turn, end-of-round (resolve_endround), NPC auto-play
 │       ├── drink_tracker.py                # Sip harvesting, milestones, bust-vote penalties, award_sips()
 │       ├── payout_tracker.py               # Cash wager/bankroll bookkeeping + stake window (Normal mode) — mirrors drink_tracker.py for dollars
 │       ├── buyin_handout.py                # Normal-mode perk: players above the starting buy-in hand out a sip each round (log-only, no sip ledger)
@@ -53,7 +53,7 @@ Black-Out-Jack/
 │       ├── validators.py                   # sanitize_name, is_offensive_name (better-profanity), get_client_info; used by routes and serializer
 │       ├── serializer.py                   # Converts room state to the JSON payload for polling; validates against AppState
 │       ├── round_pipeline.py               # Shared post-round pipeline (bust votes → harvest → milestone → Dealer Lottery → Targeted Drinking → payouts → buy-in handouts → backfill)
-│       ├── room_manager.py                 # Tracker patching, queued settings (incl. the one-way Normal → Drinking switch), dealer rotation, stdout-capture helper
+│       ├── room_manager.py                 # Tracker patching, queued settings (incl. the one-way Normal → Drinking switch), dealer rotation, admin transfer (auto_transfer_admin), stdout-capture helper
 │       ├── session_store.py                # In-memory room store — single source of truth for all room state
 │       └── decision_log.py                 # Per-decision + Dealer Lottery entry capture for player-mimicry bot training
 ├── data/

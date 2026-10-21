@@ -32,18 +32,16 @@ from app.services.serializer import (
 )
 from app.services.game_engine import (
     deal_card, deal_pending_split_cards, perform_split,
-    get_player_hand, initial_deal, dealer_turn, auto_play_npc_turns,
-    bust_vote_pending, _push_ace_drink_event,
+    get_player_hand, dealer_turn, auto_play_npc_turns,
+    bust_vote_pending, _push_ace_drink_event, deal_now, resolve_endround,
 )
 from app.services.decision_log import record_decision
 from app.services.payout_tracker import (
-    cmd_rebuy, deduct_bets, deduct_split_bet, deduct_double_bet,
-    can_afford_extra, is_cash_mode, ensure_npc_stakes, unaffordable_players,
+    cmd_rebuy, deduct_split_bet, deduct_double_bet,
+    can_afford_extra, is_cash_mode,
     stake_per_hand, human_names, stake_window_open, open_stake_window, close_stake_window,
 )
-from app.services.round_pipeline import apply_endround_pipeline
 from app.services.room_manager import apply_queued_settings, rotate_dealer, patch_tracker, reset_round_state
-from app.config import BUST_VOTE_WINDOW_SECONDS
 
 log = logging.getLogger(__name__)
 
@@ -232,18 +230,6 @@ def _perform_action_without_honor(game_session, player, hand, action) -> None:
         f"Played without honor ({action}) => {player.name} drinks {game_session.wager} sip{'' if game_session.wager == 1 else 's'}"))
 
 
-def _resolve_endround(game_session):
-    """Shared end-of-round bookkeeping: settle the round, apply any bust-vote
-    penalties, harvest the drink log, and check for a new milestone.
-
-    Used after dealer_turn() (deal/dealer/_after_player_action) and directly
-    by the endround command in both digital and referee mode — all five call
-    sites previously repeated this same four-line sequence.
-    """
-    game_session.cmd_endround()
-    apply_endround_pipeline(game_session)
-
-
 def _after_player_action(game_session):
     """Shared follow-up after any digital hit/stand/double/split.
 
@@ -275,7 +261,7 @@ def _after_player_action(game_session):
         else:
             log.debug("\n  (All players done — dealer plays automatically)")
             dealer_turn(game_session)
-            _resolve_endround(game_session)
+            resolve_endround(game_session)
 
 
 # ---------------------------------------------------------------------------
@@ -293,69 +279,6 @@ def _cmd_deal_digital(game_session, parts):
             return
         close_stake_window(game_session)
     deal_now(game_session)
-
-
-def deal_now(game_session):
-    # Normal mode: nobody may go below $0 — bots are topped up / lowered
-    # automatically, humans who can't cover their bet must lower it or re-buy.
-    if is_cash_mode(game_session):
-        ensure_npc_stakes(game_session)
-        short = unaffordable_players(game_session)
-        if short:
-            names = ", ".join(short)
-            print(f"  Cannot deal — {names} can't cover the bet. "
-                  f"Lower the bet or re-buy first.")
-            return
-    # Initial deal — no card args; shoe deals automatically
-    game_session.round._last_peeked   = None   # peeked card is now stale
-    game_session.round._preselections = {}
-    game_session.round._suggestions   = {}
-    game_session.round._bust_votes    = {}     # fresh votes each deal
-    # Open the bust-vote window (countdown displays from 15)
-    game_session.round._bust_vote_expires_at = (
-        time.monotonic() + BUST_VOTE_WINDOW_SECONDS
-        if game_session.bust_vote_enabled else None
-    )
-    game_session.round._bust_handouts_given  = set()   # clear any stale handouts
-    game_session.round._bust_handout_expires_at = None
-    # Clear the previous round's payout badge so the seat doesn't show a
-    # stale "+$10" delta while the new round's hands are in progress.
-    game_session._last_round_payouts = {}
-    initial_deal(game_session)
-    # Deduct each player's stake upfront — bankroll drops immediately so
-    # players can see their money is at risk during the round.
-    deduct_bets(game_session)
-    # Dealer peek (Normal mode): with an Ace or 10-value up-card the dealer
-    # checks for blackjack before anyone acts. If they have it the round ends
-    # on the spot, so players only ever lose their opening bet -- never extra
-    # stakes from doubling or splitting into a dealer blackjack.
-    if is_cash_mode(game_session):
-        _dealer = game_session._get_dealer()
-        _dh = _dealer.dealer_hand if _dealer else None
-        if _dh and _dh.is_blackjack():
-            game_session.round._bust_vote_expires_at = None
-            for _pl in game_session.all_players:
-                for _h in _pl.hands:
-                    _h.stood = True
-            log.debug("\n  Dealer peeks: BLACKJACK! Round ends immediately.")
-            dealer_turn(game_session)
-            _resolve_endround(game_session)
-            return
-    # NPCs always decline the bust side bet — cast their votes immediately
-    # so only human players can hold up the start of play.
-    if game_session.bust_vote_enabled and game_session.round._bust_vote_expires_at is not None:
-        for _p in game_session.all_players:
-            if getattr(_p, "is_npc", False):
-                game_session.round._bust_votes[_p.name] = "pass"
-    auto_play_npc_turns(game_session)  # no-op if bust vote still pending
-    # If all hands are already done after the deal (e.g. all players
-    # have a natural BJ), the hit/stand block below never fires so we
-    # must check here too — otherwise the round stalls at "dealer-ready".
-    if (not bust_vote_pending(game_session)
-            and round_phase(game_session) == "dealer-ready"):
-        log.debug("\n  (All hands done after deal — dealer plays automatically)")
-        dealer_turn(game_session)
-        _resolve_endround(game_session)
 
 
 def _cmd_hit(game_session, parts):
@@ -718,7 +641,7 @@ def _cmd_peek(game_session, parts):
 def _cmd_dealer_digital(game_session, parts):
     # Auto-run dealer turn + evaluate all hands + assign drinks
     dealer_turn(game_session)
-    _resolve_endround(game_session)
+    resolve_endround(game_session)
 
 
 def _cmd_newround(game_session, parts, *, digital):
@@ -812,7 +735,7 @@ DIGITAL_COMMANDS = {
     "insurance": _cmd_insurance,
     "peek":      _cmd_peek,
     "dealer":    _cmd_dealer_digital,
-    "endround":  lambda gs, parts: _resolve_endround(gs),
+    "endround":  lambda gs, parts: resolve_endround(gs),
     "newround":  lambda gs, parts: _cmd_newround(gs, parts, digital=True),
     "status":    _cmd_status,
     "st":        _cmd_status,
@@ -825,7 +748,7 @@ REFEREE_COMMANDS = {
     "result":   _cmd_referee_result,
     "dealer":   _cmd_referee_dealer,
     "fouraces": _cmd_referee_fouraces,
-    "endround": lambda gs, parts: _resolve_endround(gs),
+    "endround": lambda gs, parts: resolve_endround(gs),
     "newround": lambda gs, parts: _cmd_newround(gs, parts, digital=False),
     "status":   _cmd_status,
     "st":       _cmd_status,

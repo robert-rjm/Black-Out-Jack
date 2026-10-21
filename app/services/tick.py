@@ -33,7 +33,7 @@ from app.services.targeted_drinking import (
     apply_targeted_drinking_handout_forfeit,
     apply_target_proposal_vote_forfeit,
 )
-from app.services.game_engine import dealer_turn, auto_play_npc_turns
+from app.services.game_engine import dealer_turn, auto_play_npc_turns, deal_now
 from app.services.round_pipeline import apply_endround_pipeline
 from app.services.afk import (
     apply_normal_round_afk, apply_admin_afk_vote_forfeit, track_admin_blocking,
@@ -70,8 +70,6 @@ def apply_stake_window(session) -> None:
     if not stake_window_done(session) or round_phase(session) != "pre-deal":
         return
     close_stake_window(session)
-    # Lazy import: game_commands pulls in most of the services package.
-    from app.routes.game_commands import deal_now
     with contextlib.redirect_stdout(io.StringIO()):
         deal_now(session)
 

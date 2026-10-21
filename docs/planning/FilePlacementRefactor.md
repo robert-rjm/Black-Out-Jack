@@ -10,7 +10,7 @@ plan says what moves where and defers the how to that file's ground rules.
 the game playable. One step per commit, and click through the affected UI after
 each JS step.
 
-Already done: the "Tip us" code moved from `lobby.js` into
+Already done: step 1 (services importing from routes), and the "Tip us" code moved from `lobby.js` into
 `static/js/ui/tip.js` (bundler list, `DOM-Hooks.md` and `Architecture.md`
 updated).
 
@@ -39,6 +39,11 @@ updated).
 | 7 | Docs / data | Stale ownership notes, `data/` tracking mismatch | Low |
 
 ## 1. Services importing from routes
+
+**Status: done.** `auto_transfer_admin` / `transfer_local_names` now live in
+`room_manager.py`; `deal_now` and `resolve_endround` (was `_resolve_endround`)
+now live in `game_engine.py`. `grep -rn "from app.routes" app/services` is empty
+and `pytest` is green (817). The notes below describe the original problem.
 
 Services should never import from `app/routes/`. Two cases today:
 
