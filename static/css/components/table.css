@@ -72,6 +72,10 @@
   }
 }
 
+/* A single hand never needs a scrollbar: let the cards wrap instead */
+.hands-row:has(> .hand-block:only-child) { overflow-x: visible; }
+.hands-row > .hand-block:only-child .cards-row { overflow-x: visible; flex-wrap: wrap; }
+
 /* ---- MOBILE: split hands stack vertically, cards wrap ---- */
 @media (max-width: 639px) {
   .hands-row {
