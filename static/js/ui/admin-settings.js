@@ -509,7 +509,7 @@ function renderKickVoteBanner(state) {
 // ============================================================
 // RULES MODAL
 // ============================================================
-let _rulesCached = null;
+let _rulesCached = {};
 
 // marked doesn't give headings ids, so the Rules.md table-of-contents links
 // (written for GitHub: "#1-game-setup") pointed at nothing. Give every heading
@@ -530,15 +530,6 @@ function _decorateRules(body) {
       if (list && list.tagName === "OL") list.classList.add("rules-toc");
     }
   });
-  // Drinking sections (4-6) and their TOC entries are hidden outside drinking mode.
-  let inDrink = false;
-  Array.from(body.children).forEach(el => {
-    if (el.tagName === "H2") inDrink = /^\s*[456]\./.test(el.textContent);
-    if (inDrink) el.classList.add("drink-only");
-  });
-  body.querySelectorAll(".rules-toc li").forEach(li => {
-    if (/^\s*(Drinking Rules|Relaxed Drinking)/i.test(li.textContent)) li.classList.add("drink-only");
-  });
   body.querySelectorAll("blockquote").forEach(q => {
     const p = q.firstElementChild;
     if (p && /^\s*\[!NOTE\]/i.test(p.textContent)) {
@@ -557,33 +548,42 @@ document.addEventListener("click", e => {
   if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-async function openRulesModal() {
+let _rulesFullView = false;   // Normal-mode players can flip to the full drinking rules
+
+async function openRulesModal(full) {
   const body = document.getElementById("rules-body");
   if (!document.getElementById("rules-overlay") || !body) return;
   openModal("rules-overlay", { useClass: true });
 
-  if (_rulesCached) {
-    body.innerHTML = _rulesCached;
-    _decorateRules(body);
-    return;
-  }
-
-  body.innerHTML = '<span style="color:var(--muted);font-size:13px">Loading…</span>';
-  try {
-    const res  = await fetch(`/rules?_=${Date.now()}`);
-    const data = await res.json();
-    if (data.ok && typeof marked !== "undefined") {
-      _rulesCached = DOMPurify.sanitize(marked.parse(data.content));
-    } else if (data.ok) {
-      // marked.js not loaded — plain text fallback
-      _rulesCached = DOMPurify.sanitize(`<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`);
-    } else {
-      _rulesCached = '<span style="color:var(--red)">Could not load rules.</span>';
+  const normal = document.body.classList.contains("no-drinking") && full !== true;
+  _rulesFullView = !normal;
+  const key = normal ? "normal" : "full";
+  if (!_rulesCached[key]) {
+    body.innerHTML = '<span style="color:var(--muted);font-size:13px">Loading…</span>';
+    try {
+      const res  = await fetch(`/rules?${normal ? "mode=normal&" : ""}_=${Date.now()}`);
+      const data = await res.json();
+      if (data.ok && typeof marked !== "undefined") {
+        _rulesCached[key] = DOMPurify.sanitize(marked.parse(data.content));
+      } else if (data.ok) {
+        // marked.js not loaded — plain text fallback
+        _rulesCached[key] = DOMPurify.sanitize(`<pre style="white-space:pre-wrap;font-size:12px">${data.content}</pre>`);
+      } else {
+        _rulesCached[key] = '<span style="color:var(--red)">Could not load rules.</span>';
+      }
+    } catch (_) {
+      body.innerHTML = '<span style="color:var(--red)">Network error loading rules.</span>';
+      return;
     }
-    body.innerHTML = _rulesCached;
-    _decorateRules(body);
-  } catch (_) {
-    body.innerHTML = '<span style="color:var(--red)">Network error loading rules.</span>';
+  }
+  body.innerHTML = _rulesCached[key];
+  _decorateRules(body);
+  if (normal) {
+    const btn = document.createElement("button");
+    btn.className = "btn wide";
+    btn.textContent = "Show BlackOutJack rules";
+    btn.addEventListener("click", () => openRulesModal(true));
+    body.appendChild(btn);
   }
 }
 
