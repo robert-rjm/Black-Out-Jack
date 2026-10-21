@@ -28,7 +28,7 @@ from app.config import (
 )
 from app.models.game_room import GameRoom
 from app.services.afk import holds_human_seat, is_client_connected
-from app.services.serializer import round_phase
+from app.services.round_state import round_phase
 from engine.drink_rate import (
     ALLOWED_RATES, BOOSTER_RATES, PRESETS, RATE_DEFAULT, normalize_rate,
 )

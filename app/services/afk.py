@@ -11,7 +11,7 @@ AFK handling outside the Targeted Drinking subgame:
   Drinking's AFK rule uses.
 * Admin-AFK vote -- while the game is blocked on the admin, every connected
   seated player can open a unanimous Yes/No vote that the admin is AFK. On a
-  pass the route layer (app/routes/admin.py) hands the admin role over.
+  pass the route layer (app/routes/admin_transfer.py) hands the admin role over.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from app.config import (
     AFK_DISCONNECT_SECONDS, ADMIN_AFK_PROMPT_DELAY_SECONDS, ADMIN_AFK_VOTE_WINDOW_SECONDS,
 )
 from app.models.game_room import GameRoom
-from app.services.serializer import round_phase, current_turn
+from app.services.round_state import round_phase, current_turn
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ def _admin_cid(session: GameRoom) -> str | None:
 
 def absorb_seat(session: GameRoom, name: str, context: str = "targeted_drinking") -> bool:
     """Moves `name`'s seat onto the admin's local_names (same mutation the
-    seat-transfer and registration-approval flows in polling.py do) and
+    seat-transfer and registration-approval flows in registration.py do) and
     reverts the original holder's client to spectator. Returns False,
     changing nothing, when there's no admin or the admin already holds the
     seat (admin AFK -- nobody to hand it to).

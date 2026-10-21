@@ -83,6 +83,15 @@ def create_app() -> Flask:
     from app.routes.game_commands import bp as game_commands_bp
     from app.routes.wild_card     import bp as wild_card_bp
     from app.routes.drink_rate    import bp as drink_rate_bp
+    from app.routes.registration  import bp as registration_bp
+    from app.routes.suggestions   import bp as suggestions_bp
+    from app.routes.side_bets     import bp as side_bets_bp
+    from app.routes.dealer_lottery import bp as dealer_lottery_bp
+    from app.routes.boj           import bp as boj_bp
+    from app.routes.targeted_drinking import bp as targeted_drinking_bp
+    from app.routes.moderation    import bp as moderation_bp
+    from app.routes.admin_transfer import bp as admin_transfer_bp
+    from app.routes.players       import bp as players_bp
 
     app.register_blueprint(reports_bp)
     app.register_blueprint(static_pages_bp)
@@ -92,5 +101,14 @@ def create_app() -> Flask:
     app.register_blueprint(game_commands_bp)
     app.register_blueprint(wild_card_bp)
     app.register_blueprint(drink_rate_bp)
+    app.register_blueprint(registration_bp)
+    app.register_blueprint(suggestions_bp)
+    app.register_blueprint(side_bets_bp)
+    app.register_blueprint(dealer_lottery_bp)
+    app.register_blueprint(boj_bp)
+    app.register_blueprint(targeted_drinking_bp)
+    app.register_blueprint(moderation_bp)
+    app.register_blueprint(admin_transfer_bp)
+    app.register_blueprint(players_bp)
 
     return app

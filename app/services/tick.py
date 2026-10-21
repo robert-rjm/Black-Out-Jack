@@ -3,7 +3,7 @@ app/services/tick.py
 =====================
 Per-poll side-effect tick applied on every /state request.
 
-Extracted from app/routes/polling.py so the logic is unit-testable
+Extracted from the polling route so the logic is unit-testable
 without a Flask request context.
 
 Call ``tick(session)`` once per /state poll, after the session lookup
@@ -19,7 +19,7 @@ from app.config import (
     BUST_VOTE_WINDOW_SECONDS,
     BUST_HANDOUT_WINDOW_SECONDS,
 )
-from app.services.serializer import round_phase
+from app.services.round_state import round_phase
 from app.services.drink_tracker import apply_milestone_forfeit, apply_bust_handout_forfeit
 from app.services.dealer_lottery import (
     maybe_start_dealer_lottery,

@@ -217,7 +217,7 @@ def apply_bust_vote_penalties(session: GameRoom) -> None:
     # their custom per-hand bet if they set one via /set_player_bet, else
     # the table default -- so payout_tracker settles the *exact* dollar
     # amount that was actually deducted at vote time (cast_bust_vote in
-    # polling.py uses this same _pbets-aware lookup). Previously this used
+    # side_bets.py uses this same _pbets-aware lookup). Previously this used
     # one shared session.bet_amount-derived figure for every player, which
     # silently mismatched anyone with a custom bet (Code-Audit-2026-07.md #1).
     normal = not session.drinking_mode

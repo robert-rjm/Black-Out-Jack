@@ -36,28 +36,28 @@ each JS step.
 
 ### B. Backend layering (high value, unblocks the route and service splits)
 
-- [ ] **B1. `routes/_auth.py`.** Move `_require_admin` and
+- [x] **B1. `routes/_auth.py`.** Move `_require_admin` and
       `_require_host_or_dealer` out of `routes/admin.py`.
       `routes/polling.py:33` still imports them from `admin.py` (route-to-route import).
-- [ ] **B2. `services/round_state.py` (leaf).** Move `play_order`, `hand_done`,
+- [x] **B2. `services/round_state.py` (leaf).** Move `play_order`, `hand_done`,
       `player_done`, `current_turn`, `round_phase`, `serialize_card`,
       `serialize_hand` out of `serializer.py` (still L312-348 area). Then migrate
       `afk.py`, `dealer_lottery.py`, `drink_rate.py`, `game_engine.py`,
       `targeted_drinking.py` and `tick.py`, which all import them from
       `serializer.py` today (domain services depending on the presentation layer).
-- [ ] **B3. Rest of `serializer.py` (1,260 lines).** `services/stats.py`
+- [x] **B3. Rest of `serializer.py` (1,260 lines).** `services/stats.py`
       (`_compute_live_drink_totals`, `compute_sip_totals`, `compute_payout_data`,
       `compute_best_play`, `compute_mandatory_split*`, `compute_trophy_holder`,
       `compute_kpi_stats`); a `services/serializers/` package
       (`milestone`, `dealer_lottery`, `targeted_drinking`, `insurance`,
       `bust_vote`, `drink_rate` / `admin_afk`); `serializer.py` keeps only
-      `serialize_state`. Dedupe `_targeted_drinking_awaiting_start`
-      (serializer L135) against `targeted_drinking_awaiting_start`
-      (`services/targeted_drinking.py` L164) while moving.
+      `serialize_state`. **Deduped:** the serializer now uses `targeted_drinking_awaiting_start` from
+      the service. The old serializer copy omitted the unclaimed-handout check, so
+      it could show "Start Targeting Now" when the start request would be refused.
 
 ### C. Backend routes
 
-- [ ] **C1. Split `routes/polling.py` (1,259 lines).** It should hold `/state`
+- [x] **C1. Split `routes/polling.py` (1,259 lines).** It should hold `/state`
       only. New blueprints: `registration.py` (`/register`,
       `/request_local_seat`, `/handle_seat_transfer`, `/handle_registration`,
       `/reset_registration`), `suggestions.py` (`/preselect`, `/suggest_action`,
@@ -65,16 +65,17 @@ each JS step.
       `/give_bust_sip`, `/set_player_bet`), `dealer_lottery.py`
       (`/dealer_lottery/*`), `targeted_drinking.py` (all `/targeted_drinking/*`
       from both `polling.py` and `admin.py`). Register each in `app/__init__.py`.
-- [ ] **C2. Split `routes/admin.py` (990 lines).** `moderation.py` (`/kick`,
+- [x] **C2. Split `routes/admin.py` (990 lines).** `moderation.py` (`/kick`,
       `/undo_kick`, `/vote_kick`, `/request_rejoin`, `/handle_rejoin`,
       `/leave_room`), `admin_transfer.py` (`/transfer_admin`, `/admin_afk/*`,
       `_hand_admin_to_voter`), `players.py` (`/make_bot`, `/make_human`,
       `/set_bot_personality`, `/take_back_seat`, `/rotate_dealer`). `admin.py`
       keeps `/update_settings`, `/set_hint`, `/set_anim_pref`,
-      `/toggle_god_mode`, `/claim_milestone`. Move the `/claim_milestone` body
-      (~115 lines) into a milestone service (see D2) and leave the route thin.
+      `/toggle_god_mode`, `/set_paused`, `/claim_milestone`. **Still open:**
+      move the `/claim_milestone` body (~115 lines) into a milestone service
+      and leave the route thin; that is part of D2.
       (`auto_transfer_admin` is already in `room_manager.py`.)
-- [ ] **C3. `routes/game_commands.py` (907 lines), light split.** Extract
+- [x] **C3. `routes/game_commands.py` (907 lines), light split.** Extract
       `_record_strategy_decision`, `_check_honor_house_rule`,
       `_penalize_unsplit_aces`, `_perform_action_without_honor`,
       `_after_player_action` to `services/player_actions.py`. Move the `_cmd_*`

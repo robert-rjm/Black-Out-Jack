@@ -95,7 +95,7 @@ ADMIN_AFK_VOTE_WINDOW_SECONDS = 30   # unanimous "admin is AFK" vote auto-fails 
 TARGETED_DRINKING_MAX_AFK_STRIKES     = 2    # consecutive unanswered vote windows before a target's seat is absorbed by the host
 TARGETED_DRINKING_REVEAL_PAUSE_SECONDS = 12  # safety-net breather after a mini-round's reveal before the
                                               # next one auto-opens -- the host/dealer can skip this early via
-                                              # POST /targeted_drinking/continue (app/routes/admin.py)
+                                              # POST /targeted_drinking/continue (app/routes/targeted_drinking.py)
 # Easter-egg-launched subgames only (Wild Card 🃏): total sips a target can
 # drink before their run is force-ended as a loss (+1 penalty sip on top).
 TARGETED_DRINKING_EASTER_EGG_SIP_CAP  = 5

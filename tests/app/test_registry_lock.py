@@ -2,7 +2,7 @@
 Tests for the registration/seat-transfer registry lock
 (docs/planning/Code-Audit-2026-07.md #4):
   - GameRoom._registry_lock exists and guards /register, /request_local_seat,
-    /handle_registration, /handle_seat_transfer (app/routes/polling.py).
+    /handle_registration, /handle_seat_transfer (app/routes/registration.py).
 
 Two concurrent requests for the same room used to be able to both pass a
 "is this seat/request already claimed?" check before either write landed
@@ -29,7 +29,7 @@ from tests.conftest import make_player
 from app import create_app
 from app.models.game_room import GameRoom, GameConfig
 from app.services.session_store import game_sessions, set_session
-import app.routes.polling as polling_mod
+import app.routes.registration as polling_mod  # the guarded routes live here now
 
 DELAY = 0.2
 
