@@ -9,13 +9,11 @@ POST /setup       — Admin configures and starts the game session
 GET  /room_invite — Join link + QR code (SVG) for a room code
 """
 
-import io
 import re
 import socket
 from urllib.parse import urlsplit
 
-import segno
-from flask import Blueprint, jsonify, redirect, request
+from flask import Blueprint, jsonify, request
 
 from engine.style_strategy import available_profiles
 
@@ -28,26 +26,10 @@ from app.services.session_store import (
 from app.services.validators  import sanitize_name, is_offensive_name
 from app.services.serializer  import serialize_state
 from app.services.room_factory import build_game_room
+from app.services.qr import qr_svg
 from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
 
 bp = Blueprint("lobby", __name__)
-
-TIP_URL = "https://paypal.me/robertmichels"
-
-
-@bp.route("/beer_qr")
-def beer_qr():
-    """QR code for the tip link, so it works even when a popup/ad blocker stops
-    the PayPal tab from opening."""
-    return jsonify({"ok": True, "url": TIP_URL, "svg": _qr_svg(TIP_URL)})
-
-
-@bp.route("/beer")
-def beer():
-    """"Tip us" link target. Redirecting from our own origin keeps ad blockers
-    that hide direct PayPal links from swallowing the in-game button."""
-    return redirect(TIP_URL, code=302)
-
 
 # ---------------------------------------------------------------------------
 # Player personalities
@@ -245,21 +227,6 @@ def _invite_base_url() -> str:
     return f"{scheme}://{name}{port}"
 
 
-def _qr_svg(text: str) -> str:
-    buf = io.BytesIO()
-    segno.make(text, error="m").save(
-        buf, kind="svg", scale=8, border=4, xmldecl=False, nl=False,
-        dark="#000000", light="#ffffff",
-    )
-    svg = buf.getvalue().decode("utf-8")
-    # segno emits width/height but no viewBox, so CSS-resizing the SVG crops it
-    # instead of scaling it. Add one so it scales to its container.
-    m = re.search(r'<svg[^>]*?width="(\d+)"[^>]*?height="(\d+)"', svg)
-    if m and "viewBox" not in svg:
-        svg = svg.replace("<svg ", f'<svg viewBox="0 0 {m.group(1)} {m.group(2)}" ', 1)
-    return svg
-
-
 @bp.route("/room_invite", methods=["GET"])
 def room_invite():
     """The link that joins a room and a QR code for it, as inline SVG.
@@ -269,4 +236,4 @@ def room_invite():
     if not _CODE_RE.match(code):
         return jsonify({"ok": False, "error": "Invalid room code."}), 400
     url = f"{_invite_base_url()}/?room={code}"
-    return jsonify({"ok": True, "code": code, "url": url, "svg": _qr_svg(url)})
+    return jsonify({"ok": True, "code": code, "url": url, "svg": qr_svg(url)})

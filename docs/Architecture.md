@@ -34,7 +34,8 @@ Black-Out-Jack/
 │   │   ├── admin.py                        # Kick, dealer rotation, milestone claim, player management, Targeted Drinking start/cancel, admin-AFK vote (/admin_afk/open, /admin_afk/vote)
 │   │   ├── drink_rate.py                   # POST /drink_rate/set | /propose | /vote — Drink Rate Mode
 │   │   ├── wild_card.py                    # Easter egg: POST /wild_card (logo press)
-│   │   └── reports.py                      # /export_xlsx (drink summary), /export_decisions (decision log XLSX), /summary_json, /rules
+│   │   ├── reports.py                      # /export_xlsx (drink summary), /export_decisions (decision log XLSX), /summary_json
+│   │   └── static_pages.py                 # /logo.png, /manifest.json, /rules (Rules.md / Rules-Normal.md), /beer redirect + /beer_qr (tip link)
 │   └── services/
 │       ├── asset_bundler.py                # Concatenates static/js + static/css into bundle.js/bundle.css on startup
 │       ├── game_engine.py                  # Digital-mode dealing (deal_now), player actions, dealer turn, end-of-round (resolve_endround), NPC auto-play
@@ -42,6 +43,7 @@ Black-Out-Jack/
 │       ├── payout_tracker.py               # Cash wager/bankroll bookkeeping + stake window (Normal mode) — mirrors drink_tracker.py for dollars
 │       ├── buyin_handout.py                # Normal-mode perk: players above the starting buy-in hand out a sip each round (log-only, no sip ledger)
 │       ├── boj_switch.py                   # "Switch to BOJ" table poll (Normal mode): majority switches the table, a minority splits off to a new Drinking room
+│       ├── qr.py                           # qr_svg(): inline-SVG QR codes (room invite, tip link)
 │       ├── room_factory.py                 # build_game_room(): players, config, shoe, tracker and first round for a reserved room code (POST /setup + table split)
 │       ├── dealer_lottery.py               # Dealer Lottery bonus event (paired 18/20 redeal) — see Rules.md §5.9
 │       ├── targeted_drinking.py            # Targeted Drinking Mode: standalone between-round bust/stand mini-game, isolated dealer hand — see Rules.md §5.10

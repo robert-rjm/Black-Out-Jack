@@ -10,7 +10,8 @@ plan says what moves where and defers the how to that file's ground rules.
 the game playable. One step per commit, and click through the affected UI after
 each JS step.
 
-Already done: step 1 (services importing from routes), and the "Tip us" code moved from `lobby.js` into
+Already done: step 1 (services importing from routes), section 6 (routes),
+section 7 (docs and data), and the "Tip us" code moved from `lobby.js` into
 `static/js/ui/tip.js` (bundler list, `DOM-Hooks.md` and `Architecture.md`
 updated).
 
@@ -132,6 +133,12 @@ exports. `resetToSetup` goes with the lobby code. FileSplitRefactor.md section
 1.3 already covers the `admin-settings.js` split, so do both in one pass.
 
 ## 6. Routes
+
+**Status: done.** New `routes/static_pages.py` blueprint serves `/logo.png`,
+`/manifest.json`, `/rules`, `/beer` and `/beer_qr` (URLs unchanged). The shared QR
+renderer moved to `services/qr.py` (`qr_svg`) so `lobby.py` (`/room_invite`) and
+`static_pages.py` both use it. All 817 tests pass and every moved URL was
+checked. The notes below describe the original problem.
 
 - `reports.py` serves `/manifest.json`, `/logo.png` and `/rules`, which are
   static / doc routes, not reports. Move them to a small `routes/static_pages.py`
