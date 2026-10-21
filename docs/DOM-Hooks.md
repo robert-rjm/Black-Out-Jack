@@ -69,10 +69,17 @@ This document defines selector ownership for the web UI modules and the shared e
 - Normal-mode buy-in handout (`BuyinGivePanel`): `#buyin-give-overlay`, `#buyin-give-body`
 - Player toasts: `#player-toast`
 
-### `static/js/ui/admin.js`
-- Registration and role management:
+### `static/js/ui/seats.js`
+- Registration and role management (join overlay, host approval banner, seat transfers, spectate):
   - `#register-overlay`, `#register-seats`, `#register-error`
   - `#register-pending`, `#register-denied`, `#pending-reg-banner`
+- Local seat switcher (multi-seat device):
+  - `#local-seat-switcher`, `#local-seat-active`, `#local-seat-picker`, `#add-local-seat-row`
+
+### `static/js/ui/bets.js`
+- Normal-mode stake panel (stake window after Deal): `#dig-bet-panel` and its per-player stepper rows
+
+### `static/js/ui/admin.js`
 - Bust vote setting (the vote itself is in `drink-panels.js`):
   - `#bust-vote-toggle-modal`, `#bust-vote-lbl-modal`, `#bust-vote-lbl-modal-on`
   - `#player-vote-display`
@@ -80,8 +87,6 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#honor-split-overlay`, `#honor-no-btn`
   - `#suggest-picker`, `#suggest-banner`, `#suggest-text`
   - `#suggest-toggle-row`, `#suggest-toggle-btn`
-- Local seat switcher (admin multi-seat):
-  - `#local-seat-switcher`, `#local-seat-active`, `#local-seat-picker`, `#add-local-seat-row`
 - Digital panel controls (also read by `table.js`):
   - `#dig-predeal-panel`, `#dig-play-content`, `#dig-play-role-hint`
   - `#dig-drinks-dealer-actions`, `#dig-drinks-waiting`

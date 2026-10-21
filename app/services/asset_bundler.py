@@ -38,6 +38,8 @@ JS_SOURCES = [
     "static/js/ui/kpi.js",
     "static/js/ui/trivia.js",
     "static/js/ui/drink-panels.js",
+    "static/js/ui/seats.js",
+    "static/js/ui/bets.js",
     "static/js/ui/admin.js",
     "static/js/ui/admin-settings.js",
     "static/js/ui/bootstrap.js",
