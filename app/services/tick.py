@@ -3,7 +3,7 @@ app/services/tick.py
 =====================
 Per-poll side-effect tick applied on every /state request.
 
-Extracted from app/routes/polling.py so the logic is unit-testable
+Extracted from the polling route so the logic is unit-testable
 without a Flask request context.
 
 Call ``tick(session)`` once per /state poll, after the session lookup

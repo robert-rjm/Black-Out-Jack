@@ -1,7 +1,7 @@
 """
 Tests for the Dealer Lottery post-round bonus event (Rules.md §5.9):
   - app/services/dealer_lottery.py
-  - /dealer_lottery/enter and /dealer_lottery/give_sip routes (app/routes/polling.py)
+  - /dealer_lottery/enter and /dealer_lottery/give_sip routes (app/routes/dealer_lottery.py)
 """
 
 import time

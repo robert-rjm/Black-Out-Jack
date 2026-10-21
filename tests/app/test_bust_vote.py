@@ -2,7 +2,7 @@
 Tests for the Bust Vote side bet (Test-Plan §9):
   - app/services/drink_tracker.apply_bust_vote_penalties
   - app/services/drink_tracker.apply_bust_handout_forfeit
-  - /cast_bust_vote and /give_bust_sip routes (app/routes/polling.py)
+  - /cast_bust_vote and /give_bust_sip routes (app/routes/side_bets.py)
 """
 
 import time
@@ -382,15 +382,15 @@ def test_cast_vote_all_humans_voted_triggers_deferred_play(client, room_setup, m
 
     called = {"npc": False, "deferred": False}
     monkeypatch.setattr(
-        "app.routes.polling.auto_play_npc_turns",
+        "app.routes.side_bets.auto_play_npc_turns",
         lambda session: called.__setitem__("npc", True),
     )
     monkeypatch.setattr(
-        "app.routes.polling._run_deferred_dealer_play",
+        "app.routes.side_bets._run_deferred_dealer_play",
         lambda session: called.__setitem__("deferred", True),
     )
     # Force phase to "playing" so auto_play_npc_turns would normally be invoked
-    monkeypatch.setattr("app.routes.polling.round_phase", lambda session: "playing")
+    monkeypatch.setattr("app.routes.side_bets.round_phase", lambda session: "playing")
 
     # Bob votes for himself and Carol (both non-dealer humans) -> all humans voted
     resp = client.post("/cast_bust_vote", json={

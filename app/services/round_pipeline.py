@@ -4,7 +4,7 @@ app/services/round_pipeline.py
 The five post-``cmd_endround`` steps that must run at the end of every round.
 
 Extracted here so both the command route (game_commands.py) and the
-deferred-dealer-play hook in polling.py share one authoritative sequence.
+deferred-dealer-play hook in tick.py share one authoritative sequence.
 Any change to pipeline ordering or membership only needs to be made once.
 """
 

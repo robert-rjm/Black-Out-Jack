@@ -57,7 +57,7 @@ each JS step.
 
 ### C. Backend routes
 
-- [ ] **C1. Split `routes/polling.py` (1,259 lines).** It should hold `/state`
+- [x] **C1. Split `routes/polling.py` (1,259 lines).** It should hold `/state`
       only. New blueprints: `registration.py` (`/register`,
       `/request_local_seat`, `/handle_seat_transfer`, `/handle_registration`,
       `/reset_registration`), `suggestions.py` (`/preselect`, `/suggest_action`,
@@ -65,16 +65,17 @@ each JS step.
       `/give_bust_sip`, `/set_player_bet`), `dealer_lottery.py`
       (`/dealer_lottery/*`), `targeted_drinking.py` (all `/targeted_drinking/*`
       from both `polling.py` and `admin.py`). Register each in `app/__init__.py`.
-- [ ] **C2. Split `routes/admin.py` (990 lines).** `moderation.py` (`/kick`,
+- [x] **C2. Split `routes/admin.py` (990 lines).** `moderation.py` (`/kick`,
       `/undo_kick`, `/vote_kick`, `/request_rejoin`, `/handle_rejoin`,
       `/leave_room`), `admin_transfer.py` (`/transfer_admin`, `/admin_afk/*`,
       `_hand_admin_to_voter`), `players.py` (`/make_bot`, `/make_human`,
       `/set_bot_personality`, `/take_back_seat`, `/rotate_dealer`). `admin.py`
       keeps `/update_settings`, `/set_hint`, `/set_anim_pref`,
-      `/toggle_god_mode`, `/claim_milestone`. Move the `/claim_milestone` body
-      (~115 lines) into a milestone service (see D2) and leave the route thin.
+      `/toggle_god_mode`, `/set_paused`, `/claim_milestone`. **Still open:**
+      move the `/claim_milestone` body (~115 lines) into a milestone service
+      and leave the route thin; that is part of D2.
       (`auto_transfer_admin` is already in `room_manager.py`.)
-- [ ] **C3. `routes/game_commands.py` (907 lines), light split.** Extract
+- [x] **C3. `routes/game_commands.py` (907 lines), light split.** Extract
       `_record_strategy_decision`, `_check_honor_house_rule`,
       `_penalize_unsplit_aces`, `_perform_action_without_honor`,
       `_after_player_action` to `services/player_actions.py`. Move the `_cmd_*`
