@@ -120,9 +120,8 @@ cancel / back to lobby). Moved verbatim; the shared counters stayed in
 Plan:
 
 1. New `ui/poll.js` for the polling and connection group. It is shared state
-   used by every screen, so it should load right after `state.js`'s consumers
-   but before `lobby.js`. Check `pollTimer` / `_disconnectedTimer` globals in
-   `state.js` first.
+   used by every screen. It loads right after `lobby.js` (everything in it is
+   call-time only, and the counters it uses stay in `state.js`).
 2. Move the room QR popup next to the other invite code: `DOM-Hooks.md` already
    claims it is in `setup.js`, so either move the code there or (preferred)
    into a small `ui/room-qr.js`, and fix the doc.
