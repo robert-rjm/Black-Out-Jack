@@ -1,36 +1,3 @@
-// LAST ROUND DRINK SUMMARY
-// ============================================================
-// Drink-summary and milestone-toast tracking state (Drinks pane + milestone
-// toasts/modal). Referenced from table.js and table-modals.js, both of
-// which load after this file.
-const DrinkUI = {
-  lastRoundSips:      {},   // current completed round — shown in Drinks pane
-  lastRoundDrinks:    [],   // detailed drink entries for the Drinks pane
-  prevRoundSips:      {},   // round before last — shown in 🍺 header modal
-  prevRoundDrinks:    [],   // detailed drink entries for the previous round
-  drinksPaneSelected: null, // name of player whose detail is shown in Drinks pane
-  lastRoundOverSeq:   0,    // seq-based: fire drink toast whenever this advances
-  lastBustHandoutSeq: 0,    // seq-based: fire bust-handout-result toast whenever this advances
-  lastDealerLotteryResultSeq: 0, // seq-based: fire Dealer Lottery draw-reveal toast whenever this advances
-  lastTargetedDrinkingResultSeq: 0, // seq-based: fire Targeted Drinking mini-round reveal whenever this advances
-  lastTargetedDrinkingSummarySeq: 0, // seq-based: fire the subgame-ended recap whenever this advances
-  lastTargetedDrinkingHandoutSeq: 0, // seq-based: fire the perfect-graduation handout-result toast whenever this advances
-  lastMilestoneKey:       null, // "boundary:winner" — prevents re-showing toast on every poll
-  lastMilestoneResultKey: null, // same format — prevents re-showing drink toast on every poll
-  milestoneModalOpened:   null, // key for which we already opened the modal (prevents re-open on re-poll)
-  milestoneAllocations:   {},   // { playerName: sips } — stepper state in modal
-};
-
-// Selections per pane
-const sel = {
-  deal:    { player: null, hand: "hand1" },
-  result:  { player: null, hand: "hand1" },
-  action:  { player: null, hand: "hand1" },
-  digital: { player: null, hand: "hand1" },
-};
-let selRank = null;
-let selSuit = null;
-
 // ============================================================
 // SETUP — mode
 // ============================================================

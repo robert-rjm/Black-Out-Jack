@@ -133,7 +133,12 @@ Plan:
 into `lobby.js`; the idle watcher moved to `ui/idle.js` (loaded right after
 `setup.js`). `setup.js` is about 435 lines of actual game setup.
 
-Leftovers found while doing this, not moved yet: `setup.js` still opens with
+**Leftovers: done.** `DrinkUI` and the `sel` / `selRank` / `selSuit` globals moved to
+the top of `table.js` (their users are all in `table.js`, `table-modals.js`,
+`table-render.js`, `admin.js`, `lobby.js` and `summary.js`, every one a call-time
+use, so no load-order change was needed). The original note follows.
+
+Leftovers found while doing this: `setup.js` still opens with
 `DrinkUI` (the drink-summary / milestone-toast state) and the `sel` /
 `selRank` / `selSuit` table-selection globals. `DrinkUI` is read by `table.js`
 and `table-modals.js` at call time, so it could move to `drink-panels.js` (it must
