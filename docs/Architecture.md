@@ -57,8 +57,8 @@ Black-Out-Jack/
 │       ├── session_store.py                # In-memory room store — single source of truth for all room state
 │       └── decision_log.py                 # Per-decision + Dealer Lottery entry capture for player-mimicry bot training
 ├── data/
-│   ├── decisions/                          # Exported decision_log_*.xlsx files (gitignored, local only) — mined by scripts/build_player_profiles.py
-│   └── drinks/                             # Per-session drink summary exports (gitignored, local only)
+│   ├── decisions/                          # Session exports, tracked in git: decision_log_*.xlsx (mined by scripts/build_player_profiles.py) and drinks_summary_*.xlsx
+│   └── profile_backups/                    # Dated copies of engine/player_profiles/*.json taken before a rebuild
 ├── docs/
 │   ├── Rules.md                            # Drinking Rules — the full reference
 │   ├── Cheat-Sheet.md                      # One-page quick reference for gameplay

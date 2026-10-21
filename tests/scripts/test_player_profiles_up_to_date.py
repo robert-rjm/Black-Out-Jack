@@ -9,8 +9,9 @@ schema change (a new required field, a renamed key) that was never
 regenerated afterward.
 
 This is NOT a data-freshness check (whether newer decision logs exist in
-data/decisions/ that haven't been mined in yet) -- that data is gitignored
-and local-only, so a repo-level test has no way to know about it. If a
+data/decisions/ that haven't been mined in yet) -- those exports change
+every time someone commits a new session, so they aren't a fixed contract to
+test against. If a
 test here fails, the fix is almost always the hint printed in the
 assertion message: re-run scripts/build_player_profiles.py.
 """

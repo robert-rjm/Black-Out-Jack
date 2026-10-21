@@ -144,6 +144,13 @@ moving. The URLs themselves must not change.
 
 ## 7. Docs and data
 
+**Status: done** (the room QR ownership note moved to `lobby.js` for now, and
+will follow the code when section 3 moves it). `data/decisions/` is tracked on
+purpose (`Dev-Cheat-Sheet.md` says so), so the docs were corrected to match
+rather than gitignoring it. The dead `data/drinks/` ignore line and the
+non-existent `data/drinks/` folder entry are gone, and `data/profile_backups/`
+is now documented. The notes below describe the original problem.
+
 - `docs/DOM-Hooks.md`: fix the room QR ownership note (see section 3) and keep
   every module section in step with the moves above.
 - `docs/Architecture.md` says `data/decisions/` and `data/drinks/` are
