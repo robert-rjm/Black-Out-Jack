@@ -1,4 +1,4 @@
-# Black(Out)Jack: Normal Mode
+# <img src="../static/img/logo.png" alt="Logo-BlackOutJack" height="48" align="absmiddle"> Black(Out)Jack: Normal Mode
 
 Standard blackjack against the house, played for money instead of sips. Only the differences are listed here.
 
