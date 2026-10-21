@@ -19,13 +19,15 @@ This document defines selector ownership for the web UI modules and the shared e
 - `#waiting`, `#waiting-code-badge`
 - Polling + visibility sync (`startPolling`, `stopPolling`)
 
+### `static/js/ui/tip.js`
+- Header/bottom-nav "Tip us" buttons: `#btn-beer-header`, `#btn-beer-nav` (`[data-action="openBeerModal"|"closeBeerModal"|"copyBeerLink"]`). Tapping one opens the `/beer` PayPal redirect in a new tab; `#beer-overlay` (QR from `/beer_qr`, "Open PayPal" link, copy link) shows when the player returns to the game tab, or at once if the new tab was blocked
+
 ### `static/js/ui/setup.js`
 - `#setup`, `#setup-sub`, `#setup-room-code` (tap to open the QR dialog), `#header-room` (same)
 - Room QR / invite dialog: `#qr-overlay`, `#qr-card`, `#qr-svg`, `#qr-code-text`, `#qr-url`, `[data-action="openRoomQr"|"copyInviteLink"|"closeRoomQr"]`
 - `#gametype-row`, `#num-players-row`, `#name-fields`
 - `#settings-ref`, `#settings-dig`, `#wager-dig-cell`
 - `#start-btn`, `#anim-toggle`, `#anim-lbl-setup`, `#anim-lbl-setup-on`
-- Header/bottom-nav "Tip us" links: `#btn-beer-header`, `#btn-beer-nav` (buttons, `[data-action="openBeerModal"|"closeBeerModal"|"copyBeerLink"]`, open `#beer-overlay` with a QR from `/beer_qr` and an "Open PayPal" link to the `/beer` redirect; the old Last Round popup now lives in the Session Summary table's "Last rd" column)
 
 ### `static/js/ui/table.js`
 - Core table and panel state nodes:
