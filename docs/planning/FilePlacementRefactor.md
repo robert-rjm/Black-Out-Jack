@@ -11,7 +11,7 @@ the game playable. One step per commit, and click through the affected UI after
 each JS step.
 
 Already done: step 1 (services importing from routes), section 6 (routes),
-section 7 (docs and data), and the "Tip us" code moved from `lobby.js` into
+section 7 (docs and data), section 2 (`admin.js`), section 3 (`lobby.js`), and the "Tip us" code moved from `lobby.js` into
 `static/js/ui/tip.js` (bundler list, `DOM-Hooks.md` and `Architecture.md`
 updated).
 
@@ -101,6 +101,12 @@ Do this as separate commits, one group per commit, drink panels first (largest
 and most self-contained).
 
 ## 3. Split `lobby.js`
+
+**Status: done.** `ui/poll.js` (poll loop, disconnect screens, visibility
+re-poll) and `ui/room-qr.js` (room invite popup) now load right after
+`lobby.js`; `lobby.js` is down to about 150 lines (age gate, create / join /
+cancel / back to lobby). Moved verbatim; the shared counters stayed in
+`state.js`. The notes below describe the original problem.
 
 `lobby.js` mixes three things:
 

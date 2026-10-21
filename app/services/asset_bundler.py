@@ -28,6 +28,8 @@ JS_SOURCES = [
     "static/js/state.js",
     "static/js/ui/config.js",
     "static/js/ui/lobby.js",
+    "static/js/ui/poll.js",
+    "static/js/ui/room-qr.js",
     "static/js/ui/tip.js",
     "static/js/ui/animation.js",
     "static/js/ui/setup.js",

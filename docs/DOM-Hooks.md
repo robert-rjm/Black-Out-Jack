@@ -17,7 +17,12 @@ This document defines selector ownership for the web UI modules and the shared e
 - `#age-gate`, `#age-gate-msg`
 - `#lobby`, `#lobby-msg`, `#join-code`
 - `#waiting`, `#waiting-code-badge`
-- Polling + visibility sync (`startPolling`, `stopPolling`)
+
+### `static/js/ui/poll.js`
+- The `/state` poll loop and visibility re-poll (`startPolling`, `stopPolling`, `fetchState`)
+- Connection-lost screen: `#server-disconnect-overlay`, `#server-disconnect-elapsed`, `#server-disconnect-tryagain-btn`
+
+### `static/js/ui/room-qr.js`
 - Room QR / invite dialog: `#qr-overlay`, `#qr-card`, `#qr-svg`, `#qr-code-text`, `#qr-url`, `[data-action="openRoomQr"|"copyInviteLink"|"closeRoomQr"]`
 
 ### `static/js/ui/tip.js`

@@ -47,7 +47,7 @@ function _requestDone() {
   }
 }
 
-// Disconnection tracking — used by showDisconnected / hideDisconnected in lobby.js
+// Disconnection tracking — used by showDisconnected / hideDisconnected in poll.js
 let _consecutiveFailures = 0;   // resets to 0 on any successful /state response
 let _disconnectedSince   = null; // Date.now() timestamp when overlay was first shown
 let _disconnectedTimer   = null; // setInterval handle for the elapsed-seconds counter
