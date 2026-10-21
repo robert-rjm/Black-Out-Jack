@@ -414,7 +414,13 @@ function _applyKicked(state) {
 function _syncDrinkMode(state, drinkingOn) {
   document.body.classList.toggle("no-drinking", !drinkingOn);
   const drinksTab = document.getElementById("dig-drinks-tab");
-  if (drinksTab) drinksTab.textContent = drinkingOn ? "🍺 Drinks" : "🃏 Round";
+  if (drinksTab) {
+    drinksTab.textContent = drinkingOn ? "🍺 Drinks" : "🃏 Round";
+    // Nothing to show before the first deal -> grey out instead of leaving it tappable
+    const noRound = state.phase === PHASE.PRE_DEAL && !(state.balances && Object.keys(state.balances).length);
+    drinksTab.disabled = noRound;
+    drinksTab.classList.toggle("disabled", noRound);
+  }
 }
 
 // Update client identity (role, name, isMyDealerClient) from server state,
