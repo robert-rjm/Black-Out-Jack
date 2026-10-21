@@ -36,7 +36,9 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from app.services.session_store     import game_sessions
-from app.services.serializer        import serialize_state, compute_sip_totals, round_phase
+from app.services.serializer        import serialize_state
+from app.services.stats             import compute_sip_totals
+from app.services.round_state       import round_phase
 from app.services.targeted_drinking import start_targeted_drinking
 from app.config                     import MILESTONE_STEP
 

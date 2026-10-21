@@ -26,10 +26,9 @@ from engine.strategy import best_play as _best_play
 
 from app.services.session_store import game_sessions
 from app.services.validators import is_dealer_client
-from app.services.serializer import (
-    serialize_state, serialize_card,
-    round_phase, current_turn, compute_mandatory_split10, compute_mandatory_split_aces,
-)
+from app.services.serializer import serialize_state
+from app.services.stats import compute_mandatory_split10, compute_mandatory_split_aces
+from app.services.round_state import serialize_card, round_phase, current_turn
 from app.services.game_engine import (
     deal_card, deal_pending_split_cards, perform_split,
     get_player_hand, dealer_turn, auto_play_npc_turns,

@@ -93,7 +93,7 @@ def test_four_aces_no_drink_events_when_drinking_mode_false(monkeypatch):
 def test_serializer_reports_empty_sip_fields_when_drinking_mode_false():
     """compute_sip_totals short-circuits to {} so the frontend never receives
     stale or leaked sip data in Normal mode."""
-    from app.services.serializer import compute_sip_totals
+    from app.services.stats import compute_sip_totals
 
     class _FakeDrinks:
         sip_ticker = {"Player1": 5}

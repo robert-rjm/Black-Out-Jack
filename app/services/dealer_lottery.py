@@ -28,7 +28,7 @@ from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_
                         DEALER_LOTTERY_TOP_STAKE_BONUS)
 from app.services.decision_log import record_dealer_lottery_entry
 from app.services.drink_tracker import award_sips
-from app.services.serializer import serialize_card
+from app.services.round_state import serialize_card
 
 # Only these two matching-value two-card totals can leave the dealer
 # standing without a third card (dealer always hits below 17) -- 9-9 (18)

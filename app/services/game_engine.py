@@ -26,7 +26,7 @@ from engine.events import (
 )
 
 from app.models.game_room import GameRoom
-from app.services.serializer import hand_done, round_phase, current_turn
+from app.services.round_state import hand_done, round_phase, current_turn
 from app.services.payout_tracker import (
     can_afford_extra, deduct_double_bet, deduct_split_bet, deduct_bets,
     is_cash_mode, ensure_npc_stakes, unaffordable_players,

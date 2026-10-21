@@ -1,11 +1,11 @@
 """
-Tests for app/services/serializer.py's compute_kpi_stats().
+Tests for app/services/stats.py's compute_kpi_stats().
 """
 
 from engine.referee import RefereeSession
 from tests.conftest import make_player
 from app.models.game_room import GameRoom, GameConfig
-from app.services.serializer import compute_kpi_stats
+from app.services.stats import compute_kpi_stats
 
 
 def _make_room(num_players=3):

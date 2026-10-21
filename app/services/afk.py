@@ -22,7 +22,7 @@ from app.config import (
     AFK_DISCONNECT_SECONDS, ADMIN_AFK_PROMPT_DELAY_SECONDS, ADMIN_AFK_VOTE_WINDOW_SECONDS,
 )
 from app.models.game_room import GameRoom
-from app.services.serializer import round_phase, current_turn
+from app.services.round_state import round_phase, current_turn
 
 
 # ---------------------------------------------------------------------------

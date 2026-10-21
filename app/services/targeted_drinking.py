@@ -53,7 +53,7 @@ from app.config import (
     TARGETED_DRINKING_PROPOSE_FREEZE_ROUNDS,
 )
 from app.services.drink_tracker import award_sips
-from app.services.serializer import serialize_card, round_phase
+from app.services.round_state import serialize_card, round_phase
 from app.services.afk import absorb_seat as _absorb_afk_seat
 
 

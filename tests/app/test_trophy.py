@@ -1,5 +1,5 @@
 """
-Tests for the 🏆 trophy (compute_trophy_holder, serializer.py) and the
+Tests for the 🏆 trophy (compute_trophy_holder, stats.py) and the
 👑/💎 crown badge, plus the total_clean_rounds/clean_streak bookkeeping
 both are built on (drink_tracker.py).
 """
@@ -8,7 +8,7 @@ from engine.referee import RefereeSession
 from tests.conftest import make_player
 from app.models.game_room import GameRoom, GameConfig
 from app.services.drink_tracker import award_sips, _snapshot_round
-from app.services.serializer import compute_trophy_holder
+from app.services.stats import compute_trophy_holder
 
 
 def _make_room(names=None):

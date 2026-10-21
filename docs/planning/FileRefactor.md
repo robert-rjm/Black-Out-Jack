@@ -36,24 +36,24 @@ each JS step.
 
 ### B. Backend layering (high value, unblocks the route and service splits)
 
-- [ ] **B1. `routes/_auth.py`.** Move `_require_admin` and
+- [x] **B1. `routes/_auth.py`.** Move `_require_admin` and
       `_require_host_or_dealer` out of `routes/admin.py`.
       `routes/polling.py:33` still imports them from `admin.py` (route-to-route import).
-- [ ] **B2. `services/round_state.py` (leaf).** Move `play_order`, `hand_done`,
+- [x] **B2. `services/round_state.py` (leaf).** Move `play_order`, `hand_done`,
       `player_done`, `current_turn`, `round_phase`, `serialize_card`,
       `serialize_hand` out of `serializer.py` (still L312-348 area). Then migrate
       `afk.py`, `dealer_lottery.py`, `drink_rate.py`, `game_engine.py`,
       `targeted_drinking.py` and `tick.py`, which all import them from
       `serializer.py` today (domain services depending on the presentation layer).
-- [ ] **B3. Rest of `serializer.py` (1,260 lines).** `services/stats.py`
+- [x] **B3. Rest of `serializer.py` (1,260 lines).** `services/stats.py`
       (`_compute_live_drink_totals`, `compute_sip_totals`, `compute_payout_data`,
       `compute_best_play`, `compute_mandatory_split*`, `compute_trophy_holder`,
       `compute_kpi_stats`); a `services/serializers/` package
       (`milestone`, `dealer_lottery`, `targeted_drinking`, `insurance`,
       `bust_vote`, `drink_rate` / `admin_afk`); `serializer.py` keeps only
-      `serialize_state`. Dedupe `_targeted_drinking_awaiting_start`
-      (serializer L135) against `targeted_drinking_awaiting_start`
-      (`services/targeted_drinking.py` L164) while moving.
+      `serialize_state`. **Deduped:** the serializer now uses `targeted_drinking_awaiting_start` from
+      the service. The old serializer copy omitted the unclaimed-handout check, so
+      it could show "Start Targeting Now" when the start request would be refused.
 
 ### C. Backend routes
 

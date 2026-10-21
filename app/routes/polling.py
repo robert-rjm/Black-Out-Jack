@@ -30,11 +30,10 @@ from app.services.session_store import (
     mark_waiting_client, get_waiting_clients,
 )
 from app.services.validators import sanitize_name, is_dealer_client
-from app.routes.admin import _require_admin, _require_host_or_dealer
-from app.services.serializer import (
-    serialize_state, round_phase, current_turn, hand_done,
-    compute_mandatory_split10,
-)
+from app.routes._auth import _require_admin, _require_host_or_dealer
+from app.services.serializer import serialize_state
+from app.services.stats import compute_mandatory_split10
+from app.services.round_state import round_phase, current_turn, hand_done
 from app.services.drink_tracker import award_sips
 from app.services.boj_switch import (
     start_boj_poll, submit_boj_vote, cancel_split, go_split,
