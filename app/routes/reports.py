@@ -64,7 +64,8 @@ def serve_manifest():
 @bp.route("/rules")
 def rules():
     """Serve the Rules.md content as plain text for frontend markdown rendering."""
-    rules_path = os.path.join(_ROOT, "docs", "Rules.md")
+    name = "Rules-Normal.md" if request.args.get("mode") == "normal" else "Rules.md"
+    rules_path = os.path.join(_ROOT, "docs", name)
     try:
         with open(rules_path, "r", encoding="utf-8") as f:
             content = f.read()

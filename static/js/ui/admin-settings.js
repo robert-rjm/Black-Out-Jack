@@ -530,6 +530,15 @@ function _decorateRules(body) {
       if (list && list.tagName === "OL") list.classList.add("rules-toc");
     }
   });
+  // Drinking sections (4-6) and their TOC entries are hidden outside drinking mode.
+  let inDrink = false;
+  Array.from(body.children).forEach(el => {
+    if (el.tagName === "H2") inDrink = /^\s*[456]\./.test(el.textContent);
+    if (inDrink) el.classList.add("drink-only");
+  });
+  body.querySelectorAll(".rules-toc li").forEach(li => {
+    if (/^\s*(Drinking Rules|Relaxed Drinking)/i.test(li.textContent)) li.classList.add("drink-only");
+  });
   body.querySelectorAll("blockquote").forEach(q => {
     const p = q.firstElementChild;
     if (p && /^\s*\[!NOTE\]/i.test(p.textContent)) {
