@@ -336,10 +336,32 @@ async function openRoomQr() {
 
 function closeRoomQr() { closeModal("qr-overlay"); }
 
-// "Tip us" popup: a QR code (and copyable link) so it still works when a
-// popup/ad blocker stops the PayPal tab from opening.
+// "Tip us": tapping the button opens PayPal in a new tab straight away (it has
+// to happen inside the click or browsers block it). The QR code / copy-link
+// popup then shows when the player comes back to this tab, and straight away
+// if the new tab was blocked or never took focus.
 let _beerUrl = "";
-async function openBeerModal() {
+let _beerWaiting = false;   // PayPal tab opened; show the popup when we're back
+let _beerAway = false;      // this tab has been hidden since it opened
+
+function openBeerModal() {
+  const w = window.open("/beer", "_blank");
+  if (!w) { _showBeerModal(); return; }   // blocked
+  try { w.opener = null; } catch (_) {}
+  _beerWaiting = true;
+  _beerAway = document.hidden;
+  // No tab switch within a moment (opened as a window, or silently blocked):
+  // show the popup now rather than leaving the tap looking dead.
+  setTimeout(() => { if (_beerWaiting && !_beerAway) { _beerWaiting = false; _showBeerModal(); } }, 1500);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (!_beerWaiting) return;
+  if (document.hidden) { _beerAway = true; return; }
+  if (_beerAway) { _beerWaiting = false; _beerAway = false; _showBeerModal(); }
+});
+
+async function _showBeerModal() {
   const box = document.getElementById("beer-qr");
   if (!box) return;
   box.innerHTML = "";
