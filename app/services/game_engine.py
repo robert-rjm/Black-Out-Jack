@@ -275,6 +275,7 @@ def perform_split(session: GameRoom, player, hand: Hand, hand_idx: int) -> tuple
     Note: referee.py has its own split path that does *not* move card data
     (physical cards are moved by the player), so this helper is digital-only.
     """
+    hand.split_ace_bj = session.rules.on("table.split_ace_bj")
     new_hand = hand.split()                      # card pop + chain counter + from_split flags
     player.hands.insert(hand_idx + 1, new_hand)
     deal_card(session, hand, player.name)

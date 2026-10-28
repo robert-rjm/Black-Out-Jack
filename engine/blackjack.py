@@ -166,6 +166,10 @@ class Hand:
         self.cards:     list = []
         self.doubled    = doubled
         self.from_split = from_split
+        # False when the table.split_ace_bj rule is off: a two-card 21 on a hand
+        # split from Aces is then a plain 21, not a Blackjack. Set by whoever
+        # performs the split; split() hands it on to the new hand.
+        self.split_ace_bj = True
         # Shared mutable counter so the split limit applies to the WHOLE
         # split tree descended from one starting hand, not just one branch's
         # depth. New hands created by split() share this same list with
@@ -193,7 +197,11 @@ class Hand:
             aces -= 1
         return total
 
-    def is_blackjack(self) -> bool: return len(self.cards) == 2 and self.score() == 21
+    def is_blackjack(self) -> bool:
+        if (not self.split_ace_bj and self.from_split
+                and self.cards and self.cards[0].rank == Rank.ACE):
+            return False
+        return len(self.cards) == 2 and self.score() == 21
     def is_bust(self)      -> bool: return self.score() > 21
     def is_suited(self)    -> bool: return len(self.cards) >= 2 and len({c.suit for c in self.cards}) == 1
 
@@ -209,6 +217,7 @@ class Hand:
         so H1 is fully played before H2 ever receives its second card.
         """
         new_hand = Hand(from_split=True)
+        new_hand.split_ace_bj = self.split_ace_bj
         new_hand.cards.append(self.cards.pop())
         self.from_split   = True
         new_hand._split_chain = self._split_chain  # share counter across the whole chain
@@ -662,6 +671,7 @@ class RoundManager:
                     print("  BUST on double!")
 
             elif action == "sp":
+                hand.split_ace_bj = self.rules.on("table.split_ace_bj")
                 new_hand = hand.split()
                 player.hands.insert(hand_idx + 1, new_hand)
                 print(f"  Split! This hand: {hand}  |  New hand: {new_hand}")

@@ -185,3 +185,42 @@ def test_hard_switch_off_still_rotates_but_charges_nothing():
 def test_default_room_keeps_todays_behaviour():
     room = _hard_switch_room(DEFAULT_RULES)
     assert any("Hard Dealer Switch" in m[2] for m in room.round._eor_msgs_buffer)
+
+
+# ---------------------------------------------------------------------------
+# Blackjack on split Aces
+# ---------------------------------------------------------------------------
+
+def _split_aces(rules, second_card=("K", "H")):
+    from app.services.game_engine import perform_split
+    room = make_room(rules)
+    bob = room.session._get_player("Bob")
+    hand = make_hand(("A", "S"), ("A", "H"))
+    bob.hands = [hand]
+    room.shoe = Shoe(1)
+    room.shoe.cards = [make_card(*second_card)]
+    room.shoe.penetration = 1.0
+    room.shoe.total_cards = 1
+    new_hand, _ = perform_split(room, bob, hand, 0)
+    new_hand.cards.append(make_card("K", "D"))       # second card for the new hand
+    return hand, new_hand
+
+
+def test_split_ace_21_is_a_blackjack_by_default():
+    hand, new_hand = _split_aces(FULL)
+    assert hand.is_blackjack() and new_hand.is_blackjack()
+
+
+def test_split_ace_21_is_a_plain_21_when_the_rule_is_off():
+    hand, new_hand = _split_aces(off("table.split_ace_bj"))
+    assert hand.score() == 21 and new_hand.score() == 21
+    assert not hand.is_blackjack() and not new_hand.is_blackjack()
+
+
+def test_the_flag_follows_a_resplit_and_spares_ordinary_blackjacks():
+    hand, new_hand = _split_aces(off("table.split_ace_bj"))
+    again = hand.split()
+    assert again.split_ace_bj is False
+    natural = make_hand(("A", "S"), ("K", "H"))
+    natural.split_ace_bj = False                     # the flag only matters for split-Ace hands
+    assert natural.is_blackjack()
