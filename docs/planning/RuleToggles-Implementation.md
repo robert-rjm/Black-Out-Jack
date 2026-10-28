@@ -326,9 +326,10 @@ Rules that need extra cases:
 - `event.wild_card.targeted` off: the 15% roll falls back to "random"
   (seed `random`).
 
-The `classify_rule` gaps listed in catalog §"Gaps" (split-10s,
-split-aces, dealer 5-card 21 labels) must be fixed first, or those rules
-can't be tested this way.
+The `classify_rule` gaps listed in catalog §"Gaps" (split-10s and
+split-aces labels) are fixed. `five_card.dealer_21` has no label by design
+(zero-sip notices never reach the CSV), so its test compares sip totals
+instead: core penalties exactly doubled when on, normal when off.
 
 ### 6.3 No-regression proof
 
@@ -355,7 +356,7 @@ exposes the UI.
 
 | Phase | Scope | Done when |
 |---|---|---|
-| **0. Groundwork** | Fix the catalog "Gaps" (Rules.md split-Aces text, Cheat-Sheet A♣ wording, new `classify_rule` labels). Re-pin `rules_sync`. | Docs and labels consistent, tests green |
+| **0. Groundwork** | Fix the catalog "Gaps" (Rules.md split-Aces text, Cheat-Sheet A♣ wording, new `classify_rule` labels, suited-split wager unit). Re-pin `rules_sync`. | Docs and labels consistent, tests green |
 | **1. Registry** | `engine/rules_registry.py`, `RuleSet`, `GameConfig.rules`, migrate `bust_vote_enabled` / `wild_card_enabled` to properties, registry and catalog sync tests | No behaviour change, snapshots identical |
 | **2. Gates** | Engine gates (§3.1), app gates (§3.2), strategy (§3.3), event wiring (§3.4), the per-rule "off means off" tests | Every rule can be switched off in tests |
 | **3. Admin UI** | `/update_settings` keys, queue/apply, serializer, `/rules_registry`, settings sub-view, read-only view, queued banner, round-log notice | Admin can toggle rules in a live room |

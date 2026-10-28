@@ -393,7 +393,7 @@ on its own. Ace sips are never halved and boosters never apply (discounts do).
 - **Effect:** Dealer makes 21 with 5+ cards → all players' **core** penalties are doubled this round (net losses, lost-hand extras, wins-all, split wins, auto-insurance). Extras (BJ bonus, aces, sweeps, bust vote, lottery) are not doubled.
 - **Halved:** Yes (after doubling) · **Booster:** Yes · **Depends on:** —
 - **Code:** `DrinkingRules.dealer_21_five_cards` (called directly, not via `handle()`)
-- **CSV label:** none of its own (shows up as the doubled core labels, see [Gaps](#gaps-found-while-cataloguing))
+- **CSV label:** none of its own (shows up as the doubled core labels; tested by sip totals, see [Gaps](#gaps-found-while-cataloguing))
 - **Quiz:** Q: Dealer makes a 5-card 21. Is the Blackjack bonus doubled? **A:** No, only core penalties.
 
 ### <a id="sweep-same_suit"></a>All-hand bonus: one suit — `sweep.same_suit`
@@ -524,8 +524,10 @@ goes through `python scripts/rules_sync.py update`):
    `classify_rule` now emits `Split 10s without honor`, `Split suited 10s`
    and `Didn't split Aces`.
 4. **`five_card.dealer_21` has no label of its own.** The doubling is folded
-   into the core rows. A zero-sip notice row (like `Hard Switch notice`)
-   would make it visible in exports and testable.
+   into the core rows, and zero-sip notices never reach `drink_log` or the CSV
+   (`DrinkTracker.apply` only prints them). Decision: no notice row. The rule
+   is tested by sip totals (core penalties exactly doubled when on, normal
+   when off) rather than by label.
 5. ~~**Split-10s penalty unit.**~~ Fixed: the suited-split penalty was a flat
    1 sip; it is now 1× wager like the "without honor" penalty.
 
