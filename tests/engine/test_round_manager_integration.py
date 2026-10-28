@@ -22,7 +22,7 @@ def _load_shoe(shoe, deal_order):
     shoe.total_cards = len(shoe.cards)
 
 
-def _always_stand(self, hand, dealer_up_card, valid_actions, drinking_mode=False):
+def _always_stand(self, hand, dealer_up_card, valid_actions, drinking_mode=False, **_):
     return "s"
 
 
@@ -81,7 +81,7 @@ def test_split_hand_immunity_break_and_stacked_loss_penalties(monkeypatch):
         "Player2": iter(["s"]),
     }
 
-    def decide(self, hand, dealer_up_card, valid_actions, drinking_mode=False):
+    def decide(self, hand, dealer_up_card, valid_actions, drinking_mode=False, **_):
         return next(actions[self.name])
 
     monkeypatch.setattr(NPC_Player, "decide", decide)

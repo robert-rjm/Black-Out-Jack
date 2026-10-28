@@ -447,6 +447,11 @@ class GameRoom:
     _bank_run_players: list = field(default_factory=list)
     _biggest_round_payouts: dict = field(default_factory=dict)
 
+    def __post_init__(self):
+        # The engine session reads its own copy of the rules (engine/ can't see
+        # app/ config), so hand it the room's rules at construction.
+        self.session.rules = self.config.rules
+
     # ------------------------------------------------------------------
     # Explicit properties delegating to RefereeSession
     # ------------------------------------------------------------------
@@ -619,6 +624,14 @@ class GameRoom:
     def drinking_mode(self, v): self.config.drinking_mode = v
 
     @property
+    def rules(self) -> RuleSet: return self.config.rules
+    @rules.setter
+    def rules(self, v):
+        # The engine session reads its own copy; keep both in step.
+        self.config.rules = v
+        self.session.rules = v
+
+    @property
     def easy_mode(self): return self.config.easy_mode
     @easy_mode.setter
     def easy_mode(self, v): self.config.easy_mode = v
@@ -626,7 +639,7 @@ class GameRoom:
     @property
     def bust_vote_enabled(self): return self.config.rules.on("side.bust_vote")
     @bust_vote_enabled.setter
-    def bust_vote_enabled(self, v): self.config.rules = self.config.rules.with_rule("side.bust_vote", bool(v))
+    def bust_vote_enabled(self, v): self.rules = self.config.rules.with_rule("side.bust_vote", bool(v))
 
     @property
     def strategy_hint_enabled(self): return self.config.strategy_hint_enabled
@@ -661,4 +674,4 @@ class GameRoom:
     @property
     def wild_card_enabled(self): return self.config.rules.on("event.wild_card")
     @wild_card_enabled.setter
-    def wild_card_enabled(self, v): self.config.rules = self.config.rules.with_rule("event.wild_card", bool(v))
+    def wild_card_enabled(self, v): self.rules = self.config.rules.with_rule("event.wild_card", bool(v))

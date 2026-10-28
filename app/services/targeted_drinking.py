@@ -87,6 +87,8 @@ def start_targeted_drinking(
     """
     if not session.drinking_mode:
         return False
+    if not session.rules.on("event.targeted"):
+        return False
     if session._targeted_drinking_active:
         return False
     if session.round_count < session._targeted_drinking_cooldown_until_round:
@@ -400,7 +402,8 @@ def resolve_targeted_drinking_round(session: GameRoom) -> None:
                 # never once guessing wrong this whole subgame run. Reward:
                 # hand out a fixed number of sips to another player, same
                 # claim-window/forfeit mechanic as Dealer Lottery's handout.
-                if session._targeted_drinking_wrong_counts.get(name, 0) == 0:
+                if (session._targeted_drinking_wrong_counts.get(name, 0) == 0
+                        and session.rules.on("event.targeted.perfect_handout")):
                     graduation_handouts[name] = TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS
                     session.round._log_entries.append(
                         f"  🏆 {name} graduated flawlessly ({streak}/{streak}, "
@@ -597,6 +600,8 @@ def propose_targeted_drinking_target(
     themselves)."""
     if not session.drinking_mode:
         return False, "Targeted Drinking Mode is only available in Drinking mode."
+    if not session.rules.on("event.targeted"):
+        return False, "Targeted Drinking Mode is switched off at this table."
     if session._targeted_drinking_active:
         return False, "Targeted Drinking Mode is already running."
     if session.round_count < session._targeted_drinking_cooldown_until_round:

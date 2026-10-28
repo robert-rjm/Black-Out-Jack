@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from engine.drinking_rules import DrinkingRules
+from engine.rules_registry import FULL
 from engine.events import (
     CardDealtEvent,
     BlackjackEvent,
@@ -30,6 +31,7 @@ def test_card_dealt_dispatch():
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
         card, "Alice", 1, ["Alice", "Bob"], "Bob", {}, is_dealer_hand=False, wager=1,
+        rules=FULL,
     )
     assert result == "SENTINEL"
 
@@ -39,7 +41,7 @@ def test_blackjack_dispatch():
     event = BlackjackEvent(player_name="Alice", hand=hand, all_names=["Alice", "Bob"])
     with patch.object(DrinkingRules, "on_blackjack", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
-    m.assert_called_once_with("Alice", hand, ["Alice", "Bob"], hard_switch_dealer="", wager=1)
+    m.assert_called_once_with("Alice", hand, ["Alice", "Bob"], hard_switch_dealer="", wager=1, rules=FULL)
     assert result == "SENTINEL"
 
 
@@ -53,7 +55,7 @@ def test_insurance_resolved_dispatch():
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
         "Alice", hand, ["Alice", "Bob"], insured=True, dealer_bj=False,
-        hard_switch_dealer="", wager=1,
+        hard_switch_dealer="", wager=1, rules=FULL,
     )
     assert result == "SENTINEL"
 
@@ -64,7 +66,7 @@ def test_hand_resolved_dispatch():
     with patch.object(DrinkingRules, "on_hand_resolved", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
-        "Alice", hand, ["Alice", "Bob"], dealer_bj=False, dealer_name="", wager=1,
+        "Alice", hand, ["Alice", "Bob"], dealer_bj=False, dealer_name="", wager=1, rules=FULL,
     )
     assert result == "SENTINEL"
 
@@ -78,7 +80,7 @@ def test_all_hands_sweep_dispatch():
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
         "Alice", hands, ["Alice", "Bob"], 1, dealer_name="", dealer_bj=False,
-        hard_switch_dealer="",
+        hard_switch_dealer="", rules=FULL,
     )
     assert result == "SENTINEL"
 
@@ -88,7 +90,7 @@ def test_dealer_hand_revealed_dispatch():
     event = DealerHandRevealedEvent(dealer_hand=hand)
     with patch.object(DrinkingRules, "on_dealer_hand_revealed", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
-    m.assert_called_once_with(hand, wager=1)
+    m.assert_called_once_with(hand, wager=1, rules=FULL)
     assert result == "SENTINEL"
 
 
@@ -99,6 +101,7 @@ def test_round_end_dispatch():
         result = DrinkingRules.handle(event)
     m.assert_called_once_with(
         [p], 1, dealer_bj=False, dealer_shows_ace=False, hard_switch_dealer="", num_hands=0,
+        rules=FULL,
     )
     assert result == "SENTINEL"
 
@@ -108,7 +111,7 @@ def test_hard_dealer_switch_dispatch():
     event = HardDealerSwitchEvent(dealer_name="Dealer", winning_hands=[("Bob", hand)])
     with patch.object(DrinkingRules, "on_hard_dealer_switch", return_value="SENTINEL") as m:
         result = DrinkingRules.handle(event)
-    m.assert_called_once_with("Dealer", [("Bob", hand)], half_protected=False, wager=1)
+    m.assert_called_once_with("Dealer", [("Bob", hand)], half_protected=False, wager=1, rules=FULL)
     assert result == "SENTINEL"
 
 

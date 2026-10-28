@@ -51,7 +51,8 @@ def record_strategy_decision(session, player, hand, chosen_action: str) -> None:
         valid.append("sp")
 
     optimal = _best_play(hand, dealer_up, valid,
-                         drinking_mode=session.drinking_mode)
+                         drinking_mode=session.drinking_mode,
+                         split_tens=session.rules.on("table.split_tens"))
 
     sd = session.stats.strategy_decisions
     if player.name not in sd:

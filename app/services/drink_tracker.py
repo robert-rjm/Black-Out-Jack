@@ -639,6 +639,9 @@ def _update_worst_streak_holder(session: GameRoom) -> None:
     the round is still "current" for last_round_sips purposes -- call from
     harvest_drink_log, same as _update_streaks itself.
     """
+    if not session.rules.on("streak.l_badge"):
+        session.stats.worst_streak_holder = None   # badge disappears, no hand-off sip
+        return
     streaks        = session.stats.streaks
     current_holder = session.stats.worst_streak_holder
 
@@ -741,6 +744,8 @@ def _apply_worst_player_streak(session: GameRoom, winner: str, ticker: dict) -> 
     player's session total and milestone progress, just not toward who
     looks "worst" at actually playing rounds.
     """
+    if not session.rules.on("milestone.worst_average"):
+        return
     rounds_played = session.stats.player_rounds_played
     excluded      = session.drinks.sip_ticker_excl_round_avg
 
@@ -857,6 +862,8 @@ def check_and_set_milestone(session: GameRoom) -> None:
     """
     if not session.drinking_mode:
         return   # casino mode: no sips, so no milestones
+    if not session.rules.on("milestone.handout"):
+        return   # rule off: no milestone is set (the sip ticker still counts)
 
     # Never overwrite an active unresolved milestone — the winner gets to hand
     # out their sips before we fire the next one.

@@ -219,6 +219,7 @@ def cmd_split(game_session, parts):
     # Warn the player and charge 1 sip for choosing to split anyway.
     _was_suited_10_split = (
         game_session.drinking_mode
+        and game_session.rules.on("table.split_tens")
         and len(hand.cards) == 2
         and hand.cards[0].rank.blackjack_value == 10
         and hand.cards[1].rank.blackjack_value == 10
@@ -321,7 +322,7 @@ def _cmd_blackjack(game_session, parts):
     game_session.tracker.apply(
         DrinkingRules.handle(BlackjackEvent(
             player_name=player.name, hand=hand, all_names=all_names,
-            wager=game_session.wager)))
+            wager=game_session.wager, rules=game_session.rules)))
     log.debug(f"  {player.name} BLACKJACK confirmed.")
 
 

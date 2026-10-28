@@ -282,6 +282,7 @@ class Player:
 # Strategy tables and resolver live in strategy.py
 from engine.drink_rate import DrinkEntry, exempt_rate, scale_sips  # noqa: E402
 from engine.strategy import best_play as _strategy_best_play  # noqa: E402
+from engine.rules_registry import FULL  # noqa: E402
 
 
 MAX_HAND_INDEX = 20   # sanity cap: a typo like "hand400000" must not allocate 400k hands
@@ -332,21 +333,25 @@ class NPC_Player(Player):
 
     @staticmethod
     def best_play(hand, dealer_up_card, valid_actions: list,
-                  drinking_mode: bool = False) -> str:
+                  drinking_mode: bool = False, split_tens: bool = True) -> str:
         """Delegate to strategy.best_play — kept for backwards compatibility."""
-        return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
+        return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode,
+                                   split_tens=split_tens)
 
     def decide(self, hand, dealer_up_card, valid_actions: list,
                drinking_mode: bool = False, visible_cards: list | None = None,
-               sibling_hands: list | None = None) -> str:
+               sibling_hands: list | None = None,
+               split_tens: bool = True) -> str:
         profile = self._get_profile()
         if profile is not None:
             from engine.style_strategy import best_play_for
             return best_play_for(profile, hand, dealer_up_card,
                                  valid_actions, drinking_mode,
                                  visible_cards=visible_cards,
-                                 sibling_hands=sibling_hands)
-        return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode)
+                                 sibling_hands=sibling_hands,
+                                 split_tens=split_tens)
+        return _strategy_best_play(hand, dealer_up_card, valid_actions, drinking_mode,
+                                   split_tens=split_tens)
 
     def decide_dealer_lottery_stake(self, current_owed: int) -> int:
         """Choose this NPC's Dealer Lottery entry (0-5), per its profile's
@@ -405,6 +410,7 @@ class RoundManager:
         self.wager          = wager
         self.num_hands      = num_hands
         self.drinking_mode  = drinking_mode
+        self.rules          = FULL
         self._all_names     = [p.name for p in players]
         self._ace_credits   = []
         self._ace_clubs_flag = {"partial_protected": False, "half_protected": False}
@@ -467,7 +473,7 @@ class RoundManager:
                 card=card, recipient=recipient_name, card_pos=card_pos,
                 all_names=self._all_names, dealer_name=self.dealer_player.name,
                 ace_clubs_flag=self._ace_clubs_flag,
-                is_dealer_hand=is_dealer_hand, wager=self.wager,
+                is_dealer_hand=is_dealer_hand, wager=self.wager, rules=self.rules,
             ))
             for msg in msgs:
                 _, s, reason = msg[0], msg[1], msg[2]
@@ -500,7 +506,7 @@ class RoundManager:
         all_cards = ([c for p in self.players for h in p.hands for c in h.cards]
                      + self.dealer_player.dealer_hand.cards)
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, phase, self._four_aces_fd, wager=self.wager)
+            all_cards, phase, self._four_aces_fd, wager=self.wager, rules=self.rules)
         self.tracker.apply(msgs)
 
     # ---------------------------------------------------------------- insurance vote
@@ -598,7 +604,7 @@ class RoundManager:
                 from engine.events import BlackjackEvent
                 self._drink(DrinkingRules.handle(BlackjackEvent(
                     player_name=player.name, hand=hand, all_names=self._all_names,
-                    wager=self.wager,
+                    wager=self.wager, rules=self.rules,
                 )))
             return
 
@@ -610,11 +616,13 @@ class RoundManager:
             if hand.can_split():                          valid.append("sp")
 
             if player.is_npc:
-                action = player.decide(hand, dealer_up, valid, self.drinking_mode)
+                action = player.decide(hand, dealer_up, valid, self.drinking_mode,
+                                       split_tens=self.rules.on("table.split_tens"))
                 print(f"  {player.name} (NPC) => {_BLUE}{action}{_RESET}")
             else:
                 # Show basic-strategy hint in blue before asking human
-                hint = NPC_Player.best_play(hand, dealer_up, valid, self.drinking_mode)
+                hint = NPC_Player.best_play(hand, dealer_up, valid, self.drinking_mode,
+                                            split_tens=self.rules.on("table.split_tens"))
                 print(f"  {_BLUE}Best play: {hint}{_RESET}")
                 # Mandatory 10-split warning (drinking mode only)
                 if (self.drinking_mode
@@ -673,7 +681,7 @@ class RoundManager:
                         from engine.events import BlackjackEvent
                         self._drink(DrinkingRules.handle(BlackjackEvent(
                             player_name=player.name, hand=hand, all_names=self._all_names,
-                            wager=self.wager,
+                            wager=self.wager, rules=self.rules,
                         )))
                 # No return: while loop exits if hand.stood, or continues for hit/stand/double
                 # new_hand is played when _player_turns increments to the next idx
@@ -710,7 +718,7 @@ class RoundManager:
             from engine.drinking_rules import DrinkingRules
             from engine.events import DealerHandRevealedEvent
             self._drink(DrinkingRules.handle(DealerHandRevealedEvent(
-                dealer_hand=d_hand, wager=self.wager)))
+                dealer_hand=d_hand, wager=self.wager, rules=self.rules)))
 
     # ---------------------------------------------------------------- evaluation
 
@@ -738,7 +746,8 @@ class RoundManager:
             p.total_pushes += p.round_pushes()
 
         # Determine hard switch now so drinking events can use it
-        hard_switch        = dealer_lost_all and bool(winning_hds)
+        # With switch.hard off the dealer role still passes (no penalty, no exemption).
+        hard_switch        = dealer_lost_all and bool(winning_hds) and self.rules.on("switch.hard")
         self._hard_switch  = hard_switch   # shared with _round_end_drinks
         exempt_dealer      = self.dealer_player.name if hard_switch else ""
 
@@ -760,12 +769,12 @@ class RoundManager:
                             # No vote was held (dealer didn't show Ace) — normal BJ bonus
                             self._drink(DrinkingRules.handle(BlackjackEvent(
                                 player_name=p.name, hand=hand, all_names=self._all_names,
-                                hard_switch_dealer=exempt_dealer, wager=self.wager,
+                                hard_switch_dealer=exempt_dealer, wager=self.wager, rules=self.rules,
                             )))
                     self._drink(DrinkingRules.handle(HandResolvedEvent(
                         player_name=p.name, hand=hand, all_names=self._all_names,
                         dealer_bj=dealer_bj, dealer_name=exempt_dealer,
-                        wager=self.wager,
+                        wager=self.wager, rules=self.rules,
                     )))
 
             # Resolve insurance votes now that dealer BJ is known
@@ -773,7 +782,7 @@ class RoundManager:
                 self._drink(DrinkingRules.handle(InsuranceResolvedEvent(
                     player_name=p.name, hand=hand, all_names=self._all_names,
                     insured=insured, dealer_bj=dealer_bj,
-                    hard_switch_dealer=exempt_dealer, wager=self.wager,
+                    hard_switch_dealer=exempt_dealer, wager=self.wager, rules=self.rules,
                 )))
 
             if hard_switch:
@@ -803,7 +812,7 @@ class RoundManager:
                     ]
                 self._drink(DrinkingRules.handle(HardDealerSwitchEvent(
                     dealer_name=self.dealer_player.name, winning_hands=hs_for_penalty,
-                    half_protected=half_protected, wager=self.wager,
+                    half_protected=half_protected, wager=self.wager, rules=self.rules,
                 )))
 
     def _round_end_drinks(self):
@@ -816,7 +825,7 @@ class RoundManager:
         # insure, so auto-insurance must not apply in that case.
         dealer_shows_ace = bool(d_hand.cards) and d_hand.cards[0].rank.label == "A"
         w         = self.wager
-        if DrinkingRules.dealer_21_five_cards(d_hand):
+        if DrinkingRules.dealer_21_five_cards(d_hand, rules=self.rules):
             w *= 2
             print(f"  ★ Dealer 21 with {len(d_hand.cards)} cards — wager doubled to {w} sip(s) this round!")
         if dealer_bj and dealer_shows_ace:
@@ -826,7 +835,7 @@ class RoundManager:
             players=self.players, wager=w, dealer_bj=dealer_bj,
             dealer_shows_ace=dealer_shows_ace,
             hard_switch_dealer=self.dealer_player.name if hard_switch else "",
-            num_hands=self.num_hands,
+            num_hands=self.num_hands, rules=self.rules,
         )))
         for name in self._ace_credits:
             p = next((x for x in self.players if x.name.lower() == name.lower()), None)
