@@ -24,7 +24,7 @@
 
 | Ace | Dealt to Player | Dealt to Dealer |
 |-----|----------------|-----------------|
-| ♣ Clubs | −1× wager from your net sips | Dealer exempt from Hard Switch |
+| ♣ Clubs | −1× wager from your net sips | Hard Switch penalty halved (rounded up) |
 | ♠ Spades | Next Player(s) drink 1× wager | Odd card → Dealer drinks 1× wager. Even → all Players drink 1× wager |
 | ♥ Hearts | You drink 1× wager | All Players drink 1× wager |
 | ♦ Diamonds | Dealer drinks 1× wager | All Players (except Dealer) drink 1× wager |
@@ -137,7 +137,7 @@ If **one Player's** hands (all of them, if split) are *entirely* one suit, or *a
 | Split | Each hand separately |
 | Suited | 0 extra |
 
-♣ Ace dealt to Dealer → Switch still happens but Dealer drinks 0.
+♣ Ace dealt to Dealer → Switch still happens but Dealer drinks only half the penalty (rounded up).
 
 **Soft Switch** — Dealer wins ALL hands:
 Players drink their sips. Dealer drinks nothing. Role passes.
@@ -196,6 +196,7 @@ A live stats table (correct/wrong per Player, dealer bust %) runs the whole time
 
 ## Key Reminders
 - Splitting 10s is **mandatory** (unless suited)
+- Splitting Aces is **mandatory**: any other action on A-A costs 1 sip
 - Dealer stands on all 17s
 - Max 5 splits per starting hand
 - Split Aces → can hit/double/split again; BJ counts as BJ

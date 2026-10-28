@@ -136,17 +136,17 @@ switched off. (Normal Mode is the "everything off" version.)
 - **Halved:** No · **Booster:** No
 - **Depends on:** — · **Interacts with:** `others.immunity.suited` (the reason suited 10s are exempt), basic-strategy hints and bot strategy (`engine/strategy.py`, `engine/style_strategy.py`)
 - **Code:** `app/services/stats.py` `compute_mandatory_split10`, `app/services/player_actions.py` `check_honor_house_rule` / `perform_action_without_honor`
-- **CSV label:** `Other` today (no dedicated label, see [Gaps](#gaps-found-while-cataloguing))
+- **CSV label:** `Split 10s without honor` (declined split) · `Split suited 10s` (suited split)
 - **Quiz:** Q: You hold J♥ Q♥. Must you split? **A:** No: suited 10s are the exception, and splitting them costs 1× wager.
 
 ### <a id="table-split_aces"></a>Mandatory split Aces — `table.split_aces`
-- **Rules.md:** *not documented* (see [Gaps](#gaps-found-while-cataloguing)) · **Kind:** table · **Timing:** instant · **Preset:** Standard
+- **Rules.md:** [§3.1](Rules.md#31-splitting-aces) · **Kind:** table · **Timing:** instant · **Preset:** Standard
 - **Trigger:** A human player takes any action other than split on an original A-A pair.
 - **Effect:** 1 sip immediately, no prompt.
 - **Halved:** No · **Booster:** No
 - **Depends on:** —
 - **Code:** `app/services/stats.py` `compute_mandatory_split_aces`, `app/services/player_actions.py` `penalize_unsplit_aces`
-- **CSV label:** `Other` today
+- **CSV label:** `Didn't split Aces`
 - **Quiz:** Q: What happens if you stand on A-A? **A:** You drink 1 sip on the spot.
 
 ### <a id="table-split_ace_bj"></a>Blackjack on split Aces — `table.split_ace_bj`
@@ -516,22 +516,18 @@ link to them.
 Worth fixing alongside the toggle work (each fix touches `Rules.md`, so it
 goes through `python scripts/rules_sync.py update`):
 
-1. **`table.split_aces` isn't in Rules.md.** The code fines 1 sip for not
-   splitting A-A (`penalize_unsplit_aces`), but Rules.md §3.1 only says Aces
-   *may* be split.
-2. **A♣-to-dealer wording differs.** Rules.md §4.1/§5.7 say "half the Hard
-   Switch penalty (rounded up)". Cheat-Sheet.md "Dealer Switches" says "Dealer
-   drinks 0". The code halves (`half_protected`), so the Cheat Sheet is the
-   one that's out of date.
-3. **Split-10s and split-Aces penalties land in CSV as `Other`.** A toggle
-   test that checks "rule off → no rows with its label" needs dedicated
-   `classify_rule` labels, for example `Split 10s without honor` and
-   `Didn't split Aces`.
+1. ~~**`table.split_aces` isn't in Rules.md.**~~ Fixed: Rules.md §3.1 and the
+   Cheat Sheet now document the flat 1-sip penalty.
+2. ~~**A♣-to-dealer wording differs.**~~ Fixed: Cheat-Sheet.md now says the
+   dealer drinks half (rounded up), matching Rules.md and the code.
+3. ~~**Split-10s and split-Aces penalties land in CSV as `Other`.**~~ Fixed:
+   `classify_rule` now emits `Split 10s without honor`, `Split suited 10s`
+   and `Didn't split Aces`.
 4. **`five_card.dealer_21` has no label of its own.** The doubling is folded
    into the core rows. A zero-sip notice row (like `Hard Switch notice`)
    would make it visible in exports and testable.
-5. **Split-10s penalty unit.** Rules.md says "1× wager" and the code
-   docstrings say "1 sip". Check that the two agree when wager > 1.
+5. ~~**Split-10s penalty unit.**~~ Fixed: the suited-split penalty was a flat
+   1 sip; it is now 1× wager like the "without honor" penalty.
 
 ## Retired IDs
 

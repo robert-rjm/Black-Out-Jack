@@ -97,6 +97,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 
 | Rule | Details |
 |---|---|
+| Mandatory | An original pair of Aces **must** be split. Hitting, standing or doubling on it instead costs a flat **1 sip** (not scaled by wager), charged immediately, once per hand. |
 | Splits allowed | Up to the general maximum (5 per starting hand) |
 | Wager | Counted per resulting hand |
 | Blackjack on split Aces | Counts as Blackjack (not just 21) |

@@ -44,7 +44,7 @@ def preselect():
 
     # House rule: pre-selecting HIT, STAND, or DOUBLE on a hand the
     # "mandatory split 10s" rule applies to opens the "Play with honor /
-    # <action> without honor (1 sip)" prompt (state.honor_pending) instead
+    # <action> without honor (1× wager)" prompt (state.honor_pending) instead
     # of recording a plain action vote.
     _ACTION_NAMES = {"h": "hit", "s": "stand", "d": "double"}
     if (action in _ACTION_NAMES and session.drinking_mode

@@ -66,7 +66,7 @@ def check_honor_house_rule(game_session, player, hand, action) -> bool:
     If `hand` is an unsuited 10-value pair, split is still legal, and this
     hand hasn't been resolved yet, block the attempted action (hit, stand,
     or double) by recording it in session.round._honor_pending and return
-    True. The frontend shows the "Play with honor / <action> (1 sip)" prompt
+    True. The frontend shows the "Play with honor / <action> (1× wager)" prompt
     via state.honor_pending; the choice is applied via /honor_resolve.
     Always returns False (no-op) in Normal mode.
     """
