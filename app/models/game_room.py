@@ -30,6 +30,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 from engine.referee import RefereeSession
+from engine.rules_registry import DEFAULT_RULES, RuleSet
 
 
 @dataclass
@@ -216,13 +217,15 @@ class GameConfig:
     mode: str              = "referee"  # "referee" | "digital"
     drinking_mode: bool    = True
     easy_mode: bool        = False
-    bust_vote_enabled: bool     = False
+    # Which drinking rules are in play. The dealer bust vote and the Wild Card
+    # easter egg are the rules the admin can flip live; see the GameRoom
+    # properties bust_vote_enabled / wild_card_enabled.
+    rules: RuleSet         = DEFAULT_RULES
     strategy_hint_enabled: bool = False
     god_mode: bool         = True
     dealer_rotate_every: int    = 1
     bet_amount: float      = 10
     starting_bankroll: float    = 100
-    wild_card_enabled: bool     = True
     buyin_handouts: bool        = False   # Normal mode: players above the buy-in hand out sips
 
 
@@ -621,9 +624,9 @@ class GameRoom:
     def easy_mode(self, v): self.config.easy_mode = v
 
     @property
-    def bust_vote_enabled(self): return self.config.bust_vote_enabled
+    def bust_vote_enabled(self): return self.config.rules.on("side.bust_vote")
     @bust_vote_enabled.setter
-    def bust_vote_enabled(self, v): self.config.bust_vote_enabled = v
+    def bust_vote_enabled(self, v): self.config.rules = self.config.rules.with_rule("side.bust_vote", bool(v))
 
     @property
     def strategy_hint_enabled(self): return self.config.strategy_hint_enabled
@@ -656,6 +659,6 @@ class GameRoom:
     def buyin_handouts(self, v): self.config.buyin_handouts = v
 
     @property
-    def wild_card_enabled(self): return self.config.wild_card_enabled
+    def wild_card_enabled(self): return self.config.rules.on("event.wild_card")
     @wild_card_enabled.setter
-    def wild_card_enabled(self, v): self.config.wild_card_enabled = v
+    def wild_card_enabled(self, v): self.config.rules = self.config.rules.with_rule("event.wild_card", bool(v))

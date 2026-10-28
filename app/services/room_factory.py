@@ -10,6 +10,7 @@ from engine.blackjack import Player, Hand, Shoe, NPC_Player
 from engine.referee import RefereeSession
 
 from app.models.game_room import GameRoom, GameConfig
+from engine.rules_registry import DEFAULT_RULES
 from app.services.session_store import set_session
 from app.services.room_manager import NullTracker, patch_tracker, capture
 from app.services.payout_tracker import init_bankrolls
@@ -46,7 +47,7 @@ def build_game_room(room_code, client_id, names, npc_names, npc_personalities,
             mode=mode,
             drinking_mode=drinking,
             dealer_rotate_every=len(players),
-            bust_vote_enabled=bust_vote_enabled,
+            rules=DEFAULT_RULES.with_rule("side.bust_vote", bust_vote_enabled),
             easy_mode=easy_mode,
             bet_amount=bet_amount,
             starting_bankroll=starting_bankroll,

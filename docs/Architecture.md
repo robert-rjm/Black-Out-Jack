@@ -37,6 +37,7 @@ Black-Out-Jack/
 │   ├── strategy.py           #   basic-strategy tables + best_play()
 │   ├── style_strategy.py     #   player-mimicry bot resolver (reads player_profiles/*.json)
 │   ├── events.py             #   typed events dispatched to DrinkingRules.handle()
+│   ├── rules_registry.py     #   every toggleable rule (stable IDs) and the per-room RuleSet
 │   ├── drinking_rules.py     #   the drinking layer, reacts to events
 │   ├── drink_rate.py         #   pure Drink Rate maths (presets, scale_sips, exempt_rate)
 │   ├── referee.py            #   RefereeSession for real-life play

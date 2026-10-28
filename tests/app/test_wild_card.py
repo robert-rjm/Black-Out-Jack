@@ -20,7 +20,7 @@ def _make_room(num_players=3):
     raw_session = RefereeSession(players, "Alice", wager=1, num_hands=1)
     return GameRoom(
         session=raw_session,
-        config=GameConfig(mode="digital", drinking_mode=True, wild_card_enabled=True),
+        config=GameConfig(mode="digital", drinking_mode=True),
     )
 
 

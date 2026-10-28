@@ -208,7 +208,7 @@ on its own. Ace sips are never halved and boosters never apply (discounts do).
 - **Rules.md:** [§4.1](Rules.md#41-ace-effects) · **Timing:** instant (credit settles at end of round) · **Preset:** Standard
 - **Effect:** −1× wager from the end-of-round net (min 0). If the recipient is also the dealer, their own player hands are excluded from the Hard Switch penalty instead, and the credit only applies if no Hard Switch fires.
 - **Halved:** No · **Booster:** No
-- **Depends on:** — (the dealer-player part needs `switch.hard`)
+- **Depends on:** — (the dealer-player part only matters while Hard Switch is on)
 - **Code:** `DrinkingRules.on_card_dealt`, `DrinkTracker.apply_ace_clubs_credit`
 - **CSV label:** `A♣ protection credit`, `A♣ waived`
 - **Quiz:** Q: You owe 0 sips and were dealt A♣. Do you get a sip to hand out? **A:** No, the credit can't go below 0.

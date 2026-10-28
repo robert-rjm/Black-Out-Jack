@@ -9,6 +9,7 @@ import time
 
 import pytest
 from engine.referee import RefereeSession
+from engine.rules_registry import DEFAULT_RULES
 from tests.conftest import make_player, make_hand
 from app import create_app
 from app.models.game_room import GameRoom, GameConfig
@@ -37,7 +38,7 @@ def _make_room(num_players=3, bust_vote_enabled=True, dealer_hand=None):
         session=raw_session,
         config=GameConfig(
             mode="referee",
-            bust_vote_enabled=bust_vote_enabled,
+            rules=DEFAULT_RULES.with_rule("side.bust_vote", bust_vote_enabled),
         ),
     )
     return room
@@ -153,7 +154,8 @@ def test_side_bet_settlement_uses_each_players_own_stake():
     room = GameRoom(
         session=raw_session,
         config=GameConfig(mode="digital", drinking_mode=False,
-                           bust_vote_enabled=True, bet_amount=10),
+                           rules=DEFAULT_RULES.with_rule("side.bust_vote", True),
+                           bet_amount=10),
     )
     room._player_bets = {"Bob": 20}   # Bob's own bet; table default stays $10
 
