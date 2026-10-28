@@ -53,9 +53,11 @@ Black-Out-Jack/
 │                             #   one test_<feature>.py per feature, shared fixtures in conftest.py
 ├── data/                     # decisions/ (tracked session exports used to mine bot profiles),
 │                             #   profile_backups/ (copies taken before a profile rebuild)
-├── docs/                     # Rules.md, Cheat-Sheet.md, Dev-Cheat-Sheet.md, Comprehensive-Example.md,
+├── docs/                     # Rules.md, Rules-Normal.md, Rules-Catalog.md (stable rule IDs, one per toggle),
+│                             #   Cheat-Sheet.md, Dev-Cheat-Sheet.md, Comprehensive-Example.md,
 │                             #   Multiplayer.md, DOM-Hooks.md, Terms.md, this file; .rules_sync.json /
-│                             #   .terms_sync.json (sync-check pins); planning/ (plans and TODOs)
+│                             #   .terms_sync.json (sync-check pins); planning/ (plans and TODOs,
+│                             #   including the RuleToggles-*.md set)
 └── manifest.json, requirements*.txt, pyproject.toml (ruff + pytest markers), README.md, LICENSE
 ```
 
