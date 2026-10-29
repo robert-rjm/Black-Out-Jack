@@ -8,6 +8,7 @@ Technical documentation for **Black(Out)Jack**: project structure, layering rule
 - [Project Structure](#project-structure)
 - [Layering Rules](#layering-rules)
 - [Normal ⇄ Drinking switching](#normal--drinking-switching)
+- [House rules (rule toggles)](#house-rules-rule-toggles)
 - [Separation of Concerns](#separation-of-concerns)
 - [Simulation & Statistics](#simulation--statistics)
 - [Rules/Code Sync Check](#rulescode-sync-check)
@@ -66,11 +67,11 @@ Black-Out-Jack/
 
 | Area | Modules |
 |---|---|
-| Lobby, pages | `lobby.py` (rooms, setup, `/room_invite`), `static_pages.py` (logo, manifest, `/rules`, tip links), `reports.py` (XLSX exports, `/summary_json`) |
+| Lobby, pages | `lobby.py` (rooms, setup incl. `rules_preset`, `/room_invite`), `static_pages.py` (logo, manifest, `/rules`, `/rules_registry`, tip links), `reports.py` (XLSX exports, `/summary_json`) |
 | Polling | `polling.py` (`GET /state` only; per-poll side effects run in `services/tick.py`) |
 | Game commands | `game_commands.py` (`/command` dispatcher, `/rebuy`, `/honor_resolve`), `commands/` (`digital.py`, `referee.py`, `common.py`: the handler registries) |
-| Player actions | `registration.py` (seats, registration), `suggestions.py` (preselect, suggest), `side_bets.py` (insurance, bust vote, buy-in handout, stakes), `dealer_lottery.py`, `boj.py` ("Switch to BOJ" poll), `targeted_drinking.py` (player and admin routes), `drink_rate.py` |
-| Admin | `admin.py` (settings, milestone claim, pause), `moderation.py` (kick, rejoin, leave), `admin_transfer.py` (handover, admin-AFK vote), `players.py` (bots, seats, dealer rotation) |
+| Player actions | `registration.py` (seats, registration), `suggestions.py` (preselect, suggest), `side_bets.py` (insurance, bust vote, buy-in and comeback handouts, stakes), `dealer_lottery.py`, `boj.py` ("Switch to BOJ" poll), `targeted_drinking.py` (player and admin routes), `drink_rate.py`, `rule_votes.py` (rule suggestions and table votes) |
+| Admin | `admin.py` (settings incl. house-rule edits, milestone claim, pause), `moderation.py` (kick, rejoin, leave), `admin_transfer.py` (handover, admin-AFK vote), `players.py` (bots, seats, dealer rotation) |
 | Shared | `_auth.py` (`_require_admin`, `_require_host_or_dealer`), `wild_card.py` (easter egg) |
 
 ### Services (`app/services/`)
@@ -79,7 +80,8 @@ Black-Out-Jack/
 |---|---|
 | Round flow | `game_engine.py` (dealing, dealer turn, `resolve_endround`, NPC auto-play), `player_actions.py` (helpers shared by `/command` handlers), `round_pipeline.py` (the post-round sequence), `tick.py` (per-poll side effects) |
 | Room and session | `session_store.py` (in-memory rooms, single source of truth), `room_factory.py` (build a room), `room_manager.py` (queued settings, dealer rotation, admin transfer), `pause.py`, `afk.py` |
-| Drinks and money | `drink_tracker.py` (sip ledger, milestones, bust-vote penalties), `payout_tracker.py` (bankrolls, stake window), `buyin_handout.py`, `decision_log.py` |
+| Drinks and money | `drink_tracker.py` (sip ledger, milestones, bust-vote penalties, L badge and comeback handout), `payout_tracker.py` (bankrolls, stake window), `buyin_handout.py`, `decision_log.py` |
+| House rules | `house_rules.py` (validate, queue and apply rule changes, the `rules` block of `/state`, `/rules_registry` data), `rule_votes.py` (players' suggestions, table votes) |
 | Feature modes | `dealer_lottery.py`, `targeted_drinking.py`, `drink_rate.py`, `boj_switch.py` |
 | Snapshot (`GET /state`) | `serializer.py` (`serialize_state` only), `round_state.py` (leaf: turn order and phase), `stats.py` (derived numbers, KPI), `serializers/` (one module per feature block) |
 | Infrastructure | `asset_bundler.py` (JS/CSS bundles), `validators.py`, `utils.py`, `qr.py` |
@@ -94,7 +96,7 @@ Classic scripts, concatenated in the order of `JS_SOURCES` in
 | Boot and connection | `config.js` (constants), `poll.js` (`/state` loop, connection-lost screen), `bootstrap.js` (click delegation), `lobby.js`, `room-qr.js`, `tip.js`, `idle.js` |
 | Setup and seats | `setup.js`, `seats.js` (registration, local seats, transfers), `bets.js` (Normal-mode stakes) |
 | Table | `table.js` (`applyState` and `_sync*`), `table-render.js`, `table-modals.js` (feature panels), `drink-panels.js` (bust vote, Dealer Lottery, handouts, toasts), `animation.js`, `log.js`, `kpi.js`, `trivia.js` |
-| Admin and summary | `admin.js` (role UI, toggles), `admin-settings.js` (settings and players modals), `rules.js`, `summary.js` (summary and exports) |
+| Admin and summary | `admin.js` (role UI, toggles), `admin-settings.js` (settings and players modals), `rules-settings.js` (📜 House rules view, preset chips, rule-vote modal), `rules.js` (Rules popup, OFF badges), `summary.js` (summary and exports) |
 
 Element IDs and which file owns them are in [DOM-Hooks.md](DOM-Hooks.md).
 
@@ -102,7 +104,7 @@ Element IDs and which file owns them are in [DOM-Hooks.md](DOM-Hooks.md).
 
 | Job | Files |
 |---|---|
-| Play in a terminal | `play_terminal.py`, `play_referee.py`, `_cli.py` (shared input helpers) |
+| Play in a terminal | `play_terminal.py`, `play_referee.py`, `_cli.py` (shared input helpers, `--preset`) |
 | Simulation | `simulation.py`, `run_all_configs.py`, `compare_configs.py`, `compare_bot_styles.py`, `snapshot.py` (saves to `snapshots/<label>/`) |
 | Bot profiles | `load_decision_logs.py`, `build_player_profiles.py` (mines `data/decisions/` into `engine/player_profiles/`) |
 | Doc sync | `rules_sync.py`, `terms_sync.py` |
@@ -127,8 +129,35 @@ A table is created in one mode, but a **Normal** table can become **Drinking** l
 - **Table poll** — `POST /boj/propose` → `/boj/vote` (see `services/boj_switch.py`). A majority queues the same switch for everyone; a minority leaves for a new Drinking room via `POST /boj/split/cancel` (back out during the cancel modal) and `POST /boj/split/go` (redirect; the client stores the new room code and reloads, resuming into a room it is already registered in).
 - The state payload carries it all in `AppState.boj` (`poll`, `last_result`, `my_split`, `can_propose`); the UI lives in `static/js/ui/table-modals.js` (`BojPollPanel`, `BojSplitPanel`).
 
+## House rules (rule toggles)
+
+Each room picks which drinking rules it plays. The design docs are
+`docs/planning/RuleToggles-*.md`; the player-facing list is
+`docs/Rules-Catalog.md`.
+
+- **Registry.** `engine/rules_registry.py` declares every rule once (stable
+  ID, group, dependencies, lowest preset, unlock step, Rules.md anchor, CSV
+  labels, `live` flag). A room's choice is a `RuleSet`;
+  `rules.on("ace.hearts.player")` answers with dependencies resolved.
+- **One copy.** `GameConfig.rules` is the only store. The engine session
+  reads it live through `rules_source`, so a write reaches every gate at once.
+- **Gates at the source.** Each rule is checked where it decides to fire
+  (`drinking_rules.py` for card and round rules, app services for events),
+  never by filtering messages afterwards. `tests/engine/test_rules_gate_coverage.py`
+  maps every toggleable rule to its "off means off" test and fails when one
+  is missing; it also fails on any event or helper call that doesn't pass
+  `rules=`.
+- **Changes.** The admin edits through `/update_settings`
+  (`house_rules.update_rules`): live rules (bust vote, wild card) apply at
+  once, the rest queue as the full target set and apply at the next
+  `newround` with a round-log notice. Players suggest changes, or vote them
+  in once the table has voted to allow that (`rule_votes.py`).
+- **State.** `/state` carries ID lists only (`rules`, `rule_votes`); names and
+  groups come from `GET /rules_registry`, fetched once by `rules-settings.js`.
+
 ## Separation of Concerns
 - **Changing a drinking rule** → edit only `engine/drinking_rules.py`
+- **Adding a toggleable rule** → declare it in `engine/rules_registry.py`, gate it at the source, add its "off means off" test to `GATE_TESTS`, and give it an entry in `Rules-Catalog.md` and an anchor in `Rules.md` (tests check all four)
 - **Changing core game logic** → edit only `engine/blackjack.py`
 - **Changing basic strategy** → edit only `engine/strategy.py`
 - **Adding a referee command** → edit only `engine/referee.py`
@@ -151,7 +180,9 @@ python scripts/simulation.py
 ```
 
 The script prompts for player count (2-6, default 3) and deck count (1-8, default 1);
-players are named `Player1..N`.
+players are named `Player1..N`. `--preset starter|standard|full` (default full) plays a
+house-rule preset; a non-Full run writes `simulation_results_<preset>.txt` and leaves
+the benchmarks alone, since they are the Full baseline.
 
 The same run also tallies hand outcomes (blackjack/bust/win/loss/push rates, dealer-bust rate),
 average sips/round, and the standard deviation of sips/round (`std_sips_per_round`), merging
@@ -289,10 +320,10 @@ Commit the updated `docs/.terms_sync.json` alongside your change.
 python server.py                 # → http://localhost:5000
 
 # Terminal game
-python engine/blackjack.py       # No extra dependencies
+python scripts/play_terminal.py  # No extra dependencies; --preset starter|standard|full
 
 # Referee mode
-python engine/referee.py         # Physical deck, digital tracking
+python scripts/play_referee.py   # Physical deck, digital tracking; --preset as above
 
 # Simulation
 python scripts/simulation.py     # Outputs to simulation_results.txt

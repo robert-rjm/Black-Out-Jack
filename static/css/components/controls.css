@@ -281,3 +281,4 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .preset-chip-name { font-size: 13px; font-weight: 700; }
 .preset-chip-blurb, .preset-chip-sips { font-size: 10px; color: var(--muted); }
 .preset-chips-note { font-size: 11px; color: var(--muted); margin-top: 6px; max-width: 420px; }
+.rules-preset-setup-btn { width: 100%; margin-bottom: 8px; }

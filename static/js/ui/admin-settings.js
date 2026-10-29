@@ -35,7 +35,7 @@ function openKickModal() {
 
   // Sync animation toggle to current setting
   const cb = document.getElementById("anim-toggle-modal");
-  if (cb) cb.checked = lsGet("bjDealAnim") !== "0";
+  if (cb) cb.checked = _animToggleOn();
 
   // Admin-only rows: bust vote, wild card, easy mode, god mode
   document.querySelectorAll("#kick-overlay .admin-only-row").forEach(row => {

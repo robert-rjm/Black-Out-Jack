@@ -283,9 +283,8 @@ async function setGodMode(on) {
 // ============================================================
 // DEAL ANIMATION PREFERENCE
 // ============================================================
-function setAnimToggle(on) {
-  lsSet("bjDealAnim", on ? "1" : "0");
-  // Sync both pill toggles (checkbox + ON/OFF labels)
+// Sync both pill toggles (checkbox + ON/OFF labels) without saving a choice.
+function _syncAnimToggles(on) {
   [["anim-toggle", "anim-lbl-setup", "anim-lbl-setup-on"],
    ["anim-toggle-modal", "anim-lbl-modal", "anim-lbl-modal-on"]].forEach(([cbId, offId, onId]) => {
     const cb = document.getElementById(cbId);
@@ -295,6 +294,11 @@ function setAnimToggle(on) {
     if (lblOff) lblOff.style.display = on ? "none"   : "inline";
     if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
   });
+}
+
+function setAnimToggle(on) {
+  lsSet("bjDealAnim", on ? "1" : "0");
+  _syncAnimToggles(on);
   // Admin pushes preference to server so new joiners inherit it
   if (myRole === ROLE.ADMIN && roomCode && clientId) {
     fetch("/set_anim_pref", {

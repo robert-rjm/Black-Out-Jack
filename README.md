@@ -26,6 +26,7 @@
 - **BlackJack with custom drinking rules:** sip wager, suited and double multiplier, milestone handouts, and more
 - **Multiplayer on your phone or web:** play with friends, local or remote, or by yourself against NPC players
 - **Three ways to play:** fully digital, real cards with referee, or terminal-based
+- **House rules your way:** start on Starter, Standard or Full, add rules one at a time, switch any of them off, and let players suggest or vote on changes
 - **Strategy tracking:** see how you compare to optimal basic strategy
 - **Bold strategy rewarded:** drinking incentives punish playing it safe
 
@@ -57,6 +58,8 @@ python server.py
 | Terminal Game | `python scripts/play_terminal.py` | Solo or local multiplayer in terminal |
 | Terminal Referee | `python scripts/play_referee.py` | Physical deck, digital scorecard |
 
+Both terminal scripts take `--preset starter|standard|full` to pick the house rules (default Full).
+
 
 ## Drink Responsibly
 > [!IMPORTANT]
@@ -72,7 +75,8 @@ python server.py
 |------|-------------|
 | [Rules.md](docs/Rules.md) | Extensive Drinking Rules |
 | [Cheat-Sheet.md](docs/Cheat-Sheet.md) | One-page gameplay rules reference|
-| [Multiplayer.md](docs/Multiplayer.md) | Room setup, rules, KPI panel, milestones |
+| [Rules-Catalog.md](docs/Rules-Catalog.md) | Every rule a table can switch on or off, with its ID and preset |
+| [Multiplayer.md](docs/Multiplayer.md) | Room setup, house rules, KPI panel, milestones |
 | [Comprehensive-Example.md](docs/Comprehensive-Example.md) | Full round walkthrough|
 | [Architecture.md](docs/Architecture.md) | Project structure, file dependencies, simulation |
 | [Dev-Cheat-Sheet.md](docs/Dev-Cheat-Sheet.md) | Quick reference for dev CLI commands (tests, simulation, snapshots, player profiles) |

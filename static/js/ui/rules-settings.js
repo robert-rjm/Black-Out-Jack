@@ -58,6 +58,23 @@ function setRulesPresetSetup(name) {
   if (!_PRESET_LABEL[name]) return;
   setupRulesPreset = name;
   renderSetupPresetChips();
+  _renderSetupPresetBtn();
+}
+
+// The picker sits folded behind "📜 House rules: Full ▸" (most tables keep
+// the default); the button names the current choice either way.
+let _setupPresetOpen = false;
+
+function toggleRulesPresetSetup() {
+  _setupPresetOpen = !_setupPresetOpen;
+  const panel = document.getElementById("rules-preset-setup-panel");
+  if (panel) panel.style.display = _setupPresetOpen ? "" : "none";
+  _renderSetupPresetBtn();
+}
+
+function _renderSetupPresetBtn() {
+  const btn = document.getElementById("rules-preset-setup-btn");
+  if (btn) btn.textContent = `📜 House rules: ${_PRESET_LABEL[setupRulesPreset]} ${_setupPresetOpen ? "▾" : "▸"}`;
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", renderSetupPresetChips);

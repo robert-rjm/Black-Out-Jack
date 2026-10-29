@@ -618,7 +618,9 @@ function _syncModals(state) {
   const adminNav = document.getElementById("btn-admin-nav");
   if (adminNav) adminNav.style.display = showSettings;
 
-  if (state.anim_default !== undefined && lsGet("bjDealAnim") === null) {
+  // A joiner inherits the host's animation choice, except on a touch
+  // device, where it stays off until they switch it on themselves.
+  if (state.anim_default !== undefined && lsGet("bjDealAnim") === null && animDefaultOn()) {
     setAnimToggle(state.anim_default);
   }
 
