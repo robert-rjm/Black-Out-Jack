@@ -216,9 +216,12 @@ Each seat has a **drink rate** that scales the sips it drinks, so someone on win
 Each table picks which drinking rules it plays ([Rules §6.4](Rules.md#64-house-rules-presets)).
 
 - **Setup:** choose 🟢 Starter, 🟡 Standard or 🔴 Full (the default) under *House rules* on the setup screen. The bust-vote toggle next to it still decides the bust vote.
-- **Mid-game:** ⚙️ Settings → **📜 House rules**. The host picks a preset, taps **➕ Next rule** to add the next rule in the learning order, or switches rules and whole groups on and off. Changes queue for the next round (the bust vote and Wild Card switch at once). **Undo all** drops the queued changes.
+- **Mid-game:** ⚙️ Settings → **📜 House rules**. The host picks a preset, taps **➕ Next rule** to add the next rule in the learning order, or switches rules and whole groups on and off. Changes queue for the next round. **Undo all** drops the queued changes.
+- **Quick switches:** the bust vote and the Wild Card sit at the top of 📜 House rules and change at once (they used to be toggles in the main settings view).
+- **Suggestions:** players see a **Suggest on / off** button on every rule. A suggestion lands in the host's 💡 inbox (a red badge on 📜 House rules), where ✓ queues it and ✗ drops it.
+- **Table votes:** **🗳 Vote on new rules** (bottom of 📜 House rules) asks the table to decide rule changes by vote. If a majority says yes, the buttons read **Vote on / off** and each one opens a 30-second Yes/No vote for every seated player; a majority queues the change for the next round with no host step. One vote runs at a time, and a player whose vote fails waits a round before starting another. The host can switch table votes off (or on) in the same screen.
 - **At the next round:** the round log posts "📜 House rules changed: …", and everyone gets a 🆕 toast naming any rule that was just switched on.
-- **Everyone else** sees the same list read-only, with rules that are off marked *Off at this table*. In the 📖 Rules popup those rules carry an **OFF AT THIS TABLE** badge, and *Show active rules only* hides them.
+- **Spectators** can't suggest or vote, and don't have the ⚙️ Settings button; they see the table's rules through the **OFF AT THIS TABLE** badges in 📖 Rules. In the 📖 Rules popup those rules carry an **OFF AT THIS TABLE** badge, and *Show active rules only* hides them.
 - Turning a rule off never cancels an event that's already running (a Dealer Lottery, a Targeted Drinking run): it just won't start again.
 - The terminal scripts take the same presets: `python scripts/play_terminal.py --preset starter`, `python scripts/play_referee.py --preset standard`.
 

@@ -173,17 +173,6 @@ class BustVotePanel {
   }
 
   render(state) {
-    // Sync modal pill toggle in settings (checkbox + ON/OFF labels)
-    const bustCb = document.getElementById("bust-vote-toggle-modal");
-    if (bustCb) {
-      const on = !!state.bust_vote_enabled;
-      bustCb.checked = on;
-      const lblOff = document.getElementById("bust-vote-lbl-modal");
-      const lblOn  = document.getElementById("bust-vote-lbl-modal-on");
-      if (lblOff) lblOff.style.display = on ? "none"   : "inline";
-      if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
-    }
-
     const statusEl      = document.getElementById("bust-vote-status");
     const statusElRound = document.getElementById("bust-vote-status-round");
 

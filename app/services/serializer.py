@@ -30,6 +30,7 @@ from app.services.serializers.boj import _serialize_boj
 from app.services.serializers.bust_vote import _bust_vote_window
 from app.services.serializers.insurance import _insurance_outcome_text, _serialize_insurance_vote
 from app.services.house_rules import serialize_rules
+from app.services.rule_votes import serialize_rule_votes
 
 
 def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
@@ -454,6 +455,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         # House rules: ID lists only; names and groups come from the cached
         # GET /rules_registry.
         "rules":                  serialize_rules(session),
+        "rule_votes":             serialize_rule_votes(session, _ci),
         "kpi_stats":              compute_kpi_stats(session, sip_ticker=sip_totals, order=order),
         **_payout_data,
         **_drink_summary_data,

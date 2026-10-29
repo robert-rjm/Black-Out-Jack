@@ -740,6 +740,7 @@ function applyState(state) {
   // Commit new state — capture bust-vote open flag first.
   const _prevBustOpen = lastState && lastState.bust_vote_window_open;
   noteRuleChanges(lastState, state);
+  renderRuleVote(state);
   lastState   = state;
   // Optimistic hint override: prevent stale polls (same state_seq) from flipping
   // strategy_hint_enabled back to false between the /set_hint response and the next poll.

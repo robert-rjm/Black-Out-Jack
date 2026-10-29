@@ -220,8 +220,9 @@ per player per round:
   are rare. The 80–90% target can't be checked this way.
 - The dealer-seat check isn't possible from this output: the dealer also
   plays player hands, and the drink log splits sips by role, not by seat.
-- The chips quote the 3-player numbers (≈2.2 / ≈4.3 / ≈4.4), as does
-  Rules.md §6.4.
+- The chips quote the 3-player numbers for Starter and Standard (≈2.2 /
+  ≈4.3), as does Rules.md §6.4. Full shows its rule count only: a sips
+  number would read the same as Standard's for the reason above.
 
 Keep the Full-preset snapshots identical to today's. That doubles as the
 regression proof that the gating code is a no-op when everything is on.

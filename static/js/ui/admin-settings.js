@@ -546,17 +546,7 @@ function _populateSettingsUI(state) {
   const decksRow   = document.getElementById("setting-decks-row");
   const removeEl   = document.getElementById("setting-remove-name");
 
-  // Sync bust vote pill toggle
-  // Bust vote pill toggle sync is handled by bustVotePanel.render — just sync checkbox here
-  const bustCb2 = document.getElementById("bust-vote-toggle-modal");
-  if (bustCb2) bustCb2.checked = !!state.bust_vote_enabled;
-  const wildCb = document.getElementById("wild-card-toggle-modal");
-  if (wildCb) wildCb.checked = state.wild_card_enabled !== false;
-  const wildLblOff = document.getElementById("wild-card-lbl-modal");
-  const wildLblOn  = document.getElementById("wild-card-lbl-modal-on");
-  const wildOn = state.wild_card_enabled !== false;
-  if (wildLblOff) wildLblOff.style.display = wildOn ? "none"   : "inline";
-  if (wildLblOn)  wildLblOn.style.display  = wildOn ? "inline" : "none";
+  // Bust vote and Wild Card are switched in 📜 House rules → Quick switches.
 
   // Reflect a queued switch (takes effect next round) rather than the active mode.
   const drinkModalCb  = document.getElementById("drinking-mode-toggle-modal");

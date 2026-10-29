@@ -669,14 +669,15 @@ Every table chooses which of these rules it plays. The host picks a **preset** w
 | Preset | What's in it | Avg sips per player per round* |
 | ------ | ------------ | ------------------------------ |
 | 🟢 **Starter** | The core game: net hand losses, mandatory split 10s, lost doubled hand +1, auto-insurance cap, Hard Dealer Switch, another player wins all hands, flat Blackjack bonus, milestone handouts | ≈ 2.2 |
-| 🟡 **Standard** | Starter plus the Aces, suited rules, immunity breaks, Blackjack multipliers, 5+ cards, Four Aces, the split-Aces rules, dealer suited hand and the bust vote | ≈ 4.3 |
-| 🔴 **Full** | Everything in this document (the default) | ≈ 4.4 |
+| 🟡 **Standard** | All the card rules: Starter plus the Aces, suited rules, immunity breaks, Blackjack multipliers, 5+ cards, Four Aces, the split-Aces rules, dealer suited hand and the bust vote | ≈ 4.3 |
+| 🔴 **Full** | Everything in this document (the default): Standard plus Devil's Hand / Lucky Sevens, the all-hand bonus, dealer 5-card 21, the Blackjack insurance vote, and the events: Dealer Lottery, Targeted Drinking, the Wild Card, the "worst average" penalty and the L badge | more than Standard |
 
-\* Simulated: 3 players, 1 deck, 2 hands each, wager 1, basic strategy. Standard and Full are close because most Full-only rules (Dealer Lottery, Targeted Drinking, Wild Card, the "worst average" penalty, the L badge) happen between rounds and aren't part of the simulation.
+\* Simulated: 3 players, 1 deck, 2 hands each, wager 1, basic strategy. Full has no number because the simulation doesn't play the events, which are most of what Full adds; its card rules alone come out the same as Standard.
 
 - **Net hand losses** and **dealer rotation** are the game itself and can't be switched off.
 - A rule that depends on another (for example the A♣ half penalty needs the Hard Dealer Switch) only applies while its parent is on.
-- Changes apply **from the next round**, and the round log says what changed. The **bust vote** and **Wild Card** switch at once.
+- Changes apply **from the next round**, and the round log says what changed. The **bust vote** and **Wild Card** are *quick switches*: they change at once.
+- Players can **suggest** a change, which goes to the host. If the table votes to **decide rule changes by vote**, a suggestion opens a table vote instead, and a majority changes the rule from the next round without the host. The host can switch that off again.
 - **➕ Next rule** adds one rule (or a matching pair, like A♥ to a player and to the dealer) at a time, so a new table can learn the game step by step.
 - Everyone can see the table's rules. In this rules popup, rules the table has switched off are marked **OFF AT THIS TABLE**.
 

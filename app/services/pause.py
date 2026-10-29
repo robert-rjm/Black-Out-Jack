@@ -84,7 +84,7 @@ def resume_game(session: GameRoom) -> bool:
     for attr in _LEDGER_DICTS:
         _shift_dict(getattr(session.drinks, attr), delta)
 
-    for attr in ("_boj_poll", "_boj_split", "_boj_last_result"):
+    for attr in ("_boj_poll", "_boj_split", "_boj_last_result", "_pending_rule_vote"):
         _shift_dict(getattr(session, attr), delta)
 
     session.stats.session_started_at += delta

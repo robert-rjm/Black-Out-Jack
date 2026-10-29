@@ -375,6 +375,16 @@ class GameRoom:
     _boj_split: dict | None = None
     _boj_last_result: dict | None = None
 
+    # House-rule suggestions and votes (services/rule_votes.py). Session-
+    # lifetime: a suggestion waits for the admin across rounds, and a vote
+    # opened at the end of a round shouldn't vanish at newround.
+    _rule_suggestions: list = field(default_factory=list)   # [{ids, on, by}] for the admin
+    _rule_voting: bool = False                 # the table may vote rule changes in directly
+    _pending_rule_vote: dict | None = None     # the open vote, one at a time
+    _rule_vote_result: dict | None = None      # last outcome, for a one-shot toast
+    _rule_vote_seq: int = 0
+    _rule_vote_cooldowns: dict = field(default_factory=dict)   # proposer_lc -> round_count it may propose again
+
     # Bust handout sequence counter (session-lifetime; bumped when all
     # handouts for a round resolve — never reset between rounds)
     _bust_handout_seq: int = 0

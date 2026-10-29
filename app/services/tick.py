@@ -20,6 +20,7 @@ from app.config import (
     BUST_HANDOUT_WINDOW_SECONDS,
 )
 from app.services.round_state import round_phase
+from app.services.rule_votes import apply_rule_vote_forfeit
 from app.services.drink_tracker import apply_milestone_forfeit, apply_bust_handout_forfeit
 from app.services.dealer_lottery import (
     maybe_start_dealer_lottery,
@@ -152,6 +153,7 @@ def tick(session) -> None:
     # 3. Majority-vote-to-target proposal forfeit (live-play, not gated on
     # round-over -- a proposal can be open at any time during a round)
     apply_target_proposal_vote_forfeit(session)
+    apply_rule_vote_forfeit(session)
 
     # 4. Milestone-handout forfeit
     apply_milestone_forfeit(session)

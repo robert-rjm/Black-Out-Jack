@@ -555,6 +555,41 @@ class QueuedSettingsOut(_StrictModel):
     rules:               Optional[list[str]] = None   # full target rule set (IDs)
 
 
+class RuleSuggestionOut(_StrictModel):
+    ids: list[str]   # the rule, plus any off parents it needs
+    on:  bool
+    by:  str
+
+
+class PendingRuleVoteOut(_StrictModel):
+    kind:         Literal["enable", "change"]   # "enable" = allow rule votes at all
+    ids:          list[str]
+    on:           bool
+    proposer:     str
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    needed:       int
+    seconds_left: int
+    eligible:     bool
+    my_vote:      Optional[bool]
+
+
+class RuleVoteResultOut(_StrictModel):
+    text:   str
+    passed: bool
+    seq:    int
+
+
+class RuleVotesOut(_StrictModel):
+    """Players' say in the house rules (services/rule_votes.py)."""
+    voting:           bool                         # suggestions go to a table vote
+    pending:          Optional[PendingRuleVoteOut]
+    result:           Optional[RuleVoteResultOut]  # last outcome, toasted once per seq
+    suggestions:      list[RuleSuggestionOut]      # admin's inbox (empty for everyone else)
+    suggestion_count: int
+
+
 class RulesOut(_StrictModel):
     """The room's house rules (house_rules.serialize_rules)."""
     preset:    Optional[Literal["starter", "standard", "full"]]   # None = custom
@@ -615,6 +650,7 @@ class AppState(_StrictModel):
     queued_settings:  dict[str, Any]
     num_decks:        int
     rules:            RulesOut
+    rule_votes:       RuleVotesOut
     kpi_stats:        KpiStatsOut
     state_seq:        int
 

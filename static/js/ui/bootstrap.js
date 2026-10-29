@@ -21,9 +21,6 @@
     if (action === "setAnimToggle") {
       return window.setAnimToggle(!!el.checked);
     }
-    if (action === "setBustVoteEnabled") {
-      return window.setBustVoteEnabled(!!el.checked);
-    }
     if (action === "setDrinkingModeAdmin") {
       return window.setDrinkingModeAdmin(!!el.checked);
     }
@@ -35,9 +32,6 @@
     }
     if (action === "setStrategyHintEnabled") {
       return window.setStrategyHintEnabled(!!el.checked);
-    }
-    if (action === "setWildCardEnabled") {
-      return window.setWildCardEnabled(!!el.checked);
     }
     if (action === "setEasyModeSetup") {
       return window.setEasyModeSetup(!!el.checked);

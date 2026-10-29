@@ -196,18 +196,6 @@ function updateRoleUI(state) {
 // TABLE SETTINGS TOGGLES (host)
 // ============================================================
 
-async function setBustVoteEnabled(on) {
-  try {
-    const res  = await fetch("/update_settings", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, bust_vote_enabled: on }),
-    });
-    const data = await res.json();
-    if (data.ok) applyState(data);
-  } catch (_) {}
-}
-
 function setStrategyHintEnabled(on) {
   // Per-player preference — stored server-side so badge and blue border are state-driven
   window._myHintEnabled = on; // optimistic: prevent next poll from flipping the checkbox back
@@ -217,18 +205,6 @@ function setStrategyHintEnabled(on) {
     body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
   }).then(r => r.json()).then(data => { if (data.ok) applyState(data); })
     .catch(() => { if (lastState) applyState(lastState); });
-}
-
-async function setWildCardEnabled(on) {
-  try {
-    const res  = await fetch("/update_settings", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, wild_card_enabled: on }),
-    });
-    const data = await res.json();
-    if (data.ok) applyState(data);
-  } catch (_) {}
 }
 
 async function setEasyModeAdmin(on) {

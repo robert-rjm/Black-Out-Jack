@@ -127,6 +127,7 @@
 .settings-subview-title { font-size: 15px; font-weight: 700; }
 
 .settings-action .sa-sub { font-size: 10px; font-weight: 500; color: var(--muted); }
+.settings-action #settings-rules-badge { position: absolute; top: 5px; left: 8px; }
 .settings-rules-queued-dot {
   position: absolute; top: 6px; right: 8px;
   width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
@@ -169,6 +170,18 @@
 .rs-pill input:indeterminate + .pill-slider { background: color-mix(in srgb, var(--green) 45%, var(--border-control)); }
 .rs-pill input:indeterminate + .pill-slider:before { transform: translateX(16px); }
 .rs-presets { margin: 10px 0 6px; }
+.rs-quick, .rs-inbox { margin: 10px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--wash-3); }
+.rs-quick .modal-section-title, .rs-inbox .modal-section-title { margin-bottom: 2px; }
+.rs-state { flex-shrink: 0; font-size: 11px; font-weight: 800; color: var(--muted); }
+.rs-state.on { color: var(--green); }
+.rs-suggest { flex-shrink: 0; height: 30px; padding: 0 10px; font-size: 11px; }
+.rs-sug { display: flex; align-items: center; gap: 6px; min-height: 40px; font-size: 12px; }
+.rs-sug .btn { flex-shrink: 0; height: 30px; padding: 0 10px; }
+.rs-voting {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; margin-bottom: 6px;
+}
+.rs-vote-btn { margin-top: 8px; }
 .rs-custom-note { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
 .rs-next { margin: 4px 0 6px; font-size: 13px; white-space: normal; height: auto; min-height: 40px; }
 .rs-footer {
@@ -729,6 +742,7 @@
 #paused-sub { font-size: 14px; color: var(--muted); margin-bottom: 22px; }
 
 #target-proposal-modal-overlay,
+#rule-vote-modal-overlay,
 #boj-poll-modal-overlay,
 #boj-split-modal-overlay,
 #admin-afk-modal-overlay,
@@ -741,12 +755,14 @@
   align-items: center; justify-content: center;
 }
 #target-proposal-modal-overlay.open,
+#rule-vote-modal-overlay.open,
 #boj-poll-modal-overlay.open,
 #boj-split-modal-overlay.open,
 #admin-afk-modal-overlay.open,
 #drink-rate-vote-overlay.open,
 #late-join-overlay.open { display: flex; }
 #target-proposal-modal,
+#rule-vote-modal,
 #boj-poll-modal,
 #boj-split-modal,
 #admin-afk-modal,

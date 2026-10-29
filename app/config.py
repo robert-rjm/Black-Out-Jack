@@ -113,6 +113,15 @@ TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS          = 20
 # for this many rounds (doesn't stop them voting on someone else's).
 TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS = 15
 
+# House-rule votes (services/rule_votes.py): a table vote to let players put
+# rule changes to a vote, then one vote per suggested change. Passes early
+# on a strict Yes majority, fails early once it can't reach one, otherwise
+# fails when the window runs out. A failed change vote freezes its proposer
+# for this many rounds.
+RULE_VOTE_WINDOW_SECONDS  = 30
+RULE_VOTE_FREEZE_ROUNDS   = 1
+MAX_RULE_SUGGESTIONS      = 20   # admin inbox cap; the oldest drop off
+
 # "Switch to BOJ" table poll (services/boj_switch.py)
 BOJ_POLL_WINDOW_SECONDS    = 30   # how long the Normal-table vote stays open
 BOJ_SPLIT_GRACE_SECONDS    = 8    # cancel-modal countdown before movers are redirected

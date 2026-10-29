@@ -157,6 +157,12 @@ def update_settings():
     if rules_err:
         return jsonify({"ok": False, "error": escape(rules_err)})
 
+    # rule_voting — whether players' rule suggestions go to a table vote
+    # (rule_votes.py). The table switches it on by vote; the admin can
+    # switch it either way. Live.
+    if "rule_voting" in data:
+        session._rule_voting = bool(data["rule_voting"])
+
     # dealer_rotate_every is a live setting — applied immediately, not queued
     if "dealer_rotate_every" in data:
         try:

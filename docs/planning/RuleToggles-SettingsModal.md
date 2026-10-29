@@ -243,9 +243,11 @@ needs per-rule anchors in Rules.md (see the implementation plan, Phase 4).
   registry order, base32), e.g. `BOJ-R-7Q3K`. Paste it on the setup screen
   to load the same rules. Safe, because the registry is fixed and IDs are
   stable.
-- **Majority vote to add or remove a rule**, reusing the drink-rate /
-  kick-vote vote plumbing, for tables where the admin shouldn't decide
-  alone.
+- ~~**Majority vote to add or remove a rule**~~ Built (2026-10-29,
+  `services/rule_votes.py`): players suggest changes to the admin, or, once
+  the table has voted for it, put each change to a table vote directly.
+  Bust vote and Wild Card moved out of the main view into a "Quick
+  switches" block at the top of the sub-view.
 - **Per-rule intensity** (for example the Blackjack bonus at 1× / 2×, or
   the milestone step at 25/50/100). That's a different feature from on/off.
   Keep the data model open to it (see the implementation plan, §2.2) but
