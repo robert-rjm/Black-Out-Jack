@@ -233,7 +233,8 @@ Next to the existing `easy_mode` block:
 if "rules" in queued:
     old = session.rules
     # One write is enough: the engine session reads room.rules live (§3.4).
-    session.rules = RuleSet(frozenset(queued["rules"]), queued.get("rules_preset"))
+    # RuleSet derives its preset label from the content (audit G12).
+    session.rules = RuleSet(frozenset(queued["rules"]))
     changes.append(_describe_rule_diff(old, session.rules))   # "📜 Aces ♥♦ on, Dealer Lottery off"
 ```
 

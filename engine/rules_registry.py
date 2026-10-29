@@ -282,10 +282,14 @@ class RuleSet:
 
     ``enabled`` is what the admin toggled on (it may include children of off
     parents). ``on()`` gives the effective state: enabled, with every ancestor
-    effective too. Locked rules are always on.
+    effective too. Locked rules are always on, so they are always in
+    ``enabled`` as well.
+
+    Two sets are equal when ``enabled`` is. ``preset`` is derived from it
+    (the preset whose rules match exactly, else None), never passed in.
     """
     enabled: frozenset[str]
-    preset: str | None = None
+    preset: str | None = field(init=False, compare=False)
     _effective: frozenset[str] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self):
@@ -293,8 +297,10 @@ class RuleSet:
         unknown = enabled - RULES_BY_ID.keys()
         if unknown:
             raise ValueError(f"unknown rule IDs: {sorted(unknown)}")
+        enabled |= LOCKED
         object.__setattr__(self, "enabled", enabled)
-        object.__setattr__(self, "_effective", self._resolve(enabled | LOCKED))
+        object.__setattr__(self, "preset", _preset_for(enabled))
+        object.__setattr__(self, "_effective", self._resolve(enabled))
 
     @staticmethod
     def _resolve(enabled: frozenset[str]) -> frozenset[str]:
@@ -317,6 +323,11 @@ class RuleSet:
     def effective(self) -> frozenset[str]:
         return self._effective
 
+    def waiting_on_parent(self) -> frozenset[str]:
+        """Rules switched on whose parent is off, so they read as off. The
+        settings UI shows these as "on, waiting for <parent>"."""
+        return self.enabled - self._effective
+
     def with_changes(self, on=(), off=()) -> "RuleSet":
         on, off = set(on), set(off)
         unknown = (on | off) - RULES_BY_ID.keys()
@@ -325,8 +336,7 @@ class RuleSet:
         locked = off & LOCKED
         if locked:
             raise ValueError(f"locked rules can't be turned off: {sorted(locked)}")
-        enabled = (self.enabled | on) - off
-        return RuleSet(enabled, _preset_for(enabled))
+        return RuleSet((self.enabled | on) - off)
 
     def with_rule(self, rule_id: str, value: bool) -> "RuleSet":
         return self.with_changes(on=[rule_id]) if value else self.with_changes(off=[rule_id])
@@ -335,7 +345,7 @@ class RuleSet:
     def from_preset(cls, name: str) -> "RuleSet":
         if name not in PRESETS:
             raise ValueError(f"unknown preset {name!r}")
-        return cls(PRESETS[name], name)
+        return cls(PRESETS[name])
 
 
 FULL = RuleSet.from_preset("full")

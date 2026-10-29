@@ -151,6 +151,19 @@ def test_rule_sets_are_hashable_and_equal_by_content():
     assert len({FULL, RuleSet.from_preset("full")}) == 1
 
 
+def test_a_set_built_from_ids_matches_its_preset():
+    # Locked rules are implied, and the preset label comes from the content.
+    rs = RuleSet(PRESETS["starter"] - LOCKED)
+    assert rs == STARTER and rs.preset == "starter" and hash(rs) == hash(STARTER)
+    assert RuleSet(frozenset(r.id for r in RULES)) == FULL
+
+
+def test_waiting_on_parent_lists_children_of_off_parents():
+    rs = FULL.with_changes(off=["switch.hard"])
+    assert rs.waiting_on_parent() == {"ace.clubs.dealer"}
+    assert FULL.waiting_on_parent() == frozenset()
+
+
 # ---------------------------------------------------------------------------
 # Room default
 # ---------------------------------------------------------------------------
