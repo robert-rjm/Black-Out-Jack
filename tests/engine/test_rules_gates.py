@@ -160,15 +160,25 @@ def test_auto_insurance_cap_off_falls_through_to_normal_rules():
     assert any("doubled hand" in m[2] for m in normal)   # extras are back
 
 
-def test_dealer_blackjack_no_longer_suppresses_five_card_handout_when_cap_is_off():
-    hand = make_hand(("2", "H"), ("3", "D"), ("4", "C"), ("5", "S"), ("7", "H"), result="win")
+def test_dealer_blackjack_keeps_the_five_card_handout_whatever_the_cap():
+    # The handout doesn't need a win; the cap rule only limits net-loss sips.
+    hand = make_hand(("2", "H"), ("3", "D"), ("4", "C"), ("5", "S"), ("7", "H"), result="loss")
 
     def handouts(**kw):
         return [m for m in DrinkingRules.on_hand_resolved("Alice", hand, NAMES, dealer_bj=True, **kw)
                 if len(m) > 3 and m[3] == "handout"]
 
-    assert handouts() == []
-    assert handouts(rules=off("insurance.auto_cap"))
+    assert handouts() and handouts() == handouts(rules=off("insurance.auto_cap"))
+    assert handouts(rules=off("five_card.player_21")) == []
+
+
+def test_dealer_blackjack_keeps_the_sweep_whatever_the_cap():
+    hands = [make_hand(("A", "S"), ("K", "S"), result="push"),
+             make_hand(("5", "S"), ("6", "S"), ("K", "S"), result="loss")]
+    expected = DrinkingRules.check_all_hands_sweep("Alice", hands, NAMES, 1, dealer_bj=False)
+    assert expected
+    for rules in (FULL, off("insurance.auto_cap")):
+        assert DrinkingRules.check_all_hands_sweep("Alice", hands, NAMES, 1, dealer_bj=True, rules=rules) == expected
 
 
 # ---------------------------------------------------------------------------

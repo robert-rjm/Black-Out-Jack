@@ -167,6 +167,7 @@ switched off. (Normal Mode is the "everything off" version.)
 - **Rules.md:** [§3.2](Rules.md#32-insurance) · **Kind:** drink · **Timing:** passive · **Preset:** Starter
 - **Trigger:** Dealer's **up-card is an Ace** and the dealer has Blackjack.
 - **Effect:** Each player's penalty is capped at `wager × hands`; doubles, splits and suited extras can't push it higher. A dealer Blackjack from a 10 up-card gets no cap.
+- **Off:** players pay the normal net-loss and lost-hand sips instead of the cap. The cap only limits a player's own sips: rules that don't need a win (5-card-21 handout, all-hand bonus, aces, four Aces) still fire against a dealer Blackjack either way.
 - **Halved:** Yes · **Booster:** Yes
 - **Depends on:** —
 - **Code:** `engine/drinking_rules.py` `DrinkingRules._dealer_bj_drinks`

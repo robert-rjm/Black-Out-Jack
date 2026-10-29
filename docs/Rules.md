@@ -307,7 +307,7 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 | 3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round (core penalties only: net losses, lost-hand extras, won-all, split wins and auto-insurance. "Extra" rules such as the Blackjack bonus, aces, win bonuses, sweeps, bust vote and lottery are not doubled) |
 
 **Clarifications:**
-- Rule 1 does not require a win.
+- Rule 1 does not require a win, so it applies even when the Dealer has Blackjack.
 - Rule 1 and 2 stack (win with 21 and 5 cards).
 - Rule 2 does not trigger on a push.
 - Rule 3 does not include Blackjack bonus or Ace effects.
@@ -323,7 +323,7 @@ If every card across all of a Player's final hands shares **entirely the same su
 | All hands total 21 | 2× wager |
 | Both simultaneously | 6× wager |
 
-> Triggers regardless of win, push, or loss.
+> Triggers regardless of win, push, or loss, even when the Dealer has Blackjack.
 
 
 ### 5.6 Four Aces at End of Round

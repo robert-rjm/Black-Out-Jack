@@ -295,9 +295,11 @@ class DrinkingRules:
 
         # ---- Case 3: declined + dealer BJ ----
         if not insured and dealer_bj:
+            cap = ("auto-insurance applies, normal max sips only"
+                   if rules.on("insurance.auto_cap") else "blackjack pushes")
             return [(None, 0,
                      f"{player_name} blackjack: group declined insurance, dealer has BJ "
-                     f"=> auto-insurance applies, normal max sips only")]
+                     f"=> {cap}")]
 
         # ---- Case 4: declined + no dealer BJ — normal BJ bonus ----
         return DrinkingRules.on_blackjack(player_name, hand, all_player_names,
@@ -320,8 +322,10 @@ class DrinkingRules:
         - 21 with 5+ cards (hand-out entitlement)
         - Win with 5+ cards
 
-        dealer_bj: when True (dealer has a natural blackjack) all extras are
-                   suppressed — players only pay net-loss sips via on_round_end.
+        dealer_bj: kept for the event's shape; nothing here depends on it.
+                   Nobody beats a dealer blackjack, so the win-only rules
+                   can't fire anyway, and the 5-card 21 handout doesn't
+                   need a win, so it still applies.
         dealer_name: the dealer-player is exempt from bonus win drinks
                      (suited, doubled, 5-card wins) — they drink via dealer
                      role rules instead (Hard Switch, net losses).
@@ -331,11 +335,9 @@ class DrinkingRules:
         # Dealer is spared from other players' win-bonus drinks
         others_np = [p for p in others if p != dealer_name] if dealer_name else others
 
-        # With auto-insurance off a dealer blackjack no longer suppresses extras.
-        dealer_bj = dealer_bj and rules.on("insurance.auto_cap")
-
-        # 21 with 5+ cards: suppress hand-out when dealer has blackjack
-        if (not dealer_bj and hand.score() == 21 and len(hand.cards) >= 5
+        # 21 with 5+ cards: a handout whatever the result, even against a
+        # dealer blackjack (Rules.md §5.4: rule 1 does not require a win).
+        if (hand.score() == 21 and len(hand.cards) >= 5
                 and rules.on("five_card.player_21")):
             handout = len(hand.cards) * wager
             msgs.append((player_name, -handout,
@@ -381,10 +383,11 @@ class DrinkingRules:
         Fires when a player has 2+ hands (starting hands or from a split) and EITHER:
           - Every card across every hand shares the same suit, OR
           - Every hand scores exactly 21 (BJ counts as 21).
-        Win/push/loss outcome is irrelevant — only the cards matter.
+        Win/push/loss outcome is irrelevant — only the cards matter, so it
+        fires against a dealer blackjack too (dealer_bj is kept for the
+        event's shape only).
 
         Payout: same suit = wager × 4, all-21 = wager × 2 (both = wager × 6).
-        Suppressed when dealer has BJ (consistent with auto-insurance).
         Stacks with all other win-bonus rules.
 
         hard_switch_dealer: the hard-switch-exempt dealer, if this is a hard
@@ -393,8 +396,6 @@ class DrinkingRules:
         HardDealerSwitchEvent instead), so the cancellation below must skip
         them too, or they'd lose a sip they were never given.
         """
-        if dealer_bj and rules.on("insurance.auto_cap"):
-            return []
         if len(player_hands) < 2:
             return []
 
