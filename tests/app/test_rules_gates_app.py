@@ -164,6 +164,23 @@ def test_milestone_handout_off():
     assert room.drinks.sip_ticker == {"Bob": 55}          # the ticker still counts
 
 
+def test_back_to_back_callout_off():
+    from app.services.drink_tracker import note_milestone_assigned
+    from app.services.serializer import serialize_state
+
+    def run(rules):
+        room = make_room(rules)
+        note_milestone_assigned(room, "Bob")
+        note_milestone_assigned(room, "Bob")
+        callout = any("milestone back-to-back" in e for e in room.round._log_entries)
+        return room, callout, serialize_state(room)["milestone_run_holder"]
+
+    assert run(FULL)[1:] == (True, "Bob")
+    room, callout, holder = run(off("milestone.back_to_back"))
+    assert (callout, holder) == (False, None)
+    assert room.drinks.milestone_win_streak == 2           # the run is still counted
+
+
 def test_lottery_trigger_off():
     pair = make_hand(("9", "S"), ("9", "H"))
     room = make_room(FULL, dealer_hand=pair)

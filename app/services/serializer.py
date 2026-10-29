@@ -205,17 +205,19 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     }
 
     # ---- Milestone data ----
+    _show_milestone_run = (session.drinks.milestone_win_streak >= 2
+                           and session.rules.on("milestone.back_to_back"))
     _milestone_data = {
         "last_milestone_result": _serialize_last_milestone(session.drinks.last_milestone_result),
         "pending_milestone":     _serialize_pending_milestone(session.round._pending_milestone, _ci),
         "last_milestone_worst":  session.drinks.last_milestone_worst,
         # Back-to-back milestone run: only surfaced once it is an actual
         # run (2+), so the frontend badge is a plain name comparison like
-        # every other seat badge.
+        # every other seat badge. Hidden when milestone.back_to_back is off.
         "milestone_run_holder": (session.drinks.last_milestone_winner
-                                 if session.drinks.milestone_win_streak >= 2 else None),
+                                 if _show_milestone_run else None),
         "milestone_run_length": (session.drinks.milestone_win_streak
-                                 if session.drinks.milestone_win_streak >= 2 else 0),
+                                 if _show_milestone_run else 0),
     }
 
     _boj_data = {"boj": _serialize_boj(session, _ci, client_id)}

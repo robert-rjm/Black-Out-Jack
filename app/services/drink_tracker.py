@@ -808,7 +808,9 @@ def note_milestone_assigned(session: GameRoom, winner: str) -> None:
     session.drinks.last_milestone_winner = winner
 
     streak = session.drinks.milestone_win_streak
-    if streak < 2:
+    # The run is still counted with milestone.back_to_back off; only the
+    # callout (this log line and the serializer badge) is switched off.
+    if streak < 2 or not session.rules.on("milestone.back_to_back"):
         return
 
     run = "back-to-back" if streak == 2 else f"{streak} milestones in a row"
