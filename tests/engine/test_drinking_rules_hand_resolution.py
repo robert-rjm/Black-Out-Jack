@@ -42,11 +42,13 @@ def test_21_with_5_cards_handout_fires_regardless_of_result(result):
         assert msgs == handout_msgs
 
 
-def test_dealer_bj_suppresses_21_five_card_handout():
+def test_dealer_bj_keeps_21_five_card_handout():
+    # The handout doesn't need a win, so a dealer blackjack doesn't cancel it.
     hand = make_hand(("2", "H"), ("3", "D"), ("4", "C"), ("5", "S"), ("7", "H"),
-                      result="win")
+                      result="loss")
     msgs = DrinkingRules.on_hand_resolved("Alice", hand, ALL, dealer_bj=True)
-    assert not any(len(m) == 4 and m[3] == "handout" for m in msgs)
+    assert [m for m in msgs if len(m) == 4 and m[3] == "handout"] == [
+        ("Alice", -5, "Alice hit 21 with 5 cards => may hand out 5 sips", "handout")]
 
 
 def test_doubled_win_not_suited_immunity_exception():
@@ -133,10 +135,13 @@ def test_two_player_table_single_other():
 # check_all_hands_sweep
 # ---------------------------------------------------------------------------
 
-def test_sweep_dealer_bj_returns_empty():
-    hands = [make_hand(("2", "H"), ("3", "H")), make_hand(("4", "H"), ("5", "H"))]
+def test_sweep_still_fires_against_a_dealer_bj():
+    # Only the cards matter, so a dealer blackjack doesn't cancel the sweep.
+    hands = [make_hand(("2", "H"), ("3", "H"), result="loss"),
+             make_hand(("4", "H"), ("5", "H"), result="loss")]
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1, dealer_bj=True)
-    assert msgs == []
+    assert msgs == DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
+    assert {m[0] for m in msgs} == {"Bob", "Carol"} and all(m[1] == 4 for m in msgs)
 
 
 def test_sweep_single_hand_returns_empty():

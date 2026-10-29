@@ -92,6 +92,7 @@ def create_app() -> Flask:
     from app.routes.moderation    import bp as moderation_bp
     from app.routes.admin_transfer import bp as admin_transfer_bp
     from app.routes.players       import bp as players_bp
+    from app.routes.rule_votes    import bp as rule_votes_bp
 
     app.register_blueprint(reports_bp)
     app.register_blueprint(static_pages_bp)
@@ -110,5 +111,6 @@ def create_app() -> Flask:
     app.register_blueprint(moderation_bp)
     app.register_blueprint(admin_transfer_bp)
     app.register_blueprint(players_bp)
+    app.register_blueprint(rule_votes_bp)
 
     return app

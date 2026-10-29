@@ -92,7 +92,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
         base = all_player_names.index(recipient_name) if recipient_name in all_player_names else 0
         return all_player_names[(base + card_pos) % len(all_player_names)]
 
-    if val == 6 and not session.round._six_curse_fired:
+    if val == 6 and not session.round._six_curse_fired and session.rules.on("cards.devils_hand"):
         session.round._six_count += 1
         if session.round._six_count >= 3:
             session.round._six_curse_fired = True
@@ -107,7 +107,7 @@ def _check_table_number(session: GameRoom, card, recipient_name: str, card_pos: 
                 target,
             )
 
-    elif val == 7 and not session.round._seven_lucky_fired:
+    elif val == 7 and not session.round._seven_lucky_fired and session.rules.on("cards.lucky_sevens"):
         session.round._seven_count += 1
         if session.round._seven_count >= 3:
             session.round._seven_lucky_fired = True
@@ -170,7 +170,7 @@ def deal_card(session: GameRoom, hand: Hand, recipient_name: str):
             card=card, recipient=recipient_name, card_pos=card_pos,
             all_names=all_names, dealer_name=session.dealer_name,
             ace_clubs_flag=session._ace_clubs_flag,
-            is_dealer_hand=is_dealer_hand, wager=session.wager,
+            is_dealer_hand=is_dealer_hand, wager=session.wager, rules=session.rules,
         ))
         for msg in msgs:
             _, s, reason = msg[0], msg[1], msg[2]
@@ -275,6 +275,7 @@ def perform_split(session: GameRoom, player, hand: Hand, hand_idx: int) -> tuple
     Note: referee.py has its own split path that does *not* move card data
     (physical cards are moved by the player), so this helper is digital-only.
     """
+    hand.split_ace_bj = session.rules.on("table.split_ace_bj")
     new_hand = hand.split()                      # card pop + chain counter + from_split flags
     player.hands.insert(hand_idx + 1, new_hand)
     deal_card(session, hand, player.name)
@@ -311,12 +312,13 @@ def initial_deal(session: GameRoom) -> None:
         all_cards = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += dealer.dealer_hand.cards
         msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, "first_deal", session._four_aces_fd, wager=session.wager)
+            all_cards, "first_deal", session._four_aces_fd, wager=session.wager, rules=session.rules)
         session.tracker.apply(msgs)
 
     # Set up insurance vote slots if dealer shows Ace
     session.round._insurance_votes = []
-    if dealer.dealer_hand.cards[0].rank.label == "A" and session.drinking_mode:
+    if (dealer.dealer_hand.cards[0].rank.label == "A" and session.drinking_mode
+            and session.rules.on("insurance.bj_vote")):
         for p in session.all_players:
             for i, hand in enumerate(p.hands):
                 if hand.is_blackjack():
@@ -376,8 +378,8 @@ def dealer_turn(session: GameRoom) -> None:
     drinking = session.drinking_mode
     if drinking:
         session.tracker.apply(DrinkingRules.handle(DealerHandRevealedEvent(
-            dealer_hand=d_hand, wager=session.wager)))
-        if DrinkingRules.dealer_21_five_cards(d_hand):
+            dealer_hand=d_hand, wager=session.wager, rules=session.rules)))
+        if DrinkingRules.dealer_21_five_cards(d_hand, rules=session.rules):
             log.debug(f"\n  ★ Dealer 21 with {len(d_hand.cards)} cards — wager DOUBLED this round!")
 
     log.debug("\n--- Results ---")
@@ -424,7 +426,10 @@ def dealer_turn(session: GameRoom) -> None:
 
     # Pass 2 — fire drinking events
     if drinking:
-        exempt_dealer   = session.dealer_name if hard_switch else ""
+        # switch.hard off: the role still rotates (hard_switch above) but the
+        # dealer takes no penalty and keeps their ordinary player-role drinks.
+        hard_switch_penalty = hard_switch and session.rules.on("switch.hard")
+        exempt_dealer   = session.dealer_name if hard_switch_penalty else ""
         insurance_votes = session.round._insurance_votes
         voted_keys      = {(v["player"], v["hand_idx"]) for v in insurance_votes}
 
@@ -453,7 +458,7 @@ def dealer_turn(session: GameRoom) -> None:
                     eor_msgs.extend(DrinkingRules.handle(InsuranceResolvedEvent(
                         player_name=p.name, hand=hand, all_names=all_names,
                         insured=insured, dealer_bj=dealer_bj,
-                        hard_switch_dealer=exempt_dealer, wager=session.wager,
+                        hard_switch_dealer=exempt_dealer, wager=session.wager, rules=session.rules,
                     )))
                     # group_won: insure+BJ or decline+no BJ
                     group_won = (insured and dealer_bj) or (not insured and not dealer_bj)
@@ -466,16 +471,16 @@ def dealer_turn(session: GameRoom) -> None:
                 elif hand.is_blackjack() and hand.result == "win":
                     eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
                         player_name=p.name, hand=hand, all_names=all_names,
-                        hard_switch_dealer=exempt_dealer, wager=session.wager,
+                        hard_switch_dealer=exempt_dealer, wager=session.wager, rules=session.rules,
                     )))
                 eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
                     player_name=p.name, hand=hand, all_names=all_names,
                     dealer_bj=dealer_bj, dealer_name=exempt_dealer,
-                    wager=session.wager,
+                    wager=session.wager, rules=session.rules,
                 )))
 
         # Hard dealer switch -- dealer drinks per each winning hand
-        if hard_switch:
+        if hard_switch_penalty:
             winning_hds = [
                 (p.name, hand)
                 for p in session.all_players
@@ -490,7 +495,7 @@ def dealer_turn(session: GameRoom) -> None:
             )
             eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
                 dealer_name=session.dealer_name, winning_hands=hs_for_penalty,
-                half_protected=half_protected, wager=session.wager,
+                half_protected=half_protected, wager=session.wager, rules=session.rules,
             )))
             session._hard_switch_drinking_applied = True
 
@@ -506,14 +511,14 @@ def dealer_turn(session: GameRoom) -> None:
             eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                 player_name=p.name, player_hands=p.hands, all_names=all_names,
                 wager=session.wager, dealer_bj=dealer_bj,
-                hard_switch_dealer=exempt_dealer,
+                hard_switch_dealer=exempt_dealer, rules=session.rules,
             )))
 
         # Four-aces end-of-round check
         all_cards  = [c for p in session.all_players for h in p.hands for c in h.cards]
         all_cards += d_hand.cards
         four_aces_msgs, session._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, "end_of_round", session._four_aces_fd, wager=session.wager)
+            all_cards, "end_of_round", session._four_aces_fd, wager=session.wager, rules=session.rules)
         eor_msgs.extend(four_aces_msgs)
 
         # Buffer msgs — cmd_endround will combine with RoundEndEvent (net losses)
@@ -607,13 +612,15 @@ def auto_play_npc_turns(session: GameRoom) -> None:
                 hand, dealer_up, valid,
                 drinking_mode=session.drinking_mode,
                 visible_cards=_visible_cards_for_npc(session),
-                sibling_hands=[h for h in player.hands if h is not hand])
+                sibling_hands=[h for h in player.hands if h is not hand],
+                split_tens=session.rules.on("table.split_tens"))
         else:
             # A real Player converted to a bot mid-session via admin.make_bot()
             # -- no personality profile exists for them, just basic strategy.
             action = NPC_Player.best_play(
                 hand, dealer_up, valid,
-                drinking_mode=session.drinking_mode)
+                drinking_mode=session.drinking_mode,
+                split_tens=session.rules.on("table.split_tens"))
         log.debug(f"  {player.name} (NPC) {hand_label}: {action.upper()}")
 
         record_decision(session, player, hand, action, is_npc=True)

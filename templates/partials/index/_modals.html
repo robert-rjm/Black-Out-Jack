@@ -45,18 +45,6 @@
         </div>
       </div>
 
-      <div class="kick-toggle-row admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-        <label class="kick-toggle-label" style="font-size:13px">Bust vote</label>
-        <div class="pill-toggle-wrap">
-          <label class="pill-toggle">
-            <input type="checkbox" id="bust-vote-toggle-modal" data-change-action="setBustVoteEnabled">
-            <span class="pill-slider"></span>
-          </label>
-          <span class="pill-label-off" id="bust-vote-lbl-modal">OFF</span>
-          <span class="pill-label-on" id="bust-vote-lbl-modal-on">ON</span>
-        </div>
-      </div>
-
       <div class="kick-toggle-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
         <label class="kick-toggle-label" style="font-size:13px">Strategy Hints <span style="font-size:10px;color:var(--muted)">(blue border on best play)</span></label>
         <div class="pill-toggle-wrap">
@@ -66,18 +54,6 @@
           </label>
           <span class="pill-label-off" id="strategy-hint-lbl-modal">OFF</span>
           <span class="pill-label-on" id="strategy-hint-lbl-modal-on">ON</span>
-        </div>
-      </div>
-
-      <div class="kick-toggle-row drink-only admin-only-row" style="padding:8px 0;border-bottom:none;margin-bottom:0">
-        <label class="kick-toggle-label" style="font-size:13px">Wild Card <span style="font-size:10px;color:var(--muted)">(logo Easter egg)</span></label>
-        <div class="pill-toggle-wrap">
-          <label class="pill-toggle">
-            <input type="checkbox" id="wild-card-toggle-modal" data-change-action="setWildCardEnabled">
-            <span class="pill-slider"></span>
-          </label>
-          <span class="pill-label-off" id="wild-card-lbl-modal">OFF</span>
-          <span class="pill-label-on" id="wild-card-lbl-modal-on">ON</span>
         </div>
       </div>
 
@@ -141,6 +117,12 @@
         <button class="settings-action" data-action="showSettingsSubview" data-args='["players"]'>
           <span class="sa-icon">👥</span><span class="sa-label">Players</span>
           <span id="settings-players-badge" class="settings-players-badge" style="display:none"></span>
+        </button>
+        <button class="settings-action drink-only" data-action="showSettingsSubview" data-args='["rules"]'>
+          <span class="sa-icon">📜</span><span class="sa-label">House rules</span>
+          <span id="settings-rules-sub" class="sa-sub"></span>
+          <span id="settings-rules-queued-dot" class="settings-rules-queued-dot" style="display:none" title="Changes queued for next round"></span>
+          <span id="settings-rules-badge" class="settings-players-badge" style="display:none" title="Rule suggestions waiting for you"></span>
         </button>
       </div>
 
@@ -218,6 +200,14 @@
       </div>
     </div>
 
+    <div id="settings-rules-view" style="display:none">
+      <div class="settings-subview-header">
+        {{ action_btn('← Back', 'showSettingsSubview', '["main"]', 'btn settings-back-btn') }}
+        <span class="settings-subview-title">📜 House rules</span>
+      </div>
+      <div id="rules-settings-body"></div>
+    </div>
+
     <div id="queued-settings-banner">
       <strong class="queued-title">⏳ Queued for next round:</strong>
       <ul id="queued-settings-list"></ul>
@@ -282,6 +272,12 @@
 <div id="buyin-give-overlay" style="display:none">
   <div id="buyin-give-card" data-stop-propagation="true">
     <div id="buyin-give-body"></div>
+  </div>
+</div>
+
+<div id="l-handout-give-overlay" style="display:none">
+  <div id="l-handout-give-card" data-stop-propagation="true">
+    <div id="l-handout-give-body"></div>
   </div>
 </div>
 
@@ -449,6 +445,20 @@
     <div id="target-proposal-modal-btns" class="btn-row"></div>
     <div id="target-proposal-modal-status" class="insurance-modal-status"></div>
     <div id="target-proposal-modal-timer" class="insurance-modal-timer"></div>
+  </div>
+</div>
+
+<div id="rule-vote-modal-overlay">
+  <div id="rule-vote-modal">
+    <div class="insurance-modal-header">
+      <div class="insurance-modal-emoji">📜</div>
+      <div id="rule-vote-modal-title" class="target-proposal-modal-title">Rule vote</div>
+      <div id="rule-vote-modal-sub" class="insurance-modal-sub"></div>
+    </div>
+    <div id="rule-vote-modal-tally" class="insurance-modal-stakes"></div>
+    <div id="rule-vote-modal-btns" class="btn-row"></div>
+    <div id="rule-vote-modal-status" class="insurance-modal-status"></div>
+    <div id="rule-vote-modal-timer" class="insurance-modal-timer"></div>
   </div>
 </div>
 

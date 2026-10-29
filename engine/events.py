@@ -22,6 +22,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Union
 
+from engine.rules_registry import FULL, RuleSet
+
 if TYPE_CHECKING:
     from engine.blackjack import Card, Hand, Player
 
@@ -41,6 +43,7 @@ class CardDealtEvent:
     ace_clubs_flag: dict         # mutable flag shared for the whole round
     is_dealer_hand: bool = False  # True only for the dealer's own dealer hand
     wager:          int  = 1
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 @dataclass
@@ -51,6 +54,7 @@ class BlackjackEvent:
     all_names:          list[str]
     hard_switch_dealer: str = ""  # dealer-player name when a Hard Switch is in play
     wager:              int = 1
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 @dataclass
@@ -63,6 +67,7 @@ class InsuranceResolvedEvent:
     dealer_bj:          bool
     hard_switch_dealer: str = ""
     wager:              int = 1
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 @dataclass
@@ -74,6 +79,7 @@ class HandResolvedEvent:
     dealer_bj:   bool = False
     dealer_name: str  = ""  # exempt from bonus-win drinks on a Hard Switch
     wager:       int  = 1   # per-sip unit; win-bonus penalties scale with it
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 @dataclass
@@ -91,6 +97,7 @@ class AllHandsSweepEvent:
     # immunity-exception cancellation below, since on_hand_resolved already
     # skipped crediting that dealer the +1 being cancelled.
     hard_switch_dealer: str = ""
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 @dataclass
@@ -98,6 +105,7 @@ class DealerHandRevealedEvent:
     """Fired once the dealer's full hand is visible (after dealer plays out)."""
     dealer_hand: Hand
     wager:       int = 1
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 @dataclass
@@ -109,6 +117,7 @@ class RoundEndEvent:
     dealer_shows_ace:   bool = False
     hard_switch_dealer: str  = ""
     num_hands:          int  = 0   # configured starting hands per player
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 @dataclass
@@ -118,6 +127,7 @@ class HardDealerSwitchEvent:
     winning_hands:  list[tuple[str, Hand]]  # (player_name, hand) for each winning hand
     half_protected: bool = False            # True = dealer-hand A♣ half protection
     wager:          int  = 1
+    rules: RuleSet = FULL   # which drinking rules are in play
 
 
 # ---------------------------------------------------------------------------

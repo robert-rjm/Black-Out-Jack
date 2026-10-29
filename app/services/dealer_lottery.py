@@ -60,6 +60,8 @@ def check_dealer_lottery_trigger(session: GameRoom) -> None:
     """
     if not session.drinking_mode:
         return
+    if not session.rules.on("event.dealer_lottery"):
+        return
     if session.round._pending_dealer_lottery is not None:
         return  # already running (shouldn't happen same-round, but stay idempotent)
     if not _dealer_pair_trigger(session):

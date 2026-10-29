@@ -23,11 +23,16 @@ from app.services.session_store import (
     is_join_rate_limited,
     mark_waiting_client, get_waiting_clients,
 )
-from app.services.validators  import sanitize_name, is_offensive_name
+from app.services.validators  import sanitize_name, is_offensive_name, clamp_int, clamp_float
 from app.services.serializer  import serialize_state
 from app.services.room_factory import build_game_room
+from engine.rules_registry import PRESETS, RuleSet
 from app.services.qr import qr_svg
-from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
+from app.config import (
+    DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE,
+    MAX_WAGER, MAX_NUM_HANDS, MAX_NUM_DECKS, MAX_PLAYERS,
+    MIN_BET_AMOUNT, MAX_BET_AMOUNT, MAX_BANKROLL,
+)
 
 bp = Blueprint("lobby", __name__)
 
@@ -125,6 +130,8 @@ def join_room():
 # Setup (game configuration)
 # ---------------------------------------------------------------------------
 
+_PERSONALITY_RE = re.compile(r"[A-Za-z0-9_-]{1,32}")
+
 @bp.route("/setup", methods=["POST"])
 def setup():
     data = request.json
@@ -150,6 +157,8 @@ def setup():
     names = [n for n in names if n]   # drop any that became empty after sanitization
     if not names:
         return jsonify({"ok": False, "error": "No player names provided."})
+    if len(names) > MAX_PLAYERS:
+        return jsonify({"ok": False, "error": f"Too many players (max {MAX_PLAYERS})."})
     offensive = [n for n in names if is_offensive_name(n)]
     if offensive:
         return jsonify({"ok": False,
@@ -158,35 +167,52 @@ def setup():
     try:
         mode       = data.get("mode", DEFAULT_MODE)
         dealer_idx = int(data.get("dealer_index", 0))
-        wager      = max(1, int(data.get("wager", DEFAULT_WAGER)))
-        num_hands  = max(1, int(data.get("num_hands", DEFAULT_NUM_HANDS)))
-        bet_amount = max(2.5, float(data.get("bet_amount", 5)))
-        starting_bankroll = max(0, float(data.get("starting_bankroll", 100)))
-        # Same 1-8 clamp as /update_settings — an unbounded value can crash
-        # the shoe (0 decks: deal_card() pops from an empty list) or exhaust
-        # memory (a huge value allocates that many Deck() objects).
+        # Every numeric field is clamped at both ends (limits in app/config.py):
+        # an unbounded value can crash the shoe (0 decks) or allocate enough
+        # hands / decks to freeze the single-threaded server.
+        wager      = clamp_int(data.get("wager", DEFAULT_WAGER), 1, MAX_WAGER)
+        num_hands  = clamp_int(data.get("num_hands", DEFAULT_NUM_HANDS), 1, MAX_NUM_HANDS)
+        bet_amount = clamp_float(data.get("bet_amount", 5), MIN_BET_AMOUNT, MAX_BET_AMOUNT)
+        starting_bankroll = clamp_float(data.get("starting_bankroll", 100), 0, MAX_BANKROLL)
         default_decks = 2 if len(names) >= 4 else 1
-        num_decks     = max(1, min(8, int(data.get("num_decks", default_decks))))
+        num_decks     = clamp_int(data.get("num_decks", default_decks), 1, MAX_NUM_DECKS)
     except (ValueError, TypeError):
         return jsonify({"ok": False, "error": "Invalid numeric field."})
     if not (0 <= dealer_idx < len(names)):
         return jsonify({"ok": False, "error": "Invalid dealer index."})
+    if mode not in ("referee", "digital"):
+        return jsonify({"ok": False, "error": "Invalid mode."})
+    raw_npcs          = data.get("npcs", [])
+    raw_personalities = data.get("personalities", {})
+    if not isinstance(raw_npcs, list) or not isinstance(raw_personalities, dict):
+        return jsonify({"ok": False, "error": "Invalid bot list."})
     dealer_name = names[dealer_idx]
 
-    npc_names = {sanitize_name(n) for n in data.get("npcs", []) if n.strip()}
+    npc_names = {sanitize_name(n) for n in raw_npcs if isinstance(n, str) and n.strip()}
     # personalities: {"BotName": "rob"} — optional, defaults to "basic"
-    raw_personalities = data.get("personalities", {})
+    # The personality names a profile file (engine/player_profiles/<name>.json),
+    # so only plain names get through: no path separators or "..".
     npc_personalities = {sanitize_name(k): v.strip().lower()
-                         for k, v in raw_personalities.items() if v}
+                         for k, v in raw_personalities.items()
+                         if isinstance(k, str) and isinstance(v, str)
+                         and _PERSONALITY_RE.fullmatch(v.strip())}
 
     drinking = bool(data.get("drinking", True))
+
+    # House-rule preset (default Full). The setup screen's bust-vote toggle
+    # still decides that one rule, whatever the preset says.
+    rules_preset = data.get("rules_preset", "full")
+    if rules_preset not in PRESETS:
+        return jsonify({"ok": False, "error": "Unknown rules preset."})
+    rules = RuleSet.from_preset(rules_preset).with_rule(
+        "side.bust_vote", bool(data.get("bust_vote_enabled", False)))
 
     room, output = build_game_room(
         room_code, client_id, names, npc_names, npc_personalities, dealer_name,
         mode=mode, drinking=drinking, wager=wager, num_hands=num_hands,
         bet_amount=bet_amount, starting_bankroll=starting_bankroll,
         num_decks=num_decks,
-        bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
+        rules=rules,
         easy_mode=bool(data.get("easy_mode", False)),
     )
     state  = serialize_state(room, client_id)

@@ -13,6 +13,10 @@ which merges its result into scripts/benchmarks.json and
 static/js/benchmarks.js under the "<players>p_<decks>d" key (existing
 entries for other configs are preserved).
 
+With --preset starter|standard each config plays that house-rule preset
+(simulation.py --preset). Those runs don't touch the benchmarks files, so
+--snapshot and --compare only make sense with the default Full preset.
+
 With --snapshot [label], each config is also saved via:
     python scripts/snapshot.py <label>_<players>p_<decks>d
 
@@ -104,7 +108,11 @@ def main():
                          help="After each simulation, compare results against the "
                               "named snapshot. Flags metrics that deviate beyond "
                               "their threshold and exits with code 1 if any do.")
+    parser.add_argument("--preset", choices=["starter", "standard", "full"], default="full",
+                         help="House-rule preset to simulate (default: full)")
     args = parser.parse_args()
+    if args.preset != "full" and (args.snapshot is not None or args.compare is not None):
+        parser.error("--snapshot / --compare use the benchmarks files, which only Full runs write")
 
     # 4+ players with 1 deck reshuffles constantly mid-round; results are
     # meaningless. Enforce a minimum of 2 decks for 4+ players.
@@ -125,7 +133,8 @@ def main():
         config_key = f"{p}p_{d}d"
         print(f"\n=== {config_key} ===")
         result = subprocess.run(
-            [sys.executable, os.path.join(HERE, "simulation.py"), str(p), str(d)]
+            [sys.executable, os.path.join(HERE, "simulation.py"), str(p), str(d),
+             "--preset", args.preset]
         )
         if result.returncode != 0:
             print(f"Error: simulation failed for {config_key} (exit {result.returncode})")

@@ -146,3 +146,19 @@ def test_cannot_propose_in_drinking_mode(client):
     client.post("/setup", json=body)
     r = _post(client, "/boj/propose", code, "Rob")
     assert r["ok"] is False
+
+
+def test_split_table_keeps_the_old_tables_rules(client):
+    from engine.rules_registry import DEFAULT_RULES
+    code, s = _table(client)
+    custom = DEFAULT_RULES.with_changes(on=["side.bust_vote"], off=["event.wild_card", "ace.hearts.player"])
+    s.rules = custom
+    _post(client, "/boj/propose", code, "Amy")
+    _post(client, "/boj/vote", code, "Rob", vote=False)
+    _post(client, "/boj/vote", code, "Cy", vote=False)
+    s._boj_split["go_at"] = 0
+    new_code = _post(client, "/boj/split/go", code, "Amy")["room_code"]
+
+    new = game_sessions[new_code]
+    assert new.rules == custom
+    assert new.session.rules is new.rules

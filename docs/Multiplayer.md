@@ -16,6 +16,7 @@
 - [Dealer Lottery](#dealer-lottery)
 - [Targeted Drinking Mode](#targeted-drinking-mode)
 - [Easy Mode](#easy-mode)
+- [House Rules](#house-rules)
 - [KPI Panel](#kpi-panel)
 - [Strategy Accuracy](#strategy-accuracy)
 - [Clean-Round Crown](#clean-round-crown)
@@ -210,6 +211,22 @@ Each seat has a **drink rate** that scales the sips it drinks, so someone on win
 
 ---
 
+## House Rules
+
+Each table picks which drinking rules it plays ([Rules §6.4](Rules.md#64-house-rules-presets)).
+
+- **Setup:** tap **📜 House rules: Full ▸** on the setup screen to pick 🟢 Starter, 🟡 Standard or 🔴 Full (the default; most tables leave it folded). The bust-vote toggle still decides the bust vote.
+- **Mid-game:** ⚙️ Settings → **📜 House rules**. The host picks a preset, taps **➕ Next rule** to add the next rule in the learning order, or switches rules and whole groups on and off. Changes queue for the next round. **Undo all** drops the queued changes.
+- **Quick switches:** the bust vote and the Wild Card sit at the top of 📜 House rules and change at once (they used to be toggles in the main settings view).
+- **Suggestions:** players see a **Suggest on / off** button on every rule. A suggestion lands in the host's 💡 inbox (a red badge on 📜 House rules), where ✓ queues it and ✗ drops it.
+- **Table votes:** **🗳 Vote on new rules** (bottom of 📜 House rules) asks the table to decide rule changes by vote. If a majority says yes, the buttons read **Vote on / off** and each one opens a 30-second Yes/No vote for every seated player; a majority queues the change for the next round with no host step. One vote runs at a time, and a player whose vote fails waits a round before starting another. The host can switch table votes off (or on) in the same screen.
+- **At the next round:** the round log posts "📜 House rules changed: …", and everyone gets a 🆕 toast naming any rule that was just switched on.
+- **Spectators** can't suggest or vote, and don't have the ⚙️ Settings button; they see the table's rules through the **OFF AT THIS TABLE** badges in 📖 Rules. In the 📖 Rules popup those rules carry an **OFF AT THIS TABLE** badge, and *Show active rules only* hides them.
+- Turning a rule off never cancels an event that's already running (a Dealer Lottery, a Targeted Drinking run): it just won't start again.
+- The terminal scripts take the same presets: `python scripts/play_terminal.py --preset starter`, `python scripts/play_referee.py --preset standard`.
+
+---
+
 ## KPI Panel
 
 The right-column panel contains three tabs:
@@ -297,6 +314,8 @@ Computer-controlled seats using standard basic strategy. NPCs:
 - Optimised for phone screens (touch targets, readable text, minimal scrolling)
 - **Bottom navigation bar** on mobile (≤ 640 px) for one-thumb reach
 - Tap-friendly controls throughout
+- **Deal animation** starts off on phones and tablets and on everywhere else; switch it in ⚙️ Settings (your choice is remembered on that device)
+- The lobby, setup and waiting screens always start at the logo, however long they get, and don't rubber-band past it on iPhone
 
 ### PWA Support
 - Add to home screen on **iOS** (Share → "Add to Home Screen") and **Android** (menu → "Add to Home Screen" or "Install app")

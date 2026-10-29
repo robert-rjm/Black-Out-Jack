@@ -552,6 +552,50 @@ class QueuedSettingsOut(_StrictModel):
     drinking_mode:       Optional[bool] = None
     add_players:         Optional[list[QueuedAddPlayerOut]] = None
     remove_players:      Optional[list[str]] = None
+    rules:               Optional[list[str]] = None   # full target rule set (IDs)
+
+
+class RuleSuggestionOut(_StrictModel):
+    ids: list[str]   # the rule, plus any off parents it needs
+    on:  bool
+    by:  str
+
+
+class PendingRuleVoteOut(_StrictModel):
+    kind:         Literal["enable", "change"]   # "enable" = allow rule votes at all
+    ids:          list[str]
+    on:           bool
+    proposer:     str
+    yes_count:    int
+    no_count:     int
+    total_voters: int
+    needed:       int
+    seconds_left: int
+    eligible:     bool
+    my_vote:      Optional[bool]
+
+
+class RuleVoteResultOut(_StrictModel):
+    text:   str
+    passed: bool
+    seq:    int
+
+
+class RuleVotesOut(_StrictModel):
+    """Players' say in the house rules (services/rule_votes.py)."""
+    voting:           bool                         # suggestions go to a table vote
+    pending:          Optional[PendingRuleVoteOut]
+    result:           Optional[RuleVoteResultOut]  # last outcome, toasted once per seq
+    suggestions:      list[RuleSuggestionOut]      # admin's inbox (empty for everyone else)
+    suggestion_count: int
+
+
+class RulesOut(_StrictModel):
+    """The room's house rules (house_rules.serialize_rules)."""
+    preset:    Optional[Literal["starter", "standard", "full"]]   # None = custom
+    enabled:   list[str]             # admin's toggles (may include children of off parents)
+    effective: list[str]             # after dependency resolution
+    queued:    Optional[list[str]]   # target set waiting for the next round
 
 
 # ---------------------------------------------------------------------------
@@ -605,6 +649,8 @@ class AppState(_StrictModel):
     # pre-shaped, not as a fresh dict to expand against the sub-model.
     queued_settings:  dict[str, Any]
     num_decks:        int
+    rules:            RulesOut
+    rule_votes:       RuleVotesOut
     kpi_stats:        KpiStatsOut
     state_seq:        int
 
@@ -627,7 +673,7 @@ class AppState(_StrictModel):
     clean_streaks:      dict[str, int]
     total_clean_rounds: dict[str, int]
     trophy_holder:      Optional[str]
-    worst_streak_holder: Optional[str]   # whoever currently holds the "L" badge (5+ round losing streak)
+    l_badge_holders:    list[str]        # everyone wearing the "L" badge (5+ round losing streak)
     last_round_drinks:  list[DrinkEntryOut]
     round_notices:      list[str]
     prev_round_sips:    dict[str, int]
@@ -640,6 +686,8 @@ class AppState(_StrictModel):
     wild_card_enabled:  bool
     buyin_handouts:     bool
     my_buyin_handouts:  dict[str, int]
+    my_l_handouts:      dict[str, int]   # comeback handouts this client's seats can give
+    l_handout_seconds_left: int
     wild_card_seq:      int
     wild_card_text:     Optional[str]
     wild_card_outcome:  Optional[str]

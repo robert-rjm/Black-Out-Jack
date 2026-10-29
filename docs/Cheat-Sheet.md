@@ -24,7 +24,7 @@
 
 | Ace | Dealt to Player | Dealt to Dealer |
 |-----|----------------|-----------------|
-| ♣ Clubs | −1× wager from your net sips | Dealer exempt from Hard Switch |
+| ♣ Clubs | −1× wager from your net sips | Hard Switch penalty halved (rounded up) |
 | ♠ Spades | Next Player(s) drink 1× wager | Odd card → Dealer drinks 1× wager. Even → all Players drink 1× wager |
 | ♥ Hearts | You drink 1× wager | All Players drink 1× wager |
 | ♦ Diamonds | Dealer drinks 1× wager | All Players (except Dealer) drink 1× wager |
@@ -137,7 +137,7 @@ If **one Player's** hands (all of them, if split) are *entirely* one suit, or *a
 | Split | Each hand separately |
 | Suited | 0 extra |
 
-♣ Ace dealt to Dealer → Switch still happens but Dealer drinks 0.
+♣ Ace dealt to Dealer → Switch still happens but Dealer drinks only half the penalty (rounded up).
 
 **Soft Switch** — Dealer wins ALL hands:
 Players drink their sips. Dealer drinks nothing. Role passes.
@@ -152,7 +152,7 @@ Cross a multiple of **50 cumulative sips** → earn bonus sips to hand out (5 at
 
 **Worst-average penalty**: the Player with the lowest average sips/round (excluding the winner) is flagged "worst." Flagged **two milestones in a row** → one-time penalty, drink the winner's average sips/round (always rounded up, min 1).
 
-**"L" badge**: 5+ consecutive round losses → holds the L (only one Player at a time — whoever's losing streak is currently longest). Another Player's streak strictly overtaking the holder's transfers the L and costs the outgoing holder 1 sip; earning it or losing it to your own streak breaking never costs a sip, and ties don't dethrone.
+**"L" badge**: 5+ consecutive round losses → you wear the L (anyone can). Break the streak (any round you don't lose) → hand out sips: 1× wager at 5–6, 2× at 7–8, 3× at 9–10, and so on. 20 seconds to pick; otherwise you drink them.
 
 ---
 
@@ -194,8 +194,17 @@ A live stats table (correct/wrong per Player, dealer bust %) runs the whole time
 
 ---
 
+## House Rules
+- The host picks 🟢 **Starter**, 🟡 **Standard** or 🔴 **Full** (default) and can switch single rules in ⚙️ Settings → 📜 House rules
+- Changes apply from the **next round** (bust vote and Wild Card at once)
+- Players can **suggest** changes to the host, or vote to decide rule changes as a table
+- Rules marked **OFF AT THIS TABLE** in the rules popup don't apply
+
+---
+
 ## Key Reminders
 - Splitting 10s is **mandatory** (unless suited)
+- Splitting Aces is **mandatory**: any other action on A-A costs 1 sip
 - Dealer stands on all 17s
 - Max 5 splits per starting hand
 - Split Aces → can hit/double/split again; BJ counts as BJ

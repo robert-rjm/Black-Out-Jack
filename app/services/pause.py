@@ -22,6 +22,7 @@ _ROUND_DEADLINES = (
     "_dealer_lottery_handout_expires_at",
     "_dealer_lottery_reveal_deadline",
     "_targeted_drinking_handout_expires_at",
+    "_l_handout_expires_at",
 )
 
 # RoundState attributes holding a dict with monotonic "expires_at" / "set_at" / "started_at".
@@ -84,7 +85,7 @@ def resume_game(session: GameRoom) -> bool:
     for attr in _LEDGER_DICTS:
         _shift_dict(getattr(session.drinks, attr), delta)
 
-    for attr in ("_boj_poll", "_boj_split", "_boj_last_result"):
+    for attr in ("_boj_poll", "_boj_split", "_boj_last_result", "_pending_rule_vote"):
         _shift_dict(getattr(session, attr), delta)
 
     session.stats.session_started_at += delta

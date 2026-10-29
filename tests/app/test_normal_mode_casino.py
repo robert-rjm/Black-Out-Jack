@@ -90,7 +90,8 @@ def test_no_drinks_or_milestones_in_normal_mode(client):
     assert s.drinks.milestones_claimed == {}
     assert s.round._pending_milestone is None
     assert all(not p.drink_log for p in s.all_players)
-    assert s.stats.worst_streak_holder is None
+    assert s.stats.l_badge_holders == []
+    assert s.round._l_handout_pending == {}
     assert s.stats.hand_stats["Rob"]["hands"] > 0     # blackjack stats still tracked
 
 

@@ -242,7 +242,8 @@ def best_play_for(profile: dict, hand, dealer_upcard,
                   valid_actions: list[str],
                   drinking_mode: bool = False,
                   visible_cards: Optional[list] = None,
-                  sibling_hands: Optional[list] = None) -> str:
+                  sibling_hands: Optional[list] = None,
+                  split_tens: bool = True) -> str:
     """
     Return the best action for *hand* according to *profile*, falling back
     to basic strategy when no deviation is recorded for this spot.
@@ -254,6 +255,9 @@ def best_play_for(profile: dict, hand, dealer_upcard,
     dealer_upcard: engine Card object (or string) — the dealer's visible card
     valid_actions: list of legal action strings, e.g. ["h", "s", "d"]
     drinking_mode: passed through to the basic-strategy fallback
+    split_tens:    False when the mandatory 10-split rule is off; an unsuited
+                   10-pair then skips the profile and plays basic strategy
+                   (profiles were mined from tables that had to split it).
     visible_cards: every card visible table-wide (all hands in play + dealer
                    upcard), used to bucket table_bias. Omit if unknown — the
                    table-aware tier is simply skipped, same as before.
@@ -274,7 +278,7 @@ def best_play_for(profile: dict, hand, dealer_upcard,
         d_rank     = _rank(dealer_upcard)
     except Exception as exc:
         log.warning("style_strategy: error building key (%s) — using basic strategy", exc)
-        return _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode)
+        return _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode, split_tens)
 
     index_full, index_basic = _get_index(profile)
     base_key = (total, soft, d_rank, can_split, can_double)
@@ -287,7 +291,7 @@ def best_play_for(profile: dict, hand, dealer_upcard,
         sibling = _sibling_awaiting_deal(hand, sibling_hands)
         action  = index_full.get(base_key + (bias, sibling))
         if action is not None and action in valid_actions:
-            fallback_action = _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode)
+            fallback_action = _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode, split_tens)
             log.debug(
                 "style_strategy [%s]: table-aware deviation at %s%d vs %s "
                 "(bias=%s, sibling_awaiting_deal=%s) — %s (not basic %s)",
@@ -303,9 +307,9 @@ def best_play_for(profile: dict, hand, dealer_upcard,
             "style_strategy [%s]: deviation at %s%d vs %s — %s (not basic %s)",
             profile.get("player"), "soft " if soft else "hard ", total,
             d_rank, action,
-            fallback_action or _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode),
+            fallback_action or _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode, split_tens),
         )
         return action
 
     # No deviation found (or deviation action is no longer legal) -- fall back.
-    return _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode)
+    return _basic_strategy_play(hand, dealer_upcard, valid_actions, drinking_mode, split_tens)

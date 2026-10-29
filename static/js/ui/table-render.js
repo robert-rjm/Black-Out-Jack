@@ -253,7 +253,8 @@ function renderPlayers(state) {
             >${_personalityLabel(s.personality)}</span>`
       : "";
     const tag      = (showTurn && s.is_turn) ? `<div class="turn-tag">${s.is_npc ? "BOT playing…" : "Turn"}</div>` : "";
-    const canPropose  = state.drinking_mode !== false && !s.is_npc && !myNamesLc.has(s.name.toLowerCase());
+    const canPropose  = state.drinking_mode !== false && rulesOn("event.targeted")
+                        && !s.is_npc && !myNamesLc.has(s.name.toLowerCase());
     const nameCls      = canPropose ? " seat-name-targetable" : "";
     const nameTitle    = canPropose ? ` title="Click to propose targeting ${escapeHtml(s.name)}"` : "";
     const sips     = (state.sip_totals || {})[s.name] || 0;
@@ -300,11 +301,10 @@ function renderPlayers(state) {
       ? `<span class="seat-run-badge" title="Won and handed out ${runLen} milestones in a row">🔥</span>`
       : "";
 
-    // L: holds the single longest active losing streak at the table (5+
-    // consecutive rounds lost) -- only one player at a time; overtaking the
-    // current holder hands them a 1-sip penalty (see drink_tracker.py's
-    // _update_worst_streak_holder).
-    const lBadge = (isDrinking && state.worst_streak_holder === s.name)
+    // L: on a 5+ round losing streak. Any number of players can wear it
+    // (drink_tracker.py's _update_l_badges); breaking the streak earns a
+    // comeback handout (LHandoutGivePanel).
+    const lBadge = (isDrinking && (state.l_badge_holders || []).includes(s.name))
       ? `<span class="seat-l-badge" title="On a 5+ round losing streak">L</span>`
       : "";
 

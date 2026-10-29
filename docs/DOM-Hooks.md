@@ -88,8 +88,7 @@ This document defines selector ownership for the web UI modules and the shared e
 - Normal-mode stake panel (stake window after Deal): `#dig-bet-panel` and its per-player stepper rows
 
 ### `static/js/ui/admin.js`
-- Bust vote setting (the vote itself is in `drink-panels.js`):
-  - `#bust-vote-toggle-modal`, `#bust-vote-lbl-modal`, `#bust-vote-lbl-modal-on`
+- Bust vote (the vote itself is in `drink-panels.js`; the on/off switch is a Quick switch in `rules-settings.js`):
   - `#player-vote-display`
 - Honor prompt and strategy suggest:
   - `#honor-split-overlay`, `#honor-no-btn`
@@ -150,13 +149,29 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#setting-rotate-every`, `#setting-add-name`, `#setting-remove-name`, `#setting-add-npc`
 - Settings toggles (inside kick modal):
   - `#anim-toggle-modal`
-  - `#bust-vote-toggle-modal`
   - `#strategy-hint-toggle-modal`
   - `#easy-mode-toggle-modal`, `#easy-mode-lbl-modal`, `#easy-mode-lbl-modal-on`
   - `#god-mode-toggle-modal`, `#god-mode-lbl-off`, `#god-mode-lbl-on`
 
+### Comeback handout (`static/js/ui/drink-panels.js` `LHandoutGivePanel`)
+- `#l-handout-give-overlay`, `#l-handout-give-card`, `#l-handout-give-body` (`.lgp-give-btn` with `data-giver` / `data-recipient`; empty recipient = keep), `.lgp-timer`
+- Seat badge `.seat-l-badge` (one per player in `state.l_badge_holders`)
+
+### `static/js/ui/rules-settings.js`
+- House rules sub-view (inside the settings modal, RuleToggles-SettingsModal.md):
+  - Button `[data-action="showSettingsSubview"][data-args='["rules"]']`, label `#settings-rules-sub`, queued dot `#settings-rules-queued-dot`
+  - `#settings-rules-view`, `#rules-settings-body` (built from `GET /rules_registry` and `state.rules`)
+  - Groups `.rs-group` (`[data-rs-expand]` header, `input[data-rs-group]` tri-state toggle), rows `.rs-row` (`input[data-rs-rule]`, `[data-rs-info]` opens the Rules popup at the rule's section)
+  - Footer `.rs-footer`, `.rs-queued`, `[data-rs-discard]` (Undo all)
+  - Preset chips `.preset-chips.rs-presets` (`[data-rs-preset]`), `.rs-custom-note`, Next rule `[data-rs-next]`
+  - Quick switches `.rs-quick` (live rules), admin inbox `.rs-inbox` (`[data-rs-sug]` + `data-accept`), suggestion badge `#settings-rules-badge`
+  - Player controls: `[data-rs-suggest]` (Suggest / Vote button, `data-on`), `[data-rs-propose-voting]` (🗳 Vote on new rules); admin `[data-rs-voting]`
+- Rule vote modal: `#rule-vote-modal-overlay`, `#rule-vote-modal`, `#rule-vote-modal-title`, `#rule-vote-modal-sub`, `#rule-vote-modal-tally`, `#rule-vote-modal-btns` (`[data-rule-vote]`), `#rule-vote-modal-status`, `#rule-vote-modal-timer`
+- Setup screen preset picker: `#rules-preset-setup-field`, `#rules-preset-setup` (`.preset-chip`, `[data-action="setRulesPresetSetup"]`)
+
 ### `static/js/ui/rules.js`
 - Rules modal (`/rules`, `?mode=normal` for Normal tables): `#rules-overlay`, `#rules-body`
+- House rules marks (drinking tables): `.rules-house-banner`, `#rules-active-only-toggle` (adds `.active-only` to `#rules-body`), `.rule-off`, `.rules-section-off`, `.rule-off-badge`
 
 ### `static/js/ui/summary.js`
 - Summary modal: `#summary-overlay`, `#summary-meta`, `#summary-body`

@@ -6,6 +6,8 @@ player-action command set.
 """
 
 import logging
+from app.services.drink_tracker import apply_l_handout_forfeit
+from app.services.house_rules import RULES_NOTICE
 from app.services.room_manager import (
     apply_queued_settings,
     rotate_dealer,
@@ -39,6 +41,9 @@ def cmd_newround(game_session, parts, *, digital):
     # Capture shoe reference first — if apply_queued_settings creates a fresh
     # Shoe (num_decks change), we must not reshuffle it immediately after.
     shoe_before = game_session.shoe
+    # A comeback handout nobody picked a recipient for is drunk by its giver
+    # before this round's state is thrown away.
+    apply_l_handout_forfeit(game_session, force=True)
     setting_changes = apply_queued_settings(game_session)
     for msg in setting_changes:
         log.debug(f"  ⚙️  {msg}")
@@ -48,6 +53,11 @@ def cmd_newround(game_session, parts, *, digital):
     else:
         game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
     reset_round_state(game_session, digital=digital)
+    # Everyone sees a house-rule change in the new round's log.
+    for msg in setting_changes:
+        if msg.startswith(RULES_NOTICE):
+            game_session.round._log_entries.append(f"  {msg}\n")
+            game_session._log_version += 1
     if digital and (game_session.drinking_mode or game_session.shoe.needs_reshuffle()):
         if game_session.shoe is not shoe_before:
             log.debug("  Shoe already fresh from settings change — skipping reshuffle.")

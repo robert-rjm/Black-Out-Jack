@@ -17,6 +17,7 @@ from engine.blackjack import Hand, NPC_Player, Player, Shoe
 from engine.referee import RefereeSession
 
 from app.models.game_room import GameRoom, RoundState
+from app.services.house_rules import apply_queued_rules
 
 log = logging.getLogger(__name__)
 
@@ -149,6 +150,11 @@ def apply_queued_settings(session: GameRoom) -> list[str]:
         session.easy_mode = bool(queued["easy_mode"])
         session.tracker.easy_mode = session.easy_mode
         changes.append(f"Easy Mode {'ON' if session.easy_mode else 'OFF'}")
+
+    if "rules" in queued:
+        notice = apply_queued_rules(session, queued)
+        if notice:
+            changes.append(notice)
 
     if "drinking_mode" in queued and bool(queued["drinking_mode"]) != session.drinking_mode:
         session.drinking_mode = bool(queued["drinking_mode"])

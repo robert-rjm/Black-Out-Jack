@@ -75,7 +75,8 @@ def record_decision(session: GameRoom, player, hand, action: str, *,
         try:
             basic_strategy_action = _best_play(
                 hand, dealer_upcard, valid_actions,
-                drinking_mode=session.drinking_mode)
+                drinking_mode=session.drinking_mode,
+                split_tens=session.rules.on("table.split_tens"))
         except Exception:
             basic_strategy_action = None
 

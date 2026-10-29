@@ -126,6 +126,73 @@
 .settings-back-btn { flex-shrink: 0; height: 32px; padding: 0 12px; font-size: 12px; }
 .settings-subview-title { font-size: 15px; font-weight: 700; }
 
+.settings-action .sa-sub { font-size: 10px; font-weight: 500; color: var(--muted); }
+.settings-action #settings-rules-badge { position: absolute; top: 5px; left: 8px; }
+.settings-rules-queued-dot {
+  position: absolute; top: 6px; right: 8px;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+}
+
+/* ---- SETTINGS MODAL: House rules sub-view (rules-settings.js) ---- */
+.rs-header { font-size: 13px; color: var(--text); margin: 0 0 4px; }
+.rs-header-next { color: var(--accent); }
+.rs-group { border-bottom: 1px solid var(--wash-3); }
+.rs-group:first-of-type { margin-top: 8px; }
+.rs-group-head { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.rs-group-btn {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 0; background: none; border: none;
+  color: var(--text); font-size: 14px; font-weight: 700; text-align: left; cursor: pointer;
+}
+.rs-caret { width: 12px; color: var(--muted); }
+.rs-group-label { flex: 1; min-width: 0; }
+.rs-count { font-size: 12px; font-weight: 600; color: var(--muted); }
+.rs-rows { padding: 0 0 6px 20px; }
+.rs-row { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 0; }
+.rs-row + .rs-row { border-top: 1px solid var(--wash-2); }
+.rs-row.rs-off .rs-text { opacity: .55; }
+.rs-text { flex: 1; min-width: 0; }
+.rs-name { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.rs-summary, .rs-note { font-size: 11px; color: var(--muted); }
+.rs-note { font-style: italic; }
+.rs-badge { font-size: 10px; color: var(--muted); margin-left: 2px; }
+.rs-badge-next {
+  padding: 1px 6px; border-radius: 8px; font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent);
+}
+.rs-info {
+  flex-shrink: 0; width: 32px; height: 32px; padding: 0;
+  background: none; border: none; border-radius: 50%;
+  color: var(--muted); font-size: 16px; cursor: pointer;
+}
+.rs-info:active { background: var(--wash-3); }
+.rs-lock { flex-shrink: 0; width: 62px; text-align: center; font-size: 14px; }
+.rs-pill input:indeterminate + .pill-slider { background: color-mix(in srgb, var(--green) 45%, var(--border-control)); }
+.rs-pill input:indeterminate + .pill-slider:before { transform: translateX(16px); }
+.rs-presets { margin: 10px 0 6px; }
+.rs-quick, .rs-inbox { margin: 10px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--wash-3); }
+.rs-quick .modal-section-title, .rs-inbox .modal-section-title { margin-bottom: 2px; }
+.rs-state { flex-shrink: 0; font-size: 11px; font-weight: 800; color: var(--muted); }
+.rs-state.on { color: var(--green); }
+.rs-suggest { flex-shrink: 0; height: 30px; padding: 0 10px; font-size: 11px; }
+.rs-sug { display: flex; align-items: center; gap: 6px; min-height: 40px; font-size: 12px; }
+.rs-sug .btn { flex-shrink: 0; height: 30px; padding: 0 10px; }
+.rs-voting {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; margin-bottom: 6px;
+}
+.rs-vote-btn { margin-top: 8px; }
+.rs-custom-note { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.rs-next { margin: 4px 0 6px; font-size: 13px; white-space: normal; height: auto; min-height: 40px; }
+.rs-footer {
+  position: sticky; bottom: -20px; margin: 10px -20px -20px; padding: 10px 20px 14px;
+  background: var(--surface); border-top: 1px solid var(--wash-3);
+}
+.rs-queued {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px;
+}
+
 /* ---- QUEUED SETTINGS BANNER ---- */
 #queued-settings-banner {
   display: none; margin-top: 12px; padding: 10px 12px;
@@ -170,6 +237,21 @@
 #rules-body li { margin-bottom: 4px; }
 #rules-body strong { color: var(--yellow); }
 #rules-body em { color: var(--muted); }
+/* House rules switched off at this table (rules.js _markHouseRules) */
+.rules-house-banner {
+  margin: 0 0 14px; padding: 8px 10px; border-radius: 8px; font-size: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.rules-active-only { display: flex; align-items: center; gap: 6px; margin-top: 6px; cursor: pointer; }
+.rule-off-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 6px; vertical-align: middle;
+  font-size: 9px; font-weight: 800; letter-spacing: .04em; white-space: nowrap;
+  background: color-mix(in srgb, var(--red) 22%, transparent); color: var(--text-danger);
+}
+#rules-body .rule-off, #rules-body .rules-section-off { opacity: .5; }
+#rules-body h2.rules-section-off, #rules-body h3.rules-section-off, #rules-body h4.rules-section-off { opacity: .7; }
+#rules-body.active-only .rule-off, #rules-body.active-only .rules-section-off { display: none; }
 #rules-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 #rules-body code { background: var(--wash-2); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
 #rules-body table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }
@@ -195,6 +277,7 @@
 #bust-give-overlay,
 #dealer-lottery-give-overlay,
 #buyin-give-overlay,
+#l-handout-give-overlay,
 #targeted-drinking-give-overlay {
   position: fixed; inset: 0;
   background: var(--scrim);
@@ -204,6 +287,7 @@
 #bust-give-card,
 #dealer-lottery-give-card,
 #buyin-give-card,
+#l-handout-give-card,
 #targeted-drinking-give-card {
   background: var(--surface);
   border: 1.5px solid var(--green);
@@ -279,6 +363,7 @@
 .bgp-give-btn     { margin-bottom: 8px; }
 .bgp-multi-entry  { margin-bottom: 16px; }
 .bgp-divider      { border-color: var(--border); margin: 8px 0; }
+.lgp-timer        { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
 
 /* ---- REGISTER OVERLAY (showRegisterOverlay in admin.js) ---- */
 .reg-no-seats { color: var(--muted); font-size: 13px; padding: 4px 0; }
@@ -660,6 +745,7 @@
 #paused-sub { font-size: 14px; color: var(--muted); margin-bottom: 22px; }
 
 #target-proposal-modal-overlay,
+#rule-vote-modal-overlay,
 #boj-poll-modal-overlay,
 #boj-split-modal-overlay,
 #admin-afk-modal-overlay,
@@ -672,12 +758,14 @@
   align-items: center; justify-content: center;
 }
 #target-proposal-modal-overlay.open,
+#rule-vote-modal-overlay.open,
 #boj-poll-modal-overlay.open,
 #boj-split-modal-overlay.open,
 #admin-afk-modal-overlay.open,
 #drink-rate-vote-overlay.open,
 #late-join-overlay.open { display: flex; }
 #target-proposal-modal,
+#rule-vote-modal,
 #boj-poll-modal,
 #boj-split-modal,
 #admin-afk-modal,

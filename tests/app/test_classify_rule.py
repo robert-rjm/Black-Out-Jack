@@ -94,6 +94,9 @@ def test_hard_dealer_switch_plain():
     ("Dealer hand is all ♥ => everyone drinks 2 sips", "Dealer suited hand"),
     ("Alice handed 1 sip to Bob (5-card 21)", "5-card 21 handout received"),
     ("Alice won with 5 cards => Bob drinks 1 sip", "5+ card win"),
+    ("Alice played without honor (stand, declined mandatory 10-split)", "Split 10s without honor"),
+    ("Alice split a suited 20 (mandatory split 10s does not apply if suited)", "Split suited 10s"),
+    ("Alice didn't split Aces — drinks 1 sip", "Didn't split Aces"),
 ])
 def test_misc_canonical_mappings(reason, expected):
     assert classify_rule(reason) == expected

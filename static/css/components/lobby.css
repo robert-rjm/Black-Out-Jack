@@ -7,7 +7,7 @@
   position: fixed;
   inset: 0;
   display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
+  justify-content: flex-start; align-items: center;
   padding: 24px 20px;
   gap: 14px;
   overflow-y: auto;
@@ -141,11 +141,20 @@
   position: fixed;
   inset: 0;
   display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
+  justify-content: flex-start; align-items: center;
   padding: 24px 20px;
   gap: 14px;
   overflow-y: auto;
 }
+/* Centred while everything fits, top-aligned once it doesn't: with
+   `justify-content: center` a screen taller than the phone overflows upward,
+   out of scroll reach, so the logo got cut off. Auto margins on the first
+   and last child centre the same way but collapse to 0 on overflow.
+   overscroll-behavior stops iOS rubber-banding the page down past the logo
+   (the html/body rule in main.css doesn't reach these fixed scrollers). */
+#setup > :first-child, #lobby > :first-child, #waiting > :first-child { margin-top: auto; }
+#setup > :last-child,  #lobby > :last-child,  #waiting > :last-child  { margin-bottom: auto; }
+#setup, #lobby, #waiting { overscroll-behavior-y: none; }
 #lobby h2  { font-size: 28px; font-weight: 800; letter-spacing: .5px; }
 #waiting h2,
 .waiting-title { font-size: 22px; font-weight: 800; }

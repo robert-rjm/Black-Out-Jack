@@ -35,6 +35,7 @@ Standard BlackJack rules apply unless explicitly modified below. These custom ru
     - 6.1 [Large Group Rules](#61-large-group-rules-4-players)
     - 6.2 [Easy Mode](#62-easy-mode)
     - 6.3 [Drink Rate Mode](#63-drink-rate-mode)
+    - 6.4 [House Rules (Presets)](#64-house-rules-presets)
 7. [Potential Future Rules](#7-potential-future-rules)
 8. [Glossary](#8-glossary)
 
@@ -60,7 +61,7 @@ Every player must have a drink ready.
 
 ## 2. Dealer Rotation
 
-There is no fixed Dealer. The role rotates every _n_ rounds.
+<a id="core-dealer_rotation"></a>There is no fixed Dealer. The role rotates every _n_ rounds.
 
 > _Recommendation:_ switch Dealer every _n_ rounds,
 > where _n_ = number of Players
@@ -89,7 +90,7 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 |---|---|
 | Dealer stands on | All 17s (including soft 17) |
 | Double down | Allowed on any two-card hand, including after any split |
-| Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)). Deviating on an unsuited 10-pair instead ("without honor") costs 1× wager. Splitting a **suited** 10-pair (a 20) is **not** mandatory, choosing to split it anyway costs 1× wager. |
+| <a id="table-split_tens"></a>Splitting 10s | **Mandatory** unless suited (see [Suited Exception](#immunity-exceptions-doubles-splits-suited)). Deviating on an unsuited 10-pair instead ("without honor") costs 1× wager. Splitting a **suited** 10-pair (a 20) is **not** mandatory, choosing to split it anyway costs 1× wager. |
 | Splitting | Maximum 5 splits per starting hand |
 
 
@@ -97,9 +98,10 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 
 | Rule | Details |
 |---|---|
+| <a id="table-split_aces"></a>Mandatory | An original pair of Aces **must** be split. Hitting, standing or doubling on it instead costs a flat **1 sip** (not scaled by wager), charged immediately, once per hand. |
 | Splits allowed | Up to the general maximum (5 per starting hand) |
 | Wager | Counted per resulting hand |
-| Blackjack on split Aces | Counts as Blackjack (not just 21) |
+| <a id="table-split_ace_bj"></a>Blackjack on split Aces | Counts as Blackjack (not just 21) |
 | After splitting | Player may hit, double, or split again |
 
 
@@ -107,13 +109,13 @@ _Unless stated otherwise within these rules, traditional rules of BlackJack appl
 
 #### Auto-Insurance (Ace Up-Card Only)
 
-When the Dealer shows an **Ace** as their first (up) card and ends up with Blackjack, each Player's maximum penalty is **capped at wager × number of hands**. Doubles, splits, and suited bonuses do not increase it beyond this cap.
+<a id="insurance-auto_cap"></a>When the Dealer shows an **Ace** as their first (up) card and ends up with Blackjack, each Player's maximum penalty is **capped at wager × number of hands**. Doubles, splits, and suited bonuses do not increase it beyond this cap.
 
 If the Dealer's Blackjack instead comes from a 10-value up-card hiding an Ace, the group never had a chance to insure against it — normal net-loss rules apply instead, with no cap.
 
 #### Player Blackjack Insurance (Optional)
 
-When the Dealer shows an Ace and a Player has Blackjack, a group vote is held before play begins. Everyone except the Blackjack holder votes. Majority wins; a tie defaults to decline.
+<a id="insurance-bj_vote"></a>When the Dealer shows an Ace and a Player has Blackjack, a group vote is held before play begins. Everyone except the Blackjack holder votes. Majority wins; a tie defaults to decline.
 
 If multiple Players have Blackjack, a separate vote is held for each in deal order. The Dealer does **not** peek at the hole card.
 
@@ -148,34 +150,34 @@ These effects fire **immediately** when they occur. They are **never halved** by
 
 | Card | Effect |
 |---|---|
-| ♣ Ace of Clubs | -1× wager from end-of-round net total (minimum 0). If you are also the Dealer, your own player hands are excluded from the Hard Switch penalty. |
-| ♠ Ace of Spades | If dealt as 1st card, next Player drinks 1× wager. 2nd card → 2nd Player, etc. |
-| ♥ Ace of Hearts | Treat yourself to a sip (drink 1× wager) |
-| ♦ Ace of Diamonds | Dealer drinks 1× wager |
+| <a id="ace-clubs-player"></a>♣ Ace of Clubs | -1× wager from end-of-round net total (minimum 0). If you are also the Dealer, your own player hands are excluded from the Hard Switch penalty. |
+| <a id="ace-spades-player"></a>♠ Ace of Spades | If dealt as 1st card, next Player drinks 1× wager. 2nd card → 2nd Player, etc. |
+| <a id="ace-hearts-player"></a>♥ Ace of Hearts | Treat yourself to a sip (drink 1× wager) |
+| <a id="ace-diamonds-player"></a>♦ Ace of Diamonds | Dealer drinks 1× wager |
 
 **Dealt to Dealer**
 
 | Card | Effect |
 |---|---|
-| ♣ Ace of Clubs | Dealer drinks only half the Hard Dealer Switch penalty (rounded up). |
-| ♠ Ace of Spades | Odd card (1st, 3rd, ...) → Dealer drinks 1× wager. Even card (2nd, 4th, ...) → all Players drink 1× wager |
-| ♥ Ace of Hearts | All Players treat themselves to a sip (everyone drinks 1× wager) |
-| ♦ Ace of Diamonds | All Players except Dealer drink 1× wager |
+| <a id="ace-clubs-dealer"></a>♣ Ace of Clubs | Dealer drinks only half the Hard Dealer Switch penalty (rounded up). |
+| <a id="ace-spades-dealer"></a>♠ Ace of Spades | Odd card (1st, 3rd, ...) → Dealer drinks 1× wager. Even card (2nd, 4th, ...) → all Players drink 1× wager |
+| <a id="ace-hearts-dealer"></a>♥ Ace of Hearts | All Players treat themselves to a sip (everyone drinks 1× wager) |
+| <a id="ace-diamonds-dealer"></a>♦ Ace of Diamonds | All Players except Dealer drink 1× wager |
 
 
 ### 4.2 Dealer Suited Hand
 
-If the Dealer's final hand is entirely one suit, all Players drink 2× wager (regardless of Dealer win/loss/bust).
+<a id="dealer-suited_hand"></a>If the Dealer's final hand is entirely one suit, all Players drink 2× wager (regardless of Dealer win/loss/bust).
 
 
 ### 4.3 Four Aces on First Deal
 
-If all 4 Aces are visible after the first deal (before any hits), everyone drinks 2× wager. This includes all Player hands and the Dealer's face-up card.
+<a id="four_aces-first_deal"></a>If all 4 Aces are visible after the first deal (before any hits), everyone drinks 2× wager. This includes all Player hands and the Dealer's face-up card.
 
 
 ### 4.4 Side Bet Dealer Bust
 
-Before the first deal (before any hits), each Player can place a side bet on Dealer bust.
+<a id="side-bust_vote"></a>Before the first deal (before any hits), each Player can place a side bet on Dealer bust.
 
 This feature can be toggled on or off by the host at any time
 
@@ -197,9 +199,9 @@ This feature can be toggled on or off by the host at any time
 - Target is chosen by the triggering card's **position within its hand**: the circle advances that many seats clockwise from the recipient — `(recipient_index + card_position) % number_of_players`. If the 3rd six/seven was the 1st card in its hand (+1), the next player is the target; if it was the 2nd card (+2), the player two seats clockwise is the target; and so on.
 - Each rule fires at most once per round. Both can fire in the same round.
 
-**Devil's Hand** — when the **3rd six** becomes visible, the target drinks **1× wager** immediately.
+<a id="cards-devils_hand"></a>**Devil's Hand** — when the **3rd six** becomes visible, the target drinks **1× wager** immediately.
 
-**Lucky Sevens** — when the **3rd seven** becomes visible, the target receives a **−1× wager credit** (reduces end-of-round net total by 1× wager, minimum 0).
+<a id="cards-lucky_sevens"></a>**Lucky Sevens** — when the **3rd seven** becomes visible, the target receives a **−1× wager credit** (reduces end-of-round net total by 1× wager, minimum 0).
 
 
 
@@ -210,7 +212,7 @@ These effects resolve after all hands are played (These can be halved by Easy Mo
 
 ### 5.1 Net Hand Losses
 
-Each player's hands are scored against the Dealer:
+<a id="core-net_loss"></a>Each player's hands are scored against the Dealer:
 
 | Outcome | Score |
 | ------- | ----- |
@@ -233,8 +235,8 @@ Only **net negative** scores result in drinking. Positives are disregarded.
 
 | Condition | Extra sips |
 | --------- | ---------- |
-| Lost hand was doubled | +1× wager |
-| Lost hand was suited | +1× wager |
+| <a id="loss-doubled"></a>Lost hand was doubled | +1× wager |
+| <a id="loss-suited"></a>Lost hand was suited | +1× wager |
 | Lost hand was doubled **and** suited | +3× wager (4× wager total with the base loss) |
 
 
@@ -243,7 +245,7 @@ Only **net negative** scores result in drinking. Positives are disregarded.
 Other players' outcomes may cause you to drink.
 Your own hand outcome determines how much you are affected.
 
-#### When another Player wins ALL their hands:
+#### <a id="others-wins_all"></a>When another Player wins ALL their hands:
 
 | Your result | Sips you drink |
 |---|---|
@@ -262,9 +264,9 @@ Even if you won all your hands, you still drink if another Player wins with:
 
 | Winning Hand | Sips you drink |
 |---|---|
-| Double | 1× wager |
-| Split (per successful split) | 1× wager each |
-| Suited | 1× wager |
+| <a id="others-immunity-doubled"></a>Double | 1× wager |
+| <a id="others-immunity-split"></a>Split (per successful split) | 1× wager each |
+| <a id="others-immunity-suited"></a>Suited | 1× wager |
 | Double **and** Suited | 4× wager (multiplicative penalty)|
 
 > This is why suited 10s are the only exception to the mandatory split 10s rule.
@@ -277,11 +279,11 @@ Even if you won all your hands, you still drink if another Player wins with:
 
 ### 5.3 Blackjack Bonus
 
-When any Player gets a Blackjack, **all other Players** drink 1× wager (regardless of own result).
+<a id="bonus-blackjack"></a>When any Player gets a Blackjack, **all other Players** drink 1× wager (regardless of own result).
 This includes Blackjacks from split Aces.
 No immunity applies.
 
-The base 1× wager is **doubled cumulatively** for:
+<a id="bonus-blackjack-multipliers"></a>The base 1× wager is **doubled cumulatively** for:
 
 | Condition | Multiplier |
 | --------- | ---------- |
@@ -301,12 +303,12 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 
 | # | Who | Condition | Effect |
 |---|-----|-----------|--------|
-| 1 | Player | **Exactly 21** | Distribute card count × wager sips to other Players (e.g. 6 cards at wager 1 = 6 sips distributed) |
-| 2 | Player | **Wins** | All other Players drink 1× wager |
-| 3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round (core penalties only: net losses, lost-hand extras, won-all, split wins and auto-insurance. "Extra" rules such as the Blackjack bonus, aces, win bonuses, sweeps, bust vote and lottery are not doubled) |
+| <a id="five_card-player_21"></a>1 | Player | **Exactly 21** | Distribute card count × wager sips to other Players (e.g. 6 cards at wager 1 = 6 sips distributed) |
+| <a id="five_card-player_win"></a>2 | Player | **Wins** | All other Players drink 1× wager |
+| <a id="five_card-dealer_21"></a>3 | Dealer | **Exactly 21** | All Players' sip wagers doubled this round (core penalties only: net losses, lost-hand extras, won-all, split wins and auto-insurance. "Extra" rules such as the Blackjack bonus, aces, win bonuses, sweeps, bust vote and lottery are not doubled) |
 
 **Clarifications:**
-- Rule 1 does not require a win.
+- Rule 1 does not require a win, so it applies even when the Dealer has Blackjack.
 - Rule 1 and 2 stack (win with 21 and 5 cards).
 - Rule 2 does not trigger on a push.
 - Rule 3 does not include Blackjack bonus or Ace effects.
@@ -318,23 +320,23 @@ If every card across all of a Player's final hands shares **entirely the same su
 
 | Condition | Penalty to others |
 | --------- | ----------------- |
-| All cards same suit | 4× wager |
-| All hands total 21 | 2× wager |
+| <a id="sweep-same_suit"></a>All cards same suit | 4× wager |
+| <a id="sweep-all_21"></a>All hands total 21 | 2× wager |
 | Both simultaneously | 6× wager |
 
-> Triggers regardless of win, push, or loss.
+> Triggers regardless of win, push, or loss, even when the Dealer has Blackjack.
 
 
 ### 5.6 Four Aces at End of Round
 
-If all 4 Aces are visible at end of round (but were **not** all visible on first deal), everyone drinks 1× wager.
+<a id="four_aces-end_round"></a>If all 4 Aces are visible at end of round (but were **not** all visible on first deal), everyone drinks 1× wager.
 
 > Cannot stack with [Four Aces on First Deal](#43-four-aces-on-first-deal) (first-deal rule takes precedence).
 
 
 ### 5.7 Hard Dealer Switch Penalty
 
-Triggered when the Dealer loses all hands. Dealer drinks based on all Players' winning hands, then the role passes.
+<a id="switch-hard"></a>Triggered when the Dealer loses all hands. Dealer drinks based on all Players' winning hands, then the role passes.
 
 | Hand type | Sips the Dealer drinks |
 |---|---|
@@ -365,34 +367,42 @@ On a Hard Switch, the Dealer's player-role drinking is **replaced entirely** by 
 
 ### 5.8 Milestone Handouts
 
-Every time a Player's cumulative sip total crosses a multiple of 50, they earn bonus sips to hand out to other Players (5 sips at 50, 6 at 100, 7 at 150, +1 per additional milestone). The winner has 60 seconds to distribute the sips; unassigned sips return to them. Only one milestone can be active at a time.
+<a id="milestone-handout"></a>Every time a Player's cumulative sip total crosses a multiple of 50, they earn bonus sips to hand out to other Players (5 sips at 50, 6 at 100, 7 at 150, +1 per additional milestone). The winner has 60 seconds to distribute the sips; unassigned sips return to them. Only one milestone can be active at a time.
 
 **If multiple Players cross the same boundary in the same round:** the Player who drank the *fewest* sips that round wins (prevents gaming the crossing). If still tied, the fewest sips in the *previous* round wins. If still tied, the winner is picked at random — never alphabetically.
 
-### Back-to-Back Milestones
+### <a id="milestone-back_to_back"></a>Back-to-Back Milestones
 
 If the **same Player** wins a milestone **and** gets the handout assigned two or more times in a row, the round log calls it out with a 🔥 (“back-to-back”, then “3 milestones in a row”, and so on). It's a bragging-rights callout — no sips either way. The 🔥 also sits next to their name at the table for as long as the run is alive (hover it for the count).
 
 Only **completed handouts** keep a run alive: letting the 60-second window expire (the forfeit) or winning with nobody to hand out to breaks it, as does anyone else winning in between. A bot winner's automatic round-robin handout counts like any other.
 
-### "Worst Average" Penalty
+### <a id="milestone-worst_average"></a>"Worst Average" Penalty
 
 At each milestone, the Player with the **lowest average sips/round overall** (total sips ÷ rounds played so far, excluding the milestone winner) is flagged as "worst."
 
 If the **same Player** is flagged "worst" for **two milestones in a row**, they take a **one-time penalty**: drink sips equal to the milestone winner's average sips/round (always rounded up, minimum 1). The streak then resets.
 
-### Losing Streak ("L" Badge)
+### <a id="streak-l_badge"></a>Losing Streak ("L" Badge)
 
-A Player who racks up **5 or more consecutive round losses** (net hands lost outweighing net hands won that round, the same win/loss streak already tracked for the session stats table) holds the **L** badge next to their name. Only one Player holds it at a time — whoever currently has the single longest active losing streak at the table.
+A Player who loses **5 or more rounds in a row** wears the **L** badge next to their name (a round is a loss when they lost more hands than they won). Any number of Players can wear it at once.
 
-If another Player's losing streak grows **strictly longer** than the current holder's, the L transfers to them, and the **outgoing holder drinks 1 sip** as a hand-off penalty. Earning the L for the first time never costs a sip, and neither does simply losing it because your own streak broke (nobody else has overtaken you) — only a genuine hand-off does. A tie doesn't dethrone the incumbent.
+**Comeback handout:** a Player who comes into a round on a losing streak of 5 or more and **doesn't lose that round** (a win, a push, or an even round all break the streak) gets sips to hand out to another Player:
 
-> **Example:** Alice is on a 5-round losing streak and holds the L. Bob then loses his 6th round in a row, overtaking her — the L moves to Bob, and Alice drinks 1 sip. If Alice's very next round is a win instead (streak broken, nobody else at 5+), the L simply vacates with no one drinking.
+| Streak broken | Sips to hand out |
+| ------------- | ---------------- |
+| 5–6 rounds | 1× wager |
+| 7–8 rounds | 2× wager |
+| 9–10 rounds | 3× wager |
+| every 2 rounds more | +1× wager |
 
+They have 20 seconds to pick who drinks (the timer waits while a milestone handout, a bust-vote handout or the Dealer Lottery is open). Sips nobody was picked for in time go back to them: **they drink them themselves**. The handout is never halved.
+
+> **Example (wager 1):** Alice loses 7 rounds in a row and wears the L. In round 8 she wins: the L comes off and she hands out 2 sips to anyone she likes.
 
 ### 5.9 Dealer Lottery
 
-If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards), every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
+<a id="event-dealer_lottery"></a>If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two ten-value cards), every Player gets a shot at a bonus split redeal. This runs after everything else this round has resolved, including Milestone Handouts, and never touches the round's actual result, stats, or the live shoe.
 
 **1. Stake.** Each Player picks **X = 0 to 5 wagers** (X × wager sips) within 20 seconds. No answer counts as 0. If everyone picks 0, nothing happens.
 
@@ -419,7 +429,7 @@ If the Dealer's final hand is a **paired 18** (two 9s) or **paired 20** (any two
 
 ### 5.10 Targeted Drinking Mode
 
-One or more Players get singled out and put on the spot with their own
+<a id="event-targeted"></a>One or more Players get singled out and put on the spot with their own
 standalone mini-game, played **between** normal rounds — never during one.
 A subgame can start three ways: the **host** picks target(s) and force-starts
 it immediately; a **majority-vote proposal** (any Player taps another
@@ -477,7 +487,7 @@ cancels the mode early — the statistics table's final numbers are shown
 one last time in a recap, then a **3-round cooldown** starts before it can
 be started again.
 
-**Perfect graduation:** since 3-in-a-row is the minimum possible, a Player
+<a id="event-targeted-perfect_handout"></a>**Perfect graduation:** since 3-in-a-row is the minimum possible, a Player
 who's *never* missed by the time they graduate — 3 attempts, 3 corrects —
 gets to hand out **3 sips** to any other Player, same claim-window/forfeit
 mechanic as Dealer Lottery's own handout (20 seconds to assign them, or the
@@ -500,9 +510,9 @@ Started by host override or majority vote, and cancelled, from **Settings →
 Players** (host) or the mini-game's own controls (host or current dealer) —
 see [Multiplayer.md](Multiplayer.md#targeted-drinking-mode).
 
-#### Easter Egg Launch (Wild Card 🃏)
+#### <a id="event-wild_card"></a>Easter Egg Launch (Wild Card 🃏)
 
-When the Wild Card 🃏 logo-press easter egg launches Targeted Drinking Mode
+<a id="event-wild_card-targeted"></a>When the Wild Card 🃏 logo-press easter egg launches Targeted Drinking Mode
 instead of the host (a 15% roll on press — see `app/routes/wild_card.py`),
 two extra rules apply that don't exist for a host- or vote-started run:
 
@@ -658,6 +668,27 @@ seat, so it stays with it if the host takes over an AFK Player's seat.
 > **2** for Bob (1 × 1.4 = 1.4; the 0.4 is over ¼, so it rounds up). Later
 > Bob resets himself to 1.0×; for the next 3 rounds nobody can vote a new
 > rate onto him unless he votes Yes.
+
+
+### 6.4 House Rules (Presets)
+
+Every table chooses which of these rules it plays. The host picks a **preset** when creating the room and can switch single rules on or off later in ⚙️ Settings → 📜 House rules.
+
+| Preset | What's in it | Avg sips per player per round* |
+| ------ | ------------ | ------------------------------ |
+| 🟢 **Starter** | The core game: net hand losses, mandatory split 10s, lost doubled hand +1, auto-insurance cap, Hard Dealer Switch, another player wins all hands, flat Blackjack bonus, milestone handouts | ≈ 2.2 |
+| 🟡 **Standard** | All the card rules: Starter plus the Aces, suited rules, immunity breaks, Blackjack multipliers, 5+ cards, Four Aces, the split-Aces rules, dealer suited hand and the bust vote | ≈ 4.3 |
+| 🔴 **Full** | Everything in this document (the default): Standard plus Devil's Hand / Lucky Sevens, the all-hand bonus, dealer 5-card 21, the Blackjack insurance vote, and the events: Dealer Lottery, Targeted Drinking, the Wild Card, the "worst average" penalty and the L badge | more than Standard |
+
+\* Simulated: 3 players, 1 deck, 2 hands each, wager 1, basic strategy. Full has no number because the simulation doesn't play the events, which are most of what Full adds; its card rules alone come out the same as Standard.
+
+- **Net hand losses** and **dealer rotation** are the game itself and can't be switched off.
+- A rule that depends on another (for example the A♣ half penalty needs the Hard Dealer Switch) only applies while its parent is on.
+- Changes apply **from the next round**, and the round log says what changed. The **bust vote** and **Wild Card** are *quick switches*: they change at once.
+- Players can **suggest** a change, which goes to the host. If the table votes to **decide rule changes by vote**, a suggestion opens a table vote instead, and a majority changes the rule from the next round without the host. The host can switch that off again.
+- **➕ Next rule** adds one rule (or a matching pair, like A♥ to a player and to the dealer) at a time, so a new table can learn the game step by step.
+- Everyone can see the table's rules. In this rules popup, rules the table has switched off are marked **OFF AT THIS TABLE**.
+
 
 
 ## 7. Potential Future Rules

@@ -3,7 +3,7 @@
 
 // Run synchronously on script load (DOM is ready — scripts are at bottom of <body>).
 // Must be outside the async IIFE so these run before any await.
-setAnimToggle(lsGet("bjDealAnim") !== "0");  // restore animation pref (default ON)
+_syncAnimToggles(_animToggleOn());           // show the saved pref, or the device default
 setBustVoteSetupToggle(true);                 // bust-vote toggle starts ON in setup
 
 (async () => {

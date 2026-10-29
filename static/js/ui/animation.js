@@ -2,8 +2,15 @@
 // ============================================================
 let _dealAnimating = false;   // true while cards are being dealt one-by-one
 
+// Default when the player hasn't chosen: off on touch devices (phones and
+// tablets, where the animation costs time and battery), on elsewhere.
+function animDefaultOn() {
+  return !(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+}
+
 function _animToggleOn() {
-  return lsGet("bjDealAnim") !== "0";
+  const saved = lsGet("bjDealAnim");
+  return saved === null ? animDefaultOn() : saved !== "0";
 }
 
 // Called by applyState when phase just flipped pre-deal → playing.

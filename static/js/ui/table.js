@@ -87,6 +87,8 @@ function buildDigitalUI() {
   if (bojPollOverlay) bojPollPanel.mount(bojPollOverlay);
   const buyinGiveOverlay = document.getElementById("buyin-give-overlay");
   if (buyinGiveOverlay) buyinGivePanel.mount(buyinGiveOverlay);
+  const lGiveOverlay = document.getElementById("l-handout-give-overlay");
+  if (lGiveOverlay) lHandoutGivePanel.mount(lGiveOverlay);
   const tdGiveOverlay = document.getElementById("targeted-drinking-give-overlay");
   if (tdGiveOverlay) targetedDrinkingGivePanel.mount(tdGiveOverlay);
   const bustVoteOverlay = document.getElementById("bust-vote-modal-overlay");
@@ -616,7 +618,9 @@ function _syncModals(state) {
   const adminNav = document.getElementById("btn-admin-nav");
   if (adminNav) adminNav.style.display = showSettings;
 
-  if (state.anim_default !== undefined && lsGet("bjDealAnim") === null) {
+  // A joiner inherits the host's animation choice, except on a touch
+  // device, where it stays off until they switch it on themselves.
+  if (state.anim_default !== undefined && lsGet("bjDealAnim") === null && animDefaultOn()) {
     setAnimToggle(state.anim_default);
   }
 
@@ -657,6 +661,7 @@ function _syncDigitalUI(state) {
   bustVotePanel.render(state);
   dealerLotteryEntryPanel.render(state);
   buyinGivePanel.render(state);
+  lHandoutGivePanel.render(state);
   bojPollPanel.render(state);
   bojSplitPanel.render(state);
   targetedDrinkingPanel.render(state);
@@ -739,6 +744,8 @@ function applyState(state) {
 
   // Commit new state — capture bust-vote open flag first.
   const _prevBustOpen = lastState && lastState.bust_vote_window_open;
+  noteRuleChanges(lastState, state);
+  renderRuleVote(state);
   lastState   = state;
   // Optimistic hint override: prevent stale polls (same state_seq) from flipping
   // strategy_hint_enabled back to false between the /set_hint response and the next poll.

@@ -82,7 +82,8 @@ def is_soft_hand(hand) -> bool:
 # =============================================================================
 
 def best_play(hand, dealer_up_card, valid_actions: list,
-              drinking_mode: bool = False) -> str:
+              drinking_mode: bool = False,
+              split_tens: bool = True) -> str:
     """
     Return the basic-strategy optimal action for any hand.
 
@@ -92,6 +93,8 @@ def best_play(hand, dealer_up_card, valid_actions: list,
         valid_actions:   List of currently legal actions, e.g. ["h","s","d","sp"]
         drinking_mode:   When True applies drinking-rule overrides (mandatory
                          10-split, aggressive doubling on 9/10/11)
+        split_tens:      False when the table.split_tens rule is off: unsuited
+                         10-pairs then follow plain basic strategy (stand).
 
     Returns:
         One of "h", "s", "d", "sp"
@@ -104,7 +107,7 @@ def best_play(hand, dealer_up_card, valid_actions: list,
     if drinking_mode:
         if "sp" in valid_actions and hand.can_split():
             rv = hand.cards[0].rank.blackjack_value
-            if rv == 10 and not hand.is_suited():
+            if rv == 10 and not hand.is_suited() and split_tens:
                 return "sp"
             if rv == 9 and d_val != 10:
                 return "sp"

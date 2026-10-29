@@ -219,6 +219,7 @@ def cmd_split(game_session, parts):
     # Warn the player and charge 1 sip for choosing to split anyway.
     _was_suited_10_split = (
         game_session.drinking_mode
+        and game_session.rules.on("table.split_tens")
         and len(hand.cards) == 2
         and hand.cards[0].rank.blackjack_value == 10
         and hand.cards[1].rank.blackjack_value == 10
@@ -260,15 +261,17 @@ def cmd_split(game_session, parts):
         log.debug(f"    {new_label}: [{new_hand.cards[0]}] waiting for second card")
 
     if _was_suited_10_split:
+        wager = game_session.wager
+        sips  = f"{wager} sip{'' if wager == 1 else 's'}"
         log.debug(f"  {player.name}: mandatory split-10s doesn't apply to suited "
-                  f"20s — splits anyway, drinks 1 sip.")
+                  f"20s — splits anyway, drinks {sips}.")
         game_session.tracker.apply([
-            (player.name, 1, f"{player.name} split a suited 20 (mandatory split 10s "
-                              f"does not apply if suited)"),
+            (player.name, wager, f"{player.name} split a suited 20 (mandatory split 10s "
+                                 f"does not apply if suited)"),
         ])
-        _push_ace_drink_event(game_session, (player.name, 1,
+        _push_ace_drink_event(game_session, (player.name, wager,
             f"⚠️ Mandatory split 10s does not apply if suited — "
-            f"{player.name} split anyway => drinks 1 sip"))
+            f"{player.name} split anyway => drinks {sips}"))
 
 
 def _cmd_insurance(game_session, parts):
@@ -319,7 +322,7 @@ def _cmd_blackjack(game_session, parts):
     game_session.tracker.apply(
         DrinkingRules.handle(BlackjackEvent(
             player_name=player.name, hand=hand, all_names=all_names,
-            wager=game_session.wager)))
+            wager=game_session.wager, rules=game_session.rules)))
     log.debug(f"  {player.name} BLACKJACK confirmed.")
 
 

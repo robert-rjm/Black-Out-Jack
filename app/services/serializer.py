@@ -29,6 +29,8 @@ from app.services.serializers.drink_rate import _serialize_drink_rates
 from app.services.serializers.boj import _serialize_boj
 from app.services.serializers.bust_vote import _bust_vote_window
 from app.services.serializers.insurance import _insurance_outcome_text, _serialize_insurance_vote
+from app.services.house_rules import serialize_rules
+from app.services.rule_votes import serialize_rule_votes
 
 
 def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
@@ -51,7 +53,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     table = []
     _cash = (not session.drinking_mode) and session.mode == "digital"
     for p in session.all_players:
-        _hands = [serialize_hand(h, hide_double=hide_double) for h in p.hands]
+        _hands = [serialize_hand(h, rules=session.rules, hide_double=hide_double) for h in p.hands]
         if _cash:
             # Normal mode: doubling/splitting costs another bet -- don't offer
             # it to a player who can't cover it.
@@ -138,7 +140,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "clean_streaks":          dict(session.stats.clean_streak),
         "total_clean_rounds":     dict(session.stats.total_clean_rounds),
         "trophy_holder":          compute_trophy_holder(session),
-        "worst_streak_holder":    session.stats.worst_streak_holder,
+        "l_badge_holders":        list(session.stats.l_badge_holders),
         "last_round_drinks":      session.drinks.last_round_drinks,
         "round_notices":          session.drinks.round_notices,
         "prev_round_sips":        {k: max(0, v) for k, v in session.drinks.prev_round_sips.items()},
@@ -156,6 +158,16 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             if n not in session.round._buyin_given
             and n in set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
+        # Comeback handouts this client's seats can give (L badge broken)
+        "my_l_handouts":          {
+            n: a for n, a in session.round._l_handout_pending.items()
+            if n not in session.round._l_handout_given
+            and n in set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
+        },
+        "l_handout_seconds_left": (
+            max(0, round(session.round._l_handout_expires_at - time.monotonic()))
+            if session.round._l_handout_expires_at is not None else 0
+        ),
         "wild_card_seq":          session.round._wild_card_seq,
         "wild_card_text":         (session.round._wild_card_result or {}).get("text"),
         "wild_card_outcome":      (session.round._wild_card_result or {}).get("outcome"),
@@ -205,17 +217,19 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     }
 
     # ---- Milestone data ----
+    _show_milestone_run = (session.drinks.milestone_win_streak >= 2
+                           and session.rules.on("milestone.back_to_back"))
     _milestone_data = {
         "last_milestone_result": _serialize_last_milestone(session.drinks.last_milestone_result),
         "pending_milestone":     _serialize_pending_milestone(session.round._pending_milestone, _ci),
         "last_milestone_worst":  session.drinks.last_milestone_worst,
         # Back-to-back milestone run: only surfaced once it is an actual
         # run (2+), so the frontend badge is a plain name comparison like
-        # every other seat badge.
+        # every other seat badge. Hidden when milestone.back_to_back is off.
         "milestone_run_holder": (session.drinks.last_milestone_winner
-                                 if session.drinks.milestone_win_streak >= 2 else None),
+                                 if _show_milestone_run else None),
         "milestone_run_length": (session.drinks.milestone_win_streak
-                                 if session.drinks.milestone_win_streak >= 2 else 0),
+                                 if _show_milestone_run else 0),
     }
 
     _boj_data = {"boj": _serialize_boj(session, _ci, client_id)}
@@ -448,6 +462,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         # would break it. See QueuedSettingsOut's docstring.
         "queued_settings": QueuedSettingsOut(**session._queued_settings).model_dump(exclude_none=True),
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
+        # House rules: ID lists only; names and groups come from the cached
+        # GET /rules_registry.
+        "rules":                  serialize_rules(session),
+        "rule_votes":             serialize_rule_votes(session, _ci),
         "kpi_stats":              compute_kpi_stats(session, sip_ticker=sip_totals, order=order),
         **_payout_data,
         **_drink_summary_data,

@@ -118,16 +118,19 @@ def wild_card():
         })
 
     # ── Milestone gate ───────────────────────────────────────────────────────
-    sip_totals     = compute_sip_totals(session)
-    player_total   = sip_totals.get(player_name, 0)
-    next_boundary  = ((player_total // MILESTONE_STEP) + 1) * MILESTONE_STEP
-    sips_to_ms     = next_boundary - player_total
-    ms_not_claimed = next_boundary not in session.drinks.milestones_claimed
-    if sips_to_ms <= 10 and ms_not_claimed:
-        return jsonify({
-            "ok":     False,
-            "output": f"You're {sips_to_ms} sip(s) from a milestone — earn it first!",
-        })
+    # Only when milestones exist: with milestone.handout off there is nothing
+    # to earn, so the press goes through.
+    if session.rules.on("milestone.handout"):
+        sip_totals     = compute_sip_totals(session)
+        player_total   = sip_totals.get(player_name, 0)
+        next_boundary  = ((player_total // MILESTONE_STEP) + 1) * MILESTONE_STEP
+        sips_to_ms     = next_boundary - player_total
+        ms_not_claimed = next_boundary not in session.drinks.milestones_claimed
+        if sips_to_ms <= 10 and ms_not_claimed:
+            return jsonify({
+                "ok":     False,
+                "output": f"You're {sips_to_ms} sip(s) from a milestone — earn it first!",
+            })
 
     # ── Roll ─────────────────────────────────────────────────────────────────
     # Every press lands on a real outcome -- self, random, or targeted --
@@ -159,7 +162,8 @@ def wild_card():
         else:
             target_name = random.choice(candidates).name
 
-        if start_targeted_drinking(session, [target_name], presser_name=player_name):
+        if (session.rules.on("event.wild_card.targeted")
+                and start_targeted_drinking(session, [target_name], presser_name=player_name)):
             outcome = "targeted"
             text = f"🃏 {label} marks {target_name} for Targeted Drinking!"
         else:

@@ -30,6 +30,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 from engine.referee import RefereeSession
+from engine.rules_registry import DEFAULT_RULES, RuleSet
 
 
 @dataclass
@@ -159,6 +160,14 @@ class RoundState:
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 
+    # Comeback handout: a 5+ round losing streak broken this round (see
+    # drink_tracker._update_l_badges). Unclaimed sips go back to the giver
+    # when the window closes, or at newround at the latest.
+    _l_handout_pending: dict = field(default_factory=dict)   # giver -> raw sips to hand out
+    _l_handout_streaks: dict = field(default_factory=dict)   # giver -> losing streak they broke
+    _l_handout_given: set = field(default_factory=set)       # givers who gave or drank them
+    _l_handout_expires_at: float | None = None
+
     # Normal-mode "above the buy-in" handouts (see services/buyin_handout.py)
     _buyin_pending: dict = field(default_factory=dict)   # giver -> sips to hand out
     _buyin_given: set = field(default_factory=set)       # givers who gave or passed
@@ -197,10 +206,9 @@ class SessionStats:
     session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
     clean_streak: dict       = field(default_factory=dict)   # player -> current consecutive clean rounds
     total_clean_rounds: dict = field(default_factory=dict)   # player -> total clean rounds this session
-    # Whoever currently holds the "L" badge -- the single longest active
-    # consecutive-round-loss streak at the table, once it reaches
-    # WORST_STREAK_THRESHOLD. None if nobody currently qualifies.
-    worst_streak_holder: str | None = None
+    # Everyone currently wearing the "L" badge: a losing streak of
+    # WORST_STREAK_THRESHOLD+ rounds. Seat order; any number at once.
+    l_badge_holders: list = field(default_factory=list)
     # Drink Rate Mode: player -> {drink factor -> rounds played at it}. Filled
     # at each round's harvest; feeds the xlsx "DRINK RATE" section.
     rate_rounds: dict = field(default_factory=dict)
@@ -216,13 +224,16 @@ class GameConfig:
     mode: str              = "referee"  # "referee" | "digital"
     drinking_mode: bool    = True
     easy_mode: bool        = False
-    bust_vote_enabled: bool     = False
+    # Which drinking rules are in play: the only copy (the engine session reads
+    # it live, see GameRoom.__post_init__). The dealer bust vote and the Wild
+    # Card easter egg are the rules the admin can flip live; see the GameRoom
+    # properties bust_vote_enabled / wild_card_enabled.
+    rules: RuleSet         = DEFAULT_RULES
     strategy_hint_enabled: bool = False
     god_mode: bool         = True
     dealer_rotate_every: int    = 1
     bet_amount: float      = 10
     starting_bankroll: float    = 100
-    wild_card_enabled: bool     = True
     buyin_handouts: bool        = False   # Normal mode: players above the buy-in hand out sips
 
 
@@ -371,6 +382,16 @@ class GameRoom:
     _boj_split: dict | None = None
     _boj_last_result: dict | None = None
 
+    # House-rule suggestions and votes (services/rule_votes.py). Session-
+    # lifetime: a suggestion waits for the admin across rounds, and a vote
+    # opened at the end of a round shouldn't vanish at newround.
+    _rule_suggestions: list = field(default_factory=list)   # [{ids, on, by}] for the admin
+    _rule_voting: bool = False                 # the table may vote rule changes in directly
+    _pending_rule_vote: dict | None = None     # the open vote, one at a time
+    _rule_vote_result: dict | None = None      # last outcome, for a one-shot toast
+    _rule_vote_seq: int = 0
+    _rule_vote_cooldowns: dict = field(default_factory=dict)   # proposer_lc -> round_count it may propose again
+
     # Bust handout sequence counter (session-lifetime; bumped when all
     # handouts for a round resolve — never reset between rounds)
     _bust_handout_seq: int = 0
@@ -443,6 +464,15 @@ class GameRoom:
     _last_round_payouts: dict = field(default_factory=dict)
     _bank_run_players: list = field(default_factory=list)
     _biggest_round_payouts: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        # config.rules is the only copy of the room's rules. The engine session
+        # (engine/ can't see app/ config) reads it live through rules_source, so
+        # any write to room.rules or config.rules reaches the engine at once.
+        self.session.rules_source = self._current_rules
+
+    def _current_rules(self) -> RuleSet:
+        return self.config.rules
 
     # ------------------------------------------------------------------
     # Explicit properties delegating to RefereeSession
@@ -616,14 +646,19 @@ class GameRoom:
     def drinking_mode(self, v): self.config.drinking_mode = v
 
     @property
+    def rules(self) -> RuleSet: return self.config.rules
+    @rules.setter
+    def rules(self, v): self.config.rules = v
+
+    @property
     def easy_mode(self): return self.config.easy_mode
     @easy_mode.setter
     def easy_mode(self, v): self.config.easy_mode = v
 
     @property
-    def bust_vote_enabled(self): return self.config.bust_vote_enabled
+    def bust_vote_enabled(self): return self.config.rules.on("side.bust_vote")
     @bust_vote_enabled.setter
-    def bust_vote_enabled(self, v): self.config.bust_vote_enabled = v
+    def bust_vote_enabled(self, v): self.rules = self.config.rules.with_rule("side.bust_vote", bool(v))
 
     @property
     def strategy_hint_enabled(self): return self.config.strategy_hint_enabled
@@ -656,6 +691,6 @@ class GameRoom:
     def buyin_handouts(self, v): self.config.buyin_handouts = v
 
     @property
-    def wild_card_enabled(self): return self.config.wild_card_enabled
+    def wild_card_enabled(self): return self.config.rules.on("event.wild_card")
     @wild_card_enabled.setter
-    def wild_card_enabled(self, v): self.config.wild_card_enabled = v
+    def wild_card_enabled(self, v): self.rules = self.config.rules.with_rule("event.wild_card", bool(v))

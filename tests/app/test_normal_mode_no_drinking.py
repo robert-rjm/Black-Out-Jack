@@ -15,7 +15,7 @@ from engine.drinking_rules import DrinkTracker
 from tests.conftest import make_card
 
 
-def _always_stand(self, hand, dealer_up_card, valid_actions, drinking_mode=False):
+def _always_stand(self, hand, dealer_up_card, valid_actions, drinking_mode=False, **_):
     return "s"
 
 

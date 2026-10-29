@@ -5,7 +5,7 @@ Wraps the shared engine (engine.blackjack.RoundManager + engine.drinking_rules
 .DrinkTracker) with a small interactive setup + round loop, so the exact same
 rules/logic used by the Flask web app can be played at the command line.
 
-Run: python scripts/play_terminal.py
+Run: python scripts/play_terminal.py [--preset starter|standard|full]
 """
 import sys as _sys
 import os as _os
@@ -13,7 +13,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 
 from engine.blackjack import Player, NPC_Player, Shoe, Hand, RoundManager  # noqa: E402
 from engine.drinking_rules import DrinkTracker  # noqa: E402
-from scripts._cli import safe_int as _safe_int, yes_no as _yes_no  # noqa: E402
+from scripts._cli import preset_rules, safe_int as _safe_int, yes_no as _yes_no  # noqa: E402
 
 
 def setup_session():
@@ -82,13 +82,16 @@ def setup_session():
 
 
 def main():
+    rules = preset_rules(_sys.argv[1:])
     players, dealer_idx, shoe, wager, num_hands, drinking_mode = setup_session()
+    print(f"  House rules: {(rules.preset or 'custom').capitalize()}\n")
 
     while True:
         dealer_player = players[dealer_idx]
         tracker = DrinkTracker(players, dealer_player)
         rm = RoundManager(players, dealer_player, shoe, tracker,
                           wager=wager, num_hands=num_hands, drinking_mode=drinking_mode)
+        rm.rules = rules
         rm.play_round()
 
         if shoe.just_reshuffled:

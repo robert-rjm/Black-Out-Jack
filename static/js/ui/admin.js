@@ -196,18 +196,6 @@ function updateRoleUI(state) {
 // TABLE SETTINGS TOGGLES (host)
 // ============================================================
 
-async function setBustVoteEnabled(on) {
-  try {
-    const res  = await fetch("/update_settings", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, bust_vote_enabled: on }),
-    });
-    const data = await res.json();
-    if (data.ok) applyState(data);
-  } catch (_) {}
-}
-
 function setStrategyHintEnabled(on) {
   // Per-player preference — stored server-side so badge and blue border are state-driven
   window._myHintEnabled = on; // optimistic: prevent next poll from flipping the checkbox back
@@ -217,18 +205,6 @@ function setStrategyHintEnabled(on) {
     body:    JSON.stringify({ room_code: roomCode, client_id: clientId, enabled: on }),
   }).then(r => r.json()).then(data => { if (data.ok) applyState(data); })
     .catch(() => { if (lastState) applyState(lastState); });
-}
-
-async function setWildCardEnabled(on) {
-  try {
-    const res  = await fetch("/update_settings", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ room_code: roomCode, client_id: clientId, wild_card_enabled: on }),
-    });
-    const data = await res.json();
-    if (data.ok) applyState(data);
-  } catch (_) {}
 }
 
 async function setEasyModeAdmin(on) {
@@ -307,9 +283,8 @@ async function setGodMode(on) {
 // ============================================================
 // DEAL ANIMATION PREFERENCE
 // ============================================================
-function setAnimToggle(on) {
-  lsSet("bjDealAnim", on ? "1" : "0");
-  // Sync both pill toggles (checkbox + ON/OFF labels)
+// Sync both pill toggles (checkbox + ON/OFF labels) without saving a choice.
+function _syncAnimToggles(on) {
   [["anim-toggle", "anim-lbl-setup", "anim-lbl-setup-on"],
    ["anim-toggle-modal", "anim-lbl-modal", "anim-lbl-modal-on"]].forEach(([cbId, offId, onId]) => {
     const cb = document.getElementById(cbId);
@@ -319,6 +294,11 @@ function setAnimToggle(on) {
     if (lblOff) lblOff.style.display = on ? "none"   : "inline";
     if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
   });
+}
+
+function setAnimToggle(on) {
+  lsSet("bjDealAnim", on ? "1" : "0");
+  _syncAnimToggles(on);
   // Admin pushes preference to server so new joiners inherit it
   if (myRole === ROLE.ADMIN && roomCode && clientId) {
     fetch("/set_anim_pref", {

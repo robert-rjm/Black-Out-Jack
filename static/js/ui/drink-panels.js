@@ -173,17 +173,6 @@ class BustVotePanel {
   }
 
   render(state) {
-    // Sync modal pill toggle in settings (checkbox + ON/OFF labels)
-    const bustCb = document.getElementById("bust-vote-toggle-modal");
-    if (bustCb) {
-      const on = !!state.bust_vote_enabled;
-      bustCb.checked = on;
-      const lblOff = document.getElementById("bust-vote-lbl-modal");
-      const lblOn  = document.getElementById("bust-vote-lbl-modal-on");
-      if (lblOff) lblOff.style.display = on ? "none"   : "inline";
-      if (lblOn)  lblOn.style.display  = on ? "inline" : "none";
-    }
-
     const statusEl      = document.getElementById("bust-vote-status");
     const statusElRound = document.getElementById("bust-vote-status-round");
 
@@ -1084,3 +1073,86 @@ class BuyinGivePanel {
 }
 
 const buyinGivePanel = new BuyinGivePanel();
+
+
+// ── Comeback handout (L badge: a 5+ round losing streak just broke) ──
+async function giveLHandout(giverName, recipientName) {
+  try {
+    const res  = await fetch("/l_handout/give", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ room_code: roomCode, client_id: clientId,
+                                giver_name: giverName, recipient_name: recipientName }),
+    });
+    const data = await res.json();
+    if (data.ok) applyState(data);
+  } catch (_) {}
+}
+
+// Same shape as BuyinGivePanel, plus a countdown: sips nobody is picked for
+// in time go back to the giver. Waits behind the other handout prompts
+// (milestone, bust vote, Dealer Lottery, Targeted Drinking) and the rule
+// vote, so popups come one after another, never stacked; the server holds
+// the countdown while those are open.
+class LHandoutGivePanel {
+  mount(el) {
+    if (this.el) return;   // idempotent -- buildDigitalUI() may run more than once
+    this.el = el;
+    el.addEventListener("click", e => {
+      const btn = e.target.closest(".lgp-give-btn");
+      if (btn) giveLHandout(btn.dataset.giver, btn.dataset.recipient);
+    });
+  }
+
+  _blocked(state) {
+    const dl = state.dealer_lottery || {};
+    return !!(state.pending_milestone
+      || (state.my_bust_handout_pending || []).length
+      || dl.pending || dl.reveal_pending || Object.keys(dl.my_pending_handouts || {}).length
+      || (typeof _dealerLotteryRevealOpen !== "undefined" && _dealerLotteryRevealOpen)
+      || (typeof targetedDrinkingPanel !== "undefined" && targetedDrinkingPanel.phase === "reveal")
+      || ((state.rule_votes || {}).pending));
+  }
+
+  render(state) {
+    if (!this.el) return;
+    const body = this.el.querySelector("#l-handout-give-body");
+    if (!body) return;
+
+    const pending = state.my_l_handouts || {};
+    const givers  = Object.keys(pending);
+    if (!givers.length || state.phase !== "round-over" || this._blocked(state)) {
+      this.el.style.display = "none";
+      body.innerHTML = "";
+      return;
+    }
+
+    this.el.style.display = "flex";
+    const secs = state.l_handout_seconds_left || 0;
+    const allPlayers = state.players || [];
+    const html = givers.map(giverName => {
+      const amount = pending[giverName];
+      const sipWord = amount === 1 ? "sip" : "sips";
+      const label = givers.length > 1
+        ? `🔁 <strong>${escapeHtml(giverName)}</strong> broke the losing streak! Hand out ${amount} ${sipWord} to:`
+        : `🔁 You broke your losing streak! Hand out ${amount} ${sipWord} to:`;
+      const btns = allPlayers
+        .filter(n => n.toLowerCase() !== giverName.toLowerCase())
+        .map(n => `<button class="btn wide bgp-give-btn lgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="${escapeHtml(n)}"
+            >${escapeHtml(n)}</button>`)
+        .join("");
+      const keep = `<button class="btn wide bgp-give-btn lgp-give-btn"
+            data-giver="${escapeHtml(giverName)}" data-recipient="">Keep them (drink ${amount} myself)</button>`;
+      const mb = givers.length > 1 ? " bgp-multi-entry" : "";
+      return `<div class="bgp-entry${mb}">
+        <div class="bgp-winner-label">${label}</div>
+        <div class="bgp-btns-col">${btns}${keep}</div>
+      </div>`;
+    }).join(`<hr class="bgp-divider">`);
+    body.innerHTML = html +
+      `<div class="lgp-timer">⏱ ${secs}s · if nobody is picked, you drink them</div>`;
+  }
+}
+
+const lHandoutGivePanel = new LHandoutGivePanel();

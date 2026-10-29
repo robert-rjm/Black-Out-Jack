@@ -226,7 +226,7 @@ def _build_new_room(session: GameRoom, plan: dict) -> None:
         mode="digital", drinking=True, wager=DEFAULT_WAGER, num_hands=DEFAULT_NUM_HANDS,
         bet_amount=session.bet_amount, starting_bankroll=session.starting_bankroll,
         num_decks=2 if len(names) >= 4 else 1,
-        bust_vote_enabled=session.bust_vote_enabled, easy_mode=session.easy_mode,
+        rules=session.rules, easy_mode=session.easy_mode,
     )
     for cid in order:
         seats = active[cid]

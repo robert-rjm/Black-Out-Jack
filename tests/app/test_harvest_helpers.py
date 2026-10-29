@@ -6,6 +6,8 @@ Tests call each helper directly with a minimal GameRoom so every helper is
 testable in isolation without running a full round.
 """
 
+import pytest
+
 from app.services.drink_tracker import (
     _record_csv_rows,
     _update_sip_tickers,
@@ -15,7 +17,11 @@ from app.services.drink_tracker import (
     _update_max_round_sips,
     _update_dealer_stats,
     _update_streaks,
-    _update_worst_streak_holder,
+    _update_l_badges,
+    apply_l_handout_forfeit,
+    give_l_handout,
+    harvest_drink_log,
+    l_handout_sips,
 )
 from app.config import WORST_STREAK_THRESHOLD
 from engine.referee import RefereeSession
@@ -273,76 +279,131 @@ def test_streaks_unresolved_hands_player_skipped():
 
 
 # ---------------------------------------------------------------------------
-# _update_worst_streak_holder ("L" badge)
+# "L" badge and comeback handout (_update_l_badges, give_l_handout)
 # ---------------------------------------------------------------------------
 
-def test_worst_streak_holder_none_below_threshold():
+def _streaks(room, **current):
+    room.stats.streaks = {n: {"current": c, "longest_win": 0, "longest_loss": max(0, -c)}
+                          for n, c in current.items()}
+
+
+def test_every_player_on_a_long_losing_streak_wears_the_l():
+    room = _make_room(names=["Alice", "Bob", "Carol"])
+    _streaks(room, Alice=-5, Bob=-9, Carol=-(WORST_STREAK_THRESHOLD - 1))
+    _update_l_badges(room, {"Alice": -4, "Bob": -8, "Carol": -3})
+    assert room.stats.l_badge_holders == ["Alice", "Bob"]   # several at once, seat order
+    assert room.round._l_handout_pending == {}             # nobody broke a streak
+    assert room.drinks.sip_ticker == {}                     # and nobody drinks for it
+
+
+def test_handout_size_steps_up_every_two_rounds():
+    assert [l_handout_sips(n) for n in (5, 6, 7, 8, 9, 10, 11)] == [1, 1, 2, 2, 3, 3, 4]
+    assert l_handout_sips(7, wager=3) == 6   # sips are wagers
+
+
+@pytest.mark.parametrize("before, sips", [(-5, 1), (-6, 1), (-7, 2), (-9, 3)])
+def test_breaking_a_streak_earns_a_handout(before, sips):
     room = _make_room()
-    room.stats.streaks["Alice"] = {"current": -(WORST_STREAK_THRESHOLD - 1), "longest_win": 0, "longest_loss": 0}
-    _update_worst_streak_holder(room)
-    assert room.stats.worst_streak_holder is None
+    _streaks(room, Alice=1, Bob=0)
+    _update_l_badges(room, {"Alice": before, "Bob": 0})
+    assert room.round._l_handout_pending == {"Alice": sips}
+    assert room.stats.l_badge_holders == []
+    assert room.round._l_handout_expires_at is not None
 
 
-def test_worst_streak_holder_set_at_threshold_no_penalty_first_time():
-    """Earning the L for the first time (nobody held it before) never costs
-    a sip -- only a hand-off from an existing holder does."""
+def test_handout_is_counted_in_wagers():
     room = _make_room()
-    room.stats.streaks["Alice"] = {"current": -WORST_STREAK_THRESHOLD, "longest_win": 0, "longest_loss": WORST_STREAK_THRESHOLD}
-    _update_worst_streak_holder(room)
-    assert room.stats.worst_streak_holder == "Alice"
-    assert room.drinks.sip_ticker == {}
-    alice = room._get_player("Alice")
-    assert alice.drink_log == []
+    room.session.wager = 2
+    _streaks(room, Alice=1)
+    _update_l_badges(room, {"Alice": -7})
+    assert room.round._l_handout_pending == {"Alice": 4}
 
 
-def test_worst_streak_holder_tie_keeps_incumbent():
+def test_a_push_or_even_round_breaks_the_streak_too():
     room = _make_room()
-    room.stats.worst_streak_holder = "Alice"
-    room.stats.streaks["Alice"] = {"current": -6, "longest_win": 0, "longest_loss": 6}
-    room.stats.streaks["Bob"]   = {"current": -6, "longest_win": 0, "longest_loss": 6}
-    _update_worst_streak_holder(room)
-    assert room.stats.worst_streak_holder == "Alice"   # tie doesn't dethrone
-    assert room.drinks.sip_ticker == {}
+    _streaks(room, Alice=0)      # _update_streaks resets an even round to 0
+    _update_l_badges(room, {"Alice": -6})
+    assert room.round._l_handout_pending == {"Alice": 1}
 
 
-def test_worst_streak_holder_overtake_hands_off_with_penalty():
+def test_a_streak_of_four_earns_nothing():
+    room = _make_room()
+    _streaks(room, Alice=1)
+    _update_l_badges(room, {"Alice": -(WORST_STREAK_THRESHOLD - 1)})
+    assert room.round._l_handout_pending == {}
+
+
+def test_a_player_with_no_resolved_hands_keeps_the_streak_and_earns_nothing():
+    room = _make_room()
+    _streaks(room, Alice=-6)     # untouched by _update_streaks this round
+    _update_l_badges(room, {"Alice": -6})
+    assert room.stats.l_badge_holders == ["Alice"]
+    assert room.round._l_handout_pending == {}
+
+
+def test_harvest_reads_the_streak_from_before_the_round():
+    room = _make_room(names=["Alice", "Bob"], dealer_idx=0)
+    _streaks(room, Bob=-7)
+    room._get_player("Bob").hands = [make_hand(("10", "H"), ("9", "D"), result="win"),
+                                     make_hand(("10", "S"), ("8", "D"), result="push")]
+    harvest_drink_log(room)
+    assert room.stats.streaks["Bob"]["current"] == 1
+    assert room.round._l_handout_pending == {"Bob": 2}
+
+
+def test_giving_credits_the_recipients_sips_for_real():
     room = _make_room(names=["Alice", "Bob"])
-    room.stats.worst_streak_holder = "Alice"
-    room.stats.streaks["Alice"] = {"current": -5, "longest_win": 0, "longest_loss": 5}
-    room.stats.streaks["Bob"]   = {"current": -7, "longest_win": 0, "longest_loss": 7}
+    _streaks(room, Alice=1)
+    _update_l_badges(room, {"Alice": -7})
+    assert give_l_handout(room, "Alice", "Bob") is True
+    assert room.drinks.sip_ticker["Bob"] == 2
+    assert room.drinks.last_round_sips["Bob"] == 2
+    assert room.drinks.csv_rows[-1]["rule"] == "Comeback handout"
+    assert len(room._get_player("Bob").drink_log) == 1
+    assert any("Bob drinks 2 sips" in e for e in room.round._log_entries)
+    assert room.round._l_handout_expires_at is None       # nothing left to wait for
+    assert give_l_handout(room, "Alice", "Bob") is False  # only once
 
-    _update_worst_streak_holder(room)
 
-    assert room.stats.worst_streak_holder == "Bob"
+def test_cannot_give_to_yourself_or_a_stranger():
+    room = _make_room()
+    _streaks(room, Alice=1)
+    _update_l_badges(room, {"Alice": -5})
+    assert give_l_handout(room, "Alice", "Alice") is False
+    assert give_l_handout(room, "Alice", "Nobody") is False
+    assert room.drinks.sip_ticker == {}
+
+
+def test_keeping_the_handout_means_drinking_it():
+    room = _make_room()
+    _streaks(room, Alice=1)
+    _update_l_badges(room, {"Alice": -5})
+    assert give_l_handout(room, "Alice", None) is True
     assert room.drinks.sip_ticker["Alice"] == 1
-    assert room.drinks.last_round_sips["Alice"] == 1
-    alice = room._get_player("Alice")
-    assert len(alice.drink_log) == 1
-    assert "Bob" in alice.drink_log[0][1]   # reason mentions who overtook them
 
 
-def test_worst_streak_holder_vacates_without_penalty_when_holder_recovers():
-    """The holder's own streak breaking (they finally won) with nobody else
-    worse yet clears the L with no sip -- winning back a round is never
-    punished."""
+def test_an_unassigned_handout_is_drunk_by_the_giver_when_time_runs_out():
     room = _make_room()
-    room.stats.worst_streak_holder = "Alice"
-    room.stats.streaks["Alice"] = {"current": 1, "longest_win": 1, "longest_loss": 5}   # streak just broke
-    _update_worst_streak_holder(room)
-    assert room.stats.worst_streak_holder is None
+    _streaks(room, Alice=1)
+    _update_l_badges(room, {"Alice": -9})
+    apply_l_handout_forfeit(room)                 # window still open: nothing
     assert room.drinks.sip_ticker == {}
+    room.round._l_handout_expires_at = 0
+    apply_l_handout_forfeit(room)
+    assert room.drinks.sip_ticker["Alice"] == 3
+    assert "Alice" in room.round._l_handout_given
 
 
-def test_worst_streak_holder_unchanged_when_holder_extends_further():
-    """The incumbent's own streak growing longer (still the worst) is a
-    no-op -- no duplicate sip, no log entry."""
-    room = _make_room()
-    room.stats.worst_streak_holder = "Alice"
-    room.stats.streaks["Alice"] = {"current": -6, "longest_win": 0, "longest_loss": 6}
-    _update_worst_streak_holder(room)
-    assert room.stats.worst_streak_holder == "Alice"
-    assert room.drinks.sip_ticker == {}
-
+def test_bots_give_their_handout_straight_away():
+    from engine.blackjack import NPC_Player
+    room = _make_room(names=["Alice", "Bob"])
+    bot = NPC_Player("Robo")
+    room.all_players.append(bot)
+    _streaks(room, Robo=1)
+    _update_l_badges(room, {"Robo": -5})
+    assert "Robo" in room.round._l_handout_given
+    assert sum(room.drinks.sip_ticker.values()) == 1
+    assert "Robo" not in room.drinks.sip_ticker
 
 # ---------------------------------------------------------------------------
 # _update_hand_stats

@@ -8,22 +8,27 @@ Has no game logic of its own — purely reacts to events fired by the game.
 
 import math
 from engine.blackjack import Rank, Suit, Hand, Player
+from engine.rules_registry import FULL, RuleSet
 
 
 # =============================================================================
 # Internal helpers
 # =============================================================================
 
-def _bj_breakdown(hand: Hand) -> tuple[int, list[str]]:
+def _bj_breakdown(hand: Hand, rules: RuleSet = FULL) -> tuple[int, list[str]]:
     """Return (multiplier, label_parts) for a blackjack bonus hand.
 
     Single source of truth for the suited/A+J/both-black x2 conditions so
     callers that need the breakdown (on_blackjack label) and callers that
     only need the multiplier (serializer, resolve_insurance_vote) both derive
     from the same computation.
+
+    With bonus.blackjack.multipliers off the bonus is a flat 1x.
     """
     mult  = 1
     parts: list[str] = []
+    if not rules.on("bonus.blackjack.multipliers"):
+        return mult, parts
     ranks = {c.rank for c in hand.cards}
     suits = {c.suit for c in hand.cards}
     black = {Suit.SPADES, Suit.CLUBS}
@@ -51,15 +56,19 @@ def _sips(n: int) -> str:
     return f"{n} sip" if n == 1 else f"{n} sips"
 
 
-def _bj_multiplier(hand: Hand) -> int:
+def _bj_multiplier(hand: Hand, rules: RuleSet = FULL) -> int:
     """Cumulative x2 multiplier for blackjack bonus sips."""
-    mult, _ = _bj_breakdown(hand)
+    mult, _ = _bj_breakdown(hand, rules)
     return mult
 
 
 # =============================================================================
 # DrinkingRules
 # =============================================================================
+
+_SUIT_IDS = {Suit.CLUBS: "clubs", Suit.SPADES: "spades",
+             Suit.HEARTS: "hearts", Suit.DIAMONDS: "diamonds"}
+
 
 class DrinkingRules:
     """
@@ -84,7 +93,8 @@ class DrinkingRules:
                       all_player_names: list, dealer_name: str,
                       ace_clubs_flag: dict,
                       is_dealer_hand: bool = False,
-                      wager: int = 1) -> list:
+                      wager: int = 1,
+                      rules: RuleSet = FULL) -> list:
         """
         Called immediately after each card is physically dealt.
         card_pos: 1-indexed position of this card in the recipient's current hand.
@@ -93,8 +103,13 @@ class DrinkingRules:
                         NOT when it goes to the dealer-player's own betting hands.
         Only fires on Aces — all other cards return [].
         wager: every ace sip/credit is 1 x wager.
+        rules: a suit's rule being off returns [] before any message or A♣
+               protection flag is produced.
         """
         if card.rank != Rank.ACE:
+            return []
+        seat = "dealer" if is_dealer_hand else "player"
+        if not rules.on(f"ace.{_SUIT_IDS[card.suit]}.{seat}"):
             return []
 
         msgs      = []
@@ -155,7 +170,8 @@ class DrinkingRules:
 
     @staticmethod
     def check_four_aces(all_cards: list, phase: str,
-                        triggered_first_deal: bool, wager: int = 1) -> tuple:
+                        triggered_first_deal: bool, wager: int = 1,
+                        rules: RuleSet = FULL) -> tuple:
         """
         Check if all 4 aces are visible.
         phase: 'first_deal' | 'end_of_round'
@@ -163,6 +179,12 @@ class DrinkingRules:
         These two phases cannot stack — first deal takes priority.
         """
         if sum(1 for c in all_cards if c.rank == Rank.ACE) < 4:
+            return [], triggered_first_deal
+        # A phase that is off fires nothing and, for first_deal, never sets the
+        # flag that blocks the end-of-round check.
+        if phase == "first_deal" and not rules.on("four_aces.first_deal"):
+            return [], triggered_first_deal
+        if phase == "end_of_round" and not rules.on("four_aces.end_round"):
             return [], triggered_first_deal
         if phase == "first_deal":
             return [_fixed_msg(("all", 2 * wager,
@@ -178,14 +200,17 @@ class DrinkingRules:
     def on_blackjack(player_name: str, hand: Hand,
                      all_player_names: list,
                      hard_switch_dealer: str = "",
-                     wager: int = 1) -> list:
+                     wager: int = 1,
+                     rules: RuleSet = FULL) -> list:
         """
         Called for uninsured blackjacks only (no group vote, or vote was decline
         and dealer had no blackjack). Fires normal BJ bonus drinks.
         Multipliers: suited x2, A+J x2, both black x2 — cumulative.
         hard_switch_dealer: dealer-player is exempt on a Hard Dealer Switch.
         """
-        mult, parts = _bj_breakdown(hand)
+        if not rules.on("bonus.blackjack"):
+            return []
+        mult, parts = _bj_breakdown(hand, rules)
         sips   = mult * wager
         detail = f" ({' '.join(parts)})" if parts else ""
         others = [p for p in all_player_names
@@ -199,7 +224,8 @@ class DrinkingRules:
                                all_player_names: list,
                                insured: bool, dealer_bj: bool,
                                hard_switch_dealer: str = "",
-                               wager: int = 1) -> list:
+                               wager: int = 1,
+                               rules: RuleSet = FULL) -> list:
         """
         Resolve a group-voted insurance decision at round end.
 
@@ -229,7 +255,9 @@ class DrinkingRules:
         Case 4 — Decline + no dealer BJ:
             Normal BJ bonus (group drinks as usual).
         """
-        mult   = _bj_multiplier(hand) * wager
+        if not rules.on("insurance.bj_vote"):
+            insured = False   # no vote happens: same as a decline
+        mult   = _bj_multiplier(hand, rules) * wager
         # others: everyone except the BJ holder and (on hard switch) the dealer-player.
         # When player_name == hard_switch_dealer they are the same person.
         others = [p for p in all_player_names
@@ -267,14 +295,16 @@ class DrinkingRules:
 
         # ---- Case 3: declined + dealer BJ ----
         if not insured and dealer_bj:
+            cap = ("auto-insurance applies, normal max sips only"
+                   if rules.on("insurance.auto_cap") else "blackjack pushes")
             return [(None, 0,
                      f"{player_name} blackjack: group declined insurance, dealer has BJ "
-                     f"=> auto-insurance applies, normal max sips only")]
+                     f"=> {cap}")]
 
         # ---- Case 4: declined + no dealer BJ — normal BJ bonus ----
         return DrinkingRules.on_blackjack(player_name, hand, all_player_names,
                                           hard_switch_dealer=hard_switch_dealer,
-                                          wager=wager)
+                                          wager=wager, rules=rules)
 
     # ---------------------------------------------------------------- hand resolved
 
@@ -283,7 +313,8 @@ class DrinkingRules:
                          all_player_names: list,
                          dealer_bj: bool = False,
                          dealer_name: str = "",
-                         wager: int = 1) -> list:
+                         wager: int = 1,
+                         rules: RuleSet = FULL) -> list:
         """
         Called after each hand is evaluated. Fires rules for:
         - Doubles/splits (immunity exception)
@@ -291,8 +322,10 @@ class DrinkingRules:
         - 21 with 5+ cards (hand-out entitlement)
         - Win with 5+ cards
 
-        dealer_bj: when True (dealer has a natural blackjack) all extras are
-                   suppressed — players only pay net-loss sips via on_round_end.
+        dealer_bj: kept for the event's shape; nothing here depends on it.
+                   Nobody beats a dealer blackjack, so the win-only rules
+                   can't fire anyway, and the 5-card 21 handout doesn't
+                   need a win, so it still applies.
         dealer_name: the dealer-player is exempt from bonus win drinks
                      (suited, doubled, 5-card wins) — they drink via dealer
                      role rules instead (Hard Switch, net losses).
@@ -302,8 +335,10 @@ class DrinkingRules:
         # Dealer is spared from other players' win-bonus drinks
         others_np = [p for p in others if p != dealer_name] if dealer_name else others
 
-        # 21 with 5+ cards: suppress hand-out when dealer has blackjack
-        if not dealer_bj and hand.score() == 21 and len(hand.cards) >= 5:
+        # 21 with 5+ cards: a handout whatever the result, even against a
+        # dealer blackjack (Rules.md §5.4: rule 1 does not require a win).
+        if (hand.score() == 21 and len(hand.cards) >= 5
+                and rules.on("five_card.player_21")):
             handout = len(hand.cards) * wager
             msgs.append((player_name, -handout,
                 f"{player_name} hit 21 with {len(hand.cards)} cards => may hand out {handout} sips",
@@ -313,14 +348,14 @@ class DrinkingRules:
             return msgs
 
         # Doubled hand breaks immunity (splits aggregated in on_round_end; suited handled below)
-        if hand.doubled and not hand.is_suited():
+        if hand.doubled and not hand.is_suited() and rules.on("others.immunity.doubled"):
             for p in others_np:
                 msgs.append((p, wager,
                     f"{player_name} won a doubled hand => {p} drinks {wager} sip(s) (immunity exception)"))
 
         # Suited winning hand: 1x wager normally, 4x if doubled (split does NOT multiply)
         # Skip for blackjack — the BJ bonus already incorporates the suited multiplier
-        if hand.is_suited() and not hand.is_blackjack():
+        if hand.is_suited() and not hand.is_blackjack() and rules.on("others.immunity.suited"):
             sips = (4 if hand.doubled else 1) * wager
             sym  = hand.cards[0].suit.symbol
             for p in others_np:
@@ -328,7 +363,7 @@ class DrinkingRules:
                     f"{player_name} won suited hand (all {sym}) => {p} drinks {sips} sip(s)"))
 
         # Win with 5+ cards (stacks with above if score is 21)
-        if len(hand.cards) >= 5:
+        if len(hand.cards) >= 5 and rules.on("five_card.player_win"):
             for p in others_np:
                 msgs.append((p, wager,
                     f"{player_name} won with {len(hand.cards)} cards => {p} drinks {wager} sip(s)"))
@@ -342,15 +377,17 @@ class DrinkingRules:
                                all_player_names: list, wager: int,
                                dealer_name: str = "",
                                dealer_bj: bool = False,
-                               hard_switch_dealer: str = "") -> list:
+                               hard_switch_dealer: str = "",
+                               rules: RuleSet = FULL) -> list:
         """
         Fires when a player has 2+ hands (starting hands or from a split) and EITHER:
           - Every card across every hand shares the same suit, OR
           - Every hand scores exactly 21 (BJ counts as 21).
-        Win/push/loss outcome is irrelevant — only the cards matter.
+        Win/push/loss outcome is irrelevant — only the cards matter, so it
+        fires against a dealer blackjack too (dealer_bj is kept for the
+        event's shape only).
 
         Payout: same suit = wager × 4, all-21 = wager × 2 (both = wager × 6).
-        Suppressed when dealer has BJ (consistent with auto-insurance).
         Stacks with all other win-bonus rules.
 
         hard_switch_dealer: the hard-switch-exempt dealer, if this is a hard
@@ -359,8 +396,6 @@ class DrinkingRules:
         HardDealerSwitchEvent instead), so the cancellation below must skip
         them too, or they'd lose a sip they were never given.
         """
-        if dealer_bj:
-            return []
         if len(player_hands) < 2:
             return []
 
@@ -369,8 +404,10 @@ class DrinkingRules:
             return []
 
         first_suit    = all_cards[0].suit.value
-        all_same_suit = all(c.suit.value == first_suit for c in all_cards)
-        all_21 = all(h.score() == 21 for h in player_hands)
+        all_same_suit = (rules.on("sweep.same_suit")
+                         and all(c.suit.value == first_suit for c in all_cards))
+        all_21 = (rules.on("sweep.all_21")
+                  and all(h.score() == 21 for h in player_hands))
 
         if not (all_same_suit or all_21):
             return []
@@ -396,9 +433,11 @@ class DrinkingRules:
         # for each winning doubled hand — the sweep covers them. Excludes the
         # hard-switch-exempt dealer: on_hand_resolved never credited them that
         # +1 to begin with, so cancelling it here would take a sip they never drank.
+        # With others.immunity.doubled off no such drink exists to cancel.
         cancel_recipients = [p for p in others if p != hard_switch_dealer]
         for hand in player_hands:
-            if hand.result == "win" and hand.doubled and not hand.is_suited():
+            if (hand.result == "win" and hand.doubled and not hand.is_suited()
+                    and rules.on("others.immunity.doubled")):
                 for p in cancel_recipients:
                     msgs.append((p, -wager,
                         f"Sweep cancels doubled-hand drink for {p} (already covered by sweep)"))
@@ -408,18 +447,22 @@ class DrinkingRules:
     # ---------------------------------------------------------------- dealer 21 with 5+ cards
 
     @staticmethod
-    def dealer_21_five_cards(dealer_hand: Hand) -> bool:
+    def dealer_21_five_cards(dealer_hand: Hand, rules: RuleSet = FULL) -> bool:
         """Returns True if the dealer hit exactly 21 with 5+ cards (wages doubled this round)."""
-        return dealer_hand.score() == 21 and len(dealer_hand.cards) >= 5
+        return (rules.on("five_card.dealer_21")
+                and dealer_hand.score() == 21 and len(dealer_hand.cards) >= 5)
 
     # ---------------------------------------------------------------- dealer suited hand
 
     @staticmethod
-    def on_dealer_hand_revealed(dealer_hand: Hand, wager: int = 1) -> list:
+    def on_dealer_hand_revealed(dealer_hand: Hand, wager: int = 1,
+                                rules: RuleSet = FULL) -> list:
         """
         Called once the dealer's full hand is visible.
         Fires regardless of win/loss/bust.
         """
+        if not rules.on("dealer.suited_hand"):
+            return []
         if dealer_hand.is_suited() and len(dealer_hand.cards) >= 2:
             sym = dealer_hand.cards[0].suit.symbol
             return [("all", 2 * wager, f"Dealer hand is all {sym} => everyone drinks {2 * wager} sips")]
@@ -474,8 +517,11 @@ class DrinkingRules:
         return msgs
 
     @staticmethod
-    def _extra_loss_drinks(players: list, wager: int, hard_switch_dealer: str) -> list:
+    def _extra_loss_drinks(players: list, wager: int, hard_switch_dealer: str,
+                           rules: RuleSet = FULL) -> list:
         """Extra sip for each lost doubled or lost suited hand."""
+        doubled_on = rules.on("loss.doubled")
+        suited_on  = rules.on("loss.suited")
         msgs = []
         for p in players:
             if bool(hard_switch_dealer) and p.name == hard_switch_dealer:
@@ -483,15 +529,15 @@ class DrinkingRules:
             for hand in p.hands:
                 if hand.result != "loss":
                     continue
-                if hand.doubled and hand.is_suited():
+                if doubled_on and suited_on and hand.doubled and hand.is_suited():
                     # Multiplicative: loss x2 (doubled) x2 (suited) = 4x wager total.
                     # Base 1x + doubled 1x + suited 1x + this combo 1x.
                     msgs.append((p.name, wager,
                         f"{p.name} lost a doubled hand that was also suited => +{wager} sip(s) (combo)"))
-                if hand.doubled:
+                if doubled_on and hand.doubled:
                     msgs.append((p.name, wager,
                         f"{p.name} lost a doubled hand => +{wager} sip(s)"))
-                if hand.is_suited():
+                if suited_on and hand.is_suited():
                     msgs.append((p.name, wager,
                         f"{p.name} lost a suited hand => +{wager} sip(s)"))
         return msgs
@@ -547,7 +593,8 @@ class DrinkingRules:
                      dealer_bj: bool = False,
                      dealer_shows_ace: bool = False,
                      hard_switch_dealer: str = "",
-                     num_hands: int = 0) -> list:
+                     num_hands: int = 0,
+                     rules: RuleSet = FULL) -> list:
         """
         Called once all hands are resolved.
         Fires:
@@ -573,14 +620,16 @@ class DrinkingRules:
                             fully exempt from all player-role drinks this round
                             (they already drink via the Hard Switch dealer rule).
         """
-        if dealer_bj and dealer_shows_ace:
+        if dealer_bj and dealer_shows_ace and rules.on("insurance.auto_cap"):
             return DrinkingRules._dealer_bj_drinks(players, wager, num_hands, hard_switch_dealer)
 
         msgs = []
         msgs += DrinkingRules._net_loss_drinks(players, wager, hard_switch_dealer)
-        msgs += DrinkingRules._extra_loss_drinks(players, wager, hard_switch_dealer)
-        msgs += DrinkingRules._split_win_drinks(players, hard_switch_dealer, wager)
-        msgs += DrinkingRules._wins_all_drinks(players, hard_switch_dealer, wager)
+        msgs += DrinkingRules._extra_loss_drinks(players, wager, hard_switch_dealer, rules)
+        if rules.on("others.immunity.split"):
+            msgs += DrinkingRules._split_win_drinks(players, hard_switch_dealer, wager)
+        if rules.on("others.wins_all"):
+            msgs += DrinkingRules._wins_all_drinks(players, hard_switch_dealer, wager)
         return msgs
 
     # ---------------------------------------------------------------- hard dealer switch
@@ -588,7 +637,8 @@ class DrinkingRules:
     @staticmethod
     def on_hard_dealer_switch(dealer_name: str, winning_hands: list,
                                half_protected: bool = False,
-                               wager: int = 1) -> list:
+                               wager: int = 1,
+                               rules: RuleSet = FULL) -> list:
         """
         Called when the dealer loses ALL hands (push != loss).
         winning_hands: list of (player_name, Hand) tuples — caller is responsible
@@ -597,6 +647,8 @@ class DrinkingRules:
         Dealer drinks per each winning hand type.
         half_protected=True (dealer-hand A♣): drinks ceil(total/2) instead of full.
         """
+        if not rules.on("switch.hard"):
+            return []
         total = 0
         lines = []
         for pname, hand in winning_hands:
@@ -659,26 +711,26 @@ class DrinkingRules:
                     event.card, event.recipient, event.card_pos,
                     event.all_names, event.dealer_name, event.ace_clubs_flag,
                     is_dealer_hand=event.is_dealer_hand,
-                    wager=event.wager,
+                    wager=event.wager, rules=event.rules,
                 )
             case BlackjackEvent():
                 return DrinkingRules.on_blackjack(
                     event.player_name, event.hand, event.all_names,
                     hard_switch_dealer=event.hard_switch_dealer,
-                    wager=event.wager,
+                    wager=event.wager, rules=event.rules,
                 )
             case InsuranceResolvedEvent():
                 return DrinkingRules.resolve_insurance_vote(
                     event.player_name, event.hand, event.all_names,
                     insured=event.insured, dealer_bj=event.dealer_bj,
                     hard_switch_dealer=event.hard_switch_dealer,
-                    wager=event.wager,
+                    wager=event.wager, rules=event.rules,
                 )
             case HandResolvedEvent():
                 return DrinkingRules.on_hand_resolved(
                     event.player_name, event.hand, event.all_names,
                     dealer_bj=event.dealer_bj, dealer_name=event.dealer_name,
-                    wager=event.wager,
+                    wager=event.wager, rules=event.rules,
                 )
             case AllHandsSweepEvent():
                 return DrinkingRules.check_all_hands_sweep(
@@ -686,23 +738,24 @@ class DrinkingRules:
                     event.wager, dealer_name=event.dealer_name,
                     dealer_bj=event.dealer_bj,
                     hard_switch_dealer=event.hard_switch_dealer,
+                    rules=event.rules,
                 )
             case DealerHandRevealedEvent():
                 return DrinkingRules.on_dealer_hand_revealed(
-                    event.dealer_hand, wager=event.wager)
+                    event.dealer_hand, wager=event.wager, rules=event.rules)
             case RoundEndEvent():
                 return DrinkingRules.on_round_end(
                     event.players, event.wager,
                     dealer_bj=event.dealer_bj,
                     dealer_shows_ace=event.dealer_shows_ace,
                     hard_switch_dealer=event.hard_switch_dealer,
-                    num_hands=event.num_hands,
+                    num_hands=event.num_hands, rules=event.rules,
                 )
             case HardDealerSwitchEvent():
                 return DrinkingRules.on_hard_dealer_switch(
                     event.dealer_name, event.winning_hands,
                     half_protected=event.half_protected,
-                    wager=event.wager,
+                    wager=event.wager, rules=event.rules,
                 )
             case _:
                 raise NotImplementedError(

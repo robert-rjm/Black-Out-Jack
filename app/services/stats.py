@@ -104,7 +104,8 @@ def compute_best_play(session: GameRoom, turn: str | None, phase: str) -> str | 
         valid.append("sp")
     # drinking_mode=False in Normal mode → pure basic strategy (no mandatory 10-split).
     # This is intentional: the hint matches the rules the players are actually playing.
-    return NPC_Player.best_play(active_hand, dealer_up, valid, drinking_mode=session.drinking_mode)
+    return NPC_Player.best_play(active_hand, dealer_up, valid, drinking_mode=session.drinking_mode,
+                                split_tens=session.rules.on("table.split_tens"))
 
 
 def compute_mandatory_split10(session: GameRoom, turn: str | None, phase: str) -> bool:
@@ -112,9 +113,12 @@ def compute_mandatory_split10(session: GameRoom, turn: str | None, phase: str) -
     Drinking-mode "house rule": an unsuited 10-value pair must be split.
     Returns True when the current human turn's active hand is exactly such
     a pair, splitting is still a valid action, and the player hasn't yet
-    been prompted/acknowledged this hand. Always False in Normal mode.
+    been prompted/acknowledged this hand. Always False in Normal mode and
+    when the table.split_tens rule is off.
     """
     if not session.drinking_mode or phase != "playing" or not turn:
+        return False
+    if not session.rules.on("table.split_tens"):
         return False
     player = session._get_player(turn)
     if not player or getattr(player, "is_npc", False):
@@ -139,9 +143,12 @@ def compute_mandatory_split_aces(session: GameRoom, turn: str | None, phase: str
 
     Returns True when the current human turn's active hand is exactly an
     Ace pair, splitting is still valid, and the player hasn't yet been
-    prompted/acknowledged this hand. Always False in Normal mode.
+    prompted/acknowledged this hand. Always False in Normal mode and when
+    the table.split_aces rule is off.
     """
     if not session.drinking_mode or phase != "playing" or not turn:
+        return False
+    if not session.rules.on("table.split_aces"):
         return False
     player = session._get_player(turn)
     if not player or getattr(player, "is_npc", False):

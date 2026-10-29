@@ -112,3 +112,16 @@ def test_worst_streak_penalty_always_rounds_up():
 
     bob = room._get_player("Bob")
     assert sum(e[0] for e in bob.drink_log if e) == 3   # ceil(2.25), not round(2.25)=2
+
+
+def test_worst_average_penalty_off():
+    room = _make_room(num_players=3)
+    room.rules = room.rules.with_rule("milestone.worst_average", False)
+    room.stats.player_rounds_played = {"Alice": 4, "Bob": 4, "Carol": 4}
+    room.drinks.last_milestone_worst = "Bob"   # would be penalised with the rule on
+    room.drinks.sip_ticker = {"Alice": 40, "Bob": 8, "Carol": 8}
+
+    _apply_worst_player_streak(room, winner="Alice", ticker=room.drinks.sip_ticker)
+
+    assert room._get_player("Bob").drink_log == []
+    assert room.drinks.last_milestone_worst == "Bob"      # nothing re-picked either

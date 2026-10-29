@@ -3,6 +3,22 @@ scripts/_cli.py -- Shared CLI input helpers for terminal scripts.
 
 Imported by play_terminal.py, play_referee.py, and simulation.py.
 """
+import argparse
+
+from engine.rules_registry import PRESETS, RuleSet
+
+
+def preset_arg(argv: list[str]) -> str:
+    """The ``--preset starter|standard|full`` flag (default "full"), ignoring
+    any other arguments."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--preset", choices=list(PRESETS), default="full")
+    return parser.parse_known_args(argv)[0].preset
+
+
+def preset_rules(argv: list[str]) -> RuleSet:
+    """The house rules named by ``--preset`` (Full when absent)."""
+    return RuleSet.from_preset(preset_arg(argv))
 
 
 def safe_int(prompt: str, default: int, lo: int = 1, hi: int = 999) -> int:

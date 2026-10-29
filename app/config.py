@@ -51,6 +51,9 @@ MILESTONE_TTL          = 60   # seconds before an unclaimed handout is forfeited
 # ---------------------------------------------------------------------------
 
 WORST_STREAK_THRESHOLD = 5
+# Comeback handout (losing streak of WORST_STREAK_THRESHOLD+ broken): how long
+# the player has to pick a recipient before they drink the sips themselves.
+L_HANDOUT_WINDOW_SECONDS = 20
 
 # ---------------------------------------------------------------------------
 # Side-bet / vote timing windows
@@ -113,6 +116,15 @@ TARGETED_DRINKING_HANDOUT_WINDOW_SECONDS          = 20
 # for this many rounds (doesn't stop them voting on someone else's).
 TARGETED_DRINKING_PROPOSAL_VOTE_WINDOW_SECONDS = 15
 
+# House-rule votes (services/rule_votes.py): a table vote to let players put
+# rule changes to a vote, then one vote per suggested change. Passes early
+# on a strict Yes majority, fails early once it can't reach one, otherwise
+# fails when the window runs out. A failed change vote freezes its proposer
+# for this many rounds.
+RULE_VOTE_WINDOW_SECONDS  = 30
+RULE_VOTE_FREEZE_ROUNDS   = 1
+MAX_RULE_SUGGESTIONS      = 20   # admin inbox cap; the oldest drop off
+
 # "Switch to BOJ" table poll (services/boj_switch.py)
 BOJ_POLL_WINDOW_SECONDS    = 30   # how long the Normal-table vote stays open
 BOJ_SPLIT_GRACE_SECONDS    = 8    # cancel-modal countdown before movers are redirected
@@ -132,3 +144,15 @@ MAX_REG_DENIALS = 2   # times a client can be denied (re-)entry before being loc
 DEFAULT_WAGER     = 1
 DEFAULT_NUM_HANDS = 2
 DEFAULT_MODE      = "referee"   # "referee" | "digital"
+
+# Upper bounds for /setup and /update_settings. The server runs a single
+# worker thread, so one request with e.g. num_hands=1_000_000 would allocate
+# that many hands per player and freeze every table. Each cap is at least the
+# highest value the UI offers (settings modal: wager 20, hands 10).
+MAX_WAGER         = 20
+MAX_NUM_HANDS     = 10
+MAX_NUM_DECKS     = 8
+MAX_PLAYERS       = 12     # seats incl. bots and the dealer
+MIN_BET_AMOUNT    = 2.5
+MAX_BET_AMOUNT    = 1000
+MAX_BANKROLL      = 100_000

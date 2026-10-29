@@ -3,7 +3,7 @@ app/routes/side_bets.py
 =======================
 Insurance, bust-vote, buy-in handout and stake routes.
 
-POST /vote_insurance, /cast_bust_vote, /give_bust_sip, /buyin_handout/give,
+POST /vote_insurance, /cast_bust_vote, /give_bust_sip, /buyin_handout/give, /l_handout/give,
      /set_player_bet, /confirm_stake
 """
 
@@ -16,6 +16,7 @@ from app.services.serializer import serialize_state
 from app.services.round_state import round_phase
 from app.services.drink_tracker import award_sips
 from app.services.buyin_handout import give_buyin_sip
+from app.services.drink_tracker import give_l_handout
 from app.services.payout_tracker import (
     init_bankrolls,
     human_names,
@@ -264,6 +265,38 @@ def buyin_handout_give():
 
     if not give_buyin_sip(session, giver_name, recipient_name or None):
         return jsonify({"ok": False, "error": "Could not hand out the sip."})
+
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/l_handout/give", methods=["POST"])
+def l_handout_give():
+    """Comeback handout (L badge broken): give the sips to another player,
+    or keep them (drink them yourself).
+    Body: { room_code, client_id, giver_name, recipient_name? }
+    An empty recipient_name keeps the handout. giver_name must be one of the
+    client's local_names and have a pending handout.
+    """
+    data           = request.json or {}
+    room_code      = (data.get("room_code")      or "").strip()
+    client_id      = (data.get("client_id")      or "").strip()
+    giver_name     = sanitize_name(data.get("giver_name")     or "")
+    recipient_name = sanitize_name(data.get("recipient_name") or "")
+
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+
+    client_info = session._room_clients.get(client_id, {})
+    if not client_info.get("name"):
+        return jsonify({"ok": False, "error": "Not registered."})
+
+    local_names = client_info.get("local_names") or [client_info["name"]]
+    if giver_name not in local_names:
+        return jsonify({"ok": False, "error": "Not one of your local players."})
+
+    if not give_l_handout(session, giver_name, recipient_name or None):
+        return jsonify({"ok": False, "error": "Could not hand out the sips."})
 
     return jsonify({**serialize_state(session, client_id), "ok": True})
 

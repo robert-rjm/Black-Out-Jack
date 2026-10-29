@@ -41,6 +41,7 @@ from engine.blackjack import (
     Rank, Suit, Card, Hand, Player, get_player_hand,
 )
 from engine.drinking_rules import DrinkingRules, DrinkTracker
+from engine.rules_registry import FULL, RuleSet
 from engine.events import (
     CardDealtEvent,
     BlackjackEvent,
@@ -128,6 +129,8 @@ class RefereeSession:
 
         # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
         self.bust_vote_enabled = bust_vote_enabled
+        self._rules            = FULL   # which drinking rules are in play (see the rules property)
+        self.rules_source      = None   # callable returning the live RuleSet, set by the web layer
         self._insurance_result = None
         self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
         self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
@@ -153,6 +156,19 @@ class RefereeSession:
 
     def _get_player(self, name: str) -> Player:
         return self._player_map.get(name.strip().lower())
+
+    @property
+    def rules(self) -> RuleSet:
+        """Which drinking rules are in play. In the web app the GameRoom owns
+        the ruleset and hands over ``rules_source``, so there is a single copy
+        and the engine always reads the room's current rules."""
+        return self.rules_source() if self.rules_source else self._rules
+
+    @rules.setter
+    def rules(self, value: RuleSet):
+        if self.rules_source:
+            raise AttributeError("rules belong to the GameRoom here: set room.rules instead")
+        self._rules = value
 
     # ---------------------------------------------------------------- setup round
 
@@ -258,7 +274,7 @@ class RefereeSession:
             all_names=self._all_names, dealer_name=self.dealer_name,
             ace_clubs_flag=self._ace_clubs_flag,
             is_dealer_hand=is_dealer_seat,   # True only for the dealer hand, not betting hands
-            wager=self.wager,
+            wager=self.wager, rules=self.rules,
         ))
         for msg in msgs:
             _, s, reason = msg[0], msg[1], msg[2]
@@ -306,6 +322,9 @@ class RefereeSession:
             # Digital mode uses app.services.game_engine.perform_split() instead.
             new_hand = Hand(from_split=True)
             hand.from_split   = True
+            # Same as Hand.split() in digital mode: both hands follow the
+            # table.split_ace_bj rule as it stood at the split.
+            hand.split_ace_bj = new_hand.split_ace_bj = self.rules.on("table.split_ace_bj")
             new_hand._split_chain = hand._split_chain  # share counter across the whole chain
             hand.split_count += 1
             try:
@@ -354,7 +373,7 @@ class RefereeSession:
             # Check dealer suited hand
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(
-                    dealer_hand=dealer.dealer_hand, wager=self.wager)))
+                    dealer_hand=dealer.dealer_hand, wager=self.wager, rules=self.rules)))
             return
 
         player = self._get_player(player_name)
@@ -395,14 +414,14 @@ class RefereeSession:
             # Trigger dealer-suited-hand check
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(
-                    dealer_hand=dealer.dealer_hand, wager=self.wager)))
+                    dealer_hand=dealer.dealer_hand, wager=self.wager, rules=self.rules)))
             self._log(f"  Dealer final hand checked: {dealer.dealer_hand}")
 
         elif sub == "bust":
             dealer.dealer_hand.bust = True
             self.tracker.apply(DrinkingRules.handle(
                 DealerHandRevealedEvent(
-                    dealer_hand=dealer.dealer_hand, wager=self.wager)))
+                    dealer_hand=dealer.dealer_hand, wager=self.wager, rules=self.rules)))
             self._log("  Dealer bust registered.")
 
         elif sub == "blackjack":
@@ -425,7 +444,7 @@ class RefereeSession:
         if self._get_dealer():
             all_cards += self._get_dealer().dealer_hand.cards
         msgs, self._four_aces_fd = DrinkingRules.check_four_aces(
-            all_cards, phase, self._four_aces_fd, wager=self.wager)
+            all_cards, phase, self._four_aces_fd, wager=self.wager, rules=self.rules)
         if phase == "first_deal":
             self.tracker.apply(msgs)   # mid-round, not halved
         else:
@@ -560,7 +579,8 @@ class RefereeSession:
                 elif hand.result in ("loss", "push"):
                     dealer_lost_all = False
 
-        hard_switch   = dealer_lost_all and bool(winning)
+        # With switch.hard off there is no penalty and no dealer exemption.
+        hard_switch   = dealer_lost_all and bool(winning) and self.rules.on("switch.hard")
         exempt_dealer = self.dealer_name if hard_switch else ""
 
         # Collect all end-of-round drink messages so 4-player halving
@@ -584,7 +604,7 @@ class RefereeSession:
         for p_name, hand in self._pending_bj_hands:
             eor_msgs.extend(DrinkingRules.handle(BlackjackEvent(
                 player_name=p_name, hand=hand, all_names=self._all_names,
-                hard_switch_dealer=exempt_dealer, wager=self.wager,
+                hard_switch_dealer=exempt_dealer, wager=self.wager, rules=self.rules,
             )))
         self._pending_bj_hands = []
 
@@ -593,7 +613,7 @@ class RefereeSession:
             eor_msgs.extend(DrinkingRules.handle(HandResolvedEvent(
                 player_name=p_name, hand=hand, all_names=self._all_names,
                 dealer_bj=dealer_bj_at_time, dealer_name=exempt_dealer,
-                wager=self.wager,
+                wager=self.wager, rules=self.rules,
             )))
         self._pending_resolved = []
         # _pending_eor_msgs already drained above when building eor_msgs
@@ -625,7 +645,7 @@ class RefereeSession:
                 ]
             eor_msgs.extend(DrinkingRules.handle(HardDealerSwitchEvent(
                 dealer_name=self.dealer_name, winning_hands=hs_for_penalty,
-                half_protected=half_protected, wager=self.wager,
+                half_protected=half_protected, wager=self.wager, rules=self.rules,
             )))
 
         # Round-end rules (net losses, sweeps)
@@ -642,7 +662,7 @@ class RefereeSession:
                     eor_msgs.extend(DrinkingRules.handle(InsuranceResolvedEvent(
                         player_name=p.name, hand=hand, all_names=self._all_names,
                         insured=True, dealer_bj=dealer_bj,
-                        hard_switch_dealer=exempt_dealer, wager=self.wager,
+                        hard_switch_dealer=exempt_dealer, wager=self.wager, rules=self.rules,
                     )))
                     self._insurance_result.append({
                         "player":    p.name,
@@ -667,11 +687,11 @@ class RefereeSession:
                     eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                         player_name=p.name, player_hands=p.hands, all_names=self._all_names,
                         wager=self.wager, dealer_bj=dealer_bj,
-                        hard_switch_dealer=exempt_dealer,
+                        hard_switch_dealer=exempt_dealer, rules=self.rules,
                     )))
                 except Exception as e:
                     self._log(f"  Error occurred while checking all-hands sweep for {p.name}: {e}")
-        if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand):
+        if dealer and dealer.dealer_hand and DrinkingRules.dealer_21_five_cards(dealer.dealer_hand, rules=self.rules):
             w *= 2
             self._log(
                 f"\n  ★ Dealer 21 with {len(dealer.dealer_hand.cards)} cards "
@@ -683,7 +703,7 @@ class RefereeSession:
             players=players, wager=w, dealer_bj=dealer_bj,
             dealer_shows_ace=dealer_shows_ace,
             hard_switch_dealer=self.dealer_name if hard_switch else "",
-            num_hands=self.num_hands,
+            num_hands=self.num_hands, rules=self.rules,
         )))
 
         # Apply all end-of-round drinks together so 4-player halving
