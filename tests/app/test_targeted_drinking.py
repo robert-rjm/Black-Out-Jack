@@ -527,10 +527,12 @@ def test_resolve_graduates_after_streak_threshold_and_ends_subgame(monkeypatch):
 # Perfect-graduation handout (3 correct in a row, never missed)
 # ---------------------------------------------------------------------------
 
-def _perfect_graduation_room(monkeypatch):
+def _perfect_graduation_room(monkeypatch, rules=None):
     """3 correct guesses in a row from the very first attempt -- graduates
     with a perfect record, triggering the handout."""
     room = _make_room(num_players=3)   # Alice, Bob, Carol
+    if rules is not None:
+        room.rules = rules
     start_targeted_drinking(room, ["Bob"])
     check_targeted_drinking_trigger(room)
     request_targeted_drinking_start(room)
@@ -552,6 +554,16 @@ def test_perfect_graduation_opens_handout(monkeypatch):
     assert result["pending_handouts"] == {"Bob": TARGETED_DRINKING_PERFECT_GRADUATION_HANDOUT_SIPS}
     assert room.round._targeted_drinking_handout_expires_at is not None
     assert room.round._targeted_drinking_handouts_given == set()
+
+
+def test_perfect_graduation_handout_off(monkeypatch):
+    from engine.rules_registry import FULL
+    room = _perfect_graduation_room(
+        monkeypatch, rules=FULL.with_rule("event.targeted.perfect_handout", False))
+    result = room.drinks.last_targeted_drinking_result
+    assert result["graduated"] == ["Bob"]                  # graduation itself still happens
+    assert not result.get("pending_handouts")
+    assert room.round._targeted_drinking_handout_expires_at is None
 
 
 def test_imperfect_graduation_gets_no_handout(monkeypatch):
