@@ -7,6 +7,8 @@ GET /logo.png       — app icon (PWA)
 GET /manifest.json  — PWA manifest
 GET /rules          — Rules.md (or Rules-Normal.md with ?mode=normal) as JSON for
                        frontend markdown rendering
+GET /rules_registry — every toggleable house rule (names, groups, presets) as
+                       cacheable JSON for the settings view
 GET /beer           — redirect to the PayPal tip link (see static/js/ui/tip.js)
 GET /beer_qr        — the tip link plus a QR code of it, as inline SVG
 """
@@ -15,6 +17,7 @@ import os
 
 from flask import Blueprint, current_app, jsonify, redirect, request, send_from_directory
 
+from app.services.house_rules import registry_payload
 from app.services.qr import qr_svg
 
 bp = Blueprint("static_pages", __name__)
@@ -58,6 +61,15 @@ def rules():
         return jsonify({"ok": True, "content": content})
     except FileNotFoundError:
         return jsonify({"ok": False, "content": "# Rules\n\nRules file not found."})
+
+
+@bp.route("/rules_registry")
+def rules_registry():
+    """Static rule data. /state only carries ID lists; the frontend fetches
+    this once for names, summaries, groups and dependencies."""
+    resp = jsonify(registry_payload())
+    resp.headers["Cache-Control"] = "public, max-age=300"
+    return resp
 
 
 @bp.route("/beer_qr")

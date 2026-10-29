@@ -552,6 +552,15 @@ class QueuedSettingsOut(_StrictModel):
     drinking_mode:       Optional[bool] = None
     add_players:         Optional[list[QueuedAddPlayerOut]] = None
     remove_players:      Optional[list[str]] = None
+    rules:               Optional[list[str]] = None   # full target rule set (IDs)
+
+
+class RulesOut(_StrictModel):
+    """The room's house rules (house_rules.serialize_rules)."""
+    preset:    Optional[Literal["starter", "standard", "full"]]   # None = custom
+    enabled:   list[str]             # admin's toggles (may include children of off parents)
+    effective: list[str]             # after dependency resolution
+    queued:    Optional[list[str]]   # target set waiting for the next round
 
 
 # ---------------------------------------------------------------------------
@@ -605,6 +614,7 @@ class AppState(_StrictModel):
     # pre-shaped, not as a fresh dict to expand against the sub-model.
     queued_settings:  dict[str, Any]
     num_decks:        int
+    rules:            RulesOut
     kpi_stats:        KpiStatsOut
     state_seq:        int
 

@@ -3,20 +3,23 @@ window._myHintEnabled = null; // tracks last explicit hint toggle; null = read f
 // ============================================================
 // SETTINGS MODAL -- main view / players sub-view
 // ============================================================
-// The settings modal has two "screens" sharing one overlay: the main
-// toggles/game-settings view, and a Players screen (kick list, transfer
-// admin, add/remove seat) reached via the "👥 Players" button. Kept as a
-// single modal (no second overlay) so it doesn't add another thing
-// stacking on top of the game -- just an internal view swap.
+// The settings modal has three "screens" sharing one overlay: the main
+// toggles/game-settings view, a Players screen (kick list, transfer
+// admin, add/remove seat) reached via the "👥 Players" button, and the
+// "📜 House rules" screen (rules-settings.js). Kept as a single modal (no
+// second overlay) so it doesn't add another thing stacking on top of the
+// game -- just an internal view swap.
 let _settingsView = "main";
+const _SETTINGS_VIEWS = ["main", "players", "rules"];
 
 function showSettingsSubview(view) {
-  const main    = document.getElementById("settings-main-view");
-  const players = document.getElementById("settings-players-view");
-  if (!main || !players) return;
-  _settingsView = (view === "players") ? "players" : "main";
-  main.style.display    = (_settingsView === "players") ? "none" : "block";
-  players.style.display = (_settingsView === "players") ? "block" : "none";
+  if (!document.getElementById("settings-main-view")) return;
+  _settingsView = _SETTINGS_VIEWS.includes(view) ? view : "main";
+  _SETTINGS_VIEWS.forEach(v => {
+    const el = document.getElementById(`settings-${v}-view`);
+    if (el) el.style.display = (v === _settingsView) ? "block" : "none";
+  });
+  if (_settingsView === "rules" && lastState) renderRulesSettings(lastState);
 }
 
 function openKickModal() {
@@ -28,7 +31,7 @@ function openKickModal() {
   // admin.js's poll handler), so only reset to the main view on a genuine
   // fresh open -- otherwise every poll tick would yank the admin back out
   // of the Players screen mid-use.
-  if (overlay.style.display !== "flex") _settingsView = "main";
+  if (overlay.style.display !== "flex") { _settingsView = "main"; resetRulesSettingsView(); }
 
   // Sync animation toggle to current setting
   const cb = document.getElementById("anim-toggle-modal");
@@ -320,6 +323,10 @@ function openKickModal() {
   // admin-only, drinking mode only; placed next to the kick-list in this
   // same players screen)
   _renderTargetedDrinkingAdmin(lastState, isAdmin);
+
+  // House rules: button label everywhere, the sub-view when it's open
+  renderRulesSettingsButton(lastState);
+  if (_settingsView === "rules") renderRulesSettings(lastState);
 
   // Reset the bot toggle button to OFF each time the modal opens
   const npcCb  = document.getElementById("setting-add-npc");
@@ -618,6 +625,8 @@ function _populateSettingsUI(state) {
   _renderQueuedBanner(state.queued_settings || {});
 }
 
+// Rule changes are read from lastState.rules (they need the live set to
+// diff against), the rest from the queued dict.
 function _renderQueuedBanner(queued) {
   const banner = document.getElementById("queued-settings-banner");
   const list   = document.getElementById("queued-settings-list");
@@ -630,6 +639,7 @@ function _renderQueuedBanner(queued) {
   if ("drinking_mode" in queued) items.push("Mode → Drinking");
   (queued.add_players    || []).forEach(p => items.push(`Add ${p.is_npc ? "bot" : "player"}: ${escapeHtml(p.name)}`));
   (queued.remove_players || []).forEach(n => items.push(`Remove player: ${escapeHtml(n)}`));
+  if ("rules" in queued) items.push(escapeHtml(rulesQueuedSummary(lastState)));
 
   if (items.length === 0) {
     banner.style.display = "none";
@@ -799,10 +809,13 @@ function _renderTargetedDrinkingAdmin(state, isAdmin) {
     if (playersView) playersView.insertBefore(section, document.getElementById("add-remove-seat-section"));
   }
 
-  if (!isAdmin || !state) { section.style.display = "none"; return; }
+  const td = (state && state.targeted_drinking) || {};
+  // Hidden when the rule is off, unless a run is already going (it finishes
+  // on its own and the admin can still cancel it).
+  if (!isAdmin || !state || (!td.active && !rulesOn("event.targeted"))) {
+    section.style.display = "none"; return;
+  }
   section.style.display = "block";
-
-  const td = state.targeted_drinking || {};
 
   if (td.active) {
     _tdSelectedTargets.clear();

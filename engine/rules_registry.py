@@ -216,6 +216,8 @@ PRESETS: dict[str, frozenset[str]] = {
     for name in PRESET_ORDER[1:]
 }
 LOCKED: frozenset[str] = frozenset(r.id for r in RULES if r.preset == "locked")
+# Rules whose toggle applies at once instead of queuing for the next round.
+LIVE: frozenset[str] = frozenset(r.id for r in RULES if r.live)
 
 
 def _validate() -> None:
@@ -340,6 +342,23 @@ class RuleSet:
 
     def with_rule(self, rule_id: str, value: bool) -> "RuleSet":
         return self.with_changes(on=[rule_id]) if value else self.with_changes(off=[rule_id])
+
+    def next_unlock(self) -> frozenset[str]:
+        """What "Next rule" turns on: every rule at the lowest unlock step
+        that still has one off (rules sharing a step come as a pair), plus
+        any of their ancestors that are off, so the new rules take effect.
+        Empty once every rule is on."""
+        off = [r for r in RULES if r.unlock_step is not None and r.id not in self.enabled]
+        if not off:
+            return frozenset()
+        step = min(r.unlock_step for r in off)
+        picked, stack = set(), [r.id for r in off if r.unlock_step == step]
+        while stack:
+            cur = stack.pop()
+            if cur not in picked and cur not in self.enabled:
+                picked.add(cur)
+                stack.extend(RULES_BY_ID[cur].depends_on)
+        return frozenset(picked)
 
     @classmethod
     def from_preset(cls, name: str) -> "RuleSet":

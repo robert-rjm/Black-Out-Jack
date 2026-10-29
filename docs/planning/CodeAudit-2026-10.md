@@ -36,7 +36,7 @@ hardening · **Info** = observation, no action strictly needed.
 | G6 | Gates | ✅ Fixed | Turning off `insurance.auto_cap` also changes behaviour on a dealer BJ with a 10 up-card |
 | G7 | Gates | ✅ Fixed | `milestone.back_to_back` has no gate |
 | G8 | Gates | ✅ Fixed | The Wild Card "earn your milestone first" block still applies when milestones are off |
-| G9 | Gates | Low (Phase 3) | The UI and serializers don't know about rules yet (buttons for rules that are off still show) |
+| G9 | Gates | ✅ Fixed | The UI and serializers don't know about rules yet (buttons for rules that are off still show) |
 | G10 | Gates / tests | ✅ Fixed | The registry-driven "off means off" test from plan §6.2 is missing, so a new rule can ship without a gate |
 | G11 | Gates | ✅ Fixed | `rules: RuleSet = FULL` defaults silently turn a missed call site into "everything on" (G3 is an example) |
 | G12 | Gates | ✅ Fixed | `RuleSet` equality and preset detection quirks |
@@ -310,7 +310,9 @@ there is nothing to earn, but the press is still blocked.
 
 ---
 
-### G9 — Serializers and UI don't know about rules yet · Low (Phase 3)
+### G9 — Serializers and UI don't know about rules yet · ✅ Fixed
+
+> **Fixed (2026-10-29, Phase 3).** `/state` carries `rules` (`preset`, `enabled`, `effective`, `queued`; ID lists only), and `GET /rules_registry` serves names and groups once. The frontend checks `rulesOn(id)`: the Targeted Drinking start section and the name-tap proposal hide when `event.targeted` is off (a run already going still shows, so it can be cancelled). Bust vote and Wild Card were already driven by their state flags. Tests: `tests/app/test_house_rules.py`.
 
 **Issue.** Nothing under `app/services/serializers/` reads `rules`. With a rule
 off, its UI still shows: Targeted start/propose buttons (the server refuses

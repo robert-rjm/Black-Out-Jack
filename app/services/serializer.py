@@ -29,6 +29,7 @@ from app.services.serializers.drink_rate import _serialize_drink_rates
 from app.services.serializers.boj import _serialize_boj
 from app.services.serializers.bust_vote import _bust_vote_window
 from app.services.serializers.insurance import _insurance_outcome_text, _serialize_insurance_vote
+from app.services.house_rules import serialize_rules
 
 
 def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
@@ -450,6 +451,9 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         # would break it. See QueuedSettingsOut's docstring.
         "queued_settings": QueuedSettingsOut(**session._queued_settings).model_dump(exclude_none=True),
         "num_decks":              session.shoe.num_decks if session.shoe else 1,
+        # House rules: ID lists only; names and groups come from the cached
+        # GET /rules_registry.
+        "rules":                  serialize_rules(session),
         "kpi_stats":              compute_kpi_stats(session, sip_ticker=sip_totals, order=order),
         **_payout_data,
         **_drink_summary_data,

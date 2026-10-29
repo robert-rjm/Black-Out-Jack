@@ -23,6 +23,7 @@ from app.services.serializer import serialize_state
 from app.services.drink_tracker import award_sips, check_and_set_milestone, note_milestone_assigned
 from app.services.validators import sanitize_name, is_offensive_name
 from app.services.pause import pause_game, resume_game
+from app.services.house_rules import update_rules
 
 from app.routes._auth import _require_admin
 from app.config import MAX_WAGER, MAX_NUM_HANDS, MAX_NUM_DECKS, MAX_PLAYERS
@@ -149,6 +150,12 @@ def update_settings():
 
     if "clear_queued" in data and data["clear_queued"]:
         queued = {}
+
+    # House rules: rules_preset / rules_on / rules_off / rules_next /
+    # rules_discard. Live rules apply now, the rest queue (house_rules.py).
+    rules_err = update_rules(session, data, queued)
+    if rules_err:
+        return jsonify({"ok": False, "error": escape(rules_err)})
 
     # dealer_rotate_every is a live setting — applied immediately, not queued
     if "dealer_rotate_every" in data:

@@ -253,7 +253,8 @@ function renderPlayers(state) {
             >${_personalityLabel(s.personality)}</span>`
       : "";
     const tag      = (showTurn && s.is_turn) ? `<div class="turn-tag">${s.is_npc ? "BOT playing…" : "Turn"}</div>` : "";
-    const canPropose  = state.drinking_mode !== false && !s.is_npc && !myNamesLc.has(s.name.toLowerCase());
+    const canPropose  = state.drinking_mode !== false && rulesOn("event.targeted")
+                        && !s.is_npc && !myNamesLc.has(s.name.toLowerCase());
     const nameCls      = canPropose ? " seat-name-targetable" : "";
     const nameTitle    = canPropose ? ` title="Click to propose targeting ${escapeHtml(s.name)}"` : "";
     const sips     = (state.sip_totals || {})[s.name] || 0;

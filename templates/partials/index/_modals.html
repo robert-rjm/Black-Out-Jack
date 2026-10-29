@@ -142,6 +142,11 @@
           <span class="sa-icon">👥</span><span class="sa-label">Players</span>
           <span id="settings-players-badge" class="settings-players-badge" style="display:none"></span>
         </button>
+        <button class="settings-action drink-only" data-action="showSettingsSubview" data-args='["rules"]'>
+          <span class="sa-icon">📜</span><span class="sa-label">House rules</span>
+          <span id="settings-rules-sub" class="sa-sub"></span>
+          <span id="settings-rules-queued-dot" class="settings-rules-queued-dot" style="display:none" title="Changes queued for next round"></span>
+        </button>
       </div>
 
       <div id="game-settings-section">
@@ -216,6 +221,14 @@
           {{ action_btn('Remove', 'queueRemovePlayer', '[]', 'btn danger btn-sm') }}
         </div>
       </div>
+    </div>
+
+    <div id="settings-rules-view" style="display:none">
+      <div class="settings-subview-header">
+        {{ action_btn('← Back', 'showSettingsSubview', '["main"]', 'btn settings-back-btn') }}
+        <span class="settings-subview-title">📜 House rules</span>
+      </div>
+      <div id="rules-settings-body"></div>
     </div>
 
     <div id="queued-settings-banner">

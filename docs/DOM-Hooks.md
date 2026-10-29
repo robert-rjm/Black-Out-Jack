@@ -155,6 +155,13 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#easy-mode-toggle-modal`, `#easy-mode-lbl-modal`, `#easy-mode-lbl-modal-on`
   - `#god-mode-toggle-modal`, `#god-mode-lbl-off`, `#god-mode-lbl-on`
 
+### `static/js/ui/rules-settings.js`
+- House rules sub-view (inside the settings modal, RuleToggles-SettingsModal.md):
+  - Button `[data-action="showSettingsSubview"][data-args='["rules"]']`, label `#settings-rules-sub`, queued dot `#settings-rules-queued-dot`
+  - `#settings-rules-view`, `#rules-settings-body` (built from `GET /rules_registry` and `state.rules`)
+  - Groups `.rs-group` (`[data-rs-expand]` header, `input[data-rs-group]` tri-state toggle), rows `.rs-row` (`input[data-rs-rule]`, `[data-rs-info]` opens the Rules popup at the rule's section)
+  - Footer `.rs-footer`, `.rs-queued`, `[data-rs-discard]` (Undo all)
+
 ### `static/js/ui/rules.js`
 - Rules modal (`/rules`, `?mode=normal` for Normal tables): `#rules-overlay`, `#rules-body`
 

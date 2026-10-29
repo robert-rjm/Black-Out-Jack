@@ -358,12 +358,23 @@ instead: core penalties exactly doubled when on, normal when off.
 Each phase can ship on its own, and the app behaves as today until Phase 3
 exposes the UI.
 
+**Phase 3 as built (2026-10-29).** `app/services/house_rules.py` holds the
+queue/apply/serialize logic. Beyond §4.1 there is one more key,
+`rules_discard`, which drops only the queued rules ("Undo all"). Each toggle
+in the sub-view posts at once (no separate Queue button); live rules apply
+immediately and the queued list's copy of them is ignored, so a live toggle
+made after queuing is never undone at round start. The server accepts
+`rules_preset` and `rules_next` already; their chips and button are Phase 4,
+as are the Rules popup badges and `/setup`'s `rules_preset`. G9: the
+Targeted Drinking start section and the name-tap proposal hide when
+`event.targeted` is off (`rulesOn()` in `rules-settings.js`).
+
 | Phase | Scope | Done when |
 |---|---|---|
 | **0. Groundwork** | Fix the catalog "Gaps" (Rules.md split-Aces text, Cheat-Sheet A♣ wording, new `classify_rule` labels, suited-split wager unit). Re-pin `rules_sync`. | Docs and labels consistent, tests green |
 | **1. Registry** | `engine/rules_registry.py`, `RuleSet`, `GameConfig.rules`, migrate `bust_vote_enabled` / `wild_card_enabled` to properties, registry and catalog sync tests | No behaviour change, snapshots identical |
 | **2. Gates** | Engine gates (§3.1), app gates (§3.2), strategy (§3.3), event wiring (§3.4), the per-rule "off means off" tests | Every rule can be switched off in tests |
-| **3. Admin UI** | `/update_settings` keys, queue/apply, serializer, `/rules_registry`, settings sub-view, read-only view, queued banner, round-log notice | Admin can toggle rules in a live room |
+| **3. Admin UI** ✅ | `/update_settings` keys, queue/apply, serializer, `/rules_registry`, settings sub-view, read-only view, queued banner, round-log notice | Admin can toggle rules in a live room |
 | **4. Presets & docs** | Simulation `--preset` and measured numbers, preset chips on setup and settings, "➕ Next rule", Rules popup badges, a per-rule anchor pass in Rules.md, Rules.md / Multiplayer.md / Cheat-Sheet sections on house rules | Starter set playable from room creation |
 | **5. Follow-ups** | xlsx RULES sheet, share codes, "save my house rules", quiz hooks (`/rules_registry` + catalog quiz seeds), majority vote on rule changes | — |
 

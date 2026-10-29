@@ -6,6 +6,7 @@ player-action command set.
 """
 
 import logging
+from app.services.house_rules import RULES_NOTICE
 from app.services.room_manager import (
     apply_queued_settings,
     rotate_dealer,
@@ -48,6 +49,11 @@ def cmd_newround(game_session, parts, *, digital):
     else:
         game_session.rounds_this_dealer = game_session.rounds_this_dealer + 1
     reset_round_state(game_session, digital=digital)
+    # Everyone sees a house-rule change in the new round's log.
+    for msg in setting_changes:
+        if msg.startswith(RULES_NOTICE):
+            game_session.round._log_entries.append(f"  {msg}\n")
+            game_session._log_version += 1
     if digital and (game_session.drinking_mode or game_session.shoe.needs_reshuffle()):
         if game_session.shoe is not shoe_before:
             log.debug("  Shoe already fresh from settings change — skipping reshuffle.")
