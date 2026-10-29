@@ -194,6 +194,13 @@ A live stats table (correct/wrong per Player, dealer bust %) runs the whole time
 
 ---
 
+## House Rules
+- The host picks 🟢 **Starter**, 🟡 **Standard** or 🔴 **Full** (default) and can switch single rules in ⚙️ Settings → 📜 House rules
+- Changes apply from the **next round** (bust vote and Wild Card at once)
+- Rules marked **OFF AT THIS TABLE** in the rules popup don't apply
+
+---
+
 ## Key Reminders
 - Splitting 10s is **mandatory** (unless suited)
 - Splitting Aces is **mandatory**: any other action on A-A costs 1 sip

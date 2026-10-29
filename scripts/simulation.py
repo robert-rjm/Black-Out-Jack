@@ -17,6 +17,11 @@ Usage:
         # deliberately skips benchmarks.json/benchmarks.js (those are the
         # basic-strategy baseline kpi.js compares live sessions against --
         # see scripts/compare_bot_styles.py to diff personas vs. basic instead).
+    python scripts/simulation.py <players> <decks> --preset starter
+        # plays with that house-rule preset (default full). A non-Full run
+        # writes simulation_results_<preset>.txt / simulation_log_<preset>.csv
+        # and, like a personalities run, skips the benchmarks files (those
+        # are the Full baseline).
 """
 import sys as _sys
 import os as _os
@@ -38,6 +43,8 @@ with contextlib.redirect_stdout(_buf):
     from engine.blackjack import NPC_Player, Shoe, RoundManager
     from engine.drinking_rules import DrinkTracker
     from app.services.utils import classify_rule
+    from engine.rules_registry import RuleSet
+    from scripts._cli import preset_arg
 
 NUM_ROUNDS   = 100000
 NUM_HANDS    = 2
@@ -78,6 +85,7 @@ def _parse_cli_args(argv):
     parser.add_argument("players", nargs="?", type=int, default=None)
     parser.add_argument("decks", nargs="?", type=int, default=None)
     parser.add_argument("--personalities", nargs="+", default=None, metavar="NAME")
+    parser.add_argument("--preset", default="full")
     return parser.parse_args(argv)
 
 
@@ -86,6 +94,7 @@ if __name__ == "__main__":
     # (used by scripts/run_all_configs.py to batch multiple configs without
     # prompting). Falls back to interactive prompts if no args are given.
     _args = _parse_cli_args(_sys.argv[1:])
+    PRESET = preset_arg(_sys.argv[1:])   # validates the name
     if _args.personalities:
         PERSONALITIES = [p.lower() for p in _args.personalities]
         if _args.players is not None and _args.players != len(PERSONALITIES):
@@ -108,6 +117,7 @@ else:
     NUM_PLAYERS   = 3
     NUM_DECKS     = 1
     PERSONALITIES = None
+    PRESET        = "full"
 
 PLAYER_NAMES = ([p.capitalize() for p in PERSONALITIES] if PERSONALITIES
                 else [f"Player{i + 1}" for i in range(NUM_PLAYERS)])
@@ -115,7 +125,7 @@ CONFIG_KEY   = f"{NUM_PLAYERS}p_{NUM_DECKS}d"
 
 
 def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None,
-                    personalities=None):
+                    personalities=None, preset=None):
     """Run the drinking-blackjack simulation and return aggregate stats.
 
     Parameters are optional and default to the module-level NUM_PLAYERS /
@@ -134,11 +144,16 @@ def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None,
     mined profile (engine/player_profiles/<name>.json) instead of plain
     basic strategy. Default `None` (or the module-level PERSONALITIES,
     itself usually `None`) uses generic "Player1..N" basic-strategy bots.
+
+    `preset` names the house rules to play ("starter" / "standard" /
+    "full"); default the module-level PRESET, itself "full" unless --preset
+    was given.
     """
     num_players = NUM_PLAYERS if num_players is None else num_players
     num_decks   = NUM_DECKS if num_decks is None else num_decks
     num_rounds  = NUM_ROUNDS if num_rounds is None else num_rounds
     personalities = PERSONALITIES if personalities is None else personalities
+    rules = RuleSet.from_preset(PRESET if preset is None else preset)
     if personalities is not None:
         if len(personalities) != num_players:
             raise ValueError(
@@ -184,6 +199,7 @@ def run_simulation(num_players=None, num_decks=None, num_rounds=None, seed=None,
         tracker = DrinkTracker(players, dealer_player)
         rm = RoundManager(players, dealer_player, shoe, tracker,
                           WAGER, NUM_HANDS, drinking_mode=True)
+        rm.rules = rules
         with contextlib.redirect_stdout(io.StringIO()):
             rm.play_round()
 
@@ -259,6 +275,7 @@ def write_summary(player_sips, dealer_sips, path):
         f"  DRINKING BLACKJACK -- {N:,}-ROUND SIMULATION RESULTS",
         f"  Generated : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"  Players   : {', '.join(PLAYER_NAMES)}  ({NUM_HANDS} hands each per round)",
+        f"  Rules     : {PRESET.capitalize()} preset",
         f"  Wager     : {WAGER} sip/net-loss  |  Shoe: {NUM_DECKS} decks",
         f"  Dealer    : rotates every {len(PLAYER_NAMES)} rounds ({dealer_rounds:,} rounds each)",
         f"  All averages shown per {S}-round session",
@@ -411,19 +428,23 @@ if __name__ == "__main__":
               f"  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
     else:
         print(f"Players : {', '.join(PLAYER_NAMES)}  |  {NUM_HANDS} hands each  |  Wager: {WAGER} sip")
-    print(f"Shoe    : {NUM_DECKS} deck(s)  |  Dealer rotates every {len(PLAYER_NAMES)} rounds")
+    print(f"Shoe    : {NUM_DECKS} deck(s)  |  Dealer rotates every {len(PLAYER_NAMES)} rounds"
+          f"  |  Rules: {PRESET.capitalize()}")
     print()
 
     player_sips, dealer_sips, event_log, hand_totals, dealer_bust_rounds, std_sips_per_round = run_simulation()
 
     print("\nDone. Writing output files...")
-    suffix = "_personas" if PERSONALITIES else ""
+    suffix = ("_personas" if PERSONALITIES else "") + ("" if PRESET == "full" else f"_{PRESET}")
     write_summary(player_sips, dealer_sips, os.path.join(HERE, f"simulation_results{suffix}.txt"))
     write_csv(event_log,                    os.path.join(HERE, f"simulation_log{suffix}.csv"))
     if PERSONALITIES:
         print("  Benchmarks        -> skipped (personalities run; would corrupt the "
               "basic-strategy baseline kpi.js compares live sessions against — use "
               "scripts/compare_bot_styles.py instead)")
+    elif PRESET != "full":
+        print(f"  Benchmarks        -> skipped ({PRESET} preset; the benchmarks are the "
+              "Full-preset baseline)")
     else:
         write_benchmarks(
             player_sips, dealer_sips, hand_totals, dealer_bust_rounds, std_sips_per_round,

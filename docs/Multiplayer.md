@@ -16,6 +16,7 @@
 - [Dealer Lottery](#dealer-lottery)
 - [Targeted Drinking Mode](#targeted-drinking-mode)
 - [Easy Mode](#easy-mode)
+- [House Rules](#house-rules)
 - [KPI Panel](#kpi-panel)
 - [Strategy Accuracy](#strategy-accuracy)
 - [Clean-Round Crown](#clean-round-crown)
@@ -207,6 +208,19 @@ Each seat has a **drink rate** that scales the sips it drinks, so someone on win
 - **Setup:** toggle it on in the setup screen before starting the game
 - **Mid-game:** the host can toggle it in admin settings; takes effect from the next round
 - **4+ players:** Easy Mode is locked ON — the Large Group Rule already covers it
+
+---
+
+## House Rules
+
+Each table picks which drinking rules it plays ([Rules §6.4](Rules.md#64-house-rules-presets)).
+
+- **Setup:** choose 🟢 Starter, 🟡 Standard or 🔴 Full (the default) under *House rules* on the setup screen. The bust-vote toggle next to it still decides the bust vote.
+- **Mid-game:** ⚙️ Settings → **📜 House rules**. The host picks a preset, taps **➕ Next rule** to add the next rule in the learning order, or switches rules and whole groups on and off. Changes queue for the next round (the bust vote and Wild Card switch at once). **Undo all** drops the queued changes.
+- **At the next round:** the round log posts "📜 House rules changed: …", and everyone gets a 🆕 toast naming any rule that was just switched on.
+- **Everyone else** sees the same list read-only, with rules that are off marked *Off at this table*. In the 📖 Rules popup those rules carry an **OFF AT THIS TABLE** badge, and *Show active rules only* hides them.
+- Turning a rule off never cancels an event that's already running (a Dealer Lottery, a Targeted Drinking run): it just won't start again.
+- The terminal scripts take the same presets: `python scripts/play_terminal.py --preset starter`, `python scripts/play_referee.py --preset standard`.
 
 ---
 

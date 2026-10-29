@@ -5,7 +5,7 @@ Wraps the shared engine.referee.RefereeSession (same rules engine used by the
 Flask web app's referee mode) with an interactive setup + command loop, so a
 real-deck game can be scored/tracked from the command line.
 
-Run: python scripts/play_referee.py
+Run: python scripts/play_referee.py [--preset starter|standard|full]
 """
 import sys as _sys
 import os as _os
@@ -13,7 +13,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 
 from engine.blackjack import Player, Hand  # noqa: E402
 from engine.referee import RefereeSession  # noqa: E402
-from scripts._cli import safe_int, yes_no  # noqa: E402
+from scripts._cli import preset_rules, safe_int, yes_no  # noqa: E402
 
 
 COMMAND_MAP = {
@@ -73,6 +73,7 @@ def _setup_session() -> "RefereeSession":
         players, dealer_name, wager=wager, num_hands=num_hands,
         bust_vote_enabled=bust_vote_enabled,
     )
+    session.rules = preset_rules(_sys.argv[1:])
     return session
 
 

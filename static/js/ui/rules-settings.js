@@ -16,6 +16,43 @@ let _rsExpanded      = null;   // Set of open group IDs; null = pick defaults on
 let _rsLastSignature = "";
 
 const _PRESET_LABEL = { starter: "Starter", standard: "Standard", full: "Full" };
+// Chips on the setup screen and in the settings view. `sips` is the
+// simulated average per player per round (3 players, 1 deck, 2 hands each;
+// RuleToggles-StarterSet.md §6). Re-measure with
+// `python scripts/simulation.py 3 1 --preset <name>` after rule changes.
+const RULE_PRESETS = [
+  { id: "starter",  dot: "🟢", blurb: "Learn the game", sips: 2.2 },
+  { id: "standard", dot: "🟡", blurb: "House rules",    sips: 4.3 },
+  { id: "full",     dot: "🔴", blurb: "Everything",     sips: 4.4 },
+];
+
+// ---- Setup screen: preset picked before the room starts ----
+let setupRulesPreset = "full";
+
+function _presetChipHtml(p, active, attrs) {
+  const sips = p.sips ? `<span class="preset-chip-sips">≈${p.sips} sips/rnd</span>` : "";
+  return `<button type="button" class="preset-chip${active ? " sel" : ""}" ${attrs}>
+    <span class="preset-chip-name">${p.dot} ${_PRESET_LABEL[p.id]}</span>
+    <span class="preset-chip-blurb">${p.blurb}</span>${sips}
+  </button>`;
+}
+
+function renderSetupPresetChips() {
+  const box = document.getElementById("rules-preset-setup");
+  if (!box) return;
+  box.innerHTML = RULE_PRESETS.map(p =>
+    _presetChipHtml(p, p.id === setupRulesPreset,
+                    `data-action="setRulesPresetSetup" data-args='["${p.id}"]'`)).join("");
+}
+
+function setRulesPresetSetup(name) {
+  if (!_PRESET_LABEL[name]) return;
+  setupRulesPreset = name;
+  renderSetupPresetChips();
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", renderSetupPresetChips);
+else renderSetupPresetChips();
 
 function loadRulesRegistry() {
   if (_rulesRegistry) return Promise.resolve(_rulesRegistry);
@@ -54,11 +91,32 @@ function _rsEffective(enabled, reg) {
   return new Set(reg.rules.filter(r => eff(r.id)).map(r => r.id));
 }
 
+// Same as the server: live rules (bust vote, wild card) don't count.
 function _rsPresetName(enabled, reg) {
+  const fixed = id => !reg.byId[id].live;
+  const mine  = [...enabled].filter(fixed);
   for (const [name, ids] of Object.entries(reg.presets)) {
-    if (ids.length === enabled.size && ids.every(id => enabled.has(id))) return name;
+    const theirs = ids.filter(fixed);
+    if (theirs.length === mine.length && theirs.every(id => enabled.has(id))) return name;
   }
   return null;
+}
+
+// What "Next rule" would turn on, as RuleSet.next_unlock() does: every rule
+// at the lowest unlock step that still has one off, plus its off ancestors.
+function _rsNextUnlock(enabled, reg) {
+  const off = reg.rules.filter(r => r.unlock_step !== null && !enabled.has(r.id));
+  if (!off.length) return [];
+  const step = Math.min(...off.map(r => r.unlock_step));
+  const picked = new Set();
+  const stack  = off.filter(r => r.unlock_step === step).map(r => r.id);
+  while (stack.length) {
+    const id = stack.pop();
+    if (picked.has(id) || enabled.has(id)) continue;
+    picked.add(id);
+    stack.push(...reg.byId[id].depends_on);
+  }
+  return reg.rules.filter(r => picked.has(r.id));
 }
 
 function _rsPresetLabel(preset) {
@@ -146,6 +204,19 @@ function renderRulesSettings(state) {
   if (rules.queued) {
     const nextPreset = _rsPresetName(new Set(rules.queued), reg);
     html += `<div class="rs-header rs-header-next">Next round: <strong>${escapeHtml(_rsPresetLabel(nextPreset))}</strong> · ${_rsEffective(new Set(rules.queued), reg).size}/${total} rules on</div>`;
+  }
+
+  if (isAdmin) {
+    // Presets, then "Next rule". The chip that matches the set being edited
+    // is filled; a custom set fills none.
+    const targetPreset = _rsPresetName(target, reg);
+    html += `<div class="preset-chips rs-presets">` + RULE_PRESETS.map(p =>
+      _presetChipHtml(p, p.id === targetPreset, `data-rs-preset="${p.id}"`)).join("") + `</div>`;
+    if (!targetPreset) html += `<div class="rs-custom-note">✏️ Custom set</div>`;
+    const next = _rsNextUnlock(target, reg);
+    if (next.length) {
+      html += `<button type="button" class="btn wide rs-next" data-rs-next="1">➕ Next rule: ${escapeHtml(next.map(r => r.name).join(" + "))}</button>`;
+    }
   }
 
   reg.groups.forEach(g => {
@@ -293,7 +364,16 @@ document.addEventListener("click", e => {
   }
   const info = e.target.closest("[data-rs-info]");
   if (info) { _rsOpenRule(info.dataset.rsInfo); return; }
-  if (e.target.closest("[data-rs-discard]")) _rsSend({ rules_discard: true });
+  if (e.target.closest("[data-rs-discard]")) { _rsSend({ rules_discard: true }); return; }
+  if (e.target.closest("[data-rs-next]")) { _rsSend({ rules_next: true }); return; }
+  const preset = e.target.closest("[data-rs-preset]");
+  if (preset) {
+    const name = preset.dataset.rsPreset;
+    // Switching between presets doesn't ask; replacing a custom set does.
+    if (!_rsPresetName(_rsTarget(lastState.rules), _rulesRegistry)
+        && !confirm(`Replace your custom rules with ${_PRESET_LABEL[name]}?`)) return;
+    _rsSend({ rules_preset: name });
+  }
 });
 
 document.addEventListener("change", e => {
@@ -302,3 +382,24 @@ document.addEventListener("change", e => {
   if (cb.dataset.rsRule)  _rsToggleRule(cb.dataset.rsRule, cb.checked);
   if (cb.dataset.rsGroup) _rsToggleGroup(cb.dataset.rsGroup, cb.checked);
 });
+
+// ---- "🆕 New rule" toast ----
+// Called from applyState with the previous and new state: when the table's
+// rules gain something (a queued "Next rule" reaching the round start, say),
+// tell everyone. Live toggles (bust vote, wild card) have their own UI.
+function noteRuleChanges(prev, next) {
+  const before = prev && prev.rules && prev.rules.effective;
+  const after  = next && next.rules && next.rules.effective;
+  if (!before || !after || !_rulesRegistry) {
+    if (after && !_rulesRegistry) loadRulesRegistry().catch(() => {});
+    return;
+  }
+  const had   = new Set(before);
+  const added = after.filter(id => !had.has(id) && !_rulesRegistry.byId[id].live)
+                     .map(id => _rulesRegistry.byId[id]);
+  if (!added.length) return;
+  const text = added.length <= 2
+    ? `🆕 New rule: ${added.map(r => `${r.name} (${r.summary})`).join(" · ")}`
+    : `🆕 ${added.length} new rules are on. See 📜 House rules in ⚙️ Settings.`;
+  showToast(text, "info", 6000);
+}

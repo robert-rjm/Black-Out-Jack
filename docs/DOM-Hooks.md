@@ -161,9 +161,12 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#settings-rules-view`, `#rules-settings-body` (built from `GET /rules_registry` and `state.rules`)
   - Groups `.rs-group` (`[data-rs-expand]` header, `input[data-rs-group]` tri-state toggle), rows `.rs-row` (`input[data-rs-rule]`, `[data-rs-info]` opens the Rules popup at the rule's section)
   - Footer `.rs-footer`, `.rs-queued`, `[data-rs-discard]` (Undo all)
+  - Preset chips `.preset-chips.rs-presets` (`[data-rs-preset]`), `.rs-custom-note`, Next rule `[data-rs-next]`
+- Setup screen preset picker: `#rules-preset-setup-field`, `#rules-preset-setup` (`.preset-chip`, `[data-action="setRulesPresetSetup"]`)
 
 ### `static/js/ui/rules.js`
 - Rules modal (`/rules`, `?mode=normal` for Normal tables): `#rules-overlay`, `#rules-body`
+- House rules marks (drinking tables): `.rules-house-banner`, `#rules-active-only-toggle` (adds `.active-only` to `#rules-body`), `.rule-off`, `.rules-section-off`, `.rule-off-badge`
 
 ### `static/js/ui/summary.js`
 - Summary modal: `#summary-overlay`, `#summary-meta`, `#summary-body`

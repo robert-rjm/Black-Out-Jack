@@ -31,6 +31,7 @@ function setGameType(type, btn) {
   const wagerCell      = document.getElementById("wager-dig-cell");
   const betCell        = document.getElementById("bet-dig-cell");
   const easyModeField  = document.getElementById("easy-mode-setup-field");
+  const presetField    = document.getElementById("rules-preset-setup-field");
   const handsDecksRow  = document.getElementById("settings-dig");
   const togglesRow     = document.getElementById("settings-dig-toggles");
   const sub            = document.getElementById("setup-sub");
@@ -52,6 +53,7 @@ function setGameType(type, btn) {
     wagerCell.style.display    = "";
     if (betCell) betCell.style.display = "none";
     if (easyModeField) easyModeField.style.display = "";
+    if (presetField) presetField.style.display = "";
     setRowCols(handsDecksRow, false);
     setRowCols(togglesRow, false);
     sub.textContent = "Virtual Drinking Blackjack";
@@ -67,6 +69,8 @@ function setGameType(type, btn) {
       easyModeField.style.display = "none";
       setEasyModeSetup(false);
     }
+    // House rules are drinking rules
+    if (presetField) presetField.style.display = "none";
     // Normal mode default: 1 hand per player (players bet against the house)
     setStepperValue("num-hands-dig", 1);
     setRowCols(handsDecksRow, false);
@@ -79,6 +83,7 @@ function setGameType(type, btn) {
     digSettings.style.display  = "none";
     if (betCell) betCell.style.display = "none";
     if (easyModeField) easyModeField.style.display = "";
+    if (presetField) presetField.style.display = "";
     setRowCols(handsDecksRow, false);
     setRowCols(togglesRow, false);
     sub.textContent = "Drinking Blackjack Physical Scorekeeper and Drink Tracker";
@@ -355,6 +360,7 @@ async function startGame() {
 
   // Player 1 is always the starting dealer
   const body = { players: names, dealer_index: 0, wager, num_hands: nh, mode: setupMode, drinking: setupDrinking, room_code: roomCode, npcs, personalities, client_id: clientId, bust_vote_enabled: bustVoteEnabled, easy_mode: easyMode };
+  if (setupDrinking) body.rules_preset = setupRulesPreset;
   if (isDigital) body.num_decks = numDecks;
   if (!setupDrinking) {
     body.bet_amount = getStepperValue("bet-dig") || 10;

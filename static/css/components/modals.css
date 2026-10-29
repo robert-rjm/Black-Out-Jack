@@ -168,6 +168,9 @@
 .rs-lock { flex-shrink: 0; width: 62px; text-align: center; font-size: 14px; }
 .rs-pill input:indeterminate + .pill-slider { background: color-mix(in srgb, var(--green) 45%, var(--border-control)); }
 .rs-pill input:indeterminate + .pill-slider:before { transform: translateX(16px); }
+.rs-presets { margin: 10px 0 6px; }
+.rs-custom-note { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.rs-next { margin: 4px 0 6px; font-size: 13px; white-space: normal; height: auto; min-height: 40px; }
 .rs-footer {
   position: sticky; bottom: -20px; margin: 10px -20px -20px; padding: 10px 20px 14px;
   background: var(--surface); border-top: 1px solid var(--wash-3);
@@ -221,6 +224,21 @@
 #rules-body li { margin-bottom: 4px; }
 #rules-body strong { color: var(--yellow); }
 #rules-body em { color: var(--muted); }
+/* House rules switched off at this table (rules.js _markHouseRules) */
+.rules-house-banner {
+  margin: 0 0 14px; padding: 8px 10px; border-radius: 8px; font-size: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.rules-active-only { display: flex; align-items: center; gap: 6px; margin-top: 6px; cursor: pointer; }
+.rule-off-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 6px; vertical-align: middle;
+  font-size: 9px; font-weight: 800; letter-spacing: .04em; white-space: nowrap;
+  background: color-mix(in srgb, var(--red) 22%, transparent); color: var(--text-danger);
+}
+#rules-body .rule-off, #rules-body .rules-section-off { opacity: .5; }
+#rules-body h2.rules-section-off, #rules-body h3.rules-section-off, #rules-body h4.rules-section-off { opacity: .7; }
+#rules-body.active-only .rule-off, #rules-body.active-only .rules-section-off { display: none; }
 #rules-body hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
 #rules-body code { background: var(--wash-2); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
 #rules-body table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 13px; }

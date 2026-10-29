@@ -86,6 +86,15 @@ def test_every_doc_anchor_is_a_rules_md_heading():
         assert r.doc_anchor in slugs, f"{r.id}: #{r.doc_anchor} is not a Rules.md heading"
 
 
+def test_every_rule_has_its_own_anchor_in_rules_md():
+    # The Rules popup badges a rule that's off by this anchor (rules.js
+    # _ruleAnchorId: dots become dashes, the same form as Rules-Catalog.md).
+    text = (ROOT / "docs" / "Rules.md").read_text(encoding="utf-8")
+    for r in RULES:
+        tag = f'<a id="{r.id.replace(".", "-")}"></a>'
+        assert text.count(tag) == 1, f"{r.id}: expected one {tag} in Rules.md"
+
+
 def test_live_rules_are_bust_vote_and_wild_card():
     assert {r.id for r in RULES if r.live} == {"side.bust_vote", "event.wild_card"}
 
@@ -144,6 +153,12 @@ def test_preset_label_follows_the_set():
     custom = STANDARD.with_changes(on=["event.dealer_lottery"])
     assert custom.preset is None
     assert custom.with_changes(off=["event.dealer_lottery"]).preset == "standard"
+
+
+def test_live_toggles_do_not_change_the_preset_label():
+    assert DEFAULT_RULES.preset == "full"
+    assert STARTER.with_changes(on=["side.bust_vote", "event.wild_card"]).preset == "starter"
+    assert DEFAULT_RULES != FULL   # equality still counts every rule
 
 
 def test_rule_sets_are_hashable_and_equal_by_content():

@@ -330,7 +330,7 @@ adding a boolean per feature to the serializer.
 
 ### G10 — No registry-driven coverage test · ✅ Fixed
 
-> **Fixed (2026-10-29).** `tests/engine/test_rules_gate_coverage.py` maps every toggleable rule ID to the test that switches it off, and fails when a rule is missing from the map or the named test doesn't exist. Writing the map turned up four rules with no gate test: `milestone.worst_average`, `event.targeted.perfect_handout`, `event.wild_card` and `event.wild_card.targeted`. Those tests are added. Not done: running the engine tests through the referee path, and the Starter simulation smoke test (needs Phase 4's `--preset`).
+> **Fixed (2026-10-29).** `tests/engine/test_rules_gate_coverage.py` maps every toggleable rule ID to the test that switches it off, and fails when a rule is missing from the map or the named test doesn't exist. Writing the map turned up four rules with no gate test: `milestone.worst_average`, `event.targeted.perfect_handout`, `event.wild_card` and `event.wild_card.targeted`. Those tests are added. Not done: running the engine tests through the referee path. The Starter simulation smoke test came with Phase 4 (`tests/scripts/test_presets.py`).
 
 **Issue.** Plan §6.2 / §9 says the "off means off" test is *parametrized over
 the registry*, so that "a new rule without a test fails the registry-coverage

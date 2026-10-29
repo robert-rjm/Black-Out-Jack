@@ -198,6 +198,31 @@ tooling before the UI quotes numbers:
 5. Put the measured numbers in the modal's preset chips ("≈ 2.1 sips/round")
    and in Rules.md.
 
+**Measured (2026-10-29).** `run_simulation(..., preset=...)`, 20,000
+rounds each, seed 7, 2 hands, wager 1, basic-strategy bots. Average sips
+per player per round:
+
+| Config | Starter | Standard | Full | Starter / Full | Standard / Full |
+|---|---|---|---|---|---|
+| 2p, 1 deck | 1.86 | 3.26 | 3.27 | 57% | 100% |
+| 3p, 1 deck | 2.20 | 4.35 | 4.36 | 50% | 100% |
+| 4p, 2 decks | 2.57 | 5.55 | 5.56 | 46% | 100% |
+
+- Starter lands at the bottom of the 50–65% target at 3 players and just
+  under it at 4 (where the large-group halving already applies). If
+  playtests say it feels too tame, promote `ace.hearts.*` first, as
+  planned above.
+- Standard measures the same as Full. That's a limit of the simulation,
+  not of the presets: the engine doesn't play the between-round events
+  (Dealer Lottery, Targeted Drinking, Wild Card, milestones, "worst
+  average", the L badge), and the engine-level Full-only rules (Devil's
+  Hand / Lucky Sevens, all-hand bonus, dealer 5-card 21, insurance vote)
+  are rare. The 80–90% target can't be checked this way.
+- The dealer-seat check isn't possible from this output: the dealer also
+  plays player hands, and the drink log splits sips by role, not by seat.
+- The chips quote the 3-player numbers (≈2.2 / ≈4.3 / ≈4.4), as does
+  Rules.md §6.4.
+
 Keep the Full-preset snapshots identical to today's. That doubles as the
 regression proof that the gating code is a no-op when everything is on.
 

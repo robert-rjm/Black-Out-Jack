@@ -272,8 +272,11 @@ _validate()
 
 
 def _preset_for(enabled: frozenset[str]) -> str | None:
+    """The preset these rules match. Live rules (bust vote, wild card) are
+    table toggles flipped at any time, so they don't count: a Full room
+    with the bust vote off is still "Full"."""
     for name, ids in PRESETS.items():
-        if ids == enabled:
+        if ids - LIVE == enabled - LIVE:
             return name
     return None
 
@@ -288,7 +291,8 @@ class RuleSet:
     ``enabled`` as well.
 
     Two sets are equal when ``enabled`` is. ``preset`` is derived from it
-    (the preset whose rules match exactly, else None), never passed in.
+    (the preset whose rules match, live rules aside, else None), never
+    passed in.
     """
     enabled: frozenset[str]
     preset: str | None = field(init=False, compare=False)

@@ -26,7 +26,7 @@ from app.services.session_store import (
 from app.services.validators  import sanitize_name, is_offensive_name, clamp_int, clamp_float
 from app.services.serializer  import serialize_state
 from app.services.room_factory import build_game_room
-from engine.rules_registry import DEFAULT_RULES
+from engine.rules_registry import PRESETS, RuleSet
 from app.services.qr import qr_svg
 from app.config import (
     DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE,
@@ -199,12 +199,20 @@ def setup():
 
     drinking = bool(data.get("drinking", True))
 
+    # House-rule preset (default Full). The setup screen's bust-vote toggle
+    # still decides that one rule, whatever the preset says.
+    rules_preset = data.get("rules_preset", "full")
+    if rules_preset not in PRESETS:
+        return jsonify({"ok": False, "error": "Unknown rules preset."})
+    rules = RuleSet.from_preset(rules_preset).with_rule(
+        "side.bust_vote", bool(data.get("bust_vote_enabled", False)))
+
     room, output = build_game_room(
         room_code, client_id, names, npc_names, npc_personalities, dealer_name,
         mode=mode, drinking=drinking, wager=wager, num_hands=num_hands,
         bet_amount=bet_amount, starting_bankroll=starting_bankroll,
         num_decks=num_decks,
-        rules=DEFAULT_RULES.with_rule("side.bust_vote", bool(data.get("bust_vote_enabled", False))),
+        rules=rules,
         easy_mode=bool(data.get("easy_mode", False)),
     )
     state  = serialize_state(room, client_id)

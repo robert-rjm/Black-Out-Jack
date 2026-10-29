@@ -177,6 +177,38 @@ def test_turning_off_targeted_drinking_does_not_cancel_a_running_one(client):
 
 
 # ---------------------------------------------------------------------------
+# Room creation with a preset (Phase 4)
+# ---------------------------------------------------------------------------
+
+def _setup(c, **kw):
+    code = c.post("/create_room").get_json()["code"]
+    body = {"room_code": code, "client_id": "cid", "players": ["Rob", "Ann"],
+            "dealer_index": 0, "mode": "digital", "drinking": True, **kw}
+    return c.post("/setup", json=body).get_json(), game_sessions.get(code)
+
+
+def test_setup_defaults_to_full_with_the_bust_vote_toggle(client):
+    st, s = _setup(client)
+    assert s.rules == FULL.with_changes(off=["side.bust_vote"])
+    assert st["rules"]["preset"] == "full"
+    st, s = _setup(client, bust_vote_enabled=True)
+    assert s.rules == FULL
+
+
+def test_setup_starts_a_starter_table(client):
+    st, s = _setup(client, rules_preset="starter", bust_vote_enabled=True)
+    assert st["rules"]["preset"] == "starter"
+    assert not s.rules.on("ace.hearts.player") and not s.wild_card_enabled
+    # The setup screen's bust-vote toggle still decides that one rule.
+    assert s.bust_vote_enabled
+
+
+def test_setup_rejects_an_unknown_preset(client):
+    st, s = _setup(client, rules_preset="spicy")
+    assert st["ok"] is False and "preset" in st["error"]
+
+
+# ---------------------------------------------------------------------------
 # State, registry, notice text
 # ---------------------------------------------------------------------------
 
