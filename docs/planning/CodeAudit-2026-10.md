@@ -32,17 +32,17 @@ hardening · **Info** = observation, no action strictly needed.
 | G2 | Gates | ✅ Fixed | Switching to a BOJ table resets the new room to `DEFAULT_RULES` (the wild card toggle is lost today; a custom ruleset will be lost later) |
 | G3 | Gates | ✅ Fixed | The insurance-vote modal shows the full BJ multiplier (`bj_mult`) even when multipliers are off |
 | G4 | Gates | ✅ Fixed | Referee mode ignores `table.split_ace_bj` |
-| G5 | Gates / Normal mode | Medium | Normal (casino) mode inherits drinking table rules: a split A+10 pays 3:2 |
-| G6 | Gates | Medium (design) | Turning off `insurance.auto_cap` also changes behaviour on a dealer BJ with a 10 up-card |
-| G7 | Gates | Low | `milestone.back_to_back` has no gate |
-| G8 | Gates | Low | The Wild Card "earn your milestone first" block still applies when milestones are off |
+| G5 | Gates / Normal mode | Deferred (Normal-mode overhaul) | Normal (casino) mode inherits drinking table rules: a split A+10 pays 3:2 |
+| G6 | Gates | ✅ Fixed | Turning off `insurance.auto_cap` also changes behaviour on a dealer BJ with a 10 up-card |
+| G7 | Gates | ✅ Fixed | `milestone.back_to_back` has no gate |
+| G8 | Gates | ✅ Fixed | The Wild Card "earn your milestone first" block still applies when milestones are off |
 | G9 | Gates | Low (Phase 3) | The UI and serializers don't know about rules yet (buttons for rules that are off still show) |
-| G10 | Gates / tests | Medium | The registry-driven "off means off" test from plan §6.2 is missing, so a new rule can ship without a gate |
-| G11 | Gates | Low | `rules: RuleSet = FULL` defaults silently turn a missed call site into "everything on" (G3 is an example) |
-| G12 | Gates | Low | `RuleSet` equality and preset detection quirks |
-| G13 | Gates | Low | Referee `insurance` action is accepted, with a wrong log line, when `insurance.bj_vote` is off |
-| B1 | Referee | **High** | The BLACKJACK button followed by WIN pays the BJ bonus **twice** |
-| B2 | Input validation | **High** (public server) | `/setup` and `/update_settings` have no upper bounds, so a request with `num_hands=10^6` can lock up the server |
+| G10 | Gates / tests | ✅ Fixed | The registry-driven "off means off" test from plan §6.2 is missing, so a new rule can ship without a gate |
+| G11 | Gates | ✅ Fixed | `rules: RuleSet = FULL` defaults silently turn a missed call site into "everything on" (G3 is an example) |
+| G12 | Gates | ✅ Fixed | `RuleSet` equality and preset detection quirks |
+| G13 | Gates | Deferred (referee) | Referee `insurance` action is accepted, with a wrong log line, when `insurance.bj_vote` is off |
+| B1 | Referee | Deferred (referee) | The BLACKJACK button followed by WIN pays the BJ bonus **twice** |
+| B2 | Input validation | ✅ Fixed | `/setup` and `/update_settings` have no upper bounds, so a request with `num_hands=10^6` can lock up the server |
 | B3 | Security | Medium | The join rate limit trusts `X-Forwarded-For`, and `/state` and the exports can be used to probe room codes with no limit |
 | B4 | Security | Medium | Anyone who knows a reserved room code can run `/setup` before the host does |
 | B5 | Tests | Medium | `test_mode_switch` is flaky (unseeded shoe) |
@@ -245,7 +245,9 @@ This existed before the gates. The new rule now makes it easy to fix.
 
 ---
 
-### G6 — `insurance.auto_cap` reaches further than the rule · Medium (design)
+### G6 — `insurance.auto_cap` reaches further than the rule · ✅ Fixed
+
+> **Fixed (2026-10-29).** Decision: a dealer Blackjack never cancels a rule that doesn't need a win. Nobody beats it, so the win-only bonuses can't fire anyway, but the 5-card-21 handout and the all-hand bonus now always fire, whatever `insurance.auto_cap` says. Before the gates they were suppressed on every dealer Blackjack, so this is a deliberate rule change. `insurance.auto_cap` only switches the net-loss cap. The Case 3 log line follows the rule. Rules.md §5.4 / §5.5 and the catalog entry say so, and `rules_sync` is re-pinned. Tests: `test_dealer_blackjack_keeps_the_five_card_handout_whatever_the_cap`, `test_dealer_blackjack_keeps_the_sweep_whatever_the_cap`, `test_dealer_bj_keeps_21_five_card_handout`, `test_sweep_still_fires_against_a_dealer_bj`.
 
 **Issue.** The rule is "Auto-insurance cap (**Ace up-card**)". Plan §3.1 only
 specified gating `_dealer_bj_drinks` in `on_round_end`. The implementation
@@ -276,7 +278,9 @@ sips only" even when the cap is off.
 
 ---
 
-### G7 — `milestone.back_to_back` is not gated · Low
+### G7 — `milestone.back_to_back` is not gated · ✅ Fixed
+
+> **Fixed (2026-10-29).** The log callout and the `milestone_run_holder` / `milestone_run_length` badge are gated. The run is still counted, so turning the rule back on mid-session is accurate. Test: `test_back_to_back_callout_off`.
 
 **Issue.** The registry declares it toggleable, but no code checks it
 (`drink_tracker.note_milestone_assigned` always logs the callout, and the
@@ -292,7 +296,9 @@ decide now.
 
 ---
 
-### G8 — Wild Card milestone block ignores the milestone rule · Low
+### G8 — Wild Card milestone block ignores the milestone rule · ✅ Fixed
+
+> **Fixed (2026-10-29).** The block only runs with `milestone.handout` on. Test: `test_milestone_block_only_applies_when_milestones_are_on`.
 
 **Issue.** `app/routes/wild_card.py:121` refuses a press when the player is
 ≤10 sips from a milestone ("earn it first!"). With `milestone.handout` off
@@ -320,7 +326,9 @@ adding a boolean per feature to the serializer.
 
 ---
 
-### G10 — No registry-driven coverage test · Medium
+### G10 — No registry-driven coverage test · ✅ Fixed
+
+> **Fixed (2026-10-29).** `tests/engine/test_rules_gate_coverage.py` maps every toggleable rule ID to the test that switches it off, and fails when a rule is missing from the map or the named test doesn't exist. Writing the map turned up four rules with no gate test: `milestone.worst_average`, `event.targeted.perfect_handout`, `event.wild_card` and `event.wild_card.targeted`. Those tests are added. Not done: running the engine tests through the referee path, and the Starter simulation smoke test (needs Phase 4's `--preset`).
 
 **Issue.** Plan §6.2 / §9 says the "off means off" test is *parametrized over
 the registry*, so that "a new rule without a test fails the registry-coverage
@@ -343,7 +351,9 @@ missing, and the referee path has no gate tests (see G4).
 
 ---
 
-### G11 — `rules=FULL` defaults hide missed call sites · Low
+### G11 — `rules=FULL` defaults hide missed call sites · ✅ Fixed
+
+> **Fixed (2026-10-29).** The same test file walks the AST of `app/` and `engine/` and fails on any call to an event class or `DrinkingRules` helper that takes `rules` but isn't given it. The list of targets is read from the signatures, so new helpers are covered automatically. The defaults stay. Checked: putting back the old G3 call makes the test fail.
 
 **Issue.** Every event dataclass and helper defaults to `rules=FULL`, by design
 (plan §6.3), so old call sites keep today's behaviour. The downside: forgetting
@@ -360,7 +370,9 @@ to pass `rules` is silent and means "everything on". G3 is exactly this bug.
 
 ---
 
-### G12 — `RuleSet` equality and preset quirks · Low
+### G12 — `RuleSet` equality and preset quirks · ✅ Fixed
+
+> **Fixed (2026-10-29).** Locked IDs are always added to `enabled`, `preset` is derived from the content (it is no longer a constructor argument and isn't part of equality), and `waiting_on_parent()` lists rules switched on whose parent is off, for the settings UI. The Phase 3 snippet is updated. Tests: `test_a_set_built_from_ids_matches_its_preset`, `test_waiting_on_parent_lists_children_of_off_parents`.
 
 **Issue.**
 - `preset` takes part in `__eq__`/`__hash__`, so `RuleSet(PRESETS["full"])`
@@ -415,7 +427,9 @@ twice, so every other player drinks double. Confirmed with the probe:
 
 ---
 
-### B2 — Unbounded numeric inputs (DoS) · High for a public server
+### B2 — Unbounded numeric inputs (DoS) · ✅ Fixed
+
+> **Fixed (2026-10-29).** Limits live in `app/config.py` (`MAX_WAGER` 20, `MAX_NUM_HANDS` 10, `MAX_NUM_DECKS` 8, `MAX_PLAYERS` 12, bet 2.5–1000, bankroll ≤ 100 000). They are at least as high as anything the UI offers. `/setup` clamps with the new `validators.clamp_int` / `clamp_float` (which also reject nan/inf), caps the player count, validates `mode`, and rejects a non-list `npcs` or a non-dict `personalities`. `/update_settings` ignores out-of-range values, as it already did for decks, and refuses to queue seats past `MAX_PLAYERS`. Found along the way: a bot personality named a file path (`engine/player_profiles/<name>.json`), so `../..` could load any `.json` file on the server. Only plain names (`[A-Za-z0-9_-]`) get through now. Tests: `tests/app/test_setup_limits.py`.
 
 **Issue.** `/setup` (`lobby.py:160–165`) clamps only the lower bound of
 `wager`, `num_hands`, `bet_amount` and `starting_bankroll`.
@@ -629,11 +643,10 @@ naturally.
 
 ## Suggested order of work
 
-1. **B1** (double BJ bonus) and **B2** (unbounded inputs): small, high-impact fixes.
+1. ~~**B2**~~: fixed 2026-10-29. **B1** is deferred with the other referee items (G13).
 2. ~~**G1, G2, G3, G4**~~: fixed 2026-10-29.
-3. **G10, G11**: the safety net that stops Phase 3 or 4 from regressing silently.
-4. **G5, G6**: product decisions first (Normal-mode table rules, auto-cap
-   scope), then code.
+3. ~~**G6, G7, G8, G10, G11, G12**~~: fixed 2026-10-29.
+4. **G5**: deferred to the Normal-mode overhaul.
 5. **B3, B4, B5, B9** and **P3** (CI): hardening before any public promotion.
 6. **P1, P2**: only if the app is meant to go beyond friends-and-family scale.
 7. Parts D and E: after the above. The quiz can start right after Phase 3,
