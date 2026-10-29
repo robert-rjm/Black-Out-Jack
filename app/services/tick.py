@@ -15,13 +15,16 @@ import io
 import logging
 
 from app.config import (
+    L_HANDOUT_WINDOW_SECONDS,
     INSURANCE_VOTE_TIMEOUT,
     BUST_VOTE_WINDOW_SECONDS,
     BUST_HANDOUT_WINDOW_SECONDS,
 )
 from app.services.round_state import round_phase
 from app.services.rule_votes import apply_rule_vote_forfeit
-from app.services.drink_tracker import apply_milestone_forfeit, apply_bust_handout_forfeit
+from app.services.drink_tracker import (
+    apply_milestone_forfeit, apply_bust_handout_forfeit, apply_l_handout_forfeit,
+)
 from app.services.dealer_lottery import (
     maybe_start_dealer_lottery,
     maybe_start_dealer_lottery_handout,
@@ -169,6 +172,25 @@ def tick(session) -> None:
 
     # 6. Bust-vote handout forfeit
     apply_bust_handout_forfeit(session)
+
+    # 6b. Comeback handout (L badge): its give panel waits while a milestone
+    # handout, a bust-vote handout, the Dealer Lottery, a Targeted Drinking
+    # mini-round or a rule vote is open, so its countdown waits too; then
+    # unclaimed sips go back to the giver.
+    if session.round._l_handout_expires_at is not None:
+        blockers = [session.round._bust_handout_expires_at]
+        if session.round._pending_milestone:
+            blockers.append(session.round._pending_milestone.get("expires_at"))
+        if (session.round._pending_dealer_lottery or session.round._dealer_lottery_handout_expires_at
+                or session.round._pending_targeted_drinking or session._pending_rule_vote):
+            blockers.append(now)
+        blocked_until = max((b for b in blockers if b is not None), default=None)
+        if blocked_until is not None:
+            session.round._l_handout_expires_at = max(
+                session.round._l_handout_expires_at,
+                blocked_until + L_HANDOUT_WINDOW_SECONDS,
+            )
+    apply_l_handout_forfeit(session)
 
     # 7. Start the Dealer Lottery entry window (waits for milestone to clear)
     maybe_start_dealer_lottery(session)

@@ -301,11 +301,10 @@ function renderPlayers(state) {
       ? `<span class="seat-run-badge" title="Won and handed out ${runLen} milestones in a row">🔥</span>`
       : "";
 
-    // L: holds the single longest active losing streak at the table (5+
-    // consecutive rounds lost) -- only one player at a time; overtaking the
-    // current holder hands them a 1-sip penalty (see drink_tracker.py's
-    // _update_worst_streak_holder).
-    const lBadge = (isDrinking && state.worst_streak_holder === s.name)
+    // L: on a 5+ round losing streak. Any number of players can wear it
+    // (drink_tracker.py's _update_l_badges); breaking the streak earns a
+    // comeback handout (LHandoutGivePanel).
+    const lBadge = (isDrinking && (state.l_badge_holders || []).includes(s.name))
       ? `<span class="seat-l-badge" title="On a 5+ round losing streak">L</span>`
       : "";
 

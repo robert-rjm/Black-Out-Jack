@@ -87,6 +87,8 @@ function buildDigitalUI() {
   if (bojPollOverlay) bojPollPanel.mount(bojPollOverlay);
   const buyinGiveOverlay = document.getElementById("buyin-give-overlay");
   if (buyinGiveOverlay) buyinGivePanel.mount(buyinGiveOverlay);
+  const lGiveOverlay = document.getElementById("l-handout-give-overlay");
+  if (lGiveOverlay) lHandoutGivePanel.mount(lGiveOverlay);
   const tdGiveOverlay = document.getElementById("targeted-drinking-give-overlay");
   if (tdGiveOverlay) targetedDrinkingGivePanel.mount(tdGiveOverlay);
   const bustVoteOverlay = document.getElementById("bust-vote-modal-overlay");
@@ -657,6 +659,7 @@ function _syncDigitalUI(state) {
   bustVotePanel.render(state);
   dealerLotteryEntryPanel.render(state);
   buyinGivePanel.render(state);
+  lHandoutGivePanel.render(state);
   bojPollPanel.render(state);
   bojSplitPanel.render(state);
   targetedDrinkingPanel.render(state);

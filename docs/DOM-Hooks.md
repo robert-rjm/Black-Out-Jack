@@ -153,6 +153,10 @@ This document defines selector ownership for the web UI modules and the shared e
   - `#easy-mode-toggle-modal`, `#easy-mode-lbl-modal`, `#easy-mode-lbl-modal-on`
   - `#god-mode-toggle-modal`, `#god-mode-lbl-off`, `#god-mode-lbl-on`
 
+### Comeback handout (`static/js/ui/drink-panels.js` `LHandoutGivePanel`)
+- `#l-handout-give-overlay`, `#l-handout-give-card`, `#l-handout-give-body` (`.lgp-give-btn` with `data-giver` / `data-recipient`; empty recipient = keep), `.lgp-timer`
+- Seat badge `.seat-l-badge` (one per player in `state.l_badge_holders`)
+
 ### `static/js/ui/rules-settings.js`
 - House rules sub-view (inside the settings modal, RuleToggles-SettingsModal.md):
   - Button `[data-action="showSettingsSubview"][data-args='["rules"]']`, label `#settings-rules-sub`, queued dot `#settings-rules-queued-dot`

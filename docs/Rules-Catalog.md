@@ -85,7 +85,7 @@ a single rule by a **stable ID**:
 | [`milestone.handout`](#milestone-handout) | Milestone handouts (every 50 sips) | meta | between-rounds | Starter |
 | [`milestone.back_to_back`](#milestone-back_to_back) | Back-to-back milestone 🔥 callout | meta | passive | Starter |
 | [`milestone.worst_average`](#milestone-worst_average) | "Worst average" penalty | meta | between-rounds | Full |
-| [`streak.l_badge`](#streak-l_badge) | Losing streak "L" badge hand-off | meta | end-of-round | Full |
+| [`streak.l_badge`](#streak-l_badge) | Losing streak "L" badge + comeback handout | meta | end-of-round | Full |
 | [`event.dealer_lottery`](#event-dealer_lottery) | Dealer Lottery | event | between-rounds | Full |
 | [`event.targeted`](#event-targeted) | Targeted Drinking Mode | event | between-rounds | Full |
 | [`event.targeted.perfect_handout`](#event-targeted-perfect_handout) | Targeted: perfect-graduation handout | event | between-rounds | Full |
@@ -441,14 +441,14 @@ on its own. Ace sips are never halved and boosters never apply (discounts do).
 - **CSV label:** worst-average penalty rows
 - **Quiz:** Q: How many milestones in a row must you be "worst" to pay? **A:** Two.
 
-### <a id="streak-l_badge"></a>Losing streak "L" badge — `streak.l_badge`
+### <a id="streak-l_badge"></a>Losing streak "L" badge + comeback handout — `streak.l_badge`
 - **Rules.md:** [§5.8](Rules.md#losing-streak-l-badge) · **Kind:** meta · **Timing:** end-of-round · **Preset:** Full
-- **Effect:** 5+ consecutive round losses → hold the L. If someone's streak becomes strictly longer, the L moves and the outgoing holder drinks 1 sip. Earning it, or losing it because your own streak broke, is free.
-- **Halved:** No · **Booster:** No · **Config:** `WORST_STREAK_THRESHOLD`
+- **Effect:** 5+ consecutive round losses → wear the L (any number of Players at once). Breaking the streak (any round that isn't a loss) earns a handout of `1 + (streak − 5) // 2` × wager sips to give to another Player within 20 s; unassigned sips are drunk by the giver.
+- **Halved:** No · **Booster:** No · **Config:** `WORST_STREAK_THRESHOLD`, `L_HANDOUT_WINDOW_SECONDS`
 - **Depends on:** —
-- **Code:** `app/services/drink_tracker.py` `_update_worst_streak_holder`
-- **CSV label:** L-badge hand-off rows
-- **Quiz:** Q: Does a tie take the L from the current holder? **A:** No.
+- **Code:** `app/services/drink_tracker.py` `_update_l_badges`, `give_l_handout`, `apply_l_handout_forfeit`
+- **CSV label:** Comeback handout
+- **Quiz:** Q: Alice breaks a 7-round losing streak at wager 1. How many sips does she hand out? **A:** 2.
 
 ---
 

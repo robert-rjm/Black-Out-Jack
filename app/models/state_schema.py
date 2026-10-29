@@ -673,7 +673,7 @@ class AppState(_StrictModel):
     clean_streaks:      dict[str, int]
     total_clean_rounds: dict[str, int]
     trophy_holder:      Optional[str]
-    worst_streak_holder: Optional[str]   # whoever currently holds the "L" badge (5+ round losing streak)
+    l_badge_holders:    list[str]        # everyone wearing the "L" badge (5+ round losing streak)
     last_round_drinks:  list[DrinkEntryOut]
     round_notices:      list[str]
     prev_round_sips:    dict[str, int]
@@ -686,6 +686,8 @@ class AppState(_StrictModel):
     wild_card_enabled:  bool
     buyin_handouts:     bool
     my_buyin_handouts:  dict[str, int]
+    my_l_handouts:      dict[str, int]   # comeback handouts this client's seats can give
+    l_handout_seconds_left: int
     wild_card_seq:      int
     wild_card_text:     Optional[str]
     wild_card_outcome:  Optional[str]

@@ -23,6 +23,7 @@ from app.config import (
     MILESTONE_HANDOUT_SIPS,
     BUST_HANDOUT_WINDOW_SECONDS,
     WORST_STREAK_THRESHOLD,
+    L_HANDOUT_WINDOW_SECONDS,
 )
 
 log = logging.getLogger(__name__)
@@ -625,57 +626,100 @@ def _update_streaks(session: GameRoom) -> None:
     session.stats.streaks = streaks
 
 
-def _update_worst_streak_holder(session: GameRoom) -> None:
-    """Track who currently holds the "L" badge -- the single longest active
-    consecutive-round-loss streak at the table, once it reaches
-    WORST_STREAK_THRESHOLD. Only one player holds it at a time (ties keep
-    the incumbent rather than dethroning them). When another player's
-    streak strictly overtakes the current holder's, the L transfers and the
-    outgoing holder drinks 1 sip as a hand-off penalty -- earning the L for
-    the first time, or simply losing it because your own streak broke
-    (nobody else has overtaken you), never costs a sip.
+def l_handout_sips(streak: int, wager: int = 1) -> int:
+    """Comeback handout size for breaking a losing streak of ``streak``
+    rounds: 1 at 5-6, 2 at 7-8, 3 at 9-10 and so on, in wagers."""
+    return (1 + (streak - WORST_STREAK_THRESHOLD) // 2) * wager
 
-    Must run after _update_streaks (reads session.stats.streaks) and while
-    the round is still "current" for last_round_sips purposes -- call from
-    harvest_drink_log, same as _update_streaks itself.
+
+def _update_l_badges(session: GameRoom, streak_before: dict) -> None:
+    """The "L" badge and the comeback handout (Rules.md §5.8).
+
+    Everyone whose current losing streak is WORST_STREAK_THRESHOLD+ wears
+    the L, any number at once. A player who came into this round on such a
+    streak and didn't lose it (win, push or an even round) earns a handout
+    of l_handout_sips() to give to another player. Bots give at once;
+    humans pick in the give panel within L_HANDOUT_WINDOW_SECONDS or drink
+    the sips themselves.
+
+    ``streak_before`` is each player's ``current`` streak before this
+    round's _update_streaks. Players with no resolved hands this round are
+    skipped by _update_streaks, keep their streak and earn nothing.
+    Called from harvest_drink_log after the harvested flag flips, because
+    a bot's handout goes through award_sips.
     """
+    session.round._l_handout_pending = {}
+    session.round._l_handout_streaks = {}
+    session.round._l_handout_given = set()
+    session.round._l_handout_expires_at = None
     if not session.rules.on("streak.l_badge"):
-        session.stats.worst_streak_holder = None   # badge disappears, no hand-off sip
+        session.stats.l_badge_holders = []
         return
-    streaks        = session.stats.streaks
-    current_holder = session.stats.worst_streak_holder
-
-    def loss_len(name: str | None) -> int:
-        if not name:
-            return 0
-        s = streaks.get(name)
-        return -s["current"] if s and s["current"] < 0 else 0
-
-    best_name, best_len = current_holder, loss_len(current_holder)
-    for name in streaks:
-        if name == current_holder:
-            continue
-        ln = loss_len(name)
-        if ln > best_len:
-            best_name, best_len = name, ln
-
-    new_holder = best_name if best_len >= WORST_STREAK_THRESHOLD else None
-    if new_holder == current_holder:
+    streaks = session.stats.streaks
+    session.stats.l_badge_holders = [
+        p.name for p in session.all_players
+        if streaks.get(p.name, {}).get("current", 0) <= -WORST_STREAK_THRESHOLD
+    ]
+    for p in session.all_players:
+        before = streak_before.get(p.name, 0)
+        after  = streaks.get(p.name, {}).get("current", before)
+        if before <= -WORST_STREAK_THRESHOLD and after >= 0:
+            session.round._l_handout_pending[p.name] = l_handout_sips(-before, session.wager)
+            session.round._l_handout_streaks[p.name] = -before
+    if not session.round._l_handout_pending:
         return
+    session.round._l_handout_expires_at = time.monotonic() + L_HANDOUT_WINDOW_SECONDS
+    # Bots never wait for a click: hand to the next seat that isn't themselves.
+    names = [p.name for p in session.all_players]
+    for p in session.all_players:
+        if p.name in session.round._l_handout_pending and getattr(p, "is_npc", False):
+            others = [n for n in names if n != p.name]
+            give_l_handout(session, p.name, others[session.round_count % len(others)] if others else None)
 
-    if current_holder is not None and new_holder is not None:
-        penalty_p = session._get_player(current_holder)
-        reason = (
-            f"{new_holder}'s losing streak overtook {current_holder}'s -- "
-            f"{current_holder} drinks 1 sip"
-        )
-        if penalty_p:
-            penalty_p.add_drink(1, reason, "player")
-        award_sips(session, current_holder, 1, "Losing-streak hand-off", reason=reason)
-        session.round._log_entries.append(f"  📉 {reason}\n")
-        session._log_version += 1
 
-    session.stats.worst_streak_holder = new_holder
+def give_l_handout(session: GameRoom, giver: str, recipient: str | None) -> bool:
+    """``giver`` hands their comeback sips to ``recipient``, or keeps them
+    (``None``: they drink the sips themselves, as when the window runs out).
+    False if nothing is pending for this giver or the recipient is invalid."""
+    amount = session.round._l_handout_pending.get(giver)
+    if not amount or giver in session.round._l_handout_given:
+        return False
+    streak = session.round._l_handout_streaks.get(giver, WORST_STREAK_THRESHOLD)
+    sip_word = "sip" if amount == 1 else "sips"
+    if recipient is not None:
+        if recipient.lower() == giver.lower():
+            return False
+        target = next((p for p in session.all_players if p.name == recipient), None)
+        if target is None:
+            return False
+        reason = (f"{giver} broke a {streak}-round losing streak and handed "
+                  f"{amount} {sip_word} to {recipient} (comeback handout)")
+        drinker, log_line = target, f"  🔁 {giver} broke a {streak}-round losing streak — {recipient} drinks {amount} {sip_word}\n"
+    else:
+        reason = f"{giver} kept their comeback handout and drinks {amount} {sip_word} (comeback handout)"
+        drinker = session._get_player(giver)
+        log_line = f"  🔁 {giver} broke a {streak}-round losing streak and drinks the {amount} {sip_word} themselves\n"
+    if drinker is not None:
+        drinker.add_drink(amount, reason, "player", scale=False)
+        award_sips(session, drinker.name, amount, "Comeback handout", reason=reason, scale=False)
+    session.round._log_entries.append(log_line)
+    session._log_version += 1
+    session.round._l_handout_given.add(giver)
+    if all(g in session.round._l_handout_given for g in session.round._l_handout_pending):
+        session.round._l_handout_expires_at = None
+    return True
+
+
+def apply_l_handout_forfeit(session: GameRoom, *, force: bool = False) -> None:
+    """Window closed (or ``force``: a new round is starting): every giver who
+    hasn't picked anyone drinks their own comeback sips."""
+    expires = session.round._l_handout_expires_at
+    if expires is None or (not force and time.monotonic() < expires):
+        return
+    for giver in list(session.round._l_handout_pending):
+        if giver not in session.round._l_handout_given:
+            give_l_handout(session, giver, None)
+    session.round._l_handout_expires_at = None
 
 
 def harvest_drink_log(session: GameRoom) -> None:
@@ -692,7 +736,7 @@ def harvest_drink_log(session: GameRoom) -> None:
 
     if not session.drinking_mode:
         # Normal (casino) mode: only the blackjack stats -- no sips, sip
-        # tickers, clean-streak/trophy tracking, milestones or L-badge penalty.
+        # tickers, clean-streak/trophy tracking, milestones or L badge.
         rp = session.stats.player_rounds_played
         for p in session.all_players:
             rp[p.name] = rp.get(p.name, 0) + 1
@@ -712,17 +756,19 @@ def harvest_drink_log(session: GameRoom) -> None:
     _update_hand_stats(session)
     _update_max_round_sips(session)
     _update_dealer_stats(session)
+    # The comeback handout needs each streak as it was before this round.
+    streak_before = {n: s["current"] for n, s in session.stats.streaks.items()}
     _update_streaks(session)
 
     session.round._drink_log_harvested = True
     session.drinks.round_over_seq += 1   # seq-based trigger so clients never miss the toast
 
-    # Runs after the harvested flag flips, not before: it may call
-    # award_sips() for the hand-off penalty, and that function's own
+    # Runs after the harvested flag flips, not before: a bot's comeback
+    # handout calls award_sips(), and that function's own
     # clean-streak/trophy reconciliation only fires once
     # session.round._drink_log_harvested is True (see its docstring) --
     # calling it any earlier would silently skip that correction.
-    _update_worst_streak_holder(session)
+    _update_l_badges(session, streak_before)
 
 
 # ---------------------------------------------------------------------------

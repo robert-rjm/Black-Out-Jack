@@ -22,6 +22,7 @@ _ROUND_DEADLINES = (
     "_dealer_lottery_handout_expires_at",
     "_dealer_lottery_reveal_deadline",
     "_targeted_drinking_handout_expires_at",
+    "_l_handout_expires_at",
 )
 
 # RoundState attributes holding a dict with monotonic "expires_at" / "set_at" / "started_at".

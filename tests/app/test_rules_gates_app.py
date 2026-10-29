@@ -199,14 +199,21 @@ def test_targeted_drinking_off_blocks_every_entry_point():
     assert ok is False and "switched off" in reason
 
 
-def test_l_badge_off_clears_the_badge_without_a_hand_off_sip():
-    from app.services.drink_tracker import _update_worst_streak_holder
+def test_l_badge_off_means_no_badge_and_no_comeback_handout():
+    from app.services.drink_tracker import _update_l_badges
+    room = make_room(FULL)
+    room.stats.l_badge_holders = ["Bob"]
+    # Bob is on a 6-round streak, Carol just broke a 7-round one.
+    room.stats.streaks = {"Bob": {"current": -6}, "Carol": {"current": 1}}
+    _update_l_badges(room, {"Bob": -5, "Carol": -7})
+    assert room.stats.l_badge_holders == ["Bob"] and room.round._l_handout_pending == {"Carol": 2}
+
     room = make_room(off("streak.l_badge"))
-    room.stats.worst_streak_holder = "Bob"
-    room.stats.streaks = {"Bob": {"current": -5}, "Carol": {"current": -6}}
-    _update_worst_streak_holder(room)
-    assert room.stats.worst_streak_holder is None
-    assert room.session._get_player("Bob").drinks_owed() == 0
+    room.stats.l_badge_holders = ["Bob"]
+    room.stats.streaks = {"Bob": {"current": -6}, "Carol": {"current": 1}}
+    _update_l_badges(room, {"Bob": -5, "Carol": -7})
+    assert room.stats.l_badge_holders == []
+    assert room.round._l_handout_pending == {}
 
 
 # ---------------------------------------------------------------------------

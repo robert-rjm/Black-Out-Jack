@@ -55,6 +55,7 @@ def classify_rule(reason: str) -> str | None:
     if "4 Aces" in r and "first deal" in r:         return "Four Aces (first deal)"
     if "4 Aces" in r and "end of round" in r:       return "Four Aces (end of round)"
     if "Dealer hand is all" in r:                   return "Dealer suited hand"
+    if "comeback handout" in r:                     return "Comeback handout"
     if "handed" in r and "5-card 21" in r:          return "5-card 21 handout received"
     if "handed" in r and "bust vote" in r:          return "Bust vote handout received"
     if "Bust vote forfeited" in r:                  return "Bust vote handout forfeited"

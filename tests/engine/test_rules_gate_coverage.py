@@ -59,7 +59,7 @@ GATE_TESTS = {
     "milestone.handout":               _APP + "::test_milestone_handout_off",
     "milestone.back_to_back":          _APP + "::test_back_to_back_callout_off",
     "milestone.worst_average":         "tests/app/test_award_sips_round_avg.py::test_worst_average_penalty_off",
-    "streak.l_badge":                  _APP + "::test_l_badge_off_clears_the_badge_without_a_hand_off_sip",
+    "streak.l_badge":                  _APP + "::test_l_badge_off_means_no_badge_and_no_comeback_handout",
     "event.dealer_lottery":            _APP + "::test_lottery_trigger_off",
     "event.targeted":                  _APP + "::test_targeted_drinking_off_blocks_every_entry_point",
     "event.targeted.perfect_handout":  "tests/app/test_targeted_drinking.py::test_perfect_graduation_handout_off",

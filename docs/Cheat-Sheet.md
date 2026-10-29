@@ -152,7 +152,7 @@ Cross a multiple of **50 cumulative sips** → earn bonus sips to hand out (5 at
 
 **Worst-average penalty**: the Player with the lowest average sips/round (excluding the winner) is flagged "worst." Flagged **two milestones in a row** → one-time penalty, drink the winner's average sips/round (always rounded up, min 1).
 
-**"L" badge**: 5+ consecutive round losses → holds the L (only one Player at a time — whoever's losing streak is currently longest). Another Player's streak strictly overtaking the holder's transfers the L and costs the outgoing holder 1 sip; earning it or losing it to your own streak breaking never costs a sip, and ties don't dethrone.
+**"L" badge**: 5+ consecutive round losses → you wear the L (anyone can). Break the streak (any round you don't lose) → hand out sips: 1× wager at 5–6, 2× at 7–8, 3× at 9–10, and so on. 20 seconds to pick; otherwise you drink them.
 
 ---
 

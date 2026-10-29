@@ -385,12 +385,20 @@ If the **same Player** is flagged "worst" for **two milestones in a row**, they 
 
 ### <a id="streak-l_badge"></a>Losing Streak ("L" Badge)
 
-A Player who racks up **5 or more consecutive round losses** (net hands lost outweighing net hands won that round, the same win/loss streak already tracked for the session stats table) holds the **L** badge next to their name. Only one Player holds it at a time — whoever currently has the single longest active losing streak at the table.
+A Player who loses **5 or more rounds in a row** wears the **L** badge next to their name (a round is a loss when they lost more hands than they won). Any number of Players can wear it at once.
 
-If another Player's losing streak grows **strictly longer** than the current holder's, the L transfers to them, and the **outgoing holder drinks 1 sip** as a hand-off penalty. Earning the L for the first time never costs a sip, and neither does simply losing it because your own streak broke (nobody else has overtaken you) — only a genuine hand-off does. A tie doesn't dethrone the incumbent.
+**Comeback handout:** a Player who comes into a round on a losing streak of 5 or more and **doesn't lose that round** (a win, a push, or an even round all break the streak) gets sips to hand out to another Player:
 
-> **Example:** Alice is on a 5-round losing streak and holds the L. Bob then loses his 6th round in a row, overtaking her — the L moves to Bob, and Alice drinks 1 sip. If Alice's very next round is a win instead (streak broken, nobody else at 5+), the L simply vacates with no one drinking.
+| Streak broken | Sips to hand out |
+| ------------- | ---------------- |
+| 5–6 rounds | 1× wager |
+| 7–8 rounds | 2× wager |
+| 9–10 rounds | 3× wager |
+| every 2 rounds more | +1× wager |
 
+They have 20 seconds to pick who drinks (the timer waits while a milestone handout, a bust-vote handout or the Dealer Lottery is open). Sips nobody was picked for in time go back to them: **they drink them themselves**. The handout is never halved.
+
+> **Example (wager 1):** Alice loses 7 rounds in a row and wears the L. In round 8 she wins: the L comes off and she hands out 2 sips to anyone she likes.
 
 ### 5.9 Dealer Lottery
 

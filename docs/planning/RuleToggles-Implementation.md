@@ -169,7 +169,7 @@ dealer drinks their ordinary player-role sips, and the role still passes.
 | `milestone.handout` | `app/services/drink_tracker.py` `check_and_set_milestone`. When off, no milestone is set. The sip ticker still counts. |
 | `milestone.back_to_back` | Milestone streak update (cosmetic) |
 | `milestone.worst_average` | `_apply_worst_player_streak` |
-| `streak.l_badge` | `_update_worst_streak_holder`. When off, clear `worst_streak_holder` so the badge disappears. |
+| `streak.l_badge` | `_update_l_badges`. When off, clear `l_badge_holders` and earn no comeback handouts. |
 | `event.dealer_lottery` | `app/services/dealer_lottery.py` `check_dealer_lottery_trigger` |
 | `event.targeted` | `app/services/targeted_drinking.py` `start_targeted_drinking` returns False with a reason, and the proposal-vote entry point does the same. The serializer hides the start/propose UI. |
 | `event.targeted.perfect_handout` | Graduation handler in `targeted_drinking.py` |

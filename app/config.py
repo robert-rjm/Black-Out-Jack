@@ -51,6 +51,9 @@ MILESTONE_TTL          = 60   # seconds before an unclaimed handout is forfeited
 # ---------------------------------------------------------------------------
 
 WORST_STREAK_THRESHOLD = 5
+# Comeback handout (losing streak of WORST_STREAK_THRESHOLD+ broken): how long
+# the player has to pick a recipient before they drink the sips themselves.
+L_HANDOUT_WINDOW_SECONDS = 20
 
 # ---------------------------------------------------------------------------
 # Side-bet / vote timing windows

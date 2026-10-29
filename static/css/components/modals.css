@@ -277,6 +277,7 @@
 #bust-give-overlay,
 #dealer-lottery-give-overlay,
 #buyin-give-overlay,
+#l-handout-give-overlay,
 #targeted-drinking-give-overlay {
   position: fixed; inset: 0;
   background: var(--scrim);
@@ -286,6 +287,7 @@
 #bust-give-card,
 #dealer-lottery-give-card,
 #buyin-give-card,
+#l-handout-give-card,
 #targeted-drinking-give-card {
   background: var(--surface);
   border: 1.5px solid var(--green);
@@ -361,6 +363,7 @@
 .bgp-give-btn     { margin-bottom: 8px; }
 .bgp-multi-entry  { margin-bottom: 16px; }
 .bgp-divider      { border-color: var(--border); margin: 8px 0; }
+.lgp-timer        { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
 
 /* ---- REGISTER OVERLAY (showRegisterOverlay in admin.js) ---- */
 .reg-no-seats { color: var(--muted); font-size: 13px; padding: 4px 0; }

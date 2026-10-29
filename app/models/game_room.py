@@ -160,6 +160,14 @@ class RoundState:
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 
+    # Comeback handout: a 5+ round losing streak broken this round (see
+    # drink_tracker._update_l_badges). Unclaimed sips go back to the giver
+    # when the window closes, or at newround at the latest.
+    _l_handout_pending: dict = field(default_factory=dict)   # giver -> raw sips to hand out
+    _l_handout_streaks: dict = field(default_factory=dict)   # giver -> losing streak they broke
+    _l_handout_given: set = field(default_factory=set)       # givers who gave or drank them
+    _l_handout_expires_at: float | None = None
+
     # Normal-mode "above the buy-in" handouts (see services/buyin_handout.py)
     _buyin_pending: dict = field(default_factory=dict)   # giver -> sips to hand out
     _buyin_given: set = field(default_factory=set)       # givers who gave or passed
@@ -198,10 +206,9 @@ class SessionStats:
     session_started_at: float = field(default_factory=lambda: __import__("time").monotonic())
     clean_streak: dict       = field(default_factory=dict)   # player -> current consecutive clean rounds
     total_clean_rounds: dict = field(default_factory=dict)   # player -> total clean rounds this session
-    # Whoever currently holds the "L" badge -- the single longest active
-    # consecutive-round-loss streak at the table, once it reaches
-    # WORST_STREAK_THRESHOLD. None if nobody currently qualifies.
-    worst_streak_holder: str | None = None
+    # Everyone currently wearing the "L" badge: a losing streak of
+    # WORST_STREAK_THRESHOLD+ rounds. Seat order; any number at once.
+    l_badge_holders: list = field(default_factory=list)
     # Drink Rate Mode: player -> {drink factor -> rounds played at it}. Filled
     # at each round's harvest; feeds the xlsx "DRINK RATE" section.
     rate_rounds: dict = field(default_factory=dict)

@@ -140,7 +140,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "clean_streaks":          dict(session.stats.clean_streak),
         "total_clean_rounds":     dict(session.stats.total_clean_rounds),
         "trophy_holder":          compute_trophy_holder(session),
-        "worst_streak_holder":    session.stats.worst_streak_holder,
+        "l_badge_holders":        list(session.stats.l_badge_holders),
         "last_round_drinks":      session.drinks.last_round_drinks,
         "round_notices":          session.drinks.round_notices,
         "prev_round_sips":        {k: max(0, v) for k, v in session.drinks.prev_round_sips.items()},
@@ -158,6 +158,16 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             if n not in session.round._buyin_given
             and n in set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
         },
+        # Comeback handouts this client's seats can give (L badge broken)
+        "my_l_handouts":          {
+            n: a for n, a in session.round._l_handout_pending.items()
+            if n not in session.round._l_handout_given
+            and n in set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
+        },
+        "l_handout_seconds_left": (
+            max(0, round(session.round._l_handout_expires_at - time.monotonic()))
+            if session.round._l_handout_expires_at is not None else 0
+        ),
         "wild_card_seq":          session.round._wild_card_seq,
         "wild_card_text":         (session.round._wild_card_result or {}).get("text"),
         "wild_card_outcome":      (session.round._wild_card_result or {}).get("outcome"),
