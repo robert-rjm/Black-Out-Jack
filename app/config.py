@@ -132,3 +132,15 @@ MAX_REG_DENIALS = 2   # times a client can be denied (re-)entry before being loc
 DEFAULT_WAGER     = 1
 DEFAULT_NUM_HANDS = 2
 DEFAULT_MODE      = "referee"   # "referee" | "digital"
+
+# Upper bounds for /setup and /update_settings. The server runs a single
+# worker thread, so one request with e.g. num_hands=1_000_000 would allocate
+# that many hands per player and freeze every table. Each cap is at least the
+# highest value the UI offers (settings modal: wager 20, hands 10).
+MAX_WAGER         = 20
+MAX_NUM_HANDS     = 10
+MAX_NUM_DECKS     = 8
+MAX_PLAYERS       = 12     # seats incl. bots and the dealer
+MIN_BET_AMOUNT    = 2.5
+MAX_BET_AMOUNT    = 1000
+MAX_BANKROLL      = 100_000

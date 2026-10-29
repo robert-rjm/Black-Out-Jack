@@ -60,6 +60,25 @@ def is_offensive_name(name: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Numeric settings
+# ---------------------------------------------------------------------------
+
+def clamp_int(raw, lo: int, hi: int) -> int:
+    """int(raw) forced into [lo, hi]. Raises ValueError/TypeError on junk,
+    same as int(), so callers keep their existing "Invalid numeric" reply."""
+    return max(lo, min(hi, int(raw)))
+
+
+def clamp_float(raw, lo: float, hi: float) -> float:
+    """float(raw) forced into [lo, hi]; rejects nan/inf, which slip past
+    min/max comparisons."""
+    v = float(raw)
+    if v != v or v in (float("inf"), float("-inf")):
+        raise ValueError("not a finite number")
+    return max(lo, min(hi, v))
+
+
+# ---------------------------------------------------------------------------
 # Client identity / authorisation
 # ---------------------------------------------------------------------------
 

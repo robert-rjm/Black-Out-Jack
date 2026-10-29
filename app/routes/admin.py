@@ -25,6 +25,7 @@ from app.services.validators import sanitize_name, is_offensive_name
 from app.services.pause import pause_game, resume_game
 
 from app.routes._auth import _require_admin
+from app.config import MAX_WAGER, MAX_NUM_HANDS, MAX_NUM_DECKS, MAX_PLAYERS
 
 bp = Blueprint("admin", __name__)
 
@@ -98,19 +99,21 @@ def update_settings():
 
     # Validate and queue each provided setting
     try:
+        # Out-of-range values are ignored, as before; the upper bounds
+        # (app/config.py) keep one request from freezing the server.
         if "wager" in data:
             v = int(data["wager"])
-            if v >= 1:
+            if 1 <= v <= MAX_WAGER:
                 queued["wager"] = v
 
         if "num_hands" in data:
             v = int(data["num_hands"])
-            if v >= 1:
+            if 1 <= v <= MAX_NUM_HANDS:
                 queued["num_hands"] = v
 
         if "num_decks" in data:
             v = int(data["num_decks"])
-            if 1 <= v <= 8:
+            if 1 <= v <= MAX_NUM_DECKS:
                 queued["num_decks"] = v
     except (ValueError, TypeError):
         return jsonify({"ok": False, "error": "Invalid numeric setting."})
@@ -122,6 +125,8 @@ def update_settings():
             return jsonify({"ok": False, "error": f"Name not allowed: {name}. Please choose something else."})
         if name:
             adds = queued.get("add_players", [])
+            if len(session.all_players) + len(adds) >= MAX_PLAYERS:
+                return jsonify({"ok": False, "error": f"The table is full (max {MAX_PLAYERS} seats)."})
             if not any(a["name"] == name for a in adds):
                 adds.append({"name": name, "is_npc": is_npc})
             queued["add_players"] = adds
