@@ -35,6 +35,55 @@ def test_room_hands_its_rules_to_the_engine_session():
     assert room.session.rules is room.config.rules and room.session.rules.on("side.bust_vote")
 
 
+def test_a_direct_config_write_reaches_the_engine():
+    # config.rules is the only copy: writing it (as the Phase 3 queue will)
+    # must not leave the engine session on the old rules.
+    room = make_room(FULL)
+    room.config.rules = off("ace.hearts.player")
+    assert room.session.rules is room.config.rules
+    assert not room.session.rules.on("ace.hearts.player")
+
+
+def test_the_engine_session_refuses_its_own_copy_inside_a_room():
+    room = make_room(FULL)
+    with pytest.raises(AttributeError):
+        room.session.rules = off("switch.hard")
+    assert room.rules is FULL
+
+
+def test_bj_mult_in_the_state_follows_the_multiplier_rule():
+    from app.services.serializer import serialize_state
+
+    def bj_mult(rules):
+        room = make_room(rules)
+        room.session._get_player("Bob").hands = [make_hand(("A", "S"), ("J", "S"))]
+        bob = next(p for p in serialize_state(room)["table"] if p["name"] == "Bob")
+        return bob["hands"][0]["bj_mult"]
+
+    assert bj_mult(FULL) == 8                                  # suited, A+J, both black
+    assert bj_mult(off("bonus.blackjack.multipliers")) == 1
+
+
+def _referee_split_aces(rules):
+    room = make_room(rules)
+    bob = room.session._get_player("Bob")
+    bob.hands = [make_hand(("A", "S"), ("A", "H"))]
+    room.session.cmd_action(["action", "Bob", "split", "hand1"])
+    # Physical cards: the referee re-enters each hand as Ace + King.
+    bob.hands[0].cards = [make_card("A", "S"), make_card("K", "D")]
+    bob.hands[1].cards = [make_card("A", "H"), make_card("K", "C")]
+    return bob.hands
+
+
+def test_referee_split_ace_21_is_a_blackjack_by_default():
+    assert all(h.is_blackjack() for h in _referee_split_aces(FULL))
+
+
+def test_referee_split_ace_21_is_a_plain_21_when_the_rule_is_off():
+    hands = _referee_split_aces(off("table.split_ace_bj"))
+    assert all(h.score() == 21 and not h.is_blackjack() for h in hands)
+
+
 # ---------------------------------------------------------------------------
 # Mandatory splits
 # ---------------------------------------------------------------------------

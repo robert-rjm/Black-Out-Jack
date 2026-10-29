@@ -41,7 +41,7 @@ from engine.blackjack import (
     Rank, Suit, Card, Hand, Player, get_player_hand,
 )
 from engine.drinking_rules import DrinkingRules, DrinkTracker
-from engine.rules_registry import FULL
+from engine.rules_registry import FULL, RuleSet
 from engine.events import (
     CardDealtEvent,
     BlackjackEvent,
@@ -129,7 +129,8 @@ class RefereeSession:
 
         # Bust vote side bet (Rules.md §4.4) — host-togglable, reset every round
         self.bust_vote_enabled = bust_vote_enabled
-        self.rules             = FULL   # which drinking rules are in play
+        self._rules            = FULL   # which drinking rules are in play (see the rules property)
+        self.rules_source      = None   # callable returning the live RuleSet, set by the web layer
         self._insurance_result = None
         self._bust_votes       = {}   # player name -> "bust" (abstain = not present)
         self._bust_vote_result = None  # set by _resolve_bust_votes() for summary display
@@ -155,6 +156,19 @@ class RefereeSession:
 
     def _get_player(self, name: str) -> Player:
         return self._player_map.get(name.strip().lower())
+
+    @property
+    def rules(self) -> RuleSet:
+        """Which drinking rules are in play. In the web app the GameRoom owns
+        the ruleset and hands over ``rules_source``, so there is a single copy
+        and the engine always reads the room's current rules."""
+        return self.rules_source() if self.rules_source else self._rules
+
+    @rules.setter
+    def rules(self, value: RuleSet):
+        if self.rules_source:
+            raise AttributeError("rules belong to the GameRoom here: set room.rules instead")
+        self._rules = value
 
     # ---------------------------------------------------------------- setup round
 
@@ -308,6 +322,9 @@ class RefereeSession:
             # Digital mode uses app.services.game_engine.perform_split() instead.
             new_hand = Hand(from_split=True)
             hand.from_split   = True
+            # Same as Hand.split() in digital mode: both hands follow the
+            # table.split_ace_bj rule as it stood at the split.
+            hand.split_ace_bj = new_hand.split_ace_bj = self.rules.on("table.split_ace_bj")
             new_hand._split_chain = hand._split_chain  # share counter across the whole chain
             hand.split_count += 1
             try:

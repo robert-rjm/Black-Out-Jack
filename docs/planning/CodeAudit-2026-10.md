@@ -28,10 +28,10 @@ hardening · **Info** = observation, no action strictly needed.
 
 | # | Area | Severity | Finding |
 |---|---|---|---|
-| G1 | Gates | Medium (blocks Phase 3) | The ruleset is stored twice (`config.rules` and `session.rules`), and the Phase 3 plan writes only one |
-| G2 | Gates | Medium | Switching to a BOJ table resets the new room to `DEFAULT_RULES` (the wild card toggle is lost today; a custom ruleset will be lost later) |
-| G3 | Gates | Medium | The insurance-vote modal shows the full BJ multiplier (`bj_mult`) even when multipliers are off |
-| G4 | Gates | Medium | Referee mode ignores `table.split_ace_bj` |
+| G1 | Gates | ✅ Fixed | The ruleset is stored twice (`config.rules` and `session.rules`), and the Phase 3 plan writes only one |
+| G2 | Gates | ✅ Fixed | Switching to a BOJ table resets the new room to `DEFAULT_RULES` (the wild card toggle is lost today; a custom ruleset will be lost later) |
+| G3 | Gates | ✅ Fixed | The insurance-vote modal shows the full BJ multiplier (`bj_mult`) even when multipliers are off |
+| G4 | Gates | ✅ Fixed | Referee mode ignores `table.split_ace_bj` |
 | G5 | Gates / Normal mode | Medium | Normal (casino) mode inherits drinking table rules: a split A+10 pays 3:2 |
 | G6 | Gates | Medium (design) | Turning off `insurance.auto_cap` also changes behaviour on a dealer BJ with a 10 up-card |
 | G7 | Gates | Low | `milestone.back_to_back` has no gate |
@@ -100,7 +100,15 @@ These were traced by hand and match the plan:
 
 ---
 
-### G1 — The ruleset is stored twice · Medium (blocks Phase 3)
+### G1 — The ruleset is stored twice · ✅ Fixed
+
+> **Fixed (2026-10-29).** `GameConfig.rules` is now the only copy.
+> `RefereeSession.rules` is a property that reads `rules_source` (set by
+> `GameRoom.__post_init__`), so writing `room.rules` or `config.rules` reaches
+> the engine at once. Assigning `session.rules` inside a room raises
+> `AttributeError`. The Phase 3 snippet in `RuleToggles-Implementation.md`
+> §3.4 / §4.2 is corrected. Tests: `test_a_direct_config_write_reaches_the_engine`,
+> `test_the_engine_session_refuses_its_own_copy_inside_a_room`.
 
 **Issue.** `GameRoom.config.rules` and `GameRoom.session.rules` (on
 `RefereeSession`) are two separate references. They are synced in
@@ -136,7 +144,14 @@ things make this likely to happen:
 
 ---
 
-### G2 — BOJ table split resets the rules · Medium
+### G2 — BOJ table split resets the rules · ✅ Fixed
+
+> **Fixed (2026-10-29).** `build_game_room` takes `rules=` (full `RuleSet`)
+> instead of `bust_vote_enabled`. `/setup` passes
+> `DEFAULT_RULES.with_rule("side.bust_vote", ...)`, and the BOJ split passes
+> `session.rules`. The open question below (which rules a Normal→Drinking split
+> should start with) is still open: today the new table copies the old one's.
+> Test: `test_split_table_keeps_the_old_tables_rules`.
 
 **Issue.** `app/services/boj_switch.py:220` builds the new Drinking table with
 `build_game_room(..., bust_vote_enabled=session.bust_vote_enabled, ...)`, and
@@ -157,7 +172,11 @@ house rule will be lost on a BOJ split.
 
 ---
 
-### G3 — Insurance modal shows the wrong multiplier · Medium
+### G3 — Insurance modal shows the wrong multiplier · ✅ Fixed
+
+> **Fixed (2026-10-29).** `serialize_hand(hand, *, rules, ...)` now requires
+> the room's rules (no default, on purpose) and passes them to `_bj_multiplier`.
+> Test: `test_bj_mult_in_the_state_follows_the_multiplier_rule`.
 
 **Issue.** `app/services/round_state.py:137` serializes
 `"bj_mult": _bj_multiplier(hand)` with no rules, so it uses the `FULL`
@@ -176,7 +195,13 @@ Confirmed with the probe: `bj_mult serialized: 8`.
 
 ---
 
-### G4 — Referee mode ignores `table.split_ace_bj` · Medium
+### G4 — Referee mode ignores `table.split_ace_bj` · ✅ Fixed
+
+> **Fixed (2026-10-29).** The referee `action ... split` path sets
+> `split_ace_bj` on both hands from `self.rules`, as `Hand.split()` does in
+> digital mode. The shared `split_slot()` helper idea below is not done.
+> Tests: `test_referee_split_ace_21_is_a_blackjack_by_default`,
+> `test_referee_split_ace_21_is_a_plain_21_when_the_rule_is_off`.
 
 **Issue.** `engine/referee.py:304` (the `action ... split` path) creates
 `Hand(from_split=True)` and never sets `split_ace_bj`, so both hands keep the
@@ -605,7 +630,7 @@ naturally.
 ## Suggested order of work
 
 1. **B1** (double BJ bonus) and **B2** (unbounded inputs): small, high-impact fixes.
-2. **G1, G2, G3, G4**: fix before Phase 3 exposes the toggles.
+2. ~~**G1, G2, G3, G4**~~: fixed 2026-10-29.
 3. **G10, G11**: the safety net that stops Phase 3 or 4 from regressing silently.
 4. **G5, G6**: product decisions first (Normal-mode table rules, auto-cap
    scope), then code.

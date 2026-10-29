@@ -123,7 +123,8 @@ behaviour exactly, so the default room set is
 
 Each gate is a single `if not rules.on(...)` early return (or a skipped
 branch) at the spot below. The engine gets `rules` through the event
-objects. The app reads `session.config.rules`.
+objects. The app reads `session.rules` (the `GameRoom` property over
+`config.rules`).
 
 ### 3.1 Engine (`engine/drinking_rules.py`, `engine/events.py`)
 
@@ -191,13 +192,15 @@ Events are built in `engine/blackjack.py`, `engine/referee.py` and
 `app/services/game_engine.py`, roughly 90 call sites in total for
 `DrinkingRules.*` / `tracker.apply` / `add_drink`. Steps:
 
-1. Store the ruleset on the `DrinkTracker` (`tracker.rules`, the same
-   pattern as the existing `tracker.easy_mode`). Set it where
-   `room_manager.py` applies `easy_mode` at round start.
-2. Add a small factory in each engine file, `self._ev(CardDealtEvent, ...)`,
-   that injects `rules=self.tracker.rules`, rather than adding
-   `rules=` by hand at every construction site. Missed sites then default to
-   `FULL`. A test catches that (§6.3).
+1. As built: `GameConfig.rules` is the **only** copy of a room's rules.
+   `RefereeSession.rules` is a property. In the web app, `GameRoom` sets
+   `session.rules_source`, so the engine reads the room's current rules
+   live, and assigning `session.rules` directly raises. Standalone engines
+   (`RoundManager`, terminal referee) keep their own `rules` attribute
+   (default `FULL`). There is no `tracker.rules`.
+2. Event construction sites pass `rules=self.rules` / `rules=session.rules`
+   explicitly. Missed sites default to `FULL`. A test should catch that
+   (§6.3, audit G11).
 
 ## 4. API and state
 
@@ -228,10 +231,10 @@ Next to the existing `easy_mode` block:
 
 ```python
 if "rules" in queued:
-    old = session.config.rules
-    session.config.rules = RuleSet(frozenset(queued["rules"]), queued.get("rules_preset"))
-    session.tracker.rules = session.config.rules
-    changes.append(_describe_rule_diff(old, session.config.rules))   # "📜 Aces ♥♦ on, Dealer Lottery off"
+    old = session.rules
+    # One write is enough: the engine session reads room.rules live (§3.4).
+    session.rules = RuleSet(frozenset(queued["rules"]), queued.get("rules_preset"))
+    changes.append(_describe_rule_diff(old, session.rules))   # "📜 Aces ♥♦ on, Dealer Lottery off"
 ```
 
 Live events that are already running (lottery, targeted, a milestone

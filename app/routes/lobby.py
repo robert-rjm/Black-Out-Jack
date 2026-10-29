@@ -26,6 +26,7 @@ from app.services.session_store import (
 from app.services.validators  import sanitize_name, is_offensive_name
 from app.services.serializer  import serialize_state
 from app.services.room_factory import build_game_room
+from engine.rules_registry import DEFAULT_RULES
 from app.services.qr import qr_svg
 from app.config import DEFAULT_WAGER, DEFAULT_NUM_HANDS, DEFAULT_MODE
 
@@ -186,7 +187,7 @@ def setup():
         mode=mode, drinking=drinking, wager=wager, num_hands=num_hands,
         bet_amount=bet_amount, starting_bankroll=starting_bankroll,
         num_decks=num_decks,
-        bust_vote_enabled=bool(data.get("bust_vote_enabled", False)),
+        rules=DEFAULT_RULES.with_rule("side.bust_vote", bool(data.get("bust_vote_enabled", False))),
         easy_mode=bool(data.get("easy_mode", False)),
     )
     state  = serialize_state(room, client_id)

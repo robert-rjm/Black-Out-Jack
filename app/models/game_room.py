@@ -217,8 +217,9 @@ class GameConfig:
     mode: str              = "referee"  # "referee" | "digital"
     drinking_mode: bool    = True
     easy_mode: bool        = False
-    # Which drinking rules are in play. The dealer bust vote and the Wild Card
-    # easter egg are the rules the admin can flip live; see the GameRoom
+    # Which drinking rules are in play: the only copy (the engine session reads
+    # it live, see GameRoom.__post_init__). The dealer bust vote and the Wild
+    # Card easter egg are the rules the admin can flip live; see the GameRoom
     # properties bust_vote_enabled / wild_card_enabled.
     rules: RuleSet         = DEFAULT_RULES
     strategy_hint_enabled: bool = False
@@ -448,9 +449,13 @@ class GameRoom:
     _biggest_round_payouts: dict = field(default_factory=dict)
 
     def __post_init__(self):
-        # The engine session reads its own copy of the rules (engine/ can't see
-        # app/ config), so hand it the room's rules at construction.
-        self.session.rules = self.config.rules
+        # config.rules is the only copy of the room's rules. The engine session
+        # (engine/ can't see app/ config) reads it live through rules_source, so
+        # any write to room.rules or config.rules reaches the engine at once.
+        self.session.rules_source = self._current_rules
+
+    def _current_rules(self) -> RuleSet:
+        return self.config.rules
 
     # ------------------------------------------------------------------
     # Explicit properties delegating to RefereeSession
@@ -626,10 +631,7 @@ class GameRoom:
     @property
     def rules(self) -> RuleSet: return self.config.rules
     @rules.setter
-    def rules(self, v):
-        # The engine session reads its own copy; keep both in step.
-        self.config.rules = v
-        self.session.rules = v
+    def rules(self, v): self.config.rules = v
 
     @property
     def easy_mode(self): return self.config.easy_mode

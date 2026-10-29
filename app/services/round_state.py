@@ -8,6 +8,7 @@ without depending on the presentation layer.
 
 from engine.blackjack import Hand
 from engine.drinking_rules import _bj_multiplier
+from engine.rules_registry import RuleSet
 
 from app.models.game_room import GameRoom
 
@@ -118,7 +119,9 @@ def serialize_card(card) -> dict:
     }
 
 
-def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
+def serialize_hand(hand: Hand, *, rules: RuleSet, hide_double: bool = False) -> dict:
+    # rules has no default on purpose: bj_mult must follow the room's
+    # bonus.blackjack.multipliers rule (the insurance vote modal shows it).
     cards = [serialize_card(c) for c in hand.cards]
     # Doubled card is dealt face-down until dealer plays
     is_hidden_double = hide_double and hand.doubled
@@ -134,7 +137,7 @@ def serialize_hand(hand: Hand, hide_double: bool = False) -> dict:
         "insured":    hand.insured,
         "result":     None if is_hidden_double else hand.result,
         "blackjack":  bool(hand.cards) and hand.is_blackjack(),
-        "bj_mult":    _bj_multiplier(hand),
+        "bj_mult":    _bj_multiplier(hand, rules),
         "done":       hand_done(hand),
         "can_split":  hand.can_split(),
         "can_double": len(hand.cards) == 2 and not hand.doubled,

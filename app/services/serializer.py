@@ -51,7 +51,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     table = []
     _cash = (not session.drinking_mode) and session.mode == "digital"
     for p in session.all_players:
-        _hands = [serialize_hand(h, hide_double=hide_double) for h in p.hands]
+        _hands = [serialize_hand(h, rules=session.rules, hide_double=hide_double) for h in p.hands]
         if _cash:
             # Normal mode: doubling/splitting costs another bet -- don't offer
             # it to a player who can't cover it.
