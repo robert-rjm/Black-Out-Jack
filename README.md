@@ -33,7 +33,7 @@
 - **Strategy tracking:** see how you compare to optimal basic strategy
 - **Bold strategy rewarded:** drinking incentives punish playing it safe
 
-**The 11-slide tour:** [📊 Pitch deck (PDF)](docs/Pitch-Deck.pdf). It covers how a round works, the rules and side games, house rules, and numbers from real game nights.
+**The 12-slide tour:** [📊 Pitch deck (PDF)](docs/Pitch-Deck.pdf), also in a plain [report style](docs/Pitch-Deck-Finance.pdf). It covers how a round works, the rules and side games, house rules, a modelled typical night and the simulator's balance numbers.
 
 
 ## Quick Start
@@ -78,7 +78,7 @@ Both terminal scripts take `--preset starter|standard|full` to pick the house ru
 
 | Doc | Description |
 |------|-------------|
-| [Pitch-Deck.pdf](docs/Pitch-Deck.pdf) | The game in 11 slides (rebuild: `python scripts/build_pitch_deck.py`) |
+| [Pitch-Deck.pdf](docs/Pitch-Deck.pdf) · [report style](docs/Pitch-Deck-Finance.pdf) | The game in 12 slides (rebuild both: `python scripts/build_pitch_deck.py`) |
 | [Rules.md](docs/Rules.md) | Extensive Drinking Rules |
 | [Cheat-Sheet.md](docs/Cheat-Sheet.md) | One-page gameplay rules reference|
 | [Rules-Catalog.md](docs/Rules-Catalog.md) | Every rule a table can switch on or off, with its ID and preset |

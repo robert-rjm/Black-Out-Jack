@@ -127,7 +127,8 @@ python scripts/build_recap_deck.py 2026-10-19 --html   # also keep the HTML next
 Pitch deck for the README, refreshed from the latest game nights, benchmarks and rule counts:
 
 ```bash
-python scripts/build_pitch_deck.py                     # -> docs/Pitch-Deck.pdf
+python scripts/build_pitch_deck.py                     # -> docs/Pitch-Deck.pdf + docs/Pitch-Deck-Finance.pdf
+python scripts/build_pitch_deck.py --theme finance     # one look only
 ```
 
 ## Linting
