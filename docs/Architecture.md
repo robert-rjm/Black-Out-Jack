@@ -46,7 +46,8 @@ Black-Out-Jack/
 ├── static/
 │   ├── css/                  # main.css + components/*.css, bundled into bundle.css (generated, gitignored)
 │   ├── js/                   # utils, state, app, benchmarks (generated) + ui/*.js, bundled into bundle.js
-│   │                         #   (generated, gitignored); vendor marked/purify for the Rules modal
+│   │                         #   (generated, gitignored); vendor marked/purify for the Rules modal,
+│   │                         #   html2canvas/jspdf for the recap PDF (loaded on demand)
 │   └── img/                  # Logos and icons
 ├── templates/                # index.html + partials/index/* (the page loads only the bundles);
 │                             #   terms.html is a standalone styled copy of docs/Terms.md
@@ -54,7 +55,8 @@ Black-Out-Jack/
 ├── tests/                    # pytest: app/ (web layer), engine/, scripts/; mirrors the source layout,
 │                             #   one test_<feature>.py per feature, shared fixtures in conftest.py
 ├── data/                     # decisions/ (tracked session exports used to mine bot profiles),
-│                             #   profile_backups/ (copies taken before a profile rebuild)
+│                             #   profile_backups/ (copies taken before a profile rebuild),
+│                             #   recaps/ (sample recap decks from scripts/build_recap_deck.py)
 ├── docs/                     # Rules.md, Rules-Normal.md, Rules-Catalog.md (stable rule IDs, one per toggle),
 │                             #   Cheat-Sheet.md, Dev-Cheat-Sheet.md, Comprehensive-Example.md,
 │                             #   Multiplayer.md, DOM-Hooks.md, Terms.md, this file; .rules_sync.json /
@@ -67,7 +69,7 @@ Black-Out-Jack/
 
 | Area | Modules |
 |---|---|
-| Lobby, pages | `lobby.py` (rooms, setup incl. `rules_preset`, `/room_invite`), `static_pages.py` (logo, manifest, `/rules`, `/rules_registry`, tip links), `reports.py` (XLSX exports, `/summary_json`) |
+| Lobby, pages | `lobby.py` (rooms, setup incl. `rules_preset`, `/room_invite`), `static_pages.py` (logo, manifest, `/rules`, `/rules_registry`, tip links), `reports.py` (XLSX exports, `/summary_json`, `/recap_html`) |
 | Polling | `polling.py` (`GET /state` only; per-poll side effects run in `services/tick.py`) |
 | Game commands | `game_commands.py` (`/command` dispatcher, `/rebuy`, `/honor_resolve`), `commands/` (`digital.py`, `referee.py`, `common.py`: the handler registries) |
 | Player actions | `registration.py` (seats, registration), `suggestions.py` (preselect, suggest), `side_bets.py` (insurance, bust vote, buy-in and comeback handouts, stakes), `dealer_lottery.py`, `boj.py` ("Switch to BOJ" poll), `targeted_drinking.py` (player and admin routes), `drink_rate.py`, `rule_votes.py` (rule suggestions and table votes) |
@@ -83,6 +85,7 @@ Black-Out-Jack/
 | Drinks and money | `drink_tracker.py` (sip ledger, milestones, bust-vote penalties, L badge and comeback handout), `payout_tracker.py` (bankrolls, stake window), `buyin_handout.py`, `decision_log.py` |
 | House rules | `house_rules.py` (validate, queue and apply rule changes, the `rules` block of `/state`, `/rules_registry` data), `rule_votes.py` (players' suggestions, table votes) |
 | Feature modes | `dealer_lottery.py`, `targeted_drinking.py`, `drink_rate.py`, `boj_switch.py` |
+| Reports | `recap_deck.py` (the session recap deck: numbers, slides, HTML; see "Session recap deck" below) |
 | Snapshot (`GET /state`) | `serializer.py` (`serialize_state` only), `round_state.py` (leaf: turn order and phase), `stats.py` (derived numbers, KPI), `serializers/` (one module per feature block) |
 | Infrastructure | `asset_bundler.py` (JS/CSS bundles), `validators.py`, `utils.py`, `qr.py` |
 
@@ -96,7 +99,7 @@ Classic scripts, concatenated in the order of `JS_SOURCES` in
 | Boot and connection | `config.js` (constants), `poll.js` (`/state` loop, connection-lost screen), `bootstrap.js` (click delegation), `lobby.js`, `room-qr.js`, `tip.js`, `idle.js` |
 | Setup and seats | `setup.js`, `seats.js` (registration, local seats, transfers), `bets.js` (Normal-mode stakes) |
 | Table | `table.js` (`applyState` and `_sync*`), `table-render.js`, `table-modals.js` (feature panels), `drink-panels.js` (bust vote, Dealer Lottery, handouts, toasts), `animation.js`, `log.js`, `kpi.js`, `trivia.js` |
-| Admin and summary | `admin.js` (role UI, toggles), `admin-settings.js` (settings and players modals), `rules-settings.js` (📜 House rules view, preset chips, rule-vote modal), `rules.js` (Rules popup, OFF badges), `summary.js` (summary and exports) |
+| Admin and summary | `admin.js` (role UI, toggles), `admin-settings.js` (settings and players modals), `rules-settings.js` (📜 House rules view, preset chips, rule-vote modal), `rules.js` (Rules popup, OFF badges), `summary.js` (summary and exports), `recap-pdf.js` (recap deck to PDF) |
 
 Element IDs and which file owns them are in [DOM-Hooks.md](DOM-Hooks.md).
 
@@ -108,6 +111,7 @@ Element IDs and which file owns them are in [DOM-Hooks.md](DOM-Hooks.md).
 | Simulation | `simulation.py`, `run_all_configs.py`, `compare_configs.py`, `compare_bot_styles.py`, `snapshot.py` (saves to `snapshots/<label>/`) |
 | Bot profiles | `load_decision_logs.py`, `build_player_profiles.py` (mines `data/decisions/` into `engine/player_profiles/`) |
 | Doc sync | `rules_sync.py`, `terms_sync.py` |
+| Reports | `build_recap_deck.py` (recap deck as a vector PDF from two saved exports, via local Edge/Chrome) |
 
 ## Layering Rules
 
@@ -155,6 +159,32 @@ Each room picks which drinking rules it plays. The design docs are
 - **State.** `/state` carries ID lists only (`rules`, `rule_votes`); names and
   groups come from `GET /rules_registry`, fetched once by `rules-settings.js`.
 
+## Session recap deck
+
+The summary modal's **📊 Download Recap (PDF)** button gives a 14-page,
+consulting-style story of the session. The cover comes first, then the
+executive summary, race, league table, sip bridge, drivers, tempo, decision
+quality, the house, side games, player comparables, awards, definitions, and
+a thank-you page with the tip QR code.
+
+- **One builder.** `app/services/recap_deck.py` turns the export rows
+  (`drinks.csv_rows`, `_decision_log`, `_dealer_lottery_decision_log`) into
+  numbers (`analyse`) and then into one HTML page of 1280×720 slides
+  (`build_html`). The slides use the app's colours (the `:root` tokens in
+  `main.css`) and logo. Slide titles are full-sentence takeaways worded from
+  the data. Slides without data drop out (decision quality, the house), and
+  page numbers follow.
+- **PDF in the browser.** Render has no browser to print with, so
+  `GET /recap_html` returns the HTML and `static/js/ui/recap-pdf.js` lays it
+  out in an off-screen iframe. It draws each slide with html2canvas, adds it
+  as a jsPDF page, and puts the tip link back as a clickable area. Both
+  libraries are vendored in `static/js/` and load on the first tap only.
+  The pages are images, about 3 MB per deck.
+- **PDF on a dev machine.** `scripts/build_recap_deck.py <day>` reads
+  `data/decisions/drinks_summary_<day>.xlsx` and `decision_log_<day>.xlsx`,
+  builds the same HTML and prints it to a vector PDF through headless
+  Edge/Chrome, written to `data/recaps/`.
+
 ## Separation of Concerns
 - **Changing a drinking rule** → edit only `engine/drinking_rules.py`
 - **Adding a toggleable rule** → declare it in `engine/rules_registry.py`, gate it at the source, add its "off means off" test to `GATE_TESTS`, and give it an entry in `Rules-Catalog.md` and an anchor in `Rules.md` (tests check all four)
@@ -164,6 +194,7 @@ Each room picks which drinking rules it plays. The design docs are
 - **Changing web routes or server logic** → edit `app/routes/` or `app/services/`
 - **Changing web UI behaviour** → edit `static/js/ui/` and/or `templates/index.html`
 - **Changing styles** → edit `static/css/main.css` or the relevant `static/css/components/` file
+- **Changing the recap deck** (slides, wording, colours) → edit only `app/services/recap_deck.py`; the app and `scripts/build_recap_deck.py` both pick it up
 - **Adding/renaming a game phase or client role** → update `PHASE` / `ROLE` in `static/js/ui/config.js` (consumed by all other UI scripts)
 
 
@@ -306,10 +337,12 @@ Commit the updated `docs/.terms_sync.json` alongside your change.
 - Python 3.10+
 - `flask` (for web UI)
 - `pydantic` (for web UI — validates the state payload the web UI polls; see `app/models/state_schema.py`)
-- `segno` (pure Python, no dependencies — renders the room's join-link QR code as SVG for `GET /room_invite`)
+- `segno` (pure Python, no dependencies — renders QR codes as SVG: the room's join link for `GET /room_invite`, the tip link for `/beer_qr` and the recap deck)
 - `openpyxl` (for web UI — `/export_xlsx` and `/export_decisions`; also used by `scripts/build_player_profiles.py` and `scripts/load_decision_logs.py` to read exported logs back in)
 - `pytest` (for running the test suite)
 - No other dependencies for terminal play
+- Vendored browser libraries (in `static/js/`, no install step): `purify.min.js`, `marked.min.js` (Rules modal), `html2canvas.min.js` 1.4.1, `jspdf.umd.min.js` 2.5.2 (recap PDF)
+- `scripts/build_recap_deck.py` also needs Microsoft Edge or Google Chrome installed locally (headless PDF printing)
 - Consult [requirements.txt](requirements.txt) (deployment) or
   [requirements-dev.txt](requirements-dev.txt) (adds `pytest` for local
   development: `pip install -r requirements-dev.txt`)

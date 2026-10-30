@@ -155,6 +155,17 @@
 #setup > :first-child, #lobby > :first-child, #waiting > :first-child { margin-top: auto; }
 #setup > :last-child,  #lobby > :last-child,  #waiting > :last-child  { margin-bottom: auto; }
 #setup, #lobby, #waiting { overscroll-behavior-y: none; }
+
+/* Safe areas (viewport-fit=cover). These full-screen views (and #age-gate
+   below) sit outside #app,
+   which pads itself for the notch / Dynamic Island and the home indicator,
+   so they need the same insets on top of their own padding -- otherwise a
+   screen tall enough to start at the top puts the logo under the island and
+   the last buttons under the home indicator. */
+#setup, #lobby, #waiting {
+  padding: calc(24px + env(safe-area-inset-top, 0px)) calc(20px + env(safe-area-inset-right, 0px))
+           calc(24px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px));
+}
 #lobby h2  { font-size: 28px; font-weight: 800; letter-spacing: .5px; }
 #waiting h2,
 .waiting-title { font-size: 22px; font-weight: 800; }
@@ -340,7 +351,10 @@
   background: var(--bg);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  padding: 32px 24px; gap: 20px;
+  /* Safe areas: outside #app, like the lobby screens above. */
+  padding: calc(32px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-right, 0px))
+           calc(32px + env(safe-area-inset-bottom, 0px)) calc(24px + env(safe-area-inset-left, 0px));
+  gap: 20px;
   text-align: center;
 }
 #age-gate-card {

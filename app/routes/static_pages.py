@@ -18,6 +18,7 @@ import os
 from flask import Blueprint, current_app, jsonify, redirect, request, send_from_directory
 
 from app.services.house_rules import registry_payload
+from app.config import TIP_URL
 from app.services.qr import qr_svg
 
 bp = Blueprint("static_pages", __name__)
@@ -25,9 +26,6 @@ bp = Blueprint("static_pages", __name__)
 # ── Project root (one level above the app/ package) ─────────────────────────
 _HERE = os.path.dirname(os.path.abspath(__file__))   # .../app/routes/
 _ROOT = os.path.dirname(os.path.dirname(_HERE))      # .../Black-Out-Jack/
-
-TIP_URL = "https://paypal.me/robertmichels"
-
 
 @bp.route("/logo.png")
 def serve_logo():

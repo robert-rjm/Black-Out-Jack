@@ -114,6 +114,14 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
 GET /export_xlsx?room_code=<code>       # Full drink-log XLSX for the session
 GET /export_decisions?room_code=<code>  # Decision-log XLSX (mined by build_player_profiles.py)
 GET /summary_json?room_code=<code>      # Drink summary as JSON
+GET /recap_html?room_code=<code>        # Recap deck as HTML slides (the browser turns it into the PDF)
+```
+
+Recap deck as a vector PDF from a session's saved exports (needs local Edge/Chrome):
+
+```bash
+python scripts/build_recap_deck.py 2026-10-19          # -> data/recaps/recap_2026-10-19.pdf
+python scripts/build_recap_deck.py 2026-10-19 --html   # also keep the HTML next to it
 ```
 
 ## Linting
