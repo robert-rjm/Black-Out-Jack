@@ -7,6 +7,8 @@ GET /export_xlsx       — Full drink-log XLSX download for the session
 GET /export_decisions  — Decision-log XLSX (hand decisions + Dealer Lottery
                           entries, one sheet each) for scripts/build_player_profiles.py
 GET /summary_json      — Drink summary as JSON for on-screen display
+GET /recap_html        — Session recap deck as HTML slides; the browser turns
+                          it into the recap PDF (static/js/ui/recap-pdf.js)
 """
 
 import io
@@ -20,6 +22,7 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from flask import Blueprint, jsonify, request, Response
 
+from app.services.recap_deck import analyse, build_html, logo_css
 from app.services.session_store import game_sessions
 
 bp = Blueprint("reports", __name__)
@@ -371,6 +374,34 @@ def export_decisions():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="decision_log_{_date_str}.xlsx"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Recap deck
+# ---------------------------------------------------------------------------
+
+@bp.route("/recap_html")
+def recap_html():
+    """
+    Return the session recap deck (app/services/recap_deck.py) as one HTML
+    page of 1280×720 slides, built from the same rows as /export_xlsx and
+    /export_decisions. The server has no browser to print with, so the client
+    draws each slide into a PDF page (static/js/ui/recap-pdf.js).
+    Usage: GET /recap_html?room_code=Jack-21
+    """
+    room_code = request.args.get("room_code", "")
+    session   = game_sessions.get(room_code)
+    if not session:
+        return Response("No active session.", status=404, mimetype="text/plain")
+    rows = session.drinks.csv_rows
+    if not rows:
+        return Response("No drinks recorded yet: play a round first.", status=404, mimetype="text/plain")
+
+    day = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
+    a = analyse(rows, session._decision_log, session._dealer_lottery_decision_log, day)
+    if a["session_id"] == "–":
+        a["session_id"] = room_code
+    return Response(build_html(a, logo_css(inline=False)), status=200, mimetype="text/html")
 
 
 # ---------------------------------------------------------------------------

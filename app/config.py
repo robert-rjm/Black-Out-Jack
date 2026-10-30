@@ -156,3 +156,10 @@ MAX_PLAYERS       = 12     # seats incl. bots and the dealer
 MIN_BET_AMOUNT    = 2.5
 MAX_BET_AMOUNT    = 1000
 MAX_BANKROLL      = 100_000
+
+# ---------------------------------------------------------------------------
+# Tip jar — "Buy us a beer" link (GET /beer, /beer_qr, the recap deck's
+# closing slide)
+# ---------------------------------------------------------------------------
+
+TIP_URL = "https://paypal.me/robertmichels"

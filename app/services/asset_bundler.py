@@ -48,6 +48,7 @@ JS_SOURCES = [
     "static/js/ui/rules-settings.js",
     "static/js/ui/rules.js",
     "static/js/ui/summary.js",
+    "static/js/ui/recap-pdf.js",
     "static/js/ui/bootstrap.js",
     "static/js/app.js",
 ]

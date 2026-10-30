@@ -68,7 +68,9 @@ auto-export row with no `drink-only` class. No console errors.
 ## Payment platform: decided
 
 **PayPal.me — https://paypal.me/robertmichels — is live in all five
-placements.** Chosen by Robert over the recommendation below, which
+placements.** The server side reads it from `TIP_URL` in `app/config.py`
+(`/beer`, `/beer_qr`, and the QR code and link on the recap deck's closing
+slide). Chosen by Robert over the recommendation below, which
 stays on record as the reasoning at the time rather than as pending
 work. Known trade-off accepted: a PayPal.me profile page and its
 payment receipts show the recipient's real name to donors, so the

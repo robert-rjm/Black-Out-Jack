@@ -503,6 +503,8 @@ body:not(.no-drinking) .normal-only {
   margin-bottom: 12px;
 }
 .summary-actions { margin-top: 4px; }
+/* The recap PDF gets its own full-width row above the two file exports */
+.summary-recap { display: flex; margin-top: 4px; }
 .auto-export-row {
   margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
 }

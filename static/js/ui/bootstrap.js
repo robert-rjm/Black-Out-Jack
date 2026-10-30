@@ -67,6 +67,11 @@
     closeSummaryModal();
   };
 
+  window.exportRecapAndClose = function exportRecapAndClose() {
+    exportRecapPdf();
+    closeSummaryModal();
+  };
+
   window.exportDecisionLogAndClose = function exportDecisionLogAndClose() {
     exportDecisionLog();
     closeSummaryModal();
