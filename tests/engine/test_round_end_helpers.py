@@ -73,6 +73,48 @@ def test_net_loss_hard_switch_dealer_excluded():
     assert msgs == []
 
 
+def test_net_loss_doubled_loss_counts_two():
+    p = make_player("Alice", hands=[
+        make_hand(("K", "S"), ("9", "H"), doubled=True, result="loss"),
+    ])
+    msgs = DrinkingRules._net_loss_drinks([p], wager=2, hard_switch_dealer="")
+    assert msgs[0][1] == 4   # net -2 * wager 2
+
+
+def test_net_loss_doubled_win_offsets_doubled_loss():
+    p = make_player("Alice", hands=[
+        make_hand(("K", "S"), ("9", "H"), doubled=True, result="win"),
+        make_hand(("6", "S"), ("5", "H"), ("9", "D"), doubled=True, result="loss"),
+    ])
+    assert DrinkingRules._net_loss_drinks([p], wager=1, hard_switch_dealer="") == []
+
+
+def test_net_loss_bj_offsets_doubled_loss():
+    p = make_player("Alice", hands=[
+        make_hand(("A", "H"), ("K", "D"), result="win"),   # BJ
+        make_hand(("6", "S"), ("5", "H"), ("9", "D"), doubled=True, result="loss"),
+    ])
+    assert DrinkingRules._net_loss_drinks([p], wager=1, hard_switch_dealer="") == []
+
+
+def test_net_loss_doubled_win_offsets_two_losses():
+    p = make_player("Alice", hands=[
+        make_hand(("K", "S"), ("9", "H"), doubled=True, result="win"),
+        make_hand(("5", "S"), ("9", "D"), result="loss"),
+        make_hand(("6", "S"), ("8", "H"), result="loss"),
+    ])
+    assert DrinkingRules._net_loss_drinks([p], wager=1, hard_switch_dealer="") == []
+
+
+def test_net_loss_plain_win_does_not_offset_doubled_loss():
+    p = make_player("Alice", hands=[
+        make_hand(("K", "S"), ("9", "H"), result="win"),
+        make_hand(("6", "S"), ("5", "H"), ("9", "D"), doubled=True, result="loss"),
+    ])
+    msgs = DrinkingRules._net_loss_drinks([p], wager=1, hard_switch_dealer="")
+    assert msgs[0][1] == 1   # +1 - 2 = net -1
+
+
 def test_net_loss_multiple_players_independent():
     alice = make_player("Alice", hands=[make_hand(("5", "S"), ("9", "H"), result="loss")])
     bob   = make_player("Bob",   hands=[make_hand(("K", "H"), ("Q", "D"), result="win")])
@@ -123,13 +165,12 @@ def test_dealer_bj_excluded_player_skipped():
 # _extra_loss_drinks
 # ---------------------------------------------------------------------------
 
-def test_extra_loss_doubled_fires():
+def test_extra_loss_plain_doubled_adds_nothing():
+    """A lost double costs its -2 in the net, not an extra sip here."""
     p = make_player("Alice", hands=[
         make_hand(("K", "S"), ("9", "H"), doubled=True, result="loss"),
     ])
-    msgs = DrinkingRules._extra_loss_drinks([p], wager=2, hard_switch_dealer="")
-    assert any("doubled" in m[2] for m in msgs)
-    assert msgs[0][1] == 2
+    assert DrinkingRules._extra_loss_drinks([p], wager=2, hard_switch_dealer="") == []
 
 
 def test_extra_loss_suited_fires():

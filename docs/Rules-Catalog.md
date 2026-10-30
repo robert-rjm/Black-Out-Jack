@@ -69,7 +69,7 @@ a single rule by a **stable ID**:
 | [`side.bust_vote`](#side-bust_vote) | Side bet: dealer bust vote | event | instant | Standard |
 | [`cards.devils_hand`](#cards-devils_hand) | Devil's Hand (third 6) | drink | instant | Full |
 | [`cards.lucky_sevens`](#cards-lucky_sevens) | Lucky Sevens (third 7) | drink | instant | Full |
-| [`loss.doubled`](#loss-doubled) | Lost doubled hand +1 | drink | end-of-round | Starter |
+| [`loss.doubled`](#loss-doubled) | Doubled hand counts ±2 | drink | end-of-round | Starter |
 | [`loss.suited`](#loss-suited) | Lost suited hand +1 (×4 if doubled too) | drink | end-of-round | Standard |
 | [`others.wins_all`](#others-wins_all) | Another player wins all hands | drink | end-of-round | Starter |
 | [`others.immunity.doubled`](#others-immunity-doubled) | Immunity break: doubled win | drink | end-of-round | Standard |
@@ -108,7 +108,7 @@ switched off. (Normal Mode is the "everything off" version.)
 ### <a id="core-net_loss"></a>Net hand losses — `core.net_loss`
 - **Rules.md:** [§5.1](Rules.md#51-net-hand-losses) · **Kind:** core · **Timing:** end-of-round · **Preset:** Locked
 - **Trigger:** End of every round.
-- **Effect:** Each hand scores Win +1, Blackjack +2, Loss −1, Push 0. A negative net total is drunk as `|net| × wager` sips; positive totals are ignored.
+- **Effect:** Each hand scores Win +1, Blackjack +2, Loss −1, Push 0 (with `loss.doubled` on, a doubled hand scores Win +2 / Loss −2). A negative net total is drunk as `|net| × wager` sips; positive totals are ignored.
 - **Halved:** Yes · **Booster:** Yes
 - **Depends on:** — · **Interacts with:** `insurance.auto_cap`, `five_card.dealer_21`, `switch.hard` (replaces the dealer's own net loss)
 - **Code:** `engine/drinking_rules.py` `DrinkingRules._net_loss_drinks` (via `on_round_end`)
@@ -317,16 +317,16 @@ on its own. Ace sips are never halved and boosters never apply (discounts do).
 
 ## 7. End-of-round rules
 
-### <a id="loss-doubled"></a>Lost doubled hand — `loss.doubled`
+### <a id="loss-doubled"></a>Doubled hand counts ±2 — `loss.doubled`
 - **Rules.md:** [§5.1](Rules.md#51-net-hand-losses) · **Timing:** end-of-round · **Preset:** Starter
-- **Effect:** +1× wager per lost doubled hand.
+- **Effect:** A doubled hand scores twice in your own net: a doubled win is +2 and a doubled loss is −2. Off: a doubled hand scores like any other (±1).
 - **Halved:** Yes · **Booster:** Yes · **Depends on:** `core.net_loss`
-- **Code:** `DrinkingRules._extra_loss_drinks` · **CSV label:** `Lost doubled hand`
-- **Quiz:** Q: You lose a doubled hand at wager 1 (no other hands). How many sips? **A:** 2 (1 base + 1 doubled).
+- **Code:** `DrinkingRules._net_loss_drinks` · **CSV label:** `Net hand losses`
+- **Quiz:** Q: You lose a doubled hand at wager 1 (no other hands). How many sips? **A:** 2 (net −2). · Q: One doubled win, one doubled loss? **A:** 0 (net 0). · Q: One Blackjack, one doubled loss? **A:** 0 (net 0).
 
 ### <a id="loss-suited"></a>Lost suited hand — `loss.suited`
 - **Rules.md:** [§5.1](Rules.md#51-net-hand-losses) · **Timing:** end-of-round · **Preset:** Standard
-- **Effect:** +1× per lost suited hand. Doubled **and** suited → +3× (4× total with the base loss).
+- **Effect:** +1× per lost suited hand. Doubled **and** suited → +2× extra (4× total with the doubled hand's −2 net).
 - **Halved:** Yes · **Booster:** Yes · **Depends on:** `core.net_loss` · **Interacts with:** `loss.doubled` (the ×4 combo needs both on; with `loss.doubled` off, a doubled suited loss is +1× only)
 - **Code:** `DrinkingRules._extra_loss_drinks` · **CSV label:** `Lost suited hand`
 - **Quiz:** Q: Total sips for losing a doubled, suited hand? **A:** 4× wager.

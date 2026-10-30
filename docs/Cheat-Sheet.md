@@ -59,9 +59,9 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 | Situation | Sips |
 |-----------|------|
 | Net hand lost | 1 (wager) |
-| Lost hand was doubled | +1× wager |
+| Doubled hand / Blackjack | Counts 2 in your net (doubled win or BJ +2, doubled loss −2) |
 | Lost hand was suited | +1× wager |
-| Lost hand was doubled + suited | +3× wager (4× total) |
+| Lost hand was doubled + suited | +2× wager (4× total with the doubled loss's −2) |
 
 ---
 

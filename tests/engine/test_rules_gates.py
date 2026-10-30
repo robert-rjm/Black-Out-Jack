@@ -157,7 +157,7 @@ def test_auto_insurance_cap_off_falls_through_to_normal_rules():
     normal = DrinkingRules.on_round_end(players, 1, dealer_bj=True, dealer_shows_ace=True, num_hands=2,
                                         rules=off("insurance.auto_cap"))
     assert normal and not any("auto-insurance" in m[2] for m in normal)
-    assert any("doubled hand" in m[2] for m in normal)   # extras are back
+    assert [m[1] for m in normal if "net loss" in m[2]] == [3]   # doubled loss counts -2 again
 
 
 def test_dealer_blackjack_keeps_the_five_card_handout_whatever_the_cap():
@@ -191,12 +191,24 @@ def _extras(rules):
     return DrinkingRules._extra_loss_drinks([p], 1, "", rules)
 
 
-def test_lost_doubled_suited_combo_is_three_extra_sips():
-    assert sum(m[1] for m in _extras(FULL)) == 3
+def test_lost_doubled_suited_combo_is_two_extra_sips():
+    assert sum(m[1] for m in _extras(FULL)) == 2   # suited + combo; the double is in the net
 
 
-def test_only_loss_doubled_on_adds_one():
-    assert sum(m[1] for m in _extras(off("loss.suited"))) == 1
+def test_only_loss_doubled_on_adds_no_extra():
+    assert _extras(off("loss.suited")) == []
+
+
+def _net(rules):
+    p = make_player("Alice", hands=[make_hand(("K", "S"), ("9", "H"), doubled=True, result="win"),
+                                    make_hand(("5", "S"), ("9", "D"), result="loss"),
+                                    make_hand(("6", "S"), ("8", "H"), result="loss")])
+    return DrinkingRules._net_loss_drinks([p], 1, "", rules)
+
+
+def test_loss_doubled_off_scores_doubles_as_one():
+    assert _net(FULL) == []                                  # doubled win +2 offsets two losses
+    assert [m[1] for m in _net(off("loss.doubled"))] == [1]  # +1 - 2
 
 
 def test_only_loss_suited_on_adds_one():

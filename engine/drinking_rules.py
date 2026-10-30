@@ -497,20 +497,26 @@ class DrinkingRules:
         return msgs
 
     @staticmethod
-    def _net_loss_drinks(players: list, wager: int, hard_switch_dealer: str) -> list:
+    def _net_loss_drinks(players: list, wager: int, hard_switch_dealer: str,
+                         rules: RuleSet = FULL) -> list:
         """Sips for net hand losses.
 
         Wins offset losses; only a net negative total costs sips.
         Blackjack counts as 2 wins (house rule) -- it can offset two lost hands.
+        With loss.doubled on, a doubled hand counts twice either way: a doubled
+        win is +2 and a doubled loss is -2, so they offset each other.
         """
+        doubled_on = rules.on("loss.doubled")
         msgs = []
         for p in players:
             if bool(hard_switch_dealer) and p.name == hard_switch_dealer:
                 continue
             # BJ = 2 wins: a natural offsets two net-loss hands (drinking house rule)
-            effective_wins = sum(2 if h.is_blackjack() else 1
+            effective_wins = sum(2 if h.is_blackjack() or (doubled_on and h.doubled) else 1
                                  for h in p.hands if h.result == "win")
-            net = max(0, p.round_losses() - effective_wins)
+            effective_losses = sum(2 if doubled_on and h.doubled else 1
+                                   for h in p.hands if h.result == "loss")
+            net = max(0, effective_losses - effective_wins)
             if net > 0:
                 msgs.append((p.name, net * wager,
                     f"{p.name} net -{net} hand(s) => drinks {net * wager} sip(s) (net loss)"))
@@ -519,7 +525,8 @@ class DrinkingRules:
     @staticmethod
     def _extra_loss_drinks(players: list, wager: int, hard_switch_dealer: str,
                            rules: RuleSet = FULL) -> list:
-        """Extra sip for each lost doubled or lost suited hand."""
+        """Extra sip for each lost suited hand, plus the doubled + suited combo.
+        A lost double on its own costs nothing here: it counts -2 in the net."""
         doubled_on = rules.on("loss.doubled")
         suited_on  = rules.on("loss.suited")
         msgs = []
@@ -531,12 +538,9 @@ class DrinkingRules:
                     continue
                 if doubled_on and suited_on and hand.doubled and hand.is_suited():
                     # Multiplicative: loss x2 (doubled) x2 (suited) = 4x wager total.
-                    # Base 1x + doubled 1x + suited 1x + this combo 1x.
+                    # Net -2 (doubled) + suited 1x + this combo 1x.
                     msgs.append((p.name, wager,
                         f"{p.name} lost a doubled hand that was also suited => +{wager} sip(s) (combo)"))
-                if doubled_on and hand.doubled:
-                    msgs.append((p.name, wager,
-                        f"{p.name} lost a doubled hand => +{wager} sip(s)"))
                 if suited_on and hand.is_suited():
                     msgs.append((p.name, wager,
                         f"{p.name} lost a suited hand => +{wager} sip(s)"))
@@ -624,7 +628,7 @@ class DrinkingRules:
             return DrinkingRules._dealer_bj_drinks(players, wager, num_hands, hard_switch_dealer)
 
         msgs = []
-        msgs += DrinkingRules._net_loss_drinks(players, wager, hard_switch_dealer)
+        msgs += DrinkingRules._net_loss_drinks(players, wager, hard_switch_dealer, rules)
         msgs += DrinkingRules._extra_loss_drinks(players, wager, hard_switch_dealer, rules)
         if rules.on("others.immunity.split"):
             msgs += DrinkingRules._split_win_drinks(players, hard_switch_dealer, wager)

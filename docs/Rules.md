@@ -218,7 +218,9 @@ These effects resolve after all hands are played (These can be halved by Easy Mo
 | ------- | ----- |
 | Win | +1 |
 | Blackjack | +2 |
+| <a id="loss-doubled"></a>Doubled win | +2 |
 | Loss | −1 |
+| Doubled loss | −2 |
 | Push | 0 |
 
 Only **net negative** scores result in drinking. Positives are disregarded.
@@ -228,6 +230,9 @@ Only **net negative** scores result in drinking. Positives are disregarded.
 > - Lost both → net -2 → drink 2 sips
 > - Won BlackJack, lost 1 → net +1 →  no sips
 > - Won both → net +2 → no sips
+> - Won a double, lost a double → net 0 → no sips
+> - Won BlackJack, lost a double → net 0 → no sips
+> - Won 1, lost a double → net -1 → drink 1 sip
 
 **Additional penalties per lost hand:**
 
@@ -235,9 +240,8 @@ Only **net negative** scores result in drinking. Positives are disregarded.
 
 | Condition | Extra sips |
 | --------- | ---------- |
-| <a id="loss-doubled"></a>Lost hand was doubled | +1× wager |
 | <a id="loss-suited"></a>Lost hand was suited | +1× wager |
-| Lost hand was doubled **and** suited | +3× wager (4× wager total with the base loss) |
+| Lost hand was doubled **and** suited | +2× wager (4× wager total with the doubled loss's −2) |
 
 
 ### 5.2 Other Player's Results
@@ -541,7 +545,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 
 | Halved (End of Round) | Not halved (Instant Effect) |
 | --------------------- | ---------------------- |
-| Net hand losses (incl. doubled +1, suited +1) | Ace suit effects ♣♠♥♦ |
+| Net hand losses (incl. doubled ±2, suited +1) | Ace suit effects ♣♠♥♦ |
 | Blackjack bonus (player BJ) | Dealer suited hand (2 sips to all) |
 | Hard Dealer Switch | Four aces on first deal |
 | All-hands sweep | 5-card handouts |
@@ -676,7 +680,7 @@ Every table chooses which of these rules it plays. The host picks a **preset** w
 
 | Preset | What's in it | Avg sips per player per round* |
 | ------ | ------------ | ------------------------------ |
-| 🟢 **Starter** | The core game: net hand losses, mandatory split 10s, lost doubled hand +1, auto-insurance cap, Hard Dealer Switch, another player wins all hands, flat Blackjack bonus, milestone handouts | ≈ 2.2 |
+| 🟢 **Starter** | The core game: net hand losses, mandatory split 10s, doubled hands count ±2, auto-insurance cap, Hard Dealer Switch, another player wins all hands, flat Blackjack bonus, milestone handouts | ≈ 2.2 |
 | 🟡 **Standard** | All the card rules: Starter plus the Aces, suited rules, immunity breaks, Blackjack multipliers, 5+ cards, Four Aces, the split-Aces rules, dealer suited hand and the bust vote | ≈ 4.3 |
 | 🔴 **Full** | Everything in this document (the default): Standard plus Devil's Hand / Lucky Sevens, the all-hand bonus, dealer 5-card 21, the Blackjack insurance vote, and the events: Dealer Lottery, Targeted Drinking, the Wild Card, the "worst average" penalty and the L badge | more than Standard |
 
