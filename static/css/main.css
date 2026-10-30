@@ -75,6 +75,15 @@ html, body {
            env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 
+/* Home-screen app (standalone, black-translucent status bar): iOS sizes
+   100dvh as the screen *minus the status bar*, so the top-anchored box above
+   ended that much short of the bottom and the bottom nav floated up off the
+   home-indicator zone. There is no browser toolbar here to make a
+   bottom-anchored box drift, so pin both edges instead. */
+@media (display-mode: standalone) {
+  #app { bottom: 0; height: auto; }
+}
+
 header {
   position: relative;
   flex-shrink: 0;
