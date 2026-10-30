@@ -111,7 +111,7 @@ Element IDs and which file owns them are in [DOM-Hooks.md](DOM-Hooks.md).
 | Simulation | `simulation.py`, `run_all_configs.py`, `compare_configs.py`, `compare_bot_styles.py`, `snapshot.py` (saves to `snapshots/<label>/`) |
 | Bot profiles | `load_decision_logs.py`, `build_player_profiles.py` (mines `data/decisions/` into `engine/player_profiles/`) |
 | Doc sync | `rules_sync.py`, `terms_sync.py` |
-| Reports | `build_recap_deck.py` (recap deck as a vector PDF from two saved exports, via local Edge/Chrome) |
+| Reports | `build_recap_deck.py` (recap deck as a vector PDF from two saved exports, via local Edge/Chrome; its `print_pdf` is shared), `build_pitch_deck.py` (`docs/Pitch-Deck.pdf`, the README's pitch deck: same slide style, numbers read from `data/decisions/`, `scripts/benchmarks.json` and the rules registry) |
 
 ## Layering Rules
 

@@ -447,11 +447,11 @@ def hbars(items, maxv=None, fmt=str, label_w=120, bar_w=360, ref=None) -> str:
 # Slides
 # ---------------------------------------------------------------------------
 
-def slide(tracker, title, body, source, page) -> str:
+def slide(tracker, title, body, source, page, deck="Session recap") -> str:
     return (f'<section class="slide"><div class="brand"><div class="logo"></div>{APP_NAME}</div>'
             f'<div class="tracker">{esc(tracker)}</div>'
             f'<h1>{title}</h1><div class="body">{body}</div>'
-            f'<footer><span>{source}</span><span>{APP_NAME} · Session recap · {page}</span></footer></section>')
+            f'<footer><span>{source}</span><span>{APP_NAME} · {deck} · {page}</span></footer></section>')
 
 
 _SUITS = {"Spades": "♠", "Hearts": "♥", "Diamonds": "♦", "Clubs": "♣"}

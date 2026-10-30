@@ -58,20 +58,9 @@ def _browser() -> str | None:
     return shutil.which("chromium") or shutil.which("google-chrome") or shutil.which("msedge")
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("day", help="session date as in the export file names, e.g. 2026-10-19")
-    ap.add_argument("--dir", default=os.path.join(_ROOT, "data", "decisions"))
-    ap.add_argument("--out", default=os.path.join(_ROOT, "data", "recaps"))
-    ap.add_argument("--html", action="store_true", help="also keep the HTML next to the PDF")
-    args = ap.parse_args()
-
-    a = load(args.day, args.dir)
-    os.makedirs(args.out, exist_ok=True)
-    html_path = os.path.join(args.out if args.html else tempfile.mkdtemp(), f"recap_{args.day}.html")
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(build_html(a, logo_css(inline=True)))
-    pdf_path = os.path.join(args.out, f"recap_{args.day}.pdf")
+def print_pdf(html_path: str, pdf_path: str) -> None:
+    """Print an HTML file to PDF with a local headless Edge/Chrome; exits on failure.
+    Also used by scripts/build_pitch_deck.py."""
     exe = _browser()
     if not exe:
         sys.exit(f"No Edge/Chrome found; HTML written to {html_path}")
@@ -91,6 +80,23 @@ def main() -> None:
     shutil.rmtree(profile, ignore_errors=True)
     if not os.path.exists(pdf_path):
         sys.exit(f"PDF printing failed; HTML written to {html_path}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("day", help="session date as in the export file names, e.g. 2026-10-19")
+    ap.add_argument("--dir", default=os.path.join(_ROOT, "data", "decisions"))
+    ap.add_argument("--out", default=os.path.join(_ROOT, "data", "recaps"))
+    ap.add_argument("--html", action="store_true", help="also keep the HTML next to the PDF")
+    args = ap.parse_args()
+
+    a = load(args.day, args.dir)
+    os.makedirs(args.out, exist_ok=True)
+    html_path = os.path.join(args.out if args.html else tempfile.mkdtemp(), f"recap_{args.day}.html")
+    with open(html_path, "w", encoding="utf-8") as f:
+        f.write(build_html(a, logo_css(inline=True)))
+    pdf_path = os.path.join(args.out, f"recap_{args.day}.pdf")
+    print_pdf(html_path, pdf_path)
     print(f"Wrote {pdf_path}")
 
 

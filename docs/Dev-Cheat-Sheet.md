@@ -124,6 +124,12 @@ python scripts/build_recap_deck.py 2026-10-19          # -> data/recaps/recap_20
 python scripts/build_recap_deck.py 2026-10-19 --html   # also keep the HTML next to it
 ```
 
+Pitch deck for the README, refreshed from the latest game nights, benchmarks and rule counts:
+
+```bash
+python scripts/build_pitch_deck.py                     # -> docs/Pitch-Deck.pdf
+```
+
 ## Linting
 
 ```bash

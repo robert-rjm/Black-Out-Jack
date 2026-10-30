@@ -15,6 +15,9 @@
   <a href="docs/Rules.md">
     <img src="https://img.shields.io/badge/📖%20RULES-orange?style=for-the-badge&labelColor=1a1a1a" alt="Rules" height="30">
   </a>
+  <a href="docs/Pitch-Deck.pdf">
+    <img src="https://img.shields.io/badge/📊%20PITCH%20DECK-4f8ef7?style=for-the-badge&labelColor=1a1a1a" alt="Pitch deck" height="30">
+  </a>
   <a href="https://paypal.me/robertmichels">
     <img src="https://img.shields.io/badge/🍺%20BUY%20US%20A%20BEER-00457C?style=for-the-badge&labelColor=1a1a1a" alt="Buy us a beer" height="30">
   </a>
@@ -29,6 +32,8 @@
 - **House rules your way:** start on Starter, Standard or Full, add rules one at a time, switch any of them off, and let players suggest or vote on changes
 - **Strategy tracking:** see how you compare to optimal basic strategy
 - **Bold strategy rewarded:** drinking incentives punish playing it safe
+
+**The 11-slide tour:** [📊 Pitch deck (PDF)](docs/Pitch-Deck.pdf). It covers how a round works, the rules and side games, house rules, and numbers from real game nights.
 
 
 ## Quick Start
@@ -73,6 +78,7 @@ Both terminal scripts take `--preset starter|standard|full` to pick the house ru
 
 | Doc | Description |
 |------|-------------|
+| [Pitch-Deck.pdf](docs/Pitch-Deck.pdf) | The game in 11 slides (rebuild: `python scripts/build_pitch_deck.py`) |
 | [Rules.md](docs/Rules.md) | Extensive Drinking Rules |
 | [Cheat-Sheet.md](docs/Cheat-Sheet.md) | One-page gameplay rules reference|
 | [Rules-Catalog.md](docs/Rules-Catalog.md) | Every rule a table can switch on or off, with its ID and preset |
