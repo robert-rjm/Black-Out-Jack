@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import base64
 import collections
 import html
 import os
@@ -28,11 +29,21 @@ from zoneinfo import ZoneInfo
 import openpyxl
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
+
+from app.routes.static_pages import TIP_URL  # noqa: E402
+from app.services.qr import qr_svg  # noqa: E402
+
+APP_NAME = "Black(Out)Jack"
 _TZ = ZoneInfo("Europe/Zurich")
 
 SIPS_PER_BEER = 15          # illustrative: ~15 sips per 0.5 l
-NAVY, ACCENT, GREY, LIGHT, GOOD, BAD = "#0B2545", "#C8553D", "#8A94A6", "#E6E9EF", "#2E7D5B", "#B03A2E"
-PLAYER_COLOURS = ["#1F4E79", "#2A9D8F", "#E9A23B", "#8E5572", "#5C6B73", "#9C6644"]
+# App palette (static/css/main.css :root) — the deck is dark like the app
+BG, SURFACE, BORDER, TEXT, MUTED = "#0f1117", "#1a1d27", "#2e3247", "#e8eaf0", "#9095ab"
+BLUE, GREEN, RED, YELLOW, PURPLE, ON_FILL = "#4f8ef7", "#3ecf6e", "#e05c5c", "#f5c842", "#a78bfa", "#0f1117"
+AMBER = "#f39a1e"           # logo beer
+IDLE = "#3a4160"            # unhighlighted bars
+PLAYER_COLOURS = [BLUE, AMBER, PURPLE, "#2dd4bf", "#f472b6", YELLOW]
 
 # Rule -> driver category (sips you drink, grouped by *why* you drink them)
 CATEGORIES = [
@@ -217,11 +228,11 @@ def svg_race(a, w=820, h=430) -> str:
     out = [f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}">']
     if a["easy_from"]:
         x0 = x(a["easy_from"] - 1)
-        out.append(f'<rect x="{x0:.1f}" y="{T}" width="{x(n) - x0:.1f}" height="{h - T - B}" fill="#F3F4F7"/>')
-        out.append(f'<text x="{x0 + 8:.1f}" y="{T + 16}" class="ax" fill="{GREY}">4 players · Easy Mode halves sips →</text>')
+        out.append(f'<rect x="{x0:.1f}" y="{T}" width="{x(n) - x0:.1f}" height="{h - T - B}" fill="{SURFACE}"/>')
+        out.append(f'<text x="{x0 + 8:.1f}" y="{T + 16}" class="ax">4 players · Easy Mode halves sips →</text>')
     v = 0
     while v <= ymax:
-        out.append(f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="{LIGHT}"/>'
+        out.append(f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="{BORDER}"/>'
                    f'<text x="{L - 8}" y="{y(v) + 4:.1f}" class="ax" text-anchor="end">{v:g}</text>')
         v += step
     for i in range(0, n + 1, 5 if n > 20 else 2):
@@ -234,8 +245,8 @@ def svg_race(a, w=820, h=430) -> str:
     # Lead-change markers
     for k, (rd, p) in enumerate(a["changes"][1:], 1):
         cx, cy = x(rd), y(a["cum"][p][rd])
-        out.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="{NAVY}"/>'
-                   f'<text x="{cx:.1f}" y="{cy + 4:.1f}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">{k}</text>')
+        out.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="{YELLOW}"/>'
+                   f'<text x="{cx:.1f}" y="{cy + 4:.1f}" text-anchor="middle" font-size="11" font-weight="700" fill="{ON_FILL}">{k}</text>')
     # End labels, spread so they don't collide
     ends = sorted(a["players"], key=lambda p: -a["cum"][p][n])
     last_y = -99
@@ -243,7 +254,7 @@ def svg_race(a, w=820, h=430) -> str:
         ly = max(y(a["cum"][p][n]) + 4, last_y + 17)
         last_y = ly
         out.append(f'<text x="{w - R + 8}" y="{ly:.1f}" font-size="13" font-weight="700" fill="{a["colour"][p]}">'
-                   f'{esc(p)} <tspan font-weight="400" fill="{NAVY}">{a["cum"][p][n]}</tspan></text>')
+                   f'{esc(p)} <tspan font-weight="400" fill="{TEXT}">{a["cum"][p][n]}</tspan></text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -263,17 +274,17 @@ def svg_waterfall(steps, w=820, h=420) -> str:
     bw = (w - L - R) / len(bars)
     y = lambda v: T + (h - T - B) * (1 - v / ymax)
     out = [f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}">',
-           f'<line x1="{L}" x2="{w - R}" y1="{y(0)}" y2="{y(0)}" stroke="{GREY}"/>']
+           f'<line x1="{L}" x2="{w - R}" y1="{y(0)}" y2="{y(0)}" stroke="{MUTED}"/>']
     for i, (label, lo, hi, kind) in enumerate(bars):
         x0 = L + i * bw + bw * 0.18
-        colour = NAVY if kind == "total" else GOOD
+        colour = BLUE if kind == "total" else GREEN
         val = hi - lo
         out.append(f'<rect x="{x0:.1f}" y="{y(hi):.1f}" width="{bw * 0.64:.1f}" height="{y(lo) - y(hi):.1f}" fill="{colour}"/>')
         txt = f"{val:,.0f}" if kind == "total" else f"–{val:,.0f}"
-        out.append(f'<text x="{x0 + bw * 0.32:.1f}" y="{y(hi) - 7:.1f}" text-anchor="middle" font-size="13" font-weight="700" fill="{NAVY}">{txt}</text>')
+        out.append(f'<text x="{x0 + bw * 0.32:.1f}" y="{y(hi) - 7:.1f}" text-anchor="middle" font-size="13" font-weight="700" fill="{TEXT}">{txt}</text>')
         if i < len(bars) - 1:
             ly = y(lo if kind == "delta" else hi)
-            out.append(f'<line x1="{x0 + bw * 0.64:.1f}" x2="{x0 + bw:.1f}" y1="{ly:.1f}" y2="{ly:.1f}" stroke="{GREY}" stroke-dasharray="3,3"/>')
+            out.append(f'<line x1="{x0 + bw * 0.64:.1f}" x2="{x0 + bw:.1f}" y1="{ly:.1f}" y2="{ly:.1f}" stroke="{MUTED}" stroke-dasharray="3,3"/>')
         words = label.split(" ")
         mid = (len(words) + 1) // 2
         for j, line in enumerate([" ".join(words[:mid]), " ".join(words[mid:])]):
@@ -293,19 +304,19 @@ def svg_columns(a, w=1180, h=330) -> str:
     out = [f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}">']
     if a["easy_from"]:
         x0 = L + (a["easy_from"] - 1) * bw
-        out.append(f'<rect x="{x0:.1f}" y="{T}" width="{w - R - x0:.1f}" height="{h - T - B}" fill="#F3F4F7"/>'
+        out.append(f'<rect x="{x0:.1f}" y="{T}" width="{w - R - x0:.1f}" height="{h - T - B}" fill="{SURFACE}"/>'
                    f'<text x="{x0 + 6:.1f}" y="{T + 14}" class="ax">Easy Mode (4 players)</text>')
     v = 0
     while v <= ymax:
-        out.append(f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="{LIGHT}"/>'
+        out.append(f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="{BORDER}"/>'
                    f'<text x="{L - 6}" y="{y(v) + 4:.1f}" class="ax" text-anchor="end">{v:g}</text>')
         v += step
     for i, val in enumerate(vals):
         x0 = L + i * bw + bw * 0.15
         hot = i in top3
-        out.append(f'<rect x="{x0:.1f}" y="{y(val):.1f}" width="{bw * 0.7:.1f}" height="{y(0) - y(val):.1f}" fill="{ACCENT if hot else "#AEB8C8"}"/>')
+        out.append(f'<rect x="{x0:.1f}" y="{y(val):.1f}" width="{bw * 0.7:.1f}" height="{y(0) - y(val):.1f}" fill="{YELLOW if hot else IDLE}"/>')
         if hot:
-            out.append(f'<text x="{x0 + bw * 0.35:.1f}" y="{y(val) - 5:.1f}" text-anchor="middle" font-size="12" font-weight="700" fill="{ACCENT}">{val}</text>')
+            out.append(f'<text x="{x0 + bw * 0.35:.1f}" y="{y(val) - 5:.1f}" text-anchor="middle" font-size="12" font-weight="700" fill="{YELLOW}">{val}</text>')
         if (i + 1) % 5 == 0 or i == 0:
             out.append(f'<text x="{x0 + bw * 0.35:.1f}" y="{h - B + 16}" text-anchor="middle" class="ax">{i + 1}</text>')
     # 5-round rolling average
@@ -313,7 +324,7 @@ def svg_columns(a, w=1180, h=330) -> str:
     for i in range(n):
         win = vals[max(0, i - 4): i + 1]
         pts.append(f"{L + i * bw + bw / 2:.1f},{y(sum(win) / len(win)):.1f}")
-    out.append(f'<polyline points="{" ".join(pts)}" fill="none" stroke="{NAVY}" stroke-width="2.5"/>')
+    out.append(f'<polyline points="{" ".join(pts)}" fill="none" stroke="{BLUE}" stroke-width="2.5"/>')
     out.append("</svg>")
     return "".join(out)
 
@@ -337,9 +348,16 @@ def hbars(items, maxv=None, fmt=str, label_w=120, bar_w=360, ref=None) -> str:
 # ---------------------------------------------------------------------------
 
 def slide(tracker, title, body, source, page) -> str:
-    return (f'<section class="slide"><div class="tracker">{esc(tracker)}</div>'
+    return (f'<section class="slide"><div class="brand"><div class="logo"></div>{APP_NAME}</div>'
+            f'<div class="tracker">{esc(tracker)}</div>'
             f'<h1>{title}</h1><div class="body">{body}</div>'
-            f'<footer><span>{source}</span><span>Black-Out-Jack · Session recap · {page}</span></footer></section>')
+            f'<footer><span>{source}</span><span>{APP_NAME} · Session recap · {page}</span></footer></section>')
+
+
+def _logo_css() -> str:
+    """The app logo as a CSS variable, so the HTML embeds it once."""
+    with open(os.path.join(_ROOT, "static", "img", "logo.png"), "rb") as f:
+        return f":root {{ --logo: url(data:image/png;base64,{base64.b64encode(f.read()).decode()}); }}"
 
 
 def build_html(a) -> str:
@@ -347,7 +365,7 @@ def build_html(a) -> str:
     by_total = sorted(P, key=lambda p: -a["total"][p])
     champ, second, last = by_total[0], by_total[1], by_total[-1]
     margin = a["total"][champ] - a["total"][second]
-    src = f"Source: Black-Out-Jack drink log and decision log, session {esc(a['session_id'])}, {n} rounds"
+    src = f"Source: {APP_NAME} drink log and decision log, session {esc(a['session_id'])}, {n} rounds"
     mins = a["minutes"]
     dur = f"{int(mins // 60)}h {int(mins % 60):02d}m" if mins else "–"
     long_leader = max(a["lead_rounds"], key=a["lead_rounds"].get)
@@ -383,6 +401,7 @@ def build_html(a) -> str:
     span = f'{a["start"]:%H:%M}–{a["end"]:%H:%M}' if a["start"] else ""
     pages.append(f'''<section class="slide cover">
       <div class="cv-band"></div>
+      <div class="logo cv-logo"></div>
       <div class="cv-kicker">Session recap · {esc(a["session_id"])}</div>
       <div class="cv-title">The night in numbers</div>
       <div class="cv-sub">{when} · {span} · {", ".join(map(esc, P))}</div>
@@ -392,7 +411,7 @@ def build_html(a) -> str:
         <div><b>{dur}</b><span>at the table</span></div>
         <div><b>{esc(champ)}</b><span>top of the table</span></div>
       </div>
-      <div class="cv-foot">Strictly confidential · prepared for the table only · not investment advice</div>
+      <div class="cv-foot">Strictly confidential · prepared for the table only · not investment advice · drink responsibly</div>
     </section>''')
 
     # 2 — Executive summary
@@ -481,7 +500,7 @@ def build_html(a) -> str:
                        body, src + " · Gross = all positive sip events before credits", 5))
 
     # 6 — Drivers
-    bars = hbars([(c, cat_tot[c], NAVY if c == cat_order[0] else "#7C8DA6") for c in cat_order if cat_tot[c] > 0],
+    bars = hbars([(c, cat_tot[c], BLUE if c == cat_order[0] else "#35548f") for c in cat_order if cat_tot[c] > 0],
                  None, lambda v: f"{v} · {pct(v, a['gross_all'])}", 140, 250)
     head = "".join(f"<th>{esc(p)}</th>" for p in P)
     trs = ""
@@ -491,7 +510,7 @@ def build_html(a) -> str:
         cells = ""
         for p in P:
             share = a["cat"][c][p] / a["gross"][p] if a["gross"][p] else 0
-            cells += f'<td style="background:rgba(11,37,69,{min(share * 2.2, 0.85):.2f});color:{"#fff" if share > 0.22 else NAVY}">{share:.0%}</td>'
+            cells += f'<td style="background:rgba(79,142,247,{min(share * 2.2, 0.9):.2f});color:{ON_FILL if share > 0.3 else TEXT}">{share:.0%}</td>'
         trs += f"<tr><td>{esc(c)}</td>{cells}</tr>"
     body = (f'<div class="row2"><div><h3>Gross sips by driver</h3>{bars}</div>'
             f'<div><h3>Mix by player <small>(% of each player\'s gross sips)</small></h3>'
@@ -530,13 +549,13 @@ def build_html(a) -> str:
         f, d = a["bs_res"][p]
         fw, dw = f["win"] / max(sum(f.values()), 1), d["win"] / max(sum(d.values()), 1)
         split += (f"<tr><td><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</td>"
-                  f"<td>{fw:.0%}</td><td>{dw:.0%}</td><td style='color:{GOOD if fw >= dw else BAD};font-weight:700'>"
+                  f"<td>{fw:.0%}</td><td>{dw:.0%}</td><td style='color:{GREEN if fw >= dw else RED};font-weight:700'>"
                   f"{(fw - dw) * 100:+.0f} pp</td></tr>")
     body = (f'<div class="row2"><div><h3>Decisions matching basic strategy</h3>{left}'
             f'<h3 style="margin-top:22px">Most common deviations</h3><table class="t">{dev_list}</table></div>'
             f'<div><h3>Hand win rate by decision type</h3><div class="vs">'
-            f'<div><b style="color:{GOOD}">{fol_w:.0%}</b><span>By the book<br>{sum(a["fol_res"].values())} decisions</span></div>'
-            f'<div><b style="color:{BAD}">{dev_w:.0%}</b><span>Against the book<br>{sum(a["dev_res"].values())} decisions</span></div></div>'
+            f'<div><b style="color:{GREEN}">{fol_w:.0%}</b><span>By the book<br>{sum(a["fol_res"].values())} decisions</span></div>'
+            f'<div><b style="color:{RED}">{dev_w:.0%}</b><span>Against the book<br>{sum(a["dev_res"].values())} decisions</span></div></div>'
             f'<div class="sowhat"><b>So what</b>Every deviation lowered the odds of winning that hand by ~{(fol_w - dev_w) * 100:.0f} pp, '
             f'and in this game a lost hand costs sips. {esc(best_bs)} played closest to the book ({adh[best_bs]:.0%}).</div>'
             f'<h3 style="margin-top:22px">Win rate by player</h3><table class="t"><tr><th>Player</th><th>By the book</th>'
@@ -547,10 +566,10 @@ def build_html(a) -> str:
 
     # 9 — Dealers
     order = sorted(house_rate, key=lambda d: -house_rate[d])
-    bars = hbars([(f"{d} ({sum(house[d].values())} hands)", house_rate[d] * 100, ACCENT if d == toughest else a["colour"].get(d, NAVY))
+    bars = hbars([(f"{d} ({sum(house[d].values())} hands)", house_rate[d] * 100, RED if d == toughest else a["colour"].get(d, BLUE))
                   for d in order], 100, lambda v: f"{v:.0f}%", 150, 360, ref=all_house * 100)
     deal_rows = "".join(
-        f"<tr><td><span class='dot' style='background:{a['colour'].get(d, NAVY)}'></span>{esc(d)}</td>"
+        f"<tr><td><span class='dot' style='background:{a['colour'].get(d, BLUE)}'></span>{esc(d)}</td>"
         f"<td>{sum(1 for r in a['dealer_of'].values() if r == d)}</td><td>{sum(house[d].values())}</td>"
         f"<td>{house[d]['loss']}</td><td>{house[d]['win']}</td><td>{house[d]['push']}</td><td>{a['dealer_sips'][d]}</td></tr>"
         for d in order)
@@ -634,7 +653,7 @@ def build_html(a) -> str:
         wc = a["wild"].most_common(1)[0]
         awards.append(("🃏", "Wild Card magnet", wc[0], f"{wc[1]} sips handed out by Wild Cards"))
     cards = "".join(f'<div class="award"><div class="em">{e}</div><div class="an">{esc(t)}</div>'
-                    f'<div class="aw" style="color:{a["colour"].get(p, NAVY)}">{esc(p)}</div><div class="as">{esc(s)}</div></div>'
+                    f'<div class="aw" style="color:{a["colour"].get(p, BLUE)}">{esc(p)}</div><div class="as">{esc(s)}</div></div>'
                     for e, t, p, s in awards)
     pages.append(slide("Recognition · Awards", "Awards: one for every kind of night", f'<div class="awards">{cards}</div>',
                        src, 12))
@@ -653,82 +672,112 @@ def build_html(a) -> str:
     pages.append(slide("Appendix · Definitions", "Methodology and definitions", body,
                        src + f" · Full data: drinks_summary_{a['day']}.xlsx", 13))
 
-    return f"<!doctype html><html><head><meta charset='utf-8'><title>Session recap {esc(a['day'])}</title><style>{CSS}</style></head><body>{''.join(pages)}</body></html>"
+    # 14 — Thank you
+    pages.append(f'''<section class="slide thanks">
+      <div class="cv-band"></div>
+      <div class="logo cv-logo"></div>
+      <div class="ty-title">Thanks for playing!</div>
+      <div class="ty-sub">Hope you enjoyed the night. Same table, next deal?</div>
+      <div class="ty-recap">{n} rounds · {a["net"]:,} sips · {dur} · congrats {esc(champ)}, the next round is on you</div>
+      <div class="ty-beer"><div class="qr">{qr_svg(TIP_URL)}</div><div>
+        <b>🍺 Enjoyed it? Buy us a beer</b>
+        <span>{APP_NAME} is a hobby project. If it made your night, a tip keeps the cards coming.<br>
+        Scan the code or visit <a href="{esc(TIP_URL)}">{esc(TIP_URL.removeprefix("https://"))}</a></span></div></div>
+      <div class="cv-foot">Know your limits · drink responsibly · never drink and drive</div>
+    </section>''')
+
+    return (f"<!doctype html><html><head><meta charset='utf-8'><title>Session recap {esc(a['day'])}</title>"
+            f"<style>{_logo_css()}{CSS}</style></head><body>{''.join(pages)}</body></html>")
 
 
 CSS = f"""
 @page {{ size: 13.333in 7.5in; margin: 0; }}
 * {{ box-sizing: border-box; }}
-body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; color: {NAVY}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-.slide {{ width: 1280px; height: 720px; padding: 34px 50px 0; position: relative; page-break-after: always; overflow: hidden; background: #fff; }}
-.tracker {{ font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: {ACCENT}; font-weight: 700; }}
-h1 {{ font-size: 25px; line-height: 1.22; margin: 8px 0 0; padding-bottom: 14px; border-bottom: 2px solid {NAVY}; max-width: 1150px; }}
-h3 {{ font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .04em; }}
-h3 small {{ text-transform: none; font-weight: 400; color: {GREY}; letter-spacing: 0; }}
+body {{ margin: 0; background: {BG}; font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif; color: {TEXT}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+.slide {{ width: 1280px; height: 720px; padding: 34px 50px 0; position: relative; page-break-after: always; overflow: hidden; background: {BG}; }}
+.slide:last-child {{ page-break-after: auto; }}
+.brand {{ position: absolute; top: 26px; right: 50px; display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: .06em; color: {MUTED}; }}
+.brand .logo {{ width: 38px; height: 38px; }}
+.logo {{ background: var(--logo) center / cover no-repeat; border-radius: 50%; }}
+.tracker {{ font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: {BLUE}; font-weight: 700; }}
+h1 {{ font-size: 25px; line-height: 1.22; margin: 8px 0 0; padding-bottom: 14px; border-bottom: 1px solid {BORDER}; max-width: 1080px; font-weight: 700; }}
+h3 {{ font-size: 13.5px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .05em; color: {MUTED}; }}
+h3 small {{ text-transform: none; font-weight: 400; letter-spacing: 0; }}
 .body {{ padding-top: 22px; }}
-footer {{ position: absolute; left: 50px; right: 50px; bottom: 18px; display: flex; justify-content: space-between; font-size: 10.5px; color: {GREY}; border-top: 1px solid {LIGHT}; padding-top: 7px; }}
-.ax {{ font-size: 11px; fill: {GREY}; }}
+footer {{ position: absolute; left: 50px; right: 50px; bottom: 18px; display: flex; justify-content: space-between; font-size: 10.5px; color: {MUTED}; border-top: 1px solid {BORDER}; padding-top: 7px; }}
+.ax {{ font-size: 11px; fill: {MUTED}; }}
 .row {{ display: grid; grid-template-columns: 820px 1fr; gap: 30px; }}
 .row2 {{ display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-bottom: 22px; }}
 .row3 {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 16px 0 22px; }}
 .side h3 {{ margin-top: 4px; }}
-.sowhat {{ background: #F3F4F7; border-left: 4px solid {ACCENT}; padding: 12px 16px; font-size: 14px; line-height: 1.45; margin-top: 18px; }}
-.sowhat b {{ display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: {ACCENT}; margin-bottom: 4px; }}
+.sowhat {{ background: {SURFACE}; border: 1px solid {BORDER}; border-left: 4px solid {YELLOW}; border-radius: 12px; padding: 12px 16px; font-size: 14px; line-height: 1.45; margin-top: 18px; }}
+.sowhat b {{ display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: {YELLOW}; margin-bottom: 4px; }}
 .sowhat.wide {{ margin-top: 4px; }}
 .moments {{ list-style: none; padding: 0; margin: 0; font-size: 14px; }}
 .moments li {{ margin-bottom: 10px; display: flex; gap: 10px; align-items: baseline; }}
-.moments i {{ font-style: normal; background: {NAVY}; color: #fff; border-radius: 50%; width: 20px; height: 20px; flex: none; text-align: center; font-size: 11px; line-height: 20px; font-weight: 700; }}
+.moments i {{ font-style: normal; background: {YELLOW}; color: {ON_FILL}; border-radius: 50%; width: 20px; height: 20px; flex: none; text-align: center; font-size: 11px; line-height: 20px; font-weight: 700; }}
 .moments b {{ white-space: nowrap; }}
 .hbars {{ font-size: 13px; }}
 .hb {{ display: flex; align-items: center; margin-bottom: 9px; }}
 .hbl {{ flex: none; }}
-.hbt {{ position: relative; height: 22px; background: #F3F4F7; flex: none; }}
-.hbf {{ position: absolute; left: 0; top: 0; bottom: 0; }}
-.hbref {{ position: absolute; top: -4px; bottom: -4px; border-left: 2px dashed {NAVY}; }}
+.hbt {{ position: relative; height: 22px; background: {SURFACE}; border-radius: 6px; flex: none; }}
+.hbf {{ position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }}
+.hbref {{ position: absolute; top: -4px; bottom: -4px; border-left: 2px dashed {TEXT}; }}
 .hbv {{ padding-left: 10px; font-weight: 700; white-space: nowrap; }}
 .t {{ border-collapse: collapse; font-size: 13.5px; width: 100%; }}
-.t th {{ text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1.5px solid {NAVY}; padding: 6px 10px; }}
-.t td {{ border-bottom: 1px solid {LIGHT}; padding: 7px 10px; }}
+.t th {{ text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: {MUTED}; border-bottom: 1.5px solid {BORDER}; padding: 6px 10px; }}
+.t td {{ border-bottom: 1px solid {BORDER}; padding: 7px 10px; }}
 .t td:first-child {{ white-space: nowrap; }}
 .t.heat td {{ text-align: center; font-weight: 700; }}
-.t.heat td:first-child {{ text-align: left; font-weight: 400; color: {NAVY}; background: none !important; }}
+.t.heat td:first-child {{ text-align: left; font-weight: 400; color: {TEXT}; background: none !important; }}
 .t.comps td, .t.comps th {{ text-align: center; padding: 10px; font-size: 15px; }}
+.t.comps th {{ color: {TEXT}; }}
 .t.comps td:first-child {{ text-align: left; font-weight: 700; }}
-.t.comps td.g {{ background: #DCEFE5; color: {GOOD}; font-weight: 700; }}
-.t.comps td.b {{ background: #F6DEDA; color: {BAD}; font-weight: 700; }}
+.t.comps td.g {{ background: rgba(62,207,110,.14); color: {GREEN}; font-weight: 700; }}
+.t.comps td.b {{ background: rgba(224,92,92,.14); color: {RED}; font-weight: 700; }}
 .t.defs td:first-child {{ font-weight: 700; width: 220px; vertical-align: top; }}
 .t.defs td {{ font-size: 13px; line-height: 1.4; }}
 .dot {{ display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }}
-.kpi {{ border-top: 3px solid {NAVY}; padding-top: 8px; }}
+.kpi {{ border-top: 3px solid {BLUE}; padding-top: 8px; }}
 .kpi b {{ display: block; font-size: 30px; }}
-.kpi span {{ font-size: 12.5px; color: #4A5568; line-height: 1.35; display: block; margin-top: 3px; }}
-.big {{ font-size: 64px; font-weight: 700; color: {ACCENT}; line-height: 1; margin-top: 30px; }}
+.kpi span {{ font-size: 12.5px; color: {MUTED}; line-height: 1.35; display: block; margin-top: 3px; }}
+.big {{ font-size: 64px; font-weight: 700; color: {YELLOW}; line-height: 1; margin-top: 30px; }}
 .bigl {{ font-size: 15px; margin-top: 6px; }}
 .vs {{ display: flex; gap: 40px; margin: 10px 0 6px; }}
 .vs b {{ font-size: 58px; display: block; }}
-.vs span {{ font-size: 13px; color: #4A5568; }}
+.vs span {{ font-size: 13px; color: {MUTED}; }}
 .exec {{ display: grid; grid-template-columns: 220px 1fr; gap: 44px; }}
 .exec-kpis .kpi {{ margin-bottom: 20px; }}
 .msgs {{ margin: 0; padding: 0; list-style: none; counter-reset: m; }}
-.msgs li {{ counter-increment: m; position: relative; padding: 0 0 13px 44px; margin-bottom: 13px; border-bottom: 1px solid {LIGHT}; }}
-.msgs li::before {{ content: counter(m); position: absolute; left: 0; top: 0; width: 28px; height: 28px; background: {NAVY}; color: #fff; font-weight: 700; text-align: center; line-height: 28px; font-size: 14px; }}
+.msgs li {{ counter-increment: m; position: relative; padding: 0 0 13px 44px; margin-bottom: 13px; border-bottom: 1px solid {BORDER}; }}
+.msgs li::before {{ content: counter(m); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 8px; background: {BLUE}; color: {ON_FILL}; font-weight: 700; text-align: center; line-height: 28px; font-size: 14px; }}
 .msgs b {{ display: block; font-size: 16px; }}
-.msgs span {{ display: block; font-size: 13px; color: #4A5568; margin-top: 3px; }}
+.msgs span {{ display: block; font-size: 13px; color: {MUTED}; margin-top: 3px; }}
 .awards {{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }}
-.award {{ border: 1px solid {LIGHT}; border-top: 4px solid {NAVY}; padding: 16px 18px; height: 230px; }}
+.award {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 12px; padding: 16px 18px; height: 230px; }}
 .award .em {{ font-size: 34px; }}
-.award .an {{ font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: {ACCENT}; font-weight: 700; margin-top: 10px; }}
+.award .an {{ font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: {YELLOW}; font-weight: 700; margin-top: 10px; }}
 .award .aw {{ font-size: 26px; font-weight: 700; margin-top: 6px; }}
-.award .as {{ font-size: 13.5px; color: #4A5568; margin-top: 8px; line-height: 1.4; }}
-.cover {{ background: {NAVY}; color: #fff; padding: 0; }}
-.cv-band {{ position: absolute; left: 0; top: 0; bottom: 0; width: 14px; background: {ACCENT}; }}
-.cv-kicker {{ position: absolute; left: 90px; top: 180px; font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: #F0B9A8; }}
-.cv-title {{ position: absolute; left: 90px; top: 210px; font-size: 64px; font-weight: 700; }}
-.cv-sub {{ position: absolute; left: 90px; top: 300px; font-size: 18px; color: #C9D3E0; }}
-.cv-kpis {{ position: absolute; left: 90px; top: 420px; display: flex; gap: 70px; }}
+.award .as {{ font-size: 13.5px; color: {MUTED}; margin-top: 8px; line-height: 1.4; }}
+.cover, .thanks {{ padding: 0; background: radial-gradient(circle at 76% 50%, rgba(243,154,30,.18), rgba(243,154,30,0) 32%), {BG}; }}
+.cv-band {{ position: absolute; left: 0; top: 0; bottom: 0; width: 10px; background: linear-gradient({YELLOW}, {AMBER}); }}
+.cv-logo {{ position: absolute; right: 90px; top: 110px; width: 500px; height: 500px; border-radius: 0; mix-blend-mode: lighten; }}
+.cv-kicker {{ position: absolute; left: 90px; top: 180px; font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: {AMBER}; font-weight: 700; }}
+.cv-title {{ position: absolute; left: 90px; top: 210px; font-size: 64px; font-weight: 800; }}
+.cv-sub {{ position: absolute; left: 90px; top: 300px; font-size: 18px; color: {MUTED}; }}
+.cv-kpis {{ position: absolute; left: 90px; top: 420px; display: flex; gap: 52px; }}
 .cv-kpis b {{ display: block; font-size: 40px; }}
-.cv-kpis span {{ font-size: 13px; color: #C9D3E0; text-transform: uppercase; letter-spacing: .08em; }}
-.cv-foot {{ position: absolute; left: 90px; bottom: 36px; font-size: 11px; color: #8FA0B8; letter-spacing: .06em; text-transform: uppercase; }}
+.cv-kpis span {{ font-size: 13px; color: {MUTED}; text-transform: uppercase; letter-spacing: .08em; }}
+.cv-foot {{ position: absolute; left: 90px; bottom: 36px; font-size: 11px; color: {MUTED}; letter-spacing: .06em; text-transform: uppercase; }}
+.ty-title {{ position: absolute; left: 90px; top: 150px; font-size: 64px; font-weight: 800; }}
+.ty-sub {{ position: absolute; left: 90px; top: 242px; width: 560px; font-size: 20px; line-height: 1.45; color: {MUTED}; }}
+.ty-recap {{ position: absolute; left: 90px; top: 345px; font-size: 15px; color: {TEXT}; }}
+.ty-beer {{ position: absolute; left: 90px; top: 400px; width: 600px; display: flex; gap: 24px; align-items: center; background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 12px; padding: 18px 22px; }}
+.ty-beer .qr {{ width: 124px; height: 124px; flex: none; background: #fff; border-radius: 8px; padding: 4px; }}
+.ty-beer .qr svg {{ width: 100%; height: 100%; display: block; }}
+.ty-beer b {{ display: block; font-size: 22px; color: {YELLOW}; }}
+.ty-beer span {{ display: block; font-size: 14px; color: {MUTED}; margin-top: 6px; line-height: 1.45; }}
+.ty-beer a {{ color: {BLUE}; text-decoration: none; font-weight: 700; }}
 """
 
 
