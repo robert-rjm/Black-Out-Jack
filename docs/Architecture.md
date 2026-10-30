@@ -161,19 +161,38 @@ Each room picks which drinking rules it plays. The design docs are
 
 ## Session recap deck
 
-The summary modal's **📊 Download Recap (PDF)** button gives a 14-page,
-consulting-style story of the session. The cover comes first, then the
-executive summary, race, league table, sip bridge, drivers, tempo, decision
-quality, the house, side games, player comparables, awards, definitions, and
-a thank-you page with the tip QR code.
+The summary modal's **📊 Download Recap (PDF)** button gives a
+consulting-style story of the session, about 15 pages plus one per player.
+The cover comes first, then the executive summary, race, league table, sip
+bridge, drivers, tempo, decision quality, the house, side games, player
+comparables and awards. Then comes a recap page for each player, in
+finishing order: their running total against a typical seat, top sip
+sources, headline numbers, hands, doubles and splits, basic-strategy match,
+dealer record, Drink Rate factor, awards and a takeaway. An appendix covers
+the table setup and house rules, then the definitions, and a thank-you page
+with the tip QR code closes the deck.
 
 - **One builder.** `app/services/recap_deck.py` turns the export rows
   (`drinks.csv_rows`, `_decision_log`, `_dealer_lottery_decision_log`) into
   numbers (`analyse`) and then into one HTML page of 1280×720 slides
   (`build_html`). The slides use the app's colours (the `:root` tokens in
   `main.css`) and logo. Slide titles are full-sentence takeaways worded from
-  the data. Slides without data drop out (decision quality, the house), and
-  page numbers follow.
+  the data. Slides without data drop out (decision quality, the house, side
+  games), and page numbers follow.
+- **Drink Rate.** Each drink row carries `sips_raw` (before the factor) and
+  `rate`. When any seat played off 1.0×, the bridge starts from the sips owed
+  at 1.0× with a "Drink Rate factors" step. The league table, comparables and
+  player pages show each seat's average factor. Two extra awards appear:
+  Booster and Sipping smart. Rounds per factor come from
+  `stats.rate_rounds` in the app. From an xlsx export they are read off the
+  rows, so a round whose only sips skipped boosters reads as 1.0×.
+- **House rules.** `/recap_html` passes the room's `RuleSet`, sips per hand,
+  hands per player and Easy Mode as `setup`. The setup slide lists the rules
+  that were off, grouped by `GROUPS`, with the preset. A side game shows when
+  its rule is on or when it left any sips, so a rule turned off mid-session
+  still counts. The deck shows the rules as they were at export, because rule
+  changes aren't recorded. The xlsx exports carry no rules, so the script's
+  setup slide says so.
 - **PDF in the browser.** Render has no browser to print with, so
   `GET /recap_html` returns the HTML and `static/js/ui/recap-pdf.js` lays it
   out in an off-screen iframe. It draws each slide with html2canvas, adds it

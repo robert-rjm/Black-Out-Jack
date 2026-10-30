@@ -398,7 +398,9 @@ def recap_html():
         return Response("No drinks recorded yet: play a round first.", status=404, mimetype="text/plain")
 
     day = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
-    a = analyse(rows, session._decision_log, session._dealer_lottery_decision_log, day)
+    setup = {"rules": session.config.rules, "wager": session.wager, "hands": session.num_hands,
+             "easy_mode": session.config.easy_mode, "rate_rounds": session.stats.rate_rounds}
+    a = analyse(rows, session._decision_log, session._dealer_lottery_decision_log, day, setup)
     if a["session_id"] == "–":
         a["session_id"] = room_code
     return Response(build_html(a, logo_css(inline=False)), status=200, mimetype="text/html")

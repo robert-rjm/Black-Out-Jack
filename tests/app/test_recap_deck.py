@@ -141,6 +141,105 @@ def test_player_names_are_escaped():
     assert "&lt;b&gt;x&lt;/b&gt;" in html
 
 
+def test_one_recap_slide_per_player_in_finishing_order():
+    rows, decisions, lottery = _session_rows()
+    html = build_html(analyse(rows, decisions, lottery, "d"), logo_css(inline=False))
+    trackers = re.findall(r'<div class="tracker">Player recap · (\w+)</div>', html)
+    assert trackers == ["Carol", "Bob", "Alice"]
+    assert "Carol finished 1st of 3 with 9 net sips" in html
+
+
+def _rated_rows():
+    """Bob on a 1.5× booster, Carol on wine (0.6×); sips_raw is before the factor."""
+    return [
+        {**_row(1, "Bob", "Net hand losses", 3), "sips_raw": 2, "rate": 1.5},
+        {**_row(1, "Carol", "Net hand losses", 1), "sips_raw": 2, "rate": 0.6},
+        {**_row(2, "Bob", "Ace dealt: Ace of Spades (player hand)", 1), "sips_raw": 1, "rate": 1.0},   # skips boosters
+        {**_row(2, "Carol", "Blackjack bonus", 2), "sips_raw": 3, "rate": 0.6},
+    ]
+
+
+def test_analyse_drink_rate_from_rows():
+    a = analyse(_rated_rows(), [], [], "d")
+    assert a["rate_used"]
+    assert a["raw_total"] == {"Bob": 3, "Carol": 5}
+    assert a["raw_gross_all"] == 8 and a["gross_all"] == 7
+    # Round 2's only row is an ace, which skips boosters and logs 1.0: from rows
+    # alone that round reads as 1.0 (live sessions pass rate_rounds instead)
+    assert a["factor_rounds"]["Bob"] == {1.5: 1, 1.0: 1}
+    assert a["avg_factor"]["Carol"] == pytest.approx(0.6)
+
+
+def test_analyse_prefers_live_rate_rounds():
+    a = analyse(_rated_rows(), [], [], "d", {"rate_rounds": {"Bob": {1.0: 1, 1.5: 1}}})
+    assert a["factor_rounds"]["Bob"] == {1.0: 1, 1.5: 1}
+    assert a["avg_factor"]["Bob"] == pytest.approx(1.25)
+
+
+def test_rows_without_rate_infer_it_and_old_rows_stay_at_one():
+    a = analyse([{**_row(1, "Bob", "Net hand losses", 3), "sips_raw": 2},
+                 _row(1, "Carol", "Net hand losses", 2)], [], [], "d")
+    assert a["factor_rounds"]["Bob"] == {1.5: 1}
+    assert a["factor_rounds"]["Carol"] == {1.0: 1}
+
+
+def test_deck_shows_drink_rate_when_used():
+    html = build_html(analyse(_rated_rows(), [], [], "d"), logo_css(inline=False))
+    assert "Drink Rate factors removed 1 sip" in html          # bridge title
+    assert ">at 1.0×</text>" in html                         # bridge starts before the factor
+    assert "Avg drink factor" in html                       # league table + comparables
+    assert "🚀 Booster" in html and "🍷 Sipping smart" in html
+    assert "Drink Rate took off 1 sip: 8 owed at 1.0× became 7" in html
+
+
+def test_drink_rate_that_changed_nothing_says_so():
+    """Factors in play (live rate_rounds) but every sip landed at 1.0× -- no "+0 sips"."""
+    rows = [_row(1, "Bob", "Net hand losses", 1), _row(1, "Carol", "Net hand losses", 2)]
+    html = build_html(analyse(rows, [], [], "d", {"rate_rounds": {"Bob": {1.5: 1}}}), logo_css(inline=False))
+    assert "netted out" in html
+    assert "+0 sips" not in html and "added 0 sip" not in html
+
+
+def test_deck_without_drink_rate_hides_it():
+    rows, decisions, lottery = _session_rows()
+    html = build_html(analyse(rows, decisions, lottery, "d"), logo_css(inline=False))
+    assert "Avg drink factor" not in html
+    assert ">at 1.0×</text>" not in html
+    assert "everyone at 1.0×" in html                        # setup slide
+
+
+def test_setup_slide_lists_rules_that_are_off():
+    from engine.rules_registry import PRESETS, RULES, RuleSet
+    rules = RuleSet(PRESETS["standard"] - {"side.bust_vote"})
+    off = [r for r in RULES if not rules.on(r.id)]
+    rows, decisions, lottery = _session_rows()
+    a = analyse(rows, decisions, lottery, "d", {"rules": rules, "wager": 1, "hands": 2, "easy_mode": False})
+    html = build_html(a, logo_css(inline=False))
+    # The bust vote is a live rule, which presets ignore, so this is still Standard
+    assert f"Played on the Standard preset with {len(off)} of {len(RULES)} rules off" in html
+    assert "Side bet: dealer bust vote" in html
+
+
+def test_setup_slide_without_rules_says_so():
+    rows, decisions, lottery = _session_rows()
+    html = build_html(analyse(rows, decisions, lottery, "d"), logo_css(inline=False))
+    assert "Not part of this export" in html
+
+
+def test_side_games_only_show_games_in_play():
+    from engine.rules_registry import PRESETS, RuleSet
+    rows = [_row(1, "Bob", "Net hand losses", 2), _row(1, "Carol", "Net hand losses", 1)]
+    starter = RuleSet(PRESETS["starter"])
+    assert not starter.on("side.bust_vote") and not starter.on("event.dealer_lottery")
+    html = build_html(analyse(rows, [], [], "d", {"rules": starter}), logo_css(inline=False))
+    assert "Behaviour · Side games" not in html
+    # A rule switched off mid-session still shows if it left sips
+    rows.append(_row(1, "Bob", "Bust vote wrong call", 1))
+    html = build_html(analyse(rows, [], [], "d", {"rules": starter}), logo_css(inline=False))
+    assert "Behaviour · Side games" in html
+    assert "Not played this session: Dealer Lottery" in html
+
+
 def test_logo_css_inline_or_static():
     assert "/static/img/logo.png" in logo_css(inline=False)
     assert "data:image/png;base64," in logo_css(inline=True)
@@ -184,6 +283,8 @@ def test_recap_html_returns_deck(client):
         assert body.count('<section class="slide') >= 10
         assert "/static/img/logo-transparent.png" in body       # served, not inlined
         assert "data:image/png" not in body
+        assert "Appendix · Table setup" in body
+        assert "House rules: " in body                          # live room passes its RuleSet
     finally:
         game_sessions.pop("RecapDeck", None)
 
