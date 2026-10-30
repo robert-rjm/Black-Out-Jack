@@ -87,6 +87,19 @@ def seat_rounds(folder: str) -> dict:
             "by_size": {k: statistics.mean(v) for k, v in by_size.items()}}
 
 
+# Side games and milestones: left out of sips per hand, which is about the cards
+_NOT_HAND = {"Bust votes", "Dealer Lottery", "Milestones"}
+
+
+def sips_per_hand(entry: dict) -> float:
+    """Simulator sips per hand dealt: sips per round, minus side games and
+    milestones, over players × hands per round (splits aren't counted apart)."""
+    c = entry["config"]
+    side = sum(v for r, v in entry["sips_per_round_by_rule"].items()
+               if _category(r) in _NOT_HAND or r.startswith(("Wild Card", "Targeted")))
+    return (entry["avg_sips_per_round"] - side) / (c["num_players"] * c["hands_per_round"])
+
+
 def benchmarks() -> dict:
     with open(os.path.join(_ROOT, "scripts", "benchmarks.json"), encoding="utf-8") as f:
         return json.load(f)
@@ -298,6 +311,7 @@ def build(theme: str, sr: dict, bench: dict) -> str:
             c = bench[key]["config"]
             rows += (f"<tr><td>{c['num_players']} players · {c['num_decks']} deck{'s' if c['num_decks'] > 1 else ''}"
                      f"</td><td>{bench[key]['avg_sips_per_round'] / c['num_players']:.1f}</td>"
+                     f"<td>{sips_per_hand(bench[key]):.1f}</td>"
                      f"<td>{bench[key]['dealer_bust_pct']:.0f}%</td><td>{bench[key]['blackjack_rate_pct']:.1f}%</td>"
                      f"<td>{bench[key]['win_rate_pct']:.0f}%</td></tr>")
     ref = bench.get("3p_1d")
@@ -315,7 +329,8 @@ def build(theme: str, sr: dict, bench: dict) -> str:
         sims = ref["config"]["num_rounds"]
         real3 = sr["by_size"].get(3)
         body = (f'<div class="row2"><div><h3>Simulator, per table size</h3><table class="t bal"><tr><th>Table</th>'
-                f'<th>Sips / seat / round</th><th>Dealer busts</th><th>Blackjacks</th><th>Hands won</th></tr>{rows}'
+                '<th>Sips / seat / round</th><th>Sips / hand</th><th>Dealer busts</th><th>Blackjacks</th>'
+                f'<th>Hands won</th></tr>{rows}'
                 f'</table></div><div><h3>Where the sips come from <small>(3 players, 1 deck)</small></h3>{bars}</div>'
                 '</div>'
                 + sowhat(f"Every table size is checked over {sims:,} simulated rounds, and the simulator matches real "
@@ -325,7 +340,8 @@ def build(theme: str, sr: dict, bench: dict) -> str:
                          f"Every table size is checked over {sims:,} simulated rounds."))
         add("Balance", f"Balanced over {sims:,} simulated rounds per table size: more players, more sips each, but "
                        "never a race to the floor",
-            body, src + " · Simulator: scripts/simulation.py, basic-strategy bots, 2 hands per player")
+            body, src + " · Simulator: scripts/simulation.py, basic-strategy bots, 2 hands per player · Sips / "
+                        "hand: per hand dealt, without side games and milestones")
 
     # 10 — The recap
     contents = [("Executive summary", "the night's six takeaways"), ("The race", "every lead change, round by round"),
@@ -427,7 +443,7 @@ PITCH_CSS = """
 FINANCE_CSS = """
 body, .slide { background: #ffffff; color: #0b2545; font-family: Arial, Helvetica, sans-serif; }
 .tracker { color: #1f4e79; }
-h1 { border-bottom: 2px solid #0b2545; color: #0b2545; }
+h1 { border-bottom: 2px solid #0b2545; color: #0b2545; max-width: 1040px; }
 h3 { color: #1f4e79; }
 footer { color: #5b6475; border-top-color: #d5dae3; }
 .brand { color: #0b2545; }
