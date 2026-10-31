@@ -108,6 +108,18 @@ def _benchmark(n_players: int, decks) -> dict | None:
             "per_hand": (e["avg_sips_per_round"] - side) / (c["num_players"] * c["hands_per_round"])}
 
 
+def _bust_chance(total: int) -> float:
+    """Chance one more card busts a hard total (infinite deck: A counts 1,
+    four ten-value ranks)."""
+    return sum(1 if v < 10 else 4 for v in range(1, 11) if total + v > 21) / 13
+
+
+def _risk_txt(r) -> str:
+    """'hit hard 16 vs 7♦' for a paid-off risk tuple."""
+    _, _, _, act, tot, up = r
+    return f"{'doubled on' if act == 'd' else 'hit'} hard {tot}" + (f" vs {up}" if up else "")
+
+
 def _row_rate(r) -> float:
     """The seat's drink factor on a drink row; 1.0 for rows from before the
     rate column existed (their sips_raw can differ from sips for other
@@ -361,6 +373,28 @@ def analyse(rows, decisions, lottery, day, setup=None) -> dict:
     a["per_hand"] = {p: hand_sips[p] / sum(hs[p].values()) for p in players if sum(hs[p].values())}
     a["hand_sips"] = hand_sips
     a["bench"] = _benchmark(len(players), a["decks"])
+
+    # Average starting hand (two-card total at the first decision) and total stood on;
+    # paid-off risks: hits and doubles on a hard total in hands that went on to win
+    starts, stands = collections.defaultdict(list), collections.defaultdict(list)
+    seen, risks = set(), []
+    for d in decisions:
+        key = (d["round"], d["player"], d["hand_index"])
+        tot = d.get("hand_total_before")
+        if tot is None:
+            continue
+        if key not in seen and len(str(d.get("hand_cards_before") or "").split()) == 2:
+            starts[d["player"]].append(tot)
+        seen.add(key)
+        if d["action_taken"] == "s":
+            stands[d["player"]].append(tot)
+        elif (d["action_taken"] in ("h", "d") and not d.get("is_soft") and _bust_chance(tot) > 0
+              and hands.get(key, {}).get("hand_result") == "win"):
+            risks.append((_bust_chance(tot), d["round"], d["player"], d["action_taken"], tot, d.get("dealer_upcard")))
+    a["avg_start"] = {p: sum(v) / len(v) for p, v in starts.items() if v}
+    a["avg_stand"] = {p: sum(v) / len(v) for p, v in stands.items() if v}
+    risks.sort(key=lambda r: (-r[0], r[3] != "d", r[1]))       # riskiest first; a double beats a hit
+    a["risks"] = risks
     return a
 
 
@@ -430,7 +464,7 @@ def svg_race(a, w=820, h=430) -> str:
     return "".join(out)
 
 
-def svg_player_race(a, p, w=600, h=220) -> str:
+def svg_player_race(a, p, w=600, h=190) -> str:
     """One player's running total against a typical seat (each round, the
     average of the players seated that round, added up) and, faintly,
     everyone else."""
@@ -625,6 +659,10 @@ def _player_slide(a, p, rank, n_players, table_pr, table_mix, table_adh, adh, ho
                       + f" · {a['splits'][p] or 'no'} split{'s' if a['splits'][p] != 1 else ''}"))
         stats.append(("Longest streaks", f"lost {a['longest_loss'][p]} in a row · {a['clean_run'][p]} clean "
                                          "in a row"))
+        if p in a["avg_start"] or p in a["avg_stand"]:
+            stats.append(("Avg hand", " · ".join(x for x in (
+                f"starts on {a['avg_start'][p]:.1f}" if p in a["avg_start"] else "",
+                f"stands on {a['avg_stand'][p]:.1f}" if p in a["avg_stand"] else "") if x)))
     if p in adh:
         stats.append(("Basic-strategy match", f"{adh[p]:.0%} (table {table_adh:.0%})"))
     if p in house:
@@ -645,11 +683,18 @@ def _player_slide(a, p, rank, n_players, table_pr, table_mix, table_adh, adh, ho
     if factor:
         delta = a["total"][p] - a["raw_total"][p]
         notes.append(f"Played at {factor}" + (f", {delta:+} sips against 1.0×." if delta else "."))
+    own = next((r for r in a["risks"] if r[2] == p and r[0] >= 0.45), None)
+    if own:
+        notes.append(f"Boldest call that paid: {_risk_txt(own)} in round {own[1]} ({own[0]:.0%} bust chance).")
     mine = [b for b, q, _ in a["milestones"] if q == p]
     if mine:
         notes.append(f"First to {', '.join(map(str, mine))} sips.")
     if a["worst_avg"][p]:
         notes.append(f"Drew the \"worst average\" penalty {a['worst_avg'][p]}×.")
+    lead, rest = notes[0], notes[1:]
+    order = ("Boldest call", "Played at", "First to", "Matched basic", "Drew the")
+    rest.sort(key=lambda n: next((i for i, k in enumerate(order) if n.startswith(k)), len(order)))
+    notes = [lead] + rest[:2]
     chips = ("".join(f'<span class="chip">{esc(w)}</span>' for w in awards)
              or '<span class="chip muted">No award this time</span>')
     body = (f'<div class="pl-top"><div><h3>Running total vs the table</h3>{svg_player_race(a, p)}</div>'
@@ -862,6 +907,10 @@ def build_html(a, logo: str) -> str:
     for b, p, rd in a["milestones"]:
         if rd is not None:
             events.append((rd + 0.1, f'<li><i>◆</i><b>Round {rd}</b> {esc(p)} first to {b} sips</li>'))
+    if a["risks"] and a["risks"][0][0] >= 0.45:
+        top_r = a["risks"][0]
+        events.append((top_r[1] + 0.3, f'<li><i>!</i><b>Round {top_r[1]}</b> {esc(top_r[2])} '
+                       f'{esc(_risk_txt(top_r))} and won</li>'))
     for rd, p, v in sorted(a["hard_switches"], key=lambda e: -e[2])[:2]:
         events.append((rd + 0.2, f'<li><i>⇄</i><b>Round {rd}</b> Hard Dealer Switch: {esc(p)} drinks {v}</li>'))
     events.sort()
@@ -1173,6 +1222,10 @@ def build_html(a, logo: str) -> str:
          rank_cells({p: house_rate.get(p, 0) for p in P}, lambda v: f"{v:.0%}" if v else "–", True)
          if house_rate else None),
         ("Clean rounds", rank_cells(a["clean"], str, True)),
+        ("Avg starting hand", {p: f"<td>{a['avg_start'][p]:.1f}</td>" if p in a["avg_start"] else "<td>–</td>"
+                               for p in P} if a["avg_start"] else None),
+        ("Avg total stood on", {p: f"<td>{a['avg_stand'][p]:.1f}</td>" if p in a["avg_stand"] else "<td>–</td>"
+                                for p in P} if a["avg_stand"] else None),
         ("Wild Card sips", {p: f"<td>{a['wild'][p]}</td>" for p in P}) if wild_on else ("", None),
         ("Avg drink factor", {p: f"<td>{a['avg_factor'][p]:.2f}×</td>" for p in P}) if a["rate_used"] else ("", None),
         ("#1 sip driver", {p: f"<td>{esc(drv[p])}</td>" for p in P}),
@@ -1196,6 +1249,10 @@ def build_html(a, logo: str) -> str:
         ("💥", "Worst single round", max(P, key=lambda p: a["best_round"][p][0]),
          "{} sips in round {}".format(*a["best_round"][max(P, key=lambda p: a["best_round"][p][0])])),
     ]
+    if a["risks"] and a["risks"][0][0] >= 0.45:
+        top_r = a["risks"][0]
+        awards.append(("🔥", "Paid-off risk", top_r[2], f"{_risk_txt(top_r)} in round {top_r[1]} and won "
+                                                         f"({top_r[0]:.0%} bust chance)"))
     if adh:
         maverick = min(adh, key=adh.get)
         awards[2:2] = [("📘", "By the book", best_bs, f"{adh[best_bs]:.0%} of decisions matched basic strategy"),
@@ -1266,6 +1323,10 @@ def build_html(a, logo: str) -> str:
         ("House win rate", "Share of player hands lost while that player dealt; pushes count as hands."),
         ("Sips per hand", "Net sips without side games, milestones and streak handouts, over hands played (hands "
          "with a logged decision). The simulator benchmark counts the same way, at full rules and 1.0×."),
+        ("Avg hand", "Starting hand: the two-card total at a hand's first decision (a dealt Blackjack has none, "
+         "so it isn't counted). Stood on: the total at each stand."),
+        ("Paid-off risk", "A hit or double on a hard total in a hand that went on to win, ranked by the chance "
+         "the next card busts it (hard 16: 62%, hard 18: 77%); shown from 45%."),
         ("Losing streak", "Rounds in a row with more hands lost than won, as the L badge counts them; an even round "
          "resets it. Clean streak: rounds in a row with no net sips."),
         ("Milestone round", "The round the claimer's running net total passed the step; the game counts the sip "
@@ -1415,19 +1476,19 @@ footer {{ position: absolute; left: 50px; right: 50px; bottom: 18px; display: fl
 .awards.many .award .aw {{ font-size: 21px; margin-top: 2px; }}
 .awards.many .award .as {{ margin-top: 4px; }}
 .pl-top {{ display: grid; grid-template-columns: 600px 1fr; gap: 40px; }}
-.row6 {{ display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin: 8px 0 14px; }}
+.row6 {{ display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin: 2px 0 10px; }}
 .row6 .kpi b {{ font-size: 24px; }}
 .row6 .kpi span {{ font-size: 11.5px; }}
 .pl-bottom {{ display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }}
-.pl-bottom h3 {{ margin-bottom: 8px; }}
-.kv {{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }}
+.pl-bottom h3 {{ margin-bottom: 6px; }}
+.kv {{ display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }}
 .kv span {{ display: block; font-size: 11px; color: {MUTED}; text-transform: uppercase; letter-spacing: .04em; }}
 .kv b {{ font-size: 14.5px; }}
 .chips {{ display: flex; flex-wrap: wrap; gap: 8px; }}
 .chip {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 999px; padding: 5px 12px; font-size: 13px;
   font-weight: 700; }}
 .chip.muted {{ color: {MUTED}; font-weight: 400; }}
-.pl-bottom .sowhat {{ margin-top: 12px; }}
+.pl-bottom .sowhat {{ margin-top: 10px; padding: 12px 16px; }}
 .setup {{ display: grid; grid-template-columns: 480px 1fr; gap: 50px; }}
 .rules-off {{ columns: 2; column-gap: 32px; margin: 0; padding: 0; list-style: none; font-size: 13px;
   line-height: 1.4; }}

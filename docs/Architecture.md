@@ -204,6 +204,14 @@ with the tip QR code closes the deck.
   The longest losing streak is `stats.streaks` live and is rebuilt from the
   decision log for an export. Side games cover Targeted Drinking and
   per-player bust calls. The house adds Hard Dealer Switches per dealer.
+- **Hands.** The decision log has the total before each decision but not
+  the final total. So the deck shows each player's average starting hand
+  (the two-card total at the first decision) and the average total they
+  stood on, rather than an "average hand value". "Paid-off risk" is the hit
+  or double on a hard total, in a hand that went on to win, with the
+  highest chance of busting on the next card (`_bust_chance`, infinite
+  deck). It gets an award, a key moment, and each player's own best one on
+  their page.
 - **Benchmark.** Sips per hand counts net sips without side games,
   milestones and streak handouts, over hands with a logged decision. The
   league table compares it with the simulator's closest table, read from

@@ -238,6 +238,37 @@ def test_deck_shows_new_moments_and_side_game():
     assert "lost 6 in a row" in html
 
 
+def test_bust_chance_of_one_more_card():
+    from app.services.recap_deck import _bust_chance
+    assert _bust_chance(11) == 0
+    assert _bust_chance(12) == pytest.approx(4 / 13)             # only ten-value cards bust 12
+    assert _bust_chance(16) == pytest.approx(8 / 13)
+    assert _bust_chance(20) == pytest.approx(12 / 13)            # only an Ace saves 20
+
+
+def _hand(rnd, player, cards, total, taken, result, soft=False, upcard="7♦"):
+    return {**_dec(rnd, player, taken, taken, result), "hand_cards_before": cards, "hand_total_before": total,
+            "is_soft": soft, "dealer_upcard": upcard}
+
+
+def test_average_hand_and_paid_off_risk():
+    decisions = [
+        _hand(1, "Bob", "10♠ 6♥", 16, "h", "win"),                # hit hard 16, won: 62% risk
+        _hand(1, "Bob", "10♠ 6♥ 3♣", 19, "s", "win"),
+        _hand(2, "Bob", "9♠ 9♥", 18, "s", "loss"),
+        _hand(1, "Carol", "A♠ 6♥", 17, "h", "win", soft=True),   # soft: no bust risk, not counted
+        _hand(2, "Carol", "10♦ 5♣", 15, "h", "loss"),             # risky but lost: not counted
+    ]
+    rows = [_row(1, "Bob", "Net hand losses", 1), _row(1, "Carol", "Net hand losses", 1)]
+    a = analyse(rows, decisions, [], "d")
+    assert a["avg_start"]["Bob"] == pytest.approx(17)             # 16 and 18
+    assert a["avg_stand"]["Bob"] == pytest.approx(18.5)           # stood on 19 and 18
+    assert [(r[2], r[4]) for r in a["risks"]] == [("Bob", 16)]
+    html = build_html(a, logo_css(inline=False))
+    assert "Paid-off risk" in html and "hit hard 16 vs 7♦" in html
+    assert "Avg starting hand" in html and "starts on 17.0" in html
+
+
 def test_executive_summary_has_no_beer_equivalent():
     rows, decisions, lottery = _session_rows()
     html = build_html(analyse(rows, decisions, lottery, "d"), logo_css(inline=False))
