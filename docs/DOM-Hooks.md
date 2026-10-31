@@ -180,6 +180,7 @@ This document defines selector ownership for the web UI modules and the shared e
 
 ### `static/js/ui/recap-pdf.js`
 - Summary modal "📊 Download Recap (PDF)" button: `[data-action="exportRecapAndClose"]` (wrapper in `bootstrap.js`) → `exportRecapPdf()`; builds the PDF in a temporary off-screen `<iframe>` it removes afterwards
+- Phones: `#recap-ready` (`.recap-ready`, created and removed by the script) with `#recap-ready-share` (opens the share sheet) and `.recap-ready-close`
 
 ### `static/js/ui/log.js`
 - Header and tabs:

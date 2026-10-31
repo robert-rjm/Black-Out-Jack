@@ -199,6 +199,11 @@ with the tip QR code closes the deck.
   as a jsPDF page, and puts the tip link back as a clickable area. Both
   libraries are vendored in `static/js/` and load on the first tap only.
   The pages are images, about 3 MB per deck.
+- **Saving.** Desktops download the file. Phones (a coarse pointer, plus Web
+  Share with files) get the share sheet instead: iOS can't download a blob,
+  and opening it would take the home-screen app away from the game. iOS
+  only opens the sheet from a tap, so a "Recap ready" bar offers one once
+  the PDF is built.
 - **PDF on a dev machine.** `scripts/build_recap_deck.py <day>` reads
   `data/decisions/drinks_summary_<day>.xlsx` and `decision_log_<day>.xlsx`,
   builds the same HTML and prints it to a vector PDF through headless

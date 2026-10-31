@@ -640,4 +640,20 @@ body:not(.no-drinking) .normal-only {
   z-index: 1000;
 }
 .app-toast.show  { opacity: 1; transform: translate(-50%, 0); }
+
+/* Recap PDF ready on a phone (recap-pdf.js): the share sheet needs a tap of its own */
+.recap-ready {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; gap: 10px;
+  width: calc(100% - 32px); max-width: 420px; padding: 10px 10px 10px 16px;
+  background: var(--surface); border: 1px solid var(--green); border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  z-index: 1001;
+}
+.recap-ready-text { flex: 1; font-size: 14px; font-weight: 700; }
+.recap-ready .btn { height: 40px; }
+.recap-ready-close {
+  background: none; border: 0; color: var(--muted); font-size: 16px; padding: 6px; cursor: pointer;
+}
 .app-toast.error { border-color: var(--red); }
