@@ -4,7 +4,8 @@ scripts/build_pitch_deck.py
 Build the Black(Out)Jack pitch deck, linked from the README, in two looks:
 
   docs/Pitch-Deck.pdf          the app's dark colours, icons and logo
-  docs/Pitch-Deck-Finance.pdf  a sober white-and-navy report style, no emojis
+  docs/Pitch-Deck-Finance.pdf  the same dark colours in a sober report style: no emojis, square corners,
+                               numbered blocks, Arial
 
 Same twelve slides in both: why the game exists, how a round works, the
 rules, side games, house rules and Drink Rate, where to play, a modelled
@@ -54,8 +55,8 @@ BAND_Z = 1.28               # 80% of seats fall inside the band
 THEMES = {
     "app":     {"out": "Pitch-Deck.pdf", "line": "#4f8ef7", "band": "rgba(79,142,247,.16)", "grid": "#2e3247",
                 "muted": "#9095ab", "text": "#e8eaf0", "mark": "#f5c842", "bar": "#4f8ef7", "bar2": "#35548f"},
-    "finance": {"out": "Pitch-Deck-Finance.pdf", "line": "#0b2545", "band": "rgba(31,78,121,.14)", "grid": "#d5dae3",
-                "muted": "#5b6475", "text": "#0b2545", "mark": "#b8860b", "bar": "#0b2545", "bar2": "#8fa3bf"},
+    "finance": {"out": "Pitch-Deck-Finance.pdf", "line": "#4f8ef7", "band": "rgba(79,142,247,.16)", "grid": "#2e3247",
+                "muted": "#9095ab", "text": "#e8eaf0", "mark": "#f5c842", "bar": "#4f8ef7", "bar2": "#35548f"},
 }
 
 # Pictographs and symbols come out of the finance deck; card suits (♠♥♦♣, U+2660–2667) stay
@@ -439,40 +440,32 @@ PITCH_CSS = """
 .cta-box a { color: #4f8ef7; text-decoration: none; font-weight: 700; }
 """
 
-# Report style: white pages, navy ink, hairlines, square corners, numbered blocks, Arial
+# Report style on the app's dark palette: square corners, numbered blocks, one blue accent, Arial;
+# the presets keep their lobby colours (Starter grey, Standard blue, Full gold)
 FINANCE_CSS = """
-body, .slide { background: #ffffff; color: #0b2545; font-family: Arial, Helvetica, sans-serif; }
-.tracker { color: #1f4e79; }
-h1 { border-bottom: 2px solid #0b2545; color: #0b2545; max-width: 1040px; }
-h3 { color: #1f4e79; }
-footer { color: #5b6475; border-top-color: #d5dae3; }
-.brand { color: #0b2545; }
+body, .slide { font-family: Arial, Helvetica, sans-serif; }
+h1 { max-width: 1040px; font-weight: 700; }
+.cover, .thanks { background: #0f1117; }
 .cover::after, .thanks::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 470px;
-  background: #0b2545; }
-.card, .step, .rung, .cta-box { background: #ffffff; border: 1px solid #d5dae3; border-top: 3px solid #0b2545;
-  border-radius: 0; }
-.card .em { font-size: 15px; font-weight: 700; color: #1f4e79; letter-spacing: .08em; }
-.card .ct { font-size: 21px; margin-top: 10px; }
-.card .cb, .step span, .rung span, .cta-box span, .kpi span, .note { color: #4a5568; }
-.step i { background: #0b2545; color: #ffffff; border-radius: 0; }
-.rung:nth-child(2), .rung:nth-child(3) { border-color: #d5dae3; border-top-color: #0b2545; }
-.rung:nth-child(3) { background: #f2f4f7; }
-.ticks li::before { content: "■"; color: #1f4e79; font-size: 11px; top: 5px; }
-.sowhat { background: #f2f4f7; border: 0; border-left: 4px solid #0b2545; border-radius: 0; color: #0b2545; }
-.sowhat b { color: #1f4e79; }
-.kpi { border-top-color: #0b2545; }
-.t th { color: #0b2545; border-bottom-color: #0b2545; }
-.t td { border-bottom-color: #d5dae3; }
-.hbt { background: #eef1f5; border-radius: 0; }
-.hbf { border-radius: 0; }
-.cover, .thanks { background: #ffffff; color: #0b2545; }
-.cv-band { background: #0b2545; width: 14px; }
-.cv-kicker { color: #1f4e79; }
-.cv-sub, .cv-kpis span, .cv-foot, .ty-sub { color: #4a5568; }
+  background: #1a1d27; border-left: 1px solid #2e3247; }
+.cv-band { background: #4f8ef7; width: 10px; }
+.cv-kicker { color: #4f8ef7; }
+.cv-title, .ty-title { font-weight: 700; }
 .cv-logo { width: 330px; height: 330px; right: 70px; top: 195px; z-index: 1; }
-.cta-box b { color: #0b2545; }
-.cta-box a { color: #1f4e79; }
-.cta-box .qr { border: 1px solid #d5dae3; border-radius: 0; }
+.card, .step, .rung, .cta-box { border-radius: 0; border-top: 3px solid #4f8ef7; }
+.card .em { font-size: 15px; font-weight: 700; color: #4f8ef7; letter-spacing: .08em; }
+.card .ct { font-size: 21px; margin-top: 10px; }
+.step i { border-radius: 0; }
+.rung { border-top-width: 3px; }
+.rung:nth-child(1) { border-top-color: #9095ab; }
+.rung:nth-child(2) { border-color: #2e3247; border-top-color: #4f8ef7; }
+.rung:nth-child(3) { border-color: #2e3247; border-top-color: #f5c842; }
+.ticks li::before { content: "■"; color: #4f8ef7; font-size: 11px; top: 5px; }
+.sowhat { border-radius: 0; border-left-color: #4f8ef7; }
+.sowhat b { color: #4f8ef7; }
+.hbt, .hbf { border-radius: 0; }
+.cta-box b { color: #e8eaf0; }
+.cta-box .qr { border-radius: 0; }
 """
 
 
