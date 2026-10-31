@@ -176,11 +176,20 @@ def test_analyse_prefers_live_rate_rounds():
     assert a["avg_factor"]["Bob"] == pytest.approx(1.25)
 
 
-def test_rows_without_rate_infer_it_and_old_rows_stay_at_one():
-    a = analyse([{**_row(1, "Bob", "Net hand losses", 3), "sips_raw": 2},
+def test_rows_without_rate_count_as_one():
+    """No rate column: 1.0×, even when sips_raw differs (older exports used
+    it for other things, e.g. Easy Mode halving)."""
+    a = analyse([{**_row(1, "Bob", "Net hand losses", 3), "sips_raw": 6},
                  _row(1, "Carol", "Net hand losses", 2)], [], [], "d")
-    assert a["factor_rounds"]["Bob"] == {1.5: 1}
+    assert a["factor_rounds"]["Bob"] == {1.0: 1}
     assert a["factor_rounds"]["Carol"] == {1.0: 1}
+    assert not a["rate_used"]
+
+
+def test_executive_summary_has_no_beer_equivalent():
+    rows, decisions, lottery = _session_rows()
+    html = build_html(analyse(rows, decisions, lottery, "d"), logo_css(inline=False))
+    assert "beers' worth" not in html
 
 
 def test_deck_shows_drink_rate_when_used():

@@ -28,10 +28,39 @@ sys.path.insert(0, _ROOT)
 from app.services.recap_deck import analyse, build_html, logo_css  # noqa: E402
 
 
+def _rate_rounds(summary) -> dict:
+    """Rounds each seat played at each Drink Rate factor, from the Summary
+    sheet's DRINK RATE table ("Rounds @ 1.4×" columns); {} when the export
+    has none (everyone at 1.0×, or an export from before Drink Rate)."""
+    rows = list(summary.iter_rows(values_only=True))
+    out = {}
+    for i, r in enumerate(rows):
+        if r and r[0] == "DRINK RATE":
+            hdr = rows[i + 1]
+            cols = {j: float(str(h).removeprefix("Rounds @ ").rstrip("×"))
+                    for j, h in enumerate(hdr) if isinstance(h, str) and h.startswith("Rounds @ ")}
+            for r2 in rows[i + 2:]:
+                if not r2 or not r2[0] or str(r2[0]).startswith("Avg factor"):
+                    break
+                out[r2[0]] = {f: r2[j] for j, f in cols.items() if r2[j]}
+            break
+    return out
+
+
 def load(day: str, folder: str) -> dict:
     drinks = openpyxl.load_workbook(os.path.join(folder, f"drinks_summary_{day}.xlsx"), read_only=True)
-    raw = [r for r in drinks["Raw Rows"].iter_rows(min_row=2, values_only=True) if r[0]]
-    rows = [dict(round=r[0], dealer=r[1], player=r[2], role=r[3], rule=r[4], sips=r[5]) for r in raw]
+    it = drinks["Raw Rows"].iter_rows(values_only=True)
+    hdr = next(it)
+    rows = []
+    for r in it:
+        if not r[0]:
+            continue
+        row = dict(zip(hdr, r))
+        # Drink Rate columns only count with the rate column: older exports'
+        # sips_raw meant something else, and analyse() treats no rate as 1.0×
+        keys = ["round", "dealer", "player", "role", "rule", "sips"] + (["sips_raw", "rate"] if "rate" in hdr else [])
+        rows.append({k: row[k] for k in keys if row.get(k) is not None})
+    setup = {"rate_rounds": _rate_rounds(drinks["Summary"])}
 
     dec_wb = openpyxl.load_workbook(os.path.join(folder, f"decision_log_{day}.xlsx"), read_only=True)
     ws = dec_wb["Hand Decisions"]
@@ -42,7 +71,7 @@ def load(day: str, folder: str) -> dict:
     it = ws.iter_rows(values_only=True)
     hdr = next(it)
     lottery = [dict(zip(hdr, r)) for r in it if r[0]]
-    return analyse(rows, decisions, lottery, day)
+    return analyse(rows, decisions, lottery, day, setup)
 
 
 # ---------------------------------------------------------------------------

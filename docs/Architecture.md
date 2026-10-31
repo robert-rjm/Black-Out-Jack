@@ -184,8 +184,9 @@ with the tip QR code closes the deck.
   at 1.0× with a "Drink Rate factors" step. The league table, comparables and
   player pages show each seat's average factor. Two extra awards appear:
   Booster and Sipping smart. Rounds per factor come from
-  `stats.rate_rounds` in the app. From an xlsx export they are read off the
-  rows, so a round whose only sips skipped boosters reads as 1.0×.
+  `stats.rate_rounds` in the app, and from the Summary sheet's DRINK RATE
+  table in an xlsx export. Exports from before the `rate` column read as
+  1.0× everywhere.
 - **House rules.** `/recap_html` passes the room's `RuleSet`, sips per hand,
   hands per player and Easy Mode as `setup`. The setup slide lists the rules
   that were off, grouped by `GROUPS`, with the preset. A side game shows when

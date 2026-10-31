@@ -39,7 +39,6 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 APP_NAME = "Black(Out)Jack"
 _TZ = ZoneInfo("Europe/Zurich")
 
-SIPS_PER_BEER = 15          # illustrative: ~15 sips per 0.5 l
 # App palette (static/css/main.css :root) — the deck is dark like the app
 BG, SURFACE, BORDER, TEXT, MUTED = "#0f1117", "#1a1d27", "#2e3247", "#e8eaf0", "#9095ab"
 BLUE, GREEN, RED, YELLOW, PURPLE, ON_FILL = "#4f8ef7", "#3ecf6e", "#e05c5c", "#f5c842", "#a78bfa", "#0f1117"
@@ -81,12 +80,10 @@ def pct(n, d, digits=0) -> str:
 # ---------------------------------------------------------------------------
 
 def _row_rate(r) -> float:
-    """The seat's drink factor on a drink row. Rows from before the rate
-    column existed infer it from sips vs sips_raw (1.0 when they match)."""
-    if r.get("rate") is not None:
-        return float(r["rate"])
-    raw = r.get("sips_raw")
-    return round(r["sips"] / raw, 1) if raw and raw != r["sips"] else 1.0
+    """The seat's drink factor on a drink row; 1.0 for rows from before the
+    rate column existed (their sips_raw can differ from sips for other
+    reasons, e.g. Easy Mode halving, so it says nothing about the factor)."""
+    return float(r["rate"]) if r.get("rate") is not None else 1.0
 
 
 def analyse(rows, decisions, lottery, day, setup=None) -> dict:
@@ -464,7 +461,7 @@ def _short_rule(rule: str) -> str:
         suit, _, rest = rule.removeprefix("Ace dealt: Ace of ").partition(" ")
         return f"A{_SUITS.get(suit, suit)} dealt {rest}".strip()
     rule = rule.replace(" (immunity break)", "")
-    return rule if len(rule) <= 27 else rule[:26].rstrip() + "…"
+    return rule if len(rule) <= 24 else rule[:23].rstrip() + "…"
 
 
 def _ordinal(k: int) -> str:
@@ -613,7 +610,6 @@ def build_html(a, logo: str) -> str:
     best_bs = max(adh, key=adh.get) if adh else None
     peak_i = max(range(n), key=lambda i: a["round_tot"][i])
     avg_round = a["net"] / n
-    beers = a["net"] / SIPS_PER_BEER
     wire = champ == long_leader                     # winner also led most of the night
     top_credit = min(a["credits"], key=a["credits"].get) if a["credits"] else None
     headline = ", ".join([
@@ -701,11 +697,11 @@ def build_html(a, logo: str) -> str:
     body = '<div class="exec"><div class="exec-kpis">' + "".join(
         f'<div class="kpi"><b>{v}</b><span>{label}</span></div>' for v, label in [
             (f"{a['net']:,}", "net sips"), (f"{avg_round:.1f}", "sips per round"),
-            (dur, "session length"), (f"≈{beers:.0f}", "beers' worth¹")]) + '</div><ol class="msgs">' + "".join(
+            (dur, "session length"), (n, "rounds")]) + '</div><ol class="msgs">' + "".join(
         f"<li><b>{h}</b><span>{s}</span></li>" for h, s in msgs) + "</ol></div>"
     pages.append(slide("Executive summary",
                        headline,
-                       body, src + f" · ¹ Illustrative, assumes {SIPS_PER_BEER} sips ≈ 0.5 l", len(pages) + 1))
+                       body, src, len(pages) + 1))
 
     # 3 — The race
     events = [(rd, f'<li><i>{k}</i><b>Round {rd}</b> {esc(p)} takes the lead</li>')
@@ -756,7 +752,9 @@ def build_html(a, logo: str) -> str:
     elif level:
         title = (f"On a per-round basis the field is level ({pr_lo:.1f}–{pr_hi:.1f} sips); "
                  + (f"{esc(last)}'s low total is a late-arrival effect, not tolerance" if a["joined"][last] > 1
-                    else f"{esc(champ)} drank {a['per_round'][champ] / a['per_round'][last]:.1f}× {esc(last)}'s rate"))
+                    else f"only {pr_hi - pr_lo:.2f} sips per round separate top and bottom"
+                    if pr_hi < 1.1 * pr_lo else
+                    f"{esc(champ)} drank {a['per_round'][champ] / a['per_round'][last]:.1f}× {esc(last)}'s rate"))
     else:
         hi_p, lo_p = max(P, key=lambda p: a["per_round"][p]), min(P, key=lambda p: a["per_round"][p])
         title = (f"Per round played the field was spread out: {esc(hi_p)} drank "
@@ -936,7 +934,7 @@ def build_html(a, logo: str) -> str:
             cols.append(("Avg lottery stake (0–5)",
                          lambda p: f"{sum(lot_by[p]) / len(lot_by[p]):.1f}" if lot_by.get(p) else "–"))
             cols.append(("Stakes placed", lambda p: len(lot_by.get(p, []))))
-            notes.append("The Dealer Lottery " + ("roughly paid for itself." if abs(dl_net) <= 0.05 * a["net"]
+            notes.append("The Dealer Lottery " + ("roughly paid for itself." if abs(dl_net) <= max(3, 0.02 * a["net"])
                                                   else f"cost the table {dl_net:+} sips." if dl_net > 0
                                                   else f"saved the table {-dl_net} sips."))
         else:
