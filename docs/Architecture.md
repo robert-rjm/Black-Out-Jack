@@ -192,8 +192,22 @@ with the tip QR code closes the deck.
   that were off, grouped by `GROUPS`, with the preset. A side game shows when
   its rule is on or when it left any sips, so a rule turned off mid-session
   still counts. The deck shows the rules as they were at export, because rule
-  changes aren't recorded. The xlsx exports carry no rules, so the script's
-  setup slide says so.
+  changes aren't recorded. `/export_xlsx` writes the same setup and every
+  rule's on/off state to a "Settings" sheet, which the script reads back.
+  Exports from before that sheet existed have no rules, and the setup slide
+  says so.
+- **Moments and streaks.** The race chart marks milestones (diamonds), shades
+  the rounds played off 1.0×, and its key moments add the Drink Rate start,
+  each milestone and the two biggest Hard Dealer Switches. Milestone claimers
+  come from `drinks.milestones_claimed` (the Summary sheet's MILESTONES table
+  in an export). The round is where their running net total passed the step.
+  The longest losing streak is `stats.streaks` live and is rebuilt from the
+  decision log for an export. Side games cover Targeted Drinking and
+  per-player bust calls. The house adds Hard Dealer Switches per dealer.
+- **Benchmark.** Sips per hand counts net sips without side games,
+  milestones and streak handouts, over hands with a logged decision. The
+  league table compares it with the simulator's closest table, read from
+  `static/js/benchmarks.js`, which is tracked and deployed.
 - **PDF in the browser.** Render has no browser to print with, so
   `GET /recap_html` returns the HTML and `static/js/ui/recap-pdf.js` lays it
   out in an off-screen iframe. It draws each slide with html2canvas, adds it

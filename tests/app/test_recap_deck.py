@@ -186,6 +186,58 @@ def test_rows_without_rate_count_as_one():
     assert not a["rate_used"]
 
 
+def _night_rows():
+    """Two seats, 6 rounds: a milestone, a Hard Dealer Switch, Targeted Drinking,
+    bust calls and a 1.4× booster in rounds 4-6."""
+    rows = []
+    for rnd in range(1, 7):
+        rate = 1.4 if rnd >= 4 else 1.0
+        rows.append({**_row(rnd, "Bob", "Net hand losses", 14), "sips_raw": 10, "rate": rate})
+        rows.append({**_row(rnd, "Carol", "Net hand losses", 1), "sips_raw": 1, "rate": rate})
+    rows += [_row(3, "Bob", "Milestone handout", 5), _row(2, "Carol", "Hard Dealer Switch", 6, role="dealer"),
+             _row(5, "Carol", "Targeted Drinking wrong guess", 2), _row(6, "Carol", "Targeted Drinking wrong guess", 2),
+             _row(1, "Bob", "Bust vote credit", -1), _row(2, "Bob", "Bust vote wrong call", 1)]
+    decisions = [_dec(rnd, p, "s", "s", "loss" if p == "Bob" else ("win" if rnd % 2 else "loss"))
+                 for rnd in range(1, 7) for p in ("Bob", "Carol")]
+    return rows, decisions
+
+
+def test_analyse_milestones_switches_targeted_streaks():
+    rows, decisions = _night_rows()
+    a = analyse(rows, decisions, [], "d", {"milestones": {50: "Bob"}})
+    assert a["milestones"] == [(50, "Bob", 4)]                    # Bob's running total passes 50 in round 4
+    assert a["hard_switches"] == [(2, "Carol", 6)]
+    assert a["targeted"]["Carol"] == {"sips": 4, "wrong": 2}
+    assert a["bust_by"]["Bob"] == (1, 1)
+    assert a["longest_loss"]["Bob"] == 6                          # lost every round
+    assert a["longest_loss"]["Carol"] == 1                        # alternates win / loss
+    assert a["rate_spans"] == [(4, 6, "1.4×")]
+
+
+def test_analyse_prefers_live_longest_loss():
+    rows, decisions = _night_rows()
+    a = analyse(rows, decisions, [], "d", {"longest_loss": {"Bob": 9}})
+    assert a["longest_loss"] == {"Bob": 9, "Carol": 0}
+
+
+def test_sips_per_hand_leaves_out_side_games():
+    rows, decisions = _night_rows()
+    a = analyse(rows, decisions, [], "d")
+    # Bob: 6 × 14 net-loss sips over 6 hands; the milestone and bust-vote rows don't count
+    assert a["per_hand"]["Bob"] == pytest.approx(14.0)
+
+
+def test_deck_shows_new_moments_and_side_game():
+    rows, decisions = _night_rows()
+    html = build_html(analyse(rows, decisions, [], "d", {"milestones": {50: "Bob"}}), logo_css(inline=False))
+    assert "Bob first to 50 sips" in html
+    assert "Hard Dealer Switch: Carol drinks 6" in html
+    assert "Drink Rate 1.4×" in html
+    assert "net sips from Targeted Drinking (2 wrong calls)" in html
+    assert "Sips / hand" in html
+    assert "lost 6 in a row" in html
+
+
 def test_executive_summary_has_no_beer_equivalent():
     rows, decisions, lottery = _session_rows()
     html = build_html(analyse(rows, decisions, lottery, "d"), logo_css(inline=False))

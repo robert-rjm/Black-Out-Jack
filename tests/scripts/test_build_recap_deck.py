@@ -49,6 +49,27 @@ def _exports(folder, day, *, with_rate: bool):
     dec.save(folder / f"decision_log_{day}.xlsx")
 
 
+def test_load_reads_settings_and_milestones(tmp_path):
+    _exports(tmp_path, "2026-10-31", with_rate=True)
+    path = tmp_path / "drinks_summary_2026-10-31.xlsx"
+    wb = openpyxl.load_workbook(path)
+    wb["Summary"].append([])
+    wb["Summary"].append(["MILESTONES"])
+    wb["Summary"].append(["Threshold", "First to reach"])
+    wb["Summary"].append(["50 sips", "Rob"])
+    st = wb.create_sheet("Settings")
+    for row in (["Setting", "Value"], ["Sips per hand", 2], ["Hands per player", 2], ["Decks", 1],
+                ["Easy Mode", "off"], [], ["Rule ID", "Rule", "On"], ["core.net_loss", "Net hand losses", "on"],
+                ["side.bust_vote", "Side bet: dealer bust vote", "off"]):
+        st.append(row)
+    wb.save(path)
+    a = load("2026-10-31", str(tmp_path))
+    assert a["setup"]["wager"] == 2 and a["setup"]["decks"] == 1 and a["setup"]["easy_mode"] is False
+    assert not a["setup"]["rules"].on("side.bust_vote")
+    assert a["setup"]["rules"].on("core.net_loss")
+    assert a["milestones"][0][:2] == (50, "Rob")
+
+
 def test_load_reads_drink_rate_columns_and_rounds_per_factor(tmp_path):
     _exports(tmp_path, "2026-10-31", with_rate=True)
     a = load("2026-10-31", str(tmp_path))

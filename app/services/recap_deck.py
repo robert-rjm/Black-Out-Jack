@@ -26,12 +26,13 @@ takeaways are worded from the data, so they read correctly for any session.
 import base64
 import collections
 import html
+import json
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.services.qr import qr_svg
-from app.config import TIP_URL
+from app.config import MILESTONE_STEP, TIP_URL
 from engine.rules_registry import GROUPS, RULES
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -78,6 +79,34 @@ def pct(n, d, digits=0) -> str:
 # ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
+
+def _side_game(rule: str) -> bool:
+    """Sips from side games, milestones and streak handouts rather than the
+    cards: left out of sips per hand (as in the simulator)."""
+    return (_category(rule) in ("Bust votes", "Dealer Lottery", "Milestones")
+            or rule.startswith(("Bust vote", "Dealer Lottery", "Wild Card", "Targeted", "Comeback")))
+
+
+def _benchmark(n_players: int, decks) -> dict | None:
+    """The simulator's numbers for the closest table (static/js/benchmarks.js,
+    tracked and deployed): sips per player per round and per hand dealt."""
+    try:
+        with open(os.path.join(_ROOT, "static", "js", "benchmarks.js"), encoding="utf-8") as f:
+            text = f.read()
+        data = json.loads(text[text.index("= {") + 2: text.rindex("}") + 1])
+    except (OSError, ValueError):
+        return None
+    n = min(max(n_players, 2), 4)
+    keys = [k for k in data if k.startswith(f"{n}p_")]
+    if not keys:
+        return None
+    key = min(keys, key=lambda k: abs(int(k.split("_")[1].rstrip("d")) - (decks or 1)))
+    e, c = data[key], data[key]["config"]
+    side = sum(v for r, v in e.get("sips_per_round_by_rule", {}).items() if _side_game(r))
+    return {"label": f"{c['num_players']} players · {c['num_decks']} deck{'s' if c['num_decks'] > 1 else ''}",
+            "per_round": e["avg_sips_per_round"] / c["num_players"],
+            "per_hand": (e["avg_sips_per_round"] - side) / (c["num_players"] * c["hands_per_round"])}
+
 
 def _row_rate(r) -> float:
     """The seat's drink factor on a drink row; 1.0 for rows from before the
@@ -249,6 +278,89 @@ def analyse(rows, decisions, lottery, day, setup=None) -> dict:
                        for p, fr in factor_rounds.items()}
     a["rate_used"] = any(f != 1.0 for fr in factor_rounds.values() for f in fr if fr[f])
     a["raw_gross_all"] = sum(raw_gross.values())
+    setup = setup or {}
+    if setup.get("decks"):
+        a["decks"] = setup["decks"]
+
+    # Rounds any seat played off 1.0× (for shading the charts); short gaps are
+    # bridged, since a round with only booster-exempt sips logs 1.0×
+    spans = []
+    for i in rounds:
+        fs = sorted({seat_rate[p].get(i, 1.0) for p in players if i in present[p]} - {1.0})
+        label = " / ".join(f"{f:g}×" for f in fs)
+        if not label:
+            continue
+        if spans and spans[-1][2] == label and i - spans[-1][1] <= 2:
+            spans[-1][1] = i
+        else:
+            spans.append([i, i, label])
+    a["rate_spans"] = [tuple(sp) for sp in spans]
+    a["seat_rate"] = {p: dict(seat_rate[p]) for p in players}
+
+    # Milestones: who claimed each step and (from the running total) about when
+    claimed = {int(k): v for k, v in (setup.get("milestones") or {}).items()}
+    if not claimed and any(r["rule"].startswith("Milestone") for r in rows):
+        top = max((max(c) for c in cum.values()), default=0)
+        for b in range(MILESTONE_STEP, int(top) + 1, MILESTONE_STEP):
+            firsts = [(next((i for i in rounds if cum[p][i] >= b), None), k, p) for k, p in enumerate(players)]
+            firsts = [f for f in firsts if f[0] is not None]
+            if firsts:
+                claimed[b] = min(firsts)[2]
+    a["milestones"] = [(b, p, next((i for i in rounds if p in cum and cum[p][i] >= b), None))
+                       for b, p in sorted(claimed.items()) if p in cum]
+    a["worst_avg"] = collections.Counter(r["player"] for r in rows if r["rule"].startswith("Worst average"))
+
+    # Hard Dealer Switches: (round, dealer, sips)
+    hard = collections.Counter()
+    for r in rows:
+        if r["rule"].startswith("Hard Dealer Switch"):
+            hard[(r["round"], r["player"])] += r["sips"]
+    a["hard_switches"] = sorted((rd, p, v) for (rd, p), v in hard.items())
+
+    # Targeted Drinking and bust votes, per player
+    a["targeted"] = {p: collections.Counter() for p in players}
+    by_rule = collections.Counter()
+    for r in rows:
+        by_rule[(r["player"], r["rule"])] += 1
+        if r["rule"].startswith("Targeted Drinking"):
+            a["targeted"][r["player"]]["sips"] += r["sips"]
+            a["targeted"][r["player"]]["wrong"] += "wrong guess" in r["rule"]
+    a["bust_by"] = {p: (by_rule[(p, "Bust vote credit")], by_rule[(p, "Bust vote wrong call")]) for p in players}
+
+    # Streaks: longest losing run (rounds with more hands lost than won, as the
+    # L badge counts them; an even round resets it) and longest run of clean rounds
+    longest = setup.get("longest_loss")
+    if longest is None:
+        res = collections.defaultdict(collections.Counter)
+        for (rd, p, _), d in hands.items():
+            res[(rd, p)][d["hand_result"]] += 1
+        longest = {}
+        for p in players:
+            run_, best = 0, 0
+            for i in rounds:
+                c = res.get((i, p))
+                if not c:
+                    continue
+                run_ = run_ + 1 if c["loss"] > c["win"] else 0
+                best = max(best, run_)
+            longest[p] = best
+    a["longest_loss"] = {p: longest.get(p, 0) for p in players}
+    a["clean_run"] = {}
+    for p in players:
+        run_, best = 0, 0
+        for i in sorted(present[p]):
+            run_ = run_ + 1 if per_rp[i][p] <= 0 else 0
+            best = max(best, run_)
+        a["clean_run"][p] = best
+
+    # Sips per hand played (without side games and milestones), and the simulator's
+    hand_sips = collections.Counter()
+    for r in rows:
+        if not _side_game(r["rule"]):
+            hand_sips[r["player"]] += r["sips"]
+    a["per_hand"] = {p: hand_sips[p] / sum(hs[p].values()) for p in players if sum(hs[p].values())}
+    a["hand_sips"] = hand_sips
+    a["bench"] = _benchmark(len(players), a["decks"])
     return a
 
 
@@ -274,6 +386,11 @@ def svg_race(a, w=820, h=430) -> str:
         x0 = x(a["easy_from"] - 1)
         out.append(f'<rect x="{x0:.1f}" y="{T}" width="{x(n) - x0:.1f}" height="{h - T - B}" fill="{SURFACE}"/>')
         out.append(f'<text x="{x0 + 8:.1f}" y="{T + 16}" class="ax">{a["easy_label"]} →</text>')
+    for s0, s1, label in a["rate_spans"]:
+        x0 = x(s0 - 1)
+        out.append(f'<rect x="{x0:.1f}" y="{T}" width="{x(s1) - x0:.1f}" height="{h - T - B}" '
+                   f'fill="rgba(243,154,30,.13)"/>'
+                   f'<text x="{x0 + 5:.1f}" y="{h - B - 8}" class="ax" style="fill:{AMBER}">{label}</text>')
     v = 0
     while v <= ymax:
         out.append(f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="{BORDER}"/>'
@@ -293,6 +410,14 @@ def svg_race(a, w=820, h=430) -> str:
         out.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="{YELLOW}"/>'
                    f'<text x="{cx:.1f}" y="{cy + 4:.1f}" text-anchor="middle" font-size="11" font-weight="700" '
                    f'fill="{ON_FILL}">{k}</text>')
+    # Milestones: a diamond in the claimer's colour where they reached it
+    for b, p, rd in a["milestones"]:
+        if rd is not None:
+            cx, cy = x(rd), y(a["cum"][p][rd])
+            out.append(f'<rect x="{cx - 5:.1f}" y="{cy - 5:.1f}" width="10" height="10" fill="{a["colour"][p]}" '
+                       f'stroke="{BG}" stroke-width="2" transform="rotate(45 {cx:.1f} {cy:.1f})"/>'
+                       f'<text x="{cx:.1f}" y="{cy + 20:.1f}" text-anchor="middle" font-size="10" fill="{TEXT}">'
+                       f'{b}</text>')
     # End labels, spread so they don't collide
     ends = sorted(a["players"], key=lambda p: -a["cum"][p][n])
     last_y = -99
@@ -400,6 +525,11 @@ def svg_columns(a, w=1180, h=330) -> str:
         x0 = L + (a["easy_from"] - 1) * bw
         out.append(f'<rect x="{x0:.1f}" y="{T}" width="{w - R - x0:.1f}" height="{h - T - B}" fill="{SURFACE}"/>'
                    f'<text x="{x0 + 6:.1f}" y="{T + 14}" class="ax">{a["easy_label"]}</text>')
+    for s0, s1, label in a["rate_spans"]:
+        x0 = L + (s0 - 1) * bw
+        out.append(f'<rect x="{x0:.1f}" y="{T}" width="{(s1 - s0 + 1) * bw:.1f}" height="{h - T - B}" '
+                   f'fill="rgba(243,154,30,.13)"/><text x="{x0 + 4:.1f}" y="{T + 30}" class="ax" style="fill:{AMBER}">'
+                   f'Drink Rate {label}</text>')
     v = 0
     while v <= ymax:
         out.append(f'<line x1="{L}" x2="{w - R}" y1="{y(v):.1f}" y2="{y(v):.1f}" stroke="{BORDER}"/>'
@@ -488,10 +618,13 @@ def _player_slide(a, p, rank, n_players, table_pr, table_mix, table_adh, adh, ho
     n_hands = sum(hs.values())
     stats = []
     if n_hands:
-        stats.append(("Hands won–lost–push", f"{hs['win']}–{hs['loss']}–{hs['push']} ({hs['win'] / n_hands:.0%} won)"))
+        stats.append(("Hands won–lost–push", f"{hs['win']}–{hs['loss']}–{hs['push']} ({hs['win'] / n_hands:.0%} won)"
+                      + (f" · {a['per_hand'][p]:.2f} sips/hand" if p in a["per_hand"] else "")))
         dh = a["doubled"][p]
-        stats.append(("Doubles won", f"{dh['won']} of {dh['hands']}" if dh["hands"] else "none doubled"))
-        stats.append(("Splits", a["splits"][p] or "none"))
+        stats.append(("Doubles won · splits", (f"{dh['won']} of {dh['hands']}" if dh["hands"] else "none doubled")
+                      + f" · {a['splits'][p] or 'no'} split{'s' if a['splits'][p] != 1 else ''}"))
+        stats.append(("Longest streaks", f"lost {a['longest_loss'][p]} in a row · {a['clean_run'][p]} clean "
+                                         "in a row"))
     if p in adh:
         stats.append(("Basic-strategy match", f"{adh[p]:.0%} (table {table_adh:.0%})"))
     if p in house:
@@ -512,6 +645,11 @@ def _player_slide(a, p, rank, n_players, table_pr, table_mix, table_adh, adh, ho
     if factor:
         delta = a["total"][p] - a["raw_total"][p]
         notes.append(f"Played at {factor}" + (f", {delta:+} sips against 1.0×." if delta else "."))
+    mine = [b for b, q, _ in a["milestones"] if q == p]
+    if mine:
+        notes.append(f"First to {', '.join(map(str, mine))} sips.")
+    if a["worst_avg"][p]:
+        notes.append(f"Drew the \"worst average\" penalty {a['worst_avg'][p]}×.")
     chips = ("".join(f'<span class="chip">{esc(w)}</span>' for w in awards)
              or '<span class="chip muted">No award this time</span>')
     body = (f'<div class="pl-top"><div><h3>Running total vs the table</h3>{svg_player_race(a, p)}</div>'
@@ -618,6 +756,9 @@ def build_html(a, logo: str) -> str:
     ]) + (", and other players' wins, not your own losses, drove the bill" if others > own
           else ", and losing hands drove the bill")
     rules = a["setup"].get("rules")
+    ms_by = collections.Counter(p for _, p, _ in a["milestones"])
+    ms_line = (f" · {esc(ms_by.most_common(1)[0][0])} claimed {ms_by.most_common(1)[0][1]} of "
+               f"{len(a['milestones'])} milestones" if a["milestones"] else "")
     level = pr_hi <= 1.2 * pr_lo
     raw_pr = {p: a["raw_total"][p] / a["present"][p] for p in P}
     raw_lo, raw_hi = min(raw_pr.values()), max(raw_pr.values())
@@ -638,6 +779,10 @@ def build_html(a, logo: str) -> str:
         return ", ".join(f"{f:g}× for {c} round{'s' if c != 1 else ''}"
                          for f, c in sorted(fr.items()) if f != 1.0 and c)
     rated = [p for p in P if factor_txt(p)]
+    table_pr_all = a["net"] / max(sum(a["present"].values()), 1)
+
+    def sowhat_box(text):
+        return f'<div class="sowhat wide" style="margin-top:20px"><b>Against a typical table</b>{text}</div>'
     pages = []
 
     # 1 — Cover
@@ -663,7 +808,7 @@ def build_html(a, logo: str) -> str:
     msgs = [
         (f"{esc(champ)} finished top with {a['total'][champ]} sips, {margin} ahead of {esc(second)}",
          f"{esc(long_leader)} led for {a['lead_rounds'][long_leader]} of {n} rounds; the lead changed hands "
-         f"{len(a['changes']) - 1}× and was settled in round {late[0]}"),
+         f"{len(a['changes']) - 1}× and was settled in round {late[0]}" + ms_line),
         (f"Per round played, the table was level at {pr_lo:.1f}–{pr_hi:.1f} sips" if level else
          f"Drink Rate explains the spread: at 1.0× the table was level at {raw_lo:.1f}–{raw_hi:.1f} sips per round"
          if rate_explains else
@@ -710,7 +855,21 @@ def build_html(a, logo: str) -> str:
         who = (", ".join(map(esc, a["easy_joiners"])) + " joins; " if a["easy_joiners"] else "")
         events.append((a["easy_from"] - 0.5, f'<li><i>+</i><b>Round {a["easy_from"]}</b> '
                        f'{who}Easy Mode halves the rate</li>'))
-    moments = "".join(li for _, li in sorted(events))
+    for s0, _, label in a["rate_spans"]:
+        on = [p for p in P if a["seat_rate"][p].get(s0, 1.0) != 1.0]
+        events.append((s0 - 0.4, f'<li><i>×</i><b>Round {s0}</b> Drink Rate {label}'
+                       + (f' ({", ".join(map(esc, on))})' if on else "") + '</li>'))
+    for b, p, rd in a["milestones"]:
+        if rd is not None:
+            events.append((rd + 0.1, f'<li><i>◆</i><b>Round {rd}</b> {esc(p)} first to {b} sips</li>'))
+    for rd, p, v in sorted(a["hard_switches"], key=lambda e: -e[2])[:2]:
+        events.append((rd + 0.2, f'<li><i>⇄</i><b>Round {rd}</b> Hard Dealer Switch: {esc(p)} drinks {v}</li>'))
+    events.sort()
+    if len(events) > 10:                       # keep the lead changes; trim milestones in between
+        keep = {e for e in events if "takes the lead" in e[1] or "Drink Rate" in e[1] or "Easy Mode" in e[1]}
+        rest = [e for e in events if e not in keep]
+        events = sorted(keep | set(rest[:max(10 - len(keep), 0)]))
+    moments = "".join(li for _, li in events)
     body = (f'<div class="row"><div>{svg_race(a)}</div><div class="side"><h3>Key moments</h3><ol '
             f'class="moments">{moments}</ol>'
             f'<div class="sowhat"><b>So what</b>'
@@ -728,6 +887,18 @@ def build_html(a, logo: str) -> str:
                        body, src + " · Cumulative net sips after credits", len(pages) + 1))
 
     # 4 — League table, raw vs normalised
+    def ph(p): return f"{a['per_hand'][p]:.2f}" if p in a["per_hand"] else "–"
+    bench, table_ph = a["bench"], (sum(a["hand_sips"].values())
+                                   / max(sum(sum(a["hands"][p].values()) for p in P), 1))
+    bench_box = ""
+    if bench:
+        diff = table_ph / bench["per_hand"] - 1
+        bench_box = sowhat_box(
+            f"Card for card, this table drank {table_ph:.1f} sips per hand against the simulator's "
+            f"{bench['per_hand']:.1f} ({bench['label']}, full rules at 1.0×, no Easy Mode): "
+            f"{abs(diff):.0%} {'more' if diff >= 0 else 'less'}. Per round it was {table_pr_all:.1f} sips against "
+            f"{bench['per_round']:.1f}; the rest of that gap is side games, milestones"
+            + (" and the Drink Rate booster." if a["rate_used"] and rate_delta > 0 else "."))
     mx = max(a["total"].values())
     left = hbars([(p, a["total"][p], a["colour"][p]) for p in by_total], mx, lambda v: f"{v}", 90, 300)
     by_pr = sorted(P, key=lambda p: -a["per_round"][p])
@@ -736,16 +907,16 @@ def build_html(a, logo: str) -> str:
     tbl = "".join(
         f"<tr><td><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</td><td>{a['present'][p]}</td>"
         f"<td>{a['dealer_sips'][p]}</td><td>{a['clean'][p]}</td><td>{a['best_round'][p][0]} "
-        f"(R{a['best_round'][p][1]})</td>"
+        f"(R{a['best_round'][p][1]})</td><td>{ph(p)}</td>"
         + (f"<td>{a['avg_factor'][p]:.2f}×</td><td>{a['raw_total'][p]}</td>" if a["rate_used"] else "")
         + "</tr>"
         for p in by_total)
     body = (f'<div class="row2"><div><h3>Total net sips</h3>{left}</div>'
             f'<div><h3>Sips per round played <small>(line = table average)</small></h3>{right}</div></div>'
             f'<table class="t"><tr><th>Player</th><th>Rounds played</th><th>Sips as dealer</th><th>Clean rounds</th>'
-            f'<th>Worst single round</th>'
+            f'<th>Worst single round</th><th>Sips / hand</th>'
             + ('<th>Avg drink factor</th><th>Sips at 1.0×</th>' if a["rate_used"] else "")
-            + f'</tr>{tbl}</table>')
+            + f'</tr>{tbl}</table>' + bench_box)
     if rate_explains:
         title = (f"Drink Rate explains the spread ({pr_lo:.1f}–{pr_hi:.1f} sips per round): at 1.0× the field is "
                  f"level at {raw_lo:.1f}–{raw_hi:.1f}")
@@ -883,6 +1054,15 @@ def build_html(a, logo: str) -> str:
     # 9 — Dealers
     if house_rate:
         order = sorted(house_rate, key=lambda d: -house_rate[d])
+        hard_n = collections.Counter(d for _, d, _ in a["hard_switches"])
+        hard_s = collections.Counter()
+        for _, d, v in a["hard_switches"]:
+            hard_s[d] += v
+
+        def hard_txt(d): return f"{hard_n[d]} · {hard_s[d]} sips" if hard_n[d] else "–"
+        hard_note = (f" {esc(hard_n.most_common(1)[0][0])} got caught by the Hard Dealer Switch most: "
+                     f"{hard_n.most_common(1)[0][1]}× for {hard_s[hard_n.most_common(1)[0][0]]} sips."
+                     if hard_n else "")
         house_note = "dealers with fewer than 10 hands excluded" if all(sum(c.values()) >= 10 for c in house.values()) \
             else "small samples early in the session"
         bars = hbars([(f"{d} ({sum(house[d].values())} hands)", house_rate[d] * 100,
@@ -891,19 +1071,20 @@ def build_html(a, logo: str) -> str:
         deal_rows = "".join(
             f"<tr><td><span class='dot' style='background:{a['colour'].get(d, BLUE)}'></span>{esc(d)}</td>"
             f"<td>{sum(1 for r in a['dealer_of'].values() if r == d)}</td><td>{sum(house[d].values())}</td>"
-            f"<td>{house[d]['loss']}</td><td>{house[d]['win']}</td><td>{house[d]['push']}</td><td>{a['dealer_sips'][d]}</td></tr>"
+            f"<td>{house[d]['loss']}</td><td>{house[d]['win']}</td><td>{house[d]['push']}</td>"
+            f"<td>{hard_txt(d)}</td><td>{a['dealer_sips'][d]}</td></tr>"
             for d in order)
         bars += (f'<h3 style="margin-top:26px">Dealer detail</h3><table class="t"><tr><th>Dealer</th><th>Rounds '
                  f'dealt</th>'
-                 f'<th>Hands</th><th>House won</th><th>House lost</th><th>Push</th><th>Sips as '
-                 f'dealer</th></tr>{deal_rows}</table>')
+                 f'<th>Hands</th><th>House won</th><th>House lost</th><th>Push</th><th>Hard switches</th>'
+                 f'<th>Sips as dealer</th></tr>{deal_rows}</table>')
         body = (f'<div class="row2"><div><h3>House win rate by dealer <small>(line = table '
                 f'average)</small></h3>{bars}</div>'
                 f'<div class="side"><div class="big">{(house_rate[toughest] - house_rate[softest]) * 100:.0f} pp</div>'
                 f'<div class="bigl">points between the toughest and the most generous dealer</div>'
                 f'<div class="sowhat"><b>So what</b>When {esc(toughest)} deals, expect to lose more hands'
                 + (", so bank the Dealer Lottery credits early. " if lottery_on else ". ")
-                + f'{esc(softest)}\'s deals are the time to double down.</div></div></div>')
+                + f'{esc(softest)}\'s deals are the time to double down.' + hard_note + '</div></div></div>')
         pages.append(slide("Behaviour · The house",
                            f"{esc(toughest)} ran the toughest house, winning {house_rate[toughest]:.0%} of hands vs "
                            f"a table average of {all_house:.0%}",
@@ -915,13 +1096,18 @@ def build_html(a, logo: str) -> str:
     bv_net = sum(v for r, v in a["rule_tot"].items() if r.startswith("Bust vote"))
     dl_net = sum(v for r, v in a["rule_tot"].items() if r.startswith("Dealer Lottery"))
     wc_net = a["rule_tot"]["Wild Card"]
-    side_net = bv_net * bust_on + dl_net * lottery_on + wc_net * wild_on
+    tg_net = sum(c["sips"] for c in a["targeted"].values())
+    tg_wrong = sum(c["wrong"] for c in a["targeted"].values())
+    tg_on = feature_on("event.targeted", "Targeted Drinking")
+    side_net = bv_net * bust_on + dl_net * lottery_on + wc_net * wild_on + tg_net * tg_on
     lot_by = collections.defaultdict(list)
     for e in a["lottery"]:
         lot_by[e["player"]].append(e["x_entered"])
-    if bust_on or lottery_on or wild_on:
+    if bust_on or lottery_on or wild_on or tg_on:
         kpis, cols, notes, off = [], [], [], []
         if bust_on:
+            cols.append(("Bust calls right", lambda p: f"{a['bust_by'][p][0]} of {sum(a['bust_by'][p])}"
+                         if sum(a["bust_by"][p]) else "–"))
             kpis.append((pct(bv_right, bv_right + bv_wrong),
                          f"bust-vote calls right ({bv_right} of {bv_right + bv_wrong}) · net {bv_net:+} sips"))
             notes.append(f"At {pct(bv_right, bv_right + bv_wrong)} accuracy the bust vote "
@@ -945,12 +1131,23 @@ def build_html(a, logo: str) -> str:
             notes.append("The Wild Card is pure entertainment.")
         else:
             off.append("Wild Card")
+        if tg_on:
+            kpis.append((f"{tg_net:+}", f"net sips from Targeted Drinking ({tg_wrong} wrong calls)"))
+            cols.append(("Targeted: wrong calls · sips", lambda p: f"{a['targeted'][p]['wrong']} · "
+                         f"{a['targeted'][p]['sips']:+}" if a["targeted"][p] else "–"))
+            if tg_net:
+                worst_t = max(P, key=lambda q: a["targeted"][q]["sips"])
+                notes.append(f"Targeted Drinking hit {esc(worst_t)} hardest: {a['targeted'][worst_t]['wrong']} "
+                             f"wrong calls for {a['targeted'][worst_t]['sips']} sips.")
+        else:
+            off.append("Targeted Drinking")
         kpis.append((f"{side_net:+}", f"net sips from side games, {pct(side_net, a['net'])} of the bill"))
         trs = "".join(f"<tr><td><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</td>"
                       + "".join(f"<td>{fn(p)}</td>" for _, fn in cols) + "</tr>" for p in P)
         table = ('<div><h3>Appetite for risk</h3><table class="t"><tr><th>Player</th>'
                  + "".join(f"<th>{h}</th>" for h, _ in cols) + f'</tr>{trs}</table></div>' if cols else "<div></div>")
-        body = ('<div class="row3">' + "".join(f'<div class="kpi"><b>{v}</b><span>{t}</span></div>' for v, t in kpis)
+        body = (f'<div class="row3" style="grid-template-columns:repeat({len(kpis)},1fr)">'
+                + "".join(f'<div class="kpi"><b>{v}</b><span>{t}</span></div>' for v, t in kpis)
                 + f'</div><div class="row2">{table}<div class="sowhat"><b>So what</b>{" ".join(notes)}'
                 + (f" Not played this session: {', '.join(off)}." if off else "") + '</div></div>')
         pages.append(slide("Behaviour · Side games",
@@ -1017,9 +1214,24 @@ def build_html(a, logo: str) -> str:
     if any(disc.values()):
         dp = max(disc, key=disc.get)
         awards.append(("🍷", "Sipping smart", dp, factor_txt(dp)))
+    ms_by = collections.Counter(q for _, q, _ in a["milestones"])
+    if ms_by:
+        mp, mn = ms_by.most_common(1)[0]
+        awards.append(("🏁", "Milestone hunter", mp, f"first to {mn} of {len(a['milestones'])} milestones"))
+    cold = max(P, key=lambda q: a["longest_loss"][q])
+    if a["longest_loss"][cold] >= 3:
+        awards.append(("🥶", "Cold streak", cold, f"lost {a['longest_loss'][cold]} rounds in a row"))
+    sharp = {q: r / (r + w) for q, (r, w) in a["bust_by"].items() if r + w >= 5 and r >= w}
+    if sharp and bust_on:
+        sp = max(sharp, key=sharp.get)
+        awards.append(("🎯", "Sharpshooter", sp, f"{a['bust_by'][sp][0]} of {sum(a['bust_by'][sp])} bust calls right"))
+    dry = max(P, key=lambda q: a["clean_run"][q])
+    if a["clean_run"][dry] >= 2:
+        awards.append(("🌵", "Dry spell", dry, f"{a['clean_run'][dry]} clean rounds in a row"))
     if a["wild"] and wild_on:
         wc = a["wild"].most_common(1)[0]
         awards.append(("🃏", "Wild Card magnet", wc[0], f"{wc[1]} sips handed out by Wild Cards"))
+    awards = awards[:12]
     cards = "".join(f'<div class="award"><div class="em">{e}</div><div class="an">{esc(t)}</div>'
                     f'<div class="aw" style="color:{a["colour"].get(p, BLUE)}">{esc(p)}</div><div '
                     f'class="as">{esc(s)}</div></div>'
@@ -1052,6 +1264,12 @@ def build_html(a, logo: str) -> str:
         ("Basic-strategy match", "Share of hit/stand/double/split decisions equal to the engine's basic-strategy "
          "action."),
         ("House win rate", "Share of player hands lost while that player dealt; pushes count as hands."),
+        ("Sips per hand", "Net sips without side games, milestones and streak handouts, over hands played (hands "
+         "with a logged decision). The simulator benchmark counts the same way, at full rules and 1.0×."),
+        ("Losing streak", "Rounds in a row with more hands lost than won, as the L badge counts them; an even round "
+         "resets it. Clean streak: rounds in a row with no net sips."),
+        ("Milestone round", "The round the claimer's running net total passed the step; the game counts the sip "
+         "ticker, which ignores credits, so it can be a round earlier."),
         ("Drink Rate factor", "A seat's multiplier on the sips it owes: boosters (1.2–1.5×) drink more, discounts "
          "(0.2–0.8×, e.g. wine 0.6×) drink less. Aces, the bust vote, 666/777 and the Wild Card skip boosters. "
          "Avg factor = mean over the rounds the seat played."),

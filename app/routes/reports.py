@@ -24,6 +24,7 @@ from flask import Blueprint, jsonify, request, Response
 
 from app.services.recap_deck import analyse, build_html, logo_css
 from app.services.session_store import game_sessions
+from engine.rules_registry import RULES
 
 bp = Blueprint("reports", __name__)
 
@@ -77,6 +78,8 @@ def export_xlsx():
     Return an Excel workbook summarising drinks recorded in this session.
     Sheet 1 "Summary"  — formatted session report (metadata, per-player tables, totals).
     Sheet 2 "Raw Rows" — flat drink log, one row per drink event.
+    Sheet 3 "Settings" — table setup and every house rule (on/off), read
+                         back by scripts/build_recap_deck.py.
     Usage: GET /export_xlsx?room_code=Jack-21
     """
     room_code = request.args.get("room_code", "")
@@ -289,6 +292,25 @@ def export_xlsx():
                     row.get("rate", 1.0)])
     _auto_width(ws2)
 
+    # ── Sheet 3: Settings ───────────────────────────────────────────────
+    # The table setup and every house rule, so a recap built from this
+    # export (scripts/build_recap_deck.py) can show them like the in-app one
+    ws3 = wb.create_sheet("Settings")
+    _xlsx_header(ws3, ["Setting", "Value"])
+    rules = session.config.rules
+    shoe = session.shoe
+    for key, value in (("Mode", session.config.mode), ("Drinking", "on" if session.config.drinking_mode else "off"),
+                       ("Sips per hand", session.wager), ("Hands per player", session.num_hands),
+                       ("Decks", shoe.num_decks if shoe else None),
+                       ("Easy Mode", "on" if session.config.easy_mode else "off"),
+                       ("Preset", rules.preset or "custom")):
+        ws3.append([key, value])
+    ws3.append([])
+    _xlsx_header(ws3, ["Rule ID", "Rule", "On"])
+    for r in RULES:
+        ws3.append([r.id, r.name, "on" if rules.on(r.id) else "off"])
+    _auto_width(ws3)
+
     # ── Respond ────────────────────────────────────────────────────────────────
     _date_str = datetime.now(_tz).strftime("%Y-%m-%d")
     buf = io.BytesIO()
@@ -399,7 +421,10 @@ def recap_html():
 
     day = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
     setup = {"rules": session.config.rules, "wager": session.wager, "hands": session.num_hands,
-             "easy_mode": session.config.easy_mode, "rate_rounds": session.stats.rate_rounds}
+             "easy_mode": session.config.easy_mode, "rate_rounds": session.stats.rate_rounds,
+             "decks": session.shoe.num_decks if session.shoe else None,
+             "milestones": dict(session.drinks.milestones_claimed),
+             "longest_loss": {p: s.get("longest_loss", 0) for p, s in session.stats.streaks.items()}}
     a = analyse(rows, session._decision_log, session._dealer_lottery_decision_log, day, setup)
     if a["session_id"] == "–":
         a["session_id"] = room_code

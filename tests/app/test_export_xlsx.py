@@ -106,3 +106,23 @@ def test_export_includes_raw_sips_and_drink_rate_section(client):
         assert header[-2:] == ["sips_raw", "rate"]
     finally:
         game_sessions.pop(room_code, None)
+
+
+def test_export_has_settings_sheet_with_every_rule(client):
+    """Sheet 3 carries the table setup and every house rule, so a recap built
+    from the export (scripts/build_recap_deck.py) can show them."""
+    from engine.rules_registry import RULES
+    room_code, room = _make_room_with_export_data()
+    room.rules = room.config.rules.with_rule("side.bust_vote", False)
+    try:
+        resp = client.get(f"/export_xlsx?room_code={room_code}")
+        wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+        rows = [[c.value for c in r] for r in wb["Settings"].iter_rows()]
+        settings = {r[0]: r[1] for r in rows if r and r[0] and r[0] not in ("Setting", "Rule ID")}
+        assert settings["Sips per hand"] == room.wager
+        assert settings["Easy Mode"] == "off"
+        states = {r[0]: r[2] for r in rows if r and len(r) > 2 and r[2] in ("on", "off")}
+        assert len(states) == len(RULES)
+        assert states["side.bust_vote"] == "off"
+    finally:
+        game_sessions.pop(room_code, None)

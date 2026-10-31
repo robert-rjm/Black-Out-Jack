@@ -26,6 +26,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
 from app.services.recap_deck import analyse, build_html, logo_css  # noqa: E402
+from engine.rules_registry import RULES_BY_ID, RuleSet  # noqa: E402
 
 
 def _rate_rounds(summary) -> dict:
@@ -47,6 +48,36 @@ def _rate_rounds(summary) -> dict:
     return out
 
 
+def _milestones(summary) -> dict:
+    """{boundary: first player to reach it} from the Summary sheet's MILESTONES table."""
+    rows = list(summary.iter_rows(values_only=True))
+    out = {}
+    for i, r in enumerate(rows):
+        if r and r[0] == "MILESTONES":
+            for r2 in rows[i + 2:]:                    # skip the "Threshold | First to reach" header
+                if not r2 or not r2[0]:
+                    break
+                out[int(str(r2[0]).split()[0])] = r2[1]
+            break
+    return out
+
+
+def _settings(wb) -> dict:
+    """Table setup and house rules from the Settings sheet (exports from
+    before it existed have none: the recap then says so)."""
+    if "Settings" not in wb.sheetnames:
+        return {}
+    rows = [r for r in wb["Settings"].iter_rows(values_only=True)]
+    vals = {r[0]: r[1] for r in rows if r and r[0] and len(r) > 1 and r[0] not in ("Setting", "Rule ID")}
+    on = {r[0] for r in rows if r and len(r) > 2 and r[2] == "on"}
+    out = {"wager": vals.get("Sips per hand"), "hands": vals.get("Hands per player"),
+           "decks": vals.get("Decks"), "easy_mode": vals.get("Easy Mode") == "on"}
+    if on:
+        known = on & RULES_BY_ID.keys()                # rule IDs from a newer build are skipped
+        out["rules"] = RuleSet(frozenset(known))
+    return {k: v for k, v in out.items() if v is not None}
+
+
 def load(day: str, folder: str) -> dict:
     drinks = openpyxl.load_workbook(os.path.join(folder, f"drinks_summary_{day}.xlsx"), read_only=True)
     it = drinks["Raw Rows"].iter_rows(values_only=True)
@@ -60,7 +91,8 @@ def load(day: str, folder: str) -> dict:
         # sips_raw meant something else, and analyse() treats no rate as 1.0×
         keys = ["round", "dealer", "player", "role", "rule", "sips"] + (["sips_raw", "rate"] if "rate" in hdr else [])
         rows.append({k: row[k] for k in keys if row.get(k) is not None})
-    setup = {"rate_rounds": _rate_rounds(drinks["Summary"])}
+    setup = {"rate_rounds": _rate_rounds(drinks["Summary"]), "milestones": _milestones(drinks["Summary"]),
+             **_settings(drinks)}
 
     dec_wb = openpyxl.load_workbook(os.path.join(folder, f"decision_log_{day}.xlsx"), read_only=True)
     ws = dec_wb["Hand Decisions"]
