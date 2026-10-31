@@ -272,12 +272,22 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 /* ---- HOUSE-RULE PRESET CHIPS (setup screen + settings, rules-settings.js) ---- */
 .preset-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; max-width: 420px; }
 .preset-chip {
+  --preset: var(--accent);
   display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0;
   min-height: 52px; padding: 6px 4px;
-  background: var(--wash-1); border: 1.5px solid var(--border-control); border-radius: 10px;
+  background: var(--wash-1); border: 1.5px solid color-mix(in srgb, var(--preset) 45%, var(--border-control));
+  border-radius: 10px;
   color: var(--text); cursor: pointer; text-align: center;
 }
-.preset-chip.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+/* Preset colours, as on the pitch deck: Starter grey, Standard blue, Full gold */
+.preset-chip.preset-starter  { --preset: var(--muted); }
+.preset-chip.preset-standard { --preset: var(--accent); }
+.preset-chip.preset-full     { --preset: var(--yellow); }
+.preset-chip.sel { border-color: var(--preset); background: color-mix(in srgb, var(--preset) 16%, transparent); }
+.preset-dot {
+  display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%;
+  background: var(--preset); vertical-align: 1px;
+}
 .preset-chip-name { font-size: 13px; font-weight: 700; }
 .preset-chip-blurb, .preset-chip-sips { font-size: 10px; color: var(--muted); }
 .preset-chips-note { font-size: 11px; color: var(--muted); margin-top: 6px; max-width: 420px; }

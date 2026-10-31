@@ -195,7 +195,7 @@ A live stats table (correct/wrong per Player, dealer bust %) runs the whole time
 ---
 
 ## House Rules
-- The host picks 🟢 **Starter**, 🟡 **Standard** or 🔴 **Full** (default) and can switch single rules in ⚙️ Settings → 📜 House rules
+- The host picks ⚪ **Starter**, 🔵 **Standard** or 🟡 **Full** (default) and can switch single rules in ⚙️ Settings → 📜 House rules
 - Changes apply from the **next round** (bust vote and Wild Card at once)
 - Players can **suggest** changes to the host, or vote to decide rule changes as a table
 - Rules marked **OFF AT THIS TABLE** in the rules popup don't apply

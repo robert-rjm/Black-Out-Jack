@@ -26,10 +26,12 @@ const _PRESET_LABEL = { starter: "Starter", standard: "Standard", full: "Full" }
 // Full has none: what it adds over Standard is mostly the between-round
 // events, which the simulation doesn't play, so its number would read the
 // same as Standard's.
+// Each preset has a colour (.preset-<id> in controls.css): Starter grey,
+// Standard blue, Full gold, the same as the pitch deck.
 const RULE_PRESETS = [
-  { id: "starter",  dot: "🟢", blurb: "Learn the game",     sips: 2.2 },
-  { id: "standard", dot: "🟡", blurb: "All the card rules", sips: 4.3 },
-  { id: "full",     dot: "🔴", blurb: "Everything + events", sips: null },
+  { id: "starter",  blurb: "Learn the game",     sips: 2.2 },
+  { id: "standard", blurb: "All the card rules", sips: 4.3 },
+  { id: "full",     blurb: "Everything + events", sips: null },
 ];
 
 // ---- Setup screen: preset picked before the room starts ----
@@ -39,8 +41,8 @@ function _presetChipHtml(p, active, attrs) {
   const count = _rulesRegistry ? `${_rulesRegistry.presets[p.id].length} rules` : "";
   const sips  = p.sips ? ` · ≈${p.sips} sips/rnd` : "";
   const meta  = count || sips ? `<span class="preset-chip-sips">${count}${sips}</span>` : "";
-  return `<button type="button" class="preset-chip${active ? " sel" : ""}" ${attrs}>
-    <span class="preset-chip-name">${p.dot} ${_PRESET_LABEL[p.id]}</span>
+  return `<button type="button" class="preset-chip preset-${p.id}${active ? " sel" : ""}" ${attrs}>
+    <span class="preset-chip-name"><span class="preset-dot"></span>${_PRESET_LABEL[p.id]}</span>
     <span class="preset-chip-blurb">${p.blurb}</span>${meta}
   </button>`;
 }

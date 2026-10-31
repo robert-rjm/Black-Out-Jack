@@ -680,9 +680,9 @@ Every table chooses which of these rules it plays. The host picks a **preset** w
 
 | Preset | What's in it | Avg sips per player per round* |
 | ------ | ------------ | ------------------------------ |
-| 🟢 **Starter** | The core game: net hand losses, mandatory split 10s, doubled hands count ±2, auto-insurance cap, Hard Dealer Switch, another player wins all hands, flat Blackjack bonus, milestone handouts | ≈ 2.2 |
-| 🟡 **Standard** | All the card rules: Starter plus the Aces, suited rules, immunity breaks, Blackjack multipliers, 5+ cards, Four Aces, the split-Aces rules, dealer suited hand and the bust vote | ≈ 4.3 |
-| 🔴 **Full** | Everything in this document (the default): Standard plus Devil's Hand / Lucky Sevens, the all-hand bonus, dealer 5-card 21, the Blackjack insurance vote, and the events: Dealer Lottery, Targeted Drinking, the Wild Card, the "worst average" penalty and the L badge | more than Standard |
+| ⚪ **Starter** | The core game: net hand losses, mandatory split 10s, doubled hands count ±2, auto-insurance cap, Hard Dealer Switch, another player wins all hands, flat Blackjack bonus, milestone handouts | ≈ 2.2 |
+| 🔵 **Standard** | All the card rules: Starter plus the Aces, suited rules, immunity breaks, Blackjack multipliers, 5+ cards, Four Aces, the split-Aces rules, dealer suited hand and the bust vote | ≈ 4.3 |
+| 🟡 **Full** | Everything in this document (the default): Standard plus Devil's Hand / Lucky Sevens, the all-hand bonus, dealer 5-card 21, the Blackjack insurance vote, and the events: Dealer Lottery, Targeted Drinking, the Wild Card, the "worst average" penalty and the L badge | more than Standard |
 
 \* Simulated: 3 players, 1 deck, 2 hands each, wager 1, basic strategy. Full has no number because the simulation doesn't play the events, which are most of what Full adds; its card rules alone come out the same as Standard.
 
