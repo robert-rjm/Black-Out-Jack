@@ -33,7 +33,7 @@
 - **Strategy tracking:** see how you compare to optimal basic strategy
 - **Bold strategy rewarded:** drinking incentives punish playing it safe
 
-**The 12-slide tour:** [📊 Pitch deck (PDF)](docs/Pitch-Deck.pdf), also in a plain [report style](docs/Pitch-Deck-Finance.pdf). It covers how a round works, the rules and side games, house rules, a modelled typical night and the simulator's balance numbers.
+**The 12-slide tour:** [📊 Pitch deck (PDF)](docs/Pitch-Deck.pdf), also as a sober [report-style version](docs/Pitch-Deck-Finance.pdf) without emojis. It covers how a round works, the rules and side games, house rules, a modelled typical night and the simulator's balance numbers.
 
 
 ## Quick Start
