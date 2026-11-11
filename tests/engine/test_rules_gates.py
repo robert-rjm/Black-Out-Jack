@@ -304,7 +304,8 @@ def test_sweep_all_21_off():
 
 
 def test_sweep_with_only_all_21_on_pays_the_all_21_amount_for_a_suited_hand():
-    hands = [make_hand(("9", "H"), ("7", "H"), ("5", "H")), make_hand(("8", "H"), ("6", "H"), ("7", "H"))]
+    hands = [make_hand(("9", "H"), ("7", "H"), ("5", "H"), result="win"),
+             make_hand(("8", "H"), ("6", "H"), ("7", "H"), result="win")]
     assert {m[1] for m in _sweep(FULL, hands)} == {6}
     assert {m[1] for m in _sweep(off("sweep.same_suit"), hands)} == {2}
 

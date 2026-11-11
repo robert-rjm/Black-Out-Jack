@@ -383,11 +383,16 @@ class DrinkingRules:
         Fires when a player has 2+ hands (starting hands or from a split) and EITHER:
           - Every card across every hand shares the same suit, OR
           - Every hand scores exactly 21 (BJ counts as 21).
-        Win/push/loss outcome is irrelevant — only the cards matter, so it
-        fires against a dealer blackjack too (dealer_bj is kept for the
+        Both fire against a dealer blackjack too (dealer_bj is kept for the
         event's shape only).
 
-        Payout: same suit = wager × 4, all-21 = wager × 2 (both = wager × 6).
+        Payout:
+          - Same suit, winning sweep (more hand wins than losses, pushes
+            ignored): others drink wager × 4.
+          - Same suit, otherwise (wins tie losses, or more losses): the
+            player drinks wager × 2 and others drink wager × 2.
+          - All-21: others drink wager × 2, whatever the outcome.
+        Same suit and all-21 stack (others: × 6 winning, × 4 otherwise).
         Stacks with all other win-bonus rules.
 
         hard_switch_dealer: the hard-switch-exempt dealer, if this is a hard
@@ -412,14 +417,23 @@ class DrinkingRules:
         if not (all_same_suit or all_21):
             return []
 
-        # Stacking: same suit = wager * 4, all-21 = wager * 2, both = wager * 6
-        multiplier = (4 if all_same_suit else 0) + (2 if all_21 else 0)
+        # Suited sweep depends on the outcome: a winning sweep (more wins than
+        # losses, pushes ignored) sends wager x4 to the others; a tie or a
+        # losing sweep splits it, x2 to the player and x2 to the others.
+        wins   = sum(1 for h in player_hands if h.result == "win")
+        losses = sum(1 for h in player_hands if h.result == "loss")
+        winning_sweep = wins > losses
+
+        suit_mult  = (4 if winning_sweep else 2) if all_same_suit else 0
+        multiplier = suit_mult + (2 if all_21 else 0)
         sips       = wager * multiplier
+        sym        = all_cards[0].suit.symbol
+        not_won    = "" if winning_sweep else ", not a winning sweep"
 
         if all_same_suit and all_21:
-            reason = f"all {all_cards[0].suit.symbol} suited + all 21 (x{multiplier})"
+            reason = f"all {sym} suited + all 21{not_won} (x{multiplier})"
         elif all_same_suit:
-            reason = f"all {all_cards[0].suit.symbol} suited across all hands"
+            reason = f"all {sym} suited across all hands{not_won}"
         else:
             reason = "all hands scored 21"
 
@@ -428,6 +442,12 @@ class DrinkingRules:
         msgs = [(p, sips,
                  f"{player_name} all-hands sweep ({reason}) => {p} drinks {sips} sip(s)")
                 for p in others]
+
+        if all_same_suit and not winning_sweep:
+            own = wager * 2
+            msgs.append((player_name, own,
+                f"{player_name} all-hands sweep (all {sym} suited, not a winning sweep)"
+                f" => {player_name} drinks {own} sip(s)"))
 
         # Cancel doubled-hand immunity drinks already applied in on_hand_resolved
         # for each winning doubled hand — the sweep covers them. Excludes the

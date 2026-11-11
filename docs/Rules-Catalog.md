@@ -399,10 +399,10 @@ on its own. Ace sips are never halved and boosters never apply (discounts do).
 
 ### <a id="sweep-same_suit"></a>All-hand bonus: one suit — `sweep.same_suit`
 - **Rules.md:** [§5.5](Rules.md#55-player-all-hand-bonus) · **Preset:** Full
-- **Effect:** Every card across all of a player's final hands is one suit → others drink 4×. Both this and `sweep.all_21` → 6×. Any result.
+- **Effect:** Every card across all of a player's final hands is one suit → with more wins than losses (pushes ignored) others drink 4×; otherwise (tie or more losses) the player drinks 2× and others drink 2×. With `sweep.all_21` too, others get 6× (winning) or 4× (otherwise).
 - **Halved:** Yes · **Booster:** Yes · **Depends on:** —
 - **Code:** `DrinkingRules.check_all_hands_sweep` · **CSV label:** `All-hands sweep` (and `Sweep credit`)
-- **Quiz:** Q: Does the all-suit bonus need a win? **A:** No, any result.
+- **Quiz:** Q: A player's split hands are all ♥ but they win one and lose one. Who drinks? **A:** Everyone: the player 2×, the others 2× each.
 
 ### <a id="sweep-all_21"></a>All-hand bonus: every hand 21 — `sweep.all_21`
 - **Rules.md:** [§5.5](Rules.md#55-player-all-hand-bonus) · **Preset:** Full

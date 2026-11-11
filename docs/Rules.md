@@ -320,15 +320,17 @@ These rules trigger when a Player or Dealer holds 5 or more cards in a single ha
 
 ### 5.5 Player All-Hand Bonus
 
-If every card across all of a Player's final hands shares **entirely the same suit**, or every hand totals **exactly 21**, other Players drink:
+If every card across all of a Player's final hands shares **entirely the same suit**, or every hand totals **exactly 21**, drinks are paid out:
 
-| Condition | Penalty to others |
-| --------- | ----------------- |
-| <a id="sweep-same_suit"></a>All cards same suit | 4× wager |
-| <a id="sweep-all_21"></a>All hands total 21 | 2× wager |
-| Both simultaneously | 6× wager |
+| Condition | Penalty to others | Penalty to the Player |
+| --------- | ----------------- | --------------------- |
+| <a id="sweep-same_suit"></a>All cards same suit, **more wins than losses** | 4× wager | — |
+| All cards same suit, wins tie losses or more losses | 2× wager | 2× wager |
+| <a id="sweep-all_21"></a>All hands total 21 | 2× wager | — |
+| Both, more wins than losses | 6× wager | — |
+| Both, otherwise | 4× wager | 2× wager |
 
-> Triggers regardless of win, push, or loss, even when the Dealer has Blackjack.
+> Pushes don't count toward wins or losses. The all-21 bonus triggers regardless of win, push, or loss. Both trigger even when the Dealer has Blackjack.
 
 
 ### 5.6 Four Aces at End of Round

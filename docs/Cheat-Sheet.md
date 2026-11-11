@@ -102,13 +102,17 @@ Everyone drinks **1× wager** when any Player gets Blackjack. Multiplied:
 
 ## Player All-Hand Bonus
 
-If **one Player's** hands (all of them, if split) are *entirely* one suit, or *all* total exactly 21 — everyone else drinks (regardless of that Player's win/loss/push):
+If **one Player's** hands (all of them, if split) are *entirely* one suit, or *all* total exactly 21:
 
-| Condition | Others drink |
-|-----------|:---:|
-| All cards same suit | 4× wager |
-| All hands total 21 | 2× wager |
-| Both at once | 6× wager |
+| Condition | Others drink | Player drinks |
+|-----------|:---:|:---:|
+| All cards same suit, more wins than losses | 4× wager | — |
+| All cards same suit, tie or more losses | 2× wager | 2× wager |
+| All hands total 21 (any result) | 2× wager | — |
+| Both, more wins than losses | 6× wager | — |
+| Both, otherwise | 4× wager | 2× wager |
+
+Pushes don't count as wins or losses.
 
 ---
 
