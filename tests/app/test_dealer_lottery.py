@@ -15,6 +15,7 @@ from app.models.game_room import GameRoom, GameConfig, RoundState
 from app.services.session_store import game_sessions, set_session
 from app.services.serializer import serialize_state
 from app.config import DEALER_LOTTERY_MAX_DRINK
+from app.services.drink_tracker import award_sips
 from app.services.dealer_lottery import (
     _dealer_pair_trigger,
     check_dealer_lottery_trigger,
@@ -827,14 +828,14 @@ def test_handout_forfeit_gives_sips_to_self_after_expiry(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Milestone safety (confirms a Dealer Lottery credit never lets a player's
-# cumulative sip_ticker go backwards, so it can't un-cross a milestone
-# boundary already claimed)
+# Session total + milestone safety (a Dealer Lottery credit lowers the
+# cumulative sip_ticker by what it credits, but a milestone already claimed
+# stays claimed)
 # ---------------------------------------------------------------------------
 
-def test_credit_never_reduces_cumulative_sip_ticker(monkeypatch):
-    """A both-bust credit must only touch last_round_sips, never sip_ticker
-    -- the number check_and_set_milestone actually checks against."""
+def test_credit_reduces_sip_ticker_but_keeps_milestone_claim(monkeypatch):
+    """A both-bust credit lowers both last_round_sips and sip_ticker (the 🍺
+    seat total) by the credited amount, and the claimed 100 milestone stands."""
     room = _nine_pair_room()
     room.drinks.sip_ticker["Alice"] = 105        # already crossed + claimed the 100 boundary
     room.drinks.last_round_sips["Alice"] = 5
@@ -850,8 +851,40 @@ def test_credit_never_reduces_cumulative_sip_ticker(monkeypatch):
     resolve_dealer_lottery(room)
 
     assert room.drinks.last_round_sips["Alice"] == 0     # credited down to the floor
-    assert room.drinks.sip_ticker["Alice"] == 105        # cumulative total untouched
+    assert room.drinks.sip_ticker["Alice"] == 100        # 105 - 5 credited
     assert room.drinks.milestones_claimed[100] == "Alice"  # claim still stands
+
+
+def test_one_bust_credit_lowers_seat_total(monkeypatch):
+    """The reported case: a 39-sip player owes 5 this round (ticker 44), stakes
+    5 and one split hand busts -> ceil(5/2) = 3 credit -> seat total 41."""
+    room = _nine_pair_room()
+    room.drinks.sip_ticker["Alice"] = 44
+    room.drinks.last_round_sips["Alice"] = 5
+    submit_dealer_lottery_entry(room, "Alice", 5)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+
+    _patch_deck(monkeypatch, [
+        make_card("K", "C"),                        # 9+K = 19 stands
+        make_card("5", "D"), make_card("9", "C"),   # 9+5+9 = 23 bust
+    ])
+    resolve_dealer_lottery(room)
+
+    assert room.drinks.last_dealer_lottery_result["busted"] == 1
+    assert room.drinks.last_round_sips["Alice"] == 2
+    assert room.drinks.sip_ticker["Alice"] == 41
+
+
+def test_credit_never_takes_more_than_the_round_owes():
+    """A credit can't eat into previous rounds' sips: owing 2 this round, a
+    -5 credit only lowers the session total by 2."""
+    room = _nine_pair_room()
+    room.round._drink_log_harvested = True
+    room.drinks.sip_ticker["Alice"] = 30
+    room.drinks.last_round_sips["Alice"] = 2
+    award_sips(room, "Alice", -5, "Dealer Lottery credit")
+    assert room.drinks.sip_ticker["Alice"] == 28
 
 
 # ---------------------------------------------------------------------------

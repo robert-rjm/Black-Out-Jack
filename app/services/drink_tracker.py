@@ -97,7 +97,18 @@ def award_sips(
         "rate":     rate,
     })
     if sips != 0:
-        # Session total never decreases — credits offset within the round only.
+        # A credit (e.g. Dealer Lottery) lowers the session total too, but
+        # only by what this round still owes: harvest added max(0, round net)
+        # to the ticker, so the round's contribution can't go below 0. A
+        # milestone already claimed stays claimed (milestones_claimed), so
+        # dipping back under its boundary can't re-award it.
+        if sips < 0 and count_toward_round:
+            owed = max(0, session.drinks.last_round_sips.get(player_name, 0))
+            reduce_by = min(-sips, owed)
+            if reduce_by:
+                session.drinks.sip_ticker[player_name] = max(
+                    0, session.drinks.sip_ticker.get(player_name, 0) - reduce_by
+                )
         if sips > 0:
             session.drinks.sip_ticker[player_name] = (
                 session.drinks.sip_ticker.get(player_name, 0) + sips
