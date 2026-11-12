@@ -63,12 +63,13 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
 
 ## Player-mimicry bots (rob.json / marko.json / david.json)
 
-1. Play sessions and download the session workbook via the summary modal's "Developer data" button
-   (`GET /export_session?room_code=<code>&player=<name optional>` → `session_data_<day>.xlsx`, one
-   file with the drinks and decision sheets), saving the `.xlsx`
-   files into `data/decisions/` (tracked in git — no longer gitignored, so these can't be
-   silently lost the way a local-only folder can be). Older `decision_log_*.csv` exports
-   (pre-dating the xlsx format) and the older two-file xlsx pairs (`drinks_summary_*` + `decision_log_*`) are also picked up from the same directory.
+1. Play sessions and download the session workbook with the summary modal's "Developer data"
+   button (`GET /export_session?room_code=<code>&player=<name optional>` →
+   `session_data_<day>.xlsx`, one file with the drinks and decision sheets). Save it into
+   `data/decisions/` (tracked in git, so these can't be silently lost the way a local-only
+   folder can be). The scripts also still read the older formats from the same directory:
+   `drinks_summary_*` + `decision_log_*` xlsx pairs and `decision_log_*.csv` files. When a day
+   has a `session_data_*` file, that day's legacy files are ignored (`scripts/session_files.py`).
 2. (Optional) Take a first look at what's been collected:
    ```bash
    python scripts/load_decision_logs.py                    # summary across all logs
@@ -119,11 +120,12 @@ GET /summary_json?room_code=<code>      # Drink summary as JSON
 GET /recap_html?room_code=<code>        # Recap deck as HTML slides (the browser turns it into the PDF)
 ```
 
-Recap deck as a vector PDF from a session's saved exports (needs local Edge/Chrome):
+Recap deck as a vector PDF from a session's saved export, `session_data_<day>.xlsx` or the legacy pair (needs local Edge/Chrome):
 
 ```bash
 python scripts/build_recap_deck.py 2026-10-19          # -> data/recaps/recap_2026-10-19.pdf
 python scripts/build_recap_deck.py 2026-10-19 --html   # also keep the HTML next to it
+python scripts/build_recap_deck.py 2026-10-19 --dir path/to/exports --out path/to/pdfs
 ```
 
 Pitch deck for the README, refreshed from the latest game nights, benchmarks and rule counts:
