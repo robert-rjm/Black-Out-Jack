@@ -62,18 +62,16 @@
     });
   }
 
-  window.exportDrinksAndClose = function exportDrinksAndClose() {
-    exportDrinkCSV();
-    closeSummaryModal();
-  };
-
   window.exportRecapAndClose = function exportRecapAndClose() {
     exportRecapPdf();
     closeSummaryModal();
   };
 
-  window.exportDecisionLogAndClose = function exportDecisionLogAndClose() {
-    exportDecisionLog();
+  // Developer data: the drinks summary (drinking mode only) and the decision
+  // log, staggered so the browser treats them as two separate downloads.
+  window.exportDevDataAndClose = function exportDevDataAndClose() {
+    if (!document.body.classList.contains("no-drinking")) exportDrinkCSV();
+    setTimeout(() => exportDecisionLog(), 400);
     closeSummaryModal();
   };
 
