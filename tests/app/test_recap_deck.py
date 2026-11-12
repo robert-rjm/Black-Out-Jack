@@ -278,7 +278,7 @@ def test_executive_summary_has_no_beer_equivalent():
 def test_deck_shows_drink_rate_when_used():
     html = build_html(analyse(_rated_rows(), [], [], "d"), logo_css(inline=False))
     assert "Drink Rate factors removed 1 sip" in html          # bridge title
-    assert ">at 1.0×</text>" in html                         # bridge starts before the factor
+    assert ">Net sips</text>" in html or "Net sips drunk" in html   # bridge ends on the net bill
     assert "Avg drink factor" in html                       # league table + comparables
     assert "🚀 Booster" in html and "🍷 Sipping smart" in html
     assert "Drink Rate took off 1 sip: 8 owed at 1.0× became 7" in html

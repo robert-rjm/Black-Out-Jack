@@ -234,7 +234,17 @@ def analyse(rows, decisions, lottery, day, setup=None) -> dict:
             bs_res[p][0 if book else 1][d["hand_result"]] += 1
             if not book:
                 dev_kinds[(d["action_taken"], d["basic_strategy_action"])] += 1
-    a.update(bs=bs, bs_res=bs_res, fol_res=fol_res, dev_res=dev_res, dev_kinds=dev_kinds)
+    # Split decisions vs the book: every time a split was legal
+    split_vs = {k: collections.Counter() for k in ("book_split", "skipped", "against")}
+    for d in decisions:
+        if d["is_npc"] or not d["basic_strategy_action"] or "sp" not in str(d.get("valid_actions") or "").split(","):
+            continue
+        took, book_sp = d["action_taken"] == "sp", d["basic_strategy_action"] == "sp"
+        key = "book_split" if took and book_sp else "skipped" if book_sp else "against" if took else None
+        if key:
+            split_vs[key]["n"] += 1
+            split_vs[key]["won"] += d["hand_result"] == "win"
+    a.update(bs=bs, bs_res=bs_res, split_vs=split_vs, fol_res=fol_res, dev_res=dev_res, dev_kinds=dev_kinds)
 
     # Side games
     rule_tot = collections.Counter()
@@ -433,6 +443,12 @@ def svg_race(a, w=820, h=430) -> str:
     for i in range(0, n + 1, 5 if n > 20 else 2):
         out.append(f'<text x="{x(i):.1f}" y="{h - B + 18}" class="ax" text-anchor="middle">{i}</text>')
     out.append(f'<text x="{(L + w - R) / 2}" y="{h - 4}" class="ax" text-anchor="middle">Round</text>')
+    for b, p, rd in a["milestones"]:
+        if rd is not None:
+            out.append(f'<line x1="{x(rd):.1f}" x2="{x(rd):.1f}" y1="{T}" y2="{h - B}" stroke="{a["colour"][p]}" '
+                       f'stroke-width="1.5" stroke-dasharray="5,4" opacity=".75"/>'
+                       f'<text x="{x(rd) + 4:.1f}" y="{T + 11}" font-size="10" font-weight="700" '
+                       f'fill="{a["colour"][p]}">{b}</text>')
     for p in a["players"]:
         start = a["joined"][p] - 1
         pts = " ".join(f"{x(i):.1f},{y(a['cum'][p][i]):.1f}" for i in range(start, n + 1))
@@ -982,13 +998,23 @@ def build_html(a, logo: str) -> str:
     pages.append(slide("Results · League table", title, body,
                        src + " · Rounds played from the decision log · Clean round = no net sips", len(pages) + 1))
 
-    # 5 — Bridge
-    steps = ([("Sips owed at 1.0×", a["raw_gross_all"], "total"), ("Drink Rate factors", rate_delta, "delta")]
-             if a["rate_used"] else [("Gross sips owed", a["gross_all"], "total")])
-    for rule, v in sorted(a["credits"].items(), key=lambda kv: kv[1]):
-        steps.append((rule.replace("Easy mode halving", "Easy Mode (halving)"), v, "delta"))
+    # 5 — Bridge: own losing hands, the 3 biggest other adds and credits, an "other" bucket each, net
+    adds = sorted(((c, cat_tot[c]) for c in cat_tot if c != "Own losing hands" and cat_tot[c] > 0),
+                  key=lambda kv: -kv[1])
+    cuts = sorted(a["credits"].items(), key=lambda kv: kv[1])
+    steps = [("Own losing hands", own, "total")]
+    steps += [(c, v, "delta") for c, v in adds[:3]]
+    add_rest, cut_rest = adds[3:], cuts[3:]
+    if add_rest:
+        steps.append(("Other drivers", sum(v for _, v in add_rest), "delta"))
+    steps += [(rule.replace("Easy mode halving", "Easy Mode (halving)"), v, "delta") for rule, v in cuts[:3]]
+    if cut_rest:
+        steps.append(("Other credits", sum(v for _, v in cut_rest), "delta"))
     steps.append(("Net sips drunk", a["net"], "total"))
-    body = (f'<div class="row"><div>{svg_waterfall(steps)}</div><div class="side">'
+    bridge_note = "".join(
+        f'<div class="note"><b>{lbl}:</b> {", ".join(f"{esc(n)} {v:+d}" for n, v in rest)}</div>'
+        for lbl, rest in (("Other drivers", add_rest), ("Other credits", cut_rest)) if rest)
+    body = (f'<div class="row"><div>{svg_waterfall(steps)}{bridge_note}</div><div class="side">'
             f'<div class="big">{pct(saved, a["gross_all"])}</div><div class="bigl">of the gross bill was cancelled '
             f'by credits</div>'
             '<div class="sowhat"><b>So what</b>'
@@ -1021,7 +1047,7 @@ def build_html(a, logo: str) -> str:
         for p in P:
             share = a["cat"][c][p] / a["gross"][p] if a["gross"][p] else 0
             cells += (f'<td style="background:rgba(79,142,247,{min(share * 2.2, 0.9):.2f});'
-                      f'color:{ON_FILL if share > 0.3 else TEXT}">{share:.0%}</td>')
+                      f'color:{TEXT}">{share:.0%}</td>')
         trs += f"<tr><td>{esc(c)}</td>{cells}</tr>"
     body = (f'<div class="row2"><div><h3>Gross sips by driver</h3>{bars}</div>'
             f'<div><h3>Mix by player <small>(% of each player\'s gross sips)</small></h3>'
@@ -1071,7 +1097,7 @@ def build_html(a, logo: str) -> str:
                  ("sp", "h"): "Split, book said hit", ("d", "s"): "Doubled, book said stand", ("sp", "s"): "Split, "
                   "book said stand"}
         dev_list = "".join(f"<tr><td>{kinds.get(k, '/'.join(k))}</td><td>{c}</td></tr>"
-                           for k, c in a["dev_kinds"].most_common(4))
+                           for k, c in a["dev_kinds"].most_common(5))
         split = ""
         for p in sorted(adh, key=lambda p: -adh[p]):
             f, d = a["bs_res"][p]
@@ -1080,8 +1106,16 @@ def build_html(a, logo: str) -> str:
                       f"<td>{fw:.0%}</td><td>{dw:.0%}</td><td "
                       f"style='color:{GREEN if fw >= dw else RED};font-weight:700'>"
                       f"{(fw - dw) * 100:+.0f} pp</td></tr>")
+        sv = a["split_vs"]
+        split_tbl = "".join(
+            f"<tr><td>{lbl}</td><td>{sv[k]['n']}</td><td>{pct(sv[k]['won'], sv[k]['n']) if sv[k]['n'] else '–'}</td></tr>"
+            for k, lbl in (("book_split", "Book said split, player split"),
+                           ("skipped", "Book said split, player didn't"),
+                           ("against", "Player split, book said no")))
         body = (f'<div class="row2"><div><h3>Decisions matching basic strategy</h3>{left}'
-                f'<h3 style="margin-top:22px">Most common deviations</h3><table class="t">{dev_list}</table></div>'
+                f'<h3 style="margin-top:22px">Most common deviations</h3><table class="t">{dev_list}</table>'
+                f'<h3 style="margin-top:22px">Splits vs the book <small>(whenever a split was legal)</small></h3>'
+                f'<table class="t"><tr><th>Situation</th><th>Decisions</th><th>Hands won</th></tr>{split_tbl}</table></div>'
                 f'<div><h3>Hand win rate by decision type</h3><div class="vs">'
                 f'<div><b style="color:{GREEN}">{fol_w:.0%}</b><span>By the book<br>{sum(a["fol_res"].values())} '
                 f'decisions</span></div>'
@@ -1097,8 +1131,8 @@ def build_html(a, logo: str) -> str:
         pages.append(slide("Behaviour · Decision quality",
                            f"Playing by the book paid off: decisions in line with basic strategy won {fol_w:.0%} of "
                            f"the time vs {dev_w:.0%} against it",
-                           body, src + " · Decision level; a hand with several decisions counts each one; result = "
-                                       "final result of that hand", len(pages) + 1))
+                           body, src + " · Book = the engine's basic-strategy table plus drinking-mode overrides (incl. "
+                                       "splitting unsuited 10s), not a computed optimum · Result = final result of that hand", len(pages) + 1))
 
     # 9 — Dealers
     if house_rate:
@@ -1212,7 +1246,9 @@ def build_html(a, logo: str) -> str:
         worst = min(vals, key=vals.get) if good_high else max(vals, key=vals.get)
         return {p: f'<td class="{"g" if p == best else "b" if p == worst else ""}">{fmt(vals[p])}</td>' for p in vals}
     hw = {p: a["hands"][p]["win"] / max(sum(a["hands"][p].values()), 1) for p in P}
-    drv = {p: max((c for c, _ in CATEGORIES), key=lambda c: a["cat"][c][p]) for p in P}
+    def drv3(p):
+        top = sorted((c for c, _ in CATEGORIES if a["cat"][c][p] > 0), key=lambda c: -a["cat"][c][p])[:3]
+        return "<br>".join(f"{k}. {esc(c)} {a['cat'][c][p] / a['gross'][p]:.0%}" for k, c in enumerate(top, 1)) or "–"
     metrics = [
         ("Net sips", {p: f"<td>{a['total'][p]}</td>" for p in P}),
         ("Sips / round played", rank_cells(a["per_round"], lambda v: f"{v:.2f}", False)),
@@ -1228,7 +1264,7 @@ def build_html(a, logo: str) -> str:
                                 for p in P} if a["avg_stand"] else None),
         ("Wild Card sips", {p: f"<td>{a['wild'][p]}</td>" for p in P}) if wild_on else ("", None),
         ("Avg drink factor", {p: f"<td>{a['avg_factor'][p]:.2f}×</td>" for p in P}) if a["rate_used"] else ("", None),
-        ("#1 sip driver", {p: f"<td>{esc(drv[p])}</td>" for p in P}),
+        ("Top 3 sip drivers", {p: f"<td>{drv3(p)}</td>" for p in P}),
     ]
     head = "".join(f"<th><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</th>" for p in P)
     trs = "".join(f"<tr><td>{m}</td>{''.join(cells.get(p, '<td>–</td>') for p in P)}</tr>"
@@ -1319,7 +1355,8 @@ def build_html(a, logo: str) -> str:
         ("Round played", "A round in which the player made at least one decision (decision log)."),
         ("Clean round", "A round played with zero or negative net sips."),
         ("Basic-strategy match", "Share of hit/stand/double/split decisions equal to the engine's basic-strategy "
-         "action."),
+         "action: its programmed basic-strategy tables plus the drinking-mode overrides (splitting unsuited 10s "
+         "when that rule is on, splitting 9s unless the dealer shows 10, doubling 5s and totals of 9-11)."),
         ("House win rate", "Share of player hands lost while that player dealt; pushes count as hands."),
         ("Sips per hand", "Net sips without side games, milestones and streak handouts, over hands played (hands "
          "with a logged decision). The simulator benchmark counts the same way, at full rules and 1.0×."),
