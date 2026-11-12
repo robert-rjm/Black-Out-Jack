@@ -84,3 +84,36 @@ def test_load_older_export_without_rate_is_one(tmp_path):
     a = load("2026-07-01", str(tmp_path))
     assert not a["rate_used"]
     assert a["raw_total"]["Rob"] == 2                            # sips_raw ignored without a rate column
+
+
+def _merge(folder, day):
+    """Fold the legacy pair into one session_data_<day>.xlsx, as /export_session writes it."""
+    wb = openpyxl.load_workbook(folder / f"drinks_summary_{day}.xlsx")
+    dec = openpyxl.load_workbook(folder / f"decision_log_{day}.xlsx")
+    for ws in dec.worksheets:
+        new = wb.create_sheet(ws.title)
+        for row in ws.iter_rows(values_only=True):
+            new.append(list(row))
+    wb.save(folder / f"session_data_{day}.xlsx")
+
+
+def test_load_reads_the_merged_session_file(tmp_path):
+    _exports(tmp_path, "2026-10-31", with_rate=True)
+    legacy = load("2026-10-31", str(tmp_path))
+    _merge(tmp_path, "2026-10-31")
+    (tmp_path / "drinks_summary_2026-10-31.xlsx").unlink()
+    (tmp_path / "decision_log_2026-10-31.xlsx").unlink()
+    merged = load("2026-10-31", str(tmp_path))
+    assert merged["total"] == legacy["total"] and merged["players"] == legacy["players"]
+    assert merged["bs"] == legacy["bs"]
+
+
+def test_merged_file_wins_over_legacy_pair_for_the_same_day(tmp_path):
+    from scripts.session_files import decision_files, drinks_files, session_paths
+    _exports(tmp_path, "2026-10-31", with_rate=True)
+    _exports(tmp_path, "2026-07-01", with_rate=False)
+    _merge(tmp_path, "2026-10-31")
+    assert [p.name for p in drinks_files(tmp_path)] == ["drinks_summary_2026-07-01.xlsx", "session_data_2026-10-31.xlsx"]
+    assert [p.name for p in decision_files(tmp_path)] == ["decision_log_2026-07-01.xlsx", "session_data_2026-10-31.xlsx"]
+    assert session_paths(tmp_path, "2026-10-31")[0] == session_paths(tmp_path, "2026-10-31")[1]
+    assert session_paths(tmp_path, "2026-07-01")[0].name == "drinks_summary_2026-07-01.xlsx"

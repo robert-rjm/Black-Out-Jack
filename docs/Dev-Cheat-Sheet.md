@@ -63,11 +63,12 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
 
 ## Player-mimicry bots (rob.json / marko.json / david.json)
 
-1. Play sessions and download decision logs via the web UI's `/export_decisions` route
-   (`GET /export_decisions?room_code=<code>&player=<name optional>`), saving the `.xlsx`
+1. Play sessions and download the session workbook via the summary modal's "Developer data" button
+   (`GET /export_session?room_code=<code>&player=<name optional>` → `session_data_<day>.xlsx`, one
+   file with the drinks and decision sheets), saving the `.xlsx`
    files into `data/decisions/` (tracked in git — no longer gitignored, so these can't be
    silently lost the way a local-only folder can be). Older `decision_log_*.csv` exports
-   (pre-dating the two-sheet xlsx format) are also picked up from the same directory.
+   (pre-dating the xlsx format) and the older two-file xlsx pairs (`drinks_summary_*` + `decision_log_*`) are also picked up from the same directory.
 2. (Optional) Take a first look at what's been collected:
    ```bash
    python scripts/load_decision_logs.py                    # summary across all logs
@@ -87,7 +88,7 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
    ```
    Writes/updates `engine/player_profiles/rob.json` (etc.), consumed by
    `engine/style_strategy.py`. Without `--merge`, a rebuild only reflects whatever raw
-   `decision_log_*` files are currently in `--dir` (default `data/decisions/`) — `--merge`
+   `session_data_*` (or legacy `decision_log_*`) files are currently in `--dir` (default `data/decisions/`) — `--merge`
    combines that with the target file's already-recorded deviations instead.
 4. Simulate with those profiles instead of generic basic-strategy bots, and compare:
    ```bash
@@ -111,8 +112,9 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
 ## Other exports (web UI)
 
 ```
-GET /export_xlsx?room_code=<code>       # Full drink-log XLSX for the session
-GET /export_decisions?room_code=<code>  # Decision-log XLSX (mined by build_player_profiles.py)
+GET /export_session?room_code=<code>    # The one session workbook: drinks + decision sheets (recap, profiles)
+GET /export_xlsx?room_code=<code>       # Legacy: drinks sheets only
+GET /export_decisions?room_code=<code>  # Legacy: decision sheets only
 GET /summary_json?room_code=<code>      # Drink summary as JSON
 GET /recap_html?room_code=<code>        # Recap deck as HTML slides (the browser turns it into the PDF)
 ```

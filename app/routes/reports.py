@@ -3,9 +3,12 @@ app/routes/reports.py
 ======================
 Reporting routes (the static / doc routes live in static_pages.py).
 
-GET /export_xlsx       — Full drink-log XLSX download for the session
-GET /export_decisions  — Decision-log XLSX (hand decisions + Dealer Lottery
-                          entries, one sheet each) for scripts/build_player_profiles.py
+GET /export_session    — the one session export (session_data_<day>.xlsx): Summary,
+                          Raw Rows, Settings, Hand Decisions, Dealer Lottery Entries.
+                          Read by scripts/build_recap_deck.py, build_pitch_deck.py,
+                          build_player_profiles.py and load_decision_logs.py
+GET /export_xlsx       — legacy: just the drinks sheets (drinks_summary_<day>.xlsx)
+GET /export_decisions  — legacy: just the decision sheets (decision_log_<day>.xlsx)
 GET /summary_json      — Drink summary as JSON for on-screen display
 GET /recap_html        — Session recap deck as HTML slides; the browser turns
                           it into the recap PDF (static/js/ui/recap-pdf.js)
@@ -72,21 +75,15 @@ def _auto_width(ws) -> None:
 # XLSX export
 # ---------------------------------------------------------------------------
 
-@bp.route("/export_xlsx")
-def export_xlsx():
+def _add_drinks_sheets(wb, session) -> None:
     """
-    Return an Excel workbook summarising drinks recorded in this session.
-    Sheet 1 "Summary"  — formatted session report (metadata, per-player tables, totals).
-    Sheet 2 "Raw Rows" — flat drink log, one row per drink event.
-    Sheet 3 "Settings" — table setup and every house rule (on/off), read
-                         back by scripts/build_recap_deck.py.
-    Usage: GET /export_xlsx?room_code=Jack-21
+    Add the drinks sheets to `wb` (a fresh workbook whose active sheet is
+    still the blank default):
+    "Summary"  — formatted session report (metadata, per-player tables, totals).
+    "Raw Rows" — flat drink log, one row per drink event.
+    "Settings" — table setup and every house rule (on/off), read
+                 back by scripts/build_recap_deck.py.
     """
-    room_code = request.args.get("room_code", "")
-    session   = game_sessions.get(room_code)
-    if not session:
-        return Response("No active session.", status=404, mimetype="text/plain")
-
     rows         = session.drinks.csv_rows
     hand_stats   = session.stats.hand_stats
     milestones   = session.drinks.milestones_claimed
@@ -125,8 +122,6 @@ def export_xlsx():
         return f"{n/d*100:.1f}%" if d else "—"
 
     _tz = ZoneInfo("Europe/Zurich")
-
-    wb = openpyxl.Workbook()
 
     # ── Sheet 1: Summary ─────────────────────────────────────────────
     ws = wb.active
@@ -311,18 +306,6 @@ def export_xlsx():
         ws3.append([r.id, r.name, "on" if rules.on(r.id) else "off"])
     _auto_width(ws3)
 
-    # ── Respond ────────────────────────────────────────────────────────────────
-    _date_str = datetime.now(_tz).strftime("%Y-%m-%d")
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
-    return Response(
-        buf.getvalue(),
-        status=200,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="drinks_summary_{_date_str}.xlsx"'},
-    )
-
 
 # ---------------------------------------------------------------------------
 # Decision log export (Phase C — see docs/planning/DecisionLog-Plan.md)
@@ -342,39 +325,20 @@ _DEALER_LOTTERY_DECISION_COLUMNS = [
 ]
 
 
-@bp.route("/export_decisions")
-def export_decisions():
+def _add_decision_sheets(wb, session, player: str = "") -> None:
     """
-    Return an Excel workbook of recorded player decisions for this session --
-    one workbook, two sheets, so there's a single download to save into
-    data/decisions/ for scripts/build_player_profiles.py to mine.
-
-    Sheet 1 "Hand Decisions"        — one row per hit/stand/double/split/
-                                       insurance decision (was /export_decisions
-                                       as a standalone CSV).
-    Sheet 2 "Dealer Lottery Entries" — one row per Dealer Lottery stake (0-5)
-                                       decision (was the separate
-                                       /export_dealer_lottery_decisions CSV).
-
-    Usage: GET /export_decisions?room_code=Jack-21&player=<name optional>
-    (the player filter only applies to the Hand Decisions sheet)
+    Add the decision sheets to `wb`:
+    "Hand Decisions"         — one row per hit/stand/double/split/insurance
+                               decision (the optional `player` filter only
+                               applies here).
+    "Dealer Lottery Entries" — one row per Dealer Lottery stake (0-5) decision.
     """
-    room_code = request.args.get("room_code", "")
-    player    = request.args.get("player", "").strip()
-
-    session = game_sessions.get(room_code)
-    if not session:
-        return Response("No active session.", status=404, mimetype="text/plain")
-
     hand_rows = session._decision_log
     if player:
         hand_rows = [r for r in hand_rows if r["player"].lower() == player.lower()]
     lottery_rows = session._dealer_lottery_decision_log
 
-    wb = openpyxl.Workbook()
-
-    ws1 = wb.active
-    ws1.title = "Hand Decisions"
+    ws1 = wb.create_sheet("Hand Decisions")
     _xlsx_header(ws1, _DECISION_COLUMNS)
     for row in hand_rows:
         ws1.append([row.get(col, "") for col in _DECISION_COLUMNS])
@@ -386,7 +350,21 @@ def export_decisions():
         ws2.append([row.get(col, "") for col in _DEALER_LOTTERY_DECISION_COLUMNS])
     _auto_width(ws2)
 
-    _date_str = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
+
+def _export_response(room_code: str, prefix: str, drinks: bool, decisions: bool, player: str = ""):
+    """Build the workbook with the requested sheet groups and return it as a
+    download named <prefix>_<day>.xlsx (404 when the session doesn't exist)."""
+    session = game_sessions.get(room_code)
+    if not session:
+        return Response("No active session.", status=404, mimetype="text/plain")
+    wb = openpyxl.Workbook()
+    if drinks:
+        _add_drinks_sheets(wb, session)           # reuses the blank default sheet as "Summary"
+    if decisions:
+        if not drinks:
+            wb.remove(wb.active)
+        _add_decision_sheets(wb, session, player)
+    day = datetime.now(ZoneInfo("Europe/Zurich")).strftime("%Y-%m-%d")
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -394,8 +372,35 @@ def export_decisions():
         buf.getvalue(),
         status=200,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="decision_log_{_date_str}.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="{prefix}_{day}.xlsx"'},
     )
+
+
+@bp.route("/export_session")
+def export_session():
+    """
+    The one session export: every drinks sheet and every decision sheet in a
+    single workbook, session_data_<day>.xlsx, to save into data/decisions/.
+    Usage: GET /export_session?room_code=Jack-21&player=<name optional>
+    (the player filter only applies to the Hand Decisions sheet)
+    """
+    return _export_response(request.args.get("room_code", ""), "session_data", True, True,
+                            request.args.get("player", "").strip())
+
+
+@bp.route("/export_xlsx")
+def export_xlsx():
+    """Legacy: only the drinks sheets (Summary, Raw Rows, Settings) as
+    drinks_summary_<day>.xlsx. Usage: GET /export_xlsx?room_code=Jack-21"""
+    return _export_response(request.args.get("room_code", ""), "drinks_summary", True, False)
+
+
+@bp.route("/export_decisions")
+def export_decisions():
+    """Legacy: only the decision sheets as decision_log_<day>.xlsx.
+    Usage: GET /export_decisions?room_code=Jack-21&player=<name optional>"""
+    return _export_response(request.args.get("room_code", ""), "decision_log", False, True,
+                            request.args.get("player", "").strip())
 
 
 # ---------------------------------------------------------------------------
@@ -406,8 +411,7 @@ def export_decisions():
 def recap_html():
     """
     Return the session recap deck (app/services/recap_deck.py) as one HTML
-    page of 1280×720 slides, built from the same rows as /export_xlsx and
-    /export_decisions. The server has no browser to print with, so the client
+    page of 1280×720 slides, built from the same rows as /export_session. The server has no browser to print with, so the client
     draws each slide into a PDF page (static/js/ui/recap-pdf.js).
     Usage: GET /recap_html?room_code=Jack-21
     """

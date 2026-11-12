@@ -192,7 +192,7 @@ with the tip QR code closes the deck.
   that were off, grouped by `GROUPS`, with the preset. A side game shows when
   its rule is on or when it left any sips, so a rule turned off mid-session
   still counts. The deck shows the rules as they were at export, because rule
-  changes aren't recorded. `/export_xlsx` writes the same setup and every
+  changes aren't recorded. `/export_session` writes the same setup and every
   rule's on/off state to a "Settings" sheet, which the script reads back.
   Exports from before that sheet existed have no rules, and the setup slide
   says so.
@@ -228,7 +228,7 @@ with the tip QR code closes the deck.
   only opens the sheet from a tap, so a "Recap ready" bar offers one once
   the PDF is built.
 - **PDF on a dev machine.** `scripts/build_recap_deck.py <day>` reads
-  `data/decisions/drinks_summary_<day>.xlsx` and `decision_log_<day>.xlsx`,
+  `data/decisions/session_data_<day>.xlsx` (older sessions: the pair `drinks_summary_<day>.xlsx` and `decision_log_<day>.xlsx`),
   builds the same HTML and prints it to a vector PDF through headless
   Edge/Chrome, written to `data/recaps/`.
 
@@ -385,7 +385,7 @@ Commit the updated `docs/.terms_sync.json` alongside your change.
 - `flask` (for web UI)
 - `pydantic` (for web UI — validates the state payload the web UI polls; see `app/models/state_schema.py`)
 - `segno` (pure Python, no dependencies — renders QR codes as SVG: the room's join link for `GET /room_invite`, the tip link for `/beer_qr` and the recap deck)
-- `openpyxl` (for web UI — `/export_xlsx` and `/export_decisions`; also used by `scripts/build_player_profiles.py` and `scripts/load_decision_logs.py` to read exported logs back in)
+- `openpyxl` (for web UI — `/export_session`, plus the legacy `/export_xlsx` and `/export_decisions`; also used by `scripts/build_player_profiles.py` and `scripts/load_decision_logs.py` to read exported logs back in)
 - `pytest` (for running the test suite)
 - No other dependencies for terminal play
 - Vendored browser libraries (in `static/js/`, no install step): `purify.min.js`, `marked.min.js` (Rules modal), `html2canvas.min.js` 1.4.1, `jspdf.umd.min.js` 2.5.2 (recap PDF)

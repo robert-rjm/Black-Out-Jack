@@ -2,8 +2,8 @@
 scripts/build_recap_deck.py
 ============================
 Build the session recap deck (app/services/recap_deck.py) as a vector PDF
-from a session's two saved exports (drinks_summary_<day>.xlsx +
-decision_log_<day>.xlsx in data/decisions/), printed by a local headless
+from a session's saved export (session_data_<day>.xlsx in data/decisions/; older
+sessions are the pair drinks_summary_<day>.xlsx + decision_log_<day>.xlsx), printed by a local headless
 Edge/Chrome. The in-app button (GET /recap_html) renders the same deck in
 the browser instead.
 
@@ -27,6 +27,7 @@ sys.path.insert(0, _ROOT)
 
 from app.services.recap_deck import analyse, build_html, logo_css  # noqa: E402
 from engine.rules_registry import RULES_BY_ID, RuleSet  # noqa: E402
+from scripts.session_files import session_paths  # noqa: E402
 
 
 def _rate_rounds(summary) -> dict:
@@ -79,7 +80,8 @@ def _settings(wb) -> dict:
 
 
 def load(day: str, folder: str) -> dict:
-    drinks = openpyxl.load_workbook(os.path.join(folder, f"drinks_summary_{day}.xlsx"), read_only=True)
+    drinks_path, decisions_path = session_paths(folder, day)
+    drinks = openpyxl.load_workbook(drinks_path, read_only=True)
     it = drinks["Raw Rows"].iter_rows(values_only=True)
     hdr = next(it)
     rows = []
@@ -94,7 +96,7 @@ def load(day: str, folder: str) -> dict:
     setup = {"rate_rounds": _rate_rounds(drinks["Summary"]), "milestones": _milestones(drinks["Summary"]),
              **_settings(drinks)}
 
-    dec_wb = openpyxl.load_workbook(os.path.join(folder, f"decision_log_{day}.xlsx"), read_only=True)
+    dec_wb = openpyxl.load_workbook(decisions_path, read_only=True)
     ws = dec_wb["Hand Decisions"]
     it = ws.iter_rows(values_only=True)
     hdr = next(it)
@@ -103,6 +105,8 @@ def load(day: str, folder: str) -> dict:
     it = ws.iter_rows(values_only=True)
     hdr = next(it)
     lottery = [dict(zip(hdr, r)) for r in it if r[0]]
+    drinks.close()                                  # read-only workbooks hold the file open (Windows)
+    dec_wb.close()
     return analyse(rows, decisions, lottery, day, setup)
 
 

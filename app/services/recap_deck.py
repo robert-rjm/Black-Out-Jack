@@ -1377,7 +1377,7 @@ def build_html(a, logo: str) -> str:
     body = ('<table class="t defs">' + "".join(f"<tr><td>{esc(k)}</td><td>{esc(v)}</td></tr>" for k, v in defs)
             + "</table>")
     pages.append(slide("Appendix · Definitions", "Methodology and definitions", body,
-                       src + f" · Full data: drinks_summary_{a['day']}.xlsx", len(pages) + 1))
+                       src + f" · Full data: session_data_{a['day']}.xlsx", len(pages) + 1))
 
     # 14 — Thank you
     pages.append(f'''<section class="slide thanks">

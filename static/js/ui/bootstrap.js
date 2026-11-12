@@ -67,11 +67,9 @@
     closeSummaryModal();
   };
 
-  // Developer data: the drinks summary (drinking mode only) and the decision
-  // log, staggered so the browser treats them as two separate downloads.
+  // Developer data: the one session workbook (drinks + decision sheets).
   window.exportDevDataAndClose = function exportDevDataAndClose() {
-    if (!document.body.classList.contains("no-drinking")) exportDrinkCSV();
-    setTimeout(() => exportDecisionLog(), 400);
+    exportSessionData();
     closeSummaryModal();
   };
 

@@ -45,6 +45,7 @@ from app.services.qr import qr_svg  # noqa: E402
 from app.services.recap_deck import APP_NAME, CATEGORIES, CSS, _category, hbars, logo_css, slide  # noqa: E402
 from engine.rules_registry import PRESETS, RULES  # noqa: E402
 from scripts.build_recap_deck import print_pdf  # noqa: E402
+from scripts.session_files import drinks_files  # noqa: E402
 
 PLAY_URL = "https://black-out-jack.onrender.com"
 REPO_URL = "https://github.com/robert-rjm/Black-Out-Jack"
@@ -71,7 +72,7 @@ def seat_rounds(folder: str) -> dict:
     """Net sips of every seat in every logged round (a seat with no drink in a
     round counts as 0): the mean and spread drive the modelled night."""
     vals, by_size = [], collections.defaultdict(list)
-    for f in sorted(glob.glob(os.path.join(folder, "drinks_summary_*.xlsx"))):
+    for f in drinks_files(folder):
         rows = [r for r in openpyxl.load_workbook(f, read_only=True)["Raw Rows"].iter_rows(min_row=2, values_only=True)
                 if r and r[0]]
         if not rows:

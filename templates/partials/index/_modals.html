@@ -396,12 +396,12 @@
       {{ action_btn('📊 Download Recap (PDF)', 'exportRecapAndClose', '[]', 'btn wide green') }}
     </div>
     <div class="btn-row summary-actions">
-      {{ action_btn('🛠️ Developer data (2 xlsx files)', 'exportDevDataAndClose', '[]', 'btn wide neutral') }}
+      {{ action_btn('🛠️ Developer data (xlsx)', 'exportDevDataAndClose', '[]', 'btn wide neutral') }}
     </div>
     <div id="auto-export-row" class="auto-export-row" style="display:none">
       <label class="auto-export-label">
         <input type="checkbox" id="auto-export-toggle" onchange="setAutoExportDecisions(this.checked)">
-        🤖 Auto-export both reports every 10 rounds
+        🤖 Auto-export session data every 10 rounds
       </label>
     </div>
     <div class="modal-donate">

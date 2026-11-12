@@ -126,3 +126,23 @@ def test_export_has_settings_sheet_with_every_rule(client):
         assert states["side.bust_vote"] == "off"
     finally:
         game_sessions.pop(room_code, None)
+
+
+def test_export_session_is_one_workbook_with_every_sheet(client):
+    """The single developer download carries the drinks sheets and the decision sheets."""
+    room_code, _ = _make_room_with_export_data()
+    try:
+        resp = client.get(f"/export_session?room_code={room_code}")
+        assert resp.status_code == 200
+        assert 'filename="session_data_' in resp.headers["Content-Disposition"]
+        wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+        assert wb.sheetnames == ["Summary", "Raw Rows", "Settings", "Hand Decisions", "Dealer Lottery Entries"]
+        # the legacy routes still serve their own half
+        assert openpyxl.load_workbook(io.BytesIO(client.get(f"/export_xlsx?room_code={room_code}").data)
+                                      ).sheetnames == ["Summary", "Raw Rows", "Settings"]
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_export_session_unknown_room_is_404(client):
+    assert client.get("/export_session?room_code=nope").status_code == 404

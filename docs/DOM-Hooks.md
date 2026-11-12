@@ -176,7 +176,7 @@ This document defines selector ownership for the web UI modules and the shared e
 ### `static/js/ui/summary.js`
 - Summary modal: `#summary-overlay`, `#summary-meta`, `#summary-body`
 - `#auto-export-row`, `#auto-export-toggle` (auto-export-decisions-every-10-rounds opt-in, only rendered for the admin when playing under one of the mined-profile names)
-- Drink CSV / decision-log downloads (`exportDrinkCSV`, `exportDecisionLog`)
+- Session workbook download (`exportSessionData`, button "Developer data (xlsx)")
 
 ### `static/js/ui/recap-pdf.js`
 - Summary modal "📊 Download Recap (PDF)" button: `[data-action="exportRecapAndClose"]` (wrapper in `bootstrap.js`) → `exportRecapPdf()`; builds the PDF in a temporary off-screen `<iframe>` it removes afterwards
