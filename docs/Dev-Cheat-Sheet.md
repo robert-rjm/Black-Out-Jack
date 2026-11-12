@@ -128,12 +128,14 @@ python scripts/build_recap_deck.py 2026-10-19 --html   # also keep the HTML next
 python scripts/build_recap_deck.py 2026-10-19 --dir path/to/exports --out path/to/pdfs
 ```
 
-Pitch deck for the README, refreshed from the latest game nights, benchmarks and rule counts:
+"How it works" deck for the README, refreshed from the latest game nights, benchmarks and rule counts:
 
 ```bash
 python scripts/build_pitch_deck.py                     # -> docs/Pitch-Deck.pdf + docs/Pitch-Deck-Finance.pdf
 python scripts/build_pitch_deck.py --theme finance     # one look only
 ```
+The app serves them at `/how-it-works` and `/how-it-works/finance` (the lobby's "How It Works" button opens `/how-it-works` in a popup), so the short URL
+stays valid when the PDFs are rebuilt.
 
 ## Linting
 

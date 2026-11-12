@@ -1,7 +1,7 @@
 """
 scripts/build_pitch_deck.py
 ============================
-Build the Black(Out)Jack pitch deck, linked from the README, in two looks:
+Build the Black(Out)Jack "How it works" deck, linked from the README, in two looks:
 
   docs/Pitch-Deck.pdf          the app's dark colours, icons and logo
   docs/Pitch-Deck-Finance.pdf  the same dark colours in a sober report style: no emojis, square corners,
@@ -49,7 +49,7 @@ from scripts.session_files import drinks_files  # noqa: E402
 
 PLAY_URL = "https://black-out-jack.onrender.com"
 REPO_URL = "https://github.com/robert-rjm/Black-Out-Jack"
-DECK = "Pitch deck"
+DECK = "How it works"
 NIGHT_ROUNDS = 40           # length of the modelled night
 BAND_Z = 1.28               # 80% of seats fall inside the band
 
@@ -387,7 +387,7 @@ def build(theme: str, sr: dict, bench: dict) -> str:
       <div class="cv-foot">18+ only · know your limits · never drink and drive · CC BY-NC-SA 4.0</div>
     </section>''')
 
-    return (f"<!doctype html><html><head><meta charset='utf-8'><title>{APP_NAME} pitch deck</title>"
+    return (f"<!doctype html><html><head><meta charset='utf-8'><title>{APP_NAME} how it works</title>"
             f"<style>{logo_css(inline=True)}{CSS}{PITCH_CSS}{FINANCE_CSS if fin else ''}</style></head>"
             f"<body>{''.join(pages)}</body></html>")
 

@@ -170,6 +170,7 @@ This document defines selector ownership for the web UI modules and the shared e
 - Setup screen preset picker: `#rules-preset-setup-field`, `#rules-preset-setup` (`.preset-chip`, `[data-action="setRulesPresetSetup"]`)
 
 ### `static/js/ui/rules.js`
+- How it works popup (`openTourModal`, `closeTourModal`): `#tour-overlay`, `#tour-frame`, loads `/how-it-works`
 - Rules modal (`/rules`, `?mode=normal` for Normal tables): `#rules-overlay`, `#rules-body`
 - House rules marks (drinking tables): `.rules-house-banner`, `#rules-active-only-toggle` (adds `.active-only` to `#rules-body`), `.rule-off`, `.rules-section-off`, `.rule-off-badge`
 

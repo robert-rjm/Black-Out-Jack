@@ -279,7 +279,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
   border-radius: 10px;
   color: var(--text); cursor: pointer; text-align: center;
 }
-/* Preset colours, as on the pitch deck: Starter grey, Standard blue, Full gold */
+/* Preset colours, as in the How it works deck: Starter grey, Standard blue, Full gold */
 .preset-chip.preset-starter  { --preset: var(--muted); }
 .preset-chip.preset-standard { --preset: var(--accent); }
 .preset-chip.preset-full     { --preset: var(--yellow); }

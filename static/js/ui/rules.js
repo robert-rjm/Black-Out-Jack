@@ -145,6 +145,19 @@ function closeRulesModal() {
   closeModal("rules-overlay", { useClass: true });
 }
 
+// How it works: the explainer-deck PDF in a frame. Phones that can't page through an
+// embedded PDF still have the "Open full screen" link under it.
+function openTourModal() {
+  const frame = document.getElementById("tour-frame");
+  if (!frame) return;
+  if (!frame.getAttribute("src")) frame.setAttribute("src", "/how-it-works");   // loaded on first open only
+  openModal("tour-overlay", { useClass: true });
+}
+
+function closeTourModal() {
+  closeModal("tour-overlay", { useClass: true });
+}
+
 function handleRulesBackdropClick(e) {
   if (e.target === document.getElementById("rules-overlay")) {
     closeRulesModal();

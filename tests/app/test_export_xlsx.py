@@ -146,3 +146,15 @@ def test_export_session_is_one_workbook_with_every_sheet(client):
 
 def test_export_session_unknown_room_is_404(client):
     assert client.get("/export_session?room_code=nope").status_code == 404
+
+
+def test_tour_routes_serve_the_pdfs(client):
+    for path in ("/how-it-works", "/how-it-works/finance"):
+        resp = client.get(path)
+        assert resp.status_code == 200 and resp.mimetype == "application/pdf"
+        assert resp.data.startswith(b"%PDF")
+
+
+def test_favicon_ico_serves_the_logo(client):
+    resp = client.get("/favicon.ico")
+    assert resp.status_code == 200 and resp.mimetype == "image/png"

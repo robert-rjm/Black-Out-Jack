@@ -272,6 +272,30 @@
 #rules-body .rules-toc ul li { color: var(--muted); }
 #rules-body .rules-toc ul a { font-weight: 500; padding: 3px 0; }
 
+/* ---- HOW-IT-WORKS OVERLAY (lobby: the explainer-deck PDF in a frame) ---- */
+#tour-overlay {
+  display: none; position: fixed; inset: 0;
+  background: var(--scrim); z-index: 600;
+  align-items: center; justify-content: center; padding: 16px;
+}
+#tour-overlay.open { display: flex; }
+#tour-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  width: 100%; max-width: 960px; height: min(92vh, 640px);
+  padding: 14px 16px; position: relative; display: flex; flex-direction: column; gap: 10px;
+}
+#tour-card h3 { margin: 0; font-size: 16px; }
+#tour-close-btn {
+  position: absolute; top: 10px; right: 12px;
+  background: var(--wash-3); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 18px; line-height: 1;
+  padding: 4px 10px; cursor: pointer;
+}
+#tour-close-btn:hover { background: var(--wash-4); }
+#tour-frame { flex: 1; width: 100%; border: 0; border-radius: 8px; background: var(--bg); }
+.tour-links { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.tour-links a { color: var(--accent); text-decoration: none; }
+
 /* ---- BUST GIVE OVERLAY (also used by the Dealer Lottery and Targeted
    Drinking handout pickers) ---- */
 #bust-give-overlay,
