@@ -59,9 +59,9 @@ Only face-up cards count (hole card / doubled card count when revealed, not when
 | Situation | Sips |
 |-----------|------|
 | Net hand lost | 1 (wager) |
-| Lost hand was doubled | +1× wager |
+| Doubled hand / Blackjack | Counts 2 in your net (doubled win or BJ +2, doubled loss −2) |
 | Lost hand was suited | +1× wager |
-| Lost hand was doubled + suited | +3× wager (4× total) |
+| Lost hand was doubled + suited | +2× wager (4× total with the doubled loss's −2) |
 
 ---
 
@@ -102,13 +102,17 @@ Everyone drinks **1× wager** when any Player gets Blackjack. Multiplied:
 
 ## Player All-Hand Bonus
 
-If **one Player's** hands (all of them, if split) are *entirely* one suit, or *all* total exactly 21 — everyone else drinks (regardless of that Player's win/loss/push):
+If **one Player's** hands (all of them, if split) are *entirely* one suit, or *all* total exactly 21:
 
-| Condition | Others drink |
-|-----------|:---:|
-| All cards same suit | 4× wager |
-| All hands total 21 | 2× wager |
-| Both at once | 6× wager |
+| Condition | Others drink | Player drinks |
+|-----------|:---:|:---:|
+| All cards same suit, more wins than losses | 4× wager | — |
+| All cards same suit, tie or more losses | 2× wager | 2× wager |
+| All hands total 21 (any result) | 2× wager | — |
+| Both, more wins than losses | 6× wager | — |
+| Both, otherwise | 4× wager | 2× wager |
+
+Pushes don't count as wins or losses.
 
 ---
 
@@ -195,7 +199,7 @@ A live stats table (correct/wrong per Player, dealer bust %) runs the whole time
 ---
 
 ## House Rules
-- The host picks 🟢 **Starter**, 🟡 **Standard** or 🔴 **Full** (default) and can switch single rules in ⚙️ Settings → 📜 House rules
+- The host picks ⚪ **Starter**, 🔵 **Standard** or 🟡 **Full** (default) and can switch single rules in ⚙️ Settings → 📜 House rules
 - Changes apply from the **next round** (bust vote and Wild Card at once)
 - Players can **suggest** changes to the host, or vote to decide rule changes as a table
 - Rules marked **OFF AT THIS TABLE** in the rules popup don't apply

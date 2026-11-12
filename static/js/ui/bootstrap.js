@@ -62,18 +62,14 @@
     });
   }
 
-  window.exportDrinksAndClose = function exportDrinksAndClose() {
-    exportDrinkCSV();
-    closeSummaryModal();
-  };
-
   window.exportRecapAndClose = function exportRecapAndClose() {
     exportRecapPdf();
     closeSummaryModal();
   };
 
-  window.exportDecisionLogAndClose = function exportDecisionLogAndClose() {
-    exportDecisionLog();
+  // Developer data: the one session workbook (drinks + decision sheets).
+  window.exportDevDataAndClose = function exportDevDataAndClose() {
+    exportSessionData();
     closeSummaryModal();
   };
 

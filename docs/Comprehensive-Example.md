@@ -760,7 +760,7 @@ the Dealer did **not** lose all hands → ❌ No Hard Switch (**Rule
 | Alice | 2 (lost 1 hand → 1/hand) | 2 |
 | Bob | 0 (immune — won all hands) | 0 |
 
-**Player All-Hand Bonus (→ Rule 5.5) — Bob's hands are entirely `♣`:**
+**Player All-Hand Bonus (→ Rule 5.5) — Bob's hands are entirely `♣` and he won 2 of 2 (more wins than losses → 4× to others):**
 
 | Player | Sips |
 |---|---|

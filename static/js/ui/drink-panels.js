@@ -26,6 +26,7 @@ async function submitBustVote(choice, playerName) {
     });
     const data = await res.json();
     if (data.ok) applyState(data);
+    else if (data.error) showToast(data.error, "error");
   } catch (_) {} finally {
     _requestDone();
   }
@@ -37,6 +38,7 @@ class BustVotePanel {
   constructor() {
     this.modalOpen   = false;
     this.timerHandle = null;
+    this.cardsSig    = null;   // last rendered local votes, see renderVoteCards
   }
 
   mount(el) {
@@ -119,6 +121,13 @@ class BustVotePanel {
     const locals   = myNames.filter(n => !npcSet.has(n));
     const multiLocal = locals.length > 1;
 
+    // Only rebuild when a local vote changed. Polls re-render every 800ms;
+    // replacing the buttons between pointerdown and pointerup sends the click
+    // to the wrap instead of the button, so a tap was lost and had to be repeated.
+    const sig = JSON.stringify(locals.map(n => [n, bustVotes[n] || null]));
+    if (sig === this.cardsSig && wrap.childElementCount) return;
+    this.cardsSig = sig;
+
     wrap.innerHTML = "";
     locals.forEach(name => {
       const voted = bustVotes[name];
@@ -168,6 +177,7 @@ class BustVotePanel {
   close() {
     if (!this.modalOpen) return;
     this.modalOpen = false;
+    this.cardsSig  = null;
     if (this.timerHandle) { clearTimeout(this.timerHandle); this.timerHandle = null; }
     closeModal("bust-vote-modal-overlay");
   }

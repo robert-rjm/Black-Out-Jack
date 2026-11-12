@@ -106,3 +106,55 @@ def test_export_includes_raw_sips_and_drink_rate_section(client):
         assert header[-2:] == ["sips_raw", "rate"]
     finally:
         game_sessions.pop(room_code, None)
+
+
+def test_export_has_settings_sheet_with_every_rule(client):
+    """Sheet 3 carries the table setup and every house rule, so a recap built
+    from the export (scripts/build_recap_deck.py) can show them."""
+    from engine.rules_registry import RULES
+    room_code, room = _make_room_with_export_data()
+    room.rules = room.config.rules.with_rule("side.bust_vote", False)
+    try:
+        resp = client.get(f"/export_xlsx?room_code={room_code}")
+        wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+        rows = [[c.value for c in r] for r in wb["Settings"].iter_rows()]
+        settings = {r[0]: r[1] for r in rows if r and r[0] and r[0] not in ("Setting", "Rule ID")}
+        assert settings["Sips per hand"] == room.wager
+        assert settings["Easy Mode"] == "off"
+        states = {r[0]: r[2] for r in rows if r and len(r) > 2 and r[2] in ("on", "off")}
+        assert len(states) == len(RULES)
+        assert states["side.bust_vote"] == "off"
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_export_session_is_one_workbook_with_every_sheet(client):
+    """The single developer download carries the drinks sheets and the decision sheets."""
+    room_code, _ = _make_room_with_export_data()
+    try:
+        resp = client.get(f"/export_session?room_code={room_code}")
+        assert resp.status_code == 200
+        assert 'filename="session_data_' in resp.headers["Content-Disposition"]
+        wb = openpyxl.load_workbook(io.BytesIO(resp.data))
+        assert wb.sheetnames == ["Summary", "Raw Rows", "Settings", "Hand Decisions", "Dealer Lottery Entries"]
+        # the legacy routes still serve their own half
+        assert openpyxl.load_workbook(io.BytesIO(client.get(f"/export_xlsx?room_code={room_code}").data)
+                                      ).sheetnames == ["Summary", "Raw Rows", "Settings"]
+    finally:
+        game_sessions.pop(room_code, None)
+
+
+def test_export_session_unknown_room_is_404(client):
+    assert client.get("/export_session?room_code=nope").status_code == 404
+
+
+def test_tour_routes_serve_the_pdfs(client):
+    for path in ("/how-it-works", "/how-it-works/finance"):
+        resp = client.get(path)
+        assert resp.status_code == 200 and resp.mimetype == "application/pdf"
+        assert resp.data.startswith(b"%PDF")
+
+
+def test_favicon_ico_serves_the_logo(client):
+    resp = client.get("/favicon.ico")
+    assert resp.status_code == 200 and resp.mimetype == "image/png"

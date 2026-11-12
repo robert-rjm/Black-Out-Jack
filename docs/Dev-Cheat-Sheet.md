@@ -63,11 +63,13 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
 
 ## Player-mimicry bots (rob.json / marko.json / david.json)
 
-1. Play sessions and download decision logs via the web UI's `/export_decisions` route
-   (`GET /export_decisions?room_code=<code>&player=<name optional>`), saving the `.xlsx`
-   files into `data/decisions/` (tracked in git — no longer gitignored, so these can't be
-   silently lost the way a local-only folder can be). Older `decision_log_*.csv` exports
-   (pre-dating the two-sheet xlsx format) are also picked up from the same directory.
+1. Play sessions and download the session workbook with the summary modal's "Developer data"
+   button (`GET /export_session?room_code=<code>&player=<name optional>` →
+   `session_data_<day>.xlsx`, one file with the drinks and decision sheets). Save it into
+   `data/decisions/` (tracked in git, so these can't be silently lost the way a local-only
+   folder can be). The scripts also still read the older formats from the same directory:
+   `drinks_summary_*` + `decision_log_*` xlsx pairs and `decision_log_*.csv` files. When a day
+   has a `session_data_*` file, that day's legacy files are ignored (`scripts/session_files.py`).
 2. (Optional) Take a first look at what's been collected:
    ```bash
    python scripts/load_decision_logs.py                    # summary across all logs
@@ -87,7 +89,7 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
    ```
    Writes/updates `engine/player_profiles/rob.json` (etc.), consumed by
    `engine/style_strategy.py`. Without `--merge`, a rebuild only reflects whatever raw
-   `decision_log_*` files are currently in `--dir` (default `data/decisions/`) — `--merge`
+   `session_data_*` (or legacy `decision_log_*`) files are currently in `--dir` (default `data/decisions/`) — `--merge`
    combines that with the target file's already-recorded deviations instead.
 4. Simulate with those profiles instead of generic basic-strategy bots, and compare:
    ```bash
@@ -111,18 +113,29 @@ python scripts/rules_sync.py update          # re-pin hashes after confirming Ru
 ## Other exports (web UI)
 
 ```
-GET /export_xlsx?room_code=<code>       # Full drink-log XLSX for the session
-GET /export_decisions?room_code=<code>  # Decision-log XLSX (mined by build_player_profiles.py)
+GET /export_session?room_code=<code>    # The one session workbook: drinks + decision sheets (recap, profiles)
+GET /export_xlsx?room_code=<code>       # Legacy: drinks sheets only
+GET /export_decisions?room_code=<code>  # Legacy: decision sheets only
 GET /summary_json?room_code=<code>      # Drink summary as JSON
 GET /recap_html?room_code=<code>        # Recap deck as HTML slides (the browser turns it into the PDF)
 ```
 
-Recap deck as a vector PDF from a session's saved exports (needs local Edge/Chrome):
+Recap deck as a vector PDF from a session's saved export, `session_data_<day>.xlsx` or the legacy pair (needs local Edge/Chrome):
 
 ```bash
 python scripts/build_recap_deck.py 2026-10-19          # -> data/recaps/recap_2026-10-19.pdf
 python scripts/build_recap_deck.py 2026-10-19 --html   # also keep the HTML next to it
+python scripts/build_recap_deck.py 2026-10-19 --dir path/to/exports --out path/to/pdfs
 ```
+
+"How it works" deck for the README, refreshed from the latest game nights, benchmarks and rule counts:
+
+```bash
+python scripts/build_pitch_deck.py                     # -> docs/Pitch-Deck.pdf + docs/Pitch-Deck-Finance.pdf
+python scripts/build_pitch_deck.py --theme finance     # one look only
+```
+The app serves them at `/how-it-works` and `/how-it-works/finance` (the lobby's "How It Works" button opens `/how-it-works` in a popup), so the short URL
+stays valid when the PDFs are rebuilt.
 
 ## Linting
 

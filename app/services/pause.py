@@ -1,7 +1,8 @@
 """
 app/services/pause.py
 ======================
-Host-controlled table pause (e.g. a break to chat).
+Table pause (e.g. a break to chat): any seated player can pause, only the
+admin can resume (permission check lives in app/routes/admin.py:set_paused).
 
 While paused, ``tick`` is skipped (no forfeits, no auto-play) and the
 frontend covers the screen with a "Paused" overlay. On resume every

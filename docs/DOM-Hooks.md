@@ -170,16 +170,18 @@ This document defines selector ownership for the web UI modules and the shared e
 - Setup screen preset picker: `#rules-preset-setup-field`, `#rules-preset-setup` (`.preset-chip`, `[data-action="setRulesPresetSetup"]`)
 
 ### `static/js/ui/rules.js`
+- How it works popup (`openTourModal`, `closeTourModal`): `#tour-overlay`, `#tour-frame`, loads `/how-it-works`
 - Rules modal (`/rules`, `?mode=normal` for Normal tables): `#rules-overlay`, `#rules-body`
 - House rules marks (drinking tables): `.rules-house-banner`, `#rules-active-only-toggle` (adds `.active-only` to `#rules-body`), `.rule-off`, `.rules-section-off`, `.rule-off-badge`
 
 ### `static/js/ui/summary.js`
 - Summary modal: `#summary-overlay`, `#summary-meta`, `#summary-body`
 - `#auto-export-row`, `#auto-export-toggle` (auto-export-decisions-every-10-rounds opt-in, only rendered for the admin when playing under one of the mined-profile names)
-- Drink CSV / decision-log downloads (`exportDrinkCSV`, `exportDecisionLog`)
+- Session workbook download (`exportSessionData`, button "Developer data (xlsx)")
 
 ### `static/js/ui/recap-pdf.js`
 - Summary modal "📊 Download Recap (PDF)" button: `[data-action="exportRecapAndClose"]` (wrapper in `bootstrap.js`) → `exportRecapPdf()`; builds the PDF in a temporary off-screen `<iframe>` it removes afterwards
+- Phones: `#recap-ready` (`.recap-ready`, created and removed by the script) with `#recap-ready-share` (opens the share sheet) and `.recap-ready-close`
 
 ### `static/js/ui/log.js`
 - Header and tabs:

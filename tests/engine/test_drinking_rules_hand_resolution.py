@@ -136,12 +136,13 @@ def test_two_player_table_single_other():
 # ---------------------------------------------------------------------------
 
 def test_sweep_still_fires_against_a_dealer_bj():
-    # Only the cards matter, so a dealer blackjack doesn't cancel the sweep.
+    # A dealer blackjack doesn't cancel the sweep; the losses make it a
+    # non-winning suited sweep, so it splits 2x to the player and 2x to others.
     hands = [make_hand(("2", "H"), ("3", "H"), result="loss"),
              make_hand(("4", "H"), ("5", "H"), result="loss")]
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1, dealer_bj=True)
     assert msgs == DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
-    assert {m[0] for m in msgs} == {"Bob", "Carol"} and all(m[1] == 4 for m in msgs)
+    assert sorted((m[0], m[1]) for m in msgs) == [("Alice", 2), ("Bob", 2), ("Carol", 2)]
 
 
 def test_sweep_single_hand_returns_empty():
@@ -157,7 +158,8 @@ def test_sweep_empty_hands_returns_empty():
 
 
 def test_sweep_all_same_suit_not_all_21():
-    hands = [make_hand(("2", "H"), ("3", "H")), make_hand(("4", "H"), ("6", "H"))]
+    hands = [make_hand(("2", "H"), ("3", "H"), result="win"),
+             make_hand(("4", "H"), ("6", "H"), result="win")]
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
     main = [m for m in msgs if "drinks" in m[2]]
     assert {m[0] for m in main} == {"Bob", "Carol"}
@@ -179,13 +181,60 @@ def test_sweep_all_21_not_same_suit():
 
 
 def test_sweep_both_conditions_x6():
-    hands = [make_hand(("A", "H"), ("K", "H")), make_hand(("J", "H"), ("Q", "H"), ("A", "H"))]
+    hands = [make_hand(("A", "H"), ("K", "H"), result="win"),
+             make_hand(("J", "H"), ("Q", "H"), ("A", "H"), result="push")]
     # both hands all-hearts and all score 21
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
     main = [m for m in msgs if "drinks" in m[2]]
     for _, sips, reason in main:
         assert sips == 1 * 6
         assert "(x6)" in reason
+
+
+@pytest.mark.parametrize("results", [
+    ("win", "loss"),            # tie
+    ("push", "push"),           # all pushes: 0 wins, 0 losses
+    ("loss", "loss"),           # more losses
+    ("win", "loss", "loss"),    # more losses with a win
+])
+def test_sweep_suited_not_winning_splits_2x_each(results):
+    suits_cards = [(("2", "H"), ("3", "H")), (("4", "H"), ("6", "H")), (("5", "H"), ("7", "H"))]
+    hands = [make_hand(*suits_cards[i], result=r) for i, r in enumerate(results)]
+    msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
+    assert sorted((m[0], m[1]) for m in msgs) == [("Alice", 2), ("Bob", 2), ("Carol", 2)]
+    assert all("not a winning sweep" in m[2] for m in msgs)
+
+
+@pytest.mark.parametrize("wager", [1, 2])
+def test_sweep_suited_winning_ignores_pushes(wager):
+    hands = [make_hand(("2", "H"), ("3", "H"), result="win"),
+             make_hand(("4", "H"), ("6", "H"), result="push")]
+    msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, wager)
+    assert sorted((m[0], m[1]) for m in msgs) == [("Bob", 4 * wager), ("Carol", 4 * wager)]
+
+
+def test_sweep_suited_and_all_21_not_winning():
+    # Both bonuses, a loss and a push: others get 2x (suited) + 2x (all 21),
+    # the player drinks 2x.
+    hands = [make_hand(("A", "H"), ("K", "H"), result="push"),
+             make_hand(("J", "H"), ("Q", "H"), ("A", "H"), result="loss")]
+    msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
+    assert sorted((m[0], m[1]) for m in msgs) == [("Alice", 2), ("Bob", 4), ("Carol", 4)]
+    assert all("(x4)" in m[2] for m in msgs if m[0] != "Alice")
+
+
+def test_sweep_all_21_only_pays_regardless_of_result():
+    hands = [make_hand(("A", "H"), ("K", "D"), result="loss"),
+             make_hand(("7", "S"), ("4", "C"), ("K", "H"), result="push")]
+    msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1)
+    assert sorted((m[0], m[1]) for m in msgs) == [("Bob", 2), ("Carol", 2)]
+
+
+def test_sweep_not_winning_player_drinks_even_when_dealer_excluded():
+    hands = [make_hand(("2", "H"), ("3", "H"), result="loss"),
+             make_hand(("4", "H"), ("6", "H"), result="loss")]
+    msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1, dealer_name="Bob")
+    assert sorted((m[0], m[1]) for m in msgs) == [("Alice", 2), ("Carol", 2)]
 
 
 def test_sweep_neither_condition_returns_empty():
@@ -196,7 +245,9 @@ def test_sweep_neither_condition_returns_empty():
 
 @pytest.mark.parametrize("wager,multiplier", [(1, 4), (2, 4)])
 def test_sweep_wager_scaling(wager, multiplier):
-    hands = [make_hand(("2", "H"), ("3", "H")), make_hand(("4", "H"), ("6", "H"))]
+    hands = [make_hand(("2", "H"), ("3", "H"), result="win"),
+             make_hand(("4", "H"), ("6", "H"), result="loss"),
+             make_hand(("5", "H"), ("7", "H"), result="win")]
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, wager)
     main = [m for m in msgs if "drinks" in m[2]]
     for _, sips, _ in main:
@@ -240,7 +291,8 @@ def test_sweep_cancellation_skips_hard_switch_dealer():
 
 
 def test_sweep_excludes_dealer_and_player():
-    hands = [make_hand(("2", "H"), ("3", "H")), make_hand(("4", "H"), ("6", "H"))]
+    hands = [make_hand(("2", "H"), ("3", "H"), result="win"),
+             make_hand(("4", "H"), ("6", "H"), result="win")]
     msgs = DrinkingRules.check_all_hands_sweep("Alice", hands, ALL, 1, dealer_name="Bob")
     main = [m for m in msgs if "drinks" in m[2]]
     assert {m[0] for m in main} == {"Carol"}

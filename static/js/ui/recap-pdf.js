@@ -6,6 +6,12 @@
 // PDF is made here: each 1280×720 slide is drawn to a canvas (html2canvas)
 // and added as one landscape page (jsPDF). Both libraries are vendored in
 // static/js/ and only load the first time someone asks for a recap.
+//
+// Saving: desktops download the file. Phones get the share sheet (Save to
+// Files, AirDrop, WhatsApp...) instead: iOS can't download a blob, and
+// jsPDF's fallback of opening the blob URL would navigate the home-screen
+// app away from the game. iOS only opens the share sheet from a tap, and the
+// build takes a while, so a "Recap ready" bar offers the tap.
 
 const _RECAP_LIBS = ["/static/js/html2canvas.min.js", "/static/js/jspdf.umd.min.js"];
 const _RECAP_PT = [960, 540];   // 1280×720 CSS px at 0.75 pt/px
@@ -37,6 +43,60 @@ function _recapFrame(html) {
     frame.onload = () => resolve(frame);
     document.body.appendChild(frame);
   });
+}
+
+// Phones and tablets: a coarse pointer and the Web Share API with files
+function _recapUseShareSheet(file) {
+  return window.matchMedia("(pointer: coarse)").matches
+    && !!navigator.canShare && navigator.canShare({ files: [file] });
+}
+
+function _downloadRecap(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function _deliverRecap(blob, name) {
+  const file = new File([blob], name, { type: "application/pdf" });
+  if (!_recapUseShareSheet(file)) {
+    _downloadRecap(blob, name);
+    showToast("Recap downloaded");
+    return;
+  }
+  _showRecapReady(file);
+}
+
+function _closeRecapReady() {
+  const bar = document.getElementById("recap-ready");
+  if (bar) bar.remove();
+}
+
+function _showRecapReady(file) {
+  _closeRecapReady();
+  const bar = document.createElement("div");
+  bar.id = "recap-ready";
+  bar.className = "recap-ready";
+  bar.innerHTML = `<span class="recap-ready-text">📊 Recap ready</span>
+    <button type="button" class="btn green" id="recap-ready-share">Save / share PDF</button>
+    <button type="button" class="recap-ready-close" title="Close">✕</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector(".recap-ready-close").onclick = _closeRecapReady;
+  bar.querySelector("#recap-ready-share").onclick = async () => {
+    try {
+      await navigator.share({ files: [file], title: "Session recap" });
+      _closeRecapReady();
+    } catch (e) {
+      if (e.name === "AbortError") return;           // closed the sheet: keep the bar for another go
+      _downloadRecap(file, file.name);                 // share refused: try a plain download instead
+      _closeRecapReady();
+    }
+  };
 }
 
 async function exportRecapPdf() {
@@ -75,8 +135,7 @@ async function exportRecapPdf() {
       });
     }
     const day = new Date().toISOString().slice(0, 10);
-    pdf.save(`recap_${roomCode}_${day}.pdf`);
-    showToast("Recap downloaded");
+    _deliverRecap(pdf.output("blob"), `recap_${roomCode}_${day}.pdf`);
   } catch (e) {
     showToast("Could not build the recap: " + (e.message || "try again"), "error");
   } finally {

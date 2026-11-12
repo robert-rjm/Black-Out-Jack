@@ -4,7 +4,7 @@ scripts/build_player_profiles.py
 Build per-player deviation tables from accumulated decision-log workbooks and
 write them to engine/player_profiles/<name>.json.
 
-Each decision_log_*.xlsx (downloaded from GET /export_decisions and saved
+Each session_data_*.xlsx (downloaded from GET /export_session and saved
 into data/decisions/) has two sheets: "Hand Decisions" (hit/stand/double/
 split/insurance) and "Dealer Lottery Entries" (the 0-5 stake decision) --
 both get mined here into the same profile JSON, under "deviations" and
@@ -61,6 +61,7 @@ import openpyxl
 # thresholds from engine/style_strategy.py instead of re-deriving them here.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from engine.style_strategy import _table_bias_bucket as _bias_bucket  # noqa: E402
+from scripts.session_files import decision_files  # noqa: E402
 from engine.style_strategy import _owed_bucket  # noqa: E402
 
 
@@ -91,20 +92,18 @@ def _majority(actions: list[str]) -> tuple[str, float, dict[str, int]]:
     return majority_action, counts[majority_action] / len(actions), dict(counts)
 
 
-def _load_xlsx_sheet(directory: str, sheet_name: str,
-                      pattern: str = "decision_log_*.xlsx") -> list[dict]:
+def _load_xlsx_sheet(directory: str, sheet_name: str) -> list[dict]:
     """
-    Load every row of `sheet_name` across every decision_log_*.xlsx file in
-    `directory` (each workbook has a "Hand Decisions" sheet and a
-    "Dealer Lottery Entries" sheet -- see /export_decisions in
-    app/routes/reports.py). Values are coerced to strings so the result
+    Load every row of `sheet_name` across every session workbook in
+    `directory` (session_data_*.xlsx, plus legacy decision_log_*.xlsx for
+    days without one; each has a "Hand Decisions" sheet and a "Dealer
+    Lottery Entries" sheet -- see /export_session in app/routes/reports.py). Values are coerced to strings so the result
     matches csv.DictReader's shape exactly, since every downstream parser
     here (_parse_bool, int(), .strip(), etc.) was written against that
     all-strings assumption and is unchanged by this xlsx switch.
     """
     rows = []
-    d = Path(directory)
-    for path in sorted(d.glob(pattern)):
+    for path in decision_files(directory):
         wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
         if sheet_name not in wb.sheetnames:
             continue
@@ -389,7 +388,7 @@ def build_lottery_stakes(rows: list[dict], player_name: str,
                           min_samples: int = 3) -> list[dict]:
     """
     Group this player's (human) Dealer Lottery entries -- rows from the
-    "Dealer Lottery Entries" sheet of decision_log_*.xlsx, written by
+    "Dealer Lottery Entries" sheet of session_data_*.xlsx, written by
     app.services.decision_log.record_dealer_lottery_entry -- by how many
     sips they owed this round when the entry window opened, and record
     their average stake per bucket.
@@ -469,7 +468,7 @@ def _confirm_create(name: str, assume_yes: bool) -> bool:
 def main():
     parser = argparse.ArgumentParser(description="Build player deviation profiles.")
     parser.add_argument("--dir",          default="data/decisions",
-                        help="Directory containing decision_log_*.xlsx/.csv files "
+                        help="Directory containing session_data_*.xlsx (or legacy decision_log_*.xlsx/.csv) files "
                              "(downloaded from /export_decisions)")
     parser.add_argument("--out",          default="engine/player_profiles",
                         help="Output directory for <name>.json profiles")

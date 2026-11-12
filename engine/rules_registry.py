@@ -145,7 +145,7 @@ RULES: tuple[RuleDef, ...] = (
     _r("cards.lucky_sevens", "Lucky Sevens (third 7)", "third 7 in a hand",
        "drink", "instant", "full", 15, anchor="45-devils-hand-and-lucky-sevens",
        csv=("Lucky Sevens",), halved=False),
-    _r("loss.doubled", "Lost doubled hand +1", "lose a double, one extra",
+    _r("loss.doubled", "Doubled hand counts ±2", "a double is worth 2 in your net, win or lose",
        "drink", "end-of-round", "starter", dep=("core.net_loss",), anchor=_A51,
        csv=("Lost doubled hand",), halved=True),
     _r("loss.suited", "Lost suited hand +1 (x4 if doubled too)", "lose a suited hand, one extra",

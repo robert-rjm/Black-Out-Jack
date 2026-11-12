@@ -4,11 +4,14 @@ app/routes/static_pages.py
 Static-asset, doc and link routes.
 
 GET /logo.png       — app icon (PWA)
+GET /favicon.ico   — the same icon, for pages without a <link rel="icon"> (PDF tabs, bare requests)
 GET /manifest.json  — PWA manifest
 GET /rules          — Rules.md (or Rules-Normal.md with ?mode=normal) as JSON for
                        frontend markdown rendering
 GET /rules_registry — every toggleable house rule (names, groups, presets) as
                        cacheable JSON for the settings view
+GET /how-it-works   — the "How it works" PDF (docs/Pitch-Deck.pdf, shown in the lobby popup);
+                       /how-it-works/finance is the report-style version (docs/Pitch-Deck-Finance.pdf)
 GET /beer           — redirect to the PayPal tip link (see static/js/ui/tip.js)
 GET /beer_qr        — the tip link plus a QR code of it, as inline SVG
 """
@@ -30,6 +33,11 @@ _ROOT = os.path.dirname(os.path.dirname(_HERE))      # .../Black-Out-Jack/
 @bp.route("/logo.png")
 def serve_logo():
     return send_from_directory(current_app.static_folder, "img/logo.png")
+
+
+@bp.route("/favicon.ico")
+def favicon():
+    return send_from_directory(current_app.static_folder, "img/logo.png", mimetype="image/png", max_age=86400)
 
 
 @bp.route("/manifest.json")
@@ -59,6 +67,24 @@ def rules():
         return jsonify({"ok": True, "content": content})
     except FileNotFoundError:
         return jsonify({"ok": False, "content": "# Rules\n\nRules file not found."})
+
+
+def _tour_pdf(filename: str):
+    """Show a "How it works" PDF in the browser; 404 if the file isn't deployed."""
+    return send_from_directory(os.path.join(_ROOT, "docs"), filename, mimetype="application/pdf",
+                               as_attachment=False, max_age=300)
+
+
+@bp.route("/how-it-works")
+def tour():
+    """Short, shareable link to the "How it works" deck (also what a QR code can point at)."""
+    return _tour_pdf("Pitch-Deck.pdf")
+
+
+@bp.route("/how-it-works/finance")
+def tour_finance():
+    """The same deck as a sober report: no emojis, square corners."""
+    return _tour_pdf("Pitch-Deck-Finance.pdf")
 
 
 @bp.route("/rules_registry")

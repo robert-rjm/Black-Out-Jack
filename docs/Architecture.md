@@ -111,7 +111,7 @@ Element IDs and which file owns them are in [DOM-Hooks.md](DOM-Hooks.md).
 | Simulation | `simulation.py`, `run_all_configs.py`, `compare_configs.py`, `compare_bot_styles.py`, `snapshot.py` (saves to `snapshots/<label>/`) |
 | Bot profiles | `load_decision_logs.py`, `build_player_profiles.py` (mines `data/decisions/` into `engine/player_profiles/`) |
 | Doc sync | `rules_sync.py`, `terms_sync.py` |
-| Reports | `build_recap_deck.py` (recap deck as a vector PDF from two saved exports, via local Edge/Chrome) |
+| Reports | `build_recap_deck.py` (recap deck as a vector PDF from two saved exports, via local Edge/Chrome; its `print_pdf` is shared), `build_pitch_deck.py` (the README's "How it works" deck in two looks, `docs/Pitch-Deck.pdf` in the app's colours and `docs/Pitch-Deck-Finance.pdf` in the same dark colours as a sober report: no emojis, square corners, numbered blocks; the typical night is modelled from the logged rounds in `data/decisions/`, balance comes from `scripts/benchmarks.json`, rule counts from the rules registry) |
 
 ## Layering Rules
 
@@ -161,27 +161,74 @@ Each room picks which drinking rules it plays. The design docs are
 
 ## Session recap deck
 
-The summary modal's **📊 Download Recap (PDF)** button gives a 14-page,
-consulting-style story of the session. The cover comes first, then the
-executive summary, race, league table, sip bridge, drivers, tempo, decision
-quality, the house, side games, player comparables, awards, definitions, and
-a thank-you page with the tip QR code.
+The summary modal's **📊 Download Recap (PDF)** button gives a
+consulting-style story of the session, about 15 pages plus one per player.
+The cover comes first, then the executive summary, race, league table, sip
+bridge, drivers, tempo, decision quality, the house, side games, player
+comparables and awards. Then comes a recap page for each player, in
+finishing order: their running total against a typical seat, top sip
+sources, headline numbers, hands, doubles and splits, basic-strategy match,
+dealer record, Drink Rate factor, awards and a takeaway. An appendix covers
+the table setup and house rules, then the definitions, and a thank-you page
+with the tip QR code closes the deck.
 
 - **One builder.** `app/services/recap_deck.py` turns the export rows
   (`drinks.csv_rows`, `_decision_log`, `_dealer_lottery_decision_log`) into
   numbers (`analyse`) and then into one HTML page of 1280×720 slides
   (`build_html`). The slides use the app's colours (the `:root` tokens in
   `main.css`) and logo. Slide titles are full-sentence takeaways worded from
-  the data. Slides without data drop out (decision quality, the house), and
-  page numbers follow.
+  the data. Slides without data drop out (decision quality, the house, side
+  games), and page numbers follow.
+- **Drink Rate.** Each drink row carries `sips_raw` (before the factor) and
+  `rate`. When any seat played off 1.0×, the bridge starts from the sips owed
+  at 1.0× with a "Drink Rate factors" step. The league table, comparables and
+  player pages show each seat's average factor. Two extra awards appear:
+  Booster and Sipping smart. Rounds per factor come from
+  `stats.rate_rounds` in the app, and from the Summary sheet's DRINK RATE
+  table in an xlsx export. Exports from before the `rate` column read as
+  1.0× everywhere.
+- **House rules.** `/recap_html` passes the room's `RuleSet`, sips per hand,
+  hands per player and Easy Mode as `setup`. The setup slide lists the rules
+  that were off, grouped by `GROUPS`, with the preset. A side game shows when
+  its rule is on or when it left any sips, so a rule turned off mid-session
+  still counts. The deck shows the rules as they were at export, because rule
+  changes aren't recorded. `/export_session` writes the same setup and every
+  rule's on/off state to a "Settings" sheet, which the script reads back.
+  Exports from before that sheet existed have no rules, and the setup slide
+  says so.
+- **Moments and streaks.** The race chart marks milestones (diamonds), shades
+  the rounds played off 1.0×, and its key moments add the Drink Rate start,
+  each milestone and the two biggest Hard Dealer Switches. Milestone claimers
+  come from `drinks.milestones_claimed` (the Summary sheet's MILESTONES table
+  in an export). The round is where their running net total passed the step.
+  The longest losing streak is `stats.streaks` live and is rebuilt from the
+  decision log for an export. Side games cover Targeted Drinking and
+  per-player bust calls. The house adds Hard Dealer Switches per dealer.
+- **Hands.** The decision log has the total before each decision but not
+  the final total. So the deck shows each player's average starting hand
+  (the two-card total at the first decision) and the average total they
+  stood on, rather than an "average hand value". "Paid-off risk" is the hit
+  or double on a hard total, in a hand that went on to win, with the
+  highest chance of busting on the next card (`_bust_chance`, infinite
+  deck). It gets an award, a key moment, and each player's own best one on
+  their page.
+- **Benchmark.** Sips per hand counts net sips without side games,
+  milestones and streak handouts, over hands with a logged decision. The
+  league table compares it with the simulator's closest table, read from
+  `static/js/benchmarks.js`, which is tracked and deployed.
 - **PDF in the browser.** Render has no browser to print with, so
   `GET /recap_html` returns the HTML and `static/js/ui/recap-pdf.js` lays it
   out in an off-screen iframe. It draws each slide with html2canvas, adds it
   as a jsPDF page, and puts the tip link back as a clickable area. Both
   libraries are vendored in `static/js/` and load on the first tap only.
   The pages are images, about 3 MB per deck.
+- **Saving.** Desktops download the file. Phones (a coarse pointer, plus Web
+  Share with files) get the share sheet instead: iOS can't download a blob,
+  and opening it would take the home-screen app away from the game. iOS
+  only opens the sheet from a tap, so a "Recap ready" bar offers one once
+  the PDF is built.
 - **PDF on a dev machine.** `scripts/build_recap_deck.py <day>` reads
-  `data/decisions/drinks_summary_<day>.xlsx` and `decision_log_<day>.xlsx`,
+  `data/decisions/session_data_<day>.xlsx` (older sessions: the pair `drinks_summary_<day>.xlsx` and `decision_log_<day>.xlsx`),
   builds the same HTML and prints it to a vector PDF through headless
   Edge/Chrome, written to `data/recaps/`.
 
@@ -338,7 +385,7 @@ Commit the updated `docs/.terms_sync.json` alongside your change.
 - `flask` (for web UI)
 - `pydantic` (for web UI — validates the state payload the web UI polls; see `app/models/state_schema.py`)
 - `segno` (pure Python, no dependencies — renders QR codes as SVG: the room's join link for `GET /room_invite`, the tip link for `/beer_qr` and the recap deck)
-- `openpyxl` (for web UI — `/export_xlsx` and `/export_decisions`; also used by `scripts/build_player_profiles.py` and `scripts/load_decision_logs.py` to read exported logs back in)
+- `openpyxl` (for web UI — `/export_session`, plus the legacy `/export_xlsx` and `/export_decisions`; also used by `scripts/build_player_profiles.py` and `scripts/load_decision_logs.py` to read exported logs back in)
 - `pytest` (for running the test suite)
 - No other dependencies for terminal play
 - Vendored browser libraries (in `static/js/`, no install step): `purify.min.js`, `marked.min.js` (Rules modal), `html2canvas.min.js` 1.4.1, `jspdf.umd.min.js` 2.5.2 (recap PDF)

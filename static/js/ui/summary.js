@@ -2,9 +2,9 @@
 // SESSION SUMMARY & EXPORTS
 // ============================================================
 // Split out of admin-settings.js: the end-of-session summary modal, the
-// drink CSV / decision-log downloads and the opt-in auto-export.
+// session-data download and the opt-in auto-export.
 
-// Auto-export (every 10 rounds, both reports) is a personal convenience for
+// Auto-export (every 10 rounds, the session workbook) is a personal convenience for
 // whoever's mining these sessions into bot profiles -- not a security
 // boundary, just hidden from everyone else's summary modal so it doesn't
 // clutter a normal player's view. Off by default even for these names; the
@@ -99,22 +99,14 @@ function closeSummaryModal() {
 }
 
 // ============================================================
-// CSV EXPORT
+// SESSION DATA EXPORT
 // ============================================================
-function exportDrinkCSV() {
+function exportSessionData() {
   if (!roomCode) { alert("No active session."); return; }
-  window.location.href = "/export_xlsx?room_code=" + encodeURIComponent(roomCode);
+  window.location.href = "/export_session?room_code=" + encodeURIComponent(roomCode);
 }
 
-function exportDecisionLog() {
-  if (!roomCode) { alert("No active session."); return; }
-  window.location.href = "/export_decisions?room_code=" + encodeURIComponent(roomCode);
-}
-
-// Fires both existing downloads back to back (same requests the manual
-// summary-modal buttons make) -- staggered slightly so the browser treats
-// them as two distinct attachment downloads instead of one navigation
-// interrupting the other.
+// The auto-export is the same single-workbook download as the manual button.
 let _lastAutoExportRound = 0;
 
 function _maybeAutoExportDecisions(state) {
@@ -123,6 +115,5 @@ function _maybeAutoExportDecisions(state) {
   _lastAutoExportRound = round;
   if (!_autoExportDecisionsOn()) return;
 
-  exportDrinkCSV();
-  setTimeout(() => exportDecisionLog(), 400);
+  exportSessionData();
 }

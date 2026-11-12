@@ -131,14 +131,26 @@ def test_net_losses_zero_no_message():
 # normal branch — doubled / suited losses
 # ---------------------------------------------------------------------------
 
-def test_lost_doubled_hand_extra_sip():
+def test_lost_doubled_hand_counts_two_in_net():
     p = make_player("Alice", hands=[
         make_hand(("K", "S"), ("9", "H"), doubled=True, result="loss"),
     ])
     msgs = DrinkingRules.on_round_end([p], wager=1)
-    doubled_msgs = _msgs_for(msgs, "Alice", "lost a doubled hand")
-    assert len(doubled_msgs) == 1
-    assert doubled_msgs[0][1] == 1
+    assert _msgs_for(msgs, "Alice", "lost a doubled hand") == []
+    assert [m[1] for m in _msgs_for(msgs, "Alice", "net loss")] == [2]
+
+
+@pytest.mark.parametrize("winning_hand", [
+    make_hand(("K", "S"), ("9", "H"), doubled=True, result="win"),   # doubled win
+    make_hand(("A", "H"), ("K", "D"), result="win"),                 # Blackjack
+], ids=["doubled-win", "blackjack"])
+def test_doubled_loss_offset_by_doubled_win_or_blackjack(winning_hand):
+    p = make_player("Alice", hands=[
+        winning_hand,
+        make_hand(("6", "S"), ("5", "H"), ("9", "D"), doubled=True, result="loss"),
+    ])
+    msgs = DrinkingRules.on_round_end([p], wager=1)
+    assert sum(m[1] for m in msgs if m[0] == "Alice") == 0
 
 
 def test_lost_suited_hand_extra_sip():
@@ -156,9 +168,9 @@ def test_lost_doubled_and_suited_hand_totals_4x_wager():
         make_hand(("K", "S"), ("9", "S"), doubled=True, result="loss"),
     ])
     msgs = DrinkingRules.on_round_end([p], wager=2)
-    assert len(_msgs_for(msgs, "Alice", "lost a doubled hand")) == 2  # doubled + combo
+    assert len(_msgs_for(msgs, "Alice", "lost a doubled hand")) == 1  # combo
     assert len(_msgs_for(msgs, "Alice", "lost a suited hand")) == 1
-    # net loss 1x + doubled 1x + suited 1x + combo 1x, all at wager 2 = 8
+    # net loss 2x (doubled) + suited 1x + combo 1x, all at wager 2 = 8
     assert sum(m[1] for m in msgs if m[0] == "Alice") == 8
 
 

@@ -215,7 +215,7 @@ Each seat has a **drink rate** that scales the sips it drinks, so someone on win
 
 Each table picks which drinking rules it plays ([Rules §6.4](Rules.md#64-house-rules-presets)).
 
-- **Setup:** tap **📜 House rules: Full ▸** on the setup screen to pick 🟢 Starter, 🟡 Standard or 🔴 Full (the default; most tables leave it folded). The bust-vote toggle still decides the bust vote.
+- **Setup:** tap **📜 House rules: Full ▸** on the setup screen to pick ⚪ Starter, 🔵 Standard or 🟡 Full (the default; most tables leave it folded). The bust-vote toggle still decides the bust vote.
 - **Mid-game:** ⚙️ Settings → **📜 House rules**. The host picks a preset, taps **➕ Next rule** to add the next rule in the learning order, or switches rules and whole groups on and off. Changes queue for the next round. **Undo all** drops the queued changes.
 - **Quick switches:** the bust vote and the Wild Card sit at the top of 📜 House rules and change at once (they used to be toggles in the main settings view).
 - **Suggestions:** players see a **Suggest on / off** button on every rule. A suggestion lands in the host's 💡 inbox (a red badge on 📜 House rules), where ✓ queues it and ✗ drops it.

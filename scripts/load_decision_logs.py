@@ -1,7 +1,7 @@
 """
 scripts/load_decision_logs.py -- Phase D, step 1 (docs/planning/DecisionLog-Plan.md)
 
-Loads all `decision_log_*.xlsx` exports out of data/decisions/ (the "Hand
+Loads all session exports (`session_data_*.xlsx`, or legacy `decision_log_*.xlsx`) out of data/decisions/ (the "Hand
 Decisions" sheet -- see GET /export_decisions in app/routes/reports.py),
 concatenates them, and reports a per-player breakdown -- a first look at how
 much training data has been collected for each of Rob, Marco, and David
@@ -32,15 +32,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DEFAULT_DIR = os.path.join(ROOT, "data", "decisions")
 
+sys.path.insert(0, ROOT)
+from scripts.session_files import decision_files  # noqa: E402
+
 
 def load_rows(directory: str) -> list[dict]:
-    """Read the "Hand Decisions" sheet of every decision_log_*.xlsx in
+    """Read the "Hand Decisions" sheet of every session export in
     `directory` and return all rows as string-keyed dicts (values coerced
     to strings, matching this script's original csv.DictReader shape),
     tagged with the source filename."""
-    files = sorted(Path(directory).glob("decision_log_*.xlsx"))
+    files = decision_files(directory)
     if not files:
-        print(f"No decision_log_*.xlsx files found in {directory}")
+        print(f"No session_data_*.xlsx (or legacy decision_log_*.xlsx) files found in {directory}")
         return []
 
     rows: list[dict] = []
@@ -142,7 +145,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dir", default=DEFAULT_DIR,
-        help=f"Directory containing decision_log_*.xlsx files (default: {DEFAULT_DIR})",
+        help=f"Directory containing session_data_*.xlsx files (default: {DEFAULT_DIR})",
     )
     parser.add_argument(
         "--player", default=None,
