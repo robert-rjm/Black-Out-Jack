@@ -129,6 +129,29 @@ def apply_dealer_lottery_entry_forfeit(session: GameRoom) -> None:
     resolve_dealer_lottery(session)
 
 
+def _award_held(session: GameRoom, name: str, sips: int, rule: str, *, reason: str) -> None:
+    """award_sips(), but remember how much it moved the session sip ticker.
+
+    The bottom sip counter must not jump while the lottery is still playing
+    out (reveal animation, handouts), so serialize_state subtracts this held
+    amount until the lottery is over (see lottery_sip_hold_active)."""
+    before = session.drinks.sip_ticker.get(name, 0)
+    award_sips(session, name, sips, rule, reason=reason)
+    delta = session.drinks.sip_ticker.get(name, 0) - before
+    if delta:
+        hold = session.round._dealer_lottery_sip_hold
+        hold[name] = hold.get(name, 0) + delta
+
+
+def lottery_sip_hold_active(session: GameRoom) -> bool:
+    """True while a resolved lottery still has its reveal or handouts open."""
+    rnd = session.round
+    return bool(rnd._dealer_lottery_sip_hold) and (
+        rnd._dealer_lottery_reveal_deadline is not None
+        or rnd._dealer_lottery_handout_expires_at is not None
+    )
+
+
 def _draw(deck) -> Card:
     """Pop the next card from `deck`, replenishing with a fresh shuffled
     52-card deck if it runs dry mid-resolution. A run of several re-splits
@@ -272,6 +295,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     session.round._dealer_lottery_handouts_given = set()
     session.round._dealer_lottery_handout_log = []
     session.round._dealer_lottery_giver_clocks = {}
+    session.round._dealer_lottery_sip_hold = {}
     pending_handouts: dict[str, int] = {}  # giver -> amount still to hand out
     drink_amounts: dict[str, int] = {}     # name -> sips this lottery makes them drink
     credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
@@ -295,7 +319,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             if busted >= 2 and x == DEALER_LOTTERY_ALL_IN_STAKE:
                 handout_amt += DEALER_LOTTERY_ALL_IN_BONUS * wager
             if credit > 0:
-                award_sips(
+                _award_held(
                     session, name, -credit, "Dealer Lottery credit",
                     reason=f"Dealer Lottery: {busted}/{n_hands} split hands busted -- -{credit} sip credit",
                 )
@@ -307,7 +331,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             # 4 = 2x, 5 = 2.5x -- standing through a re-split chain costs
             # more than the un-split base case, but only gently.
             drink = min(math.ceil(x * wager * n_hands / 2), DEALER_LOTTERY_MAX_DRINK * wager)
-            award_sips(
+            _award_held(
                 session, name, drink, "Dealer Lottery drink",
                 reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",
             )
@@ -324,7 +348,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     session.round._dealer_lottery_handout_expires_at = None
     session.round._dealer_lottery_reveal_acked = set()
     session.round._dealer_lottery_reveal_deadline = (
-        time.monotonic() + DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS if pending_handouts else None
+        time.monotonic() + DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS
     )
 
     session.drinks.last_dealer_lottery_result = {
@@ -416,7 +440,7 @@ def give_dealer_lottery_sip(session: GameRoom, giver_name: str, recipient_name: 
     if not any(p.name == recipient_name for p in session.all_players):
         return False
 
-    award_sips(
+    _award_held(
         session, recipient_name, amount, "Dealer Lottery handout",
         reason=f"Dealer Lottery handout (from {giver_name}): +{amount} sip(s)",
     )
@@ -448,7 +472,7 @@ def apply_dealer_lottery_handout_forfeit(session: GameRoom) -> None:
         # or the hard safety cap passed (panel never showed at all).
         if not hard_cap_hit and not (giver_name in clocks and now >= clocks[giver_name]):
             continue
-        award_sips(
+        _award_held(
             session, giver_name, amount, "Dealer Lottery handout forfeit",
             reason=(
                 f"Dealer Lottery handout forfeited -- {giver_name} didn't assign "

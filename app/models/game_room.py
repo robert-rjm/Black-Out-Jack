@@ -161,6 +161,9 @@ class RoundState:
     # screen (/dealer_lottery/panel_shown): giver name -> monotonic expiry.
     # _dealer_lottery_handout_expires_at above is just the hard safety cap.
     _dealer_lottery_giver_clocks: dict = field(default_factory=dict)
+    # Sips the lottery added to the session sip ticker, hidden from the live
+    # ticker until the lottery fully ends: name -> net ticker delta.
+    _dealer_lottery_sip_hold: dict = field(default_factory=dict)
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 

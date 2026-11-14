@@ -129,6 +129,13 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         _compute_live_drink_totals(session) if session.drinking_mode else ({}, {})
     )
 
+    # Dealer Lottery: keep its sips out of the live ticker until it fully
+    # ends, so the counter doesn't spoil the reveal or the handouts.
+    from app.services.dealer_lottery import lottery_sip_hold_active  # lazy: dealer_lottery imports this module
+    if lottery_sip_hold_active(session):
+        _hold = session.round._dealer_lottery_sip_hold
+        sip_totals = {n: max(0, v - _hold.get(n, 0)) for n, v in sip_totals.items()}
+
     _payout_data = compute_payout_data(session)
 
     # ---- This-round / last-round drink summaries ----

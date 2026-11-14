@@ -818,6 +818,26 @@ def test_handout_forfeit_noop_before_expiry(monkeypatch):
     assert "Alice" not in room.round._dealer_lottery_handouts_given
 
 
+def test_sip_ticker_hides_lottery_sips_until_lottery_ends(monkeypatch):
+    """The bottom sip counter must not move for lottery drinks/handouts until
+    the reveal and every handout are over."""
+    room = _nine_pair_room()
+    room._room_clients["c1"] = {"name": "Alice", "local_names": ["Alice"], "role": "admin", "kicked": False}
+    submit_dealer_lottery_entry(room, "Alice", 2)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [   # no bust: Alice drinks
+        make_card("K", "C"), make_card("9", "D"), make_card("K", "D"), make_card("9", "C"),
+    ])
+    base = serialize_state(room, "c1")["sip_totals"].get("Alice", 0)
+    resolve_dealer_lottery(room)
+    assert room.drinks.sip_ticker.get("Alice", 0) > base          # really awarded...
+    assert serialize_state(room, "c1")["sip_totals"].get("Alice", 0) == base   # ...but hidden during reveal
+    room.round._dealer_lottery_reveal_deadline = None             # everyone closed the reveal
+    room.round._dealer_lottery_handout_expires_at = None          # no handouts pending
+    assert serialize_state(room, "c1")["sip_totals"].get("Alice", 0) > base
+
+
 def test_giver_clock_starts_only_when_panel_shown(monkeypatch):
     from app.services.dealer_lottery import start_dealer_lottery_giver_clocks
     room = _both_bust_room(monkeypatch)
