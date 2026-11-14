@@ -67,10 +67,11 @@ def main():
         if not overwrite:
             print(f"Error: snapshot '{label}' already exists at {dest_dir} (use --overwrite to replace it)")
             sys.exit(1)
-        shutil.rmtree(dest_dir)
+        # Overwrite the files in place: deleting the folder fails on Windows
+        # when OneDrive / Explorer holds a handle on it.
         print(f"Replacing existing snapshot '{label}'.")
 
-    os.makedirs(dest_dir)
+    os.makedirs(dest_dir, exist_ok=True)
     for f in FILES_TO_SNAPSHOT:
         shutil.copy2(os.path.join(HERE, f), os.path.join(dest_dir, f))
 
