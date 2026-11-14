@@ -51,6 +51,12 @@ function updateRoleUI(state) {
   // NEW ROUND is only relevant at round-over; during pre-deal the DEAL button takes over
   if (dealerActions) dealerActions.style.display = (isMyDealerClient && isRoundOver) ? "block" : "none";
   if (waitingHint)   waitingHint.style.display   = (!isMyDealerClient && myRole !== ROLE.SPECTATOR && isRoundOver) ? "block" : "none";
+  // When the dealer role will pass on, say so instead of "NEW ROUND"
+  const newRoundLabel = state.suggest_rotate ? "HANDOVER DEALER" : "NEW ROUND";
+  ["btn-newround-dig", "btn-newround-ref"].forEach(id => {
+    const b = document.getElementById(id);
+    if (b && b.textContent !== newRoundLabel) b.textContent = newRoundLabel;
+  });
 
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");

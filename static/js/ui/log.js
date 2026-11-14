@@ -199,9 +199,11 @@ async function doNewRound() {
   clearPeekedCard();
   await sendCmd("newround");
   buildGameUI();
-  if (gameMode === "digital") {
+  // If the dealer role just passed to someone else, they deal. Sending "deal"
+  // from here would be refused ("Not authorized").
+  if (gameMode === "digital" && isMyDealerClient) {
     await sendCmd("deal");
-  } else {
+  } else if (gameMode !== "digital") {
     const firstTab = document.querySelector("#ref-tabs .tab");
     if (firstTab) switchTab("ref-tabs", "ref-panel", "deal", firstTab);
   }

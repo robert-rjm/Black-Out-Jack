@@ -115,7 +115,7 @@
       <div id="pane-round" class="pane">
         <div class="btn-row">
           {{ action_btn('END ROUND', 'sendCmd', '["endround"]', 'btn green wide') }}
-          {{ action_btn('NEW ROUND', 'doNewRound', '[]', 'btn wide') }}
+          {{ action_btn('NEW ROUND', 'doNewRound', '[]', 'btn wide', 'id="btn-newround-ref"') }}
         </div>
         <div class="btn-row">
           {{ action_btn('STATUS', 'sendCmd', '["status"]', 'btn wide') }}
@@ -231,7 +231,7 @@
           <div class="btn-row">
             {{ action_btn('🃏 Next card?', 'sendCmd', '["peek"]', 'btn wide', 'id="btn-peek"') }}
           </div>
-          {{ action_btn('NEW ROUND', 'doNewRound', '[]', 'btn-big green') }}
+          {{ action_btn('NEW ROUND', 'doNewRound', '[]', 'btn-big green', 'id="btn-newround-dig"') }}
         </div>
 
         <div id="dig-drinks-waiting" class="drinks-waiting">Waiting for dealer to start the next round…</div>

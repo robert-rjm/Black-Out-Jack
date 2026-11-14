@@ -110,7 +110,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         switch         = session.round.switch_this_round
         rounds_td      = session.rounds_this_dealer
         num_p          = len(session.all_players)
-        suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= num_p)
+        suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= session._dealer_rotate_every)
         if switch == "hard":
             rotate_reason = "Hard switch — dealer lost all hands"
         elif switch == "soft":
