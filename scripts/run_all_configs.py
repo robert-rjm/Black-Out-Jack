@@ -18,7 +18,8 @@ With --preset starter|standard each config plays that house-rule preset
 --snapshot and --compare only make sense with the default Full preset.
 
 With --snapshot [label], each config is also saved via:
-    python scripts/snapshot.py <label>_<players>p_<decks>d
+    python scripts/snapshot.py <label>_<players>p_<decks>d --overwrite
+(an existing snapshot with that label is replaced)
 
 into scripts/snapshots/<players>p/<decks>deck/<label>_<players>p_<decks>d/.
 
@@ -148,7 +149,7 @@ def main():
         if args.snapshot is not None:
             label = f"{args.snapshot}_{config_key}"
             snap_result = subprocess.run(
-                [sys.executable, os.path.join(HERE, "snapshot.py"), label]
+                [sys.executable, os.path.join(HERE, "snapshot.py"), label, "--overwrite"]
             )
             if snap_result.returncode != 0:
                 print(f"Error: snapshot failed for {config_key} (exit {snap_result.returncode})")
