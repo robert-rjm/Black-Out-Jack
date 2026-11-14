@@ -307,7 +307,7 @@ function processReshuffleEvents(state) {
   const _showReshuffleToast = () => {
     if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
     el.textContent = "🔀 Shoe ran low — reshuffled mid-round!";
-    // Colour set in log.css (#switch-toast always yellow).
+    // Color set in log.css (#switch-toast always yellow).
     el.classList.remove("show");
     void el.offsetWidth;
     el.classList.add("show");

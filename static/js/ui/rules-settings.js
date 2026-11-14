@@ -26,7 +26,7 @@ const _PRESET_LABEL = { starter: "Starter", standard: "Standard", full: "Full" }
 // Full has none: what it adds over Standard is mostly the between-round
 // events, which the simulation doesn't play, so its number would read the
 // same as Standard's.
-// Each preset has a colour (.preset-<id> in controls.css): Starter grey,
+// Each preset has a color (.preset-<id> in controls.css): Starter grey,
 // Standard blue, Full gold, the same as the How it works deck.
 const RULE_PRESETS = [
   { id: "starter",  blurb: "Learn the game",     sips: 2.2 },

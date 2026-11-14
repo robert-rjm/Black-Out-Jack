@@ -13,7 +13,7 @@
   --text:    #e8eaf0;
   --muted:   #9095ab;   /* 5.7:1 on --surface (was #7a7f96, 4.25:1 — below WCAG AA) */
   --purple:  #a78bfa;   /* dealer-row / trivia "history" category accent */
-  --on-fill: #0f1117;   /* text on any coloured fill (accent/green/red/yellow) — >=5.2:1 on all four */
+  --on-fill: #0f1117;   /* text on any colored fill (accent/green/red/yellow) — >=5.2:1 on all four */
   --border-control: #5a6080;  /* outline of buttons/inputs — 3:1 vs --bg (WCAG 1.4.11); --border stays for dividers */
   --text-danger: color-mix(in srgb, var(--red) 80%, white);  /* red text on red tints — >=5:1 where plain --red was 3.9 */
 

@@ -335,9 +335,9 @@ class BustGivePanel {
     const secsLeft    = state.bust_handout_seconds_left || 0;
     overlay.style.display = "flex";
 
-    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerColor = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
     const timerStr    = secsLeft > 0
-      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
+      ? `<div style="font-size:12px;color:${timerColor};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
       : "";
 
     const _bw = (typeof state !== "undefined" && state && state.wager) || 1;
@@ -822,9 +822,9 @@ class DealerLotteryGivePanel {
     const secsLeft    = dl.handout_seconds_left || 0;
     overlay.style.display = "flex";
 
-    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerColor = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
     const timerStr = secsLeft > 0
-      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      ? `<div style="font-size:12px;color:${timerColor};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
       : "";
 
     // No onclick= here -- mount()'s delegated listener handles taps.
@@ -932,9 +932,9 @@ class TargetedDrinkingGivePanel {
     const secsLeft    = td.handout_seconds_left || 0;
     overlay.style.display = "flex";
 
-    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerColor = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
     const timerStr = secsLeft > 0
-      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      ? `<div style="font-size:12px;color:${timerColor};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
       : "";
 
     // No onclick= here -- mount()'s delegated listener handles taps.

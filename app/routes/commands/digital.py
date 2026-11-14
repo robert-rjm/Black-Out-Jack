@@ -70,7 +70,7 @@ def _print_digital_help():
       Reveal the hole card, hit until 17+, then auto-evaluate all hands.
 
   endround
-      Finalise the round -- fire end-of-round drinking rules and print summary.
+      Finalize the round -- fire end-of-round drinking rules and print summary.
 
   newround [rotate]
       Start a new round. Add 'rotate' to pass the dealer role clockwise.

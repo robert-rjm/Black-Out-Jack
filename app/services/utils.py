@@ -10,7 +10,7 @@ and may be used by multiple app services.
 
 def classify_rule(reason: str) -> str | None:
     """
-    Normalise a raw drink-reason string to a short canonical rule name.
+    Normalize a raw drink-reason string to a short canonical rule name.
 
     Returns:
       None                 -- skip entirely (no CSV row, no display entry)

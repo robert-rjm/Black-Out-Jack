@@ -255,7 +255,7 @@ def test_hard_switch_off_still_rotates_but_charges_nothing():
     assert room.session._hard_switch_drinking_applied is False
 
 
-def test_default_room_keeps_todays_behaviour():
+def test_default_room_keeps_todays_behavior():
     room = _hard_switch_room(DEFAULT_RULES)
     assert any("Hard Dealer Switch" in m[2] for m in room.round._eor_msgs_buffer)
 

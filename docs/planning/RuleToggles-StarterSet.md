@@ -76,7 +76,7 @@ Two more things push a rule toward the Starter set:
 ## 4. The presets
 
 Presets are nested: **Starter ⊂ Standard ⊂ Full**. **Full** is exactly
-today's behaviour, so existing rooms, tests and simulation snapshots don't
+today's behavior, so existing rooms, tests and simulation snapshots don't
 change.
 
 ### 4.1 🟢 Starter: "Learn the game" (8 rules + 2 locked)

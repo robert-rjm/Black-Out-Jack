@@ -1,7 +1,7 @@
 // ============================================================
 // TRIVIA PANEL
 // ============================================================
-// Phase 1: categorised facts, carousel UI, round-synced auto-advance.
+// Phase 1: categorized facts, carousel UI, round-synced auto-advance.
 // Phase 2 (planned): reactive facts triggered by game events.
 // ============================================================
 

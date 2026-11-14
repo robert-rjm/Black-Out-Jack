@@ -3,8 +3,8 @@ scripts/build_pitch_deck.py
 ============================
 Build the Black(Out)Jack "How it works" deck, linked from the README, in two looks:
 
-  docs/Pitch-Deck.pdf          the app's dark colours, icons and logo
-  docs/Pitch-Deck-Finance.pdf  the same dark colours in a sober report style: no emojis, square corners,
+  docs/Pitch-Deck.pdf          the app's dark colors, icons and logo
+  docs/Pitch-Deck-Finance.pdf  the same dark colors in a sober report style: no emojis, square corners,
                                numbered blocks, Arial
 
 Same twelve slides in both: why the game exists, how a round works, the
@@ -15,7 +15,7 @@ how to start.
 The numbers are read fresh on every run: the typical night from the logged
 rounds in data/decisions/ (average and spread of sips per seat per round),
 balance and sip sources from scripts/benchmarks.json, rule counts from the
-rules registry. Slides, colours and PDF printing come from the recap deck
+rules registry. Slides, colors and PDF printing come from the recap deck
 (app/services/recap_deck.py, scripts/build_recap_deck.py: headless
 Edge/Chrome).
 
@@ -147,11 +147,11 @@ def svg_typical_night(m: float, sd: float, t: dict, w=660, h=330) -> str:
                    f'text-anchor="end" font-weight="700">{k} by R{rd:.0f}</text>')
         k += MILESTONE_STEP
     end, spread = m * n, BAND_Z * sd * math.sqrt(n)
-    for val, label, colour, weight in ((end + spread, f"{end + spread:.0f} heavy seat", t["muted"], 400),
+    for val, label, color, weight in ((end + spread, f"{end + spread:.0f} heavy seat", t["muted"], 400),
                                        (end, f"{end:.0f} typical seat", t["line"], 700),
                                        (end - spread, f"{end - spread:.0f} light seat", t["muted"], 400)):
         out.append(f'<text x="{w - R + 8}" y="{y(val) + 4:.1f}" font-size="12" font-weight="{weight}" '
-                   f'fill="{colour}">{label}</text>')
+                   f'fill="{color}">{label}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -442,7 +442,7 @@ PITCH_CSS = """
 """
 
 # Report style on the app's dark palette: square corners, numbered blocks, one blue accent, Arial;
-# the presets keep their lobby colours (Starter grey, Standard blue, Full gold)
+# the presets keep their lobby colors (Starter grey, Standard blue, Full gold)
 FINANCE_CSS = """
 body, .slide { font-family: Arial, Helvetica, sans-serif; }
 h1 { max-width: 1040px; font-weight: 700; }

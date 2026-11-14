@@ -9,7 +9,7 @@ The queue holds the *full target set* (``queued_settings["rules"]``, a list
 of IDs), never a diff, so repeated edits collapse and the UI can compare
 target against live. Live rules (``RuleDef.live``: bust vote, wild card)
 never wait: they apply at once, and the queued list's copy of them is
-ignored in favour of the room's current state.
+ignored in favor of the room's current state.
 """
 
 from __future__ import annotations

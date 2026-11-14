@@ -25,7 +25,7 @@ import openpyxl
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _ROOT)
 
-from app.services.recap_deck import analyse, build_html, logo_css  # noqa: E402
+from app.services.recap_deck import analyze, build_html, logo_css  # noqa: E402
 from engine.rules_registry import RULES_BY_ID, RuleSet  # noqa: E402
 from scripts.session_files import session_paths  # noqa: E402
 
@@ -90,7 +90,7 @@ def load(day: str, folder: str) -> dict:
             continue
         row = dict(zip(hdr, r))
         # Drink Rate columns only count with the rate column: older exports'
-        # sips_raw meant something else, and analyse() treats no rate as 1.0×
+        # sips_raw meant something else, and analyze() treats no rate as 1.0×
         keys = ["round", "dealer", "player", "role", "rule", "sips"] + (["sips_raw", "rate"] if "rate" in hdr else [])
         rows.append({k: row[k] for k in keys if row.get(k) is not None})
     setup = {"rate_rounds": _rate_rounds(drinks["Summary"]), "milestones": _milestones(drinks["Summary"]),
@@ -107,7 +107,7 @@ def load(day: str, folder: str) -> dict:
     lottery = [dict(zip(hdr, r)) for r in it if r[0]]
     drinks.close()                                  # read-only workbooks hold the file open (Windows)
     dec_wb.close()
-    return analyse(rows, decisions, lottery, day, setup)
+    return analyze(rows, decisions, lottery, day, setup)
 
 
 # ---------------------------------------------------------------------------

@@ -4,9 +4,9 @@ app/services/recap_deck.py
 The session recap deck: a slide-style story of one session (race, league
 table, sip bridge, drivers, tempo, decision quality, the house, side games,
 player comparables, awards, definitions, thank-you), built as one HTML page
-of 1280×720 slides in the app's colours.
+of 1280×720 slides in the app's colors.
 
-    analyse(rows, decisions, lottery, day)  -> dict of every number the deck uses
+    analyze(rows, decisions, lottery, day)  -> dict of every number the deck uses
     build_html(a, logo_css)                 -> the deck as a self-contained HTML page
 
 Inputs are the same rows the exports carry: session.drinks.csv_rows,
@@ -45,7 +45,7 @@ BG, SURFACE, BORDER, TEXT, MUTED = "#0f1117", "#1a1d27", "#2e3247", "#e8eaf0", "
 BLUE, GREEN, RED, YELLOW, PURPLE, ON_FILL = "#4f8ef7", "#3ecf6e", "#e05c5c", "#f5c842", "#a78bfa", "#0f1117"
 AMBER = "#f39a1e"           # logo beer
 IDLE = "#3a4160"            # unhighlighted bars
-PLAYER_COLOURS = [BLUE, AMBER, PURPLE, "#2dd4bf", "#f472b6", YELLOW]
+PLAYER_COLORS = [BLUE, AMBER, PURPLE, "#2dd4bf", "#f472b6", YELLOW]
 
 # Rule -> driver category (sips you drink, grouped by *why* you drink them)
 CATEGORIES = [
@@ -127,7 +127,7 @@ def _row_rate(r) -> float:
     return float(r["rate"]) if r.get("rate") is not None else 1.0
 
 
-def analyse(rows, decisions, lottery, day, setup=None) -> dict:
+def analyze(rows, decisions, lottery, day, setup=None) -> dict:
     """setup (optional, live sessions only): {"rules": RuleSet, "wager",
     "hands", "easy_mode", "rate_rounds"}; the xlsx exports carry none of it."""
     a: dict = {"day": day, "setup": setup or {}}
@@ -135,7 +135,7 @@ def analyse(rows, decisions, lottery, day, setup=None) -> dict:
     players = list(dict.fromkeys(r["player"] for r in rows))
     n_rounds = max(r["round"] for r in rows)
     rounds = range(1, n_rounds + 1)
-    a.update(players=players, n_rounds=n_rounds, colour={p: PLAYER_COLOURS[i % 6] for i, p in enumerate(players)})
+    a.update(players=players, n_rounds=n_rounds, color={p: PLAYER_COLORS[i % 6] for i, p in enumerate(players)})
     a["session_id"] = decisions[0]["session_id"] if decisions else "–"
 
     ts = [d["timestamp"] for d in decisions]
@@ -445,14 +445,14 @@ def svg_race(a, w=820, h=430) -> str:
     out.append(f'<text x="{(L + w - R) / 2}" y="{h - 4}" class="ax" text-anchor="middle">Round</text>')
     for b, p, rd in a["milestones"]:
         if rd is not None:
-            out.append(f'<line x1="{x(rd):.1f}" x2="{x(rd):.1f}" y1="{T}" y2="{h - B}" stroke="{a["colour"][p]}" '
+            out.append(f'<line x1="{x(rd):.1f}" x2="{x(rd):.1f}" y1="{T}" y2="{h - B}" stroke="{a["color"][p]}" '
                        f'stroke-width="1.5" stroke-dasharray="5,4" opacity=".75"/>'
                        f'<text x="{x(rd) + 4:.1f}" y="{T + 11}" font-size="10" font-weight="700" '
-                       f'fill="{a["colour"][p]}">{b}</text>')
+                       f'fill="{a["color"][p]}">{b}</text>')
     for p in a["players"]:
         start = a["joined"][p] - 1
         pts = " ".join(f"{x(i):.1f},{y(a['cum'][p][i]):.1f}" for i in range(start, n + 1))
-        out.append(f'<polyline points="{pts}" fill="none" stroke="{a["colour"][p]}" stroke-width="2.5" '
+        out.append(f'<polyline points="{pts}" fill="none" stroke="{a["color"][p]}" stroke-width="2.5" '
                    f'stroke-linejoin="round"/>')
     # Lead-change markers
     for k, (rd, p) in enumerate(a["changes"][1:], 1):
@@ -460,11 +460,11 @@ def svg_race(a, w=820, h=430) -> str:
         out.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="9" fill="{YELLOW}"/>'
                    f'<text x="{cx:.1f}" y="{cy + 4:.1f}" text-anchor="middle" font-size="11" font-weight="700" '
                    f'fill="{ON_FILL}">{k}</text>')
-    # Milestones: a diamond in the claimer's colour where they reached it
+    # Milestones: a diamond in the claimer's color where they reached it
     for b, p, rd in a["milestones"]:
         if rd is not None:
             cx, cy = x(rd), y(a["cum"][p][rd])
-            out.append(f'<rect x="{cx - 5:.1f}" y="{cy - 5:.1f}" width="10" height="10" fill="{a["colour"][p]}" '
+            out.append(f'<rect x="{cx - 5:.1f}" y="{cy - 5:.1f}" width="10" height="10" fill="{a["color"][p]}" '
                        f'stroke="{BG}" stroke-width="2" transform="rotate(45 {cx:.1f} {cy:.1f})"/>'
                        f'<text x="{cx:.1f}" y="{cy + 20:.1f}" text-anchor="middle" font-size="10" fill="{TEXT}">'
                        f'{b}</text>')
@@ -474,7 +474,7 @@ def svg_race(a, w=820, h=430) -> str:
     for p in ends:
         ly = max(y(a["cum"][p][n]) + 4, last_y + 17)
         last_y = ly
-        out.append(f'<text x="{w - R + 8}" y="{ly:.1f}" font-size="13" font-weight="700" fill="{a["colour"][p]}">'
+        out.append(f'<text x="{w - R + 8}" y="{ly:.1f}" font-size="13" font-weight="700" fill="{a["color"][p]}">'
                    f'{esc(p)} <tspan font-weight="400" fill="{TEXT}">{a["cum"][p][n]}</tspan></text>')
     out.append("</svg>")
     return "".join(out)
@@ -509,14 +509,14 @@ def svg_player_race(a, p, w=600, h=190) -> str:
         if q != p:
             out.append(line(a["cum"][q], a["joined"][q] - 1, stroke=IDLE, stroke_width="1.5"))
     out.append(line(avg, 0, stroke=MUTED, stroke_width="2", stroke_dasharray="5,4"))
-    out.append(line(a["cum"][p], a["joined"][p] - 1, stroke=a["colour"][p], stroke_width="3", stroke_linejoin="round"))
-    ends = sorted([(a["cum"][p][n], esc(p), a["colour"][p]), (round(avg[n]), "Typical seat", MUTED)],
+    out.append(line(a["cum"][p], a["joined"][p] - 1, stroke=a["color"][p], stroke_width="3", stroke_linejoin="round"))
+    ends = sorted([(a["cum"][p][n], esc(p), a["color"][p]), (round(avg[n]), "Typical seat", MUTED)],
                   key=lambda e: -e[0])
     last_y = -99
-    for val, label, colour in ends:
+    for val, label, color in ends:
         ly = max(y(val) + 4, last_y + 16)
         last_y = ly
-        out.append(f'<text x="{w - R + 8}" y="{ly:.1f}" font-size="12.5" font-weight="700" fill="{colour}">'
+        out.append(f'<text x="{w - R + 8}" y="{ly:.1f}" font-size="12.5" font-weight="700" fill="{color}">'
                    f'{label} <tspan font-weight="400" fill="{TEXT}">{val:g}</tspan></text>')
     out.append("</svg>")
     return "".join(out)
@@ -542,9 +542,9 @@ def svg_waterfall(steps, w=820, h=420) -> str:
     run = 0
     for i, (label, lo, hi, kind, v) in enumerate(bars):
         x0 = L + i * bw + bw * 0.18
-        colour = BLUE if kind == "total" else RED if v > 0 else GREEN
+        color = BLUE if kind == "total" else RED if v > 0 else GREEN
         out.append(f'<rect x="{x0:.1f}" y="{y(hi):.1f}" width="{bw * 0.64:.1f}" height="{y(lo) - y(hi):.1f}" '
-                   f'fill="{colour}"/>')
+                   f'fill="{color}"/>')
         txt = f"{v:,.0f}" if kind == "total" else f"+{v:,.0f}" if v > 0 else f"–{-v:,.0f}"
         out.append(f'<text x="{x0 + bw * 0.32:.1f}" y="{y(hi) - 7:.1f}" text-anchor="middle" font-size="13" '
                    f'font-weight="700" fill="{TEXT}">{txt}</text>')
@@ -607,13 +607,13 @@ def svg_columns(a, w=1180, h=330) -> str:
 
 
 def hbars(items, maxv=None, fmt=str, label_w=120, bar_w=360, ref=None) -> str:
-    """items: [(label, value, colour)] → HTML horizontal bars."""
+    """items: [(label, value, color)] → HTML horizontal bars."""
     maxv = maxv or max((v for _, v, _ in items), default=0) or 1
     out = ['<div class="hbars">']
-    for label, v, colour in items:
+    for label, v, color in items:
         out.append(f'<div class="hb"><span class="hbl" style="width:{label_w}px">{esc(label)}</span>'
                    f'<span class="hbt" style="width:{bar_w}px">'
-                   f'<span class="hbf" style="width:{max(v, 0) / maxv * 100:.1f}%;background:{colour}"></span>'
+                   f'<span class="hbf" style="width:{max(v, 0) / maxv * 100:.1f}%;background:{color}"></span>'
                    + (f'<span class="hbref" style="left:{ref / maxv * 100:.1f}%"></span>' if ref is not None else "")
                    + f'</span><span class="hbv">{fmt(v)}</span></div>')
     out.append("</div>")
@@ -651,13 +651,13 @@ def _ordinal(k: int) -> str:
 def _player_slide(a, p, rank, n_players, table_pr, table_mix, table_adh, adh, house, factor, awards, src, page):
     """One player's page: running total vs the table, where their sips came
     from, headline numbers, how they played, their awards and a takeaway."""
-    name, colour = esc(p), a["colour"][p]
+    name, color = esc(p), a["color"][p]
     pr, gross = a["per_round"][p], a["gross"][p]
     diff = pr - table_pr
     title = (f"{name} finished {_ordinal(rank)} of {n_players} with {a['total'][p]} net sips: {pr:.2f} per round, "
              f"{abs(diff):.2f} {'above' if diff >= 0 else 'below'} the table average")
     top = a["rule_by_player"][p].most_common(6)
-    bars = hbars([(_short_rule(r), v, colour if i == 0 else "#35548f") for i, (r, v) in enumerate(top)],
+    bars = hbars([(_short_rule(r), v, color if i == 0 else "#35548f") for i, (r, v) in enumerate(top)],
                  None, lambda v: f"{v} · {pct(v, gross)}", 170, 190)
     worst, worst_r = a["best_round"][p]
     kpis = [(f"{_ordinal(rank)}", f"of {n_players} by net sips"), (a["total"][p], "net sips"),
@@ -716,7 +716,7 @@ def _player_slide(a, p, rank, n_players, table_pr, table_mix, table_adh, adh, ho
     body = (f'<div class="pl-top"><div><h3>Running total vs the table</h3>{svg_player_race(a, p)}</div>'
             f'<div><h3>Where {name}\'s sips came from <small>(gross)</small></h3>{bars}</div></div>'
             '<div class="row6">'
-            + "".join(f'<div class="kpi" style="border-color:{colour}"><b>{v}</b><span>{t}</span></div>'
+            + "".join(f'<div class="kpi" style="border-color:{color}"><b>{v}</b><span>{t}</span></div>'
                                           for v, t in kpis) + '</div>'
             '<div class="pl-bottom"><div><h3>At the table</h3><div class="kv">'
             + "".join(f"<div><span>{k}</span><b>{esc(v)}</b></div>" for k, v in stats) + '</div></div>'
@@ -951,7 +951,7 @@ def build_html(a, logo: str) -> str:
                        f"{esc(long_leader)} had led for {a['lead_rounds'][long_leader]} rounds",
                        body, src + " · Cumulative net sips after credits", len(pages) + 1))
 
-    # 4 — League table, raw vs normalised
+    # 4 — League table, raw vs normalized
     def ph(p): return f"{a['per_hand'][p]:.2f}" if p in a["per_hand"] else "–"
     bench, table_ph = a["bench"], (sum(a["hand_sips"].values())
                                    / max(sum(sum(a["hands"][p].values()) for p in P), 1))
@@ -965,12 +965,12 @@ def build_html(a, logo: str) -> str:
             f"{bench['per_round']:.1f}; the rest of that gap is side games, milestones"
             + (" and the Drink Rate booster." if a["rate_used"] and rate_delta > 0 else "."))
     mx = max(a["total"].values())
-    left = hbars([(p, a["total"][p], a["colour"][p]) for p in by_total], mx, lambda v: f"{v}", 90, 300)
+    left = hbars([(p, a["total"][p], a["color"][p]) for p in by_total], mx, lambda v: f"{v}", 90, 300)
     by_pr = sorted(P, key=lambda p: -a["per_round"][p])
-    right = hbars([(p, a["per_round"][p], a["colour"][p]) for p in by_pr], max(a["per_round"].values()),
+    right = hbars([(p, a["per_round"][p], a["color"][p]) for p in by_pr], max(a["per_round"].values()),
                   lambda v: f"{v:.2f}", 90, 300, ref=a["net"] / sum(a["present"].values()))
     tbl = "".join(
-        f"<tr><td><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</td><td>{a['present'][p]}</td>"
+        f"<tr><td><span class='dot' style='background:{a['color'][p]}'></span>{esc(p)}</td><td>{a['present'][p]}</td>"
         f"<td>{a['dealer_sips'][p]}</td><td>{a['clean'][p]}</td><td>{a['best_round'][p][0]} "
         f"(R{a['best_round'][p][1]})</td><td>{ph(p)}</td>"
         + (f"<td>{a['avg_factor'][p]:.2f}×</td><td>{a['raw_total'][p]}</td>" if a["rate_used"] else "")
@@ -1090,7 +1090,7 @@ def build_html(a, logo: str) -> str:
 
     # 8 — Decision quality
     if adh:
-        left = hbars([(p, adh[p] * 100, a["colour"][p]) for p in sorted(adh, key=lambda p: -adh[p])], 100,
+        left = hbars([(p, adh[p] * 100, a["color"][p]) for p in sorted(adh, key=lambda p: -adh[p])], 100,
                      lambda v: f"{v:.0f}%", 90, 300)
         kinds = {("s", "h"): "Stood, book said hit", ("h", "s"): "Hit, book said stand", ("d", "h"): "Doubled, book "
                   "said hit",
@@ -1102,7 +1102,7 @@ def build_html(a, logo: str) -> str:
         for p in sorted(adh, key=lambda p: -adh[p]):
             f, d = a["bs_res"][p]
             fw, dw = f["win"] / max(sum(f.values()), 1), d["win"] / max(sum(d.values()), 1)
-            split += (f"<tr><td><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</td>"
+            split += (f"<tr><td><span class='dot' style='background:{a['color'][p]}'></span>{esc(p)}</td>"
                       f"<td>{fw:.0%}</td><td>{dw:.0%}</td><td "
                       f"style='color:{GREEN if fw >= dw else RED};font-weight:700'>"
                       f"{(fw - dw) * 100:+.0f} pp</td></tr>")
@@ -1128,7 +1128,7 @@ def build_html(a, logo: str) -> str:
                 f'<h3 style="margin-top:22px">Win rate by player</h3><table class="t"><tr><th>Player</th><th>By the '
                 f'book</th>'
                 f'<th>Against</th><th>Book premium</th></tr>{split}</table></div></div>')
-        pages.append(slide("Behaviour · Decision quality",
+        pages.append(slide("Behavior · Decision quality",
                            f"Playing by the book paid off: decisions in line with basic strategy won {fol_w:.0%} of "
                            f"the time vs {dev_w:.0%} against it",
                            body, src + " · Book = the engine's basic-strategy table plus drinking-mode overrides (incl. "
@@ -1149,10 +1149,10 @@ def build_html(a, logo: str) -> str:
         house_note = "dealers with fewer than 10 hands excluded" if all(sum(c.values()) >= 10 for c in house.values()) \
             else "small samples early in the session"
         bars = hbars([(f"{d} ({sum(house[d].values())} hands)", house_rate[d] * 100,
-                       RED if d == toughest else a["colour"].get(d, BLUE)) for d in order],
+                       RED if d == toughest else a["color"].get(d, BLUE)) for d in order],
                      100, lambda v: f"{v:.0f}%", 150, 360, ref=all_house * 100)
         deal_rows = "".join(
-            f"<tr><td><span class='dot' style='background:{a['colour'].get(d, BLUE)}'></span>{esc(d)}</td>"
+            f"<tr><td><span class='dot' style='background:{a['color'].get(d, BLUE)}'></span>{esc(d)}</td>"
             f"<td>{sum(1 for r in a['dealer_of'].values() if r == d)}</td><td>{sum(house[d].values())}</td>"
             f"<td>{house[d]['loss']}</td><td>{house[d]['win']}</td><td>{house[d]['push']}</td>"
             f"<td>{hard_txt(d)}</td><td>{a['dealer_sips'][d]}</td></tr>"
@@ -1168,7 +1168,7 @@ def build_html(a, logo: str) -> str:
                 f'<div class="sowhat"><b>So what</b>When {esc(toughest)} deals, expect to lose more hands'
                 + (", so bank the Dealer Lottery credits early. " if lottery_on else ". ")
                 + f'{esc(softest)}\'s deals are the time to double down.' + hard_note + '</div></div></div>')
-        pages.append(slide("Behaviour · The house",
+        pages.append(slide("Behavior · The house",
                            f"{esc(toughest)} ran the toughest house, winning {house_rate[toughest]:.0%} of hands vs "
                            f"a table average of {all_house:.0%}",
                            body, src + " · House win = player hand lost; pushes count as hands; " + house_note,
@@ -1225,7 +1225,7 @@ def build_html(a, logo: str) -> str:
         else:
             off.append("Targeted Drinking")
         kpis.append((f"{side_net:+}", f"net sips from side games, {pct(side_net, a['net'])} of the bill"))
-        trs = "".join(f"<tr><td><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</td>"
+        trs = "".join(f"<tr><td><span class='dot' style='background:{a['color'][p]}'></span>{esc(p)}</td>"
                       + "".join(f"<td>{fn(p)}</td>" for _, fn in cols) + "</tr>" for p in P)
         table = ('<div><h3>Appetite for risk</h3><table class="t"><tr><th>Player</th>'
                  + "".join(f"<th>{h}</th>" for h, _ in cols) + f'</tr>{trs}</table></div>' if cols else "<div></div>")
@@ -1233,7 +1233,7 @@ def build_html(a, logo: str) -> str:
                 + "".join(f'<div class="kpi"><b>{v}</b><span>{t}</span></div>' for v, t in kpis)
                 + f'</div><div class="row2">{table}<div class="sowhat"><b>So what</b>{" ".join(notes)}'
                 + (f" Not played this session: {', '.join(off)}." if off else "") + '</div></div>')
-        pages.append(slide("Behaviour · Side games",
+        pages.append(slide("Behavior · Side games",
                            f"Side games added a net {side_net:+} sips"
                            + (f"; bust-vote calls were right only {pct(bv_right, bv_right + bv_wrong)} of the time"
                               if bust_on and bv_right < bv_wrong else ""),
@@ -1266,7 +1266,7 @@ def build_html(a, logo: str) -> str:
         ("Avg drink factor", {p: f"<td>{a['avg_factor'][p]:.2f}×</td>" for p in P}) if a["rate_used"] else ("", None),
         ("Top 3 sip drivers", {p: f"<td>{drv3(p)}</td>" for p in P}),
     ]
-    head = "".join(f"<th><span class='dot' style='background:{a['colour'][p]}'></span>{esc(p)}</th>" for p in P)
+    head = "".join(f"<th><span class='dot' style='background:{a['color'][p]}'></span>{esc(p)}</th>" for p in P)
     trs = "".join(f"<tr><td>{m}</td>{''.join(cells.get(p, '<td>–</td>') for p in P)}</tr>"
                   for m, cells in metrics if cells)
     body = f'<table class="t comps"><tr><th></th>{head}</tr>{trs}</table>'
@@ -1326,7 +1326,7 @@ def build_html(a, logo: str) -> str:
         awards.append(("🃏", "Wild Card magnet", wc[0], f"{wc[1]} sips handed out by Wild Cards"))
     awards = awards[:12]
     cards = "".join(f'<div class="award"><div class="em">{e}</div><div class="an">{esc(t)}</div>'
-                    f'<div class="aw" style="color:{a["colour"].get(p, BLUE)}">{esc(p)}</div><div '
+                    f'<div class="aw" style="color:{a["color"].get(p, BLUE)}">{esc(p)}</div><div '
                     f'class="as">{esc(s)}</div></div>'
                     for e, t, p, s in awards)
     pages.append(slide("Recognition · Awards", "Awards: one for every kind of night",

@@ -76,7 +76,7 @@ work. Known trade-off accepted: a PayPal.me profile page and its
 payment receipts show the recipient's real name to donors, so the
 "no private info" requirement holds for everything except the name.
 The account is Robert's personal one, which also settles the
-ownership question below in favour of an informal split.
+ownership question below in favor of an informal split.
 
 ### Options considered
 

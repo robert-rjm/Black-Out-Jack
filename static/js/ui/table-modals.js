@@ -2,7 +2,7 @@
 // class-based, no framework) ─────────────────────────────────────────────
 // Encapsulates both insurance-vote surfaces -- the full modal
 // (#insurance-modal-overlay) and the compact banner
-// (#insurance-vote-banner) it minimises into. mount() attaches one
+// (#insurance-vote-banner) it minimizes into. mount() attaches one
 // delegated click listener per surface (replacing the modal's ad-hoc
 // "_wired" flag on the minimize button, and the addEventListener calls
 // re-attached on every rebuild of the vote buttons / expand span in both
@@ -11,7 +11,7 @@
 class InsurancePanel {
   constructor() {
     this.modalKey  = null;
-    this.minimised = false;
+    this.minimized = false;
   }
 
   mount(modalEl, bannerEl) {
@@ -28,7 +28,7 @@ class InsurancePanel {
 
     modalEl.addEventListener("click", e => {
       if (e.target.closest("#insurance-modal-minimize")) {
-        this.minimised = true;
+        this.minimized = true;
         closeModal("insurance-modal-overlay", { useClass: true });
         return;
       }
@@ -89,7 +89,7 @@ class InsurancePanel {
 
     if (this.modalKey !== key) {
       this.modalKey  = key;
-      this.minimised = false;  // always expand on new vote
+      this.minimized = false;  // always expand on new vote
       openModal("insurance-modal-overlay", { useClass: true });
     }
 
@@ -102,8 +102,8 @@ class InsurancePanel {
     const activeVoter  = pendingLocal.length > 0 ? pendingLocal[0]
                        : (myActiveName || myName);
 
-    // If minimised, keep overlay closed — render compact banner instead
-    if (this.minimised) {
+    // If minimized, keep overlay closed — render compact banner instead
+    if (this.minimized) {
       closeModal("insurance-modal-overlay", { useClass: true });
       this.renderBanner(v, true, activeVoter);
       return;
@@ -111,7 +111,7 @@ class InsurancePanel {
 
     const allIn = (v.votes_cast != null && v.votes_needed != null && v.votes_cast >= v.votes_needed);
     if (allIn) {
-      this.minimised = false;
+      this.minimized = false;
       this._closeModal();
       this.renderBanner(v);
       return;
@@ -194,21 +194,21 @@ class InsurancePanel {
     this.modalKey = null;
   }
 
-  renderBanner(v, minimisedActiveVote = false, activeVoter = null) {
+  renderBanner(v, minimizedActiveVote = false, activeVoter = null) {
     const banner  = document.getElementById("insurance-vote-banner");
     const content = document.getElementById("insurance-vote-banner-content");
     if (!banner || !content) return;
 
     if (!v) {
       banner.style.display = "none";
-      banner.classList.remove("minimised");
+      banner.classList.remove("minimized");
       content.innerHTML = "";
       return;
     }
 
-    // ── Minimised active-vote state ──────────────────────────────
-    if (minimisedActiveVote) {
-      banner.classList.add("minimised");
+    // ── Minimized active-vote state ──────────────────────────────
+    if (minimizedActiveVote) {
+      banner.classList.add("minimized");
       const s          = v.seconds_left ?? 0;
       const timerColor = s <= 10 ? "var(--red)" : "var(--muted)";
       const voterStr   = activeVoter ? ` <span style="color:var(--accent)">${escapeHtml(activeVoter)}</span>` : "";
@@ -237,7 +237,7 @@ class InsurancePanel {
     }
 
     // ── Resolved vote result state ───────────────────────────────
-    banner.classList.remove("minimised");
+    banner.classList.remove("minimized");
     const insureCount  = v.insure_count ?? 0;
     const declineCount = (v.votes_cast ?? 0) - insureCount;
     const voteLabel    = insureCount > declineCount ? "INSURE" : "DECLINE";
@@ -252,7 +252,7 @@ class InsurancePanel {
     const banner  = document.getElementById("insurance-vote-banner");
     const content = document.getElementById("insurance-vote-banner-content");
     if (!banner || !content) return;
-    banner.classList.remove("minimised");
+    banner.classList.remove("minimized");
     const parts = results.map(r => {
       const icon    = r.group_won ? "✅" : "❌";
       const color   = r.group_won ? "var(--green)" : "var(--red)";
@@ -265,10 +265,10 @@ class InsurancePanel {
   }
 
   _expand() {
-    this.minimised = false;
+    this.minimized = false;
     openModal("insurance-modal-overlay", { useClass: true });
     const banner = document.getElementById("insurance-vote-banner");
-    if (banner) { banner.classList.remove("minimised"); banner.style.display = "none"; }
+    if (banner) { banner.classList.remove("minimized"); banner.style.display = "none"; }
   }
 }
 

@@ -86,7 +86,7 @@ def reserve_room() -> str:
     """Reserve a new room slot and return its code.
 
     Runs stale-session cleanup first so the store doesn't grow unbounded.
-    The slot is set to None until /setup initialises the game.
+    The slot is set to None until /setup initializes the game.
     """
     cleanup_stale_sessions()
     code = generate_room_code()
@@ -105,7 +105,7 @@ def get_session(room_code: str):
 
 
 def set_session(room_code: str, session) -> None:
-    """Store an initialised session against room_code."""
+    """Store an initialized session against room_code."""
     game_sessions[room_code]     = session
     _room_last_access[room_code] = time.monotonic()
     if hasattr(session, 'tracker') and session.tracker is not None:
@@ -146,7 +146,7 @@ def get_waiting_clients(room_code: str) -> list[str]:
 def cleanup_stale_sessions() -> None:
     """Drop rooms that are past TTL.
 
-    - Un-initialised rooms (value is None): expired after SESSION_TTL.
+    - Un-initialized rooms (value is None): expired after SESSION_TTL.
     - Active sessions: expired after ACTIVE_SESSION_TTL of no access.
     """
     now    = time.monotonic()

@@ -47,7 +47,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .btn.green   { background: var(--green);  border-color: var(--green);  color: var(--on-fill); }
 .btn.red     { background: var(--red);    border-color: var(--red);    color: var(--on-fill); }
 .btn.yellow  { background: var(--yellow); border-color: var(--yellow); color: var(--on-fill); }
-/* Colour rule: SOLID fill = a game result/choice (green win, red loss/bust,
+/* Color rule: SOLID fill = a game result/choice (green win, red loss/bust,
    gold blackjack, grey push); TINTED .danger = an app/admin action that
    leaves or removes (Lobby, kick, deny, remove, cancel); .approve is its
    green counterpart for accept/allow/undo. */
@@ -279,7 +279,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
   border-radius: 10px;
   color: var(--text); cursor: pointer; text-align: center;
 }
-/* Preset colours, as in the How it works deck: Starter grey, Standard blue, Full gold */
+/* Preset colors, as in the How it works deck: Starter grey, Standard blue, Full gold */
 .preset-chip.preset-starter  { --preset: var(--muted); }
 .preset-chip.preset-standard { --preset: var(--accent); }
 .preset-chip.preset-full     { --preset: var(--yellow); }

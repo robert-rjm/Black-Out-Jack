@@ -107,7 +107,7 @@ def maybe_start_dealer_lottery(session: GameRoom) -> None:
 
 def submit_dealer_lottery_entry(session: GameRoom, player_name: str, x: int) -> bool:
     """Record `player_name`'s entry (0-5). Returns False if there's no
-    pending lottery or the name isn't a recognised entrant."""
+    pending lottery or the name isn't a recognized entrant."""
     pending = session.round._pending_dealer_lottery
     if not pending or player_name not in pending["entries"]:
         return False

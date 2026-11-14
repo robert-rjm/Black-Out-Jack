@@ -25,7 +25,7 @@ from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 from flask import Blueprint, jsonify, request, Response
 
-from app.services.recap_deck import analyse, build_html, logo_css
+from app.services.recap_deck import analyze, build_html, logo_css
 from app.services.session_store import game_sessions
 from engine.rules_registry import RULES
 
@@ -429,7 +429,7 @@ def recap_html():
              "decks": session.shoe.num_decks if session.shoe else None,
              "milestones": dict(session.drinks.milestones_claimed),
              "longest_loss": {p: s.get("longest_loss", 0) for p, s in session.stats.streaks.items()}}
-    a = analyse(rows, session._decision_log, session._dealer_lottery_decision_log, day, setup)
+    a = analyze(rows, session._decision_log, session._dealer_lottery_decision_log, day, setup)
     if a["session_id"] == "–":
         a["session_id"] = room_code
     return Response(build_html(a, logo_css(inline=False)), status=200, mimetype="text/html")

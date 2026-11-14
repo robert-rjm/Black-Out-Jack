@@ -5,7 +5,7 @@ Merged from the old `FileSplitRefactor.md` (files that grew too big) and
 still open is listed here; what is already finished is summarised at the bottom
 so it is not redone.
 
-**Pure moves only.** No behaviour changes. Every step leaves `pytest` green and
+**Pure moves only.** No behavior changes. Every step leaves `pytest` green and
 the game playable. One step per commit, and click through the affected UI after
 each JS step.
 

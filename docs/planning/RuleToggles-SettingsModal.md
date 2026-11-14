@@ -157,7 +157,7 @@ auto-expand. Useful once there are 40+ rows. Optional for v1.
 
 ## 4. When changes apply
 
-| Situation | Behaviour |
+| Situation | Behavior |
 |---|---|
 | Between rounds (waiting) | Queued, then applied when the next round starts. This is the same path as `queueSettings()` → `/update_settings` → `_queued_settings`. |
 | Mid-round | Allowed, still queued. The current round finishes on the old rules. |

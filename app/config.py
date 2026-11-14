@@ -26,7 +26,7 @@ JOIN_RATE_WINDOW = 30   # sliding window in seconds
 # Room / session lifecycle
 # ---------------------------------------------------------------------------
 
-SESSION_TTL = 12 * 3600   # seconds — uninitialised rooms older than this are cleaned up
+SESSION_TTL = 12 * 3600   # seconds — uninitialized rooms older than this are cleaned up
 
 # ---------------------------------------------------------------------------
 # Milestone feature

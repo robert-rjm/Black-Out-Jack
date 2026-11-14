@@ -21,7 +21,7 @@ from app.services.decision_log import backfill_hand_results
 
 
 def apply_endround_pipeline(session) -> None:
-    """Run the bookkeeping steps that finalise a completed round.
+    """Run the bookkeeping steps that finalize a completed round.
 
     ``session.cmd_endround()`` must be called by the caller *before* this
     function — the two sites need different stdout handling around that call

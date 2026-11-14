@@ -18,7 +18,7 @@ Commands (type 'help' in-session for full reference):
     deal <player> <card> [hand<n>]   — register a card dealt
     action <player> <action> [hand<n>] — register an action (double/split/insurance)
     result <player> <result> [hand<n>] — set hand outcome (win/loss/push)
-    endround                          — finalise round, print drink summary
+    endround                          — finalize round, print drink summary
     newround                          — start next round
     status                            — show current round state
     help                              — show command reference
@@ -557,7 +557,7 @@ class RefereeSession:
     # ---------------------------------------------------------------- command: endround
 
     def cmd_endround(self, skip_sweep: bool = False, extra_eor_msgs=None):
-        """Finalise the round — fire end-of-round rules and print summary.
+        """Finalize the round — fire end-of-round rules and print summary.
         skip_sweep: pass True in digital mode (dealer_turn already fired it).
         extra_eor_msgs: msgs buffered by dealer_turn (digital mode) that must
         be combined with this round's msgs before halving is applied."""
@@ -825,7 +825,7 @@ class RefereeSession:
                bustvote Markoi skip
 
   endround
-      Finalise the round — fires all end-of-round drink rules
+      Finalize the round — fires all end-of-round drink rules
       and prints the full drink summary.
 
   newround

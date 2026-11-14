@@ -76,7 +76,7 @@
 .kick-row:last-child { border-bottom: none; }
 .kick-name     { font-size: 14px; font-weight: 600; }
 .kick-role     { font-size: 11px; color: var(--muted); margin-left: 6px; }
-.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; }  /* size only; colour from .btn.danger / .btn.approve */
+.kick-btn      { height: 34px; padding: 0 12px; font-size: 12px; }  /* size only; color from .btn.danger / .btn.approve */
 
 /* ---- SETTINGS IN KICK CARD ---- */
 .settings-row {
@@ -726,29 +726,29 @@
 .insurance-modal-minimize:hover { color: var(--text); }
 #insurance-modal { position: relative; }
 
-/* Minimised banner — active vote state */
-.insurance-vote-banner.minimised {
+/* Minimized banner — active vote state */
+.insurance-vote-banner.minimized {
   display: flex !important;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   cursor: default;
 }
-.insurance-vote-banner.minimised .ins-banner-label {
+.insurance-vote-banner.minimized .ins-banner-label {
   flex: 1; min-width: 0;
   font-size: 12px; color: var(--yellow); font-weight: 700;
 }
-.insurance-vote-banner.minimised .ins-banner-timer {
+.insurance-vote-banner.minimized .ins-banner-timer {
   font-size: 11px; color: var(--muted);
 }
-.insurance-vote-banner.minimised .ins-banner-btns {
+.insurance-vote-banner.minimized .ins-banner-btns {
   display: flex; gap: 6px; flex-shrink: 0;
 }
-.insurance-vote-banner.minimised .ins-banner-btns button {
+.insurance-vote-banner.minimized .ins-banner-btns button {
   font-size: 11px; padding: 3px 10px; border-radius: 6px;
   border: none; cursor: pointer; font-weight: 700;
 }
-.insurance-vote-banner.minimised .ins-banner-expand {
+.insurance-vote-banner.minimized .ins-banner-expand {
   font-size: 11px; color: var(--muted); cursor: pointer;
   text-decoration: underline; white-space: nowrap;
 }

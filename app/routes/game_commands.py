@@ -297,7 +297,7 @@ def command():
             if cmd in PLAYER_ACTION_CMDS:
                 after_player_action(game_session)
 
-        # ── Referee mode (original behaviour, unchanged) ───────────────────────
+        # ── Referee mode (original behavior, unchanged) ───────────────────────
         else:
             handler = REFEREE_COMMANDS.get(cmd)
             if handler:
