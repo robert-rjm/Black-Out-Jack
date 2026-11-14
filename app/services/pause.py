@@ -80,6 +80,8 @@ def resume_game(session: GameRoom) -> bool:
             setattr(rnd, attr, getattr(rnd, attr) + delta)
     for attr in _ROUND_DICTS:
         _shift_dict(getattr(rnd, attr), delta)
+    for name in rnd._dealer_lottery_giver_clocks:
+        rnd._dealer_lottery_giver_clocks[name] += delta
     for v in rnd._insurance_votes:
         _shift_dict(v, delta)
 

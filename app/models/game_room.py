@@ -157,6 +157,10 @@ class RoundState:
     # _dealer_lottery_reveal_deadline is the safety cap after which it starts anyway.
     _dealer_lottery_reveal_acked: set = field(default_factory=set)
     _dealer_lottery_reveal_deadline: float | None = None
+    # Per-giver countdown, started only once that giver's give panel is on
+    # screen (/dealer_lottery/panel_shown): giver name -> monotonic expiry.
+    # _dealer_lottery_handout_expires_at above is just the hard safety cap.
+    _dealer_lottery_giver_clocks: dict = field(default_factory=dict)
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 

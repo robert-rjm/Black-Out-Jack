@@ -818,6 +818,19 @@ def test_handout_forfeit_noop_before_expiry(monkeypatch):
     assert "Alice" not in room.round._dealer_lottery_handouts_given
 
 
+def test_giver_clock_starts_only_when_panel_shown(monkeypatch):
+    from app.services.dealer_lottery import start_dealer_lottery_giver_clocks
+    room = _both_bust_room(monkeypatch)
+    room.round._dealer_lottery_handout_expires_at = time.monotonic() + 90
+    apply_dealer_lottery_handout_forfeit(room)       # no clock yet -> no forfeit
+    assert "Alice" not in room.round._dealer_lottery_handouts_given
+    start_dealer_lottery_giver_clocks(room, ["Alice"])
+    assert "Alice" in room.round._dealer_lottery_giver_clocks
+    room.round._dealer_lottery_giver_clocks["Alice"] = time.monotonic() - 1
+    apply_dealer_lottery_handout_forfeit(room)       # her visible clock ran out
+    assert "Alice" in room.round._dealer_lottery_handouts_given
+
+
 def test_handout_forfeit_gives_sips_to_self_after_expiry(monkeypatch):
     room = _both_bust_room(monkeypatch)  # starts owing 10, credited down to 5 (10 - X=5)
     room.round._dealer_lottery_handout_expires_at = time.monotonic() - 1

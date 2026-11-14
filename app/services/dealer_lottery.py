@@ -24,6 +24,7 @@ from app.models.game_room import GameRoom
 from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_DRINK,
                         DEALER_LOTTERY_MAX_HANDS, DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS,
                         DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS,
+                        DEALER_LOTTERY_HANDOUT_HARD_CAP_SECONDS,
                         DEALER_LOTTERY_ALL_IN_STAKE, DEALER_LOTTERY_ALL_IN_BONUS,
                         DEALER_LOTTERY_TOP_STAKE_BONUS)
 from app.services.decision_log import record_dealer_lottery_entry
@@ -270,6 +271,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     # of _bust_handouts_given / _bust_handout_log at resolution time).
     session.round._dealer_lottery_handouts_given = set()
     session.round._dealer_lottery_handout_log = []
+    session.round._dealer_lottery_giver_clocks = {}
     pending_handouts: dict[str, int] = {}  # giver -> amount still to hand out
     drink_amounts: dict[str, int] = {}     # name -> sips this lottery makes them drink
     credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
@@ -377,7 +379,23 @@ def maybe_start_dealer_lottery_handout(session: GameRoom) -> None:
     if dealer_lottery_reveal_waiting_on(session) and now < deadline:
         return
     session.round._dealer_lottery_reveal_deadline = None
-    session.round._dealer_lottery_handout_expires_at = now + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
+    # Hard safety cap only -- each giver's real countdown starts when their
+    # own give panel is on screen (see start_dealer_lottery_giver_clocks).
+    session.round._dealer_lottery_handout_expires_at = now + DEALER_LOTTERY_HANDOUT_HARD_CAP_SECONDS
+
+
+def start_dealer_lottery_giver_clocks(session: GameRoom, names) -> None:
+    """Start the countdown for each of `names` that has an unassigned handout
+    and no clock yet. Called when the client reports the give panel visible."""
+    rnd = session.round
+    if rnd._dealer_lottery_handout_expires_at is None:
+        return   # handout window not open yet (reveal still being waited on)
+    pending = (session.drinks.last_dealer_lottery_result or {}).get("pending_handouts", {})
+    now = time.monotonic()
+    for name in names:
+        if (name in pending and name not in rnd._dealer_lottery_handouts_given
+                and name not in rnd._dealer_lottery_giver_clocks):
+            rnd._dealer_lottery_giver_clocks[name] = now + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
 
 
 def give_dealer_lottery_sip(session: GameRoom, giver_name: str, recipient_name: str) -> bool:
@@ -415,13 +433,20 @@ def apply_dealer_lottery_handout_forfeit(session: GameRoom) -> None:
     """If the handout window expires before a giver assigns their sip(s),
     they keep (drink) them instead. Safe to call on every /state tick."""
     expires_at = session.round._dealer_lottery_handout_expires_at
-    if not expires_at or time.monotonic() < expires_at:
+    if not expires_at:
         return
+    now = time.monotonic()
+    hard_cap_hit = now >= expires_at
+    clocks = session.round._dealer_lottery_giver_clocks
 
     result = session.drinks.last_dealer_lottery_result or {}
     pending_handouts = result.get("pending_handouts", {})
     for giver_name, amount in pending_handouts.items():
         if giver_name in session.round._dealer_lottery_handouts_given:
+            continue
+        # A giver forfeits only when their own visible-panel clock ran out,
+        # or the hard safety cap passed (panel never showed at all).
+        if not hard_cap_hit and not (giver_name in clocks and now >= clocks[giver_name]):
             continue
         award_sips(
             session, giver_name, amount, "Dealer Lottery handout forfeit",
@@ -435,4 +460,5 @@ def apply_dealer_lottery_handout_forfeit(session: GameRoom) -> None:
             "giver": giver_name, "recipient": None, "forfeited": True,
         })
 
-    session.round._dealer_lottery_handout_expires_at = None
+    if all(g in session.round._dealer_lottery_handouts_given for g in pending_handouts):
+        session.round._dealer_lottery_handout_expires_at = None

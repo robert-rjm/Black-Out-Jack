@@ -258,9 +258,13 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "pending_handouts":     dict(_dl_pending_handouts),
             "my_pending_handouts":  {n: a for n, a in _dl_pending_handouts.items()
                                      if n in _dl_my_names},
-            "handout_seconds_left": (
-                max(0, round(session.round._dealer_lottery_handout_expires_at - time.monotonic()))
-                if session.round._dealer_lottery_handout_expires_at else 0
+            # Countdown of this client's own givers, running only once their
+            # give panel reported itself visible; 0 until then.
+            "handout_seconds_left": max(
+                (max(0, round(c - time.monotonic()))
+                 for n, c in session.round._dealer_lottery_giver_clocks.items()
+                 if n in _dl_my_names and n in _dl_pending_handouts),
+                default=0,
             ),
             # True while the handout is held back until everyone closes the reveal
             "reveal_pending":       session.round._dealer_lottery_reveal_deadline is not None,

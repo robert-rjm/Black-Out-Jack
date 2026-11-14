@@ -72,7 +72,8 @@ INSURANCE_VOTE_TIMEOUT       = 60  # insurance vote auto-resolves (as decline) a
 
 DEALER_LOTTERY_ENTRY_WINDOW_SECONDS = 20  # window to submit X (0-5); non-responders default to 0
 DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS = 30  # handout waits for everyone to close the reveal; starts anyway after this
-DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS = 10  # a client only holds the handout up if it polled this recently
+DEALER_LOTTERY_HANDOUT_HARD_CAP_SECONDS = 90  # safety net: unassigned handouts forfeit this long after the window opens, even if a giver's panel never showed
+DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS = 10 # a client only holds the handout up if it polled this recently
 DEALER_LOTTERY_ALL_IN_STAKE         = 5   # a stake of exactly this many wagers is "all-in"...
 DEALER_LOTTERY_ALL_IN_BONUS         = 2   # ...and earns this many extra wagers of handout on a 2+ bust win
 DEALER_LOTTERY_TOP_STAKE_BONUS      = 1   # wagers of extra handout for whoever staked the most (ties all get it), in any outcome

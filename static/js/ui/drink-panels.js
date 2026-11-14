@@ -846,6 +846,26 @@ class DealerLotteryGivePanel {
         <div class="bgp-btns-col">${btns}</div>
       </div>`;
     }).join(`<hr class="bgp-divider">`);
+
+    // The panel is on screen now: only here does the server start this
+    // player's countdown. Reported once per draw (result_seq).
+    if (this._clockSeq !== dl.result_seq) {
+      this._clockSeq = dl.result_seq;
+      this._reportShown();
+    }
+  }
+
+  async _reportShown() {
+    try {
+      const res  = await fetch("/dealer_lottery/panel_shown", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+      });
+      const data = await res.json();
+      if (data.ok) applyState(data);
+      else this._clockSeq = null;
+    } catch (_) { this._clockSeq = null; }   // retry on next poll
   }
 }
 
