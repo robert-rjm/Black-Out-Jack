@@ -1938,7 +1938,7 @@ class LateJoinPanel {
           `<span>${_rateName(r)}${reco ? `<span class="late-join-reco">RECOMMENDED</span>` : ""}</span>` +
           `</button>`;
       }).join("") +
-      `<button class="btn wide late-join-opt" style="justify-content:center" data-late-join-dismiss>No thanks, stay at beer 1×</button>`;
+      `<button class="btn wide late-join-opt" style="justify-content:center" data-late-join-dismiss>No thanks, stay at normal 1×</button>`;
     document.getElementById("late-join-note").textContent =
       "You can change this any time in Settings → Drink rate, and drop back to 1× whenever you like.";
     openModal("late-join-overlay", { useClass: true });
