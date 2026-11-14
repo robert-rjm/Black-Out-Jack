@@ -371,6 +371,8 @@ class GameRoom:
     # Host "pause" (app/services/pause.py): time.monotonic() when the table was
     # paused, None while running. All clocks are shifted by the paused span on resume.
     _paused_at: float | None = None
+    # client_id of whoever paused; only they (or the admin) can resume.
+    _paused_by: str | None = None
 
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer

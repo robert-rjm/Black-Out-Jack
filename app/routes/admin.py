@@ -10,7 +10,7 @@ POST /set_hint         — Player toggles their own strategy-hint flag
 POST /update_settings  — Admin queues game settings for next round
 POST /claim_milestone  — Winner distributes their milestone-handout sips
 POST /toggle_god_mode  — Admin toggles god mode
-POST /set_paused       — Any player pauses the table (freezes all timers); only the admin resumes
+POST /set_paused       — Any player pauses the table (freezes all timers); only that player or the admin resumes
 """
 
 import time
@@ -363,7 +363,7 @@ def toggle_god_mode():
 
 @bp.route("/set_paused", methods=["POST"])
 def set_paused():
-    """Any seated player (or the admin) pauses the table; only the admin resumes.
+    """Any seated player (or the admin) pauses the table; only that player or the admin resumes.
     Body: { room_code, client_id, paused }"""
     data      = request.json or {}
     room_code = (data.get("room_code") or "").strip()
@@ -376,9 +376,9 @@ def set_paused():
         return jsonify({"ok": False, "error": "Only seated players can pause the game."})
 
     if bool(data.get("paused", False)):
-        pause_game(session)
+        pause_game(session, client_id)
     else:
-        if info.get("role") != "admin":
-            return jsonify({"ok": False, "error": "Only the admin can resume the game."})
+        if info.get("role") != "admin" and client_id != session._paused_by:
+            return jsonify({"ok": False, "error": "Only the player who paused (or the admin) can resume the game."})
         resume_game(session)
     return jsonify({**serialize_state(session, client_id), "ok": True})

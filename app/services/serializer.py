@@ -466,6 +466,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "easy_mode":              session.easy_mode,
         "god_mode_enabled":       session._god_mode,
         "paused":                 session._paused_at is not None,
+        "can_resume":             session._paused_at is not None and bool(client_id) and (
+                                      _ci.get("role") == "admin" or client_id == session._paused_by),
+        "paused_by_name":         ((session._room_clients.get(session._paused_by) or {}).get("name") or "")
+                                  if session._paused_at is not None and session._paused_by else "",
         # Validated against the real shape, then dumped back to a sparse
         # dict (only actually-queued keys) -- the frontend's
         # _renderQueuedBanner checks presence with `"wager" in queued`, so

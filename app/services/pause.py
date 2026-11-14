@@ -1,8 +1,9 @@
 """
 app/services/pause.py
 ======================
-Table pause (e.g. a break to chat): any seated player can pause, only the
-admin can resume (permission check lives in app/routes/admin.py:set_paused).
+Table pause (e.g. a break to chat): any seated player can pause; only that
+player or the admin can resume (permission check lives in
+app/routes/admin.py:set_paused).
 
 While paused, ``tick`` is skipped (no forfeits, no auto-play) and the
 frontend covers the screen with a "Paused" overlay. On resume every
@@ -59,11 +60,12 @@ def _shift_dict(d, delta: float) -> None:
             d[key] += delta
 
 
-def pause_game(session: GameRoom) -> bool:
+def pause_game(session: GameRoom, client_id: str | None = None) -> bool:
     """Freeze the table. Returns False if it was already paused."""
     if is_paused(session):
         return False
     session._paused_at = time.monotonic()
+    session._paused_by = client_id
     return True
 
 
@@ -73,6 +75,7 @@ def resume_game(session: GameRoom) -> bool:
         return False
     delta = time.monotonic() - session._paused_at
     session._paused_at = None
+    session._paused_by = None
 
     rnd = session.round
     for attr in _ROUND_DEADLINES:

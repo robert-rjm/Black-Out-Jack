@@ -266,11 +266,17 @@ function _syncPausedOverlay(state) {
   const overlay = document.getElementById("paused-overlay");
   if (!overlay) return;
   overlay.classList.toggle("open", !!state.paused);
-  const isAdmin = (myRole === ROLE.ADMIN);
+  // Only the player who paused (or the admin) can resume
+  const canResume = !!state.can_resume;
   const btn  = document.getElementById("paused-resume-btn");
   const wait = document.getElementById("paused-wait");
-  if (btn)  btn.style.display  = isAdmin ? "inline-block" : "none";
-  if (wait) wait.style.display = isAdmin ? "none" : "block";
+  if (btn)  btn.style.display  = canResume ? "inline-block" : "none";
+  if (wait) {
+    wait.style.display = canResume ? "none" : "block";
+    wait.textContent = state.paused_by_name
+      ? `Waiting for ${state.paused_by_name} or the admin to resume…`
+      : "Waiting for the admin to resume…";
+  }
 }
 
 async function setGodMode(on) {
