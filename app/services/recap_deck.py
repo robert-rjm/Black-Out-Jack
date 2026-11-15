@@ -998,25 +998,44 @@ def build_html(a, logo: str) -> str:
     pages.append(slide("Results · League table", title, body,
                        src + " · Rounds played from the decision log · Clean round = no net sips", len(pages) + 1))
 
-    # 5 — Bridge: own losing hands, the 3 biggest other adds and credits, an "other" bucket each, net
+    # 5 — Bridge: own losing hands, the 5 biggest other adds, the biggest credits, net.
+    # Lucky Sevens and the A♣ credits are both card events, so they share one bar.
+    # A leftover bucket only appears when it holds 2+ items (never "Other" for one).
+    def _split(items, n):
+        return (items, []) if len(items) <= n + 1 else (items[:n], items[n:])
+
     adds = sorted(((c, cat_tot[c]) for c in cat_tot if c != "Own losing hands" and cat_tot[c] > 0),
                   key=lambda kv: -kv[1])
-    cuts = sorted(a["credits"].items(), key=lambda kv: kv[1])
+    merged = collections.Counter()
+    for rule, v in a["credits"].items():
+        merged["Card event credits" if rule == "Lucky Sevens" or rule.startswith("A♣") else rule] += v
+    n_card = sum(1 for r in a["credits"] if r == "Lucky Sevens" or r.startswith("A♣"))
+    if n_card == 1:                 # a single card credit keeps its own name
+        only = next(r for r in a["credits"] if r == "Lucky Sevens" or r.startswith("A♣"))
+        merged[only] = merged.pop("Card event credits")
+    cuts = sorted(merged.items(), key=lambda kv: kv[1])
+    add_top, add_rest = _split(adds, 5)
+    cut_top, cut_rest = _split(cuts, 3)
     steps = [("Own losing hands", own, "total")]
-    steps += [(c, v, "delta") for c, v in adds[:3]]
-    add_rest, cut_rest = adds[3:], cuts[3:]
+    steps += [(c, v, "delta") for c, v in add_top]
     if add_rest:
         steps.append(("Other drivers", sum(v for _, v in add_rest), "delta"))
-    steps += [(rule.replace("Easy mode halving", "Easy Mode (halving)"), v, "delta") for rule, v in cuts[:3]]
+    steps += [(rule.replace("Easy mode halving", "Easy Mode (halving)"), v, "delta") for rule, v in cut_top]
     if cut_rest:
         steps.append(("Other credits", sum(v for _, v in cut_rest), "delta"))
     steps.append(("Net sips drunk", a["net"], "total"))
     bridge_note = "".join(
-        f'<div class="note"><b>{lbl}:</b> {", ".join(f"{esc(n)} {v:+d}" for n, v in rest)}</div>'
+        f'<span><b>{lbl}:</b> {", ".join(f"{esc(n)} {v:+d}" for n, v in rest)}</span>'
         for lbl, rest in (("Other drivers", add_rest), ("Other credits", cut_rest)) if rest)
-    body = (f'<div class="row"><div>{svg_waterfall(steps)}{bridge_note}</div><div class="side">'
-            f'<div class="big">{pct(saved, a["gross_all"])}</div><div class="bigl">of the gross bill was cancelled '
-            f'by credits</div>'
+    if n_card > 1:
+        bridge_note += ('<span><b>Card event credits:</b> '
+                        + ", ".join(f"{esc(r)} {v:+d}" for r, v in a["credits"].items()
+                                    if r == "Lucky Sevens" or r.startswith("A♣")) + '</span>')
+    if bridge_note:
+        bridge_note = f'<div class="note bridge-note">{bridge_note}</div>'
+    body = (f'{svg_waterfall(steps, w=1180, h=380)}{bridge_note}'
+            f'<div class="bridge-bottom"><div><div class="big">{pct(saved, a["gross_all"])}</div>'
+            f'<div class="bigl">of the gross bill was cancelled by credits</div></div>'
             '<div class="sowhat"><b>So what</b>'
             + (f"Easy Mode is the single biggest lever: it alone removed {pct(easy, a['gross_all'])} of everything owed"
             + (" once the 4th player joined." if a["easy_joiners"] else ".") if easy else
@@ -1024,7 +1043,7 @@ def build_html(a, logo: str) -> str:
             f"is no "
             f"Easy Mode halving, so the gross bill is mostly what gets drunk." if top_credit else "Nothing was "
             "credited back.")
-            + '</div></div></div>')
+            + '</div></div>')
     pages.append(slide("Results · Sip bridge",
                        f"Credits removed {saved:,} sips from a gross bill of {a['gross_all']:,}"
                        + (f"; Easy Mode alone accounts for {pct(easy, saved)} of the savings" if easy else "")
@@ -1532,4 +1551,8 @@ footer {{ position: absolute; left: 50px; right: 50px; bottom: 18px; display: fl
 .rules-off li {{ break-inside: avoid; margin-bottom: 9px; }}
 .rules-off b {{ display: block; color: {YELLOW}; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }}
 .note {{ color: {MUTED}; font-size: 13px; line-height: 1.45; margin: 12px 0 0; }}
+.bridge-note {{ margin: 2px 0 0; font-size: 12px; display: flex; gap: 26px; flex-wrap: wrap; }}
+.bridge-bottom {{ display: grid; grid-template-columns: 300px 1fr; gap: 30px; align-items: center; margin-top: 8px; }}
+.bridge-bottom .big {{ margin-top: 0; font-size: 54px; }}
+.bridge-bottom .sowhat {{ margin-top: 0; }}
 """
