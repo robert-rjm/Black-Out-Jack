@@ -63,3 +63,31 @@ def test_all_hands_sweep_still_pays_dealer_on_hard_switch():
     assert giver == "Bob"
     assert sips == 2  # wager(1) x 2 for all-21
     assert "all hands scored 21" in reason
+
+
+def test_all_hands_sweep_fires_for_the_dealer_players_own_hands():
+    """Regression: a dealer-player plays real hands too. When those hands are
+    all one suit the sweep must fire for them like for any other player
+    (previously the sweep loop skipped is_dealer players entirely)."""
+    rob = Player("Rob")
+    rob.is_dealer = True
+    rob.dealer_hand = _hand(("TEN", "SPADES"), ("SEVEN", "HEARTS"))   # 17, stands
+    rob.hands = [
+        _hand(("TEN", "DIAMONDS"), ("KING", "DIAMONDS")),                       # 20 win
+        _hand(("FIVE", "DIAMONDS"), ("EIGHT", "DIAMONDS")),                     # 13 loss
+    ]
+    marko = Player("Marko")
+    marko.hands = [_hand(("TWO", "CLUBS"), ("THREE", "HEARTS"))]
+
+    raw_session = RefereeSession([marko, rob], "Rob", wager=1, num_hands=2)
+    room = GameRoom(session=raw_session, config=GameConfig(mode="digital", drinking_mode=True))
+    room.shoe = Shoe(1)
+    room.shoe.cards = [Card(Rank.SEVEN, Suit.SPADES)]
+    room.shoe.penetration = 1.0
+    room.shoe.total_cards = len(room.shoe.cards)
+
+    dealer_turn(room)
+
+    sweep = {(m[0], m[1]) for m in room.round._eor_msgs_buffer if "all-hands sweep" in m[2]}
+    # one win, one loss = tie: dealer-player 2x, the other player 2x
+    assert sweep == {("Rob", 2), ("Marko", 2)}

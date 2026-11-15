@@ -505,8 +505,10 @@ def dealer_turn(session: GameRoom) -> None:
         # or all-21) -- so the dealer must stay a valid recipient even on a
         # hard switch, or the bonus silently disappears whenever the sweeping
         # player is also the one who swept the dealer (e.g. heads-up).
+        # The dealer-player plays real hands too, so their own hands can
+        # sweep like anyone else's (no is_dealer skip here).
         for p in session.all_players:
-            if p.is_dealer:
+            if not p.hands:
                 continue
             eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
                 player_name=p.name, player_hands=p.hands, all_names=all_names,

@@ -680,8 +680,10 @@ class RefereeSession:
         # switch, or the bonus silently disappears whenever the sweeping
         # player is also the one who swept the dealer (e.g. heads-up).
         if not skip_sweep:
+            # The dealer-player plays real hands too, so their own hands can
+            # sweep like anyone else's (no is_dealer skip here).
             for p in players:
-                if p.is_dealer:
+                if not p.hands:
                     continue
                 try:
                     eor_msgs.extend(DrinkingRules.handle(AllHandsSweepEvent(
