@@ -561,7 +561,7 @@ When 4 or more players are in the game, **end-of-round drinks are halved (rounde
 
 Any group can opt into the same halving rule regardless of player count.
 
-| Setting | Behaviour |
+| Setting | Behavior |
 | ------- | --------- |
 | **Toggle** | Setup screen or admin settings mid-game |
 | **Applies** | From the next round |

@@ -9,9 +9,11 @@ count) is read from the most-recently-generated entry in benchmarks.json.
 
 Usage:
     python scripts/simulation.py          # generate fresh output first
-    python scripts/snapshot.py [label]    # save it as a snapshot
+    python scripts/snapshot.py [label] [--overwrite]    # save it as a snapshot
 
-If no label is given, a timestamp (YYYYMMDD_HHMMSS) is used.
+If no label is given, a timestamp (YYYYMMDD_HHMMSS) is used. An existing
+snapshot with the same label is refused unless --overwrite is passed
+(run_all_configs.py --snapshot always passes it).
 
 To compare a later run against a snapshot:
     python scripts/simulation.py
@@ -43,7 +45,9 @@ def _latest_config(benchmarks_path):
 
 
 def main():
-    label = sys.argv[1] if len(sys.argv) > 1 else datetime.now().strftime("%Y%m%d_%H%M%S")
+    args = [a for a in sys.argv[1:] if a != "--overwrite"]
+    overwrite = "--overwrite" in sys.argv[1:]
+    label = args[0] if args else datetime.now().strftime("%Y%m%d_%H%M%S")
 
     benchmarks_path = os.path.join(HERE, "benchmarks.json")
     missing = [f for f in FILES_TO_SNAPSHOT if not os.path.exists(os.path.join(HERE, f))]
@@ -60,10 +64,14 @@ def main():
     dest_dir = os.path.join(SNAPSHOTS_DIR, f"{num_players}p", f"{num_decks}deck", label)
 
     if os.path.exists(dest_dir):
-        print(f"Error: snapshot '{label}' already exists at {dest_dir}")
-        sys.exit(1)
+        if not overwrite:
+            print(f"Error: snapshot '{label}' already exists at {dest_dir} (use --overwrite to replace it)")
+            sys.exit(1)
+        # Overwrite the files in place: deleting the folder fails on Windows
+        # when OneDrive / Explorer holds a handle on it.
+        print(f"Replacing existing snapshot '{label}'.")
 
-    os.makedirs(dest_dir)
+    os.makedirs(dest_dir, exist_ok=True)
     for f in FILES_TO_SNAPSHOT:
         shutil.copy2(os.path.join(HERE, f), os.path.join(dest_dir, f))
 

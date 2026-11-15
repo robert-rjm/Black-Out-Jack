@@ -260,7 +260,7 @@ newround. Each copy decides these differently, and L2, L3 and L5 are three
 examples of that. **Improve:** one `TimedWindow` helper (`open(seconds)`,
 `is_open(now)`, `seconds_left`, `shift(delta)`, `on_expire` callback) plus a
 registry the tick, pause, serializer and newround all iterate. New features
-then get the right behaviour for free.
+then get the right behavior for free.
 
 ### S5 — Auth copied into every route · Medium
 
@@ -284,7 +284,7 @@ The engine is a CLI program that the web app wraps. Problems:
 - Log text works as an API: the round log is built from captured prints, so
   changing a message's wording changes what players see, and tests that
   check output text break.
-- Monkey-patching hides the real handout behaviour from readers and type
+- Monkey-patching hides the real handout behavior from readers and type
   checkers.
 
 **Improve.** The engine returns events (`list[Event]`, already partly there

@@ -499,7 +499,7 @@ function _syncIdentity(state) {
       myName           = state.my_name   || null;
       myNames          = state.my_names  || (myName ? [myName] : []);
       isMyDealerClient = state.is_dealer_client || false;
-      // Initialise myActiveName on first registration, or reset if the
+      // Initialize myActiveName on first registration, or reset if the
       // active name is no longer in myNames (e.g. after admin transfer)
       if (!myActiveName && myName) {
         myActiveName = myName;
@@ -581,6 +581,15 @@ function _syncRoundEffects(state, drinkingOn) {
   // handout up for everyone else.
   if (dl.reveal_pending && !dl.reveal_acked_by_me && !_dealerLotteryRevealOpen) {
     ackDealerLotteryReveal();
+  }
+  // The server already started the handout clock (every other player closed
+  // their reveal, or the wait cap passed) while this client is still sitting
+  // on the reveal modal -- slow animation, throttled background tab. The give
+  // panel is hidden behind that modal, so the sips would silently be forfeited
+  // back to this player. Close the reveal so the panel shows while time is left.
+  if (_dealerLotteryRevealOpen && !dl.reveal_pending
+      && Object.keys(dl.my_pending_handouts || {}).length) {
+    closeDealerLotteryRevealModal();
   }
 
   // Targeted Drinking mini-round reveal is triggered from within

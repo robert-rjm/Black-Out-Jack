@@ -1,7 +1,7 @@
 """
 app/services/room_factory.py
 =============================
-Builds a fully initialised GameRoom (players, config, shoe, tracker, first
+Builds a fully initialized GameRoom (players, config, shoe, tracker, first
 round) and stores it against a reserved room code. Shared by POST /setup and
 by the "switch to BOJ" table split (services/boj_switch.py).
 """

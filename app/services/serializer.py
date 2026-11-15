@@ -110,7 +110,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         switch         = session.round.switch_this_round
         rounds_td      = session.rounds_this_dealer
         num_p          = len(session.all_players)
-        suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= num_p)
+        suggest_rotate = bool(switch in ("hard", "soft") or rounds_td >= session._dealer_rotate_every)
         if switch == "hard":
             rotate_reason = "Hard switch — dealer lost all hands"
         elif switch == "soft":
@@ -128,6 +128,13 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
     sip_totals, _dealer_role_sips = (
         _compute_live_drink_totals(session) if session.drinking_mode else ({}, {})
     )
+
+    # Dealer Lottery: keep its sips out of the live ticker until it fully
+    # ends, so the counter doesn't spoil the reveal or the handouts.
+    from app.services.dealer_lottery import lottery_sip_hold_active  # lazy: dealer_lottery imports this module
+    if lottery_sip_hold_active(session):
+        _hold = session.round._dealer_lottery_sip_hold
+        sip_totals = {n: max(0, v - _hold.get(n, 0)) for n, v in sip_totals.items()}
 
     _payout_data = compute_payout_data(session)
 
@@ -258,9 +265,13 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "pending_handouts":     dict(_dl_pending_handouts),
             "my_pending_handouts":  {n: a for n, a in _dl_pending_handouts.items()
                                      if n in _dl_my_names},
-            "handout_seconds_left": (
-                max(0, round(session.round._dealer_lottery_handout_expires_at - time.monotonic()))
-                if session.round._dealer_lottery_handout_expires_at else 0
+            # Countdown of this client's own givers, running only once their
+            # give panel reported itself visible; 0 until then.
+            "handout_seconds_left": max(
+                (max(0, round(c - time.monotonic()))
+                 for n, c in session.round._dealer_lottery_giver_clocks.items()
+                 if n in _dl_my_names and n in _dl_pending_handouts),
+                default=0,
             ),
             # True while the handout is held back until everyone closes the reveal
             "reveal_pending":       session.round._dealer_lottery_reveal_deadline is not None,
@@ -455,6 +466,10 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "easy_mode":              session.easy_mode,
         "god_mode_enabled":       session._god_mode,
         "paused":                 session._paused_at is not None,
+        "can_resume":             session._paused_at is not None and bool(client_id) and (
+                                      _ci.get("role") == "admin" or client_id == session._paused_by),
+        "paused_by_name":         ((session._room_clients.get(session._paused_by) or {}).get("name") or "")
+                                  if session._paused_at is not None and session._paused_by else "",
         # Validated against the real shape, then dumped back to a sparse
         # dict (only actually-queued keys) -- the frontend's
         # _renderQueuedBanner checks presence with `"wager" in queued`, so

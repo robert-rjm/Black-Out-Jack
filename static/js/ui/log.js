@@ -199,9 +199,11 @@ async function doNewRound() {
   clearPeekedCard();
   await sendCmd("newround");
   buildGameUI();
-  if (gameMode === "digital") {
+  // If the dealer role just passed to someone else, they deal. Sending "deal"
+  // from here would be refused ("Not authorized").
+  if (gameMode === "digital" && isMyDealerClient) {
     await sendCmd("deal");
-  } else {
+  } else if (gameMode !== "digital") {
     const firstTab = document.querySelector("#ref-tabs .tab");
     if (firstTab) switchTab("ref-tabs", "ref-panel", "deal", firstTab);
   }
@@ -305,7 +307,7 @@ function processReshuffleEvents(state) {
   const _showReshuffleToast = () => {
     if (ToastUI.switchTimer) { clearTimeout(ToastUI.switchTimer); ToastUI.switchTimer = null; }
     el.textContent = "🔀 Shoe ran low — reshuffled mid-round!";
-    // Colour set in log.css (#switch-toast always yellow).
+    // Color set in log.css (#switch-toast always yellow).
     el.classList.remove("show");
     void el.offsetWidth;
     el.classList.add("show");

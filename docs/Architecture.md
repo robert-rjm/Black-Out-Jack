@@ -111,7 +111,7 @@ Element IDs and which file owns them are in [DOM-Hooks.md](DOM-Hooks.md).
 | Simulation | `simulation.py`, `run_all_configs.py`, `compare_configs.py`, `compare_bot_styles.py`, `snapshot.py` (saves to `snapshots/<label>/`) |
 | Bot profiles | `load_decision_logs.py`, `build_player_profiles.py` (mines `data/decisions/` into `engine/player_profiles/`) |
 | Doc sync | `rules_sync.py`, `terms_sync.py` |
-| Reports | `build_recap_deck.py` (recap deck as a vector PDF from two saved exports, via local Edge/Chrome; its `print_pdf` is shared), `build_pitch_deck.py` (the README's "How it works" deck in two looks, `docs/Pitch-Deck.pdf` in the app's colours and `docs/Pitch-Deck-Finance.pdf` in the same dark colours as a sober report: no emojis, square corners, numbered blocks; the typical night is modelled from the logged rounds in `data/decisions/`, balance comes from `scripts/benchmarks.json`, rule counts from the rules registry) |
+| Reports | `build_recap_deck.py` (recap deck as a vector PDF from two saved exports, via local Edge/Chrome; its `print_pdf` is shared), `build_pitch_deck.py` (the README's "How it works" deck in two looks, `docs/Pitch-Deck.pdf` in the app's colors and `docs/Pitch-Deck-Finance.pdf` in the same dark colors as a sober report: no emojis, square corners, numbered blocks; the typical night is modelled from the logged rounds in `data/decisions/`, balance comes from `scripts/benchmarks.json`, rule counts from the rules registry) |
 
 ## Layering Rules
 
@@ -174,8 +174,8 @@ with the tip QR code closes the deck.
 
 - **One builder.** `app/services/recap_deck.py` turns the export rows
   (`drinks.csv_rows`, `_decision_log`, `_dealer_lottery_decision_log`) into
-  numbers (`analyse`) and then into one HTML page of 1280×720 slides
-  (`build_html`). The slides use the app's colours (the `:root` tokens in
+  numbers (`analyze`) and then into one HTML page of 1280×720 slides
+  (`build_html`). The slides use the app's colors (the `:root` tokens in
   `main.css`) and logo. Slide titles are full-sentence takeaways worded from
   the data. Slides without data drop out (decision quality, the house, side
   games), and page numbers follow.
@@ -239,9 +239,9 @@ with the tip QR code closes the deck.
 - **Changing basic strategy** → edit only `engine/strategy.py`
 - **Adding a referee command** → edit only `engine/referee.py`
 - **Changing web routes or server logic** → edit `app/routes/` or `app/services/`
-- **Changing web UI behaviour** → edit `static/js/ui/` and/or `templates/index.html`
+- **Changing web UI behavior** → edit `static/js/ui/` and/or `templates/index.html`
 - **Changing styles** → edit `static/css/main.css` or the relevant `static/css/components/` file
-- **Changing the recap deck** (slides, wording, colours) → edit only `app/services/recap_deck.py`; the app and `scripts/build_recap_deck.py` both pick it up
+- **Changing the recap deck** (slides, wording, colors) → edit only `app/services/recap_deck.py`; the app and `scripts/build_recap_deck.py` both pick it up
 - **Adding/renaming a game phase or client role** → update `PHASE` / `ROLE` in `static/js/ui/config.js` (consumed by all other UI scripts)
 
 

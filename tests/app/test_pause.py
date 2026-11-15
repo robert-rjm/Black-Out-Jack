@@ -64,7 +64,7 @@ def test_duration_frozen_while_paused():
 
 
 # ---------------------------------------------------------------------------
-# /set_paused: any seated player pauses, only the admin resumes
+# /set_paused: any seated player pauses, only that player or the admin resumes
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -102,13 +102,32 @@ def test_spectator_and_kicked_cannot_pause(paused_route):
     assert not is_paused(room)
 
 
-def test_resume_rejected_for_non_admin(paused_route):
+def test_resume_rejected_for_other_player(paused_route):
     room, post = paused_route
-    pause_game(room)
-    data = post("b", False)
+    room._room_clients["c"] = {"name": "Cy", "role": "player", "local_names": ["Cy"], "kicked": False}
+    post("b", True)
+    data = post("c", False)
     assert data["ok"] is False
-    assert "only the admin can resume" in data["error"].lower()
+    assert "can resume" in data["error"].lower()
     assert is_paused(room)
+
+
+def test_resume_accepted_for_pauser(paused_route):
+    room, post = paused_route
+    post("b", True)
+    data = post("b", False)
+    assert data["ok"] is True and data["paused"] is False
+    assert not is_paused(room)
+
+
+def test_can_resume_flag(paused_route):
+    room, post = paused_route
+    room._room_clients["c"] = {"name": "Cy", "role": "player", "local_names": ["Cy"], "kicked": False}
+    post("b", True)
+    assert serialize_state(room, "b")["can_resume"] is True
+    assert serialize_state(room, "a")["can_resume"] is True
+    assert serialize_state(room, "c")["can_resume"] is False
+    assert serialize_state(room, "b")["paused_by_name"] == "Bob"
 
 
 def test_resume_accepted_for_admin(paused_route):

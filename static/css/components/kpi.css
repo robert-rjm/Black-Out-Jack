@@ -167,7 +167,7 @@
 /* Column group separators */
 .lb-table .col-sep { border-left: 1px solid var(--border); }
 
-/* Win-rate cell colouring */
+/* Win-rate cell coloring */
 .lb-wr-good  { color: var(--green)  !important; font-weight: 700; }
 .lb-wr-ok    { color: var(--yellow) !important; }
 .lb-wr-bad   { color: var(--red)    !important; }

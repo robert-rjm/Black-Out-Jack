@@ -240,7 +240,7 @@ def _lan_ip() -> str | None:
 
 
 def _invite_base_url() -> str:
-    """Public base URL of this server as the client reached it (honours the
+    """Public base URL of this server as the client reached it (honors the
     proxy headers hosts like Render set). When the host opened the page via
     localhost, phones cannot use that, so it is swapped for the LAN address."""
     scheme = (request.headers.get("X-Forwarded-Proto") or request.scheme).split(",")[0].strip()

@@ -264,7 +264,7 @@ def command():
             and game_session._room_clients
             and not is_dealer_client(game_session, client_id)):
         state = serialize_state(game_session, client_id)
-        state["output"] = "  Not authorised — only the dealer can do that.\n"
+        state["output"] = "  Not authorized — only the dealer can do that.\n"
         state["rejected"] = True   # client shows output as a toast
         return jsonify(state)
 
@@ -297,7 +297,7 @@ def command():
             if cmd in PLAYER_ACTION_CMDS:
                 after_player_action(game_session)
 
-        # ── Referee mode (original behaviour, unchanged) ───────────────────────
+        # ── Referee mode (original behavior, unchanged) ───────────────────────
         else:
             handler = REFEREE_COMMANDS.get(cmd)
             if handler:

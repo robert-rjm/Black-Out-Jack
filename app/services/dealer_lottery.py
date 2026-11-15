@@ -24,6 +24,7 @@ from app.models.game_room import GameRoom
 from app.config import (DEALER_LOTTERY_ENTRY_WINDOW_SECONDS, DEALER_LOTTERY_MAX_DRINK,
                         DEALER_LOTTERY_MAX_HANDS, DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS,
                         DEALER_LOTTERY_REVEAL_PRESENCE_SECONDS,
+                        DEALER_LOTTERY_HANDOUT_HARD_CAP_SECONDS,
                         DEALER_LOTTERY_ALL_IN_STAKE, DEALER_LOTTERY_ALL_IN_BONUS,
                         DEALER_LOTTERY_TOP_STAKE_BONUS)
 from app.services.decision_log import record_dealer_lottery_entry
@@ -106,7 +107,7 @@ def maybe_start_dealer_lottery(session: GameRoom) -> None:
 
 def submit_dealer_lottery_entry(session: GameRoom, player_name: str, x: int) -> bool:
     """Record `player_name`'s entry (0-5). Returns False if there's no
-    pending lottery or the name isn't a recognised entrant."""
+    pending lottery or the name isn't a recognized entrant."""
     pending = session.round._pending_dealer_lottery
     if not pending or player_name not in pending["entries"]:
         return False
@@ -126,6 +127,29 @@ def apply_dealer_lottery_entry_forfeit(session: GameRoom) -> None:
         if x is None:
             pending["entries"][name] = 0
     resolve_dealer_lottery(session)
+
+
+def _award_held(session: GameRoom, name: str, sips: int, rule: str, *, reason: str) -> None:
+    """award_sips(), but remember how much it moved the session sip ticker.
+
+    The bottom sip counter must not jump while the lottery is still playing
+    out (reveal animation, handouts), so serialize_state subtracts this held
+    amount until the lottery is over (see lottery_sip_hold_active)."""
+    before = session.drinks.sip_ticker.get(name, 0)
+    award_sips(session, name, sips, rule, reason=reason)
+    delta = session.drinks.sip_ticker.get(name, 0) - before
+    if delta:
+        hold = session.round._dealer_lottery_sip_hold
+        hold[name] = hold.get(name, 0) + delta
+
+
+def lottery_sip_hold_active(session: GameRoom) -> bool:
+    """True while a resolved lottery still has its reveal or handouts open."""
+    rnd = session.round
+    return bool(rnd._dealer_lottery_sip_hold) and (
+        rnd._dealer_lottery_reveal_deadline is not None
+        or rnd._dealer_lottery_handout_expires_at is not None
+    )
 
 
 def _draw(deck) -> Card:
@@ -270,6 +294,8 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     # of _bust_handouts_given / _bust_handout_log at resolution time).
     session.round._dealer_lottery_handouts_given = set()
     session.round._dealer_lottery_handout_log = []
+    session.round._dealer_lottery_giver_clocks = {}
+    session.round._dealer_lottery_sip_hold = {}
     pending_handouts: dict[str, int] = {}  # giver -> amount still to hand out
     drink_amounts: dict[str, int] = {}     # name -> sips this lottery makes them drink
     credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
@@ -293,7 +319,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             if busted >= 2 and x == DEALER_LOTTERY_ALL_IN_STAKE:
                 handout_amt += DEALER_LOTTERY_ALL_IN_BONUS * wager
             if credit > 0:
-                award_sips(
+                _award_held(
                     session, name, -credit, "Dealer Lottery credit",
                     reason=f"Dealer Lottery: {busted}/{n_hands} split hands busted -- -{credit} sip credit",
                 )
@@ -305,7 +331,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
             # 4 = 2x, 5 = 2.5x -- standing through a re-split chain costs
             # more than the un-split base case, but only gently.
             drink = min(math.ceil(x * wager * n_hands / 2), DEALER_LOTTERY_MAX_DRINK * wager)
-            award_sips(
+            _award_held(
                 session, name, drink, "Dealer Lottery drink",
                 reason=f"Dealer Lottery: no split hand busted -- drink {drink} sip(s)",
             )
@@ -322,7 +348,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     session.round._dealer_lottery_handout_expires_at = None
     session.round._dealer_lottery_reveal_acked = set()
     session.round._dealer_lottery_reveal_deadline = (
-        time.monotonic() + DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS if pending_handouts else None
+        time.monotonic() + DEALER_LOTTERY_REVEAL_MAX_WAIT_SECONDS
     )
 
     session.drinks.last_dealer_lottery_result = {
@@ -377,7 +403,23 @@ def maybe_start_dealer_lottery_handout(session: GameRoom) -> None:
     if dealer_lottery_reveal_waiting_on(session) and now < deadline:
         return
     session.round._dealer_lottery_reveal_deadline = None
-    session.round._dealer_lottery_handout_expires_at = now + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
+    # Hard safety cap only -- each giver's real countdown starts when their
+    # own give panel is on screen (see start_dealer_lottery_giver_clocks).
+    session.round._dealer_lottery_handout_expires_at = now + DEALER_LOTTERY_HANDOUT_HARD_CAP_SECONDS
+
+
+def start_dealer_lottery_giver_clocks(session: GameRoom, names) -> None:
+    """Start the countdown for each of `names` that has an unassigned handout
+    and no clock yet. Called when the client reports the give panel visible."""
+    rnd = session.round
+    if rnd._dealer_lottery_handout_expires_at is None:
+        return   # handout window not open yet (reveal still being waited on)
+    pending = (session.drinks.last_dealer_lottery_result or {}).get("pending_handouts", {})
+    now = time.monotonic()
+    for name in names:
+        if (name in pending and name not in rnd._dealer_lottery_handouts_given
+                and name not in rnd._dealer_lottery_giver_clocks):
+            rnd._dealer_lottery_giver_clocks[name] = now + DEALER_LOTTERY_ENTRY_WINDOW_SECONDS
 
 
 def give_dealer_lottery_sip(session: GameRoom, giver_name: str, recipient_name: str) -> bool:
@@ -398,7 +440,7 @@ def give_dealer_lottery_sip(session: GameRoom, giver_name: str, recipient_name: 
     if not any(p.name == recipient_name for p in session.all_players):
         return False
 
-    award_sips(
+    _award_held(
         session, recipient_name, amount, "Dealer Lottery handout",
         reason=f"Dealer Lottery handout (from {giver_name}): +{amount} sip(s)",
     )
@@ -415,15 +457,22 @@ def apply_dealer_lottery_handout_forfeit(session: GameRoom) -> None:
     """If the handout window expires before a giver assigns their sip(s),
     they keep (drink) them instead. Safe to call on every /state tick."""
     expires_at = session.round._dealer_lottery_handout_expires_at
-    if not expires_at or time.monotonic() < expires_at:
+    if not expires_at:
         return
+    now = time.monotonic()
+    hard_cap_hit = now >= expires_at
+    clocks = session.round._dealer_lottery_giver_clocks
 
     result = session.drinks.last_dealer_lottery_result or {}
     pending_handouts = result.get("pending_handouts", {})
     for giver_name, amount in pending_handouts.items():
         if giver_name in session.round._dealer_lottery_handouts_given:
             continue
-        award_sips(
+        # A giver forfeits only when their own visible-panel clock ran out,
+        # or the hard safety cap passed (panel never showed at all).
+        if not hard_cap_hit and not (giver_name in clocks and now >= clocks[giver_name]):
+            continue
+        _award_held(
             session, giver_name, amount, "Dealer Lottery handout forfeit",
             reason=(
                 f"Dealer Lottery handout forfeited -- {giver_name} didn't assign "
@@ -435,4 +484,5 @@ def apply_dealer_lottery_handout_forfeit(session: GameRoom) -> None:
             "giver": giver_name, "recipient": None, "forfeited": True,
         })
 
-    session.round._dealer_lottery_handout_expires_at = None
+    if all(g in session.round._dealer_lottery_handouts_given for g in pending_handouts):
+        session.round._dealer_lottery_handout_expires_at = None

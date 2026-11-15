@@ -377,6 +377,6 @@ FULL = RuleSet.from_preset("full")
 STARTER = RuleSet.from_preset("starter")
 STANDARD = RuleSet.from_preset("standard")
 
-# What a new room gets: today's behaviour, i.e. everything except the dealer
+# What a new room gets: today's behavior, i.e. everything except the dealer
 # bust vote, which stays opt-in (admin turns it on in the lobby).
 DEFAULT_RULES = FULL.with_changes(off=["side.bust_vote"])

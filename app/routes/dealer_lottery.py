@@ -17,6 +17,7 @@ from app.services.dealer_lottery import (
     give_dealer_lottery_sip,
     ack_dealer_lottery_reveal,
     maybe_start_dealer_lottery_handout,
+    start_dealer_lottery_giver_clocks,
 )
 
 bp = Blueprint("dealer_lottery", __name__)
@@ -87,6 +88,24 @@ def dealer_lottery_ack_reveal():
         return jsonify({"ok": False, "error": "Not registered."})
     ack_dealer_lottery_reveal(session, client_id)
     maybe_start_dealer_lottery_handout(session)
+    return jsonify({**serialize_state(session, client_id), "ok": True})
+
+
+@bp.route("/dealer_lottery/panel_shown", methods=["POST"])
+def dealer_lottery_panel_shown():
+    """Client reports its handout give-panel is actually on screen; starts the
+    countdown for this client's givers. Body: { room_code, client_id }"""
+    data      = request.json or {}
+    room_code = (data.get("room_code") or "").strip()
+    client_id = (data.get("client_id") or "").strip()
+    session = game_sessions.get(room_code)
+    if not session:
+        return jsonify({"ok": False, "error": "Room not found."})
+    client_info = session._room_clients.get(client_id, {})
+    if not client_info.get("name"):
+        return jsonify({"ok": False, "error": "Not registered."})
+    local_names = client_info.get("local_names") or [client_info["name"]]
+    start_dealer_lottery_giver_clocks(session, local_names)
     return jsonify({**serialize_state(session, client_id), "ok": True})
 
 

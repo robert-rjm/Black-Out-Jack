@@ -335,9 +335,9 @@ class BustGivePanel {
     const secsLeft    = state.bust_handout_seconds_left || 0;
     overlay.style.display = "flex";
 
-    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerColor = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
     const timerStr    = secsLeft > 0
-      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
+      ? `<div style="font-size:12px;color:${timerColor};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — auto-assigns if time runs out</div>`
       : "";
 
     const _bw = (typeof state !== "undefined" && state && state.wager) || 1;
@@ -822,9 +822,9 @@ class DealerLotteryGivePanel {
     const secsLeft    = dl.handout_seconds_left || 0;
     overlay.style.display = "flex";
 
-    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerColor = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
     const timerStr = secsLeft > 0
-      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      ? `<div style="font-size:12px;color:${timerColor};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
       : "";
 
     // No onclick= here -- mount()'s delegated listener handles taps.
@@ -846,6 +846,26 @@ class DealerLotteryGivePanel {
         <div class="bgp-btns-col">${btns}</div>
       </div>`;
     }).join(`<hr class="bgp-divider">`);
+
+    // The panel is on screen now: only here does the server start this
+    // player's countdown. Reported once per draw (result_seq).
+    if (this._clockSeq !== dl.result_seq) {
+      this._clockSeq = dl.result_seq;
+      this._reportShown();
+    }
+  }
+
+  async _reportShown() {
+    try {
+      const res  = await fetch("/dealer_lottery/panel_shown", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ room_code: roomCode, client_id: clientId }),
+      });
+      const data = await res.json();
+      if (data.ok) applyState(data);
+      else this._clockSeq = null;
+    } catch (_) { this._clockSeq = null; }   // retry on next poll
   }
 }
 
@@ -912,9 +932,9 @@ class TargetedDrinkingGivePanel {
     const secsLeft    = td.handout_seconds_left || 0;
     overlay.style.display = "flex";
 
-    const timerColour = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
+    const timerColor = secsLeft <= 5 ? "var(--red)" : secsLeft <= 10 ? "var(--yellow)" : "var(--green)";
     const timerStr = secsLeft > 0
-      ? `<div style="font-size:12px;color:${timerColour};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
+      ? `<div style="font-size:12px;color:${timerColor};font-weight:700;margin-bottom:10px">⏱ ${secsLeft}s — you keep them if time runs out</div>`
       : "";
 
     // No onclick= here -- mount()'s delegated listener handles taps.

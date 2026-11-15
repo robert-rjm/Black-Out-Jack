@@ -18,7 +18,7 @@ Test baseline: **901 passed** in about 20 s. `tests/app/test_mode_switch.py`
 failed once in four runs (see B5).
 
 Severity scale: **High** = wrong drinks or payouts in normal play, or a server
-that can be knocked over · **Medium** = wrong behaviour in a reachable but
+that can be knocked over · **Medium** = wrong behavior in a reachable but
 narrower case, or a trap for the next phase · **Low** = cosmetic, cleanup or
 hardening · **Info** = observation, no action strictly needed.
 
@@ -33,7 +33,7 @@ hardening · **Info** = observation, no action strictly needed.
 | G3 | Gates | ✅ Fixed | The insurance-vote modal shows the full BJ multiplier (`bj_mult`) even when multipliers are off |
 | G4 | Gates | ✅ Fixed | Referee mode ignores `table.split_ace_bj` |
 | G5 | Gates / Normal mode | Deferred (Normal-mode overhaul) | Normal (casino) mode inherits drinking table rules: a split A+10 pays 3:2 |
-| G6 | Gates | ✅ Fixed | Turning off `insurance.auto_cap` also changes behaviour on a dealer BJ with a 10 up-card |
+| G6 | Gates | ✅ Fixed | Turning off `insurance.auto_cap` also changes behavior on a dealer BJ with a 10 up-card |
 | G7 | Gates | ✅ Fixed | `milestone.back_to_back` has no gate |
 | G8 | Gates | ✅ Fixed | The Wild Card "earn your milestone first" block still applies when milestones are off |
 | G9 | Gates | ✅ Fixed | The UI and serializers don't know about rules yet (buttons for rules that are off still show) |
@@ -53,7 +53,7 @@ hardening · **Info** = observation, no action strictly needed.
 engine. Every gate I traced sits at the source (it suppresses the message
 instead of filtering it afterwards), the Hard Switch "mode vs. penalty" trap
 from plan §3.1 is handled correctly in all three engines, and the default
-room reproduces today's behaviour. The problems sit at the edges: a second
+room reproduces today's behavior. The problems sit at the edges: a second
 copy of the ruleset, a serializer that never receives the rules, the referee
 path, Normal mode, and one semantic overreach (`auto_cap`). Fix G1, G2 and
 G10 before starting Phase 3 (Admin UI). Once admins can change rules, these
@@ -268,7 +268,7 @@ sips only" even when the cap is off.
 **Solution brainstorm.**
 - Decide and write down the rule: "Dealer BJ suppresses win bonuses" is
   either part of `insurance.auto_cap` (rename or re-describe it) or a separate
-  always-on core behaviour.
+  always-on core behavior.
 - If it's separate, pass `dealer_shows_ace` into `HandResolvedEvent` /
   `AllHandsSweepEvent` and only drop the suppression when
   `dealer_shows_ace and not auto_cap`.
@@ -358,7 +358,7 @@ missing, and the referee path has no gate tests (see G4).
 > **Fixed (2026-10-29).** The same test file walks the AST of `app/` and `engine/` and fails on any call to an event class or `DrinkingRules` helper that takes `rules` but isn't given it. The list of targets is read from the signatures, so new helpers are covered automatically. The defaults stay. Checked: putting back the old G3 call makes the test fail.
 
 **Issue.** Every event dataclass and helper defaults to `rules=FULL`, by design
-(plan §6.3), so old call sites keep today's behaviour. The downside: forgetting
+(plan §6.3), so old call sites keep today's behavior. The downside: forgetting
 to pass `rules` is silent and means "everything on". G3 is exactly this bug.
 
 **Solution brainstorm.**
@@ -387,7 +387,7 @@ to pass `rules` is silent and means "everything on". G3 is exactly this bug.
   enabled but not effective. That's correct, but the settings UI must show it
   as "on, waiting for parent", or admins will be confused.
 
-**Solution brainstorm.** Normalise `enabled |= LOCKED` in `__post_init__`,
+**Solution brainstorm.** Normalize `enabled |= LOCKED` in `__post_init__`,
 derive `preset` from content (`field(compare=False)` or a property via
 `_preset_for`), and expose `pending_children()` for the UI.
 

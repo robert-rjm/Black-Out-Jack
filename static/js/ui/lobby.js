@@ -74,8 +74,8 @@ async function createRoom() {
 async function joinRoom() {
   hideLobbyMsg();
   const input = document.getElementById("join-code");
-  // Normalise: preserve original capitalisation from the server (Title-case word)
-  // We'll just send whatever the user typed and let the server normalise
+  // Normalize: preserve original capitalisation from the server (Title-case word)
+  // We'll just send whatever the user typed and let the server normalize
   const raw   = (input.value || "").trim();
   if (!raw) { showLobbyMsg("Enter a room code first."); return; }
 

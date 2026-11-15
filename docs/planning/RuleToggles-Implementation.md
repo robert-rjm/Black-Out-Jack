@@ -19,7 +19,7 @@ Companion docs:
    have side effects beyond their message (Hard Switch replaces the
    dealer's other drinks, A♣ sets protection flags, dealer 5-card 21 doubles
    other rules), so dropping the message would leave the side effect behind.
-4. **Default = Full = today's behaviour.** Every new parameter defaults to
+4. **Default = Full = today's behavior.** Every new parameter defaults to
    `FULL`, so existing tests, the regression snapshots and the
    terminal/referee scripts don't change until someone opts in.
 
@@ -114,7 +114,7 @@ Then remove `GameConfig.bust_vote_enabled` / `wild_card_enabled`.
 `FULL` would turn it on. Either keep `side.bust_vote` *out* of the room's
 default set (a new-room default of "Full minus bust vote", which matches
 today) or decide on purpose to change it. Recommendation: match today's
-behaviour exactly, so the default room set is
+behavior exactly, so the default room set is
 `FULL.with_changes(off=["side.bust_vote"])`.
 
 `easy_mode` stays separate. It's a modifier (catalog §10).
@@ -388,7 +388,7 @@ Not done: the Normal → Drinking split still copies the old table's rules
 | Phase | Scope | Done when |
 |---|---|---|
 | **0. Groundwork** | Fix the catalog "Gaps" (Rules.md split-Aces text, Cheat-Sheet A♣ wording, new `classify_rule` labels, suited-split wager unit). Re-pin `rules_sync`. | Docs and labels consistent, tests green |
-| **1. Registry** | `engine/rules_registry.py`, `RuleSet`, `GameConfig.rules`, migrate `bust_vote_enabled` / `wild_card_enabled` to properties, registry and catalog sync tests | No behaviour change, snapshots identical |
+| **1. Registry** | `engine/rules_registry.py`, `RuleSet`, `GameConfig.rules`, migrate `bust_vote_enabled` / `wild_card_enabled` to properties, registry and catalog sync tests | No behavior change, snapshots identical |
 | **2. Gates** | Engine gates (§3.1), app gates (§3.2), strategy (§3.3), event wiring (§3.4), the per-rule "off means off" tests | Every rule can be switched off in tests |
 | **3. Admin UI** ✅ | `/update_settings` keys, queue/apply, serializer, `/rules_registry`, settings sub-view, read-only view, queued banner, round-log notice | Admin can toggle rules in a live room |
 | **4. Presets & docs** ✅ | Simulation `--preset` and measured numbers, preset chips on setup and settings, "➕ Next rule", Rules popup badges, a per-rule anchor pass in Rules.md, Rules.md / Multiplayer.md / Cheat-Sheet sections on house rules | Starter set playable from room creation |

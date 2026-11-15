@@ -266,7 +266,7 @@ The right-column panel contains three tabs:
 Every **hit/stand/double/split** decision by a human player is compared against basic strategy:
 
 - Accuracy % is shown in the Stats tab after **3+ decisions**
-- Colour coding:
+- Color coding:
   - 🟢 Green: ≥ 80%
   - 🟡 Yellow: ≥ 60%
   - 🔴 Red: < 60%
@@ -277,7 +277,7 @@ This helps players learn optimal play over time without being prescriptive durin
 
 ## Clean-Round Crown 👑
 
-Players who took **0 sips** in the previous round display a 👑 next to their name for the following round. A small badge of honour (or target on their back).
+Players who took **0 sips** in the previous round display a 👑 next to their name for the following round. A small badge of honor (or target on their back).
 
 ---
 
@@ -322,5 +322,5 @@ Computer-controlled seats using standard basic strategy. NPCs:
 - Launches in standalone mode for a native app feel
 
 ### Collapsible Round Log
-- The log panel can be minimised to free screen space for the KPI panel
-- Colour-coded entries by event type
+- The log panel can be minimized to free screen space for the KPI panel
+- Color-coded entries by event type

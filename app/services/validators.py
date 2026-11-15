@@ -1,7 +1,7 @@
 """
 app/services/validators.py
 ===========================
-Input sanitisation and client/turn authorisation checks.
+Input sanitisation and client/turn authorization checks.
 
 These functions are pure helpers — they take values in and return results.
 They do not write to the session store or produce side-effects.
@@ -79,7 +79,7 @@ def clamp_float(raw, lo: float, hi: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Client identity / authorisation
+# Client identity / authorization
 # ---------------------------------------------------------------------------
 
 def get_client_info(session, client_id: str) -> dict:

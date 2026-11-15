@@ -157,6 +157,13 @@ class RoundState:
     # _dealer_lottery_reveal_deadline is the safety cap after which it starts anyway.
     _dealer_lottery_reveal_acked: set = field(default_factory=set)
     _dealer_lottery_reveal_deadline: float | None = None
+    # Per-giver countdown, started only once that giver's give panel is on
+    # screen (/dealer_lottery/panel_shown): giver name -> monotonic expiry.
+    # _dealer_lottery_handout_expires_at above is just the hard safety cap.
+    _dealer_lottery_giver_clocks: dict = field(default_factory=dict)
+    # Sips the lottery added to the session sip ticker, hidden from the live
+    # ticker until the lottery fully ends: name -> net ticker delta.
+    _dealer_lottery_sip_hold: dict = field(default_factory=dict)
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 
@@ -364,6 +371,8 @@ class GameRoom:
     # Host "pause" (app/services/pause.py): time.monotonic() when the table was
     # paused, None while running. All clocks are shifted by the paused span on resume.
     _paused_at: float | None = None
+    # client_id of whoever paused; only they (or the admin) can resume.
+    _paused_by: str | None = None
 
     # Guards check-then-mutate sequences on _room_clients / _pending_registrations /
     # _pending_seat_transfers (seat claims, registration approval, seat-transfer

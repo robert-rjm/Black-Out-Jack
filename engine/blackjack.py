@@ -580,7 +580,7 @@ class RoundManager:
                 idx += 1
 
     def _play_hand(self, player, hand, hand_idx):
-        _BLUE  = "\033[94m"   # terminal-only colour helpers
+        _BLUE  = "\033[94m"   # terminal-only color helpers
         _RESET = "\033[0m"
         # Split hands start with 1 card; deal their second card now (after H1 is fully played)
         if hand.from_split and len(hand.cards) == 1:

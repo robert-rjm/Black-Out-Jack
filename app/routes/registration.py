@@ -205,7 +205,7 @@ def handle_seat_transfer():
 
     existing = session._room_clients.get(client_id, {})
     if existing.get("role") not in ("player", "admin"):
-        return jsonify({"ok": False, "error": "Not authorised."})
+        return jsonify({"ok": False, "error": "Not authorized."})
 
     target_lower = target.lower()
 

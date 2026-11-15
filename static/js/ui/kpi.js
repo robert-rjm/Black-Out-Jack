@@ -177,7 +177,7 @@ function renderStats(state) {
         </div>` : ""}
         ${drinking ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${ss.total_sips}</div><div class="ssb-lbl">Total sips</div></div>` : ""}
         ${ss.sipm !== null ? `<div class="ssb-item"><div class="ssb-val">${ss.sipm}</div><div class="ssb-lbl">Sips/min</div></div>` : ""}
-        <div class="ssb-item"><div class="ssb-val">${_fmtDuration(ss.session_seconds)}</div><div class="ssb-lbl">Duration</div></div>
+        <div class="ssb-item" data-action="setPaused" data-args='[true]' title="Tap to pause" style="cursor:pointer"><div class="ssb-val">${_fmtDuration(ss.session_seconds)}</div><div class="ssb-lbl">Duration ⏸</div></div>
       </div>
       <div class="ssb-row ssb-row-sm">
         <span class="ssb-tag">${ss.total_hands} hands</span>
@@ -344,7 +344,7 @@ function renderStats(state) {
     const kpiItems = [
       ss.avg_per_round !== null ? `<div class="ssb-item"><div class="ssb-val" style="color:${avgRoundCol}">${ss.avg_per_round}</div><div class="ssb-lbl">Avg/round</div></div>` : "",
       drinking ? `<div class="ssb-item"><div class="ssb-val" style="color:var(--red)">${ss.total_sips}</div><div class="ssb-lbl">Total sips</div></div>` : "",
-      `<div class="ssb-item"><div class="ssb-val">${_fmtDuration(ss.session_seconds)}</div><div class="ssb-lbl">Duration</div></div>`,
+      `<div class="ssb-item" data-action="setPaused" data-args='[true]' title="Tap to pause" style="cursor:pointer"><div class="ssb-val">${_fmtDuration(ss.session_seconds)}</div><div class="ssb-lbl">Duration ⏸</div></div>`,
     ].filter(Boolean).join("");
     callouts.push(`<div class="stat-card stat-card-mobile-kpi" data-action="openMobileKpiModal"
         style="flex-direction:column;align-items:stretch;gap:0;width:100%;box-sizing:border-box;cursor:pointer">

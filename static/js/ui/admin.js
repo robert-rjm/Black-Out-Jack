@@ -51,6 +51,12 @@ function updateRoleUI(state) {
   // NEW ROUND is only relevant at round-over; during pre-deal the DEAL button takes over
   if (dealerActions) dealerActions.style.display = (isMyDealerClient && isRoundOver) ? "block" : "none";
   if (waitingHint)   waitingHint.style.display   = (!isMyDealerClient && myRole !== ROLE.SPECTATOR && isRoundOver) ? "block" : "none";
+  // When the dealer role will pass on, say so instead of "NEW ROUND"
+  const newRoundLabel = state.suggest_rotate ? "HANDOVER DEALER" : "NEW ROUND";
+  ["btn-newround-dig", "btn-newround-ref"].forEach(id => {
+    const b = document.getElementById(id);
+    if (b && b.textContent !== newRoundLabel) b.textContent = newRoundLabel;
+  });
 
   const hint         = document.getElementById("dig-play-role-hint");
   const voteDisp     = document.getElementById("player-vote-display");
@@ -260,11 +266,17 @@ function _syncPausedOverlay(state) {
   const overlay = document.getElementById("paused-overlay");
   if (!overlay) return;
   overlay.classList.toggle("open", !!state.paused);
-  const isAdmin = (myRole === ROLE.ADMIN);
+  // Only the player who paused (or the admin) can resume
+  const canResume = !!state.can_resume;
   const btn  = document.getElementById("paused-resume-btn");
   const wait = document.getElementById("paused-wait");
-  if (btn)  btn.style.display  = isAdmin ? "inline-block" : "none";
-  if (wait) wait.style.display = isAdmin ? "none" : "block";
+  if (btn)  btn.style.display  = canResume ? "inline-block" : "none";
+  if (wait) {
+    wait.style.display = canResume ? "none" : "block";
+    wait.textContent = state.paused_by_name
+      ? `Waiting for ${state.paused_by_name} or the admin to resume…`
+      : "Waiting for the admin to resume…";
+  }
 }
 
 async function setGodMode(on) {
