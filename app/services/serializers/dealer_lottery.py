@@ -42,5 +42,9 @@ def _serialize_last_dealer_lottery_result(result: dict | None) -> dict | None:
         "entries":      dict(result["entries"]),
         "drink_amounts":  dict(result.get("drink_amounts", {})),
         "credit_amounts": dict(result.get("credit_amounts", {})),
+        # The reveal modal lists each entrant's "hands out N sips" from this.
+        # It is the draw-time snapshot (who earned a handout and how much),
+        # not the live "still to give" list -- that is dealer_lottery.pending_handouts.
+        "pending_handouts": dict(result.get("pending_handouts", {})),
         "seconds_ago":  max(0, round(time.monotonic() - result["set_at"])),
     }

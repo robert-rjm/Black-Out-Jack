@@ -164,6 +164,10 @@ class RoundState:
     # Sips the lottery added to the session sip ticker, hidden from the live
     # ticker until the lottery fully ends: name -> net ticker delta.
     _dealer_lottery_sip_hold: dict = field(default_factory=dict)
+    # Same idea for the per-seat round counts and the Drinks-pane list: what
+    # the lottery changed there, hidden until it fully ends.
+    # {"sips": {name: delta to last_round_sips}, "entries": [last_round_drinks dicts]}
+    _dealer_lottery_held_round: dict = field(default_factory=dict)
     _dealer_lottery_handouts_given: set = field(default_factory=set)
     _dealer_lottery_handout_log: list = field(default_factory=list)
 

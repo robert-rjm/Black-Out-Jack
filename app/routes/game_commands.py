@@ -23,6 +23,7 @@ from app.services.validators import is_dealer_client
 from app.services.serializer import serialize_state
 from app.services.round_state import round_phase, current_turn
 from app.services.game_engine import bust_vote_pending
+from app.services.dealer_lottery import dealer_lottery_in_progress
 from app.services.payout_tracker import cmd_rebuy
 
 from app.services.player_actions import perform_action_without_honor, after_player_action
@@ -244,6 +245,16 @@ def command():
             **serialize_state(game_session, client_id),
             "rejected": True,
             "output": "  Round already ended — start a new round.\n",
+        })
+
+    # No new round while a Dealer Lottery is still open (entry window, reveal or
+    # handouts): newround replaces RoundState, which would silently delete
+    # another player's unassigned handout before they ever saw it.
+    if cmd == "newround" and mode == "digital" and dealer_lottery_in_progress(game_session):
+        return jsonify({
+            **serialize_state(game_session, client_id),
+            "rejected": True,
+            "output": "  Dealer Lottery is still in progress — wait for everyone to finish it.\n",
         })
 
     # Deal only from a clean table (digital): re-dealing mid-round would stack

@@ -1350,3 +1350,116 @@ def test_top_stake_bonus_is_extra_even_when_stake_exceeds_debt(monkeypatch):
     # 3 pays 1 of debt, 2 handed out, +1 top-stake = 3
     assert result["credit_amounts"] == {"Alice": 1}
     assert result["pending_handouts"] == {"Alice": 3}
+
+
+def test_reveal_result_lists_who_hands_out_and_how_much(monkeypatch):
+    """Regression: the reveal modal says "hands out N sips" from
+    last_result.pending_handouts. The serializer used to drop that key, so a
+    winner with a handout read "nothing happens this time"."""
+    room = _nine_pair_room()
+    room.drinks.last_round_sips["Alice"] = 0
+    room.drinks.last_round_sips["Bob"] = 0
+    submit_dealer_lottery_entry(room, "Alice", 0)
+    submit_dealer_lottery_entry(room, "Bob", 3)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)
+
+    room._room_clients["b"] = {"name": "Bob", "local_names": ["Bob"], "role": "player"}
+    last = serialize_state(room, "b")["dealer_lottery"]["last_result"]
+    assert last["pending_handouts"] == {"Bob": 4}   # 3 stake + 1 boldest-stake bonus
+
+
+def test_round_counts_and_drinks_list_stay_hidden_until_lottery_ends(monkeypatch):
+    """Regression: the seat round count and the Drinks list must not show the
+    lottery's credit/drink while the reveal or handouts are still open (the
+    session ticker was already held; these two were not)."""
+    from app.services.dealer_lottery import (ack_dealer_lottery_reveal,
+                                             maybe_start_dealer_lottery_handout)
+    room = _nine_pair_room()
+    award_sips(room, "Alice", 3, "Net hand losses", reason="Alice net -3")
+    room._room_clients["a"] = {"name": "Alice", "local_names": ["Alice"], "role": "admin"}
+    room._client_last_seen = {"a": time.monotonic()}
+    submit_dealer_lottery_entry(room, "Alice", 3)
+    submit_dealer_lottery_entry(room, "Bob", 0)
+    submit_dealer_lottery_entry(room, "Carol", 0)
+    _patch_deck(monkeypatch, [
+        make_card("5", "C"), make_card("9", "D"),
+        make_card("5", "D"), make_card("9", "C"),
+    ])
+    resolve_dealer_lottery(room)   # both bust: Alice's 3 credits her debt
+
+    def lottery_rows(s):
+        return [d for d in s["last_round_drinks"] if "Dealer Lottery" in d["reason"]]
+
+    s = serialize_state(room, "a")                       # reveal open
+    assert s["last_round_sips"]["Alice"] == 3
+    assert lottery_rows(s) == []
+
+    ack_dealer_lottery_reveal(room, "a")
+    maybe_start_dealer_lottery_handout(room)             # handout open, nothing given yet
+    s = serialize_state(room, "a")
+    assert s["last_round_sips"]["Alice"] == 3
+    assert lottery_rows(s) == []
+
+    give_dealer_lottery_sip(room, "Alice", "Bob")        # last handout assigned: lottery over
+    apply_dealer_lottery_handout_forfeit(room)
+    s = serialize_state(room, "a")
+    assert s["last_round_sips"]["Alice"] == 0
+    assert lottery_rows(s)
+
+
+def test_newround_is_refused_while_a_lottery_is_open_and_allowed_after(client):
+    """Regression: the dealer could start the next round during the lottery's
+    reveal/handout; newround replaces RoundState, so another player's handout
+    vanished before they ever saw it."""
+    from engine.blackjack import Shoe
+
+    room_code = "TestLotteryNewRound"
+    room = _make_room(num_players=2, num_hands=1)
+    room.start_round()
+    deal_order = [
+        make_card("2", "S"), make_card("2", "H"), make_card("K", "D"),
+        make_card("3", "S"), make_card("3", "H"), make_card("Q", "C"),
+    ]
+    shoe = Shoe(1)
+    shoe.cards = list(reversed(deal_order))
+    shoe.penetration = 1.0
+    shoe.total_cards = len(shoe.cards)
+    room.shoe = shoe
+    room._room_clients["client-1"] = {
+        "name": "Alice", "local_names": ["Alice", "Bob"], "role": "admin", "kicked": False,
+    }
+    set_session(room_code, room)
+
+    def cmd(c):
+        return client.post("/command", json={
+            "room_code": room_code, "client_id": "client-1", "cmd": c}).get_json()
+
+    try:
+        cmd("deal"); cmd("stand Bob hand1"); cmd("stand Alice hand1")
+        assert room.round._dealer_lottery_eligible is True
+
+        # Eligible but the entry window hasn't opened yet: already refused.
+        out = cmd("newround")
+        assert out.get("rejected") is True
+        assert "Dealer Lottery is still in progress" in out["output"]
+
+        state = client.get(f"/state?room_code={room_code}&client_id=client-1").get_json()
+        assert state["dealer_lottery"]["pending"] is not None
+        assert state["dealer_lottery"]["in_progress"] is True
+        assert cmd("newround").get("rejected") is True        # entry window open
+
+        # Everyone opts out: lottery ends without a draw.
+        assert client.post("/dealer_lottery/enter", json={
+            "room_code": room_code, "client_id": "client-1", "x": 0, "player_name": "Alice"}).get_json()["ok"]
+        assert client.post("/dealer_lottery/enter", json={
+            "room_code": room_code, "client_id": "client-1", "x": 0, "player_name": "Bob"}).get_json()["ok"]
+        state = client.get(f"/state?room_code={room_code}&client_id=client-1").get_json()
+        assert state["dealer_lottery"]["in_progress"] is False
+        assert not cmd("newround").get("rejected")
+    finally:
+        game_sessions.pop(room_code, None)

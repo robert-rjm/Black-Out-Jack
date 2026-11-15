@@ -283,6 +283,7 @@ class DealerLotteryResultOut(_StrictModel):
     entries:      dict[str, int]
     drink_amounts:  dict[str, int]
     credit_amounts: dict[str, int]
+    pending_handouts: dict[str, int]   # draw-time snapshot: who hands out how much (reveal modal)
     seconds_ago:  int
 
 
@@ -296,6 +297,7 @@ class DealerLotteryOut(_StrictModel):
     reveal_pending:       bool = False
     reveal_acked_by_me:   bool = False
     reveal_waiting_on:    list[str] = []
+    in_progress:          bool = False
 
 
 # ---------------------------------------------------------------------------

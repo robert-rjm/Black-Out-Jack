@@ -136,6 +136,18 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         _hold = session.round._dealer_lottery_sip_hold
         sip_totals = {n: max(0, v - _hold.get(n, 0)) for n, v in sip_totals.items()}
 
+    # Same hold for the per-seat round counts and the Drinks-pane list, so the
+    # seat cards and the sip list don't reveal the draw before the reveal ends.
+    _last_round_sips   = dict(session.drinks.last_round_sips)
+    _last_round_drinks = session.drinks.last_round_drinks
+    if lottery_sip_hold_active(session):
+        _held = session.round._dealer_lottery_held_round
+        for n, d in (_held.get("sips") or {}).items():
+            if n in _last_round_sips:
+                _last_round_sips[n] -= d
+        _held_ids = {id(e) for e in (_held.get("entries") or [])}
+        _last_round_drinks = [e for e in _last_round_drinks if id(e) not in _held_ids]
+
     _payout_data = compute_payout_data(session)
 
     # ---- This-round / last-round drink summaries ----
@@ -143,12 +155,12 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
         "sip_totals":             sip_totals,
         "sip_grand_total":        sum(sip_totals.values()),
         "round_over_seq":         session.drinks.round_over_seq,
-        "last_round_sips":        {k: max(0, v) for k, v in session.drinks.last_round_sips.items()},
+        "last_round_sips":        {k: max(0, v) for k, v in _last_round_sips.items()},
         "clean_streaks":          dict(session.stats.clean_streak),
         "total_clean_rounds":     dict(session.stats.total_clean_rounds),
         "trophy_holder":          compute_trophy_holder(session),
         "l_badge_holders":        list(session.stats.l_badge_holders),
-        "last_round_drinks":      session.drinks.last_round_drinks,
+        "last_round_drinks":      _last_round_drinks,
         "round_notices":          session.drinks.round_notices,
         "prev_round_sips":        {k: max(0, v) for k, v in session.drinks.prev_round_sips.items()},
         "prev_round_drinks":      session.drinks.prev_round_drinks,
@@ -253,7 +265,7 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "pending_handouts", {}).items()
         if n not in session.round._dealer_lottery_handouts_given
     }
-    from app.services.dealer_lottery import dealer_lottery_reveal_waiting_on  # lazy: dealer_lottery imports this module
+    from app.services.dealer_lottery import dealer_lottery_reveal_waiting_on, dealer_lottery_in_progress  # lazy: dealer_lottery imports this module
     _dl_my_names = set(_ci.get("local_names") or ([_ci.get("name")] if _ci.get("name") else []))
     _dealer_lottery_data = {
         "dealer_lottery": {
@@ -277,6 +289,8 @@ def serialize_state(session: GameRoom | None, client_id: str = "") -> dict:
             "reveal_pending":       session.round._dealer_lottery_reveal_deadline is not None,
             "reveal_acked_by_me":   client_id in session.round._dealer_lottery_reveal_acked,
             "reveal_waiting_on":    dealer_lottery_reveal_waiting_on(session),
+            # Entry window, reveal or handouts still open: NEW ROUND is held back.
+            "in_progress":          dealer_lottery_in_progress(session),
         },
     }
 

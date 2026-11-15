@@ -136,17 +136,42 @@ def _award_held(session: GameRoom, name: str, sips: int, rule: str, *, reason: s
     out (reveal animation, handouts), so serialize_state subtracts this held
     amount until the lottery is over (see lottery_sip_hold_active)."""
     before = session.drinks.sip_ticker.get(name, 0)
+    round_before   = session.drinks.last_round_sips.get(name, 0)
+    entries_before = len(session.drinks.last_round_drinks)
     award_sips(session, name, sips, rule, reason=reason)
     delta = session.drinks.sip_ticker.get(name, 0) - before
     if delta:
         hold = session.round._dealer_lottery_sip_hold
         hold[name] = hold.get(name, 0) + delta
+    # The seat's round count and the Drinks list must not show it early either.
+    round_delta = session.drinks.last_round_sips.get(name, 0) - round_before
+    new_entries = session.drinks.last_round_drinks[entries_before:]
+    if round_delta or new_entries:
+        held = session.round._dealer_lottery_held_round
+        held.setdefault("sips", {})
+        held.setdefault("entries", [])
+        held["sips"][name] = held["sips"].get(name, 0) + round_delta
+        held["entries"].extend(new_entries)
+
+
+def dealer_lottery_in_progress(session: GameRoom) -> bool:
+    """True from the moment this round qualifies until the last handout is
+    assigned or forfeited (entry window, draw reveal, handouts). Starting the
+    next round in that span replaces RoundState and silently wipes whatever is
+    still open -- a player's handout would vanish before they ever saw it."""
+    rnd = session.round
+    return bool(
+        rnd._dealer_lottery_eligible
+        or rnd._pending_dealer_lottery is not None
+        or rnd._dealer_lottery_reveal_deadline is not None
+        or rnd._dealer_lottery_handout_expires_at is not None
+    )
 
 
 def lottery_sip_hold_active(session: GameRoom) -> bool:
     """True while a resolved lottery still has its reveal or handouts open."""
     rnd = session.round
-    return bool(rnd._dealer_lottery_sip_hold) and (
+    return bool(rnd._dealer_lottery_sip_hold or rnd._dealer_lottery_held_round) and (
         rnd._dealer_lottery_reveal_deadline is not None
         or rnd._dealer_lottery_handout_expires_at is not None
     )
@@ -296,6 +321,7 @@ def resolve_dealer_lottery(session: GameRoom) -> None:
     session.round._dealer_lottery_handout_log = []
     session.round._dealer_lottery_giver_clocks = {}
     session.round._dealer_lottery_sip_hold = {}
+    session.round._dealer_lottery_held_round = {}
     pending_handouts: dict[str, int] = {}  # giver -> amount still to hand out
     drink_amounts: dict[str, int] = {}     # name -> sips this lottery makes them drink
     credit_amounts: dict[str, int] = {}    # name -> sips this lottery credits off their owed total
